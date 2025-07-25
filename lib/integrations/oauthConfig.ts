@@ -41,7 +41,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   google: {
     id: "google",
     name: "Google",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -56,7 +56,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   gmail: {
     id: "gmail",
     name: "Gmail",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -71,7 +71,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "google-calendar": {
     id: "google-calendar",
     name: "Google Calendar",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -86,7 +86,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "google-drive": {
     id: "google-drive",
     name: "Google Drive",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -101,7 +101,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "google-sheets": {
     id: "google-sheets",
     name: "Google Sheets",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -116,7 +116,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "google-docs": {
     id: "google-docs",
     name: "Google Docs",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -131,7 +131,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   github: {
     id: "github",
     name: "GitHub",
-    clientIdEnv: "NEXT_PUBLIC_GITHUB_CLIENT_ID",
+    clientIdEnv: "GITHUB_CLIENT_ID",
     clientSecretEnv: "GITHUB_CLIENT_SECRET",
     authEndpoint: "https://github.com/login/oauth/authorize",
     tokenEndpoint: "https://github.com/login/oauth/access_token",
@@ -146,7 +146,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   microsoft: {
     id: "microsoft",
     name: "Microsoft",
-    clientIdEnv: "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
+    clientIdEnv: "MICROSOFT_CLIENT_ID",
     clientSecretEnv: "MICROSOFT_CLIENT_SECRET",
     authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
@@ -161,7 +161,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   onedrive: {
     id: "onedrive",
     name: "OneDrive",
-    clientIdEnv: "NEXT_PUBLIC_ONEDRIVE_CLIENT_ID",
+    clientIdEnv: "ONEDRIVE_CLIENT_ID",
     clientSecretEnv: "ONEDRIVE_CLIENT_SECRET",
     authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
@@ -177,7 +177,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   slack: {
     id: "slack",
     name: "Slack",
-    clientIdEnv: "NEXT_PUBLIC_SLACK_CLIENT_ID",
+    clientIdEnv: "SLACK_CLIENT_ID",
     clientSecretEnv: "SLACK_CLIENT_SECRET",
     authEndpoint: "https://slack.com/oauth/v2/authorize",
     tokenEndpoint: "https://slack.com/api/oauth.v2.access",
@@ -193,7 +193,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   dropbox: {
     id: "dropbox",
     name: "Dropbox",
-    clientIdEnv: "NEXT_PUBLIC_DROPBOX_CLIENT_ID",
+    clientIdEnv: "DROPBOX_CLIENT_ID",
     clientSecretEnv: "DROPBOX_CLIENT_SECRET",
     authEndpoint: "https://www.dropbox.com/oauth2/authorize",
     tokenEndpoint: "https://api.dropboxapi.com/oauth2/token",
@@ -208,7 +208,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   twitter: {
     id: "twitter",
     name: "Twitter",
-    clientIdEnv: "NEXT_PUBLIC_TWITTER_CLIENT_ID",
+    clientIdEnv: "TWITTER_CLIENT_ID",
     clientSecretEnv: "TWITTER_CLIENT_SECRET",
     authEndpoint: "https://twitter.com/i/oauth2/authorize",
     tokenEndpoint: "https://api.twitter.com/2/oauth2/token",
@@ -225,7 +225,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   facebook: {
     id: "facebook",
     name: "Facebook",
-    clientIdEnv: "NEXT_PUBLIC_FACEBOOK_CLIENT_ID",
+    clientIdEnv: "FACEBOOK_CLIENT_ID",
     clientSecretEnv: "FACEBOOK_CLIENT_SECRET",
     authEndpoint: "https://www.facebook.com/v14.0/dialog/oauth",
     tokenEndpoint: "https://graph.facebook.com/v14.0/oauth/access_token",
@@ -244,7 +244,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   linkedin: {
     id: "linkedin",
     name: "LinkedIn",
-    clientIdEnv: "NEXT_PUBLIC_LINKEDIN_CLIENT_ID",
+    clientIdEnv: "LINKEDIN_CLIENT_ID",
     clientSecretEnv: "LINKEDIN_CLIENT_SECRET",
     authEndpoint: "https://www.linkedin.com/oauth/v2/authorization",
     tokenEndpoint: "https://www.linkedin.com/oauth/v2/accessToken",
@@ -258,7 +258,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   discord: {
     id: "discord",
     name: "Discord",
-    clientIdEnv: "NEXT_PUBLIC_DISCORD_CLIENT_ID",
+    clientIdEnv: "DISCORD_CLIENT_ID",
     clientSecretEnv: "DISCORD_CLIENT_SECRET",
     authEndpoint: "https://discord.com/api/oauth2/authorize",
     tokenEndpoint: "https://discord.com/api/oauth2/token",
@@ -273,7 +273,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   spotify: {
     id: "spotify",
     name: "Spotify",
-    clientIdEnv: "NEXT_PUBLIC_SPOTIFY_CLIENT_ID",
+    clientIdEnv: "SPOTIFY_CLIENT_ID",
     clientSecretEnv: "SPOTIFY_CLIENT_SECRET",
     authEndpoint: "https://accounts.spotify.com/authorize",
     tokenEndpoint: "https://accounts.spotify.com/api/token",
@@ -287,7 +287,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   trello: {
     id: "trello",
     name: "Trello",
-    clientIdEnv: "NEXT_PUBLIC_TRELLO_CLIENT_ID",
+    clientIdEnv: "TRELLO_CLIENT_ID",
     clientSecretEnv: "TRELLO_CLIENT_SECRET",
     authEndpoint: "https://trello.com/1/authorize",
     tokenEndpoint: "https://trello.com/1/OAuthGetAccessToken",
@@ -301,7 +301,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "microsoft-onenote": {
     id: "microsoft-onenote",
     name: "Microsoft OneNote",
-    clientIdEnv: "NEXT_PUBLIC_ONENOTE_CLIENT_ID",
+    clientIdEnv: "ONENOTE_CLIENT_ID",
     clientSecretEnv: "ONENOTE_CLIENT_SECRET",
     authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
@@ -311,13 +311,13 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
+    redirectUriPath: "/api/integrations/onenote/callback",
     scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Notes.ReadWrite.All https://graph.microsoft.com/Files.Read",
   },
   "microsoft-outlook": {
     id: "microsoft-outlook",
     name: "Microsoft Outlook",
-    clientIdEnv: "NEXT_PUBLIC_OUTLOOK_CLIENT_ID",
+    clientIdEnv: "OUTLOOK_CLIENT_ID",
     clientSecretEnv: "OUTLOOK_CLIENT_SECRET",
     authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
@@ -327,13 +327,13 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/microsoft-outlook/callback",
+    redirectUriPath: "/api/integrations/outlook/callback",
     scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Contacts.Read https://graph.microsoft.com/Contacts.ReadWrite",
   },
   teams: {
     id: "teams",
     name: "Microsoft Teams",
-    clientIdEnv: "NEXT_PUBLIC_TEAMS_CLIENT_ID",
+    clientIdEnv: "TEAMS_CLIENT_ID",
     clientSecretEnv: "TEAMS_CLIENT_SECRET",
     authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
@@ -344,13 +344,13 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
-    // Use fully qualified scope names with Microsoft Graph API URL prefix
-    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/TeamMember.ReadWrite.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/Team.Create",
+    // Teams-specific scopes only - focused on messaging, meetings, and basic team access
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite",
   },
   hubspot: {
     id: "hubspot",
     name: "HubSpot",
-    clientIdEnv: "NEXT_PUBLIC_HUBSPOT_CLIENT_ID",
+    clientIdEnv: "HUBSPOT_CLIENT_ID",
     clientSecretEnv: "HUBSPOT_CLIENT_SECRET",
     authEndpoint: "https://app.hubspot.com/oauth/authorize",
     tokenEndpoint: "https://api.hubapi.com/oauth/v1/token",
@@ -364,7 +364,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   airtable: {
     id: "airtable",
     name: "Airtable",
-    clientIdEnv: "NEXT_PUBLIC_AIRTABLE_CLIENT_ID",
+    clientIdEnv: "AIRTABLE_CLIENT_ID",
     clientSecretEnv: "AIRTABLE_CLIENT_SECRET",
     authEndpoint: "https://airtable.com/oauth2/v1/authorize",
     tokenEndpoint: "https://airtable.com/oauth2/v1/token",
@@ -378,7 +378,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   "youtube-studio": {
     id: "youtube-studio",
     name: "YouTube Studio",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -392,7 +392,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   youtube: {
     id: "youtube",
     name: "YouTube",
-    clientIdEnv: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -406,7 +406,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   gitlab: {
     id: "gitlab",
     name: "GitLab",
-    clientIdEnv: "NEXT_PUBLIC_GITLAB_CLIENT_ID",
+    clientIdEnv: "GITLAB_CLIENT_ID",
     clientSecretEnv: "GITLAB_CLIENT_SECRET",
     authEndpoint: "https://gitlab.com/oauth/authorize",
     tokenEndpoint: "https://gitlab.com/oauth/token",
@@ -420,7 +420,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   notion: {
     id: "notion",
     name: "Notion",
-    clientIdEnv: "NEXT_PUBLIC_NOTION_CLIENT_ID",
+    clientIdEnv: "NOTION_CLIENT_ID",
     clientSecretEnv: "NOTION_CLIENT_SECRET",
     authEndpoint: "https://api.notion.com/v1/oauth/authorize",
     tokenEndpoint: "https://api.notion.com/v1/oauth/token",
@@ -434,7 +434,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   instagram: {
     id: "instagram",
     name: "Instagram",
-    clientIdEnv: "NEXT_PUBLIC_INSTAGRAM_CLIENT_ID",
+    clientIdEnv: "INSTAGRAM_CLIENT_ID",
     clientSecretEnv: "INSTAGRAM_CLIENT_SECRET",
     authEndpoint: "https://api.instagram.com/oauth/authorize",
     tokenEndpoint: "https://api.instagram.com/oauth/access_token",
@@ -448,7 +448,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   tiktok: {
     id: "tiktok",
     name: "TikTok",
-    clientIdEnv: "NEXT_PUBLIC_TIKTOK_CLIENT_ID",
+    clientIdEnv: "TIKTOK_CLIENT_ID",
     clientSecretEnv: "TIKTOK_CLIENT_SECRET",
     authEndpoint: "https://www.tiktok.com/v2/auth/authorize",
     tokenEndpoint: "https://open.tiktokapis.com/v2/oauth/token/",
@@ -467,7 +467,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   gumroad: {
     id: "gumroad",
     name: "Gumroad",
-    clientIdEnv: "NEXT_PUBLIC_GUMROAD_CLIENT_ID",
+    clientIdEnv: "GUMROAD_CLIENT_ID",
     clientSecretEnv: "GUMROAD_CLIENT_SECRET",
     authEndpoint: "https://gumroad.com/oauth/authorize",
     tokenEndpoint: "https://gumroad.com/oauth/token",
@@ -481,7 +481,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   shopify: {
     id: "shopify",
     name: "Shopify",
-    clientIdEnv: "NEXT_PUBLIC_SHOPIFY_CLIENT_ID",
+    clientIdEnv: "SHOPIFY_CLIENT_ID",
     clientSecretEnv: "SHOPIFY_CLIENT_SECRET",
     authEndpoint: "https://{shop}.myshopify.com/admin/oauth/authorize",
     tokenEndpoint: "https://{shop}.myshopify.com/admin/oauth/access_token",
@@ -495,7 +495,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   stripe: {
     id: "stripe",
     name: "Stripe",
-    clientIdEnv: "NEXT_PUBLIC_STRIPE_CLIENT_ID",
+    clientIdEnv: "STRIPE_CLIENT_ID",
     clientSecretEnv: "STRIPE_CLIENT_SECRET",
     authEndpoint: "https://connect.stripe.com/oauth/authorize",
     tokenEndpoint: "https://connect.stripe.com/oauth/token",
@@ -509,7 +509,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   paypal: {
     id: "paypal",
     name: "PayPal",
-    clientIdEnv: "NEXT_PUBLIC_PAYPAL_CLIENT_ID",
+    clientIdEnv: "PAYPAL_CLIENT_ID",
     clientSecretEnv: "PAYPAL_CLIENT_SECRET",
     authEndpoint: "https://www.paypal.com/signin/authorize",
     tokenEndpoint: "https://api-m.paypal.com/v1/oauth2/token",
@@ -527,7 +527,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   kit: {
     id: "kit",
     name: "Kit",
-    clientIdEnv: "NEXT_PUBLIC_KIT_CLIENT_ID",
+    clientIdEnv: "KIT_CLIENT_ID",
     clientSecretEnv: "KIT_CLIENT_SECRET",
     authEndpoint: "https://app.kit.com/oauth/authorize",
     tokenEndpoint: "https://app.kit.com/oauth/token",
@@ -542,7 +542,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   mailchimp: {
     id: "mailchimp",
     name: "Mailchimp",
-    clientIdEnv: "NEXT_PUBLIC_MAILCHIMP_CLIENT_ID",
+    clientIdEnv: "MAILCHIMP_CLIENT_ID",
     clientSecretEnv: "MAILCHIMP_CLIENT_SECRET",
     authEndpoint: "https://login.mailchimp.com/oauth2/authorize",
     tokenEndpoint: "https://login.mailchimp.com/oauth2/token",
@@ -556,7 +556,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   blackbaud: {
     id: "blackbaud",
     name: "Blackbaud",
-    clientIdEnv: "NEXT_PUBLIC_BLACKBAUD_CLIENT_ID",
+    clientIdEnv: "BLACKBAUD_CLIENT_ID",
     clientSecretEnv: "BLACKBAUD_CLIENT_SECRET",
     authEndpoint: "https://login.blackbaud.com/oauth2/authorize",
     tokenEndpoint: "https://login.blackbaud.com/oauth2/token",
@@ -583,11 +583,10 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
     return OAUTH_PROVIDERS[normalizedProvider];
   }
 
-  // Special case for Microsoft-related providers
+  // Special case for Microsoft-related providers (but not teams, which has its own config)
   if (
     normalizedProvider.startsWith("microsoft") ||
-    normalizedProvider === "onedrive" ||
-    normalizedProvider === "teams"
+    normalizedProvider === "onedrive"
   ) {
     // Use the microsoft config as a base
     // This is useful for providers like microsoft-outlook, microsoft-onenote, etc.

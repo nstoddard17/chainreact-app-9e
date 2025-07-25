@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       throw new Error('Missing userId in Twitter state')
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+    const clientId = process.env.TWITTER_CLIENT_ID
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 

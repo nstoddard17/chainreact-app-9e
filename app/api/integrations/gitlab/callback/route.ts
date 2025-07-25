@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    const clientId = process.env.GITLAB_CLIENT_ID
     const clientSecret = process.env.GITLAB_CLIENT_SECRET
 
     const redirectUri = `${baseUrl}/api/integrations/gitlab/callback`

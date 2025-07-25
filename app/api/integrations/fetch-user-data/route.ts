@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { decrypt } from "@/lib/security/encryption"
 import { fetchAirtableWithRetry, delayBetweenRequests } from "@/lib/integrations/airtableRateLimiter"
 import { getTwitterMentionsForDropdown } from '@/lib/integrations/twitter'
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -254,7 +255,7 @@ async function validateAndRefreshToken(integration: any): Promise<{
               },
               body: new URLSearchParams({
                 grant_type: 'fb_exchange_token',
-                client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
+                client_id: process.env.FACEBOOK_CLIENT_ID!,
                 client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
                 fb_exchange_token: refreshToken,
               }),
@@ -323,12 +324,12 @@ async function validateAndRefreshToken(integration: any): Promise<{
                 'Content-Type': 'application/x-www-form-urlencoded',
               },
               body: new URLSearchParams({
-                client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+                client_id: process.env.MICROSOFT_CLIENT_ID!,
                 client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
                 refresh_token: refreshToken,
                 grant_type: 'refresh_token',
                 scope: 'offline_access openid profile email User.Read Notes.ReadWrite.All',
-                redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
+                redirect_uri: `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`,
               }),
             });
             
@@ -2385,7 +2386,7 @@ const dataFetchers: DataFetcher = {
   "trello-boards": async (integration: any) => {
     try {
       const response = await fetch(
-        `https://api.trello.com/1/members/me/boards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
+        `https://api.trello.com/1/members/me/boards?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -2420,7 +2421,7 @@ const dataFetchers: DataFetcher = {
     try {
       // First, get all boards to find lists that could serve as templates
       const boardsResponse = await fetch(
-        `https://api.trello.com/1/members/me/boards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
+        `https://api.trello.com/1/members/me/boards?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -2444,7 +2445,7 @@ const dataFetchers: DataFetcher = {
       for (const board of openBoards) {
         try {
           const listsResponse = await fetch(
-            `https://api.trello.com/1/boards/${board.id}/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,closed`,
+            `https://api.trello.com/1/boards/${board.id}/lists?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,closed`,
             {
               headers: {
                 "Content-Type": "application/json",
@@ -2508,7 +2509,7 @@ const dataFetchers: DataFetcher = {
       if (options?.boardId) {
         console.log(`🔍 Fetching cards from board ${options.boardId}`)
         cardsResponse = await fetch(
-          `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
+          `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -2519,7 +2520,7 @@ const dataFetchers: DataFetcher = {
         // Fallback to fetching all cards from the user's account
         console.log(`🔍 Fetching all cards from user's account`)
         cardsResponse = await fetch(
-          `https://api.trello.com/1/members/me/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
+          `https://api.trello.com/1/members/me/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -2574,7 +2575,7 @@ const dataFetchers: DataFetcher = {
         for (const boardId of boardIds) {
           try {
             const boardResponse = await fetch(
-              `https://api.trello.com/1/boards/${boardId}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name`,
+              `https://api.trello.com/1/boards/${boardId}?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name`,
               {
                 headers: {
                   "Content-Type": "application/json",
@@ -2597,7 +2598,7 @@ const dataFetchers: DataFetcher = {
         for (const listId of listIds) {
           try {
             const listResponse = await fetch(
-              `https://api.trello.com/1/lists/${listId}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name,idBoard`,
+              `https://api.trello.com/1/lists/${listId}?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name,idBoard`,
               {
                 headers: {
                   "Content-Type": "application/json",
@@ -3211,7 +3212,7 @@ const dataFetchers: DataFetcher = {
         throw new Error("Missing boardId for Trello lists fetcher")
       }
       const response = await fetch(
-        `https://api.trello.com/1/boards/${options.boardId}/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,closed`,
+        `https://api.trello.com/1/boards/${options.boardId}/lists?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,closed`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -3243,7 +3244,7 @@ const dataFetchers: DataFetcher = {
         throw new Error("Missing boardId for Trello cards fetcher")
       }
       const response = await fetch(
-        `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,closed`,
+        `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,closed`,
         {
           headers: {
             "Content-Type": "application/json",

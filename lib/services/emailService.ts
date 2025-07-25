@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getBaseUrl } from "../utils/getBaseUrl"
 
 interface EmailOptions {
   to: string
@@ -20,7 +21,7 @@ export class EmailService {
     invitationToken: string,
     role: string
   ): Promise<boolean> {
-    const acceptUrl = `${process.env.NEXT_PUBLIC_APP_URL}/organizations/accept-invitation?token=${invitationToken}`
+    const acceptUrl = `${getBaseUrl()}/organizations/accept-invitation?token=${invitationToken}`
     
     const subject = `You've been invited to join ${organizationName} on ChainReact`
     

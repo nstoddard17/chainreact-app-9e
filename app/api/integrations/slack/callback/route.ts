@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       return new Response("User ID is missing from state", { status: 400 })
     }
 
-    const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
+    const clientId = process.env.SLACK_CLIENT_ID
     const clientSecret = process.env.SLACK_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {

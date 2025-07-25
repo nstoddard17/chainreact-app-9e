@@ -7,7 +7,7 @@ export async function GET() {
     const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
     
     // Get the TikTok client ID, but only show the first and last 4 characters for security
-    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID || 'not-configured'
+    const clientId = process.env.TIKTOK_CLIENT_ID || 'not-configured'
     const maskedClientId = clientId.length > 8 
       ? `${clientId.substring(0, 4)}...${clientId.substring(clientId.length - 4)}`
       : 'too-short'
@@ -20,7 +20,7 @@ export async function GET() {
       config: {
         baseUrl,
         redirectUri,
-        clientIdConfigured: !!process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID,
+        clientIdConfigured: !!process.env.TIKTOK_CLIENT_ID,
         clientIdMasked: maskedClientId,
         clientSecretConfigured: hasClientSecret,
       },

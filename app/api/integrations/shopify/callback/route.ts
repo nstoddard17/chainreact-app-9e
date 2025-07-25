@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        client_id: process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID!,
+        client_id: process.env.SHOPIFY_CLIENT_ID!,
         client_secret: process.env.SHOPIFY_CLIENT_SECRET!,
         code,
       }),

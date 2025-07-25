@@ -2,6 +2,7 @@
 
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function initiateOAuth(provider: string, reconnect = false, integrationId?: string) {
   try {
@@ -17,7 +18,7 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
     }
 
     // Call the auth API route
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://chainreact.app"
+    const baseUrl = getBaseUrl()
 
     const response = await fetch(`${baseUrl}/api/integrations/auth/generate-url`, {
       method: "POST",

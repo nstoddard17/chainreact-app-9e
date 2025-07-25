@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientId = process.env.ONEDRIVE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
     const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
 

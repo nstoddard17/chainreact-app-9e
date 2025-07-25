@@ -8,7 +8,20 @@ require('dotenv').config();
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// Import the getBaseUrl function (we'll need to create a simple version for Node.js)
+function getBaseUrl() {
+  // Priority order: NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > fallback
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  return 'http://localhost:3000'
+}
+
+const BASE_URL = getBaseUrl()
 
 async function reactivateIntegration(provider) {
   console.log(`🔄 Reactivating ${provider} integration...`);

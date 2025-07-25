@@ -32,8 +32,15 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientId = process.env.TEAMS_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
     const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    
+    // Debug logging to see which client ID is being used
+    console.log('🔍 Teams OAuth Debug:')
+    console.log('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
+    console.log('  - MICROSOFT_CLIENT_ID set:', !!process.env.MICROSOFT_CLIENT_ID)
+    console.log('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+    console.log('  - Using client ID type:', process.env.TEAMS_CLIENT_ID ? 'TEAMS_SPECIFIC' : 'MICROSOFT_GENERAL')
     
     const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
@@ -52,8 +59,8 @@ export async function GET(request: NextRequest) {
           code,
           redirect_uri: redirectUri,
           grant_type: "authorization_code",
-          // Use fully qualified scope names with Microsoft Graph API URL prefix
-          scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/TeamMember.ReadWrite.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/Team.Create",
+          // Teams-specific scopes only - focused on messaging, meetings, and basic team access
+          scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite",
         }),
       })
 

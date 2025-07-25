@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { ExternalLink, Copy, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export default function StripeSetupGuide() {
   const [copiedStep, setCopiedStep] = useState<number | null>(null)
@@ -66,14 +67,14 @@ export default function StripeSetupGuide() {
             <div className="bg-gray-50 p-3 rounded-md">
               <div className="flex items-center justify-between">
                 <code className="text-sm">
-                  {process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"}/api/webhooks/stripe
+                  {getBaseUrl()}/api/webhooks/stripe
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() =>
                     copyToClipboard(
-                      `${process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"}/api/webhooks/stripe`,
+                      `${getBaseUrl()}/api/webhooks/stripe`,
                       2,
                     )
                   }

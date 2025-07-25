@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.OUTLOOK_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
     const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback`
+    const redirectUri = `${baseUrl}/api/integrations/outlook/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")

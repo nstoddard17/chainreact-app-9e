@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        client_id: process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID!,
+        client_id: process.env.MAILCHIMP_CLIENT_ID!,
         client_secret: process.env.MAILCHIMP_CLIENT_SECRET!,
         redirect_uri: `${baseUrl}/api/integrations/mailchimp/callback`,
       }),

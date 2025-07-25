@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       throw new Error("User ID not found in state")
     }
 
-    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+    const clientId = process.env.AIRTABLE_CLIENT_ID
     if (!clientId) {
       throw new Error("Airtable client ID not configured")
     }

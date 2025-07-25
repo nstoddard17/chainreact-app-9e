@@ -136,7 +136,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
   switch (provider) {
     case "slack":
       const slackParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
+        client_id: process.env.SLACK_CLIENT_ID!,
         scope: allScopes.join(","),
         redirect_uri: redirectUri,
         response_type: "code",
@@ -146,7 +146,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
 
     case "google":
       const googleParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_id: process.env.GOOGLE_CLIENT_ID!,
         scope: allScopes.join(" "),
         redirect_uri: redirectUri,
         response_type: "code",
@@ -158,7 +158,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
 
     case "github":
       const githubParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+        client_id: process.env.GITHUB_CLIENT_ID!,
         scope: allScopes.join(" "),
         redirect_uri: redirectUri,
         ...(state && { state }),
@@ -167,7 +167,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
 
     case "dropbox":
       const dropboxParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID!,
+        client_id: process.env.DROPBOX_CLIENT_ID!,
         scope: allScopes.join(" "),
         redirect_uri: redirectUri,
         response_type: "code",
@@ -178,7 +178,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
 
     case "box":
       const boxParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_BOX_CLIENT_ID!,
+        client_id: process.env.BOX_CLIENT_ID!,
         scope: allScopes.join(" "),
         redirect_uri: redirectUri,
         response_type: "code",
@@ -188,7 +188,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
 
     case "microsoft-outlook":
       const outlookParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+        client_id: process.env.MICROSOFT_CLIENT_ID!,
         scope: allScopes.join(" "),
         redirect_uri: redirectUri,
         response_type: "code",

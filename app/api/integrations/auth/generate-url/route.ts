@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
+    const supabaseAdmin = createAdminClient()
 
     // Get authenticated user
     const {
@@ -26,26 +27,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    // Initial state generation
+    // Create state object
     const stateObject: {
-      provider: string
       userId: string
+      provider: string
       reconnect: boolean
       integrationId?: string
       timestamp: number
       forceFresh?: boolean
       forceConsent?: boolean
     } = {
-      provider,
       userId: user.id,
+      provider,
       reconnect,
       integrationId,
       timestamp: Date.now(),
     }
 
-    let authUrl: string
     let finalState = btoa(JSON.stringify(stateObject))
-    const supabaseAdmin = createAdminClient()
+    let authUrl = ""
 
     switch (provider.toLowerCase()) {
       case "slack":
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "notion":
-        authUrl = await generateNotionAuthUrl(stateObject, supabase)
+        authUrl = await generateNotionAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "twitter":
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "linkedin":
-        authUrl = await generateLinkedInAuthUrl(stateObject, supabase)
+        authUrl = await generateLinkedInAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "facebook":
@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
         break
 
       case "instagram":
-        authUrl = await generateInstagramAuthUrl(stateObject, supabase)
+        authUrl = await generateInstagramAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "tiktok":
-        authUrl = await generateTikTokAuthUrl(stateObject, supabase)
+        authUrl = await generateTikTokAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "trello":
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "dropbox":
-        authUrl = await generateDropboxAuthUrl(stateObject, supabase)
+        authUrl = await generateDropboxAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "box":
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "hubspot":
-        authUrl = await generateHubSpotAuthUrl(stateObject, supabase)
+        authUrl = await generateHubSpotAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "airtable":
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
 
 // Helper functions to generate proper OAuth URLs
 function generateSlackAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
+  const clientId = process.env.SLACK_CLIENT_ID
   if (!clientId) throw new Error("Slack client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -232,7 +232,7 @@ function generateDiscordAuthUrl(state: string): string {
 }
 
 function generateGitHubAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+  const clientId = process.env.GITHUB_CLIENT_ID
   if (!clientId) throw new Error("GitHub client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -248,7 +248,7 @@ function generateGitHubAuthUrl(state: string): string {
 }
 
 function generateGoogleAuthUrl(service: string, state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  const clientId = process.env.GOOGLE_CLIENT_ID
   if (!clientId) throw new Error("Google client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -293,7 +293,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 }
 
 async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+  const clientId = process.env.NOTION_CLIENT_ID
   if (!clientId) throw new Error("Notion client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -327,7 +327,7 @@ async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<s
 }
 
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+  const clientId = process.env.TWITTER_CLIENT_ID
   if (!clientId) throw new Error("Twitter client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -360,7 +360,7 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
 }
 
 async function generateLinkedInAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+  const clientId = process.env.LINKEDIN_CLIENT_ID
   console.log('LinkedIn Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
   console.log('LinkedIn Client ID length:', clientId ? clientId.length : 0)
   
@@ -398,7 +398,7 @@ async function generateLinkedInAuthUrl(stateObject: any, supabase: any): Promise
 }
 
 function generateFacebookAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
+  const clientId = process.env.FACEBOOK_CLIENT_ID
   console.log('Facebook Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
   console.log('Facebook Client ID length:', clientId ? clientId.length : 0)
   console.log('Facebook Client ID format valid:', clientId ? /^\d{15,16}$/.test(clientId) : false)
@@ -426,7 +426,7 @@ function generateFacebookAuthUrl(state: string): string {
 
 async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promise<string> {
   // Use Instagram-specific client ID for Instagram API with Instagram Login
-  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+  const clientId = process.env.INSTAGRAM_CLIENT_ID
   if (!clientId) throw new Error("Instagram client ID not configured")
   const baseUrl = getBaseUrl()
   
@@ -468,7 +468,7 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
 }
 
 async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+  const clientId = process.env.TIKTOK_CLIENT_ID
   if (!clientId) throw new Error("TikTok client ID not configured")
   const baseUrl = getBaseUrl()
   
@@ -515,7 +515,7 @@ async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<s
 }
 
 function generateTrelloAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+  const clientId = process.env.TRELLO_CLIENT_ID
   if (!clientId) throw new Error("Trello client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -537,7 +537,7 @@ function generateTrelloAuthUrl(state: string): string {
 }
 
 async function generateDropboxAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
+  const clientId = process.env.DROPBOX_CLIENT_ID
   if (!clientId) throw new Error("Dropbox client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -572,7 +572,7 @@ async function generateDropboxAuthUrl(stateObject: any, supabase: any): Promise<
 }
 
 function generateBoxAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+  const clientId = process.env.BOX_CLIENT_ID
   if (!clientId) throw new Error("Box client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -587,7 +587,7 @@ function generateBoxAuthUrl(state: string): string {
 }
 
 async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
+  const clientId = process.env.HUBSPOT_CLIENT_ID
   if (!clientId) throw new Error("HubSpot client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -633,7 +633,7 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
 }
 
 async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+  const clientId = process.env.AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -666,7 +666,7 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
 }
 
 function generateMailchimpAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID
+  const clientId = process.env.MAILCHIMP_CLIENT_ID
   if (!clientId) throw new Error("Mailchimp client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -681,7 +681,7 @@ function generateMailchimpAuthUrl(state: string): string {
 }
 
 function generateShopifyAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
+  const clientId = process.env.SHOPIFY_CLIENT_ID
   if (!clientId) throw new Error("Shopify client ID not configured")
   const baseUrl = getBaseUrl()
   
@@ -705,7 +705,7 @@ function generateShopifyAuthUrl(state: string): string {
 }
 
 function generateStripeAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
+  const clientId = process.env.STRIPE_CLIENT_ID
   if (!clientId) throw new Error("Stripe client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -721,7 +721,7 @@ function generateStripeAuthUrl(state: string): string {
 }
 
 async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+  const clientId = process.env.PAYPAL_CLIENT_ID
   if (!clientId) throw new Error("PayPal client ID not configured")
   
   // Instead of using dynamic baseUrl, use the exact registered redirect URI
@@ -787,14 +787,23 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("Teams client ID not configured")
   
+  // Debug logging
+  console.log('🔍 Teams OAuth URL Generation Debug:')
+  console.log('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
+  console.log('  - MICROSOFT_CLIENT_ID set:', !!process.env.MICROSOFT_CLIENT_ID)
+  console.log('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  console.log('  - Using client ID type:', process.env.TEAMS_CLIENT_ID ? 'TEAMS_SPECIFIC' : 'MICROSOFT_GENERAL')
+  console.log('  - Scopes:', config.scope)
+  
   const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "consent", // Force consent screen every time to show new scopes
     state,
   })
 
@@ -811,10 +820,13 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   if (!clientId) throw new Error("OneDrive client ID not configured")
   
   const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
+
+
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
@@ -825,7 +837,7 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
 }
 
 function generateGitLabAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+  const clientId = process.env.GITLAB_CLIENT_ID
   if (!clientId) throw new Error("GitLab client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -841,7 +853,7 @@ function generateGitLabAuthUrl(state: string): string {
 }
 
 function generateDockerAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
+  const clientId = process.env.DOCKER_CLIENT_ID
   if (!clientId) throw new Error("Docker client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -857,7 +869,7 @@ function generateDockerAuthUrl(state: string): string {
 }
 
 async function generateKitAuthUrl(stateObject: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_KIT_CLIENT_ID
+  const clientId = process.env.KIT_CLIENT_ID
   if (!clientId) throw new Error("Kit client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -892,7 +904,7 @@ async function generateKitAuthUrl(stateObject: any): Promise<string> {
 }
 
 function generateBlackbaudAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+  const clientId = process.env.BLACKBAUD_CLIENT_ID
   if (!clientId) throw new Error("Blackbaud client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -916,10 +928,13 @@ async function generateMicrosoftOutlookAuthUrl(state: string): Promise<string> {
   if (!clientId) throw new Error("Outlook client ID not configured")
   
   const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
+
+
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
@@ -939,10 +954,13 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   if (!clientId) throw new Error("OneNote client ID not configured")
   
   const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
+
+
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
@@ -953,7 +971,7 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
 }
 
 async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
+  const clientId = process.env.GUMROAD_CLIENT_ID
   if (!clientId) throw new Error("Gumroad client ID not configured")
   const baseUrl = getBaseUrl()
 

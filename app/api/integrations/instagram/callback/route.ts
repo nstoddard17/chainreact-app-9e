@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get Instagram OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    const clientId = process.env.INSTAGRAM_CLIENT_ID
     const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
 

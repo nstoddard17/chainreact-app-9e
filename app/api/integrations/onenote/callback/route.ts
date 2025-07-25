@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.ONENOTE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
     const clientSecret = process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`
+    const redirectUri = `${getBaseUrl()}/api/integrations/onenote/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
