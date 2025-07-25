@@ -780,34 +780,69 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
 
 async function generateTeamsAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const { getAllScopes } = await import("@/lib/integrations/integrationScopes")
+  
   const config = getOAuthConfig("teams")
   if (!config) throw new Error("Teams OAuth config not found")
   
-  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
-  const { clientId } = getOAuthClientCredentials(config)
-  if (!clientId) throw new Error("Teams client ID not configured")
+  // Ensure we're using Teams-specific credentials ONLY
+  const clientId = process.env.TEAMS_CLIENT_ID
+  const clientSecret = process.env.TEAMS_CLIENT_SECRET
+  
+  if (!clientId || !clientSecret) {
+    throw new Error("Teams OAuth requires TEAMS_CLIENT_ID and TEAMS_CLIENT_SECRET environment variables to be set. Please configure the Teams-specific Azure app registration.")
+  }
+  
+  // Get Teams-specific scopes from integrationScopes.ts
+  const teamsScopes = getAllScopes("teams")
+  
+  // Format scopes for Microsoft Graph API - explicitly add the prefix
+  const formattedScopes = [
+    "offline_access", 
+    "openid", 
+    "profile", 
+    "email"
+  ];
+  
+  // Add Microsoft Graph API scopes with proper prefix
+  teamsScopes.forEach(scope => {
+    formattedScopes.push(`https://graph.microsoft.com/${scope}`);
+  });
+  
+  const scopeString = formattedScopes.join(" ")
+  
+  const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
   
   // Debug logging
   console.log('🔍 Teams OAuth URL Generation Debug:')
   console.log('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
-  console.log('  - MICROSOFT_CLIENT_ID set:', !!process.env.MICROSOFT_CLIENT_ID)
+  console.log('  - TEAMS_CLIENT_SECRET set:', !!process.env.TEAMS_CLIENT_SECRET)
   console.log('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-  console.log('  - Using client ID type:', process.env.TEAMS_CLIENT_ID ? 'TEAMS_SPECIFIC' : 'MICROSOFT_GENERAL')
-  console.log('  - Scopes:', config.scope)
-  
-  const baseUrl = getBaseUrl()
-  const redirectUri = `${baseUrl}${config.redirectUriPath}`
+  console.log('  - Using client ID type: TEAMS_SPECIFIC')
+  console.log('  - Teams scopes from integrationScopes:', teamsScopes)
+  console.log('  - Final formatted scopes:', scopeString)
+  console.log('  - Redirect URI:', redirectUri)
+  console.log('  - Auth endpoint:', config.authEndpoint)
+  console.log('  - Number of scopes being requested:', formattedScopes.length)
+  console.log('  - Scope string length:', scopeString.length)
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: config.scope || "",
+    scope: scopeString,
     prompt: "consent", // Force consent screen every time to show new scopes
     state,
   })
 
-  return `${config.authEndpoint}?${params.toString()}`
+  // Add a unique parameter to force fresh consent screen
+  params.append("_", Date.now().toString())
+
+  const finalUrl = `${config.authEndpoint}?${params.toString()}`
+  console.log('  - Final OAuth URL (first 200 chars):', finalUrl.substring(0, 200) + '...')
+  
+  return finalUrl
 }
 
 async function generateOneDriveAuthUrl(state: string): Promise<string> {

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
+import { getAllScopes } from "@/lib/integrations/integrationScopes"
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -32,23 +33,41 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.TEAMS_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    const clientId = process.env.TEAMS_CLIENT_ID
+    const clientSecret = process.env.TEAMS_CLIENT_SECRET
     
     // Debug logging to see which client ID is being used
     console.log('🔍 Teams OAuth Debug:')
     console.log('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
-    console.log('  - MICROSOFT_CLIENT_ID set:', !!process.env.MICROSOFT_CLIENT_ID)
+    console.log('  - TEAMS_CLIENT_SECRET set:', !!process.env.TEAMS_CLIENT_SECRET)
     console.log('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-    console.log('  - Using client ID type:', process.env.TEAMS_CLIENT_ID ? 'TEAMS_SPECIFIC' : 'MICROSOFT_GENERAL')
+    console.log('  - Using client ID type: TEAMS_SPECIFIC')
     
     const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Microsoft client ID or secret not configured")
+      throw new Error("Teams client ID or secret not configured. Please set TEAMS_CLIENT_ID and TEAMS_CLIENT_SECRET environment variables.")
     }
 
-          const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+    // Get Teams-specific scopes from integrationScopes.ts
+    const teamsScopes = getAllScopes("teams")
+    
+    // Format scopes for Microsoft Graph API - explicitly add the prefix
+    const formattedScopes = [
+      "offline_access", 
+      "openid", 
+      "profile", 
+      "email"
+    ];
+    
+    // Add Microsoft Graph API scopes with proper prefix
+    teamsScopes.forEach(scope => {
+      formattedScopes.push(`https://graph.microsoft.com/${scope}`);
+    });
+    
+    const scopeString = formattedScopes.join(" ")
+
+    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -59,8 +78,7 @@ export async function GET(request: NextRequest) {
           code,
           redirect_uri: redirectUri,
           grant_type: "authorization_code",
-          // Teams-specific scopes only - focused on messaging, meetings, and basic team access
-          scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite",
+          scope: scopeString,
         }),
       })
 
@@ -70,6 +88,15 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
+
+    // Debug logging for token response
+    console.log('🔍 Teams Token Response Debug:')
+    console.log('  - Response status:', tokenResponse.status)
+    console.log('  - Access token received:', !!tokenData.access_token)
+    console.log('  - Refresh token received:', !!tokenData.refresh_token)
+    console.log('  - Scopes returned by Microsoft:', tokenData.scope)
+    console.log('  - Token type:', tokenData.token_type)
+    console.log('  - Expires in:', tokenData.expires_in)
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
