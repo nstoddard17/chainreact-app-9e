@@ -25,9 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    const originalState = state.split('&app=outlook')[0]
-    const { userId } = JSON.parse(atob(originalState))
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
       throw new Error("Missing userId in Microsoft Outlook state")
     }
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_OUTLOOK_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback?app=outlook&v=2&ts=${Date.now()}`
+    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
@@ -53,7 +51,7 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Calendars.Read Calendars.ReadWrite Contacts.Read Contacts.ReadWrite",
+        scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Contacts.Read https://graph.microsoft.com/Contacts.ReadWrite",
       }),
     })
 

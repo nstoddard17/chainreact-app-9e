@@ -224,7 +224,7 @@ export function IntegrationCard({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+        <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
           {provider.id === 'microsoft-onenote' && (
             <div>
@@ -252,7 +252,7 @@ export function IntegrationCard({
               )}
             </div>
           )}
-        </p>
+        </div>
       </CardContent>
 
       <CardFooter className="px-5 py-4 pt-0 flex flex-col gap-2">

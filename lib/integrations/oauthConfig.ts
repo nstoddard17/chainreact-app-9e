@@ -172,7 +172,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/onedrive/callback",
-    scope: "offline_access User.Read Files.ReadWrite.All",
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite.All",
   },
   slack: {
     id: "slack",
@@ -312,7 +312,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/microsoft-onenote/callback",
-    scope: "offline_access User.Read Notes.ReadWrite.All Files.Read",
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Notes.ReadWrite.All https://graph.microsoft.com/Files.Read",
   },
   "microsoft-outlook": {
     id: "microsoft-outlook",
@@ -328,7 +328,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/microsoft-outlook/callback",
-    scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Calendars.Read Calendars.ReadWrite Contacts.Read Contacts.ReadWrite",
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Contacts.Read https://graph.microsoft.com/Contacts.ReadWrite",
   },
   teams: {
     id: "teams",

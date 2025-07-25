@@ -28,9 +28,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    const originalState = state.split('&app=onenote')[0]
-    const stateData = JSON.parse(atob(originalState))
+    const stateData = JSON.parse(atob(state))
     const { userId, forceFresh } = stateData
     if (!userId) {
       throw new Error("Missing userId in OneNote state")
@@ -40,8 +38,7 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_ONENOTE_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const clientSecret = process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-    // Construct the redirect URI with the unique parameters to match what was used in the authorization request
-    const redirectUri = `${getBaseUrl()}/api/integrations/microsoft-onenote/callback?app=onenote&v=2&ts=${Date.now()}`
+    const redirectUri = `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
@@ -58,7 +55,7 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "offline_access openid profile email User.Read Notes.ReadWrite.All Files.Read",
+        scope: "offline_access openid profile email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Notes.ReadWrite.All https://graph.microsoft.com/Files.Read",
       }),
     })
 

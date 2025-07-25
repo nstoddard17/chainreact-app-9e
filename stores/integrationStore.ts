@@ -1415,6 +1415,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Check for Outlook specific scope requirements
       if (providerId === "microsoft-outlook") {
         const requiredScopes = [
+          "https://graph.microsoft.com/User.Read",
+          "https://graph.microsoft.com/Mail.ReadWrite",
+          "https://graph.microsoft.com/Mail.Send",
+          "https://graph.microsoft.com/Calendars.ReadWrite",
+          "https://graph.microsoft.com/Contacts.ReadWrite"
+        ]
+        
+        const shortFormScopes = [
           "User.Read",
           "Mail.ReadWrite",
           "Mail.Send",
@@ -1422,13 +1430,75 @@ export const useIntegrationStore = create<IntegrationStore>()(
           "Contacts.ReadWrite"
         ]
         
-        const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
+        // Check if each required scope is present in either fully qualified or short form
+        const missingScopes = requiredScopes.filter((scope, index) => {
+          const shortForm = shortFormScopes[index]
+          return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
+        })
         
         if (missingScopes.length > 0) {
           console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `Outlook integration requires additional permissions for full functionality. Please reconnect your account to grant access to emails, calendars, and contacts.`,
+            missingScopes
+          }
+        }
+      }
+      
+      // Check for OneDrive specific scope requirements
+      if (providerId === "onedrive") {
+        const requiredScopes = [
+          "https://graph.microsoft.com/User.Read",
+          "https://graph.microsoft.com/Files.ReadWrite.All"
+        ]
+        
+        const shortFormScopes = [
+          "User.Read",
+          "Files.ReadWrite.All"
+        ]
+        
+        // Check if each required scope is present in either fully qualified or short form
+        const missingScopes = requiredScopes.filter((scope, index) => {
+          const shortForm = shortFormScopes[index]
+          return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
+        })
+        
+        if (missingScopes.length > 0) {
+          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `OneDrive integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
+            missingScopes
+          }
+        }
+      }
+      
+      // Check for OneNote specific scope requirements
+      if (providerId === "microsoft-onenote") {
+        const requiredScopes = [
+          "https://graph.microsoft.com/User.Read",
+          "https://graph.microsoft.com/Notes.ReadWrite.All",
+          "https://graph.microsoft.com/Files.Read"
+        ]
+        
+        const shortFormScopes = [
+          "User.Read",
+          "Notes.ReadWrite.All",
+          "Files.Read"
+        ]
+        
+        // Check if each required scope is present in either fully qualified or short form
+        const missingScopes = requiredScopes.filter((scope, index) => {
+          const shortForm = shortFormScopes[index]
+          return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
+        })
+        
+        if (missingScopes.length > 0) {
+          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `OneNote integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
             missingScopes
           }
         }
