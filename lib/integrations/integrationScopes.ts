@@ -99,27 +99,27 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   onedrive: {
-    required: ["User.Read", "Files.ReadWrite.All"],
+    required: ["https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Files.ReadWrite.All"],
     optional: [],
   },
   "microsoft-outlook": {
     required: [
-      "User.Read",
-      "Mail.Read",
-      "Mail.ReadWrite", 
-      "Mail.Send",
-      "Calendars.Read",
-      "Calendars.ReadWrite",
-      "Contacts.Read",
-      "Contacts.ReadWrite"
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Mail.Read",
+      "https://graph.microsoft.com/Mail.ReadWrite", 
+      "https://graph.microsoft.com/Mail.Send",
+      "https://graph.microsoft.com/Calendars.Read",
+      "https://graph.microsoft.com/Calendars.ReadWrite",
+      "https://graph.microsoft.com/Contacts.Read",
+      "https://graph.microsoft.com/Contacts.ReadWrite"
     ],
     optional: [],
   },
   "microsoft-onenote": {
     required: [
-      "User.Read",
-      "Notes.ReadWrite.All",
-      "Files.Read"
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Notes.ReadWrite.All",
+      "https://graph.microsoft.com/Files.Read"
     ],
     optional: [],
   },

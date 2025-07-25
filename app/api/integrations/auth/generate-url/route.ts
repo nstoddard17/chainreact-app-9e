@@ -789,26 +789,13 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
 
-  // Generate a unique identifier for this specific Teams auth request
-  const uniqueId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-  
-  // Create an extremely unique redirect URI that Microsoft will treat as completely separate
-  const uniqueRedirectUri = `${baseUrl}${config.redirectUriPath}?app=teams&v=3&uid=${uniqueId}&ts=${Date.now()}`
-  
-  // Add unique identifiers to state as well
-  const uniqueState = `${state}&app=teams&v=3&uid=${uniqueId}&ts=${Date.now()}`
-
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Only use "consent" as it's a supported value
-    state: uniqueState,
-    // Add login_hint to force a fresh login experience
-    login_hint: `teams_${Date.now()}@example.com`,
-    // Add domain_hint to further differentiate this auth request
-    domain_hint: `teams_app_${uniqueId}`,
+    prompt: "consent", // Force consent screen every time
+    state,
   })
 
   return `${config.authEndpoint}?${params.toString()}`
@@ -825,17 +812,13 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
 
-  // Add unique parameters to force Microsoft to treat this as a completely separate app
-  const uniqueRedirectUri = `${baseUrl}${config.redirectUriPath}?app=onedrive&v=2&ts=${Date.now()}`
-  const uniqueState = `${state}&app=onedrive&v=2&ts=${Date.now()}`
-
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
-    state: uniqueState,
+    state,
   })
 
   return `${config.authEndpoint}?${params.toString()}`
@@ -934,17 +917,13 @@ async function generateMicrosoftOutlookAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
 
-  // Add unique parameters to force Microsoft to treat this as a completely separate app
-  const uniqueRedirectUri = `${baseUrl}${config.redirectUriPath}?app=outlook&v=2&ts=${Date.now()}`
-  const uniqueState = `${state}&app=outlook&v=2&ts=${Date.now()}`
-
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
-    state: uniqueState,
+    state,
   })
 
   return `${config.authEndpoint}?${params.toString()}`
@@ -961,17 +940,13 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
 
-  // Add unique parameters to force Microsoft to treat this as a completely separate app
-  const uniqueRedirectUri = `${baseUrl}${config.redirectUriPath}?app=onenote&v=2&ts=${Date.now()}`
-  const uniqueState = `${state}&app=onenote&v=2&ts=${Date.now()}`
-
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: `${baseUrl}${config.redirectUriPath}`,
     response_type: "code",
     scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
-    state: uniqueState,
+    state,
   })
 
   return `${config.authEndpoint}?${params.toString()}`

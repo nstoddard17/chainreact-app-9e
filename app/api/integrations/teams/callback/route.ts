@@ -25,10 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    // Get everything before the first &app=teams
-    const originalState = state.split('&app=teams')[0]
-    const { userId } = JSON.parse(atob(originalState))
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
       throw new Error("Missing userId in Teams state")
     }
@@ -38,12 +35,7 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
     
-    // Extract the unique identifier from the state to use in the redirect URI
-    const uidMatch = state.match(/uid=([^&]+)/)
-    const uid = uidMatch ? uidMatch[1] : Math.random().toString(36).substring(2, 15)
-    
-    // Use the same unique redirect URI format as in the authorization request
-    const redirectUri = `${baseUrl}/api/integrations/teams/callback?app=teams&v=3&uid=${uid}&ts=${Date.now()}`
+    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
