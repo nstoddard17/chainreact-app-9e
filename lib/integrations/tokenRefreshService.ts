@@ -13,6 +13,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 import { encryptTokens } from "./tokenUtils"
+import { getAllScopes } from "./integrationScopes"
 
 // Standard response for token refresh operations
 export interface RefreshResult {
@@ -512,10 +513,27 @@ export async function refreshTokenForProvider(
         if (verbose) console.log(`Decrypting refresh token for ${provider} (ID: ${integration.id})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
       } catch (error: any) {
-        console.error(`Failed to decrypt refresh token for ${provider}:`, error)
-        return {
-          success: false,
-          error: `Failed to decrypt refresh token: ${error.message}`,
+        console.error(`Decryption error:`, error)
+        
+        // Check for specific decryption errors
+        if (error.code === 'ERR_CRYPTO_INVALID_IV') {
+          return {
+            success: false,
+            error: `Failed to decrypt refresh token: Invalid initialization vector. The token may be corrupted or encrypted with a different key.`,
+            needsReauthorization: true
+          }
+        } else if (error.message.includes('Invalid initialization vector')) {
+          return {
+            success: false,
+            error: `Failed to decrypt refresh token: Invalid initialization vector. The token may be corrupted or encrypted with a different key.`,
+            needsReauthorization: true
+          }
+        } else {
+          return {
+            success: false,
+            error: `Failed to decrypt refresh token: ${error.message}`,
+            needsReauthorization: true
+          }
         }
       }
     } else {
@@ -531,7 +549,34 @@ export async function refreshTokenForProvider(
 
     if (verbose) console.log(`Found OAuth config for ${provider}`)
 
-    const { clientId, clientSecret } = getOAuthClientCredentials(config)
+    // Special handling for Microsoft services to ensure they use the correct client credentials
+    let clientId: string | undefined
+    let clientSecret: string | undefined
+    
+    if (provider === "teams") {
+      clientId = process.env.TEAMS_CLIENT_ID
+      clientSecret = process.env.TEAMS_CLIENT_SECRET
+      if (!clientId || !clientSecret) {
+        return { 
+          success: false, 
+          error: `Teams client credentials not configured. Please set TEAMS_CLIENT_ID and TEAMS_CLIENT_SECRET.` 
+        }
+      }
+    } else if (provider === "onedrive") {
+      clientId = process.env.ONEDRIVE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+      clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    } else if (provider === "microsoft-outlook") {
+      clientId = process.env.OUTLOOK_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+      clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    } else if (provider === "microsoft-onenote") {
+      clientId = process.env.ONENOTE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+      clientSecret = process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    } else {
+      // Use the standard OAuth config for other providers
+      const credentials = getOAuthClientCredentials(config)
+      clientId = credentials.clientId
+      clientSecret = credentials.clientSecret
+    }
 
     if (!clientId || !clientSecret) {
       console.error(`Missing client credentials for provider: ${provider}`)
@@ -564,9 +609,30 @@ export async function refreshTokenForProvider(
 
     // Add scope if configured
     if (config.scope) {
-      const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
-      bodyParams.scope = scopeString
-      if (verbose) console.log(`Added scope to body for ${provider}: ${scopeString}`)
+      // Special handling for Teams to use scopes from integrationScopes.ts
+      if (provider === "teams") {
+        const teamsScopes = getAllScopes("teams")
+        
+        // Format scopes for Microsoft Graph API - explicitly add the prefix
+        const formattedScopes = [
+          "offline_access", 
+          "openid", 
+          "profile", 
+          "email"
+        ];
+        
+        // Add Microsoft Graph API scopes with proper prefix
+        teamsScopes.forEach(scope => {
+          formattedScopes.push(`https://graph.microsoft.com/${scope}`);
+        });
+        
+        bodyParams.scope = formattedScopes.join(" ")
+        if (verbose) console.log(`Added Teams scopes from integrationScopes.ts: ${bodyParams.scope}`)
+      } else {
+        const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
+        bodyParams.scope = scopeString
+        if (verbose) console.log(`Added scope to body for ${provider}: ${scopeString}`)
+      }
     }
 
     // Add redirect_uri if required
@@ -719,8 +785,14 @@ export async function refreshTokenForProvider(
       // Special handling for PayPal
       else if (provider === "paypal") {
         if (verbose) console.log(`PayPal error details: ${JSON.stringify(responseData)}`)
+        
         if (responseData.error === "invalid_client") {
-          finalErrorMessage = "PayPal client credentials are invalid."
+          finalErrorMessage = "PayPal client credentials are invalid. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET."
+        } else if (responseData.error === "invalid_grant") {
+          finalErrorMessage = "PayPal refresh token expired or invalid. User must re-authorize."
+          needsReauth = true
+        } else if (response.status === 401) {
+          finalErrorMessage = "PayPal authentication failed. Client credentials may be invalid or expired."
         }
       }
 

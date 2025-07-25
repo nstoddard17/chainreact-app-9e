@@ -266,6 +266,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendScopeWithRefresh: false, // Discord doesn't support scope in refresh requests
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/discord/callback",
     scope: "identify email connections guilds guilds.members.read",
@@ -344,8 +345,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
-    // Teams-specific scopes only - focused on messaging, meetings, and basic team access
-    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite",
+    // Use a minimal scope definition here - the actual scopes will be loaded from integrationScopes.ts
+    scope: "offline_access openid profile email https://graph.microsoft.com/User.Read",
   },
   hubspot: {
     id: "hubspot",
