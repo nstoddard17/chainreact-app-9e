@@ -2,12 +2,14 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import BillingContent from "@/components/billing/BillingContent"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export default async function BillingPage() {
   // Validate required environment variables
   const requiredEnvVars = {
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   }
 
   const missingVars = Object.entries(requiredEnvVars)

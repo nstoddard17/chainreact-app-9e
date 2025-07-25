@@ -29,7 +29,7 @@ export const POST = async (request: NextRequest) => {
 
     // Get user info from Trello
     const trelloResponse = await fetch(
-      `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${token}`,
+      `https://api.trello.com/1/members/me?key=${process.env.TRELLO_CLIENT_ID}&token=${token}`,
     )
 
     if (!trelloResponse.ok) {

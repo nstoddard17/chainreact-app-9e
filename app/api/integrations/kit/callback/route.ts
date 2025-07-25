@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get Kit OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_KIT_CLIENT_ID
+    const clientId = process.env.KIT_CLIENT_ID
     const clientSecret = process.env.KIT_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/kit/callback`
 

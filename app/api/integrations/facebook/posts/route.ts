@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
             },
             body: new URLSearchParams({
               grant_type: 'fb_exchange_token',
-              client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
+              client_id: process.env.FACEBOOK_CLIENT_ID!,
               client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
               fb_exchange_token: integration.refresh_token,
             }),

@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get HubSpot OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
+    const clientId = process.env.HUBSPOT_CLIENT_ID
     const clientSecret = process.env.HUBSPOT_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/hubspot/callback`
 

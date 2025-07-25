@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    const clientId = process.env.PAYPAL_CLIENT_ID
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET
     // Use the same registered redirect URI as in the auth URL generation
     // This ensures consistency between authorization request and token exchange

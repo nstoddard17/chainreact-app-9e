@@ -33,7 +33,7 @@ export async function createTrelloList(
     if (template) {
       // First create the list
       const createResponse = await fetch(
-        `https://api.trello.com/1/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+        `https://api.trello.com/1/lists?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
         {
           method: "POST",
           headers: {
@@ -52,7 +52,7 @@ export async function createTrelloList(
       // Check if template is a list or a card
       // First try to get it as a list
       let templateListResponse = await fetch(
-        `https://api.trello.com/1/lists/${template}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}&fields=id,name,desc`,
+        `https://api.trello.com/1/lists/${template}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=id,name,desc`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -66,7 +66,7 @@ export async function createTrelloList(
         
         // Get all cards from the template list
         const cardsResponse = await fetch(
-          `https://api.trello.com/1/lists/${template}/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,pos,idLabels,idMembers`,
+          `https://api.trello.com/1/lists/${template}/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,pos,idLabels,idMembers`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -81,7 +81,7 @@ export async function createTrelloList(
           // Copy each card to the new list
           for (const card of templateCards) {
             await fetch(
-              `https://api.trello.com/1/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+              `https://api.trello.com/1/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
               {
                 method: "POST",
                 headers: {
@@ -116,7 +116,7 @@ export async function createTrelloList(
       } else {
         // Template might be a card, try to get it as a card
         const templateCardResponse = await fetch(
-          `https://api.trello.com/1/cards/${template}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,pos,idLabels,idMembers`,
+          `https://api.trello.com/1/cards/${template}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,pos,idLabels,idMembers`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -129,7 +129,7 @@ export async function createTrelloList(
           
           // Create a copy of the template card in the new list
           await fetch(
-            `https://api.trello.com/1/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+            `https://api.trello.com/1/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
             {
               method: "POST",
               headers: {
@@ -177,7 +177,7 @@ export async function createTrelloList(
     } else {
       // Create list without template
       const response = await fetch(
-        `https://api.trello.com/1/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+        `https://api.trello.com/1/lists?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
         {
           method: "POST",
           headers: {
@@ -241,7 +241,7 @@ export async function createTrelloCard(
       try {
         // Fetch the template card
         const templateResponse = await fetch(
-          `https://api.trello.com/1/cards/${template}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,idLabels,idMembers,checklists`,
+          `https://api.trello.com/1/cards/${template}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,idLabels,idMembers,checklists`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -262,7 +262,7 @@ export async function createTrelloCard(
           }
 
           const response = await fetch(
-            `https://api.trello.com/1/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+            `https://api.trello.com/1/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
             {
               method: "POST",
               headers: {
@@ -282,7 +282,7 @@ export async function createTrelloCard(
           if (templateCard.checklists && templateCard.checklists.length > 0) {
             for (const checklist of templateCard.checklists) {
               await fetch(
-                `https://api.trello.com/1/cards/${newCard.id}/checklists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+                `https://api.trello.com/1/cards/${newCard.id}/checklists?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
                 {
                   method: "POST",
                   headers: {
@@ -327,7 +327,7 @@ export async function createTrelloCard(
     }
 
     const response = await fetch(
-      `https://api.trello.com/1/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+      `https://api.trello.com/1/cards?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
       {
         method: "POST",
         headers: {
@@ -399,7 +399,7 @@ export async function moveTrelloCard(
     }
 
     const response = await fetch(
-      `https://api.trello.com/1/cards/${cardId}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+      `https://api.trello.com/1/cards/${cardId}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
       {
         method: "PUT",
         headers: {

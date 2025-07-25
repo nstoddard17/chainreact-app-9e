@@ -2,6 +2,13 @@ import { WebClient, CodedError } from "@slack/web-api"
 import { createClient } from "@supabase/supabase-js"
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { getBaseUrl } from "../utils/getBaseUrl"
+
+export const slackConfig = {
+  clientId: process.env.SLACK_CLIENT_ID!,
+  clientSecret: process.env.SLACK_CLIENT_SECRET!,
+  redirectUri: `${getBaseUrl()}/api/integrations/slack/callback`,
+}
 
 export interface SlackOAuthClient {
   getAuthUrl: (scopes: string[], state?: string) => string
@@ -11,9 +18,9 @@ export interface SlackOAuthClient {
 }
 
 export function getSlackOAuthClient(): SlackOAuthClient {
-  const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!
+  const clientId = process.env.SLACK_CLIENT_ID!
   const clientSecret = process.env.SLACK_CLIENT_SECRET!
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/slack/callback`
+  const redirectUri = `${getBaseUrl()}/api/integrations/slack/callback`
 
   return {
     getAuthUrl: (scopes: string[], state?: string) => {

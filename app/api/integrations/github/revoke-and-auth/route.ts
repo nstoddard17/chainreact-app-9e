@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // If there's an existing integration, revoke it first
     if (integration?.access_token) {
       try {
-        const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+        const clientId = process.env.GITHUB_CLIENT_ID
         const clientSecret = process.env.GITHUB_CLIENT_SECRET
 
         if (clientId && clientSecret) {

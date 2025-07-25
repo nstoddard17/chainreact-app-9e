@@ -107,6 +107,20 @@ export interface IntegrationStore {
   checkIntegrationScopes: (providerId: string) => { needsReconnection: boolean; reason: string; missingScopes?: string[] }
 }
 
+// Custom event system for integration changes
+const INTEGRATION_EVENTS = {
+  INTEGRATION_CONNECTED: 'integration-connected',
+  INTEGRATION_DISCONNECTED: 'integration-disconnected',
+  INTEGRATION_RECONNECTED: 'integration-reconnected',
+  INTEGRATIONS_UPDATED: 'integrations-updated'
+} as const
+
+function emitIntegrationEvent(eventType: keyof typeof INTEGRATION_EVENTS, data?: any) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(INTEGRATION_EVENTS[eventType], { detail: data }))
+  }
+}
+
 export const useIntegrationStore = create<IntegrationStore>()(
   (set, get) => ({
     providers: [],
@@ -373,6 +387,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setTimeout(() => {
                 console.log("⏱️ Timeout elapsed, fetching integrations after OAuth success")
                 fetchIntegrations(true) // Force refresh from server
+                emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
               }, 1000) // Increased delay to 1 second
             } else if (event.data && event.data.type === "oauth-error") {
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
@@ -460,6 +475,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         
         await fetchIntegrations(true)
+        emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
       } catch (error: any) {
         console.error(`Failed to connect ${providerId}:`, error)
         setError(error.message)
@@ -493,6 +509,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         await fetchIntegrations(true)
+        emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId, provider: integration.provider })
       } catch (error: any) {
         console.error(`Failed to disconnect ${integration.provider}:`, error)
         setError(error.message)
@@ -1264,6 +1281,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               }
               window.removeEventListener("message", newHandleMessage)
               fetchIntegrations(true)
+              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
               wrappedResolve(undefined)
             } else if (event.data.type === "oauth-error") {
               console.error("❌ OAuth reconnection failed:", event.data.message)

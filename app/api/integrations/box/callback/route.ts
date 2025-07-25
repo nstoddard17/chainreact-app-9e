@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+    const clientId = process.env.BOX_CLIENT_ID
     const clientSecret = process.env.BOX_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/box/callback`
 

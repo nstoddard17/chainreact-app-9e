@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get Notion OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+    const clientId = process.env.NOTION_CLIENT_ID
     const clientSecret = process.env.NOTION_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/notion/callback`
 

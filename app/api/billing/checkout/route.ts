@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY is not set in the environment variables.")
@@ -70,9 +71,7 @@ export async function POST(request: Request) {
     }
 
     // Get the base URL from the request headers or environment
-    const protocol = request.headers.get("x-forwarded-proto") || "https"
-    const host = request.headers.get("host") || request.headers.get("x-forwarded-host")
-    const origin = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}` || "https://localhost:3000"
+    const origin = getBaseUrl()
 
     // Ensure we have a valid URL with explicit scheme
     const baseUrl = origin.startsWith("http") ? origin : `https://${origin}`

@@ -1,9 +1,11 @@
+import { getApiBaseUrl } from "./utils/getBaseUrl"
+
 // Client-side API utilities for making requests to our API routes
 export class ApiClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || ""
+    this.baseUrl = getApiBaseUrl()
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<{ data?: T; error?: string }> {

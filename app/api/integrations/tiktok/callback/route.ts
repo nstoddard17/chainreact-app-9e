@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get TikTok OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+    const clientId = process.env.TIKTOK_CLIENT_ID
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
 

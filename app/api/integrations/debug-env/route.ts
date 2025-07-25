@@ -16,23 +16,23 @@ export async function GET() {
     // Check which environment variables are available
     const envCheck = {
       // Google credentials
-      hasGoogleClientId: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
       hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
 
       // YouTube-specific credentials
-      hasYouTubeClientId: !!process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID,
+      hasYouTubeClientId: !!process.env.YOUTUBE_CLIENT_ID,
       hasYouTubeClientSecret: !!process.env.YOUTUBE_CLIENT_SECRET,
 
       // Show partial values for verification (first 5 chars only for security)
-      googleClientIdPreview: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.substring(0, 5) + "...",
-      youtubeClientIdPreview: process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID?.substring(0, 5) + "...",
+      googleClientIdPreview: process.env.GOOGLE_CLIENT_ID?.substring(0, 5) + "...",
+      youtubeClientIdPreview: process.env.YOUTUBE_CLIENT_ID?.substring(0, 5) + "...",
 
       // Check if they're the same
-      sameClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID === process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID,
+      sameClientId: process.env.GOOGLE_CLIENT_ID === process.env.YOUTUBE_CLIENT_ID,
 
       // What the YouTube callback will actually use
       actualClientId:
-        (process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)?.substring(0, 5) +
+        (process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)?.substring(0, 5) +
         "...",
       actualClientSecret: !!(process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET),
     }

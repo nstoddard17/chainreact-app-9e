@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export default function DebugInfo() {
   const [showDebug, setShowDebug] = useState(false)
@@ -18,6 +19,7 @@ export default function DebugInfo() {
     Host: typeof window !== "undefined" ? window.location.host : "N/A",
     Protocol: typeof window !== "undefined" ? window.location.protocol : "N/A",
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "Not set",
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "Not set",
   }
 
   return (

@@ -155,6 +155,82 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       setLoadingMetrics(false)
     }
   }
+
+  // Auto-refresh metrics when integrations change
+  useEffect(() => {
+    if (user && integrations.length > 0) {
+      // Refresh metrics whenever integrations change
+      fetchMetrics()
+    }
+  }, [integrations, user])
+
+  // Set up periodic refresh for metrics (every 30 seconds)
+  useEffect(() => {
+    if (!user || !autoRefresh) return
+
+    const interval = setInterval(() => {
+      fetchMetrics()
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [user, autoRefresh])
+
+  // Listen for integration change events
+  useEffect(() => {
+    if (!user) return
+
+    const handleIntegrationConnected = (event: Event) => {
+      const customEvent = event as CustomEvent
+      console.log('🔄 Integration connected event received, refreshing metrics')
+      fetchMetrics()
+      toast({
+        title: "Integration Connected",
+        description: `Successfully connected ${customEvent.detail?.providerId || 'integration'}`,
+        variant: "default",
+      })
+    }
+
+    const handleIntegrationDisconnected = (event: Event) => {
+      const customEvent = event as CustomEvent
+      console.log('🔄 Integration disconnected event received, refreshing metrics')
+      fetchMetrics()
+      toast({
+        title: "Integration Disconnected",
+        description: `Successfully disconnected ${customEvent.detail?.provider || 'integration'}`,
+        variant: "default",
+      })
+    }
+
+    const handleIntegrationReconnected = (event: Event) => {
+      const customEvent = event as CustomEvent
+      console.log('🔄 Integration reconnected event received, refreshing metrics')
+      fetchMetrics()
+      toast({
+        title: "Integration Reconnected",
+        description: `Successfully reconnected ${customEvent.detail?.provider || 'integration'}`,
+        variant: "default",
+      })
+    }
+
+    const handleIntegrationsUpdated = () => {
+      console.log('🔄 Integrations updated event received, refreshing metrics')
+      fetchMetrics()
+    }
+
+    // Add event listeners
+    window.addEventListener('integration-connected', handleIntegrationConnected)
+    window.addEventListener('integration-disconnected', handleIntegrationDisconnected)
+    window.addEventListener('integration-reconnected', handleIntegrationReconnected)
+    window.addEventListener('integrations-updated', handleIntegrationsUpdated)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('integration-connected', handleIntegrationConnected)
+      window.removeEventListener('integration-disconnected', handleIntegrationDisconnected)
+      window.removeEventListener('integration-reconnected', handleIntegrationReconnected)
+      window.removeEventListener('integrations-updated', handleIntegrationsUpdated)
+    }
+  }, [user, fetchMetrics, toast])
   
   const handleRefresh = () => {
     console.log("🔄 Manual refresh requested by user")
@@ -458,7 +534,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }) => (
     <Card className="shadow-sm rounded-lg border-border bg-card">
       <CardHeader className="pb-3 sm:pb-4">
-        <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground">Integration Status</CardTitle>
+        <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground flex items-center gap-2">
+          Integration Status
+          {loadingMetrics && (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3 sm:space-y-4">
@@ -467,7 +548,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <Check className="w-4 h-4 mr-2 text-green-500" />
               <span className="text-sm sm:text-base font-medium">Connected</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs sm:text-sm transition-all duration-300">
               {loadingMetrics ? '...' : metrics.connected}
             </Badge>
           </li>
@@ -476,7 +557,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <Bell className="w-4 h-4 mr-2 text-yellow-500" />
               <span className="text-sm sm:text-base font-medium">Expiring</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 text-xs sm:text-sm transition-all duration-300">
               {loadingMetrics ? '...' : metrics.expiring}
             </Badge>
           </li>
@@ -485,7 +566,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
               <span className="text-sm sm:text-base font-medium">Expired</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs sm:text-sm transition-all duration-300">
               {loadingMetrics ? '...' : metrics.expired}
             </Badge>
           </li>
@@ -494,7 +575,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <X className="w-4 h-4 mr-2 text-muted-foreground" />
               <span className="text-sm sm:text-base font-medium">Disconnected</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-muted dark:bg-muted text-muted-foreground text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-muted dark:bg-muted text-muted-foreground text-xs sm:text-sm transition-all duration-300">
               {loadingMetrics ? '...' : metrics.disconnected}
             </Badge>
           </li>
