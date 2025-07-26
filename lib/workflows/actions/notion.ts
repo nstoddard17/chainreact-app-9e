@@ -180,14 +180,15 @@ export async function createNotionPage(
     const resolvedConfig = resolveValue(config, { input })
     
     const {
-      parentId,
+      workspace,
       title,
+      parentPageId,
       content,
       properties = {}
     } = resolvedConfig
 
-    if (!parentId || !title) {
-      throw new Error("Parent ID and title are required")
+    if (!title) {
+      throw new Error("Title is required")
     }
 
     // Get Notion integration
@@ -226,7 +227,7 @@ export async function createNotionPage(
 
     // Create page payload
     const payload: any = {
-      parent: { page_id: parentId },
+      parent: parentPageId ? { page_id: parentPageId } : { type: "workspace_id", workspace_id: workspace },
       properties: {
         title: {
           title: [

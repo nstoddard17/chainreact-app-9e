@@ -86,12 +86,32 @@ export async function POST(req: NextRequest) {
       return Response.json({ data: result });
     } catch (error: any) {
       console.error(`Error fetching ${dataType}:`, error);
+      
+      // Provide more detailed error information
+      let errorMessage = error.message || `Error fetching ${dataType}`;
+      let statusCode = 500;
+      
+      // Handle specific error types
+      if (error.message?.includes('authentication expired')) {
+        statusCode = 401;
+        errorMessage = `Authentication expired for ${integration.provider}. Please reconnect your account.`;
+      } else if (error.message?.includes('Token validation failed')) {
+        statusCode = 401;
+        errorMessage = `Token validation failed for ${integration.provider}. Please reconnect your account.`;
+      } else if (error.message?.includes('Failed to fetch')) {
+        statusCode = 503;
+        errorMessage = `Service temporarily unavailable for ${integration.provider}. Please try again later.`;
+      }
+      
       return Response.json({ 
         error: { 
-          message: error.message || `Error fetching ${dataType}` 
+          message: errorMessage,
+          details: error.message,
+          provider: integration.provider,
+          dataType: dataType
         },
         data: []
-      }, { status: 500 });
+      }, { status: statusCode });
     }
   } catch (error: any) {
     console.error('Error in fetch-user-data route:', error);
@@ -472,10 +492,20 @@ async function fetchDiscordWithRateLimit<T>(
 const dataFetchers: DataFetcher = {
   notion_pages: async (integration: any) => {
     try {
+      console.log('🔍 Notion pages fetcher called')
+      
+      // Validate and refresh token if needed
+      const tokenResult = await validateAndRefreshToken(integration)
+      if (!tokenResult.success) {
+        throw new Error(tokenResult.error || "Token validation failed")
+      }
+      
+      console.log('🔍 Token validation successful, fetching workspace info')
+      
       // 1. Fetch workspace info
       const workspaceRes = await fetch("https://api.notion.com/v1/users/me", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Notion-Version": "2022-06-28",
         },
       })
@@ -486,10 +516,11 @@ const dataFetchers: DataFetcher = {
       }
 
       // 2. Fetch all top-level pages
+      console.log('🔍 Fetching Notion pages from search API')
       const pagesRes = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
@@ -501,12 +532,13 @@ const dataFetchers: DataFetcher = {
       if (!pagesRes.ok) throw new Error("Failed to fetch Notion pages")
       const pagesData = await pagesRes.json()
       const topPages = pagesData.results || []
+      console.log(`🔍 Found ${topPages.length} top-level pages`)
 
       // 3. For each page, fetch subpages (child_page blocks)
       async function fetchSubpages(pageId: string) {
         const childrenRes = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
+            Authorization: `Bearer ${tokenResult.token}`,
             "Notion-Version": "2022-06-28",
           },
         })
@@ -532,7 +564,18 @@ const dataFetchers: DataFetcher = {
         return { id: page.id, title, icon, url, subpages }
       }))
 
-      return [{ workspace, pages: resultPages }]
+      // Return flat list for dropdown compatibility
+      const flatPages = resultPages.map(page => ({
+        value: page.id,
+        label: page.title,
+        description: page.url,
+        icon: page.icon
+      }))
+
+      console.log(`🔍 Returning ${flatPages.length} pages for dropdown`)
+      console.log('🔍 Sample pages:', flatPages.slice(0, 3).map(p => ({ id: p.value, title: p.label })))
+
+      return flatPages
     } catch (error: any) {
       console.error("Error fetching Notion pages (hierarchical):", error)
       throw error
@@ -541,36 +584,154 @@ const dataFetchers: DataFetcher = {
 
   notion_workspaces: async (integration: any) => {
     try {
-      // Notion doesn't have a direct API for workspaces, but we can get user info
-      // which includes workspace information
-      const response = await fetch("https://api.notion.com/v1/users/me", {
+      console.log('🔍 Notion workspaces fetcher called')
+      
+      // Validate and refresh token if needed
+      const tokenResult = await validateAndRefreshToken(integration)
+      if (!tokenResult.success) {
+        throw new Error(tokenResult.error || "Token validation failed")
+      }
+      
+      // Get user info first
+      const userResponse = await fetch("https://api.notion.com/v1/users/me", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
       })
 
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!userResponse.ok) {
+        if (userResponse.status === 401) {
           throw new Error("Notion authentication expired. Please reconnect your account.")
         }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+        const errorData = await userResponse.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${userResponse.status} - ${errorData.message || userResponse.statusText}`)
       }
 
-      const userData = await response.json()
+      const userData = await userResponse.json()
+      console.log('🔍 User data:', { id: userData.id, name: userData.name, workspace_id: userData.workspace_id })
       
-      // For now, return a single workspace since Notion doesn't expose multiple workspaces via API
-      // In the future, this could be enhanced to support multiple workspaces if Notion adds that API
-      return [{
+      // Try to get workspace information from user account
+      let userWorkspaceName = 'My Workspace'
+      
+      // Try to get workspace name from user's workspace
+      try {
+        // First, try to get workspace info from the user's account
+        if (userData.workspace_id) {
+          console.log('🔍 User has workspace_id:', userData.workspace_id)
+        }
+        
+        // Try to get workspace information by making a search request
+        // This might give us more information about the workspace
+        const workspaceSearchResponse = await fetch("https://api.notion.com/v1/search", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tokenResult.token}`,
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+          },
+          body: JSON.stringify({
+            filter: { property: "object", value: "page" },
+            page_size: 10, // Get more pages to find workspace info
+          }),
+        })
+        
+        if (workspaceSearchResponse.ok) {
+          const workspaceSearchData = await workspaceSearchResponse.json()
+          console.log('🔍 Found pages for workspace analysis:', workspaceSearchData.results?.length || 0)
+          
+          // Look through multiple pages to find workspace information
+          for (const page of workspaceSearchData.results || []) {
+            if (page.url) {
+              console.log('🔍 Analyzing page URL:', page.url)
+              
+              // Try different URL patterns to extract workspace name
+              const urlParts = page.url.split('/')
+              console.log('🔍 Page URL parts:', urlParts)
+              
+              // Pattern 1: https://notion.so/workspace-name/page-id
+              if (urlParts.length > 2) {
+                const workspacePart = urlParts[2]
+                if (workspacePart && workspacePart !== page.id && workspacePart.length > 3) {
+                  // This looks like a workspace name (not a page ID)
+                  const extractedName = decodeURIComponent(workspacePart.replace(/-/g, ' '))
+                  console.log('🔍 Extracted workspace name from URL:', extractedName)
+                  
+                  // Validate it looks like a workspace name (not just random characters)
+                  if (/^[a-zA-Z0-9\s\-_]+$/.test(extractedName) && extractedName.length > 2) {
+                    userWorkspaceName = extractedName
+                    console.log('🔍 Using extracted workspace name:', userWorkspaceName)
+                    break
+                  }
+                }
+              }
+              
+              // Pattern 2: Check if there's a workspace identifier in the URL
+              // Some Notion URLs have workspace info in different positions
+              const workspaceMatch = page.url.match(/notion\.so\/([^\/]+)/)
+              if (workspaceMatch && workspaceMatch[1] && workspaceMatch[1] !== page.id) {
+                const extractedName = decodeURIComponent(workspaceMatch[1].replace(/-/g, ' '))
+                if (/^[a-zA-Z0-9\s\-_]+$/.test(extractedName) && extractedName.length > 2) {
+                  userWorkspaceName = extractedName
+                  console.log('🔍 Using workspace name from URL pattern:', userWorkspaceName)
+                  break
+                }
+              }
+            }
+          }
+        }
+        
+        // If we still don't have a good workspace name, try to get it from user account
+        if (userWorkspaceName === 'My Workspace') {
+          console.log('🔍 Trying to get workspace name from user account...')
+          
+          // Try to get user's workspace information
+          const userWorkspaceResponse = await fetch("https://api.notion.com/v1/users/me", {
+            headers: {
+              Authorization: `Bearer ${tokenResult.token}`,
+              "Content-Type": "application/json",
+              "Notion-Version": "2022-06-28",
+            },
+          })
+          
+          if (userWorkspaceResponse.ok) {
+            const userWorkspaceData = await userWorkspaceResponse.json()
+            console.log('🔍 User workspace data:', userWorkspaceData)
+            
+            // Check if there's any workspace information in the user data
+            if (userWorkspaceData.workspace_name) {
+              userWorkspaceName = userWorkspaceData.workspace_name
+              console.log('🔍 Found workspace name in user data:', userWorkspaceName)
+            }
+            
+            // Check for workspace name in bot data (this is where it actually is!)
+            if (userWorkspaceData.bot && userWorkspaceData.bot.workspace_name) {
+              userWorkspaceName = userWorkspaceData.bot.workspace_name
+              console.log('🔍 Found workspace name in bot data:', userWorkspaceName)
+            }
+          }
+        }
+        
+
+      } catch (error) {
+        console.log('🔍 Could not fetch workspace details:', error)
+      }
+      
+      // Since we have the workspace name from the user API, just return it directly
+      console.log('🔍 Using workspace name from user API:', userWorkspaceName)
+      
+      const workspacesList = [{
         id: "default",
-        name: "My Workspace",
+        name: userWorkspaceName,
         value: "default",
-        description: "Default Notion workspace",
+        description: `Notion workspace: ${userWorkspaceName}`,
         user_id: userData.id,
         user_name: userData.name,
       }]
+      
+      console.log(`🔍 Returning ${workspacesList.length} workspaces from user account`)
+      return workspacesList
     } catch (error: any) {
       console.error("Error fetching Notion workspaces:", error)
       throw error
@@ -579,12 +740,18 @@ const dataFetchers: DataFetcher = {
 
   notion_templates: async (integration: any) => {
     try {
+      // Validate and refresh token if needed
+      const tokenResult = await validateAndRefreshToken(integration)
+      if (!tokenResult.success) {
+        throw new Error(tokenResult.error || "Token validation failed")
+      }
+      
       // Search for all pages and filter for templates on the client side
       // Notion API doesn't support filtering by title content in search
       const response = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
@@ -626,10 +793,16 @@ const dataFetchers: DataFetcher = {
 
   notion_databases: async (integration: any) => {
     try {
+      // Validate and refresh token if needed
+      const tokenResult = await validateAndRefreshToken(integration)
+      if (!tokenResult.success) {
+        throw new Error(tokenResult.error || "Token validation failed")
+      }
+      
       const response = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
@@ -664,6 +837,12 @@ const dataFetchers: DataFetcher = {
 
   notion_users: async (integration: any) => {
     try {
+      // Validate and refresh token if needed
+      const tokenResult = await validateAndRefreshToken(integration)
+      if (!tokenResult.success) {
+        throw new Error(tokenResult.error || "Token validation failed")
+      }
+      
       // Notion API doesn't provide a direct way to get all users in a workspace
       // We'll return a list of common assignee options that users can customize
       return [

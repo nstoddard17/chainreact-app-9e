@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAllScopes } from "@/lib/integrations/integrationScopes"
+import { getOAuthConfig } from "@/lib/integrations/oauthConfig"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get Teams scopes
-    const teamsScopes = getAllScopes("teams")
+    // Get Teams OAuth config
+    const config = getOAuthConfig("teams")
+    if (!config) throw new Error("Teams OAuth config not found")
     
-    // Format scopes for Microsoft Graph API
-    const formattedScopes = [
-      "offline_access", 
-      "openid", 
-      "profile", 
-      "email"
-    ];
-    
-    // Add Microsoft Graph API scopes with proper prefix
-    teamsScopes.forEach(scope => {
-      formattedScopes.push(`https://graph.microsoft.com/${scope}`);
-    });
-    
-    const scopeString = formattedScopes.join(" ")
+    // Get scope from config (same as other Microsoft services)
+    const scopeString = config.scope || ""
+    const formattedScopes = scopeString.split(" ")
     
     // Check environment variables
     const hasTeamsClientId = !!process.env.TEAMS_CLIENT_ID
@@ -32,7 +22,6 @@ export async function GET(request: NextRequest) {
         hasTeamsClientId,
         hasTeamsClientSecret,
         teamsClientId,
-        teamsScopes,
         formattedScopes,
         scopeString,
         scopeStringLength: scopeString.length,
