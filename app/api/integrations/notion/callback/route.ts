@@ -150,29 +150,117 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Store the integration data
+    // Store the integration data - support multiple Notion workspaces in a single record
     const supabase = createAdminClient()
-    const { error: upsertError } = await supabase.from('integrations').upsert({
-      user_id: userId,
-      provider,
+    
+    console.log(`🔍 Checking for existing Notion integration for user: ${userId}`)
+    console.log(`🔍 Workspace name: ${workspaceName}`)
+    console.log(`🔍 Workspace ID: ${workspaceId}`)
+    
+    // Get existing Notion integration for this user
+    const { data: existingIntegrations, error: queryError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', provider)
+    
+    if (queryError) {
+      console.error('🔍 Error querying existing integrations:', queryError)
+    }
+    
+    console.log(`🔍 Found ${existingIntegrations?.length || 0} existing Notion integrations`)
+    
+    // Prepare workspace data
+    const workspaceData = {
+      workspace_id: workspaceId,
+      workspace_name: workspaceName,
+      workspace_icon: workspaceIcon,
+      bot_id: botId,
+      owner_type: tokenData.owner?.type,
+      user_info: userInfo,
+      duplicate_template_privileges: tokenData.duplicated_template_id ? true : false,
       access_token: encrypt(tokenData.access_token, encryptionKey),
-      refresh_token: null, // Notion doesn't provide refresh tokens
-      expires_at: expiresAt.toISOString(),
-      status: 'connected',
-      is_active: true,
-      updated_at: new Date().toISOString(),
-      metadata: {
-        workspace_id: workspaceId,
-        workspace_name: workspaceName,
-        workspace_icon: workspaceIcon,
-        bot_id: botId,
-        owner_type: tokenData.owner?.type,
-        user_info: userInfo,
-        duplicate_template_privileges: tokenData.duplicated_template_id ? true : false
+      connected_at: new Date().toISOString()
+    }
+    
+    let integrationData;
+    let upsertError;
+    
+    if (existingIntegrations && existingIntegrations.length > 0) {
+      // Update existing integration with new workspace
+      const existingIntegration = existingIntegrations[0];
+      const existingMetadata = existingIntegration.metadata || {};
+      const existingWorkspaces = existingMetadata.workspaces || {};
+      
+      // Add or update this workspace
+      existingWorkspaces[workspaceId] = workspaceData;
+      
+      // Use the most recent access token as the primary one
+      const primaryWorkspaceId = Object.keys(existingWorkspaces).sort((a, b) => 
+        new Date(existingWorkspaces[b].connected_at).getTime() - new Date(existingWorkspaces[a].connected_at).getTime()
+      )[0];
+      
+      integrationData = {
+        user_id: userId,
+        provider,
+        access_token: existingWorkspaces[primaryWorkspaceId].access_token,
+        refresh_token: null,
+        expires_at: expiresAt.toISOString(),
+        status: 'connected',
+        is_active: true,
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...existingMetadata,
+          workspaces: existingWorkspaces,
+          primary_workspace_id: primaryWorkspaceId,
+          workspace_count: Object.keys(existingWorkspaces).length
+        }
       }
-    }, {
-      onConflict: 'user_id, provider',
-    })
+      
+      console.log(`🔍 Updating existing integration with ${Object.keys(existingWorkspaces).length} workspaces`)
+      const { error } = await supabase
+        .from('integrations')
+        .update(integrationData)
+        .eq('id', existingIntegration.id)
+      upsertError = error;
+      
+      if (error) {
+        console.error('🔍 Error updating integration:', error)
+      } else {
+        console.log('🔍 Successfully updated integration with multiple workspaces')
+      }
+    } else {
+      // Create new integration with this workspace
+      integrationData = {
+        user_id: userId,
+        provider,
+        access_token: workspaceData.access_token,
+        refresh_token: null,
+        expires_at: expiresAt.toISOString(),
+        status: 'connected',
+        is_active: true,
+        updated_at: new Date().toISOString(),
+        metadata: {
+          workspaces: {
+            [workspaceId]: workspaceData
+          },
+          primary_workspace_id: workspaceId,
+          workspace_count: 1
+        }
+      }
+      
+      console.log(`🔍 Creating new integration with workspace: ${workspaceName}`)
+      const { error } = await supabase
+        .from('integrations')
+        .insert(integrationData)
+      upsertError = error;
+      
+      if (error) {
+        console.error('🔍 Error creating new integration:', error)
+      } else {
+        console.log('🔍 Successfully created new integration')
+      }
+    }
 
     if (upsertError) {
       console.error('Failed to save Notion integration:', upsertError)
