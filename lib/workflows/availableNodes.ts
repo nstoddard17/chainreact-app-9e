@@ -1741,22 +1741,33 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { 
-        name: "parentPageId", 
-        label: "Parent Page (Optional)", 
-        type: "select", 
-        dynamic: "notion_pages",
-        required: false,
-        placeholder: "Select parent page (leave empty for root level)",
-        description: "Choose where to create the new page. Leave empty to create at the root level."
-      },
-      { 
         name: "workspace", 
         label: "Workspace", 
         type: "select", 
         dynamic: "notion_workspaces",
         required: true,
         placeholder: "Select Notion workspace",
-        description: "Note: Notion's API has limited workspace visibility. You may only see workspaces where you have pages/databases."
+        description: "Select the workspace where you want to create the page."
+      },
+      { 
+        name: "database", 
+        label: "Database (Optional)", 
+        type: "select", 
+        dynamic: "notion_databases",
+        required: false,
+        placeholder: "Select database (leave empty for root level)",
+        description: "Choose a database to create the page in. Leave empty to create at the root level.",
+        dependsOn: "workspace"
+      },
+      { 
+        name: "parentPageId", 
+        label: "Parent Page (Optional)", 
+        type: "select", 
+        dynamic: "notion_pages",
+        required: false,
+        placeholder: "Select parent page (leave empty for root level)",
+        description: "Choose where to create the new page. Leave empty to create at the root level.",
+        dependsOn: "database"
       },
       { 
         name: "title", 

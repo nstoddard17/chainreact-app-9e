@@ -2894,8 +2894,13 @@ function ConfigurationModal({
     let hasData = false
     const newOptions: Record<string, any[]> = {}
 
-    // Collect all dynamic fields (excluding dependent fields)
-    const dynamicFields = (nodeInfo.configSchema || []).filter(field => field.dynamic && !field.dependsOn)
+    // Collect all dynamic fields (excluding dependent fields and Notion pages/databases which need workspace context)
+    const dynamicFields = (nodeInfo.configSchema || []).filter(field => 
+      field.dynamic && 
+      !field.dependsOn && 
+      field.dynamic !== 'notion_pages' && // Exclude notion_pages from initial load
+      field.dynamic !== 'notion_databases' // Exclude notion_databases from initial load
+    )
 
     // Add signature fetches for email providers
     const signatureFetches: Array<{ name: string, dynamic: string }> = []
@@ -3991,16 +3996,8 @@ function ConfigurationModal({
     const value = config[field.name] || (field.type === "multi-select" ? [] : "");
     const hasError = !!errors[field.name];
     const handleSelectChange = (newValue: string) => {
-      setConfig(prev => ({ ...prev, [field.name]: newValue }));
-      // Save preference
-      configPreferences.updateField(field.name, newValue);
-      if (hasError) {
-        setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[field.name];
-          return newErrors;
-        });
-      }
+      console.log(`🔄 Select change for field ${field.name}:`, newValue);
+      handleFieldSelectChange(newValue);
     };
     const renderLabel = () => (
       <Label className="text-sm font-medium">
@@ -5658,6 +5655,103 @@ function ConfigurationModal({
       // For Discord actions, channels will be loaded automatically by fetchDependentData
       if (nodeInfo?.type === "discord_action_send_message" && field.name === "guildId" && newValue) {
         console.log(`🔄 Guild selected: ${newValue}, channels will be loaded automatically`)
+      }
+      
+      // For Notion actions, load databases when workspace is selected
+      if (nodeInfo?.type === "notion_action_create_page" && field.name === "workspace" && newValue) {
+        console.log(`🔄 Notion workspace selected: ${newValue}, loading databases for this workspace`)
+        
+        // Reset the database and parent page selections when workspace changes
+        setConfig(prev => ({
+          ...prev,
+          database: undefined, // Clear the database selection
+          parentPageId: undefined // Clear the parent page selection
+        }))
+        
+        const integration = getIntegrationByProvider("notion")
+        if (integration) {
+          loadIntegrationData("notion_databases", integration.id, { workspace: newValue })
+            .then((databaseData) => {
+              console.log('🔍 Database data received:', databaseData?.length || 0, 'databases')
+              if (databaseData && databaseData.length > 0) {
+                const mappedDatabases = databaseData.map((database: any) => ({
+                  value: database.value || database.id,
+                  label: database.label || database.name || 'Untitled',
+                  description: database.description || database.url,
+                  icon: database.icon
+                }))
+                console.log('🔍 Mapped databases:', mappedDatabases.slice(0, 3))
+                setDynamicOptions(prev => {
+                  const newOptions = {
+                    ...prev,
+                    "database": mappedDatabases
+                  }
+                  console.log('🔍 Updated dynamic options for database:', newOptions.database?.length || 0)
+                  return newOptions
+                })
+                console.log('✅ Loaded databases for workspace:', mappedDatabases.length)
+              } else {
+                console.log('⚠️ No databases found for workspace')
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "database": []
+                }))
+              }
+            })
+            .catch((error) => {
+              console.error('❌ Error loading databases for workspace:', error)
+            })
+        } else {
+          console.error('❌ No Notion integration found')
+        }
+      }
+      
+      // For Notion actions, load pages when database is selected
+      if (nodeInfo?.type === "notion_action_create_page" && field.name === "database" && newValue) {
+        console.log(`🔄 Notion database selected: ${newValue}, loading pages for this database`)
+        
+        // Reset the parent page selection when database changes
+        setConfig(prev => ({
+          ...prev,
+          parentPageId: undefined // Clear the parent page selection
+        }))
+        
+        const integration = getIntegrationByProvider("notion")
+        if (integration) {
+          loadIntegrationData("notion_pages", integration.id, { database: newValue })
+            .then((pageData) => {
+              console.log('🔍 Page data received:', pageData?.length || 0, 'pages')
+              if (pageData && pageData.length > 0) {
+                const mappedPages = pageData.map((page: any) => ({
+                  value: page.value || page.id,
+                  label: page.label || page.title || 'Untitled',
+                  description: page.description || page.url,
+                  icon: page.icon
+                }))
+                console.log('🔍 Mapped pages:', mappedPages.slice(0, 3))
+                setDynamicOptions(prev => {
+                  const newOptions = {
+                    ...prev,
+                    "parentPageId": mappedPages
+                  }
+                  console.log('🔍 Updated dynamic options for parentPageId:', newOptions.parentPageId?.length || 0)
+                  return newOptions
+                })
+                console.log('✅ Loaded pages for database:', mappedPages.length)
+              } else {
+                console.log('⚠️ No pages found for database')
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "parentPageId": []
+                }))
+              }
+            })
+            .catch((error) => {
+              console.error('❌ Error loading pages for database:', error)
+            })
+        } else {
+          console.error('❌ No Notion integration found')
+        }
       }
       
       // Clear error when user selects a value

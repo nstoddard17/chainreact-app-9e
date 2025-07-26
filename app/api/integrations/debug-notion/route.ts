@@ -46,8 +46,11 @@ export async function POST(request: NextRequest) {
         status: integration.status,
         workspace_name: integration.metadata?.workspace_name,
         workspace_id: integration.metadata?.workspace_id,
+        workspaces: integration.metadata?.workspaces,
+        workspace_count: integration.metadata?.workspace_count,
         created_at: integration.created_at,
-        updated_at: integration.updated_at
+        updated_at: integration.updated_at,
+        metadata: integration.metadata
       })) || []
     })
     
