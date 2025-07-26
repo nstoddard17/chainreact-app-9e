@@ -491,23 +491,48 @@ async function fetchDiscordWithRateLimit<T>(
 
 // Fix data fetchers with better error handling
 const dataFetchers: DataFetcher = {
-  notion_pages: async (integration: any) => {
+  notion_pages: async (integration: any, context?: any) => {
     try {
       console.log("🔍 Notion pages fetcher called")
+      console.log("🔍 Context:", context)
       
-      // Get the Notion integration for this user
+      // Get the Notion integration - handle both integrationId and userId cases
       const supabase = createAdminClient()
-      const { data: notionIntegration, error: integrationError } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', integration.userId)
-        .eq('provider', 'notion')
-        .eq('status', 'connected')
-        .single()
+      let notionIntegration
+      let integrationError
+      
+      if (integration.id) {
+        // If we have a specific integration ID, use that
+        console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('id', integration.id)
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else if (integration.userId) {
+        // If we have a user ID, find the Notion integration for that user
+        console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', integration.userId)
+          .eq('provider', 'notion')
+          .eq('status', 'connected')
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else {
+        throw new Error("No integration ID or user ID provided")
+      }
       
       if (integrationError || !notionIntegration) {
+        console.error('🔍 Integration lookup failed:', integrationError)
         throw new Error("Notion integration not found")
       }
+      
+      console.log(`🔍 Found integration: ${notionIntegration.id}`)
       
       // Get workspaces from metadata
       const workspaces = notionIntegration.metadata?.workspaces || {}
@@ -517,7 +542,14 @@ const dataFetchers: DataFetcher = {
         throw new Error("No workspaces found in Notion integration")
       }
       
-      console.log(`🔍 Found ${workspaceIds.length} workspaces, fetching pages from all`)
+      // If a specific database is selected, only fetch pages from that database
+      const selectedDatabaseId = context?.database
+      if (selectedDatabaseId) {
+        console.log(`🔍 Filtering pages for selected database: ${selectedDatabaseId}`)
+        // We'll filter pages by database after fetching them
+      } else {
+        console.log(`🔍 No database selected, fetching pages from all workspaces`)
+      }
       
       // Collect pages from all workspaces
       const allPages: any[] = []
@@ -582,15 +614,40 @@ const dataFetchers: DataFetcher = {
         }
       }
       
+      // Filter pages by database if a specific database is selected
+      let filteredPages = allPages
+      if (selectedDatabaseId) {
+        console.log(`🔍 Filtering ${allPages.length} pages to only show pages from database: ${selectedDatabaseId}`)
+        filteredPages = allPages.filter(page => {
+          // Check if the page's parent is the selected database
+          const parent = page.parent
+          return parent && parent.type === 'database_id' && parent.database_id === selectedDatabaseId
+        })
+        console.log(`🔍 After filtering: ${filteredPages.length} pages from database`)
+      }
+      
       // Convert pages to dropdown format
-      const flatPages = allPages.map(page => ({
-        value: page.id,
-        label: getPageTitle(page),
-        description: page.url,
-        icon: page.icon,
-        workspace_id: page.workspace_id,
-        workspace_name: page.workspace_name
-      }))
+      const flatPages = filteredPages.map(page => {
+        const title = getPageTitle(page)
+        // Debug logging for pages with problematic titles
+        if (title === "Untitled Page" || title === "Database Entry") {
+          console.log('🔍 Debug - Page with fallback title:', {
+            id: page.id,
+            title: title,
+            properties: Object.keys(page.properties || {}),
+            parent: page.parent,
+            url: page.url
+          })
+        }
+        return {
+          value: page.id,
+          label: title,
+          description: page.url,
+          icon: page.icon,
+          workspace_id: page.workspace_id,
+          workspace_name: page.workspace_name
+        }
+      })
       
       console.log(`🔍 Returning ${flatPages.length} pages for dropdown`)
       console.log('🔍 Sample pages:', flatPages.slice(0, 3).map(p => ({ id: p.value, title: p.label })))
@@ -606,15 +663,36 @@ const dataFetchers: DataFetcher = {
     try {
       console.log('🔍 Notion workspaces fetcher called - fetching workspaces from metadata')
       
-      // Get the Notion integration for this user
+      // Get the Notion integration - handle both integrationId and userId cases
       const supabase = createAdminClient()
-      const { data: notionIntegration, error: integrationError } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', integration.userId)
-        .eq('provider', 'notion')
-        .eq('status', 'connected')
-        .single()
+      let notionIntegration
+      let integrationError
+      
+      if (integration.id) {
+        // If we have a specific integration ID, use that
+        console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('id', integration.id)
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else if (integration.userId) {
+        // If we have a user ID, find the Notion integration for that user
+        console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', integration.userId)
+          .eq('provider', 'notion')
+          .eq('status', 'connected')
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else {
+        throw new Error("No integration ID or user ID provided")
+      }
       
       if (integrationError || !notionIntegration) {
         console.log('🔍 No Notion integration found for user')
@@ -623,10 +701,12 @@ const dataFetchers: DataFetcher = {
           name: "My Workspace",
           value: "default",
           description: "Default Notion workspace",
-          user_id: integration.userId,
+          user_id: integration.userId || integration.id,
           user_name: "User",
         }]
       }
+      
+      console.log(`🔍 Found integration: ${notionIntegration.id}`)
       
       console.log(`🔍 Found Notion integration with ${notionIntegration.metadata?.workspace_count || 0} workspaces`)
       
@@ -819,44 +899,148 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  notion_databases: async (integration: any) => {
+  notion_databases: async (integration: any, context?: any) => {
     try {
-      // Validate and refresh token if needed
-      const tokenResult = await validateAndRefreshToken(integration)
-      if (!tokenResult.success) {
-        throw new Error(tokenResult.error || "Token validation failed")
+      console.log("🔍 Notion databases fetcher called")
+      console.log("🔍 Context:", context)
+      
+      // Get the Notion integration - handle both integrationId and userId cases
+      const supabase = createAdminClient()
+      let notionIntegration
+      let integrationError
+      
+      if (integration.id) {
+        // If we have a specific integration ID, use that
+        console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('id', integration.id)
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else if (integration.userId) {
+        // If we have a user ID, find the Notion integration for that user
+        console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+        const result = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', integration.userId)
+          .eq('provider', 'notion')
+          .eq('status', 'connected')
+          .single()
+        notionIntegration = result.data
+        integrationError = result.error
+      } else {
+        throw new Error("No integration ID or user ID provided")
       }
       
-      const response = await fetch("https://api.notion.com/v1/search", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tokenResult.token}`,
-          "Content-Type": "application/json",
-          "Notion-Version": "2022-06-28",
-        },
-        body: JSON.stringify({
-          filter: { property: "object", value: "database" },
-          page_size: 100,
-        }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Notion authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+      if (integrationError || !notionIntegration) {
+        console.error('🔍 Integration lookup failed:', integrationError)
+        throw new Error("Notion integration not found")
       }
-
-      const data = await response.json()
-      return (data.results || []).map((db: any) => ({
-        id: db.id,
-        name: getDatabaseTitle(db),
-        value: db.id,
-        url: db.url,
-        created_time: db.created_time,
-        last_edited_time: db.last_edited_time,
+      
+      console.log(`🔍 Found integration: ${notionIntegration.id}`)
+      
+      // Get workspaces from metadata
+      const workspaces = notionIntegration.metadata?.workspaces || {}
+      const workspaceIds = Object.keys(workspaces)
+      
+      if (workspaceIds.length === 0) {
+        throw new Error("No workspaces found in Notion integration")
+      }
+      
+      // If a specific workspace is selected, only fetch databases from that workspace
+      const selectedWorkspaceId = context?.workspace
+      if (selectedWorkspaceId) {
+        console.log(`🔍 Filtering databases for selected workspace: ${selectedWorkspaceId}`)
+        if (!workspaces[selectedWorkspaceId]) {
+          console.error(`🔍 Selected workspace ${selectedWorkspaceId} not found in available workspaces`)
+          return []
+        }
+        workspaceIds.length = 0
+        workspaceIds.push(selectedWorkspaceId)
+      } else {
+        console.log(`🔍 No workspace selected, fetching databases from all ${workspaceIds.length} workspaces`)
+      }
+      
+      // Collect databases from selected workspaces
+      const allDatabases: any[] = []
+      
+      for (const workspaceId of workspaceIds) {
+        try {
+          const workspaceData = workspaces[workspaceId]
+          
+          // Decrypt the access token for this workspace
+          const encryptionKey = process.env.ENCRYPTION_KEY
+          if (!encryptionKey) {
+            console.error('🔍 Encryption key not configured')
+            continue
+          }
+          
+          const { decrypt } = await import('@/lib/security/encryption')
+          let accessToken
+          
+          try {
+            accessToken = decrypt(workspaceData.access_token, encryptionKey)
+          } catch (decryptError) {
+            console.error(`🔍 Failed to decrypt token for workspace ${workspaceId}:`, decryptError)
+            continue
+          }
+          
+          // Search for databases in this workspace
+          const searchResponse = await fetch("https://api.notion.com/v1/search", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              "Notion-Version": "2022-06-28",
+            },
+            body: JSON.stringify({
+              filter: { property: "object", value: "database" },
+              page_size: 100,
+            }),
+          })
+          
+          if (!searchResponse.ok) {
+            console.log(`🔍 Search failed for workspace ${workspaceId}:`, searchResponse.status)
+            continue
+          }
+          
+          const databaseData = await searchResponse.json()
+          const databases = databaseData.results || []
+          
+          // Add workspace info to each database
+          databases.forEach((database: any) => {
+            allDatabases.push({
+              ...database,
+              workspace_id: workspaceId,
+              workspace_name: workspaceData.workspace_name
+            })
+          })
+          
+          console.log(`🔍 Found ${databases.length} databases in workspace ${workspaceData.workspace_name}`)
+          
+        } catch (workspaceError) {
+          console.log(`🔍 Error processing workspace ${workspaceId}:`, workspaceError)
+          // Continue processing other workspaces
+        }
+      }
+      
+      // Convert databases to dropdown format
+      const flatDatabases = allDatabases.map(database => ({
+        value: database.id,
+        label: getDatabaseTitle(database),
+        description: database.url,
+        icon: database.icon,
+        workspace_id: database.workspace_id,
+        workspace_name: database.workspace_name
       }))
+      
+      console.log(`🔍 Returning ${flatDatabases.length} databases for dropdown`)
+      console.log('🔍 Sample databases:', flatDatabases.slice(0, 3).map(d => ({ id: d.value, title: d.label })))
+      
+      return flatDatabases
     } catch (error: any) {
       console.error("Error fetching Notion databases:", error)
       throw error
@@ -6451,9 +6635,14 @@ function getPageTitle(page: any): string {
     }
   }
   
-  // Last resort: use the page ID as a fallback
+  // Last resort: provide a more user-friendly fallback
   if (page.id) {
-    return `Page ${page.id.slice(0, 8)}...`
+    // Check if this looks like a database page (has parent database)
+    if (page.parent?.type === 'database_id') {
+      return "Database Entry"
+    }
+    // Check if this is a page with no title
+    return "Untitled Page"
   }
   
   return "Untitled"
