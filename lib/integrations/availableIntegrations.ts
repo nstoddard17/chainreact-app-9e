@@ -122,7 +122,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Collaborate and communicate through Microsoft Teams",
     category: "communication",
     capabilities: ["Send Messages", "Create Meetings", "File Sharing", "Notifications", "Team Management", "Channel Management"],
-    scopes: ["User.Read", "Team.ReadBasic.All", "Team.Create", "TeamMember.Read.All", "TeamMember.ReadWrite.All", "Channel.ReadBasic.All", "Channel.Create", "Channel.Delete.All", "ChannelMessage.Read.All", "ChannelMessage.ReadWrite", "ChannelMessage.Edit", "ChannelMessage.Send", "Chat.Read", "Chat.ReadWrite", "Chat.ReadWrite.All", "Chat.Create", "Chat.ManageDeletion.All", "ChatMessage.Read", "ChatMessage.Send", "OnlineMeetings.ReadWrite"],
+    scopes: ["https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Team.ReadBasic.All", "https://graph.microsoft.com/Team.Create", "https://graph.microsoft.com/TeamMember.Read.All", "https://graph.microsoft.com/Channel.ReadBasic.All", "https://graph.microsoft.com/Channel.Create", "https://graph.microsoft.com/ChannelMessage.Read.All", "https://graph.microsoft.com/ChannelMessage.Send", "https://graph.microsoft.com/Chat.Read", "https://graph.microsoft.com/Chat.Create", "https://graph.microsoft.com/ChatMessage.Send"],
     isAvailable: false,
     requiresClientId: "TEAMS_CLIENT_ID",
     requiresClientSecret: "TEAMS_CLIENT_SECRET",

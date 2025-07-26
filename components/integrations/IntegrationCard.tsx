@@ -226,6 +226,16 @@ export function IntegrationCard({
         </div>
         <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
+          {provider.id === 'teams' && (
+            <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-amber-800 dark:text-amber-200">
+                  <strong>Work/School Account Required:</strong> Microsoft Teams integration only works with work or school accounts that have Microsoft 365 subscription. Personal accounts (@outlook.com, @hotmail.com) are not supported.
+                </div>
+              </div>
+            </div>
+          )}
           {provider.id === 'microsoft-onenote' && (
             <div>
               <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">

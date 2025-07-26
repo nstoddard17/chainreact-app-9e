@@ -345,8 +345,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
-    // Use a minimal scope definition here - the actual scopes will be loaded from integrationScopes.ts
-    scope: "offline_access openid profile email https://graph.microsoft.com/User.Read",
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All",
   },
   hubspot: {
     id: "hubspot",

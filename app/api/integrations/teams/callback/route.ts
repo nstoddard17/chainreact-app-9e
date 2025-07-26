@@ -49,23 +49,17 @@ export async function GET(request: NextRequest) {
       throw new Error("Teams client ID or secret not configured. Please set TEAMS_CLIENT_ID and TEAMS_CLIENT_SECRET environment variables.")
     }
 
-    // Get Teams-specific scopes from integrationScopes.ts
-    const teamsScopes = getAllScopes("teams")
+    // Get scope from OAuth config (same as other Microsoft services)
+    const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+    const config = getOAuthConfig("teams")
+    if (!config) throw new Error("Teams OAuth config not found")
     
-    // Format scopes for Microsoft Graph API - explicitly add the prefix
-    const formattedScopes = [
-      "offline_access", 
-      "openid", 
-      "profile", 
-      "email"
-    ];
+    const scopeString = config.scope || ""
     
-    // Add Microsoft Graph API scopes with proper prefix
-    teamsScopes.forEach(scope => {
-      formattedScopes.push(`https://graph.microsoft.com/${scope}`);
-    });
-    
-    const scopeString = formattedScopes.join(" ")
+    console.log('🔍 Teams Token Request Debug:')
+    console.log('  - Scope string being sent:', scopeString)
+    console.log('  - Client ID being used:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+    console.log('  - Redirect URI:', redirectUri)
 
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
@@ -95,8 +89,41 @@ export async function GET(request: NextRequest) {
     console.log('  - Access token received:', !!tokenData.access_token)
     console.log('  - Refresh token received:', !!tokenData.refresh_token)
     console.log('  - Scopes returned by Microsoft:', tokenData.scope)
+    console.log('  - Scopes we requested:', scopeString)
     console.log('  - Token type:', tokenData.token_type)
     console.log('  - Expires in:', tokenData.expires_in)
+    console.log('  - Full token response:', JSON.stringify(tokenData, null, 2))
+
+    // Validate Teams account access
+    console.log('🔍 Validating Teams account access...')
+    const validationResponse = await fetch(`${baseUrl}/api/integrations/validate-teams-account`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        accessToken: tokenData.access_token
+      })
+    })
+
+    const validationData = await validationResponse.json()
+    console.log('🔍 Teams account validation result:', validationData)
+
+    if (!validationData.success) {
+      if (validationData.error === 'TEAMS_PERSONAL_ACCOUNT') {
+        return createPopupResponse("error", provider, 
+          "Microsoft Teams integration requires a work or school account with Microsoft 365 subscription. " +
+          "Personal Microsoft accounts (@outlook.com, @hotmail.com, etc.) are not supported. " +
+          "Please use your work or school email address.", baseUrl)
+      } else if (validationData.error === 'TEAMS_NO_ACCESS') {
+        return createPopupResponse("error", provider,
+          "Your work or school account does not have access to Microsoft Teams. " +
+          "Please contact your administrator to enable Teams access or ensure you have a Microsoft 365 subscription.", baseUrl)
+      } else {
+        return createPopupResponse("error", provider,
+          "Failed to validate Teams account access. Please try again or contact support.", baseUrl)
+      }
+    }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds

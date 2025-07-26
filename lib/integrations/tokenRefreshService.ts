@@ -609,25 +609,11 @@ export async function refreshTokenForProvider(
 
     // Add scope if configured
     if (config.scope) {
-      // Special handling for Teams to use scopes from integrationScopes.ts
+      // Teams uses config.scope directly (same as other Microsoft services)
       if (provider === "teams") {
-        const teamsScopes = getAllScopes("teams")
-        
-        // Format scopes for Microsoft Graph API - explicitly add the prefix
-        const formattedScopes = [
-          "offline_access", 
-          "openid", 
-          "profile", 
-          "email"
-        ];
-        
-        // Add Microsoft Graph API scopes with proper prefix
-        teamsScopes.forEach(scope => {
-          formattedScopes.push(`https://graph.microsoft.com/${scope}`);
-        });
-        
-        bodyParams.scope = formattedScopes.join(" ")
-        if (verbose) console.log(`Added Teams scopes from integrationScopes.ts: ${bodyParams.scope}`)
+        const scopeString = config.scope || ""
+        bodyParams.scope = scopeString
+        if (verbose) console.log(`Added Teams scope from config: ${scopeString}`)
       } else {
         const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
         bodyParams.scope = scopeString
