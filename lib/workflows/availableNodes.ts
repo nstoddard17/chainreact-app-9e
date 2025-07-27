@@ -1722,7 +1722,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Notion
   {
     type: "notion_trigger_new_page",
-    title: "New Page in Database (Notion)",
+            title: "New Page in Database",
     description: "Triggers when a page is added to a database",
     icon: FileText,
     providerId: "notion",
@@ -1732,7 +1732,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "notion_action_create_page",
-    title: "Create Page (Notion)",
+            title: "Create Page",
     description: "Create a new page in Notion",
     icon: Plus,
     providerId: "notion",
@@ -1897,7 +1897,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "notion_action_append_to_page",
-    title: "Append to Page (Notion)",
+            title: "Append to Page",
     description: "Append content to an existing page",
     icon: Plus,
     providerId: "notion",
@@ -4698,7 +4698,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Notion Actions
   {
     type: "notion_action_create_database",
-    title: "Create Database (Notion)",
+            title: "Create Database",
     description: "Create a new database in Notion with advanced configuration",
     icon: Database,
     providerId: "notion",
@@ -4832,7 +4832,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "notion_action_search_pages",
-    title: "Search Pages (Notion)",
+            title: "Search Pages",
     description: "Search for pages in Notion",
     icon: Search,
     providerId: "notion",
@@ -4850,7 +4850,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "notion_action_update_page",
-    title: "Update Page (Notion)",
+            title: "Update Page",
     description: "Update an existing Notion page",
     icon: Edit,
     providerId: "notion",
