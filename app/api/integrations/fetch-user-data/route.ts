@@ -626,19 +626,32 @@ const dataFetchers: DataFetcher = {
         console.log(`🔍 After filtering: ${filteredPages.length} pages from database`)
       }
       
+      // Filter out pages that don't have meaningful titles
+      const pagesWithTitles = filteredPages.filter(page => {
+        const title = getPageTitle(page)
+        // Only include pages that have a proper title (not fallback titles)
+        const isValidTitle = title !== "Untitled Page" && 
+                           title !== "Database Entry" && 
+                           title !== "Untitled" &&
+                           !title.match(/^[a-f0-9]{32}$/) && // Filter out 32-char hex strings
+                           !title.match(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/) // Filter out UUIDs
+        return isValidTitle
+      })
+      
+      console.log(`🔍 After title filtering: ${pagesWithTitles.length} pages with proper titles`)
+      
+      // Debug: Log all titles to see what's being filtered
+      console.log('🔍 All page titles:', filteredPages.map(page => ({
+        id: page.id,
+        title: getPageTitle(page),
+        isValid: pagesWithTitles.includes(page)
+      })))
+      
+      filteredPages = pagesWithTitles
+      
       // Convert pages to dropdown format
       const flatPages = filteredPages.map(page => {
         const title = getPageTitle(page)
-        // Debug logging for pages with problematic titles
-        if (title === "Untitled Page" || title === "Database Entry") {
-          console.log('🔍 Debug - Page with fallback title:', {
-            id: page.id,
-            title: title,
-            properties: Object.keys(page.properties || {}),
-            parent: page.parent,
-            url: page.url
-          })
-        }
         return {
           value: page.id,
           label: title,
