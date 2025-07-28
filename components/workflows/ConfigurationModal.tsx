@@ -1,4 +1,3 @@
-"use client"
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -13,6 +12,7 @@ import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/available
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useConfigPreferences } from "@/hooks/use-config-preferences"
+import { useIntegrationSpecificData } from "@/hooks/use-integration-specific-data"
 
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
@@ -1027,11 +1027,6 @@ function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
-  console.log("🔍 ConfigurationModal rendered:", { 
-    isOpen, 
-    nodeType: nodeInfo?.type, 
-    integrationName 
-  });
   
   // ADD DEBUG LOG FOR TRELLO
   if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
@@ -1058,6 +1053,38 @@ function ConfigurationModal({
     debounceMs: 1000
   })
   
+  // Memoize saved preferences to prevent unnecessary re-renders
+  const savedPreferences = useMemo(() => {
+    if (isOpen && nodeInfo?.type && !configPreferences.loading) {
+      return configPreferences.getFields()
+    }
+    return {}
+  }, [isOpen, nodeInfo?.type, configPreferences.loading, configPreferences.preferences])
+
+  // Load saved preferences when modal opens and apply them to config
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type && !configPreferences.loading) {
+      if (Object.keys(savedPreferences).length > 0) {
+        console.log('🔄 Loading saved preferences for', nodeInfo.type, ':', savedPreferences)
+        
+        // Merge saved preferences with initial data, giving priority to saved preferences
+        // but preserve any existing node configuration that might be more specific
+        const mergedConfig = {
+          ...initialData,
+          ...savedPreferences,
+          // Preserve any existing node-specific data that shouldn't be overridden
+          ...(currentNodeId && initialData ? { nodeId: currentNodeId } : {})
+        }
+        
+        setConfig(mergedConfig)
+        console.log('✅ Applied saved preferences to config:', mergedConfig)
+      } else {
+        console.log('📝 No saved preferences found for', nodeInfo.type)
+        setConfig(initialData)
+      }
+    }
+  }, [isOpen, nodeInfo?.type, configPreferences.loading, savedPreferences, initialData, currentNodeId])
+  
   // Enable tooltips after modal opens
   useEffect(() => {
     if (isOpen) {
@@ -1080,7 +1107,37 @@ function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type])
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
+  const { getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
+  
+  // Use integration-specific data loading to avoid cross-integration API calls
+  const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
+  const { loadData: loadIntegrationSpecificData, loadNotionDatabaseProperties, loading: dataLoading, error: dataError } = useIntegrationSpecificData({
+    integrationId: integration?.id,
+    providerId: nodeInfo?.providerId
+  })
+  
+  // Coordinate data loading to prevent race conditions
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type && !dataLoading && !configPreferences.loading) {
+      // This effect ensures that data loading happens after preferences are loaded
+      // and prevents race conditions between different loading processes
+      console.log('🔄 Data loading coordination: All systems ready for', nodeInfo.type)
+    }
+  }, [isOpen, nodeInfo?.type, dataLoading, configPreferences.loading])
+  
+  // Debug logging after all variables are declared
+  console.log("🔍 ConfigurationModal rendered:", { 
+    isOpen, 
+    nodeType: nodeInfo?.type, 
+    integrationName,
+    integration: integration ? { id: integration.id, provider: integration.provider, status: integration.status } : null,
+    configPreferences: {
+      loading: configPreferences.loading,
+      preferencesCount: Object.keys(configPreferences.preferences).length
+    },
+    dataLoading,
+    dataError
+  });
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>
   >({})
@@ -1214,6 +1271,7 @@ function ConfigurationModal({
   const [loadingDiscordMessages, setLoadingDiscordMessages] = useState(false)
   const [loadingDiscordCategories, setLoadingDiscordCategories] = useState(false)
   const [loadingDiscordMembers, setLoadingDiscordMembers] = useState(false)
+  const [isModalFullyLoaded, setIsModalFullyLoaded] = useState(false)
   const [loadingDiscordRoles, setLoadingDiscordRoles] = useState(false)
   const [loadingDiscordBannedUsers, setLoadingDiscordBannedUsers] = useState(false)
   
@@ -1234,7 +1292,7 @@ function ConfigurationModal({
       setLoadingMessageReactions(true);
       
       // Fetch the full message data directly from Discord API
-      const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId });
+      const messageData = await loadIntegrationSpecificData("discord_messages", { channelId });
       const selectedMessage = messageData?.find((msg: any) => msg.id === messageId);
       
       if (selectedMessage) {
@@ -1249,7 +1307,7 @@ function ConfigurationModal({
       }
       
       // Fetch reactions for the message
-      const reactionsData = await loadIntegrationData("discord_reactions", integration.id, { 
+      const reactionsData = await loadIntegrationSpecificData("discord_reactions", { 
         channelId, 
         messageId 
       });
@@ -1265,7 +1323,7 @@ function ConfigurationModal({
     } finally {
       setLoadingMessageReactions(false);
     }
-  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationData]);
+  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationSpecificData]);
   
   // Global test store
   const { 
@@ -1579,6 +1637,8 @@ function ConfigurationModal({
       setDiscordReactionsCache({})
       setSelectedMessageData(null)
       setMessageReactions([])
+      // Reset modal fully loaded state
+      setIsModalFullyLoaded(false)
     }
   }, [isOpen])
 
@@ -1598,7 +1658,7 @@ function ConfigurationModal({
   }, [nodeInfo?.providerId, getIntegrationByProvider, errors.integrationError])
 
   // Check Discord bot status when guild is selected
-  const checkBotInGuild = async (guildId: string) => {
+  const checkBotInGuild = async (guildId: string, channelId?: string) => {
     if (!guildId || checkingBot) return
     
     const taskId = `bot-check-${guildId}`
@@ -1609,7 +1669,7 @@ function ConfigurationModal({
       const response = await fetch('/api/integrations/discord/check-bot-in-guild', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guildId })
+        body: JSON.stringify({ guildId, channelId })
       })
       
       if (response.ok) {
@@ -1618,9 +1678,32 @@ function ConfigurationModal({
         setBotStatus(prev => ({ ...prev, [guildId]: isBotPresent }))
         
         if (isBotPresent) {
-          console.log('✅ Bot is connected to guild:', guildId, '- channels will be fetched by fetchDependentFields')
+          console.log('✅ Bot is connected to guild:', guildId)
+          
+          // Log additional details if available
+          if (data.channelAccess) {
+            console.log('📋 Channel access details:', data.channelAccess)
+            if (data.channelAccess.canSendMessages) {
+              console.log('✅ Bot can send messages to channel:', data.channelAccess.channelName)
+            } else {
+              console.log('❌ Bot cannot send messages to channel:', data.channelAccess.error || 'Insufficient permissions')
+            }
+          }
+          
+          if (data.note) {
+            console.log('ℹ️ Note:', data.note)
+          }
+          
+          console.log('- channels will be fetched by fetchDependentFields')
         } else {
           console.log('❌ Bot is not connected to guild:', guildId)
+          if (data.details) {
+            console.log('📋 Details:', data.details)
+          }
+          if (data.error) {
+            console.log('❌ Error:', data.error)
+          }
+          
           // Clear any existing channels when bot is not connected
           setDynamicOptions(prev => ({
             ...prev,
@@ -1868,7 +1951,7 @@ function ConfigurationModal({
                 dataType = "airtable_feedback_records"
               }
               
-              const linkedTableData = await loadIntegrationData(
+              const linkedTableData = await loadIntegrationSpecificData(
                 dataType,
                 integration.id,
                 { baseId: config.baseId, tableName: fieldDef.linkedTableName }
@@ -2230,31 +2313,31 @@ function ConfigurationModal({
       let data
       // Special handling for Trello lists: pass boardId as param
       if (field.dynamic === "trello_lists" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
         )
       } else if (field.dynamic === "trello_cards" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
         )
       } else if (field.dynamic === "trello-list-templates" && field.dependsOn === "listId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { listId: dependentValue }
         )
       } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "listId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { listId: dependentValue }
         )
       } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
@@ -2263,9 +2346,8 @@ function ConfigurationModal({
         console.log('🔄 Discord channels: Starting fetch for guildId:', dependentValue)
         setLoadingDiscordChannels(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord channels: Fetch completed, data:', data)
@@ -2276,9 +2358,8 @@ function ConfigurationModal({
         console.log('🔄 Discord categories: Starting fetch for guildId:', dependentValue)
         setLoadingDiscordCategories(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord categories: Fetch completed, data:', data)
@@ -2289,9 +2370,8 @@ function ConfigurationModal({
         console.log('🔄 Discord messages: Starting fetch for channelId:', dependentValue)
         setLoadingDiscordMessages(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { channelId: dependentValue }
           )
           console.log('🔄 Discord messages: Fetch completed, data:', data)
@@ -2303,9 +2383,8 @@ function ConfigurationModal({
         console.log('🎯 SETTING loadingDiscordMembers to TRUE')
         setLoadingDiscordMembers(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord members: Fetch completed, data:', data)
@@ -2317,9 +2396,8 @@ function ConfigurationModal({
         console.log('🔄 Discord roles: Starting fetch for guildId:', dependentValue)
         setLoadingDiscordRoles(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord roles: Fetch completed, data:', data)
@@ -2327,9 +2405,8 @@ function ConfigurationModal({
           setLoadingDiscordRoles(false)
         }
       } else {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
-          integration.id,
           { [field.dependsOn]: dependentValue }
         )
       }
@@ -2507,7 +2584,7 @@ function ConfigurationModal({
     requestCache.current.set(requestKey, requestPromise)
     
     return requestPromise
-  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
+  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Automatically check Discord bot status when a server is selected
   useEffect(() => {
@@ -2566,7 +2643,7 @@ function ConfigurationModal({
               if (config.includeArchived !== undefined) filterOptions.includeArchived = config.includeArchived
               if (config.parentCategory) filterOptions.parentCategory = config.parentCategory
               
-              const channelData = await loadIntegrationData("discord_channels", integration.id, filterOptions)
+              const channelData = await loadIntegrationSpecificData("discord_channels", filterOptions)
               if (channelData && channelData.length > 0) {
                 const mappedChannels = channelData.map((channel: any) => ({
                   value: channel.value || channel.id,
@@ -2607,7 +2684,7 @@ function ConfigurationModal({
               if (config.nameFilter) filterOptions.nameFilter = config.nameFilter
               if (config.sortBy) filterOptions.sortBy = config.sortBy
               
-              const categoryData = await loadIntegrationData("discord_categories", integration.id, filterOptions)
+              const categoryData = await loadIntegrationSpecificData("discord_categories", filterOptions)
               if (categoryData && categoryData.length > 0) {
                 const mappedCategories = categoryData.map((category: any) => ({
                   value: category.value || category.id,
@@ -2641,7 +2718,7 @@ function ConfigurationModal({
             console.log('🔄 Loading messages for channelId:', config.channelId)
             setLoadingDiscordMessages(true)
             try {
-              const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
+              const messageData = await loadIntegrationSpecificData("discord_messages", { channelId: config.channelId })
               if (messageData && messageData.length > 0) {
                 const mappedMessages = messageData.map((message: any) => ({
                   value: message.value || message.id,
@@ -2675,7 +2752,7 @@ function ConfigurationModal({
             console.log('🔄 Loading members for guildId:', config.guildId)
             setLoadingDiscordMembers(true)
             try {
-              const memberData = await loadIntegrationData("discord_members", integration.id, { guildId: config.guildId })
+              const memberData = await loadIntegrationSpecificData("discord_members", { guildId: config.guildId })
               if (memberData && memberData.length > 0) {
                 const mappedMembers = memberData.map((member: any) => ({
                   value: member.value || member.id,
@@ -2709,7 +2786,7 @@ function ConfigurationModal({
             console.log('🔄 Loading roles for guildId:', config.guildId)
             setLoadingDiscordRoles(true)
             try {
-              const roleData = await loadIntegrationData("discord_roles", integration.id, { guildId: config.guildId })
+              const roleData = await loadIntegrationSpecificData("discord_roles", { guildId: config.guildId })
               if (roleData && roleData.length > 0) {
                 const mappedRoles = roleData.map((role: any) => ({
                   value: role.value || role.id,
@@ -2743,7 +2820,7 @@ function ConfigurationModal({
             console.log('🔄 Loading banned users for guildId:', config.guildId)
             setLoadingDiscordBannedUsers(true)
             try {
-              const bannedUserData = await loadIntegrationData("discord_banned_users", integration.id, { guildId: config.guildId })
+              const bannedUserData = await loadIntegrationSpecificData("discord_banned_users", { guildId: config.guildId })
               if (bannedUserData && bannedUserData.length > 0) {
                 const mappedBannedUsers = bannedUserData.map((user: any) => ({
                   value: user.value || user.id,
@@ -3009,7 +3086,7 @@ function ConfigurationModal({
     const fetchPromises = [
       ...fieldsToFetch.map(field => {
         console.log(`🔍 Fetching data for field: ${field.name} (${field.dynamic})`)
-        return loadIntegrationData(field.dynamic as string, integration.id)
+        return loadIntegrationSpecificData(field.dynamic as string)
           .then(data => {
             console.log(`✅ Successfully loaded data for ${field.dynamic}:`, data ? data.length : 0, 'items')
             return { field, data, error: null }
@@ -3021,7 +3098,7 @@ function ConfigurationModal({
       }),
       ...signaturesNotCached.map(sig => {
         console.log(`🔍 Fetching signature data for: ${sig.dynamic}`)
-        return loadIntegrationData(sig.dynamic, integration.id)
+        return loadIntegrationSpecificData(sig.dynamic)
           .then(data => ({ field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }))
           .catch(error => ({ field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }))
       })
@@ -3315,7 +3392,7 @@ function ConfigurationModal({
     
     // Reset the flag when function completes
     fetchingDynamicData.current = false
-  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData, setLoadingDynamicDebounced])
+  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationSpecificData, integrationData, setLoadingDynamicDebounced])
 
   const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
 
@@ -3371,23 +3448,72 @@ function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type])
 
-  // Eager loading optimization: Start fetching Discord data as soon as modal opens
+  // Comprehensive Discord data pre-loader: Load ALL data upfront for instant dropdown population
   useEffect(() => {
     if (isOpen && nodeInfo?.type === "discord_action_send_message") {
       const integration = getIntegrationByProvider("discord")
-      if (integration && !integrationData["discord_guilds"] && !fetchingDynamicData.current) {
-        console.log('🚀 Eager loading Discord guilds for faster UX')
-        // Pre-load Discord guilds immediately without waiting for form render
-        loadIntegrationData("discord_guilds", integration.id)
-          .then(data => {
-            if (data) {
-              console.log('✅ Pre-loaded Discord guilds:', data.length, 'guilds')
+      if (!integration) return
+
+      console.log('🚀 Starting comprehensive Discord data pre-loading')
+      setLoadingDynamic(true)
+      
+      const preloadAllDiscordData = async () => {
+        try {
+          // Load guilds first
+          console.log('🔄 Loading Discord guilds...')
+          const guildData = await loadIntegrationSpecificData("discord_guilds")
+          
+          if (guildData && guildData.length > 0) {
+            const mappedGuilds = guildData.map((guild: any) => ({
+              value: guild.value || guild.id,
+              label: guild.label || guild.name
+            }))
+            
+            setDynamicOptions(prev => ({
+              ...prev,
+              "guildId": mappedGuilds
+            }))
+            
+            console.log('✅ Loaded guilds:', mappedGuilds.length)
+            
+            // Now load ALL channels for ALL guilds
+            console.log('🔄 Loading ALL Discord channels for all guilds...')
+            const allChannels: any[] = []
+            
+            for (const guild of mappedGuilds) {
+              try {
+                const channelData = await loadIntegrationSpecificData("discord_channels", { guildId: guild.value })
+                if (channelData && channelData.length > 0) {
+                  const mappedChannels = channelData.map((channel: any) => ({
+                    ...channel,
+                    guildId: guild.value, // Add guildId for filtering
+                    value: channel.value || channel.id,
+                    label: channel.label || channel.name
+                  }))
+                  allChannels.push(...mappedChannels)
+                }
+              } catch (error) {
+                console.warn(`⚠️ Failed to load channels for guild ${guild.label}:`, error)
+              }
             }
-          })
-          .catch(error => {
-            console.warn('⚠️ Pre-loading Discord guilds failed:', error)
-          })
+            
+            // Store all channels with guild information for filtering
+            setDynamicOptions(prev => ({
+              ...prev,
+              "allDiscordChannels": allChannels
+            }))
+            
+            console.log('✅ Loaded all channels:', allChannels.length)
+            setIsModalFullyLoaded(true)
+          }
+        } catch (error) {
+          console.error('❌ Comprehensive Discord data pre-loading failed:', error)
+        } finally {
+          setLoadingDynamic(false)
+        }
       }
+      
+      preloadAllDiscordData()
     }
   }, [isOpen, nodeInfo?.type])
 
@@ -3421,7 +3547,7 @@ function ConfigurationModal({
         if (config.pageId && nodeInfo.type === "facebook_action_send_message") {
           console.log('🔄 Loading conversations for pageId:', config.pageId)
           try {
-            const conversationData = await loadIntegrationData("facebook_conversations", integration.id, { pageId: config.pageId })
+            const conversationData = await loadIntegrationSpecificData("facebook_conversations", { pageId: config.pageId })
             if (conversationData && conversationData.length > 0) {
               const mappedConversations = conversationData.map((conversation: any) => ({
                 value: conversation.value || `${conversation.conversationId}:${conversation.senderId}`,
@@ -3443,7 +3569,7 @@ function ConfigurationModal({
         if (config.pageId && nodeInfo.type === "facebook_action_comment_on_post") {
           console.log('🔄 Loading posts for pageId:', config.pageId)
           try {
-            const postData = await loadIntegrationData("facebook_posts", integration.id, { pageId: config.pageId })
+            const postData = await loadIntegrationSpecificData("facebook_posts", { pageId: config.pageId })
             if (postData && postData.length > 0) {
               const mappedPosts = postData.map((post: any) => ({
                 value: post.value || post.postId,
@@ -3482,7 +3608,7 @@ function ConfigurationModal({
         if (!dynamicOptions.guildId || dynamicOptions.guildId.length === 0) {
           console.log('🔄 Loading guilds for initial dropdown population')
           try {
-            const guildData = await loadIntegrationData("discord_guilds", integration.id)
+            const guildData = await loadIntegrationSpecificData("discord_guilds")
             if (guildData && guildData.length > 0) {
               const mappedGuilds = guildData.map((guild: any) => ({
                 value: guild.value || guild.id,
@@ -3509,7 +3635,7 @@ function ConfigurationModal({
             console.log('🔄 Loading channels for guildId:', config.guildId)
             setLoadingDiscordChannels(true)
             try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+              const channelData = await loadIntegrationSpecificData("discord_channels", { guildId: config.guildId })
               if (channelData && channelData.length > 0) {
                 const mappedChannels = channelData.map((channel: any) => ({
                   value: channel.value || channel.id,
@@ -3532,7 +3658,7 @@ function ConfigurationModal({
               console.log('🔄 Loading categories for guildId:', config.guildId)
               setLoadingDiscordCategories(true)
               try {
-                const categoryData = await loadIntegrationData("discord_categories", integration.id, { guildId: config.guildId })
+                const categoryData = await loadIntegrationSpecificData("discord_categories", { guildId: config.guildId })
                 if (categoryData && categoryData.length > 0) {
                   const mappedCategories = categoryData.map((category: any) => ({
                     value: category.value || category.id,
@@ -3569,7 +3695,7 @@ function ConfigurationModal({
           console.log('🔄 Loading messages for channelId:', config.channelId)
           setLoadingDiscordMessages(true)
           try {
-            const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
+            const messageData = await loadIntegrationSpecificData("discord_messages", { channelId: config.channelId })
             if (messageData && messageData.length > 0) {
               const mappedMessages = messageData.map((message: any) => ({
                 value: message.value || message.id,
@@ -3598,7 +3724,91 @@ function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId, config.pageId, dynamicOptions.guildId, config, botStatus]) // Added botStatus to dependencies
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, config.pageId, dynamicOptions.guildId, botStatus]) // Removed config object to prevent infinite loops
+
+  // Load Notion data for create page action
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "notion_action_create_page" && !dataLoading && !configPreferences.loading) {
+      const loadNotionData = async () => {
+        console.log('🔄 Loading Notion data for create page action')
+        
+        const integration = getIntegrationByProvider("notion")
+        if (!integration) {
+          console.log('❌ No Notion integration found')
+          return
+        }
+
+        // Load workspaces if not already loaded
+        if (!dynamicOptions.workspace || dynamicOptions.workspace.length === 0) {
+          console.log('🔄 Loading Notion workspaces')
+          try {
+            const workspaceData = await loadIntegrationSpecificData("notion_workspaces")
+            if (workspaceData && workspaceData.length > 0) {
+              const mappedWorkspaces = workspaceData.map((workspace: any) => ({
+                value: workspace.value || workspace.id,
+                label: workspace.label || workspace.name || 'Untitled Workspace'
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "workspace": mappedWorkspaces
+              }))
+              console.log('✅ Loaded Notion workspaces:', mappedWorkspaces.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion workspaces:', error)
+          }
+        }
+
+        // Load databases if workspace is selected
+        if (config.workspace && (!dynamicOptions.database || dynamicOptions.database.length === 0)) {
+          console.log('🔄 Loading Notion databases for workspace:', config.workspace)
+          try {
+            const databaseData = await loadIntegrationSpecificData("notion_databases", { workspace: config.workspace })
+            if (databaseData && databaseData.length > 0) {
+              const mappedDatabases = databaseData.map((database: any) => ({
+                value: database.value || database.id,
+                label: database.label || database.name || 'Untitled Database'
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "database": mappedDatabases
+              }))
+              console.log('✅ Loaded Notion databases:', mappedDatabases.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion databases:', error)
+          }
+        }
+
+        // Load database properties if database is selected
+        if (config.database && (!dynamicOptions.databaseProperties || dynamicOptions.databaseProperties.length === 0)) {
+          console.log('🔄 Loading Notion database properties for database:', config.database)
+          try {
+            const propertiesData = await loadNotionDatabaseProperties(config.database)
+            if (propertiesData && propertiesData.length > 0) {
+              const mappedProperties = propertiesData.map((property: any) => ({
+                value: property.value || property.name,
+                label: property.label || property.name,
+                type: property.type,
+                options: property.options || [],
+                description: property.description
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "databaseProperties": mappedProperties
+              }))
+              console.log('✅ Loaded Notion database properties:', mappedProperties.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion database properties:', error)
+          }
+        }
+      }
+
+      // Load immediately without delay
+      loadNotionData()
+    }
+  }, [isOpen, nodeInfo?.type, config.workspace, config.database, dynamicOptions.workspace, dynamicOptions.database, dynamicOptions.databaseProperties, loadIntegrationSpecificData, loadNotionDatabaseProperties, dataLoading, configPreferences.loading])
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -3657,7 +3867,7 @@ function ConfigurationModal({
         const loadPriorityRecords = async () => {
           try {
             if (!dynamicOptions["project_records"] || dynamicOptions["project_records"].length === 0) {
-              const projectData = await loadIntegrationData("airtable_project_records", integration.id, { baseId: config.baseId })
+              const projectData = await loadIntegrationSpecificData("airtable_project_records", { baseId: config.baseId })
               if (projectData && projectData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3667,7 +3877,7 @@ function ConfigurationModal({
             }
             
             if (!dynamicOptions["task_records"] || dynamicOptions["task_records"].length === 0) {
-              const taskData = await loadIntegrationData("airtable_task_records", integration.id, { baseId: config.baseId })
+              const taskData = await loadIntegrationSpecificData("airtable_task_records", { baseId: config.baseId })
               if (taskData && taskData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3677,7 +3887,7 @@ function ConfigurationModal({
             }
             
             if (!dynamicOptions["feedback_records"] || dynamicOptions["feedback_records"].length === 0) {
-              const feedbackData = await loadIntegrationData("airtable_feedback_records", integration.id, { baseId: config.baseId })
+              const feedbackData = await loadIntegrationSpecificData("airtable_feedback_records", { baseId: config.baseId })
               if (feedbackData && feedbackData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3693,7 +3903,7 @@ function ConfigurationModal({
         loadPriorityRecords()
       }
     }
-  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationData, dynamicOptions])
+  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationSpecificData, dynamicOptions])
 
   // Retry mechanism for stuck loading states - only retry after 10 seconds and max 2 retries
   useEffect(() => {
@@ -3769,7 +3979,7 @@ function ConfigurationModal({
         setLoadingDynamicDebounced(true, taskId)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
         if (!integration) return
-        const data = await loadIntegrationData(
+        const data = await loadIntegrationSpecificData(
           "google-sheets_sheet-data",
           integration.id,
           { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
@@ -3792,7 +4002,7 @@ function ConfigurationModal({
       }
     }
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
@@ -3816,7 +4026,7 @@ function ConfigurationModal({
         
         try {
           setLoadingDynamicDebounced(true, taskId)
-          const previewData = await loadIntegrationData(
+          const previewData = await loadIntegrationSpecificData(
             "google-sheets_sheet-preview",
             integration.id,
             { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
@@ -3861,7 +4071,7 @@ function ConfigurationModal({
     }
 
     fetchSheetPreview()
-  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Enhanced workflow segment testing
   const handleTestWorkflowSegment = async () => {
@@ -3976,6 +4186,10 @@ function ConfigurationModal({
         ...config,
         attachments
       }
+      
+      // Save all current configuration as preferences
+      configPreferences.updateFields(configWithAttachments)
+      
       onSave(configWithAttachments)
       onClose(true) // Pass true to indicate the configuration was saved
     }
@@ -5670,7 +5884,7 @@ function ConfigurationModal({
         
         const integration = getIntegrationByProvider("notion")
         if (integration) {
-          loadIntegrationData("notion_databases", integration.id, { workspace: newValue })
+          loadIntegrationSpecificData("notion_databases", { workspace: newValue })
             .then((databaseData) => {
               console.log('🔍 Database data received:', databaseData?.length || 0, 'databases')
               if (databaseData && databaseData.length > 0) {
@@ -5718,7 +5932,7 @@ function ConfigurationModal({
         
         const integration = getIntegrationByProvider("notion")
         if (integration) {
-          loadIntegrationData("notion_pages", integration.id, { database: newValue })
+          loadIntegrationSpecificData("notion_pages", { database: newValue })
             .then((pageData) => {
               console.log('🔍 Page data received:', pageData?.length || 0, 'pages')
               if (pageData && pageData.length > 0) {
@@ -6848,7 +7062,7 @@ function ConfigurationModal({
           }
           
           // Determine loading state for this specific field
-          const isFieldLoading = field.name === 'channelId' ? loadingDiscordChannels : 
+          const isFieldLoading = field.name === 'channelId' ? false : // Never show loading for channels since we pre-load them
                                 field.name === 'messageId' ? loadingDiscordMessages : 
                                 loadingDynamic
           
@@ -7616,7 +7830,7 @@ function ConfigurationModal({
         // Determine loading state for Discord fields
         const isDiscordField = nodeInfo?.providerId === 'discord' && (field.name === 'channelId' || field.name === 'messageId')
         const isFieldLoading = isDiscordField ? 
-          (field.name === 'channelId' ? loadingDiscordChannels : loadingDiscordMessages) : 
+          (field.name === 'channelId' ? false : loadingDiscordMessages) : // Never show loading for channels since we pre-load them
           loadingDynamic
         
         return (
@@ -7638,7 +7852,7 @@ function ConfigurationModal({
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={
                   isFieldLoading 
-                    ? (isDiscordField ? `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : "Loading...")
+                    ? (isDiscordField ? `Loading ${field.name === 'messageId' ? 'messages' : 'options'}...` : "Loading...")
                     : ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && field.dependsOn)
                     ? `Select ${field.dependsOn} first`
                     : field.placeholder
@@ -7654,13 +7868,13 @@ function ConfigurationModal({
                   <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     {isDiscordField ? 
-                      `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : 
+                      `Loading ${field.name === 'messageId' ? 'messages' : 'options'}...` : 
                       'Loading options...'}
                   </div>
                 ) : options.length === 0 ? (
                   <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     {isDiscordField ? 
-                      (field.name === 'channelId' ? 'No channels available' : 'No messages available') : 
+                      (field.name === 'messageId' ? 'No messages available' : 'No options available') : 
                       'No options available'}
                   </div>
                 ) : (
@@ -7908,9 +8122,37 @@ function ConfigurationModal({
           )
         }
 
-        // Default case for regular select fields
-        const selectOptions = field.dynamic ? (dynamicOptions[field.name] as any[]) || [] : (field.options as any[]) || [];
-        const isSelectLoading = field.dynamic && loadingDynamic;
+        // Default case for regular select fields with Discord filtering
+        let selectOptions: any[] = [];
+        
+        if (nodeInfo?.type === "discord_action_send_message" && field.name === "channelId" && config.guildId) {
+          // Filter channels based on selected guild
+          const allChannels = dynamicOptions.allDiscordChannels || [];
+          selectOptions = allChannels.filter((channel: any) => channel.guildId === config.guildId);
+        } else {
+          selectOptions = field.dynamic ? (dynamicOptions[field.name] as any[]) || [] : (field.options as any[]) || [];
+        }
+        
+        // Improved loading logic for Discord fields
+        let isSelectLoading = false;
+        if (field.dynamic && loadingDynamic) {
+          if (nodeInfo?.type === "discord_action_send_message") {
+            // For Discord send message, only show loading if we don't have options yet
+            if (field.name === "guildId") {
+              isSelectLoading = !selectOptions.length && loadingDynamic;
+            } else if (field.name === "channelId") {
+              // For channel field, never show loading since we pre-load all channels
+              // Only show loading if we don't have any channels at all
+              const hasAnyChannels = dynamicOptions.allDiscordChannels && dynamicOptions.allDiscordChannels.length > 0;
+              isSelectLoading = !hasAnyChannels && loadingDynamic;
+            } else {
+              isSelectLoading = !selectOptions.length && loadingDynamic;
+            }
+          } else {
+            // For other integrations, use the original logic
+            isSelectLoading = Boolean(field.dynamic && loadingDynamic);
+          }
+        }
         
         return (
           <div className="space-y-2">
@@ -8795,7 +9037,7 @@ function ConfigurationModal({
             body: JSON.stringify({ userId: user.id, workspaceId: config.workspace }),
           });
           // Reload integration data from store
-          await loadIntegrationData("slack", config.workspace, { forceRefresh: true });
+          await loadIntegrationSpecificData("slack", { forceRefresh: true });
         } catch (err) {
           console.error("Failed to refresh Slack provider plan:", err);
         }
@@ -9934,6 +10176,19 @@ function ConfigurationModal({
                     <Button variant="outline" onClick={() => onClose(false)}>
                       Cancel
                     </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={async () => {
+                        if (confirm('Clear all saved preferences for this action type? This will reset to default values.')) {
+                          await configPreferences.clearPreferences()
+                          setConfig(initialData)
+                          console.log('🗑️ Cleared saved preferences for', nodeInfo?.type)
+                        }
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Reset to Defaults
+                    </Button>
                   </div>
                   <Button 
                     onClick={handleSave}
@@ -10008,9 +10263,13 @@ function ConfigurationModal({
               
                           // For Discord actions, be more specific about when to show loading
             if (nodeInfo?.type === "discord_action_send_message") {
-              // Show loading if we have any active loading tasks
+              // Show loading if we have any active loading tasks OR if we don't have all required data
               const hasActiveTasks = activeLoadingTasksRef.current.size > 0
-              return hasActiveTasks
+              const hasGuilds = dynamicOptions.guildId && dynamicOptions.guildId.length > 0
+              const hasAllChannels = dynamicOptions.allDiscordChannels && dynamicOptions.allDiscordChannels.length > 0
+              
+              // Show loading if we have active tasks OR if we don't have all required data
+              return hasActiveTasks || !hasGuilds || !hasAllChannels
             }
             
             // For Discord kick member and ban member actions, show loading when members are being loaded
@@ -10381,3 +10640,4 @@ const DateOnlyPicker = ({
 }
 
 export default ConfigurationModal
+

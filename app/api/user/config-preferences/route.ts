@@ -142,6 +142,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const nodeType = searchParams.get("nodeType")
+    const providerId = searchParams.get("providerId")
     const fieldName = searchParams.get("fieldName")
 
     const supabase = await createSupabaseServerClient()
@@ -160,6 +161,10 @@ export async function DELETE(request: NextRequest) {
 
     if (nodeType) {
       query = query.eq("node_type", nodeType)
+    }
+
+    if (providerId) {
+      query = query.eq("provider_id", providerId)
     }
 
     if (fieldName) {

@@ -50,6 +50,8 @@ interface AuthState {
   getCurrentUserId: () => string | null
   setHydrated: () => void
   checkUsernameAndRedirect: () => void
+  refreshSession: () => Promise<boolean>
+  isAuthenticated: () => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -683,6 +685,42 @@ export const useAuthStore = create<AuthState>()(
             window.location.href = '/setup-username'
           }
         }
+      },
+
+      refreshSession: async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.refreshSession()
+          if (error) {
+            console.error("Session refresh error:", error)
+            return false
+          }
+          
+          if (session) {
+            // Update the user state with the refreshed session
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              set({ user: {
+                id: user.id,
+                email: user.email || '',
+                name: user.user_metadata?.name,
+                first_name: user.user_metadata?.first_name,
+                last_name: user.user_metadata?.last_name,
+                full_name: user.user_metadata?.full_name,
+                avatar: user.user_metadata?.avatar_url,
+              }})
+              return true
+            }
+          }
+          return false
+        } catch (error) {
+          console.error("Session refresh failed:", error)
+          return false
+        }
+      },
+
+      isAuthenticated: () => {
+        const state = get()
+        return !!(state.user && state.user.id)
       },
     }),
     {

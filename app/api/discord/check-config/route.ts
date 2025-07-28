@@ -4,7 +4,7 @@ export async function GET() {
   try {
     // Check if Discord bot credentials are configured
     const botToken = process.env.DISCORD_BOT_TOKEN
-    const botUserId = process.env.DISCORD_BOT_USER_ID
+    const botUserId = process.env.DISCORD_CLIENT_ID // Use client ID as bot user ID
     
     const isConfigured = !!(botToken && botUserId)
     
@@ -13,7 +13,7 @@ export async function GET() {
       isConfigured,
       missingVars: isConfigured ? [] : [
         ...(!botToken ? ['DISCORD_BOT_TOKEN'] : []),
-        ...(!botUserId ? ['DISCORD_BOT_USER_ID'] : [])
+        ...(!botUserId ? ['DISCORD_CLIENT_ID'] : [])
       ]
     })
     

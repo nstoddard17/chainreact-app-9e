@@ -27,6 +27,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
+    // Special handling for Teams integration - check user role
+    if (provider.toLowerCase() === "teams") {
+      try {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        const userRole = profile?.role || 'free'
+        const allowedRoles = ['business', 'enterprise', 'admin']
+        
+        if (!allowedRoles.includes(userRole)) {
+          return NextResponse.json({ 
+            error: "Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access Teams integration.",
+            details: {
+              currentRole: userRole,
+              requiredRoles: allowedRoles
+            }
+          }, { status: 403 })
+        }
+      } catch (profileError) {
+        console.error("Error checking user profile for Teams:", profileError)
+        return NextResponse.json({ 
+          error: "Unable to verify account permissions for Teams integration. Please try again or contact support.",
+          details: "Profile lookup failed"
+        }, { status: 500 })
+      }
+    }
+
     // Create state object
     const stateObject: {
       userId: string

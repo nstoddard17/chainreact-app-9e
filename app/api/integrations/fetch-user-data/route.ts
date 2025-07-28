@@ -26,12 +26,14 @@ export async function POST(req: NextRequest) {
 
     // Get user from authorization header
     const authHeader = req.headers.get("authorization");
+    
     if (!authHeader) {
       return Response.json({ error: 'Authorization header required' }, { status: 401 });
     }
 
     // Extract token and validate user
     const token = authHeader.replace("Bearer ", "");
+    
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
@@ -39,7 +41,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Get integration from database
-    console.log(`🔍 Looking for integration with ID: ${integrationId}`);
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
@@ -47,21 +48,16 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (integrationError) {
-      console.error(`❌ Integration lookup error:`, integrationError);
+      console.error(`Integration lookup error:`, integrationError);
       return Response.json({ error: 'Integration lookup failed' }, { status: 500 });
     }
     
     if (!integration) {
-      console.error(`❌ Integration not found with ID: ${integrationId}`);
+      console.error(`Integration not found with ID: ${integrationId}`);
       return Response.json({ error: 'Integration not found' }, { status: 404 });
     }
     
-    console.log(`✅ Found integration:`, { 
-      id: integration.id, 
-      provider: integration.provider, 
-      status: integration.status,
-      userId: integration.user_id 
-    });
+
 
     // Check if the integration belongs to the user
     if (integration.user_id !== userData.user.id) {
@@ -1078,6 +1074,145 @@ const dataFetchers: DataFetcher = {
       ]
     } catch (error: any) {
       console.error("Error fetching Notion users:", error)
+      throw error
+    }
+  },
+
+  notion_database_properties: async (integration: any, context?: any) => {
+    console.log("🔍 NOTION DATABASE PROPERTIES FETCHER CALLED!")
+    try {
+      console.log("🔍 Notion database properties fetcher called")
+      console.log("🔍 Context:", context)
+      console.log("🔍 Integration:", { id: integration.id, provider: integration.provider, userId: integration.user_id })
+      
+      const databaseId = context?.context?.database || context?.database
+      console.log(`🔍 Database ID from context:`, databaseId)
+      console.log(`🔍 Full context object:`, context)
+      if (!databaseId) {
+        throw new Error("Database ID is required to fetch properties")
+      }
+      
+      // Use the integration object directly since it's already fetched in the main route
+      const notionIntegration = integration
+      
+      if (!notionIntegration) {
+        throw new Error("Notion integration not found")
+      }
+      
+      console.log(`🔍 Found integration: ${notionIntegration.id}`)
+      
+      // Get workspaces from metadata
+      const workspaces = notionIntegration.metadata?.workspaces || {}
+      const workspaceIds = Object.keys(workspaces)
+      
+      console.log(`🔍 Workspaces found: ${workspaceIds.length}`)
+      console.log(`🔍 Workspace IDs:`, workspaceIds)
+      
+      if (workspaceIds.length === 0) {
+        throw new Error("No workspaces found in Notion integration")
+      }
+      
+      // Find the workspace that contains this database
+      let accessToken = null
+      for (const workspaceId of workspaceIds) {
+        try {
+          const workspaceData = workspaces[workspaceId]
+          
+          // Decrypt the access token for this workspace
+          const encryptionKey = process.env.ENCRYPTION_KEY
+          if (!encryptionKey) {
+            console.error('🔍 Encryption key not configured')
+            continue
+          }
+          
+          const { decrypt } = await import('@/lib/security/encryption')
+          
+          try {
+            accessToken = decrypt(workspaceData.access_token, encryptionKey)
+          } catch (decryptError) {
+            console.error(`🔍 Failed to decrypt token for workspace ${workspaceId}:`, decryptError)
+            continue
+          }
+          
+          // Try to fetch the database to see if it exists in this workspace
+          const databaseResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              "Notion-Version": "2022-06-28",
+            },
+          })
+          
+          if (databaseResponse.ok) {
+            console.log(`🔍 Found database in workspace ${workspaceId}`)
+            break
+          }
+        } catch (workspaceError) {
+          console.log(`🔍 Error checking workspace ${workspaceId}:`, workspaceError)
+          continue
+        }
+      }
+      
+      if (!accessToken) {
+        throw new Error("Could not find access token for the database")
+      }
+      
+      // Fetch the database properties
+      const databaseResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+      })
+      
+      if (!databaseResponse.ok) {
+        const errorData = await databaseResponse.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${databaseResponse.status} - ${errorData.message || databaseResponse.statusText}`)
+      }
+      
+      const databaseData = await databaseResponse.json()
+      const properties = databaseData.properties || {}
+      
+      // Convert properties to dropdown format
+      const propertyOptions = Object.entries(properties).map(([propertyName, propertyData]: [string, any]) => {
+        const propertyType = propertyData.type
+        let options = []
+        
+        // Extract options for select and multi_select properties
+        if (propertyType === 'select' && propertyData.select?.options) {
+          options = propertyData.select.options.map((option: any) => ({
+            value: option.name,
+            label: option.name,
+            color: option.color
+          }))
+        } else if (propertyType === 'multi_select' && propertyData.multi_select?.options) {
+          options = propertyData.multi_select.options.map((option: any) => ({
+            value: option.name,
+            label: option.name,
+            color: option.color
+          }))
+        }
+        
+        return {
+          value: propertyName,
+          label: propertyName,
+          type: propertyType,
+          options: options,
+          description: `${propertyType} property`,
+          propertyData: propertyData
+        }
+      }).filter(prop => 
+        // Filter out system properties and only include user-editable properties
+        !['title', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(prop.value)
+      )
+      
+      console.log(`🔍 Returning ${propertyOptions.length} database properties`)
+      return propertyOptions
+    } catch (error: any) {
+      console.error("Error fetching Notion database properties:", error)
       throw error
     }
   },
@@ -3981,10 +4116,17 @@ const dataFetchers: DataFetcher = {
 
   "discord_guilds": async (integration: any) => {
     try {
+      // Validate and refresh token
+      const tokenValidation = await validateAndRefreshToken(integration)
+      
+      if (!tokenValidation.success) {
+        throw new Error(tokenValidation.error || "Token validation failed")
+      }
+      
       const data = await fetchDiscordWithRateLimit<any[]>(() => 
         fetch("https://discord.com/api/v10/users/@me/guilds", {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
+            Authorization: `Bearer ${tokenValidation.token}`,
             "Content-Type": "application/json",
           },
         })
@@ -4072,27 +4214,109 @@ const dataFetchers: DataFetcher = {
           filteredData = filteredData.filter((channel: any) => !channel.archived)
         }
 
+        // NEW: Check bot permissions for each channel and filter out inaccessible ones
+        console.log(`🔍 Checking bot permissions for ${filteredData.length} channels in guild ${guildId}`)
+        
+        // First, check bot's guild-level permissions to avoid individual channel checks if possible
+        const botUserId = process.env.DISCORD_CLIENT_ID
+        let hasGuildPermissions = false
+        let canViewChannel = false
+        let canSendMessages = false
+        
+        if (botUserId) {
+          try {
+            // Get bot's guild member info to check permissions
+            const memberUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${botUserId}`
+            const memberResponse = await fetch(memberUrl, {
+              headers: {
+                Authorization: `Bot ${botToken}`,
+                "Content-Type": "application/json",
+              },
+            })
+
+            if (memberResponse.status === 200) {
+              const memberData = await memberResponse.json()
+              const guildPermissions = BigInt(memberData.permissions || 0)
+              
+              // Check if bot has permission to view and send messages
+              const VIEW_CHANNEL = BigInt(0x400)
+              const SEND_MESSAGES = BigInt(0x800)
+              
+              canViewChannel = (guildPermissions & VIEW_CHANNEL) !== BigInt(0)
+              canSendMessages = (guildPermissions & SEND_MESSAGES) !== BigInt(0)
+              hasGuildPermissions = guildPermissions !== BigInt(0)
+              
+              console.log(`🔑 Bot guild permissions: canView=${canViewChannel}, canSend=${canSendMessages}, hasGuildPerms=${hasGuildPermissions}`)
+            }
+          } catch (error) {
+            console.warn("Failed to check bot guild permissions:", error)
+          }
+        }
+        
+        let accessibleChannels = filteredData
+        
+        // If bot has guild-level permissions, use them to filter
+        if (hasGuildPermissions && canViewChannel && canSendMessages) {
+          console.log(`✅ Using guild-level permissions - all channels accessible`)
+          accessibleChannels = filteredData
+        } else if (hasGuildPermissions && (!canViewChannel || !canSendMessages)) {
+          console.log(`❌ Bot lacks guild-level permissions - no channels accessible`)
+          accessibleChannels = []
+        } else {
+          // Bot has channel-specific permissions - check each channel individually
+          // But limit the number of concurrent requests to avoid rate limiting
+          console.log(`🔍 Checking individual channel permissions (limiting concurrent requests)`)
+          
+          const BATCH_SIZE = 3 // Process channels in small batches
+          const channelsWithPermissions = []
+          
+          for (let i = 0; i < filteredData.length; i += BATCH_SIZE) {
+            const batch = filteredData.slice(i, i + BATCH_SIZE)
+            
+            const batchResults = await Promise.all(
+              batch.map(async (channel: any) => {
+                const accessible = await checkChannelPermission(guildId, channel.id, channel.name, botToken)
+                return {
+                  ...channel,
+                  accessible
+                }
+              })
+            )
+            
+            channelsWithPermissions.push(...batchResults)
+            
+            // Add a small delay between batches to avoid rate limiting
+            if (i + BATCH_SIZE < filteredData.length) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+          }
+          
+          accessibleChannels = channelsWithPermissions.filter((channel: any) => channel.accessible)
+        }
+        
+        console.log(`✅ Found ${accessibleChannels.length} accessible channels out of ${filteredData.length} total channels`)
+
         // Apply sorting
         switch (sortBy) {
           case "name":
-            filteredData.sort((a: any, b: any) => a.name.localeCompare(b.name))
+            accessibleChannels.sort((a: any, b: any) => a.name.localeCompare(b.name))
             break
           case "name_desc":
-            filteredData.sort((a: any, b: any) => b.name.localeCompare(a.name))
+            accessibleChannels.sort((a: any, b: any) => b.name.localeCompare(a.name))
             break
           case "created":
-            filteredData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            accessibleChannels.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             break
           case "created_old":
-            filteredData.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            accessibleChannels.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
             break
           case "position":
           default:
-            filteredData.sort((a: any, b: any) => a.position - b.position)
+            accessibleChannels.sort((a: any, b: any) => a.position - b.position)
             break
         }
 
-        return filteredData.map((channel: any) => ({
+        return accessibleChannels.map((channel: any) => ({
           id: channel.id,
           name: channel.type === 4 ? channel.name : `#${channel.name}`,
           value: channel.id,
@@ -4573,7 +4797,13 @@ const dataFetchers: DataFetcher = {
     // Discord API limitation: Cannot fetch all server members with a user OAuth token.
     // Only the user's own account and their connections (friends/linked accounts) are available.
     try {
-      const userToken = integration.access_token
+      // Validate and refresh token
+      const tokenValidation = await validateAndRefreshToken(integration)
+      if (!tokenValidation.success) {
+        throw new Error(tokenValidation.error || "Token validation failed")
+      }
+      
+      const userToken = tokenValidation.token
       if (!userToken) {
         console.warn("User Discord token not available - returning empty users list")
         return []
@@ -4586,7 +4816,7 @@ const dataFetchers: DataFetcher = {
         const userResponse = await fetchDiscordWithRateLimit<any>(() => 
           fetch("https://discord.com/api/v10/users/@me", {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bearer ${tokenValidation.token}`,
               "Content-Type": "application/json",
             },
           })
@@ -4614,7 +4844,7 @@ const dataFetchers: DataFetcher = {
         const connectionsResponse = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch("https://discord.com/api/v10/users/@me/connections", {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bearer ${tokenValidation.token}`,
               "Content-Type": "application/json",
             },
           })
@@ -6725,6 +6955,67 @@ function getStatusColor(status: string): string {
     case "offline":
     default:
       return "#747f8d"
+  }
+}
+
+// Simple in-memory cache for channel permissions (clears on server restart)
+const channelPermissionCache = new Map<string, { accessible: boolean, timestamp: number }>()
+
+// Cache cleanup - remove entries older than 5 minutes
+setInterval(() => {
+  const now = Date.now()
+  const fiveMinutes = 5 * 60 * 1000
+  
+  for (const [key, value] of channelPermissionCache.entries()) {
+    if (now - value.timestamp > fiveMinutes) {
+      channelPermissionCache.delete(key)
+    }
+  }
+}, 60000) // Run cleanup every minute
+
+// Helper function to get cache key
+function getChannelPermissionCacheKey(guildId: string, channelId: string) {
+  return `${guildId}:${channelId}`
+}
+
+// Helper function to check channel permissions with caching
+async function checkChannelPermission(guildId: string, channelId: string, channelName: string, botToken: string): Promise<boolean> {
+  const cacheKey = getChannelPermissionCacheKey(guildId, channelId)
+  
+  // Check cache first
+  if (channelPermissionCache.has(cacheKey)) {
+    const cached = channelPermissionCache.get(cacheKey)!
+    console.log(`📋 Channel ${channelName}: cached result - accessible=${cached.accessible}`)
+    return cached.accessible
+  }
+  
+  try {
+    // Check if bot can access this channel
+    const channelUrl = `https://discord.com/api/v10/channels/${channelId}`
+    const channelResponse = await fetch(channelUrl, {
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    const accessible = channelResponse.status === 200
+    
+    // Cache the result for 5 minutes
+    channelPermissionCache.set(cacheKey, { accessible, timestamp: Date.now() })
+    
+    if (accessible) {
+      console.log(`📋 Channel ${channelName}: accessible`)
+    } else {
+      console.log(`❌ Channel ${channelName}: bot cannot access (${channelResponse.status})`)
+    }
+    
+    return accessible
+  } catch (error) {
+    console.warn(`Failed to check permissions for channel ${channelName}:`, error)
+    // If we can't check permissions, assume accessible to avoid breaking functionality
+    channelPermissionCache.set(cacheKey, { accessible: true, timestamp: Date.now() })
+    return true
   }
 }
 

@@ -1299,6 +1299,79 @@ export async function listDiscordChannels(config: any, userId: string, input: Re
     if (!includeArchived) {
       data = data.filter((channel: any) => !channel.archived)
     }
+
+    // NEW: Check bot permissions for each channel and filter out inaccessible ones
+    const botUserId = process.env.DISCORD_CLIENT_ID
+    if (botUserId) {
+      // Get bot's guild member info to check permissions
+      const memberUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${botUserId}`
+      const memberResponse = await fetch(memberUrl, {
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (memberResponse.status === 200) {
+        const memberData = await memberResponse.json()
+        const guildPermissions = BigInt(memberData.permissions || 0)
+        
+        // Check if bot has permission to view and send messages
+        const VIEW_CHANNEL = BigInt(0x400)
+        const SEND_MESSAGES = BigInt(0x800)
+        
+        const canViewChannel = (guildPermissions & VIEW_CHANNEL) !== BigInt(0)
+        const canSendMessages = (guildPermissions & SEND_MESSAGES) !== BigInt(0)
+        
+        // If guild permissions are 0, the bot likely has channel-specific permissions
+        // In this case, we'll check each channel individually
+        const hasGuildPermissions = guildPermissions !== BigInt(0)
+        
+        if (hasGuildPermissions) {
+          // Filter out channels the bot doesn't have access to based on guild permissions
+          data = data.filter((channel: any) => {
+            return canViewChannel && canSendMessages
+          })
+        } else {
+          // Bot has channel-specific permissions - check each channel individually
+          // Use batching to avoid rate limiting
+          const BATCH_SIZE = 3
+          const channelsWithAccess = []
+          
+          for (let i = 0; i < data.length; i += BATCH_SIZE) {
+            const batch = data.slice(i, i + BATCH_SIZE)
+            
+            const batchResults = await Promise.all(
+              batch.map(async (channel: any) => {
+                try {
+                  const channelResponse = await fetch(`https://discord.com/api/v10/channels/${channel.id}`, {
+                    headers: {
+                      Authorization: `Bot ${botToken}`,
+                      "Content-Type": "application/json",
+                    },
+                  })
+                  
+                  // If bot can access the channel (status 200), assume it can send messages
+                  return channelResponse.status === 200 ? channel : null
+                } catch (error) {
+                  // If we can't check the channel, exclude it to be safe
+                  return null
+                }
+              })
+            )
+            
+            channelsWithAccess.push(...batchResults.filter((channel: any) => channel !== null))
+            
+            // Add a small delay between batches to avoid rate limiting
+            if (i + BATCH_SIZE < data.length) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+          }
+          
+          data = channelsWithAccess
+        }
+      }
+    }
     
     // Apply sorting
     switch (sortBy) {
@@ -1321,17 +1394,29 @@ export async function listDiscordChannels(config: any, userId: string, input: Re
     }
     
     // Apply limit
-    if (limit && limit > 0) {
+    if (limit && data.length > limit) {
       data = data.slice(0, limit)
     }
     
-    return { 
-      success: true, 
-      output: data, 
-      message: `Fetched ${data.length} channels with applied filters` 
+    return {
+      success: true,
+      output: data.map((channel: any) => ({
+        id: channel.id,
+        name: channel.name,
+        type: channel.type,
+        position: channel.position,
+        parent_id: channel.parent_id,
+        topic: channel.topic,
+        nsfw: channel.nsfw,
+        rate_limit_per_user: channel.rate_limit_per_user,
+        created_at: channel.created_at
+      }))
     }
   } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to list channels" }
+    return {
+      success: false,
+      message: error.message || "Failed to list Discord channels"
+    }
   }
 }
 
