@@ -25,13 +25,38 @@ async function getSecureUserAndSession() {
   // First, validate the user securely
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.id) {
-    throw new Error("No authenticated user found. Please log in again.")
+    // Try to refresh the session
+    console.log("🔄 Attempting to refresh session...")
+    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+    
+    if (refreshError || !session) {
+      console.error("❌ Session refresh failed:", refreshError)
+      throw new Error("No authenticated user found. Please log in again.")
+    }
+    
+    // Try to get user again after refresh
+    const { data: { user: refreshedUser }, error: refreshedUserError } = await supabase.auth.getUser()
+    if (refreshedUserError || !refreshedUser?.id) {
+      throw new Error("Session refresh failed. Please log in again.")
+    }
+    
+    console.log("✅ Session refreshed successfully")
+    return { user: refreshedUser, session }
   }
 
   // Then get the session for the access token
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) {
-    throw new Error("Session expired. Please log in again.")
+    // Try to refresh the session if no access token
+    console.log("🔄 No access token found, attempting to refresh session...")
+    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+    
+    if (refreshError || !refreshedSession?.access_token) {
+      throw new Error("Session expired. Please log in again.")
+    }
+    
+    console.log("✅ Session refreshed successfully")
+    return { user, session: refreshedSession }
   }
 
   return { user, session }
@@ -335,7 +360,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         console.log(`🔗 Connecting to ${providerId}...`)
 
-        const { user, session } = await getSecureUserAndSession()
+        // Enhanced error handling for authentication
+        let user, session
+        try {
+          const authResult = await getSecureUserAndSession()
+          user = authResult.user
+          session = authResult.session
+        } catch (authError) {
+          console.error(`❌ Authentication error for ${providerId}:`, authError)
+          setError(`Authentication failed: ${authError instanceof Error ? authError.message : 'Unknown error'}`)
+          setLoading(`connect-${providerId}`, false)
+          return
+        }
+
+        console.log(`✅ User authenticated for ${providerId}:`, user.id)
 
         const response = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
@@ -351,7 +389,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to generate OAuth URL")
+          console.error(`❌ OAuth URL generation failed for ${providerId}:`, errorData)
+          
+          // Handle specific error cases
+          if (response.status === 401) {
+            throw new Error("Authentication expired. Please log in again.")
+          } else if (response.status === 403) {
+            throw new Error("Access denied. You may not have permission to connect this integration.")
+          } else {
+            throw new Error(errorData.error || `Failed to generate OAuth URL for ${provider.name}`)
+          }
         }
 
         const data = await response.json()
@@ -371,6 +418,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           const messageHandler = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return
+
+            console.log(`📨 Received OAuth message for ${providerId}:`, event.data)
 
             if (event.data && event.data.type === "oauth-success") {
               console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)

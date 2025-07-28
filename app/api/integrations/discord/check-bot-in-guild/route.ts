@@ -3,14 +3,18 @@ import { NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   // Debug endpoint to check bot configuration
   try {
-    const botUserId = process.env.DISCORD_BOT_USER_ID
+    const botUserId = process.env.DISCORD_CLIENT_ID // Use client ID as bot user ID
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botUserId || !botToken) {
       return NextResponse.json({ 
         error: "Bot configuration missing",
         botUserId: botUserId ? "SET" : "MISSING",
-        botToken: botToken ? "SET" : "MISSING"
+        botToken: botToken ? "SET" : "MISSING",
+        missingVars: [
+          ...(!botUserId ? ['DISCORD_CLIENT_ID'] : []),
+          ...(!botToken ? ['DISCORD_BOT_TOKEN'] : [])
+        ]
       })
     }
 
@@ -66,19 +70,25 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { guildId } = await request.json()
+    const { guildId, channelId } = await request.json()
     
     if (!guildId) {
       return NextResponse.json({ error: "Guild ID is required" }, { status: 400 })
     }
 
     // Bot credentials from environment variables
-    const botUserId = process.env.DISCORD_BOT_USER_ID
+    const botUserId = process.env.DISCORD_CLIENT_ID // Use client ID as bot user ID
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botUserId || !botToken) {
       console.error("Missing Discord bot credentials in environment variables")
-      return NextResponse.json({ error: "Bot configuration missing" }, { status: 500 })
+      return NextResponse.json({ 
+        error: "Bot configuration missing",
+        missingVars: [
+          ...(!botUserId ? ['DISCORD_CLIENT_ID'] : []),
+          ...(!botToken ? ['DISCORD_BOT_TOKEN'] : [])
+        ]
+      }, { status: 500 })
     }
 
     // First, verify bot credentials are valid by checking bot's own user info
@@ -104,6 +114,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if bot is in the guild by fetching guild members
+    let botInGuild = false
+    let guildPermissions = null
+    
     try {
       const guildMembersUrl = `https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`
       
@@ -119,13 +132,16 @@ export async function POST(request: NextRequest) {
         const botMember = members.find((member: any) => member.user?.id === botUserId)
         
         if (botMember) {
-          return NextResponse.json({ present: true })
-        } else {
-          return NextResponse.json({ present: false })
+          botInGuild = true
+          guildPermissions = botMember.permissions
         }
       } else if (guildResponse.status === 403) {
         // Bot doesn't have permission to view guild members
-        return NextResponse.json({ present: false, error: "Insufficient permissions" })
+        return NextResponse.json({ 
+          present: false, 
+          error: "Insufficient permissions",
+          details: "Bot cannot view guild members"
+        })
       } else if (guildResponse.status === 404) {
         // Guild not found or bot not in guild
         return NextResponse.json({ present: false })
@@ -147,23 +163,87 @@ export async function POST(request: NextRequest) {
         if (memberResponse.status === 200) {
           const memberData = await memberResponse.json()
           if (memberData.user?.id === botUserId) {
-            return NextResponse.json({ present: true })
-          } else {
-            return NextResponse.json({ present: false })
+            botInGuild = true
+            guildPermissions = memberData.permissions
           }
         } else if (memberResponse.status === 404) {
-          return NextResponse.json({ present: false })
+          botInGuild = false
         } else if (memberResponse.status === 403) {
-          return NextResponse.json({ present: false, error: "Insufficient permissions" })
-        } else {
-          return NextResponse.json({ present: false, error: "Unexpected API response" })
+          return NextResponse.json({ 
+            present: false, 
+            error: "Insufficient permissions",
+            details: "Bot cannot access guild member information"
+          })
         }
       } catch (memberError) {
         // Ignore fallback errors
       }
-      
-      return NextResponse.json({ present: false, error: "Failed to verify bot membership" })
     }
+
+    // If bot is not in guild, return early
+    if (!botInGuild) {
+      return NextResponse.json({ 
+        present: false,
+        details: "Bot is not a member of this guild"
+      })
+    }
+
+    // If channelId is provided, check channel permissions
+    let channelAccess = null
+    if (channelId) {
+      try {
+        const channelUrl = `https://discord.com/api/v10/channels/${channelId}`
+        
+        const channelResponse = await fetch(channelUrl, {
+          headers: { 
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json"
+          }
+        })
+
+        if (channelResponse.status === 200) {
+          const channelData = await channelResponse.json()
+          
+          // Check if bot has permission to send messages in this channel
+          const hasSendMessages = guildPermissions && (BigInt(guildPermissions) & BigInt(0x800)) !== BigInt(0)
+          const hasViewChannel = guildPermissions && (BigInt(guildPermissions) & BigInt(0x400)) !== BigInt(0)
+          
+          channelAccess = {
+            canView: hasViewChannel,
+            canSendMessages: hasSendMessages,
+            channelName: channelData.name,
+            channelType: channelData.type
+          }
+        } else if (channelResponse.status === 403) {
+          channelAccess = {
+            canView: false,
+            canSendMessages: false,
+            error: "Insufficient channel permissions"
+          }
+        } else if (channelResponse.status === 404) {
+          channelAccess = {
+            canView: false,
+            canSendMessages: false,
+            error: "Channel not found"
+          }
+        }
+      } catch (channelError) {
+        channelAccess = {
+          canView: false,
+          canSendMessages: false,
+          error: "Failed to check channel permissions"
+        }
+      }
+    }
+
+    return NextResponse.json({ 
+      present: true,
+      botInGuild: true,
+      guildPermissions: guildPermissions,
+      channelAccess: channelAccess,
+      note: "Discord bots appear online at the guild level, not channel level. Channel access is determined by permissions."
+    })
+    
   } catch (error) {
     console.error("❌ Error checking bot in guild:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

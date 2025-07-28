@@ -181,6 +181,7 @@ export async function createNotionPage(
     
     const {
       workspace,
+      database,
       title,
       parentPageId,
       content,
@@ -227,7 +228,6 @@ export async function createNotionPage(
 
     // Create page payload
     const payload: any = {
-      parent: parentPageId ? { page_id: parentPageId } : { type: "workspace_id", workspace_id: workspace },
       properties: {
         title: {
           title: [
@@ -240,6 +240,19 @@ export async function createNotionPage(
         ...properties
       },
       children: children
+    }
+
+    // Set parent based on the provided parameters
+    if (parentPageId) {
+      // If parent page is selected, create page inside that page
+      payload.parent = { page_id: parentPageId }
+    } else if (database) {
+      // If database is selected but no parent page, create page inside the database
+      payload.parent = { database_id: database }
+    } else {
+      // If neither parent page nor database is selected, create page at workspace root
+      // Note: Notion API doesn't support workspace_id directly, so we need to use a different approach
+      throw new Error("Either a database or parent page must be selected to create a page")
     }
 
     // Create page

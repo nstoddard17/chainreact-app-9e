@@ -177,6 +177,10 @@ export function IntegrationCard({
 
   const isConnected = status === "connected" || status === "expiring"
 
+  // Check if this is a Teams integration with special requirements
+  const isTeamsIntegration = provider.id === 'teams'
+  const showTeamsUpgradeMessage = isTeamsIntegration && !isConnected
+
   return (
     <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-border bg-card overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
@@ -236,6 +240,16 @@ export function IntegrationCard({
               </div>
             </div>
           )}
+          {showTeamsUpgradeMessage && (
+            <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>Business Plan Required:</strong> Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
+                </div>
+              </div>
+            </div>
+          )}
           {provider.id === 'microsoft-onenote' && (
             <div>
               <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
@@ -284,7 +298,7 @@ export function IntegrationCard({
           ) : (
             <Button
               className="w-full"
-              disabled={!isConfigured}
+              disabled={!isConfigured || showTeamsUpgradeMessage}
               onClick={handleConnectClick}
             >
               <LinkIcon className="mr-2 h-4 w-4" />
@@ -311,6 +325,18 @@ export function IntegrationCard({
             </TooltipProvider>
           )}
         </div>
+        
+        {showTeamsUpgradeMessage && (
+          <div className="w-full">
+            <Button
+              variant="outline"
+              className="w-full text-xs"
+              onClick={() => window.open('/settings/billing', '_blank')}
+            >
+              Upgrade to Business Plan
+            </Button>
+          </div>
+        )}
       </CardFooter>
 
       <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>

@@ -57,6 +57,8 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
     // 3. Extract required parameters
     const { 
       workspace,
+      database,
+      databaseProperties,
       title,
       icon,
       cover,
@@ -89,11 +91,6 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
     
     // 5. Prepare the request payload
     const payload: any = {
-      // Create page in the user's workspace (no specific parent)
-      parent: {
-        type: "workspace_id",
-        workspace_id: true // This creates the page in the root of the workspace
-      },
       properties: {
         title: {
           title: [
@@ -104,6 +101,28 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
             }
           ]
         }
+      }
+    }
+
+    // Set parent based on the provided parameters
+    if (database) {
+      // If database is selected, create page inside the database
+      payload.parent = { database_id: database }
+      
+      // Add database properties if provided
+      if (databaseProperties && typeof databaseProperties === 'object') {
+        Object.entries(databaseProperties).forEach(([propertyName, propertyValue]) => {
+          if (propertyValue !== null && propertyValue !== undefined && propertyValue !== '') {
+            // Add the property to the page properties
+            payload.properties[propertyName] = propertyValue
+          }
+        })
+      }
+    } else {
+      // If no database is selected, create page at workspace root
+      payload.parent = {
+        type: "workspace_id",
+        workspace_id: true
       }
     }
     

@@ -1760,13 +1760,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dependsOn: "workspace"
       },
       { 
-        name: "parentPageId", 
-        label: "Parent Page (Optional)", 
+        name: "databaseProperties", 
+        label: "Database Properties (Optional)", 
         type: "select", 
-        dynamic: "notion_pages",
+        dynamic: "notion_database_properties",
         required: false,
-        placeholder: "Select parent page (leave empty for root level)",
-        description: "Choose where to create the new page. Leave empty to create at the root level.",
+        placeholder: "Select database properties to set",
+        description: "Choose properties from the selected database to set values for the new page.",
         dependsOn: "database"
       },
       { 

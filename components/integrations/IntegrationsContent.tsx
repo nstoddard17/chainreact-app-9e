@@ -249,6 +249,45 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         return
       }
 
+      // Special handling for Teams integration
+      if (providerId === 'teams') {
+        try {
+          // Check Teams access before attempting connection
+          const debugResponse = await fetch('/api/integrations/debug-teams')
+          const debugData = await debugResponse.json()
+          
+          if (debugData.success && debugData.debug.authInfo) {
+            const authInfo = debugData.debug.authInfo
+            
+            if (!authInfo.authenticated) {
+              toast({
+                title: "Authentication Error",
+                description: "Your session has expired. Please log in again to connect Teams integration.",
+                variant: "destructive",
+              })
+              return
+            }
+            
+            if (!authInfo.hasTeamsAccess) {
+              toast({
+                title: "Access Denied",
+                description: "Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account.",
+                variant: "destructive",
+              })
+              return
+            }
+          }
+        } catch (error) {
+          console.error("Error checking Teams access:", error)
+          toast({
+            title: "Connection Error",
+            description: "Unable to verify Teams access. Please try again.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
+
       try {
         const response = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
@@ -257,6 +296,32 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
 
         const data = await response.json()
+
+        if (!response.ok) {
+          // Handle specific error cases
+          if (response.status === 401) {
+            toast({
+              title: "Authentication Error",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive",
+            })
+            return
+          } else if (response.status === 403) {
+            toast({
+              title: "Access Denied",
+              description: data.error || "You don't have permission to connect this integration.",
+              variant: "destructive",
+            })
+            return
+          } else {
+            toast({
+              title: "Connection Error",
+              description: data.error || "Could not generate authentication URL.",
+              variant: "destructive",
+            })
+            return
+          }
+        }
 
         if (data.success && data.authUrl) {
           const width = 600
@@ -316,6 +381,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           })
         }
       } catch (error) {
+        console.error("Connection error:", error)
         toast({
           title: "Error",
           description: "An unexpected error occurred. Please try again.",

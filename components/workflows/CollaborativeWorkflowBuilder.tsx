@@ -285,6 +285,28 @@ const useWorkflowBuilderState = () => {
     // We'll use a ref or state to store these
     sessionStorage.setItem('preservedActionNodes', JSON.stringify(actionNodes));
     
+    // Clear all configuration preferences when changing trigger
+    const clearAllPreferences = async () => {
+      try {
+        console.log(`🗑️ Clearing all preferences due to trigger change`)
+        
+        // Clear all preferences for this user
+        const response = await fetch(`/api/user/config-preferences`, {
+          method: "DELETE"
+        })
+        
+        if (response.ok) {
+          console.log(`✅ Successfully cleared all preferences`)
+        } else {
+          console.warn(`⚠️ Failed to clear all preferences:`, response.status)
+        }
+      } catch (error) {
+        console.error(`❌ Error clearing all preferences:`, error)
+      }
+    }
+    
+    clearAllPreferences();
+    
     setSelectedIntegration(null);
     setSelectedTrigger(null);
     setSearchQuery("");
@@ -388,9 +410,61 @@ const useWorkflowBuilderState = () => {
     const nodeToRemove = allNodes.find((n) => n.id === nodeId)
     if (!nodeToRemove) return
     
+    // Clear configuration preferences for the deleted node
+    const clearNodePreferences = async () => {
+      try {
+        const nodeType = nodeToRemove.data.type
+        const providerId = nodeToRemove.data.providerId
+        const nodeId = nodeToRemove.id
+        
+        if (nodeType && providerId) {
+          console.log(`🗑️ Clearing preferences for deleted node: ${nodeType} (${providerId}) - Node ID: ${nodeId}`)
+          
+          // Since we can't easily identify which preferences belong to which node,
+          // we'll clear ALL preferences for this node type and provider
+          // This is a temporary solution until we implement proper node isolation
+          const response = await fetch(`/api/user/config-preferences?nodeType=${encodeURIComponent(nodeType)}&providerId=${encodeURIComponent(providerId)}`, {
+            method: "DELETE"
+          })
+          
+          if (response.ok) {
+            console.log(`✅ Successfully cleared all preferences for ${nodeType} (${providerId})`)
+          } else {
+            console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error clearing preferences for deleted node:`, error)
+      }
+    }
+    
+    // Clear preferences immediately
+    clearNodePreferences()
+    
     // If we're deleting the trigger or this is the last custom node, reset the workflow
     const customNodes = allNodes.filter((n: Node) => n.type === "custom")
     if (nodeToRemove.data.isTrigger || customNodes.length <= 1) {
+      // Clear all configuration preferences when resetting the workflow
+      const clearAllPreferences = async () => {
+        try {
+          console.log(`🗑️ Clearing all preferences due to workflow reset`)
+          
+          // Clear all preferences for this user
+          const response = await fetch(`/api/user/config-preferences`, {
+            method: "DELETE"
+          })
+          
+          if (response.ok) {
+            console.log(`✅ Successfully cleared all preferences`)
+          } else {
+            console.warn(`⚠️ Failed to clear all preferences:`, response.status)
+          }
+        } catch (error) {
+          console.error(`❌ Error clearing all preferences:`, error)
+        }
+      }
+      
+      clearAllPreferences()
       setNodes([])
       setEdges([])
       return

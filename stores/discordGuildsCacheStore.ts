@@ -1,5 +1,8 @@
 import { createCacheStore, loadOnce, registerStore } from "./cacheStore"
 import { apiClient } from "@/lib/apiClient"
+import { useIntegrationStore } from "./integrationStore"
+import { configValidator } from "@/lib/config/validator"
+import { FetchUserDataRequest } from "@/types/integration"
 
 // Define the Discord guild interface
 export interface DiscordGuild {
@@ -23,10 +26,24 @@ registerStore({
  * Fetch Discord guilds for the current user
  */
 async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
-  const response = await apiClient.post("/api/integrations/fetch-user-data", {
-    provider: "discord",
+  // Validate Discord bot configuration first
+  configValidator.validateDiscordBotConfig()
+
+  // Get the Discord integration ID
+  const { getIntegrationByProvider } = useIntegrationStore.getState()
+  const integration = getIntegrationByProvider("discord")
+  
+  if (!integration) {
+    throw new Error("No Discord integration found. Please connect your Discord account first.")
+  }
+
+  // Create properly typed request
+  const request: FetchUserDataRequest = {
+    integrationId: integration.id,
     dataType: "discord_guilds"
-  })
+  }
+
+  const response = await apiClient.post("/api/integrations/fetch-user-data", request)
 
   if (!response.success) {
     throw new Error(response.error || "Failed to fetch Discord guilds")
