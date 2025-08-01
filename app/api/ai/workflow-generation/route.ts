@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+import { generateWorkflowFromPrompt } from "@/lib/ai/workflowGenerator"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🔍 Workflow generation API called")
     cookies()
     const supabase = await createSupabaseServerClient()
     
@@ -14,36 +16,91 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
+      console.log("❌ Authentication failed:", userError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("✅ User authenticated:", user.id)
     const { prompt, workflowId } = await request.json()
 
     if (!prompt) {
+      console.log("❌ No prompt provided")
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // For now, return a simple response
-    // In a real implementation, you'd call an AI service here
-    const generatedWorkflow = {
-      nodes: [
-        {
-          id: "trigger",
-          type: "custom",
-          position: { x: 400, y: 100 },
-          data: {
-            type: "trigger-example",
-            name: "Example Trigger",
-            isTrigger: true,
-          },
-        },
-      ],
-      connections: [],
+    console.log("📝 Generating workflow for prompt:", prompt)
+
+    // Generate workflow using AI
+    const result = await generateWorkflowFromPrompt(prompt)
+
+    console.log("🤖 AI generation result:", result)
+
+    if (!result.success || !result.workflow) {
+      console.log("❌ AI generation failed:", result.error)
+      return NextResponse.json({ 
+        error: result.error || "Failed to generate workflow" 
+      }, { status: 500 })
     }
 
-    return NextResponse.json({ workflow: generatedWorkflow })
+    console.log("✅ AI generation successful, saving to database")
+
+    // If a workflowId is provided, update the existing workflow
+    if (workflowId) {
+      const { data: workflow, error: updateError } = await supabase
+        .from("workflows")
+        .update({
+          name: result.workflow.name,
+          description: result.workflow.description,
+          nodes: result.workflow.nodes,
+          connections: result.workflow.connections,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", workflowId)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error("❌ Database update error:", updateError)
+        return NextResponse.json({ error: "Failed to update workflow" }, { status: 500 })
+      }
+
+      console.log("✅ Workflow updated successfully")
+      return NextResponse.json({ 
+        success: true,
+        workflow,
+        confidence: result.confidence,
+        message: "Workflow updated successfully"
+      })
+    }
+
+    // Create new workflow
+    const { data: workflow, error: createError } = await supabase
+      .from("workflows")
+      .insert({
+        name: result.workflow.name,
+        description: result.workflow.description,
+        user_id: user.id,
+        nodes: result.workflow.nodes,
+        connections: result.workflow.connections,
+        status: "draft",
+      })
+      .select()
+      .single()
+
+    if (createError) {
+      console.error("❌ Database create error:", createError)
+      return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 })
+    }
+
+    console.log("✅ Workflow created successfully:", workflow.id)
+    return NextResponse.json({ 
+      success: true,
+      workflow,
+      confidence: result.confidence,
+      message: "Workflow created successfully"
+    })
   } catch (error) {
-    console.error("Workflow generation error:", error)
+    console.error("❌ Workflow generation error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

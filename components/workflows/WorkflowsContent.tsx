@@ -33,6 +33,7 @@ export default function WorkflowsContent() {
   const [activeTab, setActiveTab] = useState("workflows")
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
+  const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; workflowId: string | null }>({
     open: false,
     workflowId: null,
@@ -62,13 +63,66 @@ export default function WorkflowsContent() {
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
     const status = currentStatus || "draft"
-    const newStatus = status === "active" ? "paused" : "active"
+    
+    // Determine the new status based on current status
+    let newStatus: string
+    if (status === "active") {
+      newStatus = "paused"
+    } else if (status === "paused") {
+      newStatus = "active"
+    } else if (status === "draft") {
+      // For draft workflows, check if they're ready to be activated
+      const workflow = workflows?.find(w => w.id === id)
+      if (workflow) {
+        const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
+        const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger)
+        const hasConnections = workflow.connections?.length > 0
+        
+        if (!hasTrigger) {
+          toast({
+            title: "Cannot Activate",
+            description: "Workflow needs a trigger to be activated",
+            variant: "destructive",
+          })
+          return
+        }
+        
+        if (!hasAction) {
+          toast({
+            title: "Cannot Activate",
+            description: "Workflow needs at least one action to be activated",
+            variant: "destructive",
+          })
+          return
+        }
+        
+        if (!hasConnections) {
+          toast({
+            title: "Cannot Activate",
+            description: "Workflow needs connections between nodes to be activated",
+            variant: "destructive",
+          })
+          return
+        }
+        
+        newStatus = "active"
+      } else {
+        newStatus = "active"
+      }
+    } else {
+      newStatus = "active"
+    }
     
     try {
+      // Set loading state for this specific workflow
+      setUpdatingWorkflows(prev => new Set(prev).add(id))
+      
+      console.log(`🔄 Updating workflow ${id} status from ${status} to ${newStatus}`)
       await updateWorkflowById(id, { status: newStatus })
+      
       toast({
         title: "Success",
-        description: `Workflow ${newStatus === "active" ? "activated" : "paused"}`,
+        description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`,
       })
     } catch (error) {
       console.error("Failed to update workflow status:", error)
@@ -76,6 +130,13 @@ export default function WorkflowsContent() {
         title: "Error",
         description: "Failed to update workflow status",
         variant: "destructive",
+      })
+    } finally {
+      // Clear loading state for this workflow
+      setUpdatingWorkflows(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(id)
+        return newSet
       })
     }
   }
@@ -104,10 +165,31 @@ export default function WorkflowsContent() {
 
     setGeneratingAI(true)
     try {
-      toast({
-        title: "Not implemented",
-        description: "AI workflow generation is not implemented in the cached version yet",
+      const response = await fetch("/api/ai/workflow-generation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: 'include', // Include session cookies for authentication
+        body: JSON.stringify({
+          prompt: aiPrompt,
+        }),
       })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: `Workflow "${data.workflow.name}" created successfully!`,
+        })
+        
+        // Clear the prompt and reload workflows
+        setAiPrompt("")
+        await loadAllWorkflows(true)
+      } else {
+        throw new Error(data.error || "Failed to generate workflow")
+      }
     } catch (error) {
       console.error("Failed to generate workflow:", error)
       toast({
@@ -319,7 +401,17 @@ export default function WorkflowsContent() {
                           {workflow.updated_at ? `Updated ${new Date(workflow.updated_at).toLocaleDateString()}` : 'Not yet updated'}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {workflow.status === "active" ? (
+                          {updatingWorkflows.has(workflow.id) ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled
+                              className="h-8 w-8 p-0"
+                            >
+                              <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
+                              <span className="sr-only">Updating...</span>
+                            </Button>
+                          ) : workflow.status === "active" ? (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -327,7 +419,8 @@ export default function WorkflowsContent() {
                                 e.preventDefault()
                                 handleToggleStatus(workflow.id, workflow.status)
                               }}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 hover:bg-yellow-50 hover:text-yellow-600"
+                              title="Pause workflow"
                             >
                               <Pause className="h-4 w-4 text-slate-500" />
                               <span className="sr-only">Pause</span>
@@ -340,7 +433,8 @@ export default function WorkflowsContent() {
                                 e.preventDefault()
                                 handleToggleStatus(workflow.id, workflow.status)
                               }}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
+                              title={workflow.status === "draft" ? "Activate workflow" : "Resume workflow"}
                             >
                               <Play className="h-4 w-4 text-slate-500" />
                               <span className="sr-only">Activate</span>
