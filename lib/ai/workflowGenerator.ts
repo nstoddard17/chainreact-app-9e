@@ -1,6 +1,7 @@
 import { generateObject, generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
+import { generateWorkflow } from "./workflowAI"
 
 const WorkflowNodeSchema = z.object({
   id: z.string(),
@@ -35,46 +36,23 @@ const GeneratedWorkflowSchema = z.object({
 
 export async function generateWorkflowFromPrompt(prompt: string) {
   try {
-    const { object } = await generateObject({
-      model: openai("gpt-4o"),
-      schema: GeneratedWorkflowSchema,
-      prompt: `
-        Generate a complete workflow based on this user request: "${prompt}"
-        
-        Available node types:
-        - webhook: For receiving HTTP requests
-        - schedule: For time-based triggers
-        - slack_message: For Slack integrations
-        - send_email: For sending emails
-        - api_call: For making HTTP requests
-        - condition: For conditional logic
-        - delay: For adding delays
-        - template: For text/data transformation
-        - database_query: For database operations
-        - file_upload: For file handling
-        
-        Rules:
-        1. Create a logical flow that accomplishes the user's goal
-        2. Position nodes in a left-to-right flow (x: 100, 300, 500, etc.)
-        3. Include proper configuration for each node
-        4. Connect nodes in the correct order
-        5. Provide a confidence score based on how well you understand the request
-        
-        Example configurations:
-        - Slack: {"channel": "#general", "message": "Hello world"}
-        - Email: {"to": "user@example.com", "subject": "Subject", "body": "Body"}
-        - API: {"url": "https://api.example.com", "method": "POST", "headers": {}}
-        - Schedule: {"cron_expression": "0 9 * * *", "timezone": "UTC"}
-      `,
+    console.log("🔍 generateWorkflowFromPrompt called with:", prompt)
+    
+    // Use the existing generateWorkflow function from workflowAI.ts
+    const workflow = await generateWorkflow({
+      prompt,
+      userId: "temp", // This will be set by the API route
     })
+
+    console.log("✅ generateWorkflow successful:", workflow)
 
     return {
       success: true,
-      workflow: object,
-      confidence: object.confidence,
+      workflow,
+      confidence: 0.8, // Default confidence
     }
   } catch (error) {
-    console.error("Error generating workflow:", error)
+    console.error("❌ Error in generateWorkflowFromPrompt:", error)
     return {
       success: false,
       error: "Failed to generate workflow from prompt",

@@ -738,9 +738,9 @@ const useWorkflowBuilderState = () => {
                 description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
-                onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
+                onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
-                providerId: node.data.providerId || node.data.type.split('-')[0]
+                providerId: node.data.providerId || node.data.type?.split('-')[0]
               },
             };
           })
@@ -1224,8 +1224,8 @@ const useWorkflowBuilderState = () => {
               description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
-              onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
-              providerId: node.data.providerId || node.data.type.split('-')[0]
+              onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+              providerId: node.data.providerId || node.data.type?.split('-')[0]
             },
           };
         });
@@ -1862,8 +1862,8 @@ const useWorkflowBuilderState = () => {
               description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
-              onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
-              providerId: node.data.providerId || node.data.type.split('-')[0]
+              onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+              providerId: node.data.providerId || node.data.type?.split('-')[0]
             },
           };
         });

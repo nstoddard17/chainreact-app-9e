@@ -247,7 +247,8 @@ function generateSlackAuthUrl(state: string): string {
 
 function generateDiscordAuthUrl(state: string): string {
   const clientId = "1378595955212812308"
-  const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
+  const baseUrl = getBaseUrl()
+  const redirectUri = `${baseUrl}/api/integrations/discord/callback`
 
   const params = new URLSearchParams({
     client_id: clientId,

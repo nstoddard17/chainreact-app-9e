@@ -187,21 +187,34 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     throw new Error("Supabase client not available")
   }
 
-  const currentWorkflow = useCurrentWorkflowStore.getState().data
+  // Get the current workflow from the store
+  let currentWorkflow = useCurrentWorkflowStore.getState().data
   
+  // If the current workflow is not the one we're updating, load it first
   if (!currentWorkflow || currentWorkflow.id !== id) {
-    await loadWorkflow(id)
+    try {
+      currentWorkflow = await loadWorkflow(id)
+    } catch (error) {
+      console.error("Failed to load workflow for update:", error)
+      // If we can't load the workflow, we'll update with just the provided updates
+      currentWorkflow = null
+    }
   }
   
-  const updatedWorkflow = {
-    ...currentWorkflow,
+  // Prepare the update data
+  const updateData = {
     ...updates,
     updated_at: new Date().toISOString()
-  } as Workflow
+  }
+
+  // If we have the current workflow, merge it with updates
+  if (currentWorkflow) {
+    Object.assign(updateData, currentWorkflow, updates)
+  }
 
   const { data: savedData, error } = await supabase
     .from("workflows")
-    .update(updatedWorkflow)
+    .update(updateData)
     .eq("id", id)
     .select()
     .single()
@@ -210,13 +223,11 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     throw error
   }
   
-  // Log the saved data to verify positions were saved correctly
-  console.log("✅ Database update saved with positions:", 
-    savedData?.nodes?.map((n: WorkflowNode) => ({ 
-      id: n.id, 
-      position: n.position 
-    }))
-  );
+  console.log("✅ Workflow status updated:", {
+    id: savedData.id,
+    status: savedData.status,
+    updated_at: savedData.updated_at
+  })
 
   // Update the current workflow store with the actual saved data from database
   useCurrentWorkflowStore.getState().setData(savedData)
