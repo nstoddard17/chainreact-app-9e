@@ -59,6 +59,7 @@
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
     "@slack/web-api": "latest",
+    "@stripe/stripe-js": "^7.8.0",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
