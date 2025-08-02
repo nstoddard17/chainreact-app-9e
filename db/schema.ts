@@ -211,3 +211,40 @@ export interface ScheduledWorkflowExecution {
   processed_at?: string
   completed_at?: string
 }
+
+export interface SupportTicket {
+  id: string
+  user_id: string
+  ticket_number: string
+  subject: string
+  description: string
+  priority: "low" | "medium" | "high" | "urgent"
+  status: "open" | "in_progress" | "waiting_for_user" | "resolved" | "closed"
+  category: "bug" | "feature_request" | "integration_issue" | "billing" | "general" | "technical_support"
+  assigned_to?: string
+  user_email: string
+  user_name?: string
+  browser_info?: Record<string, any>
+  system_info?: Record<string, any>
+  error_details?: Record<string, any>
+  attachments?: Record<string, any>
+  tags?: string[]
+  internal_notes?: string
+  resolution?: string
+  resolved_at?: string
+  closed_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SupportTicketResponse {
+  id: string
+  ticket_id: string
+  user_id?: string
+  is_staff_response: boolean
+  message: string
+  attachments?: Record<string, any>
+  internal_notes?: string
+  created_at: string
+  updated_at: string
+}

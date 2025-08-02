@@ -20,6 +20,7 @@ import {
   Bot,
   Heart,
   CreditCard,
+  HelpCircle,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -46,6 +47,12 @@ const navigation = [
   { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free' },
   { name: "Community", href: "/community", icon: Users, minRole: 'free' },
   { name: "Enterprise", href: "/enterprise", icon: Shield, minRole: 'enterprise' },
+  {
+    name: "Support",
+    href: "/support",
+    icon: HelpCircle,
+    minRole: "free"
+  }
 ]
 
 const adminNavigation = [
