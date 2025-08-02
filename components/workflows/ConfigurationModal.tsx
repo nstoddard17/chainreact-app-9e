@@ -13,6 +13,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useConfigPreferences } from "@/hooks/use-config-preferences"
 import { useIntegrationSpecificData } from "@/hooks/use-integration-specific-data"
+import { useToast } from "@/hooks/use-toast"
 
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
@@ -24,7 +25,7 @@ import { TimePicker } from "@/components/ui/time-picker"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Calendar } from "@/components/ui/calendar"
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addWeeks } from "date-fns"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus, Copy } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -1115,6 +1116,9 @@ function ConfigurationModal({
     integrationId: integration?.id,
     providerId: nodeInfo?.providerId
   })
+  
+  // Toast hook for notifications
+  const { toast } = useToast()
   
   // Coordinate data loading to prevent race conditions
   useEffect(() => {
@@ -7049,8 +7053,8 @@ function ConfigurationModal({
           )
         }
 
-        // Add variable picker for Discord message action channel and message fields
-        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel") && (field.name === "channelId" || field.name === "messageId")) {
+        // Add variable picker for Discord message action message fields only (exclude channelId)
+        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel") && field.name === "messageId") {
           // Get options for the select field
           let options: any[] = []
           if (field.dynamic) {
@@ -7134,17 +7138,17 @@ function ConfigurationModal({
                   </Select>
                 </div>
                 <VariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={(variable) => {
+                  value={value}
+                  onChange={(variable) => {
                     setConfig(prev => ({ ...prev, [field.name]: variable }))
                   }}
-                  fieldType="text"
-                  trigger={
-                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
-                    </Button>
-                  }
+                  availableNodes={workflowData?.nodes?.map((node: any) => ({
+                    id: node.id,
+                    title: node.data?.title || node.data?.type || 'Unknown Node',
+                    outputs: node.data?.outputSchema || []
+                  })) || []}
+                  placeholder={field.placeholder}
+                  className="flex-1"
                 />
               </div>
               {hasError && (
@@ -7856,7 +7860,49 @@ function ConfigurationModal({
                     : ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && field.dependsOn)
                     ? `Select ${field.dependsOn} first`
                     : field.placeholder
-                } />
+                }>
+                  {/* Enhanced display for integration fields with labels */}
+                  {value && config[`${field.name}_label`] && (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">
+                          {nodeInfo?.title || `${nodeInfo?.providerId || 'Action'} Action`}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {config[`${field.name}_label`]}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 ml-2"
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          try {
+                            // Copy the value to clipboard
+                            await navigator.clipboard.writeText(value)
+                            // Show a toast notification
+                            toast({
+                              title: "Value copied",
+                              description: `${field.label || field.name} copied to clipboard`,
+                            })
+                          } catch (error) {
+                            console.error('Failed to copy value:', error)
+                            toast({
+                              title: "Copy failed",
+                              description: "Failed to copy value to clipboard",
+                              variant: "destructive",
+                            })
+                          }
+                        }}
+                        title={`Copy ${field.label || field.name}`}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent 
                 className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 

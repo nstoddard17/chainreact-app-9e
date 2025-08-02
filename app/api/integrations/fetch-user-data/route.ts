@@ -98,6 +98,12 @@ export async function POST(req: NextRequest) {
       } else if (error.message?.includes('Failed to fetch')) {
         statusCode = 503;
         errorMessage = `Service temporarily unavailable for ${integration.provider}. Please try again later.`;
+      } else if (error.message?.includes('rate limit') || error.message?.includes('429')) {
+        statusCode = 429;
+        errorMessage = `${integration.provider} is currently rate limited. Please try again in a few moments.`;
+      } else if (error.message?.includes('Invalid Discord channel') || error.message?.includes('400')) {
+        statusCode = 400;
+        errorMessage = error.message; // Use the specific error message
       }
       
       return Response.json({ 
@@ -430,13 +436,27 @@ async function fetchWithRetry<T>(fetchFn: () => Promise<T>, maxRetries: number, 
 }
 
 // Discord-specific rate limiting helper
+// Global rate limiting state
+let discordRequestQueue: Promise<any>[] = []
+let lastDiscordRequest = 0
+const MIN_REQUEST_INTERVAL = 2000 // Increased to 2 seconds between requests to be more conservative
+
 async function fetchDiscordWithRateLimit<T>(
   fetchFn: () => Promise<Response>,
-  maxRetries: number = 2,
-  defaultWaitTime: number = 2000 // Reduced from 5000ms to 2000ms (2 seconds)
+  maxRetries: number = 2, // Reduced retries to be more conservative
+  defaultWaitTime: number = 5000 // Increased to 5 seconds
 ): Promise<T> {
+  // Ensure minimum interval between Discord requests
+  const now = Date.now()
+  const timeSinceLastRequest = now - lastDiscordRequest
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
+    await new Promise(resolve => setTimeout(resolve, waitTime))
+  }
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      lastDiscordRequest = Date.now()
       const response = await fetchFn()
       
       if (response.ok) {
@@ -448,23 +468,23 @@ async function fetchDiscordWithRateLimit<T>(
         const retryAfter = response.headers.get('Retry-After')
         const resetAfter = response.headers.get('X-RateLimit-Reset')
         
-        // console.log(`Discord rate limit hit (attempt ${attempt}). Retry-After: ${retryAfter}, Reset-After: ${resetAfter}`)
+        console.log(`Discord rate limit hit (attempt ${attempt}). Retry-After: ${retryAfter}, Reset-After: ${resetAfter}`)
         
         if (attempt < maxRetries) {
           // Calculate wait time
-          let waitTime = defaultWaitTime // Use configurable default
+          let waitTime = defaultWaitTime
           if (retryAfter) {
             waitTime = parseInt(retryAfter) * 1000
           } else if (resetAfter) {
             const resetTime = parseInt(resetAfter) * 1000
             const now = Date.now()
-            waitTime = Math.max(resetTime - now, 1000)
+            waitTime = Math.max(resetTime - now, 2000)
           }
           
           // Cap wait time to prevent excessive delays
-          waitTime = Math.min(waitTime, 10000) // Max 10 seconds
+          waitTime = Math.min(waitTime, 10000) // Max 10 seconds to be more responsive
           
-          // console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
+          console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
           await new Promise(resolve => setTimeout(resolve, waitTime))
           continue
         }
@@ -479,10 +499,25 @@ async function fetchDiscordWithRateLimit<T>(
         throw error
       }
       console.warn(`Discord API attempt ${attempt} failed:`, error.message)
+      
+      // Add exponential backoff for non-rate-limit errors
+      if (!error.message.includes('429')) {
+        const backoffTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+        await new Promise(resolve => setTimeout(resolve, backoffTime))
+      }
     }
   }
   
-  throw new Error('Discord API request failed after all retries')
+  // Instead of throwing, return a structured error response
+  return {
+    error: {
+      message: 'Discord API is currently rate limited. Please try again in a few moments.',
+      details: 'All retry attempts failed due to rate limiting',
+      provider: 'discord',
+      dataType: 'discord_data'
+    },
+    data: []
+  } as any
 }
 
 // Fix data fetchers with better error handling
@@ -4142,10 +4177,21 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Discord guilds:", error)
+      
+      // Handle specific error cases
       if (error.message.includes("401")) {
         throw new Error("Discord authentication expired. Please reconnect your account.")
       }
-      throw error
+      
+      if (error.message.includes("429")) {
+        // Return empty array instead of throwing for rate limits
+        console.warn("Discord rate limited, returning empty guilds list")
+        return []
+      }
+      
+      // For other errors, return empty array to prevent workflow failures
+      console.warn("Discord guilds fetch failed, returning empty list:", error.message)
+      return []
     }
   },
 
@@ -4425,11 +4471,25 @@ const dataFetchers: DataFetcher = {
           console.log(`Bot is not a member of server ${guildId} - returning empty categories list`)
           return []
         }
+        if (error.message.includes("429")) {
+          // Return empty array instead of throwing for rate limits
+          console.warn("Discord rate limited, returning empty channels list")
+          return []
+        }
         throw error
       }
     } catch (error: any) {
-      console.error("Error fetching Discord categories:", error)
-      throw error
+      console.error("Error fetching Discord channels:", error)
+      
+      // Handle rate limiting gracefully
+      if (error.message.includes("429")) {
+        console.warn("Discord rate limited, returning empty channels list")
+        return []
+      }
+      
+      // For other errors, return empty array to prevent workflow failures
+      console.warn("Discord channels fetch failed, returning empty list:", error.message)
+      return []
     }
   },
 
@@ -4572,6 +4632,12 @@ const dataFetchers: DataFetcher = {
       console.log("🔍 Bot token available, making Discord API call...")
 
       try {
+        // Validate channel ID format
+        if (!channelId || typeof channelId !== 'string' || !/^\d+$/.test(channelId)) {
+          console.error(`❌ Invalid channel ID format: ${channelId}`)
+          throw new Error(`Invalid channel ID format: ${channelId}. Please select a valid Discord channel.`)
+        }
+
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=50`, {
             headers: {
@@ -4630,6 +4696,11 @@ const dataFetchers: DataFetcher = {
           // Channel not found - return empty array instead of throwing error
           console.log(`Channel ${channelId} not found - returning empty messages list`)
           return []
+        }
+        if (error.message.includes("400")) {
+          // Invalid request - likely invalid channel ID or bot permissions
+          console.error(`Invalid Discord API request for channel ${channelId}:`, error.message)
+          throw new Error(`Invalid Discord channel or insufficient bot permissions. Please ensure the bot has access to this channel and try again.`)
         }
         throw error
       }

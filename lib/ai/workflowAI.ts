@@ -15,8 +15,11 @@ export interface WorkflowNode {
   position: { x: number; y: number }
   data: {
     label: string
+    title: string
     type: string
     config: Record<string, any>
+    isTrigger?: boolean
+    providerId?: string
   }
 }
 
@@ -286,7 +289,13 @@ Return ONLY valid JSON in this format:
         "label": "Email Received",
         "title": "Gmail: New Email",
         "type": "gmail_trigger_new_email",
-        "config": {"from": "sender@example.com"}
+        "isTrigger": true,
+        "providerId": "gmail",
+        "config": {
+          "from": "support@company.com",
+          "subject": "Customer inquiry",
+          "hasAttachment": "any"
+        }
       }
     },
     {
@@ -294,10 +303,45 @@ Return ONLY valid JSON in this format:
       "type": "custom",
       "position": {"x": 400, "y": 300},
       "data": {
+        "label": "AI Email Analyzer",
+        "title": "AI Agent",
+        "type": "ai_agent",
+        "isTrigger": false,
+        "providerId": "ai",
+        "config": {
+          "inputNodeId": "node-1",
+          "memory": "all-storage",
+          "memoryIntegration": "",
+          "customMemoryIntegrations": ["gmail", "slack", "notion"],
+          "systemPrompt": "You are a helpful AI assistant that can analyze emails and take appropriate actions. When you receive an email, analyze its content and determine the best course of action.",
+          "tone": "professional",
+          "responseLength": 100,
+          "model": "gpt-4",
+          "temperature": 0.7,
+          "maxTokens": 1000,
+          "outputFormat": "text",
+          "selectedVariables": {
+            "from": true,
+            "subject": true,
+            "body": true
+          }
+        }
+      }
+    },
+    {
+      "id": "node-3",
+      "type": "custom",
+      "position": {"x": 400, "y": 500},
+      "data": {
         "label": "Send Slack Message",
         "title": "Slack: Send Message",
         "type": "slack_action_send_message",
-        "config": {"channel": "#general", "message": "New email received"}
+        "isTrigger": false,
+        "providerId": "slack",
+        "config": {
+          "channel": "#customer-support",
+          "message": "AI Analysis: {{AI Agent → goal}} - Customer inquiry from {{Gmail: New Email → From}}"
+        }
       }
     }
   ],
@@ -306,15 +350,183 @@ Return ONLY valid JSON in this format:
       "id": "edge-1",
       "source": "node-1",
       "target": "node-2"
+    },
+    {
+      "id": "edge-2",
+      "source": "node-2",
+      "target": "node-3"
     }
   ]
+}
+
+CONFIGURATION EXAMPLES FOR COMMON NODES:
+
+Gmail Trigger (gmail_trigger_new_email):
+"config": {
+  "from": "specific@email.com",
+  "subject": "Order confirmation",
+  "hasAttachment": "yes"
+}
+
+Slack Send Message (slack_action_send_message):
+"config": {
+  "channel": "#general",
+  "message": "Hello! This is an automated message."
+}
+
+Discord Send Message (discord_action_send_message):
+"config": {
+  "channelId": "1234567890123456789",
+  "message": "New notification received!"
+}
+
+Notion Create Page (notion_action_create_page):
+"config": {
+  "workspace": "My Workspace",
+  "database": "Tasks",
+  "pageTitle": "New Task",
+  "databaseProperties": {
+    "Status": "In Progress",
+    "Priority": "High"
+  }
+}
+
+Google Calendar Create Event (google_calendar_action_create_event):
+"config": {
+  "calendar": "Primary",
+  "summary": "Team Meeting",
+  "description": "Weekly team sync",
+  "startTime": "2024-01-15T10:00:00Z",
+  "endTime": "2024-01-15T11:00:00Z",
+  "attendees": ["team@company.com"]
+}
+
+AI Agent - Email Analysis (ai_agent):
+"config": {
+  "inputNodeId": "node1",
+  "memory": "all-storage",
+  "memoryIntegration": "",
+  "customMemoryIntegrations": ["gmail", "slack", "notion"],
+  "systemPrompt": "You are a helpful AI assistant that can analyze emails and take appropriate actions. When you receive an email, analyze its content and determine the best course of action.",
+  "tone": "professional",
+  "responseLength": 100,
+  "model": "gpt-4",
+  "temperature": 0.7,
+  "maxTokens": 1000,
+  "outputFormat": "text",
+  "selectedVariables": {
+    "from": true,
+    "subject": true,
+    "body": true
+  }
+}
+
+AI Agent - Customer Support (ai_agent):
+"config": {
+  "inputNodeId": "node1",
+  "memory": "all-storage",
+  "memoryIntegration": "",
+  "customMemoryIntegrations": ["gmail", "slack", "hubspot", "notion"],
+  "systemPrompt": "You are a customer support AI assistant. Analyze customer inquiries and provide helpful, accurate responses. Escalate complex issues appropriately.",
+  "tone": "friendly",
+  "responseLength": 150,
+  "model": "gpt-4",
+  "temperature": 0.7,
+  "maxTokens": 1500,
+  "outputFormat": "text",
+  "selectedVariables": {
+    "from": true,
+    "subject": true,
+    "body": true,
+    "receivedAt": true
+  }
+}
+
+AI Agent - Project Management (ai_agent):
+"config": {
+  "inputNodeId": "node1",
+  "memory": "all-storage",
+  "memoryIntegration": "",
+  "customMemoryIntegrations": ["notion", "slack", "google-calendar", "github"],
+  "systemPrompt": "You are a project management AI assistant. Help organize tasks, schedule meetings, and coordinate team activities based on incoming requests.",
+  "tone": "professional",
+  "responseLength": 120,
+  "model": "gpt-4",
+  "temperature": 0.7,
+  "maxTokens": 1200,
+  "outputFormat": "text",
+  "selectedVariables": {
+    "content": true,
+    "authorName": true,
+    "channelName": true,
+    "timestamp": true
+  }
+}
+
+AI Summarize Content (ai_action_summarize):
+"config": {
+  "inputText": "{{Gmail: New Email → Body}}",
+  "maxLength": 200,
+  "style": "brief",
+  "focus": "key points"
+}
+
+AI Extract Information (ai_action_extract):
+"config": {
+  "inputText": "{{Gmail: New Email → Body}}",
+  "extractionType": "emails",
+  "returnFormat": "list"
+}
+
+Schedule Trigger (schedule):
+"config": {
+  "cronExpression": "0 9 * * 1",
+  "timezone": "America/New_York"
+}
+
+Webhook Trigger (webhook):
+"config": {
+  "method": "POST",
+  "path": "/webhook/orders"
 }
 
 IMPORTANT: Each node's data object must include:
 - "label": A short descriptive name (e.g., "Email Received", "Send Slack Message")
 - "title": A more detailed title (e.g., "Gmail: New Email", "Slack: Send Message") 
 - "type": The exact trigger/action type from the available list
+
+AI AGENT INTEGRATION RULES:
+- When including an AI Agent, ALWAYS place it between the trigger and action nodes
+- Set inputNodeId to the previous node's ID (e.g., "node1" for the trigger)
+- Connect the AI Agent to both the trigger (input) and the action (output)
+- Use the AI Agent's output in subsequent actions (e.g., "{{AI Agent → goal}}")
+- Choose appropriate customMemoryIntegrations based on the workflow context
+- Write systemPrompt that matches the workflow's purpose and use case
+- "isTrigger": true for trigger nodes, false for action nodes
+- "providerId": The provider name (e.g., "gmail", "slack", "discord")
 - "config": Configuration object with relevant settings
+
+CONFIGURATION GUIDELINES:
+1. ALWAYS populate the config object with realistic, specific values based on the user's request
+2. Use specific variable references like {{Action Name → Field Name}} to reference data from previous nodes (e.g., {{Gmail: New Email → From}}, {{Slack: Send Message → Channel}})
+3. For triggers, include relevant filters (from, subject, etc.)
+4. For actions, include all required fields with meaningful values
+5. For AI actions, reference previous node outputs in inputText fields using specific action and field names
+6. Use realistic channel names, email addresses, and other identifiers
+7. Include proper formatting for dates, times, and other structured data
+
+AI AGENT CONFIGURATION GUIDELINES:
+8. For AI Agent nodes, ALWAYS set inputNodeId to the previous node's ID (e.g., "node1" for the first trigger)
+9. Set memory to "all-storage" for comprehensive context access
+10. Include relevant customMemoryIntegrations based on the workflow (e.g., ["gmail", "slack"] for email workflows)
+11. Write realistic systemPrompt that describes the AI's role and capabilities
+12. Set tone to "professional", "friendly", or "casual" based on the use case
+13. Set responseLength to 50-150 based on expected response complexity
+14. Use "gpt-4" as the model for best performance
+15. Set temperature to 0.7 for balanced creativity and consistency
+16. Set maxTokens to 1000-2000 based on expected response length
+17. Set outputFormat to "text" for most use cases
+18. Include selectedVariables object with relevant fields set to true (e.g., {"from": true, "subject": true, "body": true})
 
 Node positioning example:
 - Trigger node: {"x": 400, "y": 100}

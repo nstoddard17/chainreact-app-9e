@@ -54,6 +54,7 @@ import {
   HeartOff,
   UserMinus,
   Clock,
+  Globe,
 } from "lucide-react"
 
 // Import Gmail action metadata
@@ -450,6 +451,77 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "System Prompt (Optional)", 
         type: "textarea",
         placeholder: "Override the default AI system prompt..."
+      },
+      {
+        name: "template",
+        label: "Template",
+        type: "select",
+        defaultValue: "none",
+        options: [
+          { value: "none", label: "No template (use default behavior)" },
+          { value: "summarize", label: "Summarize Content" },
+          { value: "extract", label: "Extract Information" },
+          { value: "sentiment", label: "Sentiment Analysis" },
+          { value: "translate", label: "Translate Text" },
+          { value: "generate", label: "Generate Content" },
+          { value: "classify", label: "Classify Content" },
+          { value: "email_response", label: "Email Response" },
+          { value: "data_analysis", label: "Data Analysis" },
+          { value: "content_creation", label: "Content Creation" },
+          { value: "customer_support", label: "Customer Support" },
+          { value: "custom", label: "Custom Template" }
+        ],
+        description: "Choose a predefined template or create a custom one"
+      },
+      {
+        name: "customTemplate",
+        label: "Prompt",
+        type: "textarea",
+        dependsOn: "template",
+        placeholder: "Write your custom prompt here...",
+        description: "Define a custom prompt for the AI agent to follow"
+      },
+      {
+        name: "contentType",
+        label: "Content Type (for Generate template)",
+        type: "select",
+        dependsOn: "template",
+        defaultValue: "email",
+        options: [
+          { value: "email", label: "Email" },
+          { value: "report", label: "Report" },
+          { value: "summary", label: "Summary" },
+          { value: "response", label: "Response" },
+          { value: "custom", label: "Custom" }
+        ],
+        description: "Type of content to generate (only used with Generate template)"
+      },
+      {
+        name: "tone",
+        label: "Tone",
+        type: "select",
+        dependsOn: "template",
+        defaultValue: "professional",
+        options: [
+          { value: "professional", label: "Professional" },
+          { value: "casual", label: "Casual" },
+          { value: "friendly", label: "Friendly" },
+          { value: "formal", label: "Formal" }
+        ],
+        description: "Tone to use for content generation"
+      },
+      {
+        name: "length",
+        label: "Length",
+        type: "select",
+        dependsOn: "template",
+        defaultValue: "medium",
+        options: [
+          { value: "short", label: "Short" },
+          { value: "medium", label: "Medium" },
+          { value: "long", label: "Long" }
+        ],
+        description: "Length of generated content"
       }
     ],
     outputSchema: [
