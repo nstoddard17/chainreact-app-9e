@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { executeAction } from "@/lib/workflows/executeNode"
+import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
 
 interface ExecutionContext {
   userId: string
@@ -10,6 +11,7 @@ interface ExecutionContext {
   inputData: any
   results: Record<string, any>
   errors: string[]
+  dataFlowManager: any // DataFlowManager instance
 }
 
 export async function POST(request: Request) {
@@ -135,6 +137,9 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
     throw new Error("Workflow has no trigger nodes")
   }
 
+  // Initialize data flow manager
+  const dataFlowManager = createDataFlowManager(`exec_${Date.now()}`, workflow.id, userId)
+  
   const executionContext = {
     data: inputData,
     variables: {},
@@ -142,6 +147,7 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
     testMode,
     userId,
     workflowId: workflow.id,
+    dataFlowManager
   }
 
   // Load workflow variables
@@ -164,9 +170,13 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
 }
 
 async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[], context: any): Promise<any> {
+  const startTime = Date.now()
   console.log(`Executing node: ${node.id} (${node.data.type})`)
 
   try {
+    // Set current node in data flow manager
+    context.dataFlowManager?.setCurrentNode(node.id)
+    
     let nodeResult
 
     switch (node.data.type) {
@@ -233,6 +243,29 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "gmail_action_add_label":
         nodeResult = await executeAction({
           node,
+          input: context.data,
+          userId: context.userId,
+          workflowId: context.workflowId
+        })
+        break
+      // AI Data Processing Actions
+      case "ai_action_summarize":
+      case "ai_action_extract":
+      case "ai_action_sentiment":
+      case "ai_action_translate":
+      case "ai_action_generate":
+      case "ai_action_classify":
+        // Resolve variable references in config before executing
+        const resolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
+        const nodeWithResolvedConfig = {
+          ...node,
+          data: {
+            ...node.data,
+            config: resolvedConfig
+          }
+        }
+        nodeResult = await executeAction({
+          node: nodeWithResolvedConfig,
           input: context.data,
           userId: context.userId,
           workflowId: context.workflowId
@@ -336,6 +369,19 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
 
     // Store result
     context.results[node.id] = nodeResult
+    
+    // Store output in data flow manager
+    if (context.dataFlowManager) {
+      context.dataFlowManager.setNodeOutput(node.id, {
+        success: !(nodeResult as any).error,
+        data: (nodeResult as any).output || nodeResult,
+        metadata: {
+          timestamp: new Date(),
+          nodeType: node.data.type,
+          executionTime: Date.now() - startTime
+        }
+      })
+    }
 
     // Find and execute connected nodes based on output
     await executeConnectedNodes(node, allNodes, connections, context, nodeResult)

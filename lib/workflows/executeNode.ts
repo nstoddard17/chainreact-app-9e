@@ -6,6 +6,14 @@ import { createClient } from "@supabase/supabase-js"
 import { FileStorageService } from "@/lib/storage/fileStorage"
 import { google } from 'googleapis'
 import {
+  summarizeContent,
+  extractInformation,
+  analyzeSentiment,
+  translateText,
+  generateContent,
+  classifyContent,
+} from './actions/aiDataProcessing'
+import {
   // Core utilities
   ActionResult,
   
@@ -1668,6 +1676,14 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
 
   // Map of action types to handler functions
   const handlerMap: Record<string, Function> = {
+    // AI Data Processing actions
+    "ai_action_summarize": summarizeContent,
+    "ai_action_extract": extractInformation,
+    "ai_action_sentiment": analyzeSentiment,
+    "ai_action_translate": translateText,
+    "ai_action_generate": generateContent,
+    "ai_action_classify": classifyContent,
+    
     // Gmail actions
     "gmail_action_send_email": sendGmail,
     "gmail_action_add_label": addGmailLabels,

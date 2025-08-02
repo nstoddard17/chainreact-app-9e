@@ -630,7 +630,10 @@ const useWorkflowBuilderState = () => {
   }, [integrationsData.length, integrationsCacheLoading, getCurrentUserId])
 
   useEffect(() => {
-    if (workflowId && !currentWorkflow) {
+    if (workflowId) {
+      // Clear any existing workflow data first to ensure fresh load
+      setCurrentWorkflow(null);
+      
       // Always fetch fresh data from the API instead of using cached data
       const loadFreshWorkflow = async () => {
         try {
@@ -658,7 +661,7 @@ const useWorkflowBuilderState = () => {
       
       loadFreshWorkflow();
     }
-  }, [workflowId, currentWorkflow, setCurrentWorkflow])
+  }, [workflowId, setCurrentWorkflow])
 
   // Add a ref to track if we're in a save operation
   const isSavingRef = useRef(false)
@@ -740,7 +743,7 @@ const useWorkflowBuilderState = () => {
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
-                providerId: node.data.providerId || node.data.type?.split('-')[0]
+                providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0]
               },
             };
           })
@@ -1470,9 +1473,11 @@ const useWorkflowBuilderState = () => {
     return { variant: "secondary", text: "Draft" }
   }
   const renderLogo = (integrationId: string, integrationName: string) => {
-    const config = INTEGRATION_CONFIGS[integrationId as keyof typeof INTEGRATION_CONFIGS]
+    // Extract provider name from integrationId (e.g., "slack_action_send_message" -> "slack")
+    const providerId = integrationId.split('_')[0]
+    const config = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
     return <img 
-      src={config?.logo || `/integrations/${integrationId}.svg`} 
+      src={config?.logo || `/integrations/${providerId}.svg`} 
       alt={`${integrationName} logo`} 
       className="w-10 h-10 object-contain" 
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
@@ -1506,6 +1511,10 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         if (filterCategory === 'all') return true;
         return int.category === filterCategory;
+      })
+      .filter(int => {
+        // Filter out integrations that have no triggers
+        return int.triggers.length > 0;
       })
       .filter(int => {
         const searchLower = searchQuery.toLowerCase();
@@ -2283,7 +2292,7 @@ function WorkflowBuilderContent() {
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
+        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select a Trigger</DialogTitle>
             <DialogDescription>Choose an integration and a trigger to start your workflow.</DialogDescription>
@@ -2318,8 +2327,8 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-1/3 border-r border-border">
-              <div className="py-2 px-3">
+            <ScrollArea className="w-1/3 border-r border-border flex-1">
+              <div className="pt-2 pb-8 px-3">
               {filteredIntegrations.length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="text-muted-foreground mb-2">
@@ -2355,15 +2364,15 @@ function WorkflowBuilderContent() {
               </div>
             </ScrollArea>
             <div className="w-2/3 h-full">
-              <ScrollArea className="h-full">
+              <ScrollArea className="flex-1">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
                     {displayedTriggers.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3">
-                        {displayedTriggers.map((trigger) => (
+                        {displayedTriggers.map((trigger, index) => (
                           <div
-                            key={trigger.type}
+                            key={`${trigger.type}-${trigger.title}-${index}`}
                             className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
                             onClick={() => setSelectedTrigger(trigger)}
                             onDoubleClick={() => {
@@ -2429,7 +2438,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
+        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
             <DialogDescription>Choose an integration and an action to add to your workflow.</DialogDescription>
@@ -2468,8 +2477,8 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-1/3 border-r border-border">
-              <div className="py-2 px-3">
+            <ScrollArea className="w-1/3 border-r border-border flex-1">
+              <div className="pt-2 pb-8 px-3">
               {availableIntegrations.filter(int => {
                 if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                 if (filterCategory !== 'all' && int.category !== filterCategory) return false
@@ -2580,7 +2589,7 @@ function WorkflowBuilderContent() {
               </div>
             </ScrollArea>
             <div className="w-2/3 h-full">
-              <ScrollArea className="h-full">
+              <ScrollArea className="flex-1">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">

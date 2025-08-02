@@ -23,6 +23,7 @@ import { integrationIcons } from "@/lib/integrations/integration-icons"
 import { cn } from "@/lib/utils"
 import { SmartComposeField } from "@/components/ai/SmartComposeField"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -49,6 +50,9 @@ export default function AIAgentConfigModal({
     memoryIntegration: "",
     customMemoryIntegrations: [],
     systemPrompt: "",
+    template: "none",
+    customTemplate: "",
+    contentType: "email",
     tone: "neutral",
     responseLength: 50,
     model: "gpt-4",
@@ -74,6 +78,9 @@ export default function AIAgentConfigModal({
 
   // Add workflow test store for node output data
   const { getNodeInputOutput } = useWorkflowTestStore()
+  
+  // Get connected integrations for memory configuration
+  const { getConnectedProviders } = useIntegrationStore()
 
   // Get realistic trigger outputs based on trigger type
   const getTriggerOutputsByType = (nodeType: string, providerId?: string) => {
@@ -425,11 +432,186 @@ export default function AIAgentConfigModal({
                     )}
                   </div>
 
-                  {/* Prompt Template */}
+                  {/* Template Selection */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <MessageSquare className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">Prompt Template</Label>
+                      <Label className="text-base font-medium">Template</Label>
+                    </div>
+                    <Select
+                      value={config.template}
+                      onValueChange={(value) => {
+                        setConfig(prev => ({ ...prev, template: value }))
+                        // Auto-populate system prompt based on template selection
+                        const templatePrompts: Record<string, string> = {
+                          none: "",
+                          summarize: "You are an AI assistant specialized in summarizing content. Your task is to create concise, accurate summaries of the provided information. Focus on key points, main ideas, and essential details while maintaining clarity and readability. Provide summaries that are informative yet concise.",
+                          extract: "You are an AI assistant specialized in extracting specific information from text. Your task is to identify and extract relevant data points, facts, or information based on the user's requirements. Be precise and thorough in your extraction, ensuring you capture all relevant information.",
+                          sentiment: "You are an AI assistant specialized in sentiment analysis. Your task is to analyze the emotional tone and sentiment of the provided text. Provide detailed sentiment analysis including the overall sentiment (positive, negative, neutral) and specific emotional indicators present in the text.",
+                          translate: "You are an AI assistant specialized in translation. Your task is to translate text between languages while preserving the original meaning, tone, and context. Ensure accurate translation that maintains the intent and style of the original text.",
+                          generate: "You are an AI assistant specialized in content generation. Your task is to create high-quality, relevant content based on the provided input and requirements. Generate content that is engaging, informative, and tailored to the specified format and audience.",
+                          classify: "You are an AI assistant specialized in content classification. Your task is to categorize and classify content based on provided criteria. Provide clear classification results with confidence levels and reasoning for your categorization decisions.",
+                          email_response: "You are an AI assistant specialized in crafting professional email responses. Your task is to create appropriate, well-structured email responses that are courteous, clear, and address the recipient's needs effectively. Maintain professional tone and format.",
+                          data_analysis: "You are an AI assistant specialized in data analysis. Your task is to analyze provided data and extract meaningful insights, patterns, and conclusions. Present your analysis in a clear, structured manner with actionable recommendations.",
+                          content_creation: "You are an AI assistant specialized in creative content creation. Your task is to generate engaging, original content that captures attention and delivers value. Create content that is creative, informative, and tailored to the target audience.",
+                          customer_support: "You are an AI assistant specialized in customer support. Your task is to provide helpful, empathetic, and solution-oriented responses to customer inquiries. Focus on understanding the customer's needs and providing clear, actionable solutions."
+                        }
+                        if (templatePrompts[value]) {
+                          setConfig(prev => ({ ...prev, systemPrompt: templatePrompts[value] }))
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a template..." />
+                      </SelectTrigger>
+                      <SelectContent 
+                        position="popper" 
+                        side="bottom" 
+                        align="start"
+                        className="max-h-[300px] overflow-y-auto"
+                      >
+                        <SelectItem value="none">No template (use default behavior)</SelectItem>
+                        <SelectItem value="summarize">Summarize Content</SelectItem>
+                        <SelectItem value="extract">Extract Information</SelectItem>
+                        <SelectItem value="sentiment">Sentiment Analysis</SelectItem>
+                        <SelectItem value="translate">Translate Text</SelectItem>
+                        <SelectItem value="generate">Generate Content</SelectItem>
+                        <SelectItem value="classify">Classify Content</SelectItem>
+                        <SelectItem value="email_response">Email Response</SelectItem>
+                        <SelectItem value="data_analysis">Data Analysis</SelectItem>
+                        <SelectItem value="content_creation">Content Creation</SelectItem>
+                        <SelectItem value="customer_support">Customer Support</SelectItem>
+                        <SelectItem value="custom">Custom Template</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Memory Configuration */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Database className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Memory & Storage</Label>
+                    </div>
+                    <Select
+                      value={config.memory}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, memory: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select memory option..." />
+                      </SelectTrigger>
+                                                <SelectContent 
+                            position="popper" 
+                            side="bottom" 
+                            align="start"
+                          >
+                            <SelectItem value="none">No memory (start fresh each time)</SelectItem>
+                            <SelectItem value="all-storage">All connected storage integrations</SelectItem>
+                            <SelectItem value="single-storage">Specific storage integration</SelectItem>
+                          </SelectContent>
+                    </Select>
+                    
+                    {config.memory === "single-storage" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Select Storage Integration</Label>
+                        <Select
+                          value={config.memoryIntegration}
+                          onValueChange={(value) => setConfig(prev => ({ ...prev, memoryIntegration: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a storage integration..." />
+                          </SelectTrigger>
+                          <SelectContent 
+                            position="popper" 
+                            side="bottom" 
+                            align="start"
+                            className="max-h-[300px] overflow-y-auto"
+                          >
+                            {(() => {
+                              const connectedProviders = getConnectedProviders()
+                              const storageIntegrations = [
+                                { id: 'google-drive', name: 'Google Drive' },
+                                { id: 'onedrive', name: 'OneDrive' },
+                                { id: 'dropbox', name: 'Dropbox' },
+                                { id: 'box', name: 'Box' },
+                                { id: 'notion', name: 'Notion' },
+                                { id: 'airtable', name: 'Airtable' },
+                                { id: 'google-sheets', name: 'Google Sheets' }
+                              ]
+                              
+                              return storageIntegrations
+                                .filter(integration => connectedProviders.includes(integration.id))
+                                .map(integration => (
+                                  <SelectItem key={integration.id} value={integration.id}>
+                                    {integration.name}
+                                  </SelectItem>
+                                ))
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        {(() => {
+                          const connectedProviders = getConnectedProviders()
+                          const storageIntegrations = ['google-drive', 'onedrive', 'dropbox', 'box', 'notion', 'airtable', 'google-sheets']
+                          const connectedStorage = storageIntegrations.filter(id => connectedProviders.includes(id))
+                          
+                          if (connectedStorage.length === 0) {
+                            return (
+                              <p className="text-sm text-muted-foreground">
+                                No storage integrations connected. Connect a storage integration to use memory features.
+                              </p>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Template Prompt */}
+                  {config.template === "custom" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-primary" />
+                        <Label className="text-base font-medium">Prompt</Label>
+                      </div>
+                      <Textarea
+                        value={config.customTemplate}
+                        onChange={(e) => setConfig(prev => ({ ...prev, customTemplate: e.target.value }))}
+                        placeholder="Write your custom prompt here..."
+                        className="min-h-[120px]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Content Type (for Generate template) */}
+                  {config.template === "generate" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-primary" />
+                        <Label className="text-base font-medium">Content Type</Label>
+                      </div>
+                      <Select
+                        value={config.contentType}
+                        onValueChange={(value) => setConfig(prev => ({ ...prev, contentType: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="report">Report</SelectItem>
+                          <SelectItem value="summary">Summary</SelectItem>
+                          <SelectItem value="response">Response</SelectItem>
+                          <SelectItem value="custom">Custom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* System Prompt */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">System Prompt</Label>
                     </div>
                     <Textarea
                       value={config.systemPrompt}
@@ -627,7 +809,7 @@ export default function AIAgentConfigModal({
                     </div>
                   )}
 
-                  {/* Generate and Save Buttons */}
+                  {/* Generate Button */}
                   <div className="flex gap-3 pt-4">
                     <Button
                       onClick={handleGenerate}
@@ -645,13 +827,6 @@ export default function AIAgentConfigModal({
                           Generate
                         </>
                       )}
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      className="flex-1"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Save
                     </Button>
                   </div>
 
