@@ -22,8 +22,7 @@ export async function initiateGoogleSignIn() {
       .insert({ 
         state, 
         code_verifier: crypto.randomBytes(32).toString("hex"),
-        provider: "google-signin",
-        user_id: null // Will be set after successful authentication
+        provider: "google-signin"
       })
 
     if (stateError) {
