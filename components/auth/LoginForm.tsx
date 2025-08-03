@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,23 @@ export default function LoginForm() {
   const [providerError, setProviderError] = useState("")
   const { signIn, signInWithGoogle } = useAuthStore()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl')
+
+  const getRedirectUrl = () => {
+    if (returnUrl) {
+      try {
+        // Validate that the return URL is from our domain
+        const url = new URL(returnUrl)
+        if (url.origin === window.location.origin) {
+          return returnUrl
+        }
+      } catch (error) {
+        console.error('Invalid return URL:', error)
+      }
+    }
+    return "/dashboard"
+  }
 
   const checkProvider = async (email: string) => {
     try {
@@ -60,7 +77,7 @@ export default function LoginForm() {
       }
 
       await signIn(email, password)
-      window.location.href = "/dashboard"
+      window.location.href = getRedirectUrl()
     } catch (error) {
       console.error("Login error:", error)
       toast({
@@ -79,7 +96,7 @@ export default function LoginForm() {
     try {
       await signInWithGoogle()
       setTimeout(() => {
-        window.location.href = "/dashboard"
+        window.location.href = getRedirectUrl()
       }, 1000)
     } catch (error) {
       console.error("Google sign in error:", error)

@@ -9,6 +9,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
+import AIUsageCard from "./AIUsageCard"
 import { OnlineStatusIndicator } from "@/components/providers/PresenceProvider"
 import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
@@ -76,7 +77,8 @@ export default function DashboardContent() {
           <div className="lg:col-span-2">
             <WorkflowChart data={chartData} />
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <AIUsageCard />
             <ActivityFeed />
           </div>
         </div>

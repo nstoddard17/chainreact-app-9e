@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -54,6 +55,7 @@ const categoryIcons = {
 }
 
 export default function SupportPage() {
+  const router = useRouter()
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [creatingTicket, setCreatingTicket] = useState(false)
@@ -340,13 +342,13 @@ export default function SupportPage() {
                 {openTickets.map((ticket) => {
                   const CategoryIcon = categoryIcons[ticket.category]
                   return (
-                    <Card key={ticket.id} className="hover:shadow-md transition-shadow">
+                    <Card key={ticket.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/support/tickets/${ticket.id}`)}>
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                              <h3 className="font-semibold">{ticket.subject}</h3>
+                              <h3 className="font-semibold hover:text-blue-600 transition-colors">{ticket.subject}</h3>
                               <Badge variant="outline" className="text-xs">
                                 {ticket.ticket_number}
                               </Badge>
@@ -398,13 +400,13 @@ export default function SupportPage() {
                 {closedTickets.map((ticket) => {
                   const CategoryIcon = categoryIcons[ticket.category]
                   return (
-                    <Card key={ticket.id} className="hover:shadow-md transition-shadow opacity-75">
+                    <Card key={ticket.id} className="hover:shadow-md transition-shadow opacity-75 cursor-pointer" onClick={() => router.push(`/support/tickets/${ticket.id}`)}>
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                              <h3 className="font-semibold">{ticket.subject}</h3>
+                              <h3 className="font-semibold hover:text-blue-600 transition-colors">{ticket.subject}</h3>
                               <Badge variant="outline" className="text-xs">
                                 {ticket.ticket_number}
                               </Badge>
@@ -439,4 +441,8 @@ export default function SupportPage() {
       </div>
     </AppLayout>
   )
+}
+
+}
+
 }

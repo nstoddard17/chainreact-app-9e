@@ -309,6 +309,16 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
   try {
     const { userId, config, input, workflowContext } = params
     
+    // Check AI usage limits before execution
+    const { checkUsageLimit, trackUsage } = await import("@/lib/usageTracking")
+    const usageCheck = await checkUsageLimit(userId, "ai_agent")
+    if (!usageCheck.allowed) {
+      return {
+        success: false,
+        error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI agent executions this month. Please upgrade your plan for more AI usage.`
+      }
+    }
+    
     // 1. Resolve templated values, passing triggerOutputs as mockTriggerOutputs
     const resolvedConfig = resolveValue(config, { input }, config.triggerOutputs)
     
@@ -404,7 +414,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     }
 
     // 8. Return results
-    return {
+    const result = {
       success: true,
       output: {
         input: input || {},
@@ -418,6 +428,20 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
     }
+    
+    // Track AI usage after successful execution
+    try {
+      await trackUsage(userId, "ai_agent", "agent_execution", 1, {
+        steps_completed: steps.length,
+        goal: context.goal,
+        input_size: Object.keys(input || {}).length
+      })
+    } catch (trackingError) {
+      console.error("Failed to track AI agent usage:", trackingError)
+      // Don't fail the execution if tracking fails
+    }
+    
+    return result
 
   } catch (error: any) {
     console.error("AI Agent execution failed:", error)
@@ -440,62 +464,3 @@ function buildAIPrompt(
   const basePrompt = systemPrompt || `You are an AI agent that can use various tools to accomplish goals. 
 You have access to workflow context and can call tools to gather information or perform actions.
 Always think step by step and explain your reasoning.`
-
-  const contextSummary = `
-GOAL: ${goal}
-
-AVAILABLE TOOLS: ${context.availableTools?.map((t: any) => t.name).join(', ') || 'None'}
-
-WORKFLOW CONTEXT: ${JSON.stringify(context.availableData, null, 2)}
-
-MEMORY CONTEXT: ${JSON.stringify(memory.shortTerm, null, 2)}
-
-INSTRUCTIONS:
-1. Analyze the goal and available context
-2. Decide what tools to use or if the goal is complete
-3. For each step, specify: action, tool (if needed), input (if needed), and reasoning
-4. Use the 'complete' action when the goal is achieved
-5. Be concise but thorough in your reasoning`
-
-  return `${basePrompt}\n\n${contextSummary}`
-}
-
-/**
- * Gets AI decision for next step
- */
-async function getAIDecision(
-  prompt: string, 
-  context: any, 
-  previousSteps: AIAgentStep[]
-): Promise<{
-  action: string
-  tool?: string
-  input?: any
-  output?: any
-  reasoning: string
-}> {
-  // This would integrate with your AI service (OpenAI, Anthropic, etc.)
-  // For now, return a mock decision that processes the input
-  return {
-    action: 'complete',
-    output: context.input, // Pass through the input as output
-    reasoning: 'Processed input data from previous node'
-  }
-}
-
-/**
- * Executes a tool (integration action)
- */
-async function executeTool(
-  toolName: string, 
-  input: any, 
-  userId: string
-): Promise<any> {
-  // This would dynamically call the appropriate integration action
-  // For now, return a mock result
-  return {
-    success: true,
-    output: { message: `Mock execution of ${toolName}` },
-    message: `Tool ${toolName} executed successfully`
-  }
-} 

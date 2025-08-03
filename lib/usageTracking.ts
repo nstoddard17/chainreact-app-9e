@@ -94,6 +94,9 @@ function getUsageField(resourceType: string): string | null {
     integration: "integration_count",
     storage: "storage_used_mb",
     team_member: "team_member_count",
+    ai_assistant: "ai_assistant_calls",
+    ai_compose: "ai_compose_uses",
+    ai_agent: "ai_agent_executions",
   }
   return fieldMap[resourceType] || null
 }
@@ -105,6 +108,9 @@ function getPlanLimit(plan: any, resourceType: string): number {
     integration: "max_integrations",
     storage: "max_storage_mb",
     team_member: "max_team_members",
+    ai_assistant: "max_ai_assistant_calls",
+    ai_compose: "max_ai_compose_uses",
+    ai_agent: "max_ai_agent_executions",
   }
   const field = limitMap[resourceType]
   return field ? plan[field] : 0
@@ -119,6 +125,9 @@ function getCurrentUsage(usage: any, resourceType: string): number {
     integration: "integration_count",
     storage: "storage_used_mb",
     team_member: "team_member_count",
+    ai_assistant: "ai_assistant_calls",
+    ai_compose: "ai_compose_uses",
+    ai_agent: "ai_agent_executions",
   }
   const field = usageMap[resourceType]
   return field ? usage[field] || 0 : 0

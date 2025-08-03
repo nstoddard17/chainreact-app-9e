@@ -22,12 +22,16 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     features: [
       'Up to 3 workflows',
       'Basic integrations',
+      '5 AI messages per month',
       'Email support'
     ],
     limits: {
       workflows: 3,
       integrations: 5,
-      executions: 100
+      executions: 100,
+      ai_assistant_calls: 5,
+      ai_compose_uses: 5,
+      ai_agent_executions: 5
     },
     allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings', '/ai-assistant']
   },
@@ -40,13 +44,17 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     features: [
       'Up to 20 workflows',
       'Advanced integrations',
+      '20 AI messages per month',
       'Priority support',
       'Custom templates'
     ],
     limits: {
       workflows: 20,
       integrations: 15,
-      executions: 1000
+      executions: 1000,
+      ai_assistant_calls: 20,
+      ai_compose_uses: 20,
+      ai_agent_executions: 20
     },
     allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant']
   },
@@ -59,6 +67,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     features: [
       'Up to 20 workflows',
       'Advanced integrations',
+      '20 AI messages per month',
       'Priority support',
       'Custom templates',
       'Early access to new features'
@@ -66,7 +75,10 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     limits: {
       workflows: 20,
       integrations: 15,
-      executions: 1000
+      executions: 1000,
+      ai_assistant_calls: 20,
+      ai_compose_uses: 20,
+      ai_agent_executions: 20
     },
     allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant'],
     isSecret: true
@@ -80,6 +92,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     features: [
       'Unlimited workflows',
       'Team collaboration',
+      '100 AI messages per month',
       'Advanced analytics',
       'API access',
       'Dedicated support'
@@ -87,7 +100,10 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     limits: {
       workflows: -1, // unlimited
       integrations: 50,
-      executions: 10000
+      executions: 10000,
+      ai_assistant_calls: 100,
+      ai_compose_uses: 100,
+      ai_agent_executions: 100
     },
     allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings', '/ai-assistant']
   },
@@ -99,6 +115,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     description: 'Full enterprise features and support',
     features: [
       'Everything in Business',
+      '100 AI messages per month',
       'Custom integrations',
       'SLA guarantees',
       'On-premise deployment',
@@ -107,7 +124,10 @@ export const ROLES: Record<UserRole, RoleInfo> = {
     limits: {
       workflows: -1, // unlimited
       integrations: -1, // unlimited
-      executions: -1 // unlimited
+      executions: -1, // unlimited
+      ai_assistant_calls: 100,
+      ai_compose_uses: 100,
+      ai_agent_executions: 100
     },
     allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings', '/ai-assistant']
   },

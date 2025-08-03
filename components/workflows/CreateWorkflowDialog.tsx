@@ -72,14 +72,23 @@ export default function CreateWorkflowDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description (max 150 characters)</Label>
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value.length <= 150) {
+                    setDescription(value)
+                  }
+                }}
                 placeholder="Describe what this workflow does"
                 rows={3}
+                maxLength={150}
               />
+              <div className="text-xs text-slate-500 text-right">
+                {description.length}/150 characters
+              </div>
             </div>
           </div>
           <DialogFooter>

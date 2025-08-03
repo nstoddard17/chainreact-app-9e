@@ -14,13 +14,20 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template, Plus } from "lucide-react"
+import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
+import AddToOrganizationDialog from "./AddToOrganizationDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/cachedWorkflowStore"
+import { RoleGuard, PermissionGuard } from "@/components/ui/role-guard"
+import { useAuthStore } from "@/stores/authStore"
+import { useOrganizationStore } from "@/stores/organizationStore"
+import { hasOrganizationPermission } from "@/lib/utils/organizationRoles"
 
 export default function WorkflowsContent() {
+  const { profile } = useAuthStore()
+  const { currentOrganization } = useOrganizationStore()
   const {
     workflows,
     loading,
@@ -29,6 +36,17 @@ export default function WorkflowsContent() {
     updateWorkflowById,
     deleteWorkflowById,
   } = useWorkflows()
+
+  // Get user's organization role
+  const getUserOrgRole = () => {
+    if (!currentOrganization || !profile) return 'viewer'
+    const userMember = currentOrganization.members?.find(
+      (member: any) => member.user_id === profile.id
+    )
+    return userMember?.role || 'viewer'
+  }
+
+  const userOrgRole = getUserOrgRole()
   
   const [activeTab, setActiveTab] = useState("workflows")
   const [aiPrompt, setAiPrompt] = useState("")
@@ -37,6 +55,11 @@ export default function WorkflowsContent() {
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; workflowId: string | null }>({
     open: false,
     workflowId: null,
+  })
+  const [addToOrgDialog, setAddToOrgDialog] = useState<{ open: boolean; workflowId: string | null; workflowName: string }>({
+    open: false,
+    workflowId: null,
+    workflowName: "",
   })
   const [templateForm, setTemplateForm] = useState({
     name: "",
@@ -60,6 +83,19 @@ export default function WorkflowsContent() {
       loadData()
     }
   }, [workflows, loading, loadAllWorkflows])
+
+  const handleMoveToOrganization = (workflowId: string, workflowName: string) => {
+    setAddToOrgDialog({
+      open: true,
+      workflowId,
+      workflowName,
+    })
+  }
+
+  const handleMoveComplete = () => {
+    // Refresh workflows to reflect the changes
+    loadAllWorkflows()
+  }
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
     const status = currentStatus || "draft"
@@ -276,49 +312,51 @@ export default function WorkflowsContent() {
           </TabsList>
 
           <TabsContent value="workflows" className="space-y-8">
-            <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Sparkles className="h-5 w-5 text-primary" />
+            <PermissionGuard permission="workflows.create">
+              <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                    </div>
+                    Generate Workflow with AI
+                  </CardTitle>
+                  <p className="text-slate-600 text-sm">
+                    Describe what you want your workflow to do, and AI will create it for you.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Textarea
+                        placeholder="Describe your workflow... e.g., 'Send Slack notifications when new emails arrive from important clients'"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        rows={3}
+                        className="resize-none border-border focus:border-primary focus:ring-primary transition-all duration-200"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleGenerateWithAI}
+                      disabled={!aiPrompt.trim() || generatingAI}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 px-6"
+                    >
+                      {generatingAI ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  Generate Workflow with AI
-                </CardTitle>
-                <p className="text-slate-600 text-sm">
-                  Describe what you want your workflow to do, and AI will create it for you.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder="Describe your workflow... e.g., 'Send Slack notifications when new emails arrive from important clients'"
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      rows={3}
-                      className="resize-none border-border focus:border-primary focus:ring-primary transition-all duration-200"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleGenerateWithAI}
-                    disabled={!aiPrompt.trim() || generatingAI}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 px-6"
-                  >
-                    {generatingAI ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Generate
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </PermissionGuard>
 
             {!workflows || workflows.length === 0 ? (
               <div className="text-center py-16">
@@ -333,7 +371,9 @@ export default function WorkflowsContent() {
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <CreateWorkflowDialog />
+                    <PermissionGuard permission="workflows.create">
+                      <CreateWorkflowDialog />
+                    </PermissionGuard>
                     <Button
                       variant="outline"
                       onClick={() => setActiveTab("templates")}
@@ -348,119 +388,166 @@ export default function WorkflowsContent() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {workflows.map((workflow) => (
-                  <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-md transition-all duration-200">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="font-semibold text-lg">{workflow.name}</CardTitle>
-                      {workflow.description && (
-                        <p className="text-sm text-slate-500 line-clamp-2">{workflow.description}</p>
+                  <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-200 group flex flex-col h-full">
+                    <CardHeader className="pb-3 flex-shrink-0">
+                      <CardTitle className="font-semibold text-lg text-slate-900 group-hover:text-primary transition-colors">
+                        {workflow.name}
+                      </CardTitle>
+                      {workflow.description ? (
+                        <p className="text-sm text-slate-600 mt-1">{workflow.description}</p>
+                      ) : (
+                        <p className="text-sm text-slate-400 mt-1 italic">No description</p>
                       )}
                     </CardHeader>
-                    <CardContent className="pt-0 pb-4">
-                      <div className="flex flex-wrap gap-2 text-xs mb-3">
-                        <div
-                          className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                            workflow.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : workflow.status === "paused"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-slate-100 text-slate-800"
-                          }`}
-                          title={
-                            workflow.status === "draft" 
-                              ? `Draft: ${!workflow.nodes?.some(n => n.data?.isTrigger) ? 'Missing trigger' : !workflow.nodes?.some(n => !n.data?.isTrigger) ? 'Missing action' : 'Missing connections'}`
-                              : undefined
-                          }
-                        >
-                          {workflow.status === "active" ? (
-                            <>
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                              Active
-                            </>
-                          ) : workflow.status === "paused" ? (
-                            <>
-                              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                              Paused
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                              Draft
-                            </>
-                          )}
-                        </div>
-                        {workflow.status === "draft" && (
-                          <div className="text-xs text-slate-400">
-                            {!workflow.nodes?.some(n => n.data?.isTrigger) && "Needs trigger"}
-                            {!workflow.nodes?.some(n => !n.data?.isTrigger) && "Needs action"}
-                            {workflow.nodes?.length > 1 && !workflow.connections?.length && "Needs connections"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="text-xs text-slate-500">
-                          {workflow.updated_at ? `Updated ${new Date(workflow.updated_at).toLocaleDateString()}` : 'Not yet updated'}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {updatingWorkflows.has(workflow.id) ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled
-                              className="h-8 w-8 p-0"
-                            >
-                              <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
-                              <span className="sr-only">Updating...</span>
-                            </Button>
-                          ) : workflow.status === "active" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleToggleStatus(workflow.id, workflow.status)
-                              }}
-                              className="h-8 w-8 p-0 hover:bg-yellow-50 hover:text-yellow-600"
-                              title="Pause workflow"
-                            >
-                              <Pause className="h-4 w-4 text-slate-500" />
-                              <span className="sr-only">Pause</span>
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleToggleStatus(workflow.id, workflow.status)
-                              }}
-                              className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
-                              title={workflow.status === "draft" ? "Activate workflow" : "Resume workflow"}
-                            >
-                              <Play className="h-4 w-4 text-slate-500" />
-                              <span className="sr-only">Activate</span>
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleDeleteWorkflow(workflow.id)
-                            }}
-                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    
+                    {/* Bottom section with status, date, actions, and edit button */}
+                    <div className="mt-auto">
+                      <div className="px-6 pb-3">
+                        <div className="flex flex-wrap gap-2 text-xs mb-3">
+                          <div
+                            className={`px-2 py-1 rounded-full flex items-center gap-1.5 font-medium ${
+                              workflow.status === "active"
+                                ? "bg-green-100 text-green-800 border border-green-200"
+                                : workflow.status === "paused"
+                                ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                                : "bg-slate-100 text-slate-800 border border-slate-200"
+                            }`}
+                            title={
+                              workflow.status === "draft" 
+                                ? `Draft: ${!workflow.nodes?.some(n => n.data?.isTrigger) ? 'Missing trigger' : !workflow.nodes?.some(n => !n.data?.isTrigger) ? 'Missing action' : !workflow.connections?.length ? 'Missing connections' : 'Ready to activate'}`
+                                : undefined
+                            }
                           >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
+                            {workflow.status === "active" ? (
+                              <>
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                Active
+                              </>
+                            ) : workflow.status === "paused" ? (
+                              <>
+                                <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                                Paused
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                Draft
+                              </>
+                            )}
+                          </div>
+                          
+                          {/* Only show issue badges if there are actual problems */}
+                          {workflow.status === "draft" && (
+                            <>
+                              {!workflow.nodes?.some(n => n.data?.isTrigger) && (
+                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                  ⚠️ Missing trigger
+                                </div>
+                              )}
+                              {workflow.nodes?.some(n => n.data?.isTrigger) && !workflow.nodes?.some(n => !n.data?.isTrigger) && (
+                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                  ⚠️ Missing action
+                                </div>
+                              )}
+                              {workflow.nodes?.length > 1 && !workflow.connections?.length && (
+                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                  ⚠️ Missing connections
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs text-slate-500">
+                            {workflow.updated_at ? `Updated ${new Date(workflow.updated_at).toLocaleDateString()}` : 'Not yet updated'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {updatingWorkflows.has(workflow.id) ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                className="h-7 w-7 p-0"
+                              >
+                                <Loader2 className="h-3 w-3 text-slate-500 animate-spin" />
+                                <span className="sr-only">Updating...</span>
+                              </Button>
+                            ) : (
+                              <PermissionGuard permission="workflows.edit">
+                                {workflow.status === "active" ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleToggleStatus(workflow.id, workflow.status)
+                                    }}
+                                    className="h-7 w-7 p-0 hover:bg-yellow-50 hover:text-yellow-600 transition-colors"
+                                    title="Pause workflow"
+                                  >
+                                    <Pause className="h-3 w-3" />
+                                    <span className="sr-only">Pause</span>
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleToggleStatus(workflow.id, workflow.status)
+                                    }}
+                                    className="h-7 w-7 p-0 hover:bg-green-50 hover:text-green-600 transition-colors"
+                                    title={workflow.status === "draft" ? "Activate workflow" : "Resume workflow"}
+                                  >
+                                    <Play className="h-3 w-3" />
+                                    <span className="sr-only">Activate</span>
+                                  </Button>
+                                )}
+                              </PermissionGuard>
+                            )}
+                            <PermissionGuard permission="workflows.delete">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  handleDeleteWorkflow(workflow.id)
+                                }}
+                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
+                            </PermissionGuard>
+                            
+                            {/* Add to Organization button - only show for personal workflows */}
+                            {!workflow.organization_id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  handleMoveToOrganization(workflow.id, workflow.name)
+                                }}
+                                className="h-7 w-7 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                                title="Add to Organization"
+                              >
+                                <Building2 className="h-3 w-3" />
+                                <span className="sr-only">Add to Organization</span>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                    <Link
-                      href={`/workflows/builder?id=${workflow.id}`}
-                      className="block w-full bg-slate-50 hover:bg-slate-100 p-2 text-center text-sm font-medium border-t border-border transition-colors duration-200"
-                    >
-                      Edit Workflow
-                    </Link>
+                      
+                      {/* Edit Workflow button - always at bottom */}
+                      <Link
+                        href={`/workflows/builder?id=${workflow.id}`}
+                        className="block w-full bg-slate-100 hover:bg-slate-200 p-3 text-center text-sm font-semibold border-t border-border transition-all duration-200 text-slate-900 hover:text-slate-900"
+                      >
+                        Edit Workflow
+                      </Link>
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -558,6 +645,18 @@ export default function WorkflowsContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AddToOrganizationDialog
+        open={addToOrgDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddToOrgDialog({ open: false, workflowId: null, workflowName: "" })
+          }
+        }}
+        workflowId={addToOrgDialog.workflowId || ""}
+        workflowName={addToOrgDialog.workflowName}
+        onMoveComplete={handleMoveComplete}
+      />
 
       <AIChatAssistant />
     </AppLayout>

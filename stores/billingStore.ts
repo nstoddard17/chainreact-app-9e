@@ -258,6 +258,12 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         return plan.max_storage_mb === -1 || usage.storage_used_mb < plan.max_storage_mb
       case "team_member":
         return plan.max_team_members === -1 || usage.team_member_count < plan.max_team_members
+      case "ai_assistant":
+        return plan.max_ai_assistant_calls === -1 || usage.ai_assistant_calls < plan.max_ai_assistant_calls
+      case "ai_compose":
+        return plan.max_ai_compose_uses === -1 || usage.ai_compose_uses < plan.max_ai_compose_uses
+      case "ai_agent":
+        return plan.max_ai_agent_executions === -1 || usage.ai_agent_executions < plan.max_ai_agent_executions
       default:
         return true
     }

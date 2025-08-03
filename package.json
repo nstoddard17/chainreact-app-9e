@@ -81,7 +81,7 @@
     "cmdk": "latest",
     "crypto": "latest",
     "date-fns": "^4.1.0",
-    "dotenv": "latest",
+    "dotenv": "^17.2.1",
     "drizzle-orm": "latest",
     "embla-carousel-react": "latest",
     "expo-sqlite": "latest",

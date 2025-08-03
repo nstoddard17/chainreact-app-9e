@@ -7,16 +7,57 @@ import { useOrganizationStore } from "@/stores/organizationStore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Users, Settings, Crown, Loader2 } from "lucide-react"
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Plus, Users, Settings, Crown, Loader2, Trash2 } from "lucide-react"
 import CreateOrganizationDialog from "./CreateOrganizationDialog"
+import { RoleGuard } from "@/components/ui/role-guard"
+import { useAuthStore } from "@/stores/authStore"
+import { toast } from "sonner"
 
 export default function TeamsContent() {
   const { organizations, loading, fetchOrganizations } = useOrganizationStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [deletingOrg, setDeletingOrg] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrganizations()
   }, [fetchOrganizations])
+
+  const handleDeleteOrganization = async (organizationId: string) => {
+    try {
+      setDeletingOrg(organizationId)
+      
+      const response = await fetch(`/api/organizations/${organizationId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete organization')
+      }
+
+      const result = await response.json()
+      toast.success(result.message)
+      
+      // Refresh the organizations list
+      await fetchOrganizations()
+    } catch (error) {
+      console.error('Error deleting organization:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to delete organization')
+    } finally {
+      setDeletingOrg(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -31,15 +72,17 @@ export default function TeamsContent() {
   return (
     <AppLayout title="Teams" subtitle="Manage your organizations and team collaboration">
       <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Organization
-          </Button>
-        </div>
+        <RoleGuard requiredRole="business">
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Organization
+            </Button>
+          </div>
+        </RoleGuard>
 
         {organizations.length === 0 ? (
           <div className="text-center py-12">
@@ -92,11 +135,54 @@ export default function TeamsContent() {
                       </Button>
                     </Link>
                     {org.role === "admin" && (
-                      <Link href={`/teams/${org.slug}/settings`}>
-                        <Button size="sm" variant="outline">
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                      </Link>
+                      <>
+                        <Link href={`/teams/${org.slug}?tab=settings`}>
+                          <Button size="sm" variant="outline">
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={deletingOrg === org.id}
+                            >
+                              {deletingOrg === org.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete <strong>{org.name}</strong>? This action cannot be undone and will permanently remove:
+                              </AlertDialogDescription>
+                              <div className="mt-2 space-y-1">
+                                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                  <li>All organization members</li>
+                                  <li>All organization workflows</li>
+                                  <li>All organization data and settings</li>
+                                  <li>All audit logs and history</li>
+                                </ul>
+                              </div>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteOrganization(org.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete Organization
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
                     )}
                   </div>
                 </CardContent>

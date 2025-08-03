@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -10,10 +12,35 @@ export async function POST(request: NextRequest) {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "AI not configured" }, { status: 500 })
     }
+    
     const { prompt, context, tone, field, integration, previous, regenerate } = await request.json()
     if (!prompt) {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 })
     }
+    
+    // Get user session
+    const supabaseAdmin = createAdminClient()
+    const authHeader = request.headers.get("authorization")
+    
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const token = authHeader.replace("Bearer ", "")
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
+    // Check AI usage limits
+    const usageCheck = await checkUsageLimit(user.id, "ai_compose")
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ 
+        error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI compose uses this month. Please upgrade your plan for more AI usage.`
+      }, { status: 429 })
+    }
+    
     // Build system/context message
     let systemPrompt = `You are an expert assistant for ${integration}. Your job is to help users write high-quality ${field} content.`
     if (tone && tone !== "none") {
@@ -44,6 +71,21 @@ export async function POST(request: NextRequest) {
       temperature: 0.7,
     })
     const draft = completion.choices[0]?.message?.content?.trim() || ""
+    
+    // Track AI usage after successful response
+    try {
+      await trackUsage(user.id, "ai_compose", "compose_generation", 1, {
+        integration,
+        field,
+        tone,
+        prompt_length: prompt.length,
+        draft_length: draft.length
+      })
+    } catch (trackingError) {
+      console.error("Failed to track AI usage:", trackingError)
+      // Don't fail the request if tracking fails
+    }
+    
     return NextResponse.json({ draft })
   } catch (error: any) {
     console.error("AI Compose error:", error)
