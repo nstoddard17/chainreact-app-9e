@@ -146,3 +146,17 @@ This file contains a chronological log of significant changes to the ChainReact 
 - **Issue 3**: Two close (X) buttons were appearing in the modal
 - **Fix 3**: Removed the custom close button from the header, relying on the built-in one
 - **Result**: UI now matches the original design more closely
+
+## [2023-08-03] – Action Selection Highlighting Enhancement
+
+- Added visual highlighting for selected actions in the action selection dialog
+- Actions now show a primary border and background when selected, matching the trigger selection behavior
+- Improved user experience by providing clear visual feedback for selected items
+
+### Files Modified:
+- `components/workflows/CollaborativeWorkflowBuilder.tsx` - Added highlighting logic for action selection
+
+### UI Improvements:
+- **Issue**: Actions in the selection dialog weren't visually highlighted when selected
+- **Fix**: Added conditional styling that applies primary border and background to selected actions
+- **Result**: Users can now clearly see which action is currently selected, improving usability
