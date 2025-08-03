@@ -86,9 +86,9 @@ function validateWebhookPayload(payload: any, schema: any): ValidationResult {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { workflowId: string } }
+  { params }: { params: Promise<{ workflowId: string }> }
 ) {
-  const { workflowId } = params;
+  const { workflowId } = await params;
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   try {
@@ -178,9 +178,9 @@ export async function POST(
 
 export async function GET(
   request: NextRequest, 
-  { params }: { params: { workflowId: string } }
+  { params }: { params: Promise<{ workflowId: string }> }
 ) {
-  const { workflowId } = params;
+  const { workflowId } = await params;
   
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

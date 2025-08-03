@@ -165,12 +165,12 @@ export async function GET() {
 
       return {
         id: `${integration.id}-webhook`,
-        user_id: user.id,
+          user_id: user.id,
         provider_id: integration.id,
         webhook_url: getWebhookUrl(integration.id),
         trigger_types: getTriggerTypes(integration.id),
-        integration_config: {},
-        external_config: {
+          integration_config: {},
+          external_config: {
           type: integration.id,
           setup_required: integration.authType === 'oauth' || integration.authType === 'apiKey',
           instructions: getSetupInstructions(integration.id),
@@ -179,14 +179,14 @@ export async function GET() {
           capabilities: integration.capabilities
         },
         status: integration.isAvailable ? 'active' : 'inactive',
-        last_triggered: null,
-        trigger_count: 0,
-        error_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
+          last_triggered: null,
+          trigger_count: 0,
+          error_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
     })
-
+      
     return NextResponse.json({ webhooks })
 
   } catch (error: any) {
