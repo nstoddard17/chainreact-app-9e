@@ -147,3 +147,21 @@
 ### Next Steps:
 - Monitor OAuth flow reliability with localStorage-only communication
 - Consider implementing timeout-based cleanup for abandoned popups
+
+## [2024-12-19] – Fixed Multiple OAuth Popups Issue
+
+- **Problem**: Multiple OAuth popups were appearing when users tried to connect integrations
+- **Root Cause**: Global popup management variables (`currentOAuthPopup`, `windowHasLostFocus`) were not being properly updated when new popups were created
+- **Solution**: 
+  - Added `closeExistingPopup()` helper function to properly close existing popups before opening new ones
+  - Updated `connectIntegration` and `reconnectIntegration` methods to call `closeExistingPopup()` before creating new popups
+  - Added proper global popup reference management (`currentOAuthPopup = popup`) when new popups are created
+  - Added `currentOAuthPopup = null` reset in all success/error/cancel handlers for both message events and localStorage polling
+  - Updated `resetConnectionState` to use the new helper function
+
+### Files Modified:
+- `stores/integrationStore.ts` - Added proper popup management to prevent multiple popups
+
+### Next Steps:
+- Monitor for any remaining popup-related issues
+- Consider adding additional safeguards for edge cases
