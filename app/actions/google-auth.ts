@@ -9,26 +9,20 @@ export async function initiateGoogleSignIn() {
   try {
     const supabase = createServerActionClient({ cookies })
     
-    // Check if user is already authenticated
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      throw new Error("Not authenticated")
-    }
+    // For Google Sign-In, we don't need to check if user is already authenticated
+    // The whole point is to authenticate them
 
     // Generate secure state parameter
     const state = crypto.randomBytes(32).toString('hex')
     
     // Store state in database for verification
+    // For sign-in, we don't have a user ID yet, so we'll store it without one
     const { error: stateError } = await supabase
       .from('pkce_flow')
       .insert({ 
         state, 
         code_verifier: crypto.randomBytes(32).toString("hex"),
-        provider: "google-signin" 
+        provider: "google-signin"
       })
 
     if (stateError) {
