@@ -7,6 +7,15 @@
     {
       "path": "/api/cron/process-scheduled-executions",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/process-webhook-tasks",
+      "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/cron/process-webhook-tasks/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }

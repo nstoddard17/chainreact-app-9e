@@ -475,7 +475,10 @@ export default function CustomWebhookManager() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="max-w-xs truncate" title={webhook.webhook_url}>
+                      <div 
+                        className="max-w-md break-all text-sm font-mono cursor-help" 
+                        title={webhook.webhook_url}
+                      >
                         {webhook.webhook_url}
                       </div>
                     </TableCell>
@@ -540,7 +543,11 @@ export default function CustomWebhookManager() {
                                   <div>
                                     <Label>Webhook URL</Label>
                                     <div className="flex items-center space-x-2">
-                                      <Input value={webhook.webhook_url} readOnly />
+                                      <Input 
+                                        value={webhook.webhook_url} 
+                                        readOnly 
+                                        className="font-mono text-sm"
+                                      />
                                       <Button
                                         variant="outline"
                                         size="sm"
