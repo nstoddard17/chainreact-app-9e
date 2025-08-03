@@ -190,6 +190,35 @@
 - **Fix**: Added conditional styling that applies primary border and background to selected actions
 - **Result**: Users can now clearly see which action is currently selected, improving usability
 
+## [2024-12-19] – OAuth Security Improvement: Server-Side Google Sign-In
+
+### Security Enhancement
+- **Moved Google Sign-In from client-side to server-side OAuth**
+- **Problem**: Client-side OAuth exposed Client ID in browser source code
+- **Solution**: Created server action `app/actions/google-auth.ts` for secure OAuth URL generation
+- **Benefits**: Better security, consistent with integration OAuth pattern, improved state management
+
+### Implementation Changes
+- Created `app/actions/google-auth.ts` - Server action for Google sign-in initiation
+- Updated `stores/authStore.ts` - Now uses server action instead of client-side OAuth URL generation
+- **Removed dependency** on `NEXT_PUBLIC_GOOGLE_CLIENT_ID` for sign-in flow
+- **Added secure state management** using database storage instead of sessionStorage
+
+### Environment Variables Simplified
+- **Before**: Required both `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_ID`
+- **After**: Only need `GOOGLE_CLIENT_ID` (server-side only)
+- **Security**: Client ID no longer exposed in browser source code
+
+### Files Modified:
+- `app/actions/google-auth.ts` - Created (new file)
+- `stores/authStore.ts` - Updated to use server action
+- `learning/logs/CHANGELOG.md` - Updated with this entry
+
+### Next Steps:
+- Test the new server-side Google sign-in flow
+- Consider applying same pattern to other OAuth providers if needed
+- Update documentation to reflect the simplified environment variable setup
+
 ## [2024-12-19] – OAuth Flow Analysis and Environment Variable Fix
 
 ### OAuth Implementation Review

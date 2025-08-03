@@ -644,27 +644,20 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
-          // Generate a random state parameter for security
-          const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-          
-          // Store state in sessionStorage for verification
-          sessionStorage.setItem('oauth_state', state)
+          // Use server action to generate OAuth URL
+          const { initiateGoogleSignIn } = await import("@/app/actions/google-auth")
+          const result = await initiateGoogleSignIn()
 
-          // Build the Google OAuth URL
-          const params = new URLSearchParams({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-            redirect_uri: `${getBaseUrl()}/api/auth/callback`,
-            response_type: 'code',
-            scope: 'email profile',
-            state: state,
-            access_type: 'offline',
-            prompt: 'consent',
-          })
-
-          const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+          if (!result.success) {
+            throw new Error(result.error || "Failed to initiate Google sign-in")
+          }
 
           // Redirect to Google OAuth
-          window.location.href = googleOAuthUrl
+          if (result.authUrl) {
+            window.location.href = result.authUrl
+          } else {
+            throw new Error("No OAuth URL received from server")
+          }
 
         } catch (error: any) {
           console.error("Google sign in error:", error)
