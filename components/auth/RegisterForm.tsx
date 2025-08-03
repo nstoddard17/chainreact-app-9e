@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Lock, User, AtSign } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
-export default function RegisterForm() {
+function RegisterFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
@@ -394,5 +394,13 @@ export default function RegisterForm() {
         </CardContent>
       </Card>
     </>
+  )
+}
+
+export default function RegisterForm() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterFormContent />
+    </Suspense>
   )
 }

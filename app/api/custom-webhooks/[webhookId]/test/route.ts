@@ -16,55 +16,25 @@ export async function POST(
 
     // Get the webhook configuration
     const { data: webhook, error: webhookError } = await supabase
-      .from('custom_webhooks')
+      .from('webhook_configs')
       .select('*')
       .eq('id', webhookId)
       .eq('user_id', user.id)
       .single()
 
     if (webhookError || !webhook) {
-      return NextResponse.json({ error: "Webhook not found or unauthorized" }, { status: 404 })
+      return NextResponse.json({ error: "Webhook not found" }, { status: 404 })
     }
 
     // Prepare test payload
     const testPayload = {
-      message: "This is a test webhook from ChainReact",
+      message: "Test webhook from ChainReact",
       timestamp: new Date().toISOString(),
-      test: true,
-      webhook_id: webhookId
+      webhook_id: webhookId,
+      test: true
     }
 
-    // Process body template if provided
-    let body = testPayload
-    if (webhook.body_template) {
-      try {
-        // Simple template processing
-        let processedBody = webhook.body_template
-        processedBody = processedBody.replace(/\{\{timestamp\}\}/g, testPayload.timestamp)
-        processedBody = processedBody.replace(/\{\{webhook_id\}\}/g, webhookId)
-        
-        // Try to parse as JSON if it looks like JSON
-        if (processedBody.trim().startsWith('{')) {
-          body = JSON.parse(processedBody)
-        } else {
-          body = { message: processedBody }
-        }
-      } catch (error) {
-        console.error('Error processing body template:', error)
-        body = testPayload
-      }
-    }
-
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'ChainReact-Webhook/1.0',
-      'X-Webhook-ID': webhookId,
-      'X-Test-Request': 'true',
-      ...webhook.headers
-    }
-
-    // Make the webhook request
+    // Send test request to the webhook URL
     const startTime = Date.now()
     let response
     let statusCode
@@ -72,45 +42,42 @@ export async function POST(
     let errorMessage
 
     try {
-      const requestOptions: RequestInit = {
-        method: webhook.method,
-        headers: headers,
-        timeout: 10000 // 10 second timeout
+      const fetchOptions: RequestInit = {
+        method: webhook.method || 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...webhook.headers
+        }
       }
 
-      // Add body for non-GET requests
       if (webhook.method !== 'GET') {
-        requestOptions.body = JSON.stringify(body)
+        fetchOptions.body = JSON.stringify(testPayload)
       }
 
-      response = await fetch(webhook.webhook_url, requestOptions)
+      response = await fetch(webhook.webhook_url, fetchOptions)
       statusCode = response.status
       responseBody = await response.text()
-    } catch (error: any) {
-      errorMessage = error.message
+    } catch (fetchError: any) {
+      errorMessage = fetchError.message
       statusCode = 0
     }
 
     const executionTime = Date.now() - startTime
 
     // Log the execution
-    const { error: logError } = await supabase
-      .from('custom_webhook_executions')
+    await supabase
+      .from('webhook_executions')
       .insert({
         webhook_id: webhookId,
         user_id: user.id,
-        status: errorMessage ? 'error' : (statusCode >= 200 && statusCode < 300 ? 'success' : 'error'),
-        response_code: statusCode,
-        response_body: responseBody,
+        trigger_type: 'test',
+        provider_id: 'custom',
+        payload: testPayload,
+        headers: webhook.headers,
+        status: errorMessage ? 'error' : 'success',
         error_message: errorMessage,
-        execution_time_ms: executionTime,
-        triggered_at: new Date().toISOString(),
-        payload_sent: body
+        execution_time_ms: executionTime
       })
-
-    if (logError) {
-      console.error('Error logging webhook execution:', logError)
-    }
 
     // Update webhook stats
     const updateData: any = {
@@ -118,37 +85,25 @@ export async function POST(
       trigger_count: webhook.trigger_count + 1
     }
 
-    if (errorMessage || (statusCode && (statusCode < 200 || statusCode >= 300))) {
-      updateData.error_count = webhook.error_count + 1
+    if (errorMessage) {
+      updateData.error_count = (webhook.error_count || 0) + 1
     }
 
     await supabase
-      .from('custom_webhooks')
+      .from('webhook_configs')
       .update(updateData)
       .eq('id', webhookId)
 
-    // Return test result
-    if (errorMessage) {
-      return NextResponse.json({
-        success: false,
-        error: errorMessage,
-        executionTime
-      }, { status: 500 })
-    }
-
     return NextResponse.json({
-      success: true,
+      success: !errorMessage,
       statusCode,
       responseBody,
-      executionTime,
-      message: `Webhook test completed in ${executionTime}ms`
+      errorMessage,
+      executionTime
     })
 
   } catch (error: any) {
     console.error(`Error in POST /api/custom-webhooks/${webhookId}/test:`, error)
-    return NextResponse.json({ 
-      error: "Internal server error",
-      details: error.message 
-    }, { status: 500 })
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

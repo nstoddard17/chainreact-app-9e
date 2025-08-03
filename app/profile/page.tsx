@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import ProfileContent from "@/components/profile/ProfileContent"
 import { UserProfile } from "@/stores/userProfileStore"
 
+export const dynamic = 'force-dynamic'
+
 // Server Component to prefetch data
 export default async function ProfilePage() {
   let serverProfile: UserProfile | undefined = undefined

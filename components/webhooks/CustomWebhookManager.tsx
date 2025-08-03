@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { 
   Webhook, 
@@ -68,7 +69,6 @@ export default function CustomWebhookManager() {
   const [copiedWebhookId, setCopiedWebhookId] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // Form state for creating/editing webhooks
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -120,7 +120,6 @@ export default function CustomWebhookManager() {
 
   const createWebhook = async () => {
     try {
-      // Parse headers
       const headers: Record<string, string> = {}
       if (formData.headers) {
         formData.headers.split('\n').forEach(line => {
@@ -280,7 +279,6 @@ export default function CustomWebhookManager() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Custom Webhooks</h1>
@@ -372,7 +370,7 @@ export default function CustomWebhookManager() {
                     rows={4}
                   />
                   <p className="text-sm text-muted-foreground mt-1">
-                    Use {{data.field}} to reference workflow data, {{timestamp}} for current time
+                    Use template variables like data.field and timestamp in your body template
                   </p>
                 </div>
               </div>
@@ -389,7 +387,6 @@ export default function CustomWebhookManager() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -435,7 +432,6 @@ export default function CustomWebhookManager() {
         </Card>
       </div>
 
-      {/* Webhooks Table */}
       <Card>
         <CardHeader>
           <CardTitle>Your Custom Webhooks</CardTitle>
