@@ -7,6 +7,7 @@
 - Fixed Suspense boundary issues for components using `useSearchParams()`
 - Added dynamic rendering for profile page to handle cookies usage
 - Recreated corrupted support ticket detail page with proper structure
+- Fixed Resend API key initialization causing build-time errors
 
 ### Files Modified:
 - `package.json` - Updated ESLint version from 8.56.0 to 8.57.0
@@ -17,12 +18,16 @@
 - `app/invite/page.tsx` - Added Suspense wrapper for useSearchParams
 - `app/invite/signup/page.tsx` - Added Suspense wrapper for useSearchParams
 - `app/profile/page.tsx` - Added dynamic rendering export
+- `app/api/organizations/[id]/invite/route.ts` - Moved Resend initialization inside function
+- `app/api/support/tickets/route.ts` - Moved Resend initialization inside function
+- `app/api/support/tickets/[id]/responses/route.ts` - Moved Resend initialization inside function
 
 ### Technical Details:
 - **ESLint Version Conflict**: The TypeScript ESLint plugin required ESLint ^8.57.0 but the project was using 8.56.0
 - **Suspense Boundaries**: Next.js 15 requires components using `useSearchParams()` to be wrapped in Suspense boundaries
 - **Dynamic Rendering**: Pages using cookies need `export const dynamic = 'force-dynamic'` to prevent static generation errors
 - **Syntax Errors**: Several files had corrupted JSX structure with misplaced code after function closing braces
+- **Resend API Key Issue**: Top-level Resend initialization was causing build-time errors when environment variables weren't available
 
 ### Build Status:
 ✅ **Build now passes successfully** - All syntax errors and runtime issues resolved

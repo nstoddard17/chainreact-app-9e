@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -87,6 +85,7 @@ export async function POST(
 
     // Send invitation email
     try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
       const inviteUrl = `${baseUrl}/invite?token=${token}&org=${organization.slug}`
 
