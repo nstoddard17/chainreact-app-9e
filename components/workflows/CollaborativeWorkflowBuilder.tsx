@@ -858,124 +858,115 @@ const useWorkflowBuilderState = () => {
     let allEdges: Edge[] = [];
     
     if (preservedActionNodesJson) {
-      // Restore preserved action nodes
-      const preservedActionNodes: Node[] = JSON.parse(preservedActionNodesJson);
-      
-      // Update the preserved nodes to have the correct handlers
-      const restoredActionNodes = preservedActionNodes.map(node => ({
-        ...node,
-        data: {
-          ...node.data,
-          onConfigure: handleConfigureNode,
-          onDelete: handleDeleteNodeWithConfirmation
-        }
-      }));
-      
-      allNodes = [triggerNode, ...restoredActionNodes];
-      
-      // Create edges to connect trigger to first action node and between action nodes
-      if (restoredActionNodes.length > 0) {
-        // Connect trigger to first action node
-        allEdges.push({
-          id: `trigger-${restoredActionNodes[0].id}`,
-          source: "trigger",
-          target: restoredActionNodes[0].id,
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1 }
-        });
-        
-        // Connect action nodes to each other
-        for (let i = 0; i < restoredActionNodes.length - 1; i++) {
-          allEdges.push({
-            id: `${restoredActionNodes[i].id}-${restoredActionNodes[i + 1].id}`,
-            source: restoredActionNodes[i].id,
-            target: restoredActionNodes[i + 1].id,
-            animated: false,
-            style: { stroke: "#d1d5db", strokeWidth: 1 }
-          });
-        }
+      try {
+        const preservedActionNodes = JSON.parse(preservedActionNodesJson);
+        allNodes = [triggerNode, ...preservedActionNodes];
+        sessionStorage.removeItem('preservedActionNodes');
+      } catch (error) {
+        console.error('Error parsing preserved action nodes:', error);
       }
-      
-      // Add the "add action" node after the last action node
-      const lastActionNode = restoredActionNodes[restoredActionNodes.length - 1];
-      if (lastActionNode) {
-        const addActionNode: Node = {
-          id: `add-action-${Date.now()}`,
-          type: "addAction",
-          position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 120 },
-          data: {
-            parentId: lastActionNode.id,
-            onClick: () => handleAddActionClick(`add-action-${Date.now()}`, lastActionNode.id)
-          }
-        };
-        
-        allNodes.push(addActionNode);
-        allEdges.push({
-          id: `${lastActionNode.id}-${addActionNode.id}`,
-          source: lastActionNode.id,
-          target: addActionNode.id,
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
-        });
-      } else {
-        // If there are no action nodes after restoration, add a default add-action node connected to trigger
-        const addActionNode: Node = {
-          id: "add-action-1",
-          type: "addAction",
-          position: { x: 400, y: 240 },
-          data: {
-            parentId: "trigger",
-            onClick: () => handleAddActionClick("add-action-1", "trigger")
-          }
-        };
-        
-        allNodes.push(addActionNode);
-        allEdges.push({
-          id: "trigger-add-action-1",
-          source: "trigger",
-          target: "add-action-1",
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
-        });
-      }
-      
-      // Clear the preserved nodes from session storage
-      sessionStorage.removeItem('preservedActionNodes');
-    } else {
-      // No preserved nodes, create new workflow with just trigger and add action node
-      const addActionNode: Node = {
-        id: "add-action-1",
-        type: "addAction",
-        position: { x: 400, y: 240 },
-        data: {
-          parentId: "trigger",
-          onClick: () => handleAddActionClick("add-action-1", "trigger")
-        }
-      };
-      
-      allNodes.push(addActionNode);
-      allEdges.push({
-        id: "trigger-add-action-1",
-        source: "trigger",
-        target: "add-action-1",
-        animated: false,
-        style: {
-          stroke: "#d1d5db",
-          strokeWidth: 1,
-          strokeDasharray: "5,5"
-        }
-      });
     }
     
     setNodes(allNodes);
     setEdges(allEdges);
+    setHasUnsavedChanges(true);
     
-    setShowTriggerDialog(false);
-    setSelectedIntegration(null);
-    setSelectedTrigger(null);
-    setSearchQuery("");
-    setTimeout(() => fitView({ padding: 0.5 }), 100);
-  }
+    // Auto-save the workflow
+    setTimeout(() => {
+      handleSave();
+    }, 100);
+
+    // Register webhook if trigger supports it
+    if (trigger.triggerType === 'webhook' || isWebhookSupportedTrigger(trigger.type)) {
+      registerWebhookForTrigger(trigger, integration.id, config);
+    }
+  };
+
+  // Check if a trigger supports webhooks
+  const isWebhookSupportedTrigger = (triggerType: string): boolean => {
+    const webhookSupportedTriggers = [
+      'gmail_trigger_new_email',
+      'gmail_trigger_new_attachment', 
+      'gmail_trigger_new_label',
+      'google_calendar_trigger_new_event',
+      'google_calendar_trigger_event_updated',
+      'google_calendar_trigger_event_canceled',
+      'google-drive:new_file_in_folder',
+      'google-drive:new_folder_in_folder',
+      'google-drive:file_updated',
+      'google_sheets_trigger_new_row',
+      'google_sheets_trigger_new_worksheet',
+      'google_sheets_trigger_updated_row',
+      'slack_trigger_new_message',
+      'slack_trigger_channel_created',
+      'slack_trigger_user_joined',
+      'github_trigger_new_issue',
+      'github_trigger_issue_updated',
+      'github_trigger_new_pr',
+      'github_trigger_pr_updated',
+      'notion_trigger_new_page',
+      'notion_trigger_page_updated',
+      'hubspot_trigger_new_contact',
+      'hubspot_trigger_contact_updated',
+      'airtable_trigger_new_record',
+      'airtable_trigger_record_updated',
+      'discord_trigger_new_message',
+      'discord_trigger_member_joined',
+      'discord_trigger_reaction_added'
+    ];
+    
+    return webhookSupportedTriggers.includes(triggerType);
+  };
+
+  // Register webhook for trigger
+  const registerWebhookForTrigger = async (trigger: NodeComponent, providerId: string, config: Record<string, any>) => {
+    if (!workflowId) return;
+
+    try {
+      const response = await fetch('/api/workflows/webhook-registration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId,
+          triggerType: trigger.type,
+          providerId,
+          config
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Webhook registered successfully:', result);
+        
+        // Show success notification
+        toast({
+          title: "Webhook Registered",
+          description: `Webhook for ${trigger.title} has been automatically registered.`,
+          variant: "default"
+        });
+      } else {
+        const error = await response.json();
+        console.warn('⚠️ Webhook registration failed:', error);
+        
+        // Show warning notification
+        toast({
+          title: "Webhook Registration Failed",
+          description: `Could not register webhook for ${trigger.title}. You may need to configure it manually.`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error registering webhook:', error);
+      
+      toast({
+        title: "Webhook Registration Error",
+        description: `Failed to register webhook for ${trigger.title}.`,
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
     console.log('🔍 handleActionSelect called:', { integration: integration.id, action: action.type, sourceAddNode })
@@ -1816,7 +1807,7 @@ const useWorkflowBuilderState = () => {
 
   // Handle navigation without saving
   const handleNavigateWithoutSaving = () => {
-    setShowUnsavedChangesModal(false)
+    setHasUnsavedChanges(false)
     setPendingNavigation(null)
     if (pendingNavigation) {
       router.push(pendingNavigation)
@@ -1982,7 +1973,6 @@ const useWorkflowBuilderState = () => {
     setSearchQuery,
     filterCategory,
     setFilterCategory,
-    forceReloadWorkflow,
     showConnectedOnly,
     setShowConnectedOnly,
     filteredIntegrations,
@@ -2121,23 +2111,6 @@ function WorkflowBuilderContent() {
                 className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" 
                 style={{ boxShadow: "none" }} 
               />
-              <Input 
-                value={workflowDescription} 
-                onChange={(e) => {
-                  const value = e.target.value
-                  if (value.length <= 150) {
-                    setWorkflowDescription(value)
-                  }
-                }}
-                onBlur={handleSave}
-                placeholder="Add a description (max 150 characters)"
-                className="text-sm text-slate-500 !border-none !outline-none !ring-0 p-0 bg-transparent" 
-                style={{ boxShadow: "none" }}
-                maxLength={150}
-              />
-              <div className="text-xs text-slate-400 text-right">
-                {workflowDescription.length}/150
-              </div>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -2158,15 +2131,16 @@ function WorkflowBuilderContent() {
                 <TooltipTrigger asChild>
                   <Button 
                     variant={testMode ? "destructive" : "outline"} 
+                    onClick={handleExecute} 
+                    disabled={isExecuting || isSaving}
                     size="sm"
-                    onClick={() => setTestMode(!testMode)}
-                    disabled={isSaving || isExecuting}
                   >
-                    {testMode ? "Test Mode: ON" : "Test Mode: OFF"}
+                    {isExecuting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                    {testMode ? "Stop Test" : "Test"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{testMode ? "Workflow will run in test mode (no real actions)" : "Workflow will perform real actions"}</p>
+                  <p>{testMode ? "Stop the current test execution" : "Test your workflow with sample data"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -2176,49 +2150,7 @@ function WorkflowBuilderContent() {
                 <TooltipContent><p>Execute the workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={async () => {
-                      console.log('🔄 Force reload button clicked');
-                      try {
-                        // Clear current workflow and reload fresh from API
-                        setCurrentWorkflow(null);
-                        
-                        if (workflowId) {
-                          const response = await fetch(`/api/workflows/${workflowId}`);
-                          if (response.ok) {
-                            const freshWorkflow = await response.json();
-                            setCurrentWorkflow(freshWorkflow);
-                            toast({ 
-                              title: "Workflow Reloaded", 
-                              description: "Fresh workflow data loaded from database.",
-                              variant: "default"
-                            });
-                          } else {
-                            throw new Error('Failed to reload workflow');
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error reloading:', error);
-                        toast({ 
-                          title: "Reload Failed", 
-                          description: "Could not reload the workflow.",
-                          variant: "destructive"
-                        });
-                      }
-                    }} 
-                    variant="outline" 
-                    size="sm"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                    Reload
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Force reload workflow from database</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+
             {/* Emergency reset button - only show if loading states are stuck */}
             {(isSaving || isExecuting) && (
               <TooltipProvider>
