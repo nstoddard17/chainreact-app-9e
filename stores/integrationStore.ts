@@ -12,13 +12,9 @@ let currentAbortController: AbortController | null = null
 
 // Helper function to check if popup is still valid
 function isPopupValid(popup: Window | null): boolean {
-  try {
-    return !!(popup && !popup.closed)
-  } catch (error) {
-    // COOP policy blocked the window.closed check
-    // Assume popup is valid if we can't check
-    return !!popup
-  }
+  // COOP policy blocks window.closed checks, so we rely on message events and localStorage
+  // Assume popup is valid if it exists
+  return !!popup
 }
 
 // Helper function to securely get user and session data
@@ -433,13 +429,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
               try {
-                if (popup && !popup.closed) {
-                  popup.close()
-                }
-              } catch (error) {
-                // COOP policy blocked the window.closed check
-                // Try to close anyway
                 popup?.close()
+              } catch (error) {
+                // COOP policy may block popup operations
+                console.warn("Failed to close popup:", error)
               }
               setLoading(`connect-${providerId}`, false)
               
@@ -519,13 +512,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 }
               }
               
-              // Also try to check if popup is closed (as a fallback)
-              try {
-                if (popup?.closed && !closedByMessage) {
-                  console.log(`❌ Popup appears to be closed for ${providerId}`);
-                  clearInterval(storageCheckTimer);
-                  window.removeEventListener("message", messageHandler);
-                  setLoading(`connect-${providerId}`, false);
+              // Note: We can't check popup.closed due to COOP policy
+              // We rely on message events and localStorage polling for communication
                 }
               } catch (e) {
                 // COOP policy blocked the window.closed check - that's fine
@@ -1415,19 +1403,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 }
               }
               
-              // Also try to check if popup is closed (as a fallback)
-              try {
-                if (popup.closed && !messageReceived) {
-                  console.log("❌ Popup closed without sending message")
-                  clearInterval(checkPopupClosed)
-                  window.removeEventListener("message", handleMessage)
-                  reject(new Error("OAuth popup closed unexpectedly"))
-                }
-              } catch (error) {
-                // COOP policy blocked the window.closed check
-                // This is expected behavior and not an error
-                // The popup will handle its own cleanup via message events
-              }
+              // Note: We can't check popup.closed due to COOP policy
+              // We rely on message events and localStorage polling for communication
             } catch (error) {
               console.error(`Error checking localStorage for OAuth response:`, error);
             }
@@ -1539,7 +1516,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     resetConnectionState: () => {
       // Close any existing popup
-      if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
+      if (currentOAuthPopup) {
         try {
           currentOAuthPopup.close()
         } catch (e) {
