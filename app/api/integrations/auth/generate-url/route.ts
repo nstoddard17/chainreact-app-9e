@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       forceConsent?: boolean
     } = {
       userId: user.id,
-      provider,
+      provider: provider.toLowerCase(), // Ensure consistent provider naming
       reconnect,
       integrationId,
       timestamp: Date.now(),
@@ -91,14 +91,28 @@ export async function POST(request: NextRequest) {
         break
 
       case "google":
+        authUrl = generateGoogleAuthUrl("google", finalState)
+        break
       case "gmail":
+        authUrl = generateGoogleAuthUrl("gmail", finalState)
+        break
       case "google-drive":
+        authUrl = generateGoogleAuthUrl("google-drive", finalState)
+        break
       case "google-sheets":
+        authUrl = generateGoogleAuthUrl("google-sheets", finalState)
+        break
       case "google-docs":
+        authUrl = generateGoogleAuthUrl("google-docs", finalState)
+        break
       case "google-calendar":
+        authUrl = generateGoogleAuthUrl("google-calendar", finalState)
+        break
       case "youtube":
+        authUrl = generateGoogleAuthUrl("youtube", finalState)
+        break
       case "youtube-studio":
-        authUrl = generateGoogleAuthUrl(provider, finalState)
+        authUrl = generateGoogleAuthUrl("youtube-studio", finalState)
         break
 
       case "notion":

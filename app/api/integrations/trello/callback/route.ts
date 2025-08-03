@@ -41,22 +41,77 @@ function createTrelloInitialPage(baseUrl: string, state: string | null) {
                 // Add a delay to allow the database to update before posting the message
                 await new Promise(resolve => setTimeout(resolve, 500));
 
+                // Use the centralized popup response utility for consistency
+                const responseData = {
+                  type: 'oauth-success',
+                  provider: 'trello',
+                  message: 'Trello connected successfully!',
+                  timestamp: new Date().toISOString()
+                };
+
+                // Store in localStorage for COOP-safe communication
+                const storageKey = 'oauth_response_trello_' + Date.now();
+                try {
+                  localStorage.setItem(storageKey, JSON.stringify(responseData));
+                } catch (e) {
+                  console.error('Failed to store in localStorage:', e);
+                }
+
+                // Try postMessage if available
                 if (window.opener) {
-                   window.opener.postMessage({ type: 'oauth-success', provider: 'trello', message: 'Trello connected successfully!' }, '${baseUrl}');
+                  window.opener.postMessage(responseData, '${baseUrl}');
                 }
 
               } catch (error) {
                 const errorMessage = error.message ? error.message.replace(/[\\'"]/g, '\\$&') : 'An unknown error occurred.';
+                
+                // Use the centralized popup response utility for consistency
+                const errorData = {
+                  type: 'oauth-error',
+                  provider: 'trello',
+                  message: errorMessage,
+                  timestamp: new Date().toISOString()
+                };
+
+                // Store in localStorage for COOP-safe communication
+                const storageKey = 'oauth_response_trello_' + Date.now();
+                try {
+                  localStorage.setItem(storageKey, JSON.stringify(errorData));
+                } catch (e) {
+                  console.error('Failed to store in localStorage:', e);
+                }
+
+                // Try postMessage if available
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: errorMessage }, '${baseUrl}');
+                  window.opener.postMessage(errorData, '${baseUrl}');
                 }
               } finally {
                 // Ensure the window always closes
-                setTimeout(() => window.close(), 100);
-              }
-            } else if (window.opener) {
-                window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: 'Trello authentication failed. Token not found.' }, '${baseUrl}');
                 setTimeout(() => window.close(), 1000);
+              }
+            } else {
+              // Use the centralized popup response utility for consistency
+              const errorData = {
+                type: 'oauth-error',
+                provider: 'trello',
+                message: 'Trello authentication failed. Token not found.',
+                timestamp: new Date().toISOString()
+              };
+
+              // Store in localStorage for COOP-safe communication
+              const storageKey = 'oauth_response_trello_' + Date.now();
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(errorData));
+              } catch (e) {
+                console.error('Failed to store in localStorage:', e);
+              }
+
+              // Try postMessage if available
+              if (window.opener) {
+                window.opener.postMessage(errorData, '${baseUrl}');
+              }
+              
+              setTimeout(() => window.close(), 1000);
             }
           }
           processTrelloAuth();

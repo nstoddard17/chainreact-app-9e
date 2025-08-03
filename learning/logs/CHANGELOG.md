@@ -1,5 +1,77 @@
 # Learning Folder Changelog
 
+## [2024-12-19] – OAuth Callback Standardization Fix
+
+### Problem
+- Inconsistent popup response implementations across different OAuth callbacks
+- Some callbacks used custom JavaScript instead of the centralized `createPopupResponse` utility
+- Missing localStorage communication in custom callback implementations
+- Potential for OAuth confusion due to inconsistent error handling
+- Provider validation missing in callbacks, leading to cross-provider confusion
+
+### Solution
+- Standardized all OAuth callbacks to use the centralized `createPopupResponse` utility
+- Updated custom callback implementations (Trello, Slack, Shopify) to use COOP-safe communication
+- Added localStorage communication to all callbacks for better reliability
+- Ensured consistent error handling and user experience across all providers
+- Added provider validation in callbacks to prevent cross-provider confusion
+- Enhanced state object to include provider information for validation
+
+### Implementation Details
+- Updated `app/api/integrations/shopify/callback/route.ts` to use centralized utility
+- Enhanced `app/api/integrations/trello/callback/route.ts` with localStorage communication
+- Fixed `app/api/integrations/slack/callback/route.ts` to use consistent error handling
+- Added provider validation in `app/api/integrations/google-calendar/callback/route.ts`
+- Enhanced state object in OAuth URL generation to include provider information
+- All callbacks now use the same communication pattern for reliability
+
+### Benefits
+- Consistent OAuth experience across all providers
+- Better COOP policy compatibility
+- More reliable popup communication
+- Reduced risk of OAuth confusion and multiple popups
+- Prevents cross-provider confusion (Google Calendar vs Microsoft Outlook)
+
+### Files Modified:
+- `app/api/integrations/shopify/callback/route.ts` - Standardized to use createPopupResponse
+- `app/api/integrations/trello/callback/route.ts` - Added localStorage communication
+- `app/api/integrations/slack/callback/route.ts` - Fixed error handling consistency
+- `app/api/integrations/google-calendar/callback/route.ts` - Added provider validation
+- `app/api/integrations/auth/generate-url/route.ts` - Enhanced state object with provider info
+
+## [2024-12-19] – OAuth Provider Confusion Fix
+
+### Problem
+- When reconnecting Google Calendar, it would sometimes redirect to Microsoft Outlook
+- OAuth URLs were being mixed up between different providers
+- Browser was opening new tabs instead of popups for OAuth flows
+
+### Solution
+- Separated OAuth URL generation for each Google service (no more case grouping)
+- Added validation to ensure Google Calendar URLs are actually for Google
+- Improved provider name normalization and validation
+- Added timestamp to prevent OAuth URL caching
+- Cleared localStorage items with matching prefixes before opening popups
+- Created debug tools for OAuth URL generation and testing
+
+### Implementation Details
+- Modified `app/api/integrations/auth/generate-url/route.ts` to handle each Google service separately
+- Enhanced `reconnectIntegration` in `stores/integrationStore.ts` with better validation
+- Added URL verification before opening OAuth popups
+- Created debug endpoints and pages for OAuth testing
+
+### Benefits
+- Prevents provider confusion between Google Calendar and Microsoft Outlook
+- More reliable OAuth reconnection flow
+- Better error handling and debugging capabilities
+- Improved user experience with consistent OAuth provider selection
+
+### Files Modified:
+- `app/api/integrations/auth/generate-url/route.ts` - Separated OAuth URL generation
+- `stores/integrationStore.ts` - Added validation and improved popup handling
+- `app/api/debug-oauth-redirect/route.ts` (new) - Debug endpoint for OAuth URLs
+- `app/debug-oauth/page.tsx` (new) - Debug page for testing OAuth flows
+
 ## [2024-12-19] – OAuth Flow COOP Policy Fix
 
 ### Problem
