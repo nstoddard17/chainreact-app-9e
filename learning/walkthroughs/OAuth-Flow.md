@@ -12,26 +12,63 @@ The OAuth implementation follows a standard OAuth 2.0 authorization code flow wi
 
 ## 1. OAuth URL Generation
 
-### Client-Side Initiation
+### Google Sign-In (Server-Side)
 ```typescript
-// stores/authStore.ts - signInWithGoogle()
-const params = new URLSearchParams({
-  client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-  redirect_uri: `${getBaseUrl()}/api/auth/callback`,
-  response_type: 'code',
-  scope: 'email profile',
-  state: state,
-  access_type: 'offline',
-  prompt: 'consent',
-})
+// app/actions/google-auth.ts - initiateGoogleSignIn()
+export async function initiateGoogleSignIn() {
+  const supabase = createServerActionClient({ cookies })
+  
+  // Generate secure state parameter
+  const state = crypto.randomBytes(32).toString('hex')
+  
+  // Store state in database for verification
+  const { error: stateError } = await supabase
+    .from('pkce_flow')
+    .insert({ 
+      state, 
+      code_verifier: crypto.randomBytes(32).toString("hex"),
+      provider: "google-signin"
+    })
+
+  // Get Google OAuth credentials (server-side)
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  
+  // Build OAuth URL
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: `${baseUrl}/api/auth/callback`,
+    response_type: 'code',
+    scope: 'email profile',
+    state: state,
+    access_type: 'offline',
+    prompt: 'consent',
+  })
+
+  return { success: true, authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` }
+}
 ```
 
 **Key Points:**
-- Uses `NEXT_PUBLIC_` prefix for client-side environment variable access
-- Generates random state parameter for CSRF protection
-- Stores state in sessionStorage for verification
+- Uses server-side environment variables for security
+- Generates cryptographically secure state parameter
+- Stores state in database for verification
+- No client-side environment variable exposure
 
-### Server-Side URL Generation
+### Client-Side Integration
+```typescript
+// stores/authStore.ts - signInWithGoogle()
+const signInWithGoogle = async () => {
+  // Use server action to generate OAuth URL
+  const { initiateGoogleSignIn } = await import("@/app/actions/google-auth")
+  const result = await initiateGoogleSignIn()
+
+  if (result.success && result.authUrl) {
+    window.location.href = result.authUrl
+  }
+}
+```
+
+### Integration OAuth (Server-Side)
 ```typescript
 // app/api/integrations/auth/generate-url/route.ts
 function generateGoogleAuthUrl(service: string, state: string): string {
@@ -64,6 +101,7 @@ await supabase.from("pkce_flow").insert({
 
 ### State Parameter Structure
 ```typescript
+// For integrations (with user ID)
 const stateObject = {
   userId: user.id,
   provider,
@@ -72,6 +110,9 @@ const stateObject = {
   timestamp: Date.now(),
 }
 const state = btoa(JSON.stringify(stateObject))
+
+// For sign-in (without user ID)
+const state = crypto.randomBytes(32).toString('hex')
 ```
 
 ## 3. Callback Processing
@@ -239,12 +280,18 @@ export function createPopupResponse(
 - User-friendly error messages
 - Graceful degradation on failures
 
+### Server-Side OAuth
+- No client-side environment variable exposure
+- Secure state management using database
+- Consistent with integration OAuth patterns
+
 ## 8. Provider-Specific Implementations
 
 ### Google Services
 - Shared client credentials across services
 - Service-specific scopes
 - Refresh tokens don't expire unless revoked
+- **Google Sign-In**: Uses server action for OAuth URL generation
 
 ### Discord
 - Requires specific scopes for bot functionality
@@ -322,7 +369,7 @@ const fetchIntegrations = async (silent = false) => {
 
 ### Environment Variable Issues
 **Problem:** `client_id=undefined`
-**Solution:** Use `NEXT_PUBLIC_` prefix for client-side variables
+**Solution:** Use server-side OAuth flow (implemented)
 
 ### Token Decryption Failures
 **Problem:** Inconsistent token encryption
@@ -331,6 +378,10 @@ const fetchIntegrations = async (silent = false) => {
 ### State Validation Failures
 **Problem:** Invalid state parameter
 **Solution:** Check `pkce_flow` table and cleanup procedures
+
+### Database Schema Issues
+**Problem:** "Could not find the 'user_id' column of 'pkce_flow'"
+**Solution:** `pkce_flow` table only has: `state`, `code_verifier`, `provider`
 
 ### Token Refresh Failures
 **Problem:** Expired refresh tokens
