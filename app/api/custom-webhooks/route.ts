@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const { data: webhooks, error } = await supabase
-      .from('custom_webhooks')
+      .from('webhook_configs')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -38,40 +38,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, description, webhook_url, method, headers, body_template } = await request.json()
+    const body = await request.json()
+    const { name, description, webhook_url, method, headers, body_template } = body
 
-    if (!name || !webhook_url || !method) {
-      return NextResponse.json({ 
-        error: "Missing required fields: name, webhook_url, method" 
-      }, { status: 400 })
-    }
-
-    // Validate URL
-    try {
-      new URL(webhook_url)
-    } catch {
-      return NextResponse.json({ error: "Invalid webhook URL" }, { status: 400 })
-    }
-
-    // Validate method
-    const validMethods = ['GET', 'POST', 'PUT', 'PATCH']
-    if (!validMethods.includes(method)) {
-      return NextResponse.json({ error: "Invalid HTTP method" }, { status: 400 })
+    if (!name || !webhook_url) {
+      return NextResponse.json({ error: "Name and webhook URL are required" }, { status: 400 })
     }
 
     const { data: webhook, error } = await supabase
-      .from('custom_webhooks')
+      .from('webhook_configs')
       .insert({
         user_id: user.id,
         name,
-        description: description || '',
+        description,
         webhook_url,
-        method,
+        method: method || 'POST',
         headers: headers || {},
         body_template: body_template || '',
-        status: 'active',
-        trigger_count: 0,
-        error_count: 0
+        trigger_type: 'custom',
+        provider_id: 'custom',
+        status: 'active'
       })
       .select()
       .single()
@@ -81,17 +67,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create webhook" }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      webhook,
-      message: "Custom webhook created successfully" 
-    })
+    return NextResponse.json({ webhook })
 
   } catch (error: any) {
     console.error("Error in POST /api/custom-webhooks:", error)
-    return NextResponse.json({ 
-      error: "Internal server error",
-      details: error.message 
-    }, { status: 500 })
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

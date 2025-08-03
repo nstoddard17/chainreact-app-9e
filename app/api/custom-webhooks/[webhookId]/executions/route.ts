@@ -16,7 +16,7 @@ export async function GET(
 
     // Verify the webhook belongs to the user
     const { data: webhook, error: webhookError } = await supabase
-      .from('custom_webhooks')
+      .from('webhook_configs')
       .select('id')
       .eq('id', webhookId)
       .eq('user_id', user.id)
@@ -28,10 +28,10 @@ export async function GET(
 
     // Get executions for this webhook
     const { data: executions, error } = await supabase
-      .from('custom_webhook_executions')
+      .from('webhook_executions')
       .select('*')
       .eq('webhook_id', webhookId)
-      .order('triggered_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50)
 
     if (error) {

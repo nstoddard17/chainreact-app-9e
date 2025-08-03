@@ -442,7 +442,3 @@ export default function SupportPage() {
     </AppLayout>
   )
 }
-
-}
-
-}

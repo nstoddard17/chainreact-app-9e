@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function InvitePage() {
+function InvitePageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -291,5 +291,13 @@ export default function InvitePage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InvitePageContent />
+    </Suspense>
   )
 } 
