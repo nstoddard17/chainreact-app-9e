@@ -17,6 +17,19 @@ function isPopupValid(popup: Window | null): boolean {
   return !!popup
 }
 
+// Helper function to close existing popup and reset state
+function closeExistingPopup() {
+  if (currentOAuthPopup) {
+    try {
+      currentOAuthPopup.close()
+    } catch (e) {
+      console.warn("Failed to close existing popup:", e)
+    }
+    currentOAuthPopup = null
+  }
+  windowHasLostFocus = false
+}
+
 // Helper function to securely get user and session data
 async function getSecureUserAndSession() {
   const supabase = getSupabaseClient()
@@ -406,6 +419,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
+          // Close any existing popup before opening a new one
+          closeExistingPopup()
+          
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popup = window.open(data.authUrl, popupName, "width=600,height=700,scrollbars=yes,resizable=yes")
@@ -413,6 +429,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
             setLoading(`connect-${providerId}`, false)
             throw new Error("Popup blocked. Please allow popups for this site.")
           }
+
+          // Update global popup reference
+          currentOAuthPopup = popup
 
           console.log(`✅ OAuth popup opened for ${providerId}`)
 
@@ -434,6 +453,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 // COOP policy may block popup operations
                 console.warn("Failed to close popup:", error)
               }
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
               
               // Force refresh integrations with a small delay to ensure the backend has time to update
@@ -449,11 +470,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
               closedByMessage = true
               popup?.close()
               window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             } else if (event.data && event.data.type === "oauth-cancelled") {
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             }
           }
@@ -481,6 +506,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
                         window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         setLoading(`connect-${providerId}`, false);
                         
                         // Force refresh integrations
@@ -494,12 +521,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
                         window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         setLoading(`connect-${providerId}`, false);
                       } else if (responseData.type === 'oauth-cancelled') {
                         console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
                         window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         setLoading(`connect-${providerId}`, false);
                       }
                       
@@ -1297,6 +1328,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
         }
         
+        // Close any existing popup before opening a new one
+        closeExistingPopup()
+        
         const popup = window.open(
           authUrl,
           popupName,
@@ -1306,6 +1340,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         if (!popup) {
           throw new Error("Failed to open OAuth popup. Please allow popups and try again.")
         }
+
+        // Update global popup reference
+        currentOAuthPopup = popup
 
         // Wait for OAuth completion
         await new Promise((resolve, reject) => {
@@ -1327,6 +1364,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               fetchIntegrations(true)
               resolve(undefined)
             } else if (event.data.type === "oauth-error") {
@@ -1337,6 +1376,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               reject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
               console.log("🚫 OAuth reconnection cancelled")
@@ -1346,6 +1387,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               reject(new Error("OAuth reconnection was cancelled"))
             }
           }
@@ -1373,6 +1416,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         messageReceived = true;
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         fetchIntegrations(true);
                         emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider });
                         resolve(undefined);
@@ -1381,12 +1426,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         messageReceived = true;
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         reject(new Error(responseData.message || "OAuth reconnection failed"));
                       } else if (responseData.type === 'oauth-cancelled') {
                         console.log(`🚫 OAuth reconnection cancelled via localStorage`);
                         messageReceived = true;
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
                         reject(new Error("OAuth reconnection was cancelled"));
                       }
                       
@@ -1416,6 +1465,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.warn("Failed to close popup on timeout:", e)
             }
             window.removeEventListener("message", handleMessage)
+            // Reset global popup reference
+            currentOAuthPopup = null
             reject(new Error("OAuth reconnection timed out"))
           }, 5 * 60 * 1000)
           
@@ -1456,6 +1507,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               fetchIntegrations(true)
               emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
               wrappedResolve(undefined)
@@ -1467,6 +1520,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               wrappedReject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
               console.log("🚫 OAuth reconnection cancelled")
@@ -1476,6 +1531,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               wrappedReject(new Error("OAuth reconnection was cancelled"))
             }
           }
@@ -1511,18 +1568,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     resetConnectionState: () => {
-      // Close any existing popup
-      if (currentOAuthPopup) {
-        try {
-          currentOAuthPopup.close()
-        } catch (e) {
-          console.warn("Failed to close popup during reset:", e)
-        }
-      }
-      
-      // Reset variables
-      currentOAuthPopup = null
-      windowHasLostFocus = false
+      // Close any existing popup and reset state
+      closeExistingPopup()
       
       // Clear any loading states related to connections
       const { loadingStates } = get()
