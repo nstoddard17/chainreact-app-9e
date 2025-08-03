@@ -165,3 +165,19 @@
 ### Next Steps:
 - Monitor for any remaining popup-related issues
 - Consider adding additional safeguards for edge cases
+
+## [2024-12-19] – Fixed OAuth Popup Redirect Issue
+
+- **Problem**: OAuth popup was redirecting users away from the main ChainReact app to other browser tabs
+- **Root Cause**: Google Calendar callback was using its own `createPopupResponse` function instead of the centralized utility with better error handling
+- **Solution**: 
+  - Updated Google Calendar callback to use the centralized `createPopupResponse` utility from `lib/utils/createPopupResponse.ts`
+  - Removed the local `createPopupResponse` function from the callback
+  - The centralized utility provides COOP-safe communication, retry logic, and better error handling
+
+### Files Modified:
+- `app/api/integrations/google-calendar/callback/route.ts` - Now uses centralized popup response utility
+
+### Next Steps:
+- Monitor OAuth popup behavior across all integrations
+- Consider standardizing other callbacks to use the centralized utility if not already done
