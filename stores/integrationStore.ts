@@ -467,22 +467,71 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           window.addEventListener("message", messageHandler)
 
-          const timer = setInterval(() => {
+          // Use localStorage to check for OAuth responses (COOP-safe)
+          const storageCheckPrefix = `oauth_response_${providerId}`;
+          const storageCheckTimer = setInterval(() => {
             try {
-              // Check if popup is closed, but handle COOP policy errors gracefully
-              if (popup?.closed) {
-                clearInterval(timer)
-                window.removeEventListener("message", messageHandler)
-                if (!closedByMessage) {
-                  console.log(`❌ Popup closed manually for ${providerId}`)
-                  setError("Popup closed before completing authorization.")
-                  setLoading(`connect-${providerId}`, false)
+              // Check localStorage for any keys that match our prefix
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(storageCheckPrefix)) {
+                  try {
+                    // Found a matching key, parse the response
+                    const storedData = localStorage.getItem(key);
+                    if (storedData) {
+                      const responseData = JSON.parse(storedData);
+                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
+                      
+                      // Process the response
+                      if (responseData.type === 'oauth-success') {
+                        console.log(`✅ OAuth successful for ${providerId} via localStorage`);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        setLoading(`connect-${providerId}`, false);
+                        
+                        // Force refresh integrations
+                        setTimeout(() => {
+                          fetchIntegrations(true);
+                          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId });
+                        }, 1000);
+                      } else if (responseData.type === 'oauth-error') {
+                        console.error(`❌ OAuth error for ${providerId} via localStorage:`, responseData.message);
+                        setError(responseData.message);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        setLoading(`connect-${providerId}`, false);
+                      } else if (responseData.type === 'oauth-cancelled') {
+                        console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        setLoading(`connect-${providerId}`, false);
+                      }
+                      
+                      // Clean up localStorage
+                      localStorage.removeItem(key);
+                    }
+                  } catch (parseError) {
+                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
+                  }
                 }
               }
+              
+              // Also try to check if popup is closed (as a fallback)
+              try {
+                if (popup?.closed && !closedByMessage) {
+                  console.log(`❌ Popup appears to be closed for ${providerId}`);
+                  clearInterval(storageCheckTimer);
+                  window.removeEventListener("message", messageHandler);
+                  setLoading(`connect-${providerId}`, false);
+                }
+              } catch (e) {
+                // COOP policy blocked the window.closed check - that's fine
+              }
             } catch (error) {
-              // COOP policy blocked the window.closed check
-              // This is expected behavior and not an error
-              // The popup will handle its own cleanup via message events
+              console.error(`Error checking localStorage for ${providerId}:`, error);
             }
           }, 500)
         } else {
@@ -1288,19 +1337,68 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           window.addEventListener("message", handleMessage)
           
-          // Check if popup closes without sending a message
+          // Use localStorage to check for OAuth responses (COOP-safe)
+          const storageCheckPrefix = `oauth_response_${integration.provider}`;
           const checkPopupClosed = setInterval(() => {
             try {
-              if (popup.closed && !messageReceived) {
-                console.log("❌ Popup closed without sending message")
-                clearInterval(checkPopupClosed)
-                window.removeEventListener("message", handleMessage)
-                reject(new Error("OAuth popup closed unexpectedly"))
+              // Check localStorage for any keys that match our prefix
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(storageCheckPrefix)) {
+                  try {
+                    // Found a matching key, parse the response
+                    const storedData = localStorage.getItem(key);
+                    if (storedData) {
+                      const responseData = JSON.parse(storedData);
+                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
+                      
+                      // Process the response
+                      if (responseData.type === 'oauth-success') {
+                        console.log(`✅ OAuth reconnection successful via localStorage`);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        fetchIntegrations(true);
+                        emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider });
+                        resolve(undefined);
+                      } else if (responseData.type === 'oauth-error') {
+                        console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        reject(new Error(responseData.message || "OAuth reconnection failed"));
+                      } else if (responseData.type === 'oauth-cancelled') {
+                        console.log(`🚫 OAuth reconnection cancelled via localStorage`);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        reject(new Error("OAuth reconnection was cancelled"));
+                      }
+                      
+                      // Clean up localStorage
+                      localStorage.removeItem(key);
+                    }
+                  } catch (parseError) {
+                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
+                  }
+                }
+              }
+              
+              // Also try to check if popup is closed (as a fallback)
+              try {
+                if (popup.closed && !messageReceived) {
+                  console.log("❌ Popup closed without sending message")
+                  clearInterval(checkPopupClosed)
+                  window.removeEventListener("message", handleMessage)
+                  reject(new Error("OAuth popup closed unexpectedly"))
+                }
+              } catch (error) {
+                // COOP policy blocked the window.closed check
+                // This is expected behavior and not an error
+                // The popup will handle its own cleanup via message events
               }
             } catch (error) {
-              // COOP policy blocked the window.closed check
-              // This is expected behavior and not an error
-              // The popup will handle its own cleanup via message events
+              console.error(`Error checking localStorage for OAuth response:`, error);
             }
           }, 1000)
           
