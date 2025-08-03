@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -66,6 +64,7 @@ export async function POST(
     // Send email notification to support team if user is responding
     if (!isStaffResponse) {
       try {
+        const resend = new Resend(process.env.RESEND_API_KEY)
         await resend.emails.send({
           from: 'ChainReact Support <support@chainreact.app>',
           to: process.env.SUPPORT_EMAIL || 'support@chainreact.app',
