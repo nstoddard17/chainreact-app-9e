@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function InviteSignupPage() {
+function InviteSignupPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -274,5 +274,13 @@ export default function InviteSignupPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function InviteSignupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InviteSignupPageContent />
+    </Suspense>
   )
 } 
