@@ -126,3 +126,24 @@
 ### Files Modified:
 - `app/actions/google-auth.ts` (new)
 - `stores/authStore.ts`
+
+## [2024-12-19] – Complete COOP Policy Fix: Removed All popup.closed Checks
+
+- **Removed all `popup.closed` checks** from `stores/integrationStore.ts` to eliminate COOP policy errors
+- **Updated `isPopupValid` function** to simply check if popup exists, not if it's closed
+- **Simplified popup closing logic** to use try-catch blocks without closed checks
+- **Relied entirely on localStorage polling and message events** for OAuth communication
+- **Updated `resetConnectionState` method** to remove popup.closed validation
+
+### Files Modified:
+- `stores/integrationStore.ts` - Removed all popup.closed checks and simplified popup validation
+
+### Technical Details:
+- COOP policy blocks `window.closed` checks between different origins
+- OAuth popups now rely on localStorage polling and postMessage for communication
+- Popup closing operations wrapped in try-catch to handle COOP restrictions gracefully
+- This eliminates the "Cross-Origin-Opener-Policy policy would block the window.closed call" error
+
+### Next Steps:
+- Monitor OAuth flow reliability with localStorage-only communication
+- Consider implementing timeout-based cleanup for abandoned popups
