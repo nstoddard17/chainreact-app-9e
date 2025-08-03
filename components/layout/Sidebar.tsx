@@ -21,6 +21,7 @@ import {
   Heart,
   CreditCard,
   HelpCircle,
+  Webhook,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -42,6 +43,7 @@ const navigation = [
   { name: "AI Assistant", href: "/ai-assistant", icon: Bot, minRole: 'free' },
   { name: "Workflows", href: "/workflows", icon: Workflow, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
+  { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro' },
   { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro' },
   { name: "Teams", href: "/teams", icon: Building2, minRole: 'business' },
   { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free' },

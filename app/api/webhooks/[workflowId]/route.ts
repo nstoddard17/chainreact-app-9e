@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { createClient } from '@supabase/supabase-js';
+import { webhookManager } from '@/lib/webhooks/webhookManager';
 
 interface ValidationResult {
   isValid: boolean;
@@ -84,7 +85,7 @@ function validateWebhookPayload(payload: any, schema: any): ValidationResult {
 }
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { workflowId: string } }
 ) {
   const { workflowId } = params;
@@ -108,6 +109,7 @@ export async function POST(
     }
 
     const payload = await request.json();
+    const headers = Object.fromEntries(request.headers.entries());
 
     // Validate payload against the trigger node's payload schema
     const validationResult = validateWebhookPayload(payload, triggerNode.data.payloadSchema);
@@ -117,6 +119,43 @@ export async function POST(
         error: 'Invalid payload', 
         details: validationResult.errors 
       }, { status: 400 });
+    }
+
+    // Log webhook execution using the webhook manager
+    try {
+      // Find the webhook config for this workflow
+      const { data: webhookConfig } = await supabase
+        .from('webhook_configs')
+        .select('*')
+        .eq('workflow_id', workflowId)
+        .eq('status', 'active')
+        .single();
+
+      if (webhookConfig) {
+        // Update webhook stats
+        await supabase
+          .from('webhook_configs')
+          .update({
+            last_triggered: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', webhookConfig.id);
+
+        // Log execution
+        await supabase.rpc('log_webhook_execution', {
+          p_webhook_id: webhookConfig.id,
+          p_workflow_id: workflowId,
+          p_user_id: workflow.user_id,
+          p_trigger_type: webhookConfig.trigger_type,
+          p_provider_id: webhookConfig.provider_id,
+          p_payload: payload,
+          p_headers: headers,
+          p_status: 'pending'
+        });
+      }
+    } catch (logError) {
+      console.error('Failed to log webhook execution:', logError);
+      // Don't fail the webhook if logging fails
     }
 
     const executionEngine = new AdvancedExecutionEngine();
@@ -137,10 +176,52 @@ export async function POST(
   }
 }
 
-export async function GET(request: Request, { params }: { params: { workflowId: string } }) {
-  return NextResponse.json({
-    message: "Webhook endpoint active",
-    workflowId: params.workflowId,
-    methods: ["POST"],
-  })
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: { workflowId: string } }
+) {
+  const { workflowId } = params;
+  
+  try {
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // Get workflow info
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('name, description, user_id')
+      .eq('id', workflowId)
+      .single();
+
+    if (workflowError || !workflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+    }
+
+    // Get webhook config for this workflow
+    const { data: webhookConfig } = await supabase
+      .from('webhook_configs')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .eq('status', 'active')
+      .single();
+
+    return NextResponse.json({
+      message: "Webhook endpoint active",
+      workflow: {
+        id: workflowId,
+        name: workflow.name,
+        description: workflow.description
+      },
+      webhook: webhookConfig ? {
+        id: webhookConfig.id,
+        status: webhookConfig.status,
+        lastTriggered: webhookConfig.last_triggered,
+        errorCount: webhookConfig.error_count
+      } : null,
+      methods: ["POST"],
+      documentation: "Send a POST request with your payload to trigger this workflow"
+    });
+  } catch (error: any) {
+    console.error(`Error fetching webhook info for workflow ${workflowId}:`, error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
