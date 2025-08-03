@@ -29,6 +29,11 @@ export function EnhancedTooltip({
   delayDuration = 1000,
   disabled = false
 }: EnhancedTooltipProps) {
+  // Safety check for undefined description
+  if (!description) {
+    return null;
+  }
+  
   const isLongDescription = description.length > maxLength
   const shouldShowExpandButton = showExpandButton && isLongDescription
 

@@ -1,0 +1,137 @@
+---
+description: When making any code changes or updates to the project, you MUST follow these steps to maintain the learning folder as the single source of truth.
+globs: 'learning/**'
+alwaysApply: true
+---
+# Learning Folder
+
+This folder serves as the single source of truth for all template references, component walkthroughs, and "what's happening" logs in the ChainReact application.
+
+## Folder Structure
+
+### `templates/`
+All moved template code files. This includes reusable components, UI patterns, and code examples that serve as templates for development.
+
+**Process for adding new templates:**
+1. Place the template file in the appropriate subdirectory under `templates/`
+2. Preserve the original file path structure when moving
+3. Add a top-line comment linking to its documentation: `// See learning/walkthroughs/[ComponentName].md for details`
+4. Update any import paths if necessary
+5. Create corresponding documentation in `docs/` and walkthrough in `walkthroughs/`
+
+### `docs/`
+Markdown documentation explaining template usage, props, and configuration examples. Each doc should include frontmatter with:
+- `title`: Component name and brief description
+- `date`: Creation/update date
+- `component`: Component name for categorization
+
+### `walkthroughs/`
+Per-component deep-dive documentation (one MDX or MD per component) describing:
+- Internal logic and data flow
+- Integration points with other components
+- State management patterns
+- Performance considerations
+- Common use cases and examples
+
+### `logs/`
+Running log files where major design or architectural changes are recorded. Uses `[YYYY-MM-DD] – Summary` format for entries.
+
+**Logging Convention:**
+- When a component's API changes, append a dated entry to `logs/CHANGELOG.md`
+- Include summary of changes and link to relevant PR or issue
+- Document breaking changes, new features, and deprecations
+
+### `assets/`
+Diagrams, screenshots, and other visual assets referenced in documentation and walkthroughs.
+
+## Adding New Templates
+
+1. **Code Placement**: Move template files to `learning/templates/` preserving their paths
+2. **Documentation**: Create corresponding `.md` files in `docs/` with frontmatter
+3. **Walkthrough**: Create detailed walkthrough in `walkthroughs/` explaining implementation
+4. **Instrumentation**: Add top-line comment in template file pointing to walkthrough
+5. **Logging**: Update `logs/CHANGELOG.md` with any significant changes
+
+## Automation
+
+The `sync-docs.ts` script (placeholder) will eventually:
+- Detect new templates automatically
+- Generate documentation stubs
+- Update logs with changes
+- Ensure consistency across all learning materials
+
+## AI Assistant Instructions
+
+**IMPORTANT: Self-Reference Instructions for AI Assistant**
+
+When making any code changes or updates to the project, you MUST follow these steps to maintain the learning folder as the single source of truth:
+
+### 1. Template Updates
+When modifying or creating reusable UI components that serve as templates:
+- **Move** the component to `learning/templates/` with appropriate subdirectory structure
+- **Add** top-line comment: `// See learning/walkthroughs/[ComponentName].md for details`
+- **Create** documentation in `learning/docs/[ComponentName].md` with frontmatter
+- **Create** detailed walkthrough in `learning/walkthroughs/[ComponentName].md`
+- **Update** `learning/logs/CHANGELOG.md` with `[YYYY-MM-DD] – [Summary]` entry
+
+### 2. Application Component Updates
+When modifying core business logic components (workflows, integrations, etc.):
+- **DO NOT MOVE** the component (keep in original location)
+- **Create/Update** documentation in `learning/docs/[ComponentName].md`
+- **Create/Update** walkthrough in `learning/walkthroughs/[ComponentName].md`
+- **Update** `learning/logs/CHANGELOG.md` with changes
+
+### 3. Documentation Updates
+When updating any learning materials:
+- **Maintain** frontmatter in all `.md` files (title, date, component)
+- **Update** cross-references between related documents
+- **Add** entries to `learning/logs/CHANGELOG.md`
+- **Ensure** all links are working and accurate
+
+### 4. Logging Convention
+Always add entries to `learning/logs/CHANGELOG.md`:
+```
+## [YYYY-MM-DD] – [Brief Summary]
+
+- [Specific change 1]
+- [Specific change 2]
+- [Specific change 3]
+
+### Files [Created/Modified/Removed]:
+- `path/to/file` - [Description of change]
+
+### Next Steps:
+- [Any follow-up actions needed]
+```
+
+### 5. Before Making Changes
+Before implementing any code changes, ask yourself:
+- Is this a template (reusable UI pattern) or application component?
+- Does it need to be moved to `learning/templates/` or just documented?
+- What documentation and walkthroughs need to be created/updated?
+- How should this be logged in the changelog?
+
+### 6. After Making Changes
+After implementing code changes, verify:
+- All new templates are in `learning/templates/` with proper structure
+- All components have corresponding documentation in `learning/docs/`
+- Complex components have detailed walkthroughs in `learning/walkthroughs/`
+- Changelog is updated with all changes
+- Cross-references between documents are accurate
+
+**Remember**: This learning folder serves as YOUR reference for understanding the codebase. Keep it comprehensive and up-to-date.
+
+## Style Guidelines
+
+- **TypeScript**: All code must be TypeScript-typed (no `any`)
+- **Markdown**: Follow existing ESLint/Prettier config
+- **Frontmatter**: Required for all documentation files
+- **Comments**: Use JSDoc style for component documentation
+- **Examples**: Include practical, copy-paste ready code examples
+
+## References
+
+- [Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript)
+- [Next.js File System Routing](https://nextjs.org/docs/routing/introduction)
+- [Markdown Style Guide](https://www.markdownguide.org/basic-syntax/)
+- [WAI-ARIA Practices](https://www.w3.org/TR/wai-aria-practices/) 
