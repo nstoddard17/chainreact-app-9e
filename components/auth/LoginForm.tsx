@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Lock } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
-export default function LoginForm() {
+function LoginFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -229,5 +229,13 @@ export default function LoginForm() {
         </CardContent>
       </Card>
     </>
+  )
+}
+
+export default function LoginForm() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginFormContent />
+    </Suspense>
   )
 }

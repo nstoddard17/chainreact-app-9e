@@ -3,15 +3,20 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 export async function GET(
   request: Request,
-  { params }: { params: { webhookId: string } }
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
   const supabase = await createSupabaseRouteHandlerClient()
-  const { webhookId } = params
+  const { webhookId } = await params
   
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // For sample webhooks, return empty executions
+    if (webhookId.includes('sample')) {
+      return NextResponse.json({ executions: [] })
     }
 
     // Verify the webhook belongs to the user
@@ -28,10 +33,10 @@ export async function GET(
 
     // Get executions for this webhook
     const { data: executions, error } = await supabase
-      .from('integration_webhook_executions')
+      .from('webhook_executions')
       .select('*')
       .eq('webhook_id', webhookId)
-      .order('triggered_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50)
 
     if (error) {
