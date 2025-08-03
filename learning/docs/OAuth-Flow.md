@@ -19,16 +19,16 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 3. **Token Management** (`lib/integrations/tokenUtils.ts`)
 4. **Configuration** (`lib/integrations/oauthConfig.ts`)
 5. **Client-side Auth Store** (`stores/authStore.ts`)
+6. **Server-side Google Sign-In** (`app/actions/google-auth.ts`)
 
 ### Environment Variables
 
-**Client-side (NEXT_PUBLIC_ prefix required):**
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` - Used in authStore.ts for OAuth URL generation
-
 **Server-side (no prefix needed):**
-- `GOOGLE_CLIENT_ID` - Used in API routes and callbacks
+- `GOOGLE_CLIENT_ID` - Used in API routes, callbacks, and server actions
 - `GOOGLE_CLIENT_SECRET` - Used for token exchange
 - `ENCRYPTION_KEY` - Used for token encryption
+
+**Note**: All OAuth flows now use server-side environment variables for enhanced security.
 
 ## Security Features
 
@@ -52,6 +52,11 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 4. **Security Headers**
    - Proper content-type headers
    - Origin validation in postMessage
+
+5. **Server-Side OAuth**
+   - Google Sign-In uses server action for OAuth URL generation
+   - No client-side environment variable exposure
+   - Consistent with integration OAuth patterns
 
 ### ⚠️ Areas for Improvement
 
@@ -79,9 +84,9 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 **Problem:** `client_id=undefined` in OAuth URL
 **Cause:** Using `process.env.GOOGLE_CLIENT_ID` on client-side without `NEXT_PUBLIC_` prefix
 **Solution:** 
-1. Change environment variable to `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
-2. Update client-side code to use the new variable name
-3. Redeploy application
+1. Use server-side OAuth flow (implemented)
+2. Only need `GOOGLE_CLIENT_ID` (server-side)
+3. No `NEXT_PUBLIC_` prefix required
 
 ### Token Encryption Issues
 
@@ -91,10 +96,18 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 1. Use `encryptTokens()` utility function
 2. Run `scripts/fix-unencrypted-tokens.ts` for existing tokens
 
+### Database Schema Issues
+
+**Problem:** "Could not find the 'user_id' column of 'pkce_flow'"
+**Cause:** Attempting to insert non-existent column
+**Solution:** 
+1. `pkce_flow` table only has: `state`, `code_verifier`, `provider`
+2. Remove any references to non-existent columns
+
 ## Best Practices
 
 ### Environment Variables
-- Use `NEXT_PUBLIC_` prefix for client-side variables
+- Use server-side environment variables for all OAuth flows
 - Keep secrets server-side only
 - Validate environment variables on startup
 
@@ -103,6 +116,7 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 - Encrypt sensitive tokens before database storage
 - Implement proper error handling
 - Use HTTPS in production
+- Use server-side OAuth URL generation
 
 ### Token Management
 - Implement automatic token refresh
@@ -115,6 +129,7 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 - Shared Client ID across all Google services
 - Different scopes for different services (Gmail, Drive, Calendar, etc.)
 - Refresh tokens don't expire unless revoked
+- **Google Sign-In**: Uses server action for OAuth URL generation
 
 ### Discord
 - Requires specific scopes: `identify email connections guilds guilds.members.read`
@@ -128,14 +143,14 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 
 ### Environment Variable Debugging
 ```typescript
-// Add to any component to debug
-console.log('Client ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+// Server-side debugging
+console.log('Client ID:', process.env.GOOGLE_CLIENT_ID)
 ```
 
 ### OAuth URL Debugging
 ```typescript
 // Check generated OAuth URL
-console.log('OAuth URL:', googleOAuthUrl)
+console.log('OAuth URL:', authUrl)
 ```
 
 ### Token Debugging
@@ -144,9 +159,19 @@ console.log('OAuth URL:', googleOAuthUrl)
 const isEncrypted = token.includes(':')
 ```
 
+### Database Schema Debugging
+```typescript
+// Check pkce_flow table structure
+const { data, error } = await supabase
+  .from('pkce_flow')
+  .select('*')
+  .limit(1)
+```
+
 ## Related Files
 
 - `app/api/integrations/auth/generate-url/route.ts` - OAuth URL generation
+- `app/actions/google-auth.ts` - Server-side Google Sign-In
 - `stores/authStore.ts` - Client-side OAuth handling
 - `lib/integrations/oauthConfig.ts` - Provider configurations
 - `lib/security/encryption.ts` - Token encryption

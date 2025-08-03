@@ -190,6 +190,44 @@
 - **Fix**: Added conditional styling that applies primary border and background to selected actions
 - **Result**: Users can now clearly see which action is currently selected, improving usability
 
+## [2024-12-19] – OAuth Environment Variable Issue Resolved
+
+### Problem Resolution
+- **Issue**: `client_id=undefined` in OAuth URL causing "The OAuth client was not found" error
+- **Root Cause**: Client-side OAuth URL generation using `process.env.GOOGLE_CLIENT_ID` without `NEXT_PUBLIC_` prefix
+- **Solution**: Migrated Google Sign-In to server-side OAuth flow
+
+### Implementation Details
+- **Created** `app/actions/google-auth.ts` - Server action for secure OAuth URL generation
+- **Updated** `stores/authStore.ts` - Now uses server action instead of client-side OAuth
+- **Fixed** database schema issue - Removed non-existent `user_id` column from `pkce_flow` table
+- **Simplified** environment variables - Only need `GOOGLE_CLIENT_ID` (server-side)
+
+### Technical Fixes Applied
+1. **Removed authentication check** in server action (users aren't authenticated during sign-in)
+2. **Fixed database schema** - `pkce_flow` table only has: `state`, `code_verifier`, `provider`
+3. **Secure state management** - Using cryptographically secure random state parameters
+4. **Proper error handling** - Comprehensive error messages and logging
+
+### Environment Variables (Final)
+```
+GOOGLE_CLIENT_ID = your-google-client-id
+GOOGLE_CLIENT_SECRET = your-google-client-secret
+```
+**Note**: No `NEXT_PUBLIC_` prefix needed - all OAuth now server-side
+
+### Files Modified:
+- `app/actions/google-auth.ts` - Created (new file)
+- `stores/authStore.ts` - Updated to use server action
+- `learning/logs/CHANGELOG.md` - Updated with resolution
+
+### Result:
+- ✅ Google Sign-In now works properly
+- ✅ OAuth URL shows actual client ID instead of `undefined`
+- ✅ No more "OAuth client was not found" errors
+- ✅ Improved security with server-side OAuth flow
+- ✅ Consistent with existing integration OAuth patterns
+
 ## [2024-12-19] – OAuth Security Improvement: Server-Side Google Sign-In
 
 ### Security Enhancement
