@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { prepareIntegrationData } from '@/lib/integrations/tokenUtils'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -12,41 +13,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
 
   if (!code || !state) {
-    const errorHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Slack Connection Failed</title>
-          <style>
-            body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-            .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-            h1 { color: #dc3545; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Slack Connection Failed</h1>
-            <p>Authorization code or state parameter is missing.</p>
-            <p>Please try again or contact support if the problem persists.</p>
-             <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'oauth-error',
-                  provider: 'slack',
-                  error: 'Missing code or state'
-                }, '${baseUrl}');
-                setTimeout(() => window.close(), 1000);
-              }
-            </script>
-          </div>
-        </body>
-      </html>
-    `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse("error", "slack", "Authorization code or state parameter is missing.", baseUrl)
   }
 
   try {
@@ -55,8 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       console.error("Missing userId in Slack state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+      return createPopupResponse("error", "slack", "User ID is missing from state", baseUrl)
     }
 
     const clientId = process.env.SLACK_CLIENT_ID
@@ -149,73 +115,10 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to save Slack integration: ${upsertError.message}`)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Slack Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Slack Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'slack' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
+    return createPopupResponse("success", "slack", "Slack account connected successfully.", baseUrl)
   } catch (e: any) {
     console.error("Slack callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Slack Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>Slack Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'slack',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    const message = e.message || "An unexpected error occurred."
+    return createPopupResponse("error", "slack", message, baseUrl)
   }
 }

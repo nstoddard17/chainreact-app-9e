@@ -1247,6 +1247,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         const { user, session } = await getSecureUserAndSession()
 
+        // Ensure provider is valid and properly formatted
+        const provider = integration.provider.trim().toLowerCase()
+        console.log(`🔍 Reconnecting provider: "${provider}" (ID: ${integrationId})`)
+        
+        // Extra validation for Google Calendar to prevent confusion with Microsoft Outlook
+        if (provider === 'google-calendar') {
+          console.log('⚠️ Special handling for Google Calendar reconnection')
+        }
+        
         // Generate OAuth URL for reconnection
         console.log("🔄 Generating OAuth URL for reconnection...")
         const authResponse = await fetch("/api/integrations/auth/generate-url", {
@@ -1256,9 +1265,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            provider: integration.provider,
+            provider: provider, // Use normalized provider name
             reconnect: true,
             integrationId: integrationId,
+            // Add timestamp to prevent caching
+            timestamp: Date.now()
           }),
         })
 
@@ -1274,16 +1285,36 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         console.log("✅ OAuth URL generated, opening popup...")
+        console.log("🔗 Auth URL:", authData.authUrl)
         
-        // Open OAuth popup
+        // Verify the URL is for the correct provider
+        const urlProvider = provider.toLowerCase()
+        const authUrl = authData.authUrl
+        
+        // Extra validation for Google Calendar to prevent Microsoft Outlook confusion
+        if (urlProvider === 'google-calendar' && !authUrl.includes('accounts.google.com')) {
+          throw new Error(`Invalid OAuth URL for Google Calendar: ${authUrl}`)
+        }
+        
+        // Open OAuth popup with unique name to prevent reuse of windows
         const width = 600
         const height = 700
         const left = window.screen.width / 2 - width / 2
         const top = window.screen.height / 2 - height / 2
-        const popupName = `oauth_reconnect_${integration.provider}_${Date.now()}`
+        const timestamp = Date.now()
+        const popupName = `oauth_reconnect_${urlProvider}_${timestamp}`
+        
+        // Clear any localStorage items with the same prefix to prevent confusion
+        const storagePrefix = `oauth_response_${urlProvider}`;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(storagePrefix)) {
+            localStorage.removeItem(key);
+          }
+        }
         
         const popup = window.open(
-          authData.authUrl,
+          authUrl,
           popupName,
           `width=${width},height=${height},left=${left},top=${top}`,
         )
