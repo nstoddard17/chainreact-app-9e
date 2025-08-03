@@ -12,7 +12,13 @@ let currentAbortController: AbortController | null = null
 
 // Helper function to check if popup is still valid
 function isPopupValid(popup: Window | null): boolean {
-  return !!(popup && !popup.closed)
+  try {
+    return !!(popup && !popup.closed)
+  } catch (error) {
+    // COOP policy blocked the window.closed check
+    // Assume popup is valid if we can't check
+    return !!popup
+  }
 }
 
 // Helper function to securely get user and session data
@@ -426,8 +432,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
-              if (popup && !popup.closed) {
-                popup.close()
+              try {
+                if (popup && !popup.closed) {
+                  popup.close()
+                }
+              } catch (error) {
+                // COOP policy blocked the window.closed check
+                // Try to close anyway
+                popup?.close()
               }
               setLoading(`connect-${providerId}`, false)
               
@@ -456,14 +468,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
           window.addEventListener("message", messageHandler)
 
           const timer = setInterval(() => {
-            if (popup?.closed) {
-              clearInterval(timer)
-              window.removeEventListener("message", messageHandler)
-              if (!closedByMessage) {
-                console.log(`❌ Popup closed manually for ${providerId}`)
-                setError("Popup closed before completing authorization.")
-                setLoading(`connect-${providerId}`, false)
+            try {
+              // Check if popup is closed, but handle COOP policy errors gracefully
+              if (popup?.closed) {
+                clearInterval(timer)
+                window.removeEventListener("message", messageHandler)
+                if (!closedByMessage) {
+                  console.log(`❌ Popup closed manually for ${providerId}`)
+                  setError("Popup closed before completing authorization.")
+                  setLoading(`connect-${providerId}`, false)
+                }
               }
+            } catch (error) {
+              // COOP policy blocked the window.closed check
+              // This is expected behavior and not an error
+              // The popup will handle its own cleanup via message events
             }
           }, 500)
         } else {
@@ -1271,11 +1290,17 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           // Check if popup closes without sending a message
           const checkPopupClosed = setInterval(() => {
-            if (popup.closed && !messageReceived) {
-              console.log("❌ Popup closed without sending message")
-              clearInterval(checkPopupClosed)
-              window.removeEventListener("message", handleMessage)
-              reject(new Error("OAuth popup closed unexpectedly"))
+            try {
+              if (popup.closed && !messageReceived) {
+                console.log("❌ Popup closed without sending message")
+                clearInterval(checkPopupClosed)
+                window.removeEventListener("message", handleMessage)
+                reject(new Error("OAuth popup closed unexpectedly"))
+              }
+            } catch (error) {
+              // COOP policy blocked the window.closed check
+              // This is expected behavior and not an error
+              // The popup will handle its own cleanup via message events
             }
           }, 1000)
           
