@@ -1,147 +1,120 @@
-import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import crypto from "crypto"
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-import { emailService } from "@/lib/services/emailService"
+import { NextRequest, NextResponse } from "next/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
-const inviteSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["admin", "editor", "viewer"]),
-  permissions: z.object({}).optional(),
-})
-
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: organizationId } = await params
   try {
-    cookies()
+    console.log('Invitations API: Starting request for organization:', organizationId)
+    
     const supabase = await createSupabaseRouteHandlerClient()
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
+    const serviceClient = await createSupabaseServiceClient()
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      console.log('Invitations API: User not authenticated')
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { email, role, permissions } = inviteSchema.parse(body)
+    console.log('Invitations API: User authenticated:', user.id)
 
-    // Check if user has permission to invite members
-    const { data: membership } = await supabase
+    // Check if user is a member of this organization
+    const { data: membership, error: membershipError } = await serviceClient
       .from("organization_members")
       .select("role")
-      .eq("organization_id", params.id)
+      .eq("organization_id", organizationId)
       .eq("user_id", user.id)
       .single()
 
-    if (!membership || membership.role !== "admin") {
+    console.log('Invitations API: Membership check result:', { membership, membershipError })
+
+    if (membershipError || !membership) {
+      console.log('Invitations API: Access denied - user not a member')
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    // Only admins can view invitations
+    if (membership.role !== 'admin') {
+      console.log('Invitations API: Insufficient permissions - user role:', membership.role)
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 
-    // Generate invitation token
-    const token = crypto.randomBytes(32).toString("hex")
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    console.log('Invitations API: User is admin, fetching invitations')
 
-    // Create invitation
-    const { data: invitation, error } = await supabase
+    // Get pending invitations
+    const { data: invitations, error } = await serviceClient
       .from("organization_invitations")
-      .insert({
-        organization_id: params.id,
-        email,
-        role,
-        permissions: permissions || {},
-        invited_by: user.id,
-        token,
-        expires_at: expiresAt.toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Error creating invitation:", error)
-      return NextResponse.json({ error: "Failed to create invitation" }, { status: 500 })
-    }
-
-    // Get organization name and inviter email
-    const { data: organization } = await supabase
-      .from("organizations")
-      .select("name")
-      .eq("id", params.id)
-      .single()
-
-    const { data: inviter } = await supabase
-      .from("auth.users")
-      .select("email")
-      .eq("id", user.id)
-      .single()
-
-    // Send invitation email
-    const emailSent = await emailService.sendInvitationEmail(
-      email,
-      organization?.name || "Organization",
-      inviter?.email || user.email || "Unknown",
-      token,
-      role
-    )
-
-    if (!emailSent) {
-      console.warn(`Failed to send invitation email to ${email}`)
-      // Don't fail the request, but log the warning
-    }
-
-    console.log(`Invitation created for ${email} with token: ${token}`)
-
-    return NextResponse.json(invitation)
-  } catch (error) {
-    console.error("Error in POST /api/organizations/[id]/invitations:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    cookies()
-    const supabase = await createSupabaseRouteHandlerClient()
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    // Check if user has permission to view invitations
-    const { data: membership } = await supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", params.id)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!membership || !["admin", "editor"].includes(membership.role)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
-    }
-
-    const { data: invitations, error } = await supabase
-      .from("organization_invitations")
-      .select(`
-        *,
-        invited_by_user:auth.users!organization_invitations_invited_by_fkey(email)
-      `)
-      .eq("organization_id", params.id)
-      .is("accepted_at", null)
+      .select("*")
+      .eq("organization_id", organizationId)
+      .is("accepted_at", null) // Use IS NULL instead of = null
       .order("created_at", { ascending: false })
+
+    console.log('Invitations API: Fetch result:', { invitations, error })
 
     if (error) {
       console.error("Error fetching invitations:", error)
       return NextResponse.json({ error: "Failed to fetch invitations" }, { status: 500 })
     }
 
-    return NextResponse.json(invitations)
+    return NextResponse.json(invitations || [])
   } catch (error) {
-    console.error("Error in GET /api/organizations/[id]/invitations:", error)
+    console.error("Unexpected error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: organizationId } = await params
+  try {
+    const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const invitationId = searchParams.get('invitationId')
+
+    if (!invitationId) {
+      return NextResponse.json({ error: "Invitation ID is required" }, { status: 400 })
+    }
+
+    // Check if user is admin of the organization
+    const { data: membership, error: membershipError } = await serviceClient
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", user.id)
+      .single()
+
+    if (membershipError || !membership || membership.role !== 'admin') {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+    }
+
+    // Delete the invitation
+    const { error: deleteError } = await serviceClient
+      .from("organization_invitations")
+      .delete()
+      .eq("id", invitationId)
+      .eq("organization_id", organizationId)
+
+    if (deleteError) {
+      console.error("Error deleting invitation:", deleteError)
+      return NextResponse.json({ error: "Failed to delete invitation" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

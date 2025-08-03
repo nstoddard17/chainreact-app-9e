@@ -15,6 +15,9 @@ interface Organization {
   billing_address?: any
   created_at: string
   updated_at: string
+  members?: OrganizationMember[]
+  role?: string
+  member_count?: number
 }
 
 interface OrganizationMember {
@@ -100,54 +103,61 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   error: null,
 
   fetchOrganizations: async () => {
-    const supabase = getSupabaseClient()
     set({ loading: true, error: null })
 
     try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select(`
-          *,
-          organization_members!inner(role)
-        `)
-        .order("created_at", { ascending: false })
+      const response = await fetch('/api/organizations')
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch organizations')
+      }
 
-      if (error) throw error
-
-      set({ organizations: data || [], loading: false })
+      const organizations = await response.json()
+      set({ organizations, loading: false })
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      console.error('Fetch organizations error:', error)
+      set({ error: error.message || 'Failed to fetch organizations', loading: false })
     }
   },
 
   createOrganization: async (data: Partial<Organization>) => {
-    const supabase = getSupabaseClient()
-
     try {
-      const { data: org, error } = await supabase.from("organizations").insert(data).select().single()
-
-      if (error) throw error
-
-      // Add creator as admin
-      await supabase.from("organization_members").insert({
-        organization_id: org.id,
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        role: "admin",
+      console.log('Starting organization creation with data:', data)
+      
+      const response = await fetch('/api/organizations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       })
 
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create organization')
+      }
+
+      const organization = await response.json()
+      console.log('Organization created successfully:', organization)
+
       set((state) => ({
-        organizations: [org, ...state.organizations],
+        organizations: [organization, ...state.organizations],
       }))
 
-      return org
+      return organization
     } catch (error: any) {
-      set({ error: error.message })
+      console.error('Create organization error:', error)
+      set({ error: error.message || 'Failed to create organization' })
       throw error
     }
   },
 
   updateOrganization: async (id: string, data: Partial<Organization>) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const { error } = await supabase.from("organizations").update(data).eq("id", id)
@@ -167,6 +177,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   deleteOrganization: async (id: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const { error } = await supabase.from("organizations").delete().eq("id", id)
@@ -189,6 +202,11 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   fetchMembers: async (orgId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      set({ error: 'Supabase client not configured', loading: false })
+      return
+    }
+    
     set({ loading: true })
 
     try {
@@ -196,7 +214,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
         .from("organization_members")
         .select(`
           *,
-          user:auth.users(email, user_metadata)
+          user:profiles(email, full_name, username)
         `)
         .eq("organization_id", orgId)
         .order("created_at", { ascending: false })
@@ -211,6 +229,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   inviteMember: async (orgId: string, email: string, role: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const token = crypto.randomUUID()
@@ -238,6 +259,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   updateMemberRole: async (memberId: string, role: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const { error } = await supabase.from("organization_members").update({ role }).eq("id", memberId)
@@ -255,6 +279,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   removeMember: async (memberId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const { error } = await supabase.from("organization_members").delete().eq("id", memberId)
@@ -272,6 +299,10 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   fetchInvitations: async (orgId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      set({ error: 'Supabase client not configured' })
+      return
+    }
 
     try {
       const { data, error } = await supabase
@@ -291,6 +322,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   cancelInvitation: async (invitationId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const { error } = await supabase.from("organization_invitations").delete().eq("id", invitationId)
@@ -308,6 +342,9 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   resendInvitation: async (invitationId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase client not configured')
+    }
 
     try {
       const expiresAt = new Date()
@@ -332,6 +369,10 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   fetchAuditLogs: async (orgId: string) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      set({ error: 'Supabase client not configured' })
+      return
+    }
 
     try {
       const { data, error } = await supabase
@@ -351,6 +392,11 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   logAction: async (action: string, resourceType: string, resourceId?: string, details?: any) => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.error("Supabase client not configured")
+      return
+    }
+    
     const { currentOrganization } = get()
 
     try {

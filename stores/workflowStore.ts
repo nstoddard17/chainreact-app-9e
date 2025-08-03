@@ -31,11 +31,15 @@ export interface Workflow {
   name: string
   description: string | null
   user_id: string
+  organization_id?: string | null
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
   status: string
   created_at: string
   updated_at: string
+  visibility?: string
+  executions_count?: number
+  created_by?: string
 }
 
 interface WorkflowState {
@@ -47,10 +51,13 @@ interface WorkflowState {
 }
 
 interface WorkflowActions {
-  fetchWorkflows: () => Promise<void>
-  createWorkflow: (name: string, description?: string) => Promise<Workflow>
+  fetchWorkflows: (organizationId?: string) => Promise<void>
+  fetchPersonalWorkflows: () => Promise<void>
+  fetchOrganizationWorkflows: (organizationId: string) => Promise<void>
+  createWorkflow: (name: string, description?: string, organizationId?: string) => Promise<Workflow>
   updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<void>
   deleteWorkflow: (id: string) => Promise<void>
+  moveWorkflowToOrganization: (workflowId: string, organizationId: string) => Promise<void>
   setCurrentWorkflow: (workflow: Workflow | null) => void
   setSelectedNode: (node: WorkflowNode | null) => void
   addNode: (node: WorkflowNode) => void
@@ -80,7 +87,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   loading: false,
   error: null,
 
-  fetchWorkflows: async () => {
+  fetchWorkflows: async (organizationId?: string) => {
     if (!supabase) {
       console.warn("Supabase not available")
       return
@@ -100,7 +107,59 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
   },
 
-  createWorkflow: async (name: string, description?: string) => {
+  fetchPersonalWorkflows: async () => {
+    if (!supabase) {
+      console.warn("Supabase not available")
+      return
+    }
+
+    set({ loading: true, error: null })
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        set({ workflows: [], loading: false })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+
+      if (error) throw error
+
+      set({ workflows: data || [], loading: false })
+    } catch (error: any) {
+      console.error("Error fetching personal workflows:", error)
+      set({ error: error.message, loading: false })
+    }
+  },
+
+  fetchOrganizationWorkflows: async (organizationId: string) => {
+    if (!supabase) {
+      console.warn("Supabase not available")
+      return
+    }
+
+    set({ loading: true, error: null })
+    try {
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false })
+
+      if (error) throw error
+
+      set({ workflows: data || [], loading: false })
+    } catch (error: any) {
+      console.error("Error fetching organization workflows:", error)
+      set({ error: error.message, loading: false })
+    }
+  },
+
+  createWorkflow: async (name: string, description?: string, organizationId?: string) => {
     if (!supabase) {
       throw new Error("Supabase not available")
     }
@@ -117,6 +176,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           name,
           description: description || null,
           user_id: user.id,
+          organization_id: organizationId || null, // Add organization_id if provided
           nodes: [],
           connections: [],
           status: "draft",
@@ -257,6 +317,53 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       }
     } catch (error: any) {
       console.error("Error deleting workflow:", error)
+      throw error
+    }
+  },
+
+  moveWorkflowToOrganization: async (workflowId: string, organizationId: string) => {
+    if (!supabase) {
+      throw new Error("Supabase not available")
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("workflows")
+        .update({ organization_id: organizationId })
+        .eq("id", workflowId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      set((state) => ({
+        workflows: state.workflows.map((w) => (w.id === workflowId ? { ...w, organization_id: organizationId } : w)),
+        currentWorkflow:
+          state.currentWorkflow?.id === workflowId ? { ...state.currentWorkflow, organization_id: organizationId } : state.currentWorkflow,
+      }))
+
+      // Log workflow move
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from("audit_logs").insert({
+            user_id: user.id,
+            action: "workflow_moved_to_organization",
+            resource_type: "workflow",
+            resource_id: workflowId,
+            details: {
+              workflow_id: workflowId,
+              workflow_name: data.name,
+              organization_id: organizationId,
+            },
+            created_at: new Date().toISOString()
+          })
+        }
+      } catch (auditError) {
+        console.warn("Failed to log workflow move:", auditError)
+      }
+    } catch (error: any) {
+      console.error("Error moving workflow to organization:", error)
       throw error
     }
   },

@@ -161,6 +161,7 @@ const useWorkflowBuilderState = () => {
   const [isExecuting, setIsExecuting] = useState(false)
   const [executionEvents, setExecutionEvents] = useState<ExecutionEvent[]>([])
   const [workflowName, setWorkflowName] = useState("")
+  const [workflowDescription, setWorkflowDescription] = useState("")
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
@@ -680,6 +681,7 @@ const useWorkflowBuilderState = () => {
         connections: currentWorkflow.connections
       }, null, 2))
       setWorkflowName(currentWorkflow.name)
+      setWorkflowDescription(currentWorkflow.description || "")
       
       // Always rebuild nodes on initial load to ensure positions are loaded correctly
       const currentNodeIds = getNodes().filter(n => n.type === 'custom').map(n => n.id).sort()
@@ -1163,7 +1165,7 @@ const useWorkflowBuilderState = () => {
 
       const updates: Partial<Workflow> = {
         name: workflowName, 
-        description: currentWorkflow.description,
+        description: workflowDescription,
         nodes: mappedNodes, 
         connections: mappedConnections, 
         status: currentWorkflow.status,
@@ -1947,6 +1949,8 @@ const useWorkflowBuilderState = () => {
     onConnect,
     workflowName,
     setWorkflowName,
+    workflowDescription,
+    setWorkflowDescription,
     isSaving,
     handleSave,
     handleExecute,
@@ -2025,7 +2029,7 @@ function WorkflowBuilderContent() {
   const { setCurrentWorkflow } = useWorkflowStore()
   
   const {
-    nodes, edges, setNodes, setEdges, onNodesChange, debugOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
+    nodes, edges, setNodes, setEdges, onNodesChange, debugOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
@@ -2109,7 +2113,32 @@ function WorkflowBuilderContent() {
         <div className="flex justify-between items-start p-4 pointer-events-auto">
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="icon" onClick={() => handleNavigation("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
-            <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
+            <div className="flex flex-col space-y-1">
+              <Input 
+                value={workflowName} 
+                onChange={(e) => setWorkflowName(e.target.value)} 
+                onBlur={handleSave} 
+                className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" 
+                style={{ boxShadow: "none" }} 
+              />
+              <Input 
+                value={workflowDescription} 
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value.length <= 150) {
+                    setWorkflowDescription(value)
+                  }
+                }}
+                onBlur={handleSave}
+                placeholder="Add a description (max 150 characters)"
+                className="text-sm text-slate-500 !border-none !outline-none !ring-0 p-0 bg-transparent" 
+                style={{ boxShadow: "none" }}
+                maxLength={150}
+              />
+              <div className="text-xs text-slate-400 text-right">
+                {workflowDescription.length}/150
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>

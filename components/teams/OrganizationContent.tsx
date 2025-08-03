@@ -1,22 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, Workflow, Settings, Activity, Crown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Users, Workflow, Settings, Activity, Crown, Building2, ArrowLeft } from "lucide-react"
 import MemberManagement from "./MemberManagement"
 import OrganizationWorkflows from "./OrganizationWorkflows"
+import OrganizationSettings from "./OrganizationSettings"
 import AuditLog from "./AuditLog"
+import TeamManagement from "./TeamManagement"
 
 interface Props {
   organization: any
 }
 
 export default function OrganizationContent({ organization }: Props) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
-  const userRole = organization.members?.[0]?.role || "viewer"
+  const [currentOrganization, setCurrentOrganization] = useState(organization)
+  const userRole = currentOrganization.members?.[0]?.role || "viewer"
+
+  // Handle tab parameter from URL
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && ['overview', 'workflows', 'members', 'teams', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
+
+  const handleOrganizationUpdate = (updatedOrg: any) => {
+    setCurrentOrganization(updatedOrg)
+  }
 
   return (
     <AppLayout title="Organization">
@@ -24,17 +43,26 @@ export default function OrganizationContent({ organization }: Props) {
         {/* Organization Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/teams')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Teams</span>
+              </Button>
               <div className="flex items-center space-x-3">
-                <h1 className="text-3xl font-bold text-slate-900">{organization.name}</h1>
+                <h1 className="text-3xl font-bold text-slate-900">{currentOrganization.name}</h1>
                 <Badge variant="outline" className="flex items-center space-x-1">
                   {userRole === "admin" && <Crown className="w-3 h-3" />}
                   <span>{userRole}</span>
                 </Badge>
               </div>
-              {organization.description && <p className="text-slate-600 mt-2">{organization.description}</p>}
             </div>
           </div>
+          {currentOrganization.description && <p className="text-slate-600 mt-2">{currentOrganization.description}</p>}
         </div>
 
         {/* Organization Tabs */}
@@ -48,6 +76,13 @@ export default function OrganizationContent({ organization }: Props) {
                 >
                   <Activity className="w-4 h-4 mr-2" />
                   Overview
+                </TabsTrigger>
+                <TabsTrigger
+                  value="teams"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Teams
                 </TabsTrigger>
                 <TabsTrigger
                   value="workflows"
@@ -83,8 +118,18 @@ export default function OrganizationContent({ organization }: Props) {
                   <CardTitle className="text-lg font-semibold text-slate-900">Team Members</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">{organization.member_count || 1}</div>
+                  <div className="text-3xl font-bold text-blue-600">{currentOrganization.member_count || 1}</div>
                   <p className="text-sm text-slate-500">Active members</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-slate-900">Teams</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-green-600">{currentOrganization.teams?.length || 0}</div>
+                  <p className="text-sm text-slate-500">Active teams</p>
                 </CardContent>
               </Card>
 
@@ -93,45 +138,31 @@ export default function OrganizationContent({ organization }: Props) {
                   <CardTitle className="text-lg font-semibold text-slate-900">Workflows</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600">{organization.workflow_count || 0}</div>
+                  <div className="text-3xl font-bold text-purple-600">{currentOrganization.workflow_count || 0}</div>
                   <p className="text-sm text-slate-500">Organization workflows</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-slate-900">Executions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-600">{organization.execution_count || 0}</div>
-                  <p className="text-sm text-slate-500">This month</p>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
+          <TabsContent value="teams" className="mt-6">
+            <TeamManagement organizationId={currentOrganization.id} userRole={userRole} />
+          </TabsContent>
+
           <TabsContent value="workflows" className="mt-6">
-            <OrganizationWorkflows organizationId={organization.id} userRole={userRole} />
+            <OrganizationWorkflows organizationId={currentOrganization.id} userRole={userRole} />
           </TabsContent>
 
           <TabsContent value="members" className="mt-6">
-            <MemberManagement organizationId={organization.id} userRole={userRole} />
+            <MemberManagement organizationId={currentOrganization.id} userRole={userRole} />
           </TabsContent>
 
           {userRole === "admin" && (
             <TabsContent value="settings" className="mt-6">
-              <div className="space-y-6">
-                <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-semibold text-slate-900">Organization Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-slate-500">Organization settings will be implemented here.</p>
-                  </CardContent>
-                </Card>
-
-                <AuditLog organizationId={organization.id} />
-              </div>
+              <OrganizationSettings 
+                organization={currentOrganization} 
+                onUpdate={handleOrganizationUpdate}
+              />
             </TabsContent>
           )}
         </Tabs>

@@ -16,15 +16,15 @@ interface Props {
 }
 
 export default function OrganizationWorkflows({ organizationId, userRole }: Props) {
-  const { workflows, loading, fetchWorkflows } = useWorkflowStore()
+  const { workflows, loading, fetchWorkflows, fetchOrganizationWorkflows } = useWorkflowStore()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibilityFilter, setVisibilityFilter] = useState("all")
 
   useEffect(() => {
-    // Fetch organization workflows
-    fetchWorkflows()
-  }, [organizationId, fetchWorkflows])
+    // Fetch organization workflows only
+    fetchOrganizationWorkflows(organizationId)
+  }, [organizationId, fetchOrganizationWorkflows])
 
   const filteredWorkflows = workflows.filter((workflow) => {
     const matchesSearch =
@@ -74,7 +74,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold text-slate-900">Organization Workflows</CardTitle>
             {canCreateWorkflows && (
-              <Link href="/workflows/builder">
+              <Link href={`/workflows/builder?organizationId=${organizationId}`}>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
@@ -138,7 +138,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                 : "Create your first organization workflow to get started."}
             </p>
             {canCreateWorkflows && (
-              <Link href="/workflows/builder">
+              <Link href={`/workflows/builder?organizationId=${organizationId}`}>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
@@ -148,52 +148,89 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredWorkflows.map((workflow) => (
             <Card
               key={workflow.id}
-              className="bg-white rounded-2xl shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              className="bg-white rounded-2xl shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group flex flex-col h-full"
             >
-              <CardHeader>
+              <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg font-semibold text-slate-900 mb-2">{workflow.name}</CardTitle>
-                    {workflow.description && (
-                      <p className="text-sm text-slate-600 line-clamp-2">{workflow.description}</p>
+                    <CardTitle className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">{workflow.name}</CardTitle>
+                    {workflow.description ? (
+                      <p className="text-sm text-slate-600">{workflow.description}</p>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">No description</p>
                     )}
                   </div>
-                  <div className="flex items-center space-x-1 ml-2">{getVisibilityIcon(workflow.visibility)}</div>
+                  <div className="flex items-center space-x-1 ml-2">{getVisibilityIcon(workflow.visibility || "private")}</div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Badge className={getStatusBadgeColor(workflow.status)}>
-                    {workflow.status === "active" && <Play className="w-3 h-3 mr-1" />}
-                    {workflow.status === "paused" && <Pause className="w-3 h-3 mr-1" />}
-                    <span className="capitalize">{workflow.status}</span>
-                  </Badge>
-                  <span className="text-xs text-slate-500">{workflow.executions_count || 0} executions</span>
-                </div>
+              
+              {/* Bottom section with status, date, actions, and edit button */}
+              <div className="mt-auto">
+                <div className="px-6 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusBadgeColor(workflow.status)}>
+                        {workflow.status === "active" && <Play className="w-3 h-3 mr-1" />}
+                        {workflow.status === "paused" && <Pause className="w-3 h-3 mr-1" />}
+                        <span className="capitalize">{workflow.status}</span>
+                      </Badge>
+                      
+                      {/* Show workflow readiness for draft workflows */}
+                      {workflow.status === "draft" && (
+                        <>
+                          {!workflow.nodes?.some(n => n.data?.isTrigger) && (
+                            <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                              ⚠️ Missing trigger
+                            </div>
+                          )}
+                          {workflow.nodes?.some(n => n.data?.isTrigger) && !workflow.nodes?.some(n => !n.data?.isTrigger) && (
+                            <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                              ⚠️ Missing action
+                            </div>
+                          )}
+                          {workflow.nodes?.length > 1 && !workflow.connections?.length && (
+                            <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                              ⚠️ Missing connections
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-500">{workflow.executions_count || 0} executions</span>
+                  </div>
 
-                <div className="text-xs text-slate-500">
-                  Updated {new Date(workflow.updated_at).toLocaleDateString()}
-                </div>
+                  <div className="text-xs text-slate-500 mb-3">
+                    Updated {workflow.updated_at ? new Date(workflow.updated_at).toLocaleDateString() : 'Not yet updated'}
+                  </div>
 
-                <div className="flex items-center space-x-2">
-                  <Link href={`/workflows/${workflow.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full">
-                      View Workflow
-                    </Button>
-                  </Link>
-                  {(canCreateWorkflows || workflow.created_by === "current_user") && (
-                    <Link href={`/workflows/builder?id=${workflow.id}`}>
-                      <Button size="sm" variant="outline">
-                        <Settings className="w-4 h-4" />
+                  <div className="flex items-center space-x-2">
+                    <Link href={`/workflows/${workflow.id}`} className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        View Workflow
                       </Button>
                     </Link>
-                  )}
+                    {(canCreateWorkflows || workflow.created_by === "current_user") && (
+                      <Link href={`/workflows/builder?id=${workflow.id}`}>
+                        <Button size="sm" variant="outline">
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
+                
+                {/* Edit Workflow button - always at bottom */}
+                <Link
+                  href={`/workflows/builder?id=${workflow.id}`}
+                  className="block w-full bg-slate-100 hover:bg-slate-200 p-3 text-center text-sm font-semibold border-t border-slate-200 transition-all duration-200 text-slate-900 hover:text-slate-900"
+                >
+                  Edit Workflow
+                </Link>
+              </div>
             </Card>
           ))}
         </div>

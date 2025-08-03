@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import OpenAI from "openai"
+import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -90,6 +91,15 @@ export async function POST(request: NextRequest) {
 
     console.log("User authenticated:", user.id)
 
+    // Check AI usage limits
+    const usageCheck = await checkUsageLimit(user.id, "ai_assistant")
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ 
+        error: "AI usage limit exceeded",
+        content: `You've reached your AI assistant usage limit for this month (${usageCheck.limit} messages). Please upgrade your plan for more AI usage.`
+      }, { status: 429 })
+    }
+
     // Get user's integrations from database with timeout
     const integrationsPromise = supabaseAdmin
       .from("integrations")
@@ -162,6 +172,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Sending response to user")
+    
+    // Track AI usage after successful response
+    try {
+      await trackUsage(user.id, "ai_assistant", "assistant_call", 1, {
+        intent: intent.intent,
+        action: intent.action,
+        message_length: message.length
+      })
+    } catch (trackingError) {
+      console.error("Failed to track AI usage:", trackingError)
+      // Don't fail the request if tracking fails
+    }
+    
     return NextResponse.json(result)
   } catch (error) {
     console.error("AI Assistant error:", error)

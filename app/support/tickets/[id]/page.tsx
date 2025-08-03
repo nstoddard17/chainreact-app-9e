@@ -4,10 +4,14 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { AlertCircle, Clock, CheckCircle, XCircle, MessageSquare, ArrowLeft, Send, User, Shield } from "lucide-react"
+import { ArrowLeft, Send, Clock, CheckCircle, XCircle, AlertTriangle, Bug, Zap, Settings, CreditCard, HelpCircle, FileText, User, Shield, MessageSquare } from "lucide-react"
 import AppLayout from "@/components/layout/AppLayout"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -22,15 +26,21 @@ interface SupportTicket {
   category: "bug" | "feature_request" | "integration_issue" | "billing" | "general" | "technical_support"
   created_at: string
   updated_at: string
-  support_ticket_responses: SupportTicketResponse[]
+  user_email: string
+  user_name: string
+  error_details?: any
+  system_info?: any
 }
 
 interface SupportTicketResponse {
   id: string
-  message: string
+  ticket_id: string
+  user_id: string
   is_staff_response: boolean
+  message: string
   created_at: string
-  updated_at: string
+  user_name?: string
+  user_email?: string
 }
 
 const priorityColors = {
@@ -48,33 +58,56 @@ const statusColors = {
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 }
 
+const categoryIcons = {
+  bug: Bug,
+  feature_request: Zap,
+  integration_issue: Settings,
+  billing: CreditCard,
+  general: HelpCircle,
+  technical_support: FileText,
+}
+
 export default function TicketDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const ticketId = params.id as string
+
   const [ticket, setTicket] = useState<SupportTicket | null>(null)
+  const [responses, setResponses] = useState<SupportTicketResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [sendingResponse, setSendingResponse] = useState(false)
   const [newResponse, setNewResponse] = useState("")
+  const [updatingStatus, setUpdatingStatus] = useState(false)
 
   useEffect(() => {
-    if (params.id) {
-      fetchTicket()
+    if (ticketId) {
+      fetchTicketDetails()
     }
-  }, [params.id])
+  }, [ticketId])
 
-  const fetchTicket = async () => {
+  const fetchTicketDetails = async () => {
     try {
-      const response = await fetch(`/api/support/tickets/${params.id}`)
-      if (response.ok) {
-        const data = await response.json()
-        setTicket(data.ticket)
+      const [ticketResponse, responsesResponse] = await Promise.all([
+        fetch(`/api/support/tickets/${ticketId}`),
+        fetch(`/api/support/tickets/${ticketId}/responses`)
+      ])
+
+      if (ticketResponse.ok) {
+        const ticketData = await ticketResponse.json()
+        setTicket(ticketData.ticket)
       } else {
-        toast.error('Failed to fetch ticket')
+        toast.error('Failed to fetch ticket details')
         router.push('/support')
+        return
+      }
+
+      if (responsesResponse.ok) {
+        const responsesData = await responsesResponse.json()
+        setResponses(responsesData.responses || [])
       }
     } catch (error) {
-      console.error('Error fetching ticket:', error)
-      toast.error('Failed to fetch ticket')
+      console.error('Error fetching ticket details:', error)
+      toast.error('Failed to fetch ticket details')
       router.push('/support')
     } finally {
       setLoading(false)
@@ -89,20 +122,24 @@ export default function TicketDetailPage() {
 
     setSendingResponse(true)
     try {
-      const response = await fetch(`/api/support/tickets/${params.id}/responses`, {
+      const response = await fetch(`/api/support/tickets/${ticketId}/responses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: newResponse,
+          isStaffResponse: false,
         }),
       })
 
       if (response.ok) {
-        toast.success('Response sent successfully!')
+        const data = await response.json()
+        setResponses(prev => [...prev, data.response])
         setNewResponse("")
-        fetchTicket() // Refresh ticket data
+        toast.success('Response sent successfully!')
+        // Refresh ticket details to get updated status
+        fetchTicketDetails()
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to send response')
@@ -115,20 +152,33 @@ export default function TicketDetailPage() {
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <AlertCircle className="w-4 h-4" />
-      case 'in_progress':
-        return <Clock className="w-4 h-4" />
-      case 'waiting_for_user':
-        return <MessageSquare className="w-4 h-4" />
-      case 'resolved':
-        return <CheckCircle className="w-4 h-4" />
-      case 'closed':
-        return <XCircle className="w-4 h-4" />
-      default:
-        return <AlertCircle className="w-4 h-4" />
+  const updateTicketStatus = async (newStatus: string) => {
+    if (!ticket) return
+
+    setUpdatingStatus(true)
+    try {
+      const response = await fetch(`/api/support/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      })
+
+      if (response.ok) {
+        setTicket(prev => prev ? { ...prev, status: newStatus as any } : null)
+        toast.success('Ticket status updated successfully!')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to update status')
+      }
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast.error('Failed to update status')
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -142,9 +192,26 @@ export default function TicketDetailPage() {
     })
   }
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'open':
+        return <AlertTriangle className="w-4 h-4" />
+      case 'in_progress':
+        return <Clock className="w-4 h-4" />
+      case 'waiting_for_user':
+        return <Clock className="w-4 h-4" />
+      case 'resolved':
+        return <CheckCircle className="w-4 h-4" />
+      case 'closed':
+        return <XCircle className="w-4 h-4" />
+      default:
+        return <AlertTriangle className="w-4 h-4" />
+    }
+  }
+
   if (loading) {
     return (
-      <AppLayout title="Loading..." subtitle="Fetching ticket details">
+      <AppLayout title="Loading Ticket..." subtitle="">
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
@@ -154,13 +221,10 @@ export default function TicketDetailPage() {
 
   if (!ticket) {
     return (
-      <AppLayout title="Ticket Not Found" subtitle="The requested ticket could not be found">
+      <AppLayout title="Ticket Not Found" subtitle="">
         <div className="flex flex-col items-center justify-center py-8">
-          <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">Ticket Not Found</h3>
-          <p className="text-muted-foreground text-center mb-4">
-            The ticket you're looking for doesn't exist or you don't have permission to view it.
-          </p>
+          <h3 className="text-lg font-medium mb-2">Ticket not found</h3>
+          <p className="text-muted-foreground mb-4">The ticket you're looking for doesn't exist or you don't have access to it.</p>
           <Button onClick={() => router.push('/support')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Support
@@ -170,15 +234,23 @@ export default function TicketDetailPage() {
     )
   }
 
+  const CategoryIcon = categoryIcons[ticket.category]
+
   return (
     <AppLayout title={`Ticket ${ticket.ticket_number}`} subtitle={ticket.subject}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => router.push('/support')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Support
-          </Button>
+          <div className="flex items-center space-x-4">
+            <Button variant="outline" onClick={() => router.push('/support')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Support
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Ticket #{ticket.ticket_number}</h1>
+              <p className="text-muted-foreground">{ticket.subject}</p>
+            </div>
+          </div>
           <div className="flex items-center space-x-2">
             <Badge className={cn("text-sm", priorityColors[ticket.priority])}>
               {ticket.priority}
@@ -190,138 +262,888 @@ export default function TicketDetailPage() {
           </div>
         </div>
 
-        {/* Ticket Details */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-xl">{ticket.subject}</CardTitle>
-                <CardDescription>
-                  Ticket #{ticket.ticket_number} • Created {formatDate(ticket.created_at)}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="prose dark:prose-invert max-w-none">
-              <p className="whitespace-pre-wrap">{ticket.description}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Responses */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Conversation</h2>
-          
-          {ticket.support_ticket_responses.length === 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Original Ticket */}
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <MessageSquare className="w-12 h-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No responses yet</h3>
-                <p className="text-muted-foreground text-center">
-                  Be the first to add a response to this ticket.
-                </p>
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <CategoryIcon className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <CardTitle className="text-lg">Original Issue</CardTitle>
+                    <CardDescription>
+                      Created by {ticket.user_name || ticket.user_email} on {formatDate(ticket.created_at)}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-sm max-w-none">
+                  <p className="whitespace-pre-wrap">{ticket.description}</p>
+                </div>
+                {ticket.error_details && (
+                  <div className="mt-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">Error Details</h4>
+                    <pre className="text-sm text-red-700 dark:text-red-300 overflow-x-auto">
+                      {JSON.stringify(ticket.error_details, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          ) : (
+
+            {/* Responses */}
             <div className="space-y-4">
-              {ticket.support_ticket_responses.map((response) => (
-                <Card key={response.id} className={cn(
-                  response.is_staff_response ? "border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20" : "border-gray-200 dark:border-gray-700"
-                )}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start space-x-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center",
-                        response.is_staff_response 
-                          ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400" 
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                      )}>
-                        {response.is_staff_response ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="font-medium">
-                            {response.is_staff_response ? 'Support Team' : 'You'}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(response.created_at)}
-                          </span>
-                          {response.is_staff_response && (
-                            <Badge variant="outline" className="text-xs">
-                              Staff
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="prose dark:prose-invert max-w-none">
-                          <p className="whitespace-pre-wrap">{response.message}</p>
-                        </div>
-                      </div>
-                    </div>
+              <h2 className="text-xl font-semibold">Conversation</h2>
+              {responses.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <MessageSquare className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No responses yet</h3>
+                    <p className="text-muted-foreground text-center">
+                      Be the first to respond to this ticket.
+                    </p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                <div className="space-y-4">
+                  {responses.map((response) => (
+                    <Card key={response.id} className={cn(
+                      "border-l-4",
+                      response.is_staff_response 
+                        ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20" 
+                        : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                    )}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src="" />
+                            <AvatarFallback className="text-xs">
+                              {response.is_staff_response ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="font-medium text-sm">
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Add Response */}
-        {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Response</CardTitle>
-              <CardDescription>
-                Add additional information or ask a follow-up question.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={newResponse}
-                onChange={(e) => setNewResponse(e.target.value)}
-                placeholder="Type your response here..."
-                rows={4}
-                className="resize-none"
-              />
-              <div className="flex justify-end">
-                <Button 
-                  onClick={sendResponse}
-                  disabled={sendingResponse || !newResponse.trim()}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                >
-                  {sendingResponse ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
                       <Send className="w-4 h-4 mr-2" />
-                      Send Response
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-        {/* Ticket Status */}
-        {ticket.status === 'closed' || ticket.status === 'resolved' ? (
-          <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
-            <CardContent className="flex items-center space-x-3 p-4">
-              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-              <div>
-                <h3 className="font-medium text-green-800 dark:text-green-200">
-                  Ticket {ticket.status === 'resolved' ? 'Resolved' : 'Closed'}
-                </h3>
-                <p className="text-sm text-green-600 dark:text-green-400">
-                  This ticket has been {ticket.status === 'resolved' ? 'resolved' : 'closed'}. 
-                  If you have additional questions, please create a new ticket.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+} 
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+} 
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+} 
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+} 
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+} 
+                                {response.is_staff_response ? 'Support Team' : (response.user_name || response.user_email || 'You')}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {response.is_staff_response ? 'Staff' : 'User'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(response.created_at)}
+                              </span>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                              <p className="whitespace-pre-wrap">{response.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Response */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Response</CardTitle>
+                  <CardDescription>
+                    Add a response to this ticket. Your response will be sent to the support team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="response">Your Message</Label>
+                    <Textarea
+                      id="response"
+                      value={newResponse}
+                      onChange={(e) => setNewResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={sendResponse}
+                      disabled={sendingResponse || !newResponse.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendingResponse ? 'Sending...' : 'Send Response'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Ticket Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Ticket Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="capitalize">{ticket.category.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                  <Badge className={cn("mt-1", priorityColors[ticket.priority])}>
+                    {ticket.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <Badge className={cn("mt-1", statusColors[ticket.status])}>
+                    {getStatusIcon(ticket.status)}
+                    <span className="ml-1">{ticket.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                  <p className="text-sm mt-1">{formatDate(ticket.updated_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Responses</Label>
+                  <p className="text-sm mt-1">{responses.length} message{responses.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status Update */}
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Update Status</CardTitle>
+                  <CardDescription>
+                    Mark this ticket as resolved or closed if the issue has been addressed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('resolved')}
+                    disabled={updatingStatus}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => updateTicketStatus('closed')}
+                    disabled={updatingStatus}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close Ticket
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </AppLayout>
   )

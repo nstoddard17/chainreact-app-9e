@@ -4,10 +4,11 @@ import { redirect, notFound } from "next/navigation"
 import OrganizationContent from "@/components/teams/OrganizationContent"
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export default async function OrganizationPage({ params }: Props) {
+  const { slug } = await params
   const supabase = await createSupabaseServerClient()
 
   const {
@@ -26,7 +27,7 @@ export default async function OrganizationPage({ params }: Props) {
       *,
       members:organization_members!inner(role)
     `)
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .eq("organization_members.user_id", user.id)
     .single()
 

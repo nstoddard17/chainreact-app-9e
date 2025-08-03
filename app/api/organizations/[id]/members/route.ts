@@ -1,118 +1,177 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
-import crypto from "crypto"
+import { NextRequest, NextResponse } from "next/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
-
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: organizationId } = await params
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
+    const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Check if user is a member of this organization
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await serviceClient
       .from("organization_members")
       .select("role")
-      .eq("organization_id", params.id)
+      .eq("organization_id", organizationId)
       .eq("user_id", user.id)
       .single()
 
-    if (!membership) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (membershipError || !membership) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    const { data, error } = await supabase
+    // Get all members of the organization
+    const { data: members, error } = await serviceClient
       .from("organization_members")
-      .select(`
-        *,
-        user:auth.users(email, user_metadata)
-      `)
-      .eq("organization_id", params.id)
-      .order("created_at", { ascending: false })
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: true })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Error fetching members:", error)
+      return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    // Get user details for each member
+    const membersWithUserInfo = await Promise.all(
+      members.map(async (member) => {
+        try {
+          const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(member.user_id)
+          if (userError || !userData.user) {
+            return {
+              ...member,
+              user: {
+                email: "Unknown",
+                full_name: "Unknown User",
+                username: "unknown"
+              }
+            }
+          }
+          return {
+            ...member,
+            user: {
+              email: userData.user.email || "No email",
+              full_name: userData.user.user_metadata?.full_name || "Unknown User",
+              username: userData.user.user_metadata?.username || "unknown"
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user data for member:", member.user_id, error)
+          return {
+            ...member,
+            user: {
+              email: "Error loading user",
+              full_name: "Error loading user",
+              username: "error"
+            }
+          }
+        }
+      })
+    )
+
+    return NextResponse.json(membersWithUserInfo)
   } catch (error) {
+    console.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
-
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: organizationId } = await params
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
+    const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    // Check if user is an admin of this organization
-    const { data: membership } = await supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", params.id)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!membership || membership.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { email, role } = body
+    const { user_id, role = "viewer" } = body
 
-    // Create invitation
-    const token = crypto.randomUUID()
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
-
-    const { data, error } = await supabase
-      .from("organization_invitations")
-      .insert({
-        organization_id: params.id,
-        email,
-        role,
-        token,
-        expires_at: expiresAt.toISOString(),
-        invited_by: user.id,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!user_id) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    // Log the action
-    await supabase.from("audit_logs").insert({
-      organization_id: params.id,
-      user_id: user.id,
-      action: "member.invited",
-      resource_type: "organization_member",
-      details: { email, role },
-    })
+    // Check if user is admin of the organization
+    const { data: membership, error: membershipError } = await serviceClient
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", user.id)
+      .single()
 
-    // In a real app, send invitation email here
-    // await sendInvitationEmail(email, token, orgName)
+    if (membershipError || !membership || membership.role !== 'admin') {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+    }
 
-    return NextResponse.json(data)
+    // Check if user is already a member
+    const { data: existingMember, error: memberCheckError } = await serviceClient
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("user_id", user_id)
+      .single()
+
+    if (existingMember) {
+      return NextResponse.json({ error: "User is already a member" }, { status: 409 })
+    }
+
+    // Add user to organization
+    const { data: newMember, error: addError } = await serviceClient
+      .from("organization_members")
+      .insert({
+        organization_id: organizationId,
+        user_id,
+        role
+      })
+      .select("*")
+      .single()
+
+    if (addError) {
+      console.error("Error adding member:", addError)
+      return NextResponse.json({ error: "Failed to add member" }, { status: 500 })
+    }
+
+    // Get user details for the new member
+    try {
+      const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(user_id)
+      const memberWithUserInfo = {
+        ...newMember,
+        user: {
+          email: userData?.user?.email || "No email",
+          full_name: userData?.user?.user_metadata?.full_name || "Unknown User",
+          username: userData?.user?.user_metadata?.username || "unknown"
+        }
+      }
+      return NextResponse.json(memberWithUserInfo, { status: 201 })
+    } catch (error) {
+      console.error("Error fetching user data for new member:", error)
+      const memberWithUserInfo = {
+        ...newMember,
+        user: {
+          email: "Error loading user",
+          full_name: "Error loading user",
+          username: "error"
+        }
+      }
+      return NextResponse.json(memberWithUserInfo, { status: 201 })
+    }
   } catch (error) {
+    console.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

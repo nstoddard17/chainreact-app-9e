@@ -21,7 +21,11 @@ export interface Workflow {
   created_at?: string
   updated_at?: string
   user_id?: string
+  organization_id?: string | null
   status?: string
+  visibility?: string
+  executions_count?: number
+  created_by?: string
 }
 
 // Create cache stores for workflow data
@@ -70,7 +74,7 @@ async function fetchWorkflow(id: string): Promise<Workflow> {
   // Explicitly select all fields including nodes and connections
   const { data, error } = await supabase
     .from("workflows")
-    .select("id, name, description, nodes, connections, created_at, updated_at, user_id, status")
+    .select("id, name, description, nodes, connections, created_at, updated_at, user_id, organization_id, status")
     .eq("id", id)
     .single()
 

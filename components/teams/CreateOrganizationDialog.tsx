@@ -1,8 +1,7 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useOrganizationStore } from "@/stores/organizationStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface Props {
   open: boolean
@@ -24,45 +24,57 @@ interface Props {
 }
 
 export default function CreateOrganizationDialog({ open, onOpenChange }: Props) {
+  const router = useRouter()
+  const { createOrganization } = useOrganizationStore()
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
-  const { createOrganization } = useOrganizationStore()
 
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
   }
 
   const handleNameChange = (value: string) => {
     setName(value)
-    if (!slug || slug === generateSlug(name)) {
-      setSlug(generateSlug(value))
-    }
+    // Auto-update slug when name changes
+    setSlug(generateSlug(value))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !slug.trim()) return
-
     setLoading(true)
+
     try {
-      await createOrganization({
+      console.log('Dialog: Starting organization creation...')
+      const result = await createOrganization({
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
       })
+      console.log('Dialog: Organization created successfully:', result)
+      
+      // Show success message
+      toast.success(`Organization "${result.name}" created successfully!`)
+      
+      // Close dialog and reset form
       onOpenChange(false)
       setName("")
       setSlug("")
       setDescription("")
-    } catch (error) {
-      console.error("Failed to create organization:", error)
+      
+      // Redirect to the organization overview page
+      router.push(`/teams/${result.slug}`)
+    } catch (error: any) {
+      console.error("Dialog: Failed to create organization:", {
+        message: error.message,
+        stack: error.stack,
+        error: error
+      })
+      toast.error(error.message || 'Failed to create organization')
     } finally {
       setLoading(false)
     }
@@ -114,14 +126,13 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || !name.trim() || !slug.trim()}
-              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
             >
               {loading ? (
                 <>
@@ -138,3 +149,5 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
     </Dialog>
   )
 }
+
+
