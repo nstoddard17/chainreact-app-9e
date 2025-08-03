@@ -2581,7 +2581,9 @@ function WorkflowBuilderContent() {
                               className={`p-4 border rounded-lg transition-all ${
                                 isComingSoon 
                                   ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
-                                  : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
+                                  : selectedAction?.type === action.type 
+                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/20' 
+                                    : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
                               }`}
                               onClick={() => {
                                 if (isComingSoon) return
