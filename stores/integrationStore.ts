@@ -514,9 +514,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               
               // Note: We can't check popup.closed due to COOP policy
               // We rely on message events and localStorage polling for communication
-              } catch (e) {
-                // COOP policy blocked the window.closed check - that's fine
-              }
             } catch (error) {
               console.error(`Error checking localStorage for ${providerId}:`, error);
             }
