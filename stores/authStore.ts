@@ -652,7 +652,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Build the Google OAuth URL
           const params = new URLSearchParams({
-            client_id: process.env.GOOGLE_CLIENT_ID!,
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
             redirect_uri: `${getBaseUrl()}/api/auth/callback`,
             response_type: 'code',
             scope: 'email profile',

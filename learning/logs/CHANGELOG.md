@@ -189,3 +189,37 @@
 - **Issue**: Actions in the selection dialog weren't visually highlighted when selected
 - **Fix**: Added conditional styling that applies primary border and background to selected actions
 - **Result**: Users can now clearly see which action is currently selected, improving usability
+
+## [2024-12-19] – OAuth Flow Analysis and Environment Variable Fix
+
+### OAuth Implementation Review
+- Conducted comprehensive security analysis of OAuth flow
+- Identified strengths: token encryption, CSRF protection, error handling
+- Found areas for improvement: inconsistent PKCE, missing rate limiting, state parameter security
+
+### Environment Variable Fix
+- **Problem**: `client_id=undefined` in OAuth URLs due to missing `NEXT_PUBLIC_` prefix
+- **Solution**: Updated `stores/authStore.ts` to use `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+- **Root Cause**: Client-side code accessing `process.env.GOOGLE_CLIENT_ID` without proper prefix
+
+### Documentation Added
+- Created `learning/docs/OAuth-Flow.md` - Comprehensive OAuth implementation guide
+- Created `learning/walkthroughs/OAuth-Flow.md` - Detailed technical walkthrough
+- Documented security features, common issues, and best practices
+
+### Files Modified:
+- `stores/authStore.ts` - Fixed environment variable reference
+- `learning/docs/OAuth-Flow.md` - Created (new file)
+- `learning/walkthroughs/OAuth-Flow.md` - Created (new file)
+- `learning/logs/CHANGELOG.md` - Updated with this entry
+
+### Security Assessment:
+- **Score**: 7.5/10
+- **Strengths**: Token encryption, CSRF protection, error handling
+- **Needs Improvement**: PKCE consistency, rate limiting, state parameter security
+
+### Next Steps:
+- Implement PKCE for all supported OAuth providers
+- Add rate limiting to OAuth endpoints
+- Improve state parameter security with cryptographically secure random
+- Consider implementing token rotation for enhanced security
