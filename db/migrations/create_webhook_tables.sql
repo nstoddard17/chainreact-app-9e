@@ -47,6 +47,54 @@ CREATE TABLE IF NOT EXISTS webhook_subscriptions (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create webhook event logs table
+CREATE TABLE IF NOT EXISTS webhook_event_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider VARCHAR(50) NOT NULL,
+  request_id VARCHAR(100) NOT NULL,
+  method VARCHAR(10),
+  headers JSONB,
+  service VARCHAR(50),
+  event_type VARCHAR(100),
+  event_data JSONB,
+  status VARCHAR(20),
+  processing_time_ms INTEGER,
+  result JSONB,
+  error TEXT,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create webhook events table
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider VARCHAR(50) NOT NULL,
+  service VARCHAR(50),
+  event_data JSONB NOT NULL,
+  request_id VARCHAR(100) NOT NULL,
+  status VARCHAR(20) DEFAULT 'received',
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create webhook tasks table
+CREATE TABLE IF NOT EXISTS webhook_tasks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider VARCHAR(50) NOT NULL,
+  service VARCHAR(50),
+  event_type VARCHAR(100),
+  event_data JSONB NOT NULL,
+  request_id VARCHAR(100) NOT NULL,
+  priority VARCHAR(10) DEFAULT 'normal' CHECK (priority IN ('high', 'normal', 'low')),
+  status VARCHAR(20) DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  result JSONB,
+  error TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  started_at TIMESTAMP WITH TIME ZONE,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  failed_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_webhook_configs_user_id ON webhook_configs(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_configs_workflow_id ON webhook_configs(workflow_id);
@@ -63,6 +111,20 @@ CREATE INDEX IF NOT EXISTS idx_webhook_executions_created_at ON webhook_executio
 CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_webhook_id ON webhook_subscriptions(webhook_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_provider_id ON webhook_subscriptions(provider_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_status ON webhook_subscriptions(status);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_webhook_event_logs_provider ON webhook_event_logs(provider);
+CREATE INDEX IF NOT EXISTS idx_webhook_event_logs_timestamp ON webhook_event_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_webhook_event_logs_request_id ON webhook_event_logs(request_id);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_timestamp ON webhook_events(timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_tasks_provider ON webhook_tasks(provider);
+CREATE INDEX IF NOT EXISTS idx_webhook_tasks_status ON webhook_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_tasks_priority ON webhook_tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_webhook_tasks_created_at ON webhook_tasks(created_at);
 
 -- RLS Policies for webhook_configs
 ALTER TABLE webhook_configs ENABLE ROW LEVEL SECURITY;
@@ -117,6 +179,35 @@ CREATE POLICY "Users can update their own webhook subscriptions" ON webhook_subs
       AND webhook_configs.user_id = auth.uid()
     )
   );
+
+-- Add Row Level Security (RLS) policies
+ALTER TABLE webhook_event_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE webhook_tasks ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for webhook_event_logs (admin only)
+CREATE POLICY "Admin can view webhook event logs" ON webhook_event_logs
+  FOR SELECT USING (auth.role() = 'admin');
+
+CREATE POLICY "Admin can insert webhook event logs" ON webhook_event_logs
+  FOR INSERT WITH CHECK (auth.role() = 'admin');
+
+-- RLS policies for webhook_events (admin only)
+CREATE POLICY "Admin can view webhook events" ON webhook_events
+  FOR SELECT USING (auth.role() = 'admin');
+
+CREATE POLICY "Admin can insert webhook events" ON webhook_events
+  FOR INSERT WITH CHECK (auth.role() = 'admin');
+
+-- RLS policies for webhook_tasks (admin only)
+CREATE POLICY "Admin can view webhook tasks" ON webhook_tasks
+  FOR SELECT USING (auth.role() = 'admin');
+
+CREATE POLICY "Admin can insert webhook tasks" ON webhook_tasks
+  FOR INSERT WITH CHECK (auth.role() = 'admin');
+
+CREATE POLICY "Admin can update webhook tasks" ON webhook_tasks
+  FOR UPDATE USING (auth.role() = 'admin');
 
 -- Function to update webhook config updated_at timestamp
 CREATE OR REPLACE FUNCTION update_webhook_config_updated_at()
@@ -192,3 +283,21 @@ BEGIN
   RETURN execution_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER; 
+
+-- Create a function to clean up old webhook data
+CREATE OR REPLACE FUNCTION cleanup_old_webhook_data()
+RETURNS void AS $$
+BEGIN
+  -- Delete webhook event logs older than 30 days
+  DELETE FROM webhook_event_logs 
+  WHERE timestamp < NOW() - INTERVAL '30 days';
+  
+  -- Delete completed webhook tasks older than 7 days
+  DELETE FROM webhook_tasks 
+  WHERE status = 'completed' AND completed_at < NOW() - INTERVAL '7 days';
+  
+  -- Delete failed webhook tasks older than 3 days
+  DELETE FROM webhook_tasks 
+  WHERE status = 'failed' AND failed_at < NOW() - INTERVAL '3 days';
+END;
+$$ LANGUAGE plpgsql; 
