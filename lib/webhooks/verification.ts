@@ -1,0 +1,123 @@
+import { NextRequest } from 'next/server'
+import crypto from 'crypto'
+
+export async function verifyWebhookSignature(
+  request: NextRequest, 
+  provider: string
+): Promise<boolean> {
+  try {
+    const signature = request.headers.get('x-signature') || 
+                     request.headers.get('x-hub-signature') ||
+                     request.headers.get('x-discord-signature') ||
+                     request.headers.get('x-slack-signature')
+
+    if (!signature) {
+      console.warn(`No signature found for ${provider} webhook`)
+      return true // Allow unsigned webhooks for development
+    }
+
+    const body = await request.text()
+    const secret = getWebhookSecret(provider)
+    
+    if (!secret) {
+      console.warn(`No secret configured for ${provider} webhook`)
+      return true // Allow unsigned webhooks for development
+    }
+
+    // Verify signature based on provider
+    switch (provider) {
+      case 'discord':
+        return verifyDiscordSignature(body, signature, secret)
+      case 'slack':
+        return verifySlackSignature(body, signature, secret)
+      case 'github':
+        return verifyGitHubSignature(body, signature, secret)
+      case 'notion':
+        return verifyNotionSignature(body, signature, secret)
+      default:
+        return verifyGenericSignature(body, signature, secret)
+    }
+  } catch (error) {
+    console.error(`Error verifying ${provider} webhook signature:`, error)
+    return false
+  }
+}
+
+function getWebhookSecret(provider: string): string | null {
+  const secrets: Record<string, string> = {
+    discord: process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_WEBHOOK_SECRET || '',
+    slack: process.env.SLACK_BOT_TOKEN || process.env.SLACK_WEBHOOK_SECRET || '',
+    github: process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_WEBHOOK_SECRET || '',
+    notion: process.env.NOTION_API_KEY || process.env.NOTION_WEBHOOK_SECRET || '',
+    // Add more providers as needed
+  }
+  
+  return secrets[provider] || null
+}
+
+function verifyDiscordSignature(body: string, signature: string, secret: string): boolean {
+  const timestamp = signature.split(',')[0].split('=')[1]
+  const sig = signature.split(',')[1].split('=')[1]
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(timestamp + body)
+    .digest('hex')
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(sig, 'hex'),
+    Buffer.from(expectedSignature, 'hex')
+  )
+}
+
+function verifySlackSignature(body: string, signature: string, secret: string): boolean {
+  const timestamp = signature.split(',')[0].split('=')[1]
+  const sig = signature.split(',')[1].split('=')[1]
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(`v0:${timestamp}:${body}`)
+    .digest('hex')
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(sig, 'hex'),
+    Buffer.from(expectedSignature, 'hex')
+  )
+}
+
+function verifyGitHubSignature(body: string, signature: string, secret: string): boolean {
+  const sig = signature.replace('sha256=', '')
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex')
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(sig, 'hex'),
+    Buffer.from(expectedSignature, 'hex')
+  )
+}
+
+function verifyNotionSignature(body: string, signature: string, secret: string): boolean {
+  const sig = signature.replace('v0=', '')
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex')
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(sig, 'hex'),
+    Buffer.from(expectedSignature, 'hex')
+  )
+}
+
+function verifyGenericSignature(body: string, signature: string, secret: string): boolean {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex')
+  
+  return signature === expectedSignature
+} 
