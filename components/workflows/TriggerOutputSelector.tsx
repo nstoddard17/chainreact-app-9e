@@ -528,141 +528,159 @@ export default function TriggerOutputSelector({
         )}
       </DialogTrigger>
       
-      <DialogContent className="max-w-6xl h-[80vh] p-0 flex flex-col">
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+      <DialogContent className="sm:max-w-[900px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
+        <DialogHeader className="pb-3 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-lg font-semibold">
-                Select Trigger Outputs
-              </DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Choose which trigger outputs should be available as variables in your workflow
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                  Select Trigger Outputs
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Trigger</Badge>
+                </DialogTitle>
+                <p className="text-sm text-slate-600 mt-1">
+                  Choose which trigger outputs should be available as variables in your workflow
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="bg-slate-100 text-slate-800 border-slate-200">
                 {totalSelectedOutputs} selected
               </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpen(false)}
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group"
+              >
+                <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
             </div>
           </div>
         </DialogHeader>
         
-        <ScrollArea className="flex-1 p-6">
-          {triggerOutputs.length === 0 ? (
-            <div className="text-center py-12">
-              <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No Trigger Nodes Found</h3>
-              <p className="text-muted-foreground">
-                Add trigger nodes to your workflow to see available outputs here.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {triggerOutputs.map((trigger) => (
-                <Card key={trigger.nodeId}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          {getProviderIcon(trigger.providerId)}
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{trigger.nodeTitle}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{trigger.nodeType}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => selectAllOutputs(trigger.nodeId)}
-                        >
-                          Select All
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deselectAllOutputs(trigger.nodeId)}
-                        >
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {trigger.outputs.map((output) => (
-                        <div key={output.name} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
-                          <Checkbox
-                            checked={output.selected}
-                            onCheckedChange={(checked) => 
-                              handleOutputToggle(trigger.nodeId, output.name, checked as boolean)
-                            }
-                          />
-                          
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{output.label}</span>
-                              <Badge variant="secondary" className={cn("text-xs", getTypeColor(output.type))}>
-                                {output.type}
-                              </Badge>
-                            </div>
-                            
-                            {output.description && (
-                              <p className="text-xs text-muted-foreground">{output.description}</p>
-                            )}
-                            
-                            {output.example && (
-                              <div className="text-xs font-mono bg-muted p-2 rounded">
-                                Example: {typeof output.example === 'object' 
-                                  ? JSON.stringify(output.example, null, 2)
-                                  : String(output.example)
-                                }
-                              </div>
-                            )}
-                            
-                            {output.selected && (
-                              <div className="flex items-center gap-2 pt-2">
-                                <div className="flex-1">
-                                  <Label className="text-xs">Alias (optional)</Label>
-                                  <Input
-                                    value={output.alias || output.name}
-                                    onChange={(e) => handleOutputConfigChange(trigger.nodeId, output.name, 'alias', e.target.value)}
-                                    className="h-7 text-xs"
-                                    placeholder="Custom name"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <Label className="text-xs">Transform</Label>
-                                  <Select
-                                    value={output.transform || 'none'}
-                                    onValueChange={(value) => handleOutputConfigChange(trigger.nodeId, output.name, 'transform', value)}
-                                  >
-                                    <SelectTrigger className="h-7 text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">No Transform</SelectItem>
-                                      <SelectItem value="uppercase">Uppercase</SelectItem>
-                                      <SelectItem value="lowercase">Lowercase</SelectItem>
-                                      <SelectItem value="capitalize">Capitalize</SelectItem>
-                                      <SelectItem value="trim">Trim Whitespace</SelectItem>
-                                      <SelectItem value="number">Convert to Number</SelectItem>
-                                      <SelectItem value="boolean">Convert to Boolean</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                            )}
+        <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
+          <div className="pt-3 px-2 pb-6">
+            {triggerOutputs.length === 0 ? (
+              <div className="text-center py-12">
+                <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No Trigger Nodes Found</h3>
+                <p className="text-muted-foreground">
+                  Add trigger nodes to your workflow to see available outputs here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {triggerOutputs.map((trigger) => (
+                  <Card key={trigger.nodeId}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            {getProviderIcon(trigger.providerId)}
+                          </div>
+                          <div>
+                            <CardTitle className="text-base">{trigger.nodeTitle}</CardTitle>
+                            <p className="text-sm text-muted-foreground">{trigger.nodeType}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => selectAllOutputs(trigger.nodeId)}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deselectAllOutputs(trigger.nodeId)}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {trigger.outputs.map((output) => (
+                          <div key={output.name} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50">
+                            <Checkbox
+                              checked={output.selected}
+                              onCheckedChange={(checked) => 
+                                handleOutputToggle(trigger.nodeId, output.name, checked as boolean)
+                              }
+                            />
+                            
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{output.label}</span>
+                                <Badge variant="secondary" className={cn("text-xs", getTypeColor(output.type))}>
+                                  {output.type}
+                                </Badge>
+                              </div>
+                              
+                              {output.description && (
+                                <p className="text-xs text-muted-foreground">{output.description}</p>
+                              )}
+                              
+                              {output.example && (
+                                <div className="text-xs font-mono bg-muted p-2 rounded">
+                                  Example: {typeof output.example === 'object' 
+                                    ? JSON.stringify(output.example, null, 2)
+                                    : String(output.example)
+                                  }
+                                </div>
+                              )}
+                              
+                              {output.selected && (
+                                <div className="flex items-center gap-2 pt-2">
+                                  <div className="flex-1">
+                                    <Label className="text-xs">Alias (optional)</Label>
+                                    <Input
+                                      value={output.alias || output.name}
+                                      onChange={(e) => handleOutputConfigChange(trigger.nodeId, output.name, 'alias', e.target.value)}
+                                      className="h-7 text-xs"
+                                      placeholder="Custom name"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <Label className="text-xs">Transform</Label>
+                                    <Select
+                                      value={output.transform || 'none'}
+                                      onValueChange={(value) => handleOutputConfigChange(trigger.nodeId, output.name, 'transform', value)}
+                                    >
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No Transform</SelectItem>
+                                        <SelectItem value="uppercase">Uppercase</SelectItem>
+                                        <SelectItem value="lowercase">Lowercase</SelectItem>
+                                        <SelectItem value="capitalize">Capitalize</SelectItem>
+                                        <SelectItem value="trim">Trim Whitespace</SelectItem>
+                                        <SelectItem value="number">Convert to Number</SelectItem>
+                                        <SelectItem value="boolean">Convert to Boolean</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </ScrollArea>
         
         <div className="px-6 py-4 border-t flex items-center justify-between">

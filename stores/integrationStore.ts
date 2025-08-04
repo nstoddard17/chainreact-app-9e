@@ -673,7 +673,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/gmail/messages"
             break
           case "gmail_labels":
-            url = "/api/integrations/gmail/labels"
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gmail_labels"
             break
           case "gmail-recent-recipients":
             url = "/api/integrations/fetch-user-data"

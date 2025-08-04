@@ -38,7 +38,7 @@ import { ExecutionMonitor, type ExecutionEvent } from "./ExecutionMonitor"
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -2101,19 +2101,24 @@ function WorkflowBuilderContent() {
       {/* Top UI - Always visible */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
         <div className="flex justify-between items-start p-4 pointer-events-auto">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={() => handleNavigation("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
-            <div className="flex flex-col space-y-1">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => handleNavigation("/workflows")} className="flex-shrink-0"><ArrowLeft className="w-5 h-5" /></Button>
+            <div className="flex flex-col space-y-1 flex-1 min-w-0">
               <Input 
                 value={workflowName} 
                 onChange={(e) => setWorkflowName(e.target.value)} 
                 onBlur={handleSave} 
-                className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" 
-                style={{ boxShadow: "none" }} 
+                className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full" 
+                style={{ 
+                  boxShadow: "none",
+                  width: `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`
+                }}
+                placeholder="Untitled Workflow"
+                title={workflowName || "Untitled Workflow"}
               />
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
             {hasUnsavedChanges && (
               <Badge variant="outline" className="text-orange-600 border-orange-600">
@@ -2253,13 +2258,37 @@ function WorkflowBuilderContent() {
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
-          <DialogHeader className="p-6 pb-4 border-b border-border">
-            <DialogTitle className="text-xl font-bold">Select a Trigger</DialogTitle>
-            <DialogDescription>Choose an integration and a trigger to start your workflow.</DialogDescription>
+        <DialogContent className="sm:max-w-[900px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    Select a Trigger
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Trigger</Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 mt-1">
+                    Choose an integration and a trigger to start your workflow.
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTriggerDialog(false)}
+                className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full transition-all duration-200"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
+            </div>
           </DialogHeader>
           
-          <div className="px-6 py-4 border-b border-border">
+          <div className="pt-3 pb-3 border-b border-slate-200">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -2399,13 +2428,37 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
-          <DialogHeader className="p-6 pb-4 border-b border-border">
-            <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
-            <DialogDescription>Choose an integration and an action to add to your workflow.</DialogDescription>
+        <DialogContent className="sm:max-w-[900px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    Select an Action
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 mt-1">
+                    Choose an integration and an action to add to your workflow.
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleActionDialogClose}
+                className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full transition-all duration-200"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
+            </div>
           </DialogHeader>
           
-          <div className="px-6 py-4 border-b border-border">
+          <div className="pt-3 pb-3 border-b border-slate-200">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />

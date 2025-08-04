@@ -1,4 +1,4 @@
-const fetch = require('node-fetch')
+import fetch from 'node-fetch'
 
 const BASE_URL = 'http://localhost:3000'
 
@@ -99,8 +99,8 @@ async function runAllTests() {
 }
 
 // Run tests if this script is executed directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runAllTests()
 }
 
-module.exports = { testWebhook, runAllTests } 
+export { testWebhook, runAllTests } 

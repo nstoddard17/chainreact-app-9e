@@ -1,11 +1,38 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
-import { X } from "lucide-react"
+import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+
+/**
+ * Custom DialogContent without built-in close button
+ */
+const CustomDialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+))
+CustomDialogContent.displayName = DialogPrimitive.Content.displayName
 
 /**
  * Label component for Pro features
@@ -42,6 +69,39 @@ const FreeLabel = () => (
     letterSpacing: 1,
   }}>✅ Free</span>
 );
+
+/**
+ * Get icon for node type
+ */
+const getNodeIcon = (nodeType: string) => {
+  if (nodeType.includes('gmail')) return <Mail className="h-5 w-5" />
+  if (nodeType.includes('discord')) return <MessageSquare className="h-5 w-5" />
+  if (nodeType.includes('slack')) return <MessageSquare className="h-5 w-5" />
+  if (nodeType.includes('ai') || nodeType.includes('agent')) return <Bot className="h-5 w-5" />
+  if (nodeType.includes('calendar')) return <Calendar className="h-5 w-5" />
+  if (nodeType.includes('notion')) return <FileText className="h-5 w-5" />
+  if (nodeType.includes('database')) return <Database className="h-5 w-5" />
+  if (nodeType.includes('webhook')) return <Globe className="h-5 w-5" />
+  if (nodeType.includes('trigger')) return <Bell className="h-5 w-5" />
+  if (nodeType.includes('action')) return <Zap className="h-5 w-5" />
+  return <Settings className="h-5 w-5" />
+}
+
+/**
+ * Get node type badge color
+ */
+const getNodeTypeBadge = (nodeType: string) => {
+  if (nodeType.includes('trigger')) {
+    return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Trigger</Badge>
+  }
+  if (nodeType.includes('action')) {
+    return <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
+  }
+  if (nodeType.includes('ai') || nodeType.includes('agent')) {
+    return <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">AI</Badge>
+  }
+  return <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200">Node</Badge>
+}
 
 /**
  * Modal component for configuring workflow nodes
@@ -90,7 +150,7 @@ export function ConfigurationModal({
   const getModalTitle = () => {
     if (!nodeInfo) return "Configure Node";
     
-    let title = nodeInfo.label || nodeInfo.type || "Configure Node";
+    let title = (nodeInfo as any).label || nodeInfo.type || "Configure Node";
     
     // Clean up title if needed
     if (title.includes("_action_")) {
@@ -98,13 +158,17 @@ export function ConfigurationModal({
         .replace(/_action_/g, " ")
         .replace(/_/g, " ")
         .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     }
     
-    // Add integration name if available
-    if (integrationName) {
-      title = `${integrationName} - ${title}`;
+    if (title.includes("_trigger_")) {
+      title = title
+        .replace(/_trigger_/g, " ")
+        .replace(/_/g, " ")
+        .split(" ")
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
     }
     
     return title;
@@ -112,25 +176,65 @@ export function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[800px] max-h-[80vh] w-full">
-        <DialogHeader>
-          <DialogTitle className="flex items-center">
-            {getModalTitle()}
-          </DialogTitle>
-        </DialogHeader>
-        
-        {nodeInfo && (
-          <ConfigurationForm
-            nodeInfo={nodeInfo}
-            initialData={initialData}
-            onSubmit={handleSubmit}
-            onCancel={handleClose}
-            workflowData={workflowData}
-            currentNodeId={currentNodeId}
-            integrationName={integrationName}
-          />
-        )}
-      </DialogContent>
+      <CustomDialogContent className="sm:max-w-[1400px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl p-0">
+        <div className="flex h-full">
+          {/* Main Configuration Area */}
+          <div className="flex-1 flex flex-col">
+            <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                    {getNodeIcon(nodeInfo?.type || '')}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                      {getModalTitle()}
+                      {getNodeTypeBadge(nodeInfo?.type || '')}
+                    </DialogTitle>
+                    {integrationName && (
+                      <p className="text-sm text-slate-600 mt-1">
+                        {integrationName} Integration
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group"
+                >
+                  <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              </div>
+            </DialogHeader>
+            
+            {nodeInfo && (
+              <div className="flex-1 overflow-hidden">
+                <ConfigurationForm
+                  nodeInfo={nodeInfo}
+                  initialData={initialData}
+                  onSubmit={handleSubmit}
+                  onCancel={handleClose}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  integrationName={integrationName}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Variable Picker Side Panel - Show for action nodes only */}
+          {workflowData && !nodeInfo?.isTrigger && (
+            <VariablePickerSidePanel
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+            />
+          )}
+        </div>
+      </CustomDialogContent>
     </Dialog>
   );
 }

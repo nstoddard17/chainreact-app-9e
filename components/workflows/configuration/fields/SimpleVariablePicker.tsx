@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, Search, Copy, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, Copy, Check, Variable } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface SimpleVariablePickerProps {
   workflowData?: { nodes: any[], edges: any[] }
@@ -29,6 +30,7 @@ export function SimpleVariablePicker({
   const [isOpen, setIsOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [copiedVariable, setCopiedVariable] = React.useState<string | null>(null)
+  const [expandedNodes, setExpandedNodes] = React.useState<Set<string>>(new Set())
   const { toast } = useToast()
 
   // Get available nodes from workflow data
@@ -47,6 +49,38 @@ export function SimpleVariablePicker({
     )
     return nodeMatches || outputMatches
   })
+
+  // Handle node expansion toggle
+  const toggleNodeExpansion = (nodeId: string) => {
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId)
+      } else {
+        newSet.add(nodeId)
+      }
+      return newSet
+    })
+  }
+
+  // Auto-expand nodes when searching
+  React.useEffect(() => {
+    if (searchTerm) {
+      const nodesToExpand = new Set<string>()
+      filteredNodes.forEach(node => {
+        const hasMatchingOutputs = node.outputs.some((output: any) => 
+          output.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          output.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        if (hasMatchingOutputs) {
+          nodesToExpand.add(node.id)
+        }
+      })
+      setExpandedNodes(nodesToExpand)
+    } else {
+      setExpandedNodes(new Set())
+    }
+  }, [searchTerm, filteredNodes])
 
   const handleVariableSelect = (variable: string) => {
     onVariableSelect(variable)
@@ -76,78 +110,108 @@ export function SimpleVariablePicker({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button 
-          variant="ghost" 
-          size="icon"
-          className="h-9 w-9 p-0"
+          size="sm"
+          className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md"
+          type="button"
+          title="Insert workflow variable"
         >
-          <ChevronDown className="h-4 w-4" />
-          <span className="sr-only">Open variable picker</span>
+          <span className="text-sm font-mono font-semibold">{`{}`}</span>
+          <span className="sr-only">Insert workflow variable</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="end">
-        <div className="p-3 border-b">
-          <div className="text-sm font-medium mb-2">Insert Variable</div>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search variables..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        <ScrollArea className="h-[300px]">
-          {filteredNodes.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              No variables available
+        <PopoverContent className="w-[350px] p-0" align="end">
+          <div className="p-3 border-b">
+            <div className="text-sm font-medium mb-2">Insert Variable</div>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search variables..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          ) : (
-            filteredNodes.map((node) => (
-              <div key={node.id} className="p-2">
-                <div className="text-xs font-medium px-2 py-1.5">{node.title}</div>
-                <div className="space-y-1">
-                  {node.outputs.map((output: any) => {
-                    const variableRef = `{{${node.id}.${output.name}}}`
-                    return (
-                      <div
-                        key={`${node.id}-${output.name}`}
-                        className="flex items-center justify-between px-2 py-1 rounded-md hover:bg-muted cursor-pointer"
-                      >
-                        <div 
-                          className="flex-1 flex items-center gap-2" 
-                          onClick={() => handleVariableSelect(variableRef)}
-                        >
-                          <Badge variant="outline" className="text-xs">
-                            {output.type}
-                          </Badge>
-                          <span className="text-sm">{output.label || output.name}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            copyToClipboard(variableRef)
-                          }}
-                        >
-                          {copiedVariable === variableRef ? (
-                            <Check className="h-3.5 w-3.5" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                          <span className="sr-only">Copy</span>
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
+          </div>
+          <ScrollArea className="h-[400px]">
+            {filteredNodes.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                No variables available
               </div>
-            ))
-          )}
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
+            ) : (
+              filteredNodes.map((node) => {
+                const isExpanded = expandedNodes.has(node.id)
+                const hasOutputs = node.outputs && node.outputs.length > 0
+                
+                return (
+                  <div key={node.id} className="border-b border-gray-100 last:border-b-0">
+                    {/* Node Header - Clickable to expand/collapse */}
+                    <div 
+                      className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => hasOutputs && toggleNodeExpansion(node.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {hasOutputs && (
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            {isExpanded ? (
+                              <ChevronDown className="h-3 w-3 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3 text-gray-500" />
+                            )}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-gray-900">{node.title}</span>
+                        {hasOutputs && (
+                          <Badge variant="secondary" className="text-xs">
+                            {node.outputs.length}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Node Outputs - Expandable dropdown */}
+                    {isExpanded && hasOutputs && (
+                      <div className="bg-gray-50 border-t border-gray-100">
+                        {node.outputs.map((output: any) => {
+                          const variableRef = `{{${node.id}.${output.name}}}`
+                          return (
+                            <div
+                              key={`${node.id}-${output.name}`}
+                              className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer transition-colors"
+                              onClick={() => handleVariableSelect(variableRef)}
+                            >
+                              <div className="flex items-center gap-2 flex-1">
+                                <Badge variant="outline" className="text-xs bg-white">
+                                  {output.type}
+                                </Badge>
+                                <span className="text-sm text-gray-700">{output.label || output.name}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  copyToClipboard(variableRef)
+                                }}
+                              >
+                                {copiedVariable === variableRef ? (
+                                  <Check className="h-3 w-3" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                                <span className="sr-only">Copy</span>
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
   )
 }

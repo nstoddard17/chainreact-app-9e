@@ -1,5 +1,73 @@
 # ChainReact Learning Changelog
 
+## [2024-12-30] – Fixed AI Config Modal Double Close Button
+
+- Resolved double close button issue in AIAgentConfigModal
+- Created custom `DialogContentWithoutClose` component to prevent built-in close button
+- Enhanced close button with sophisticated hover effects (red background, scale animation)
+- Added comprehensive documentation and walkthrough for AIAgentConfigModal component
+- Updated learning folder structure with new template documentation
+- **Fixed field highlighting issues** - Added proper spacing and focus states to prevent field highlights from being cut off
+- **Enhanced form styling** - Added padding, improved focus rings, and better visual hierarchy
+- **Applied improvements to ALL configuration modals** - Enhanced close buttons and field styling across the entire workflow builder
+- **Fixed Discord modal field highlighting** - Added enhanced focus states to FieldRenderer component for all form fields
+- **Fixed double highlight issue** - Removed white border on focus to show only blue focus ring
+- **Added Discord bot status feature** - Shows bot status and provides "Add Bot" button when bot is not in server
+
+### Files Modified:
+- `components/ui/dialog.tsx` - Added DialogContentWithoutClose component
+- `components/workflows/AIAgentConfigModal.tsx` - Updated to use DialogContentWithoutClose, enhanced close button, and improved field styling
+- `components/workflows/configuration/ConfigurationModal.tsx` - Enhanced close button with hover effects
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added overflow-visible and better spacing for field highlights, integrated Discord bot status
+- `components/workflows/configuration/fields/FieldRenderer.tsx` - Added enhanced focus states to all form field types, fixed double highlight issue
+- `components/workflows/TriggerOutputSelector.tsx` - Enhanced close button and improved ScrollArea styling
+- `components/workflows/DiscordBotStatus.tsx` - Created new component to show Discord bot status and provide "Add Bot" button
+- `app/api/discord/bot-status/route.ts` - Created new API endpoint to check Discord bot status in guilds
+- `learning/docs/AIAgentConfigModal.md` - Created comprehensive component documentation
+- `learning/walkthroughs/AIAgentConfigModal.md` - Created detailed implementation walkthrough
+
+### Technical Details:
+- **Double Close Button Issue**: Standard DialogContent includes built-in close button, causing duplication
+- **Custom Dialog Component**: DialogContentWithoutClose excludes built-in close button while maintaining all other functionality
+- **Enhanced Hover Effects**: 
+  - Red background on hover (`hover:bg-red-50 hover:text-red-600`)
+  - Scale animation (`group-hover:scale-110`)
+  - Smooth transitions (`transition-all duration-200`)
+- **Field Highlighting Fixes**:
+  - Added `overflow-visible` to ScrollArea to prevent clipping
+  - Enhanced focus states with blue ring (`focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`)
+  - Improved spacing with `px-2` padding and `mt-6` margins
+  - Better visual hierarchy with consistent spacing
+  - **Fixed Discord modal fields** - Enhanced focus states in FieldRenderer component for all field types
+- **Universal Application**: Applied improvements to all major configuration modals:
+  - AIAgentConfigModal (AI agent configuration)
+  - ConfigurationModal (general node configuration)
+  - ConfigurationForm (form fields and validation)
+  - TriggerOutputSelector (trigger output selection)
+- **Documentation**: Complete documentation covering props, features, usage examples, and implementation details
+
+### Close Button Features:
+- Single, visually appealing close button
+- Red hover state for clear visual feedback
+- Scale animation for interactive feel
+- Proper accessibility with screen reader support
+- Consistent with modern UI design patterns
+
+### Field Styling Improvements:
+- Enhanced focus states for all form controls
+- Proper spacing to prevent highlight clipping
+- Consistent visual hierarchy
+- Better accessibility with clear focus indicators
+- Applied across all configuration interfaces
+
+### Next Steps:
+- Consider applying DialogContentWithoutClose to other modals with custom close buttons
+- Monitor user feedback on enhanced hover effects and field styling
+- Evaluate potential for similar improvements in other modal components
+- Consider creating a shared modal component library for consistent styling
+
+---
+
 ## [2025-01-02] – Implemented Comprehensive Webhook System
 
 - Built complete webhook system for Google services and third-party integrations
@@ -319,3 +387,109 @@ CRON_SECRET=your_cron_secret
 - Add rate limiting to OAuth endpoints
 - Improve state parameter security with cryptographically secure random
 - Consider implementing token rotation for enhanced security
+
+## [2024-12-19] – Variable Picker Button Fixes
+
+- Fixed variable picker buttons in configuration modals for all triggers
+- Replaced Database icons with Variable icons for proper semantic meaning
+- Fixed button positioning and alignment with input fields
+- Updated VariablePicker component to properly use trigger prop when provided
+- Ensured consistent height (h-10) for all variable picker buttons
+- **Added missing variable picker buttons for email-autocomplete and select field types**
+- **Fixed Gmail trigger configuration modal specifically**
+
+### Files Modified:
+- `components/workflows/VariablePicker.tsx` - Updated to use Variable icon and properly handle trigger prop
+- `components/workflows/ConfigurationModal.tsx.new` - Updated all variable picker buttons with Variable icon and proper height, added email-autocomplete case
+- `components/workflows/ConfigurationModal.tsx.bak` - Updated for consistency, added email-autocomplete case
+- `components/workflows/ConfigurationModal.tsx.backup` - Updated for consistency, added email-autocomplete case
+- `components/workflows/AllFieldsSelector.tsx` - Updated variable picker buttons and added Variable import
+- `components/workflows/configuration/fields/EnhancedFileInput.tsx` - Updated variable picker button and added Variable import
+
+### Technical Changes:
+- **Updated button design**: Changed from Variable icon to curly braces `{}` with purple gradient background
+- **New button styling**: `bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm`
+- **Improved button styling**: Changed from `px-3 h-10` to `px-2 h-10 w-10` for better square appearance
+- **Added tooltips**: Added `title="Insert variable"` to all variable picker buttons for better UX
+- Updated VariablePicker component to conditionally render trigger when provided
+- **Fixed SimpleVariablePicker**: Updated to use purple gradient and curly braces instead of old Variable icon
+- **Improved button styling**: Enhanced all variable picker buttons with better purple gradient, square shape, improved shadows, and semibold curly braces for better visual integration
+- **Fixed button positioning**: Changed from absolute positioning to flexbox layout to prevent overlap and ensure proper vertical alignment with input fields
+- **Updated button design**: Changed variable picker buttons to match "Save Configuration" button styling with blue-to-purple gradient and enhanced shadows
+- **Fixed variable picker menu**: Removed conflicting Tooltip wrapper that was preventing the Popover from opening when button is clicked
+- **Enhanced variable picker UI**: Redesigned as expandable dropdowns showing all nodes with clickable variable values for easy insertion
+- **Complete variable picker redesign**: Replaced individual buttons with a persistent side panel that includes drag-and-drop functionality for variable insertion
+- **Updated side panel design**: Matched the variable picker side panel styling to the main configuration modal design with consistent gradients, colors, and theme
+- **Updated variables icon**: Changed from Variable icon to purple gradient button with white curly braces `{}` to match the design specification
+- **Improved button spacing**: Moved Save and Cancel buttons up with better spacing and added padding to separate them from the variable picker side panel
+- **Enhanced dropdown functionality**: Added proper Collapsible components to variable picker node options for better accessibility and smooth animations
+- **Fixed dropdown data mapping**: Improved node output detection and added fallback handling for nodes without variables
+- **Filtered UI elements**: Excluded "Add Action" button and similar UI elements from the variable picker node list
+- **Fixed variable output mapping**: Updated variable picker to properly get outputs from node component definitions using outputSchema
+- **Conditional variable picker**: Only show variable picker side panel for trigger nodes, not action nodes
+- **Removed variable picker from all config modals**: Variable picker side panel completely removed from both trigger and action configuration modals
+- **Removed duplicate close button**: Removed Cancel button from configuration form footer, keeping only the hover-effect close button in the modal header
+- **Increased modal width**: Expanded configuration modal width from 1200px to 1400px to show full field highlights
+- **Fixed AI agent modal**: Removed duplicate close button and increased width from 900px to 1400px for AI agent configuration modal
+- **Added variable picker to action modals**: Variable picker side panel now shows for action nodes (not trigger nodes) in configuration modals
+- **Fixed AI agent modal build error**: Resolved JSX structure issues in AI agent configuration modal
+- **Confirmed single close button**: AI agent modal now has only one close button with hover effects in the header
+- Added proper TypeScript type annotations to fix linter errors
+- **Added specific case for "email-autocomplete" field type with variable picker button**
+- **Added variable picker button to regular "select" field type**
+- **Added variable picker button to "number" field type**
+- **Added Variable icon import to all ConfigurationModal files**
+
+### Gmail Trigger Specific Fixes:
+- **"From" field (email-autocomplete type) now has variable picker button**
+- **"Subject" field (text type) already had variable picker button**
+- **"Has Attachment" field (select type) now has variable picker button**
+
+### Next Steps:
+- Test variable picker functionality in Gmail trigger configuration modal
+- Verify button alignment and positioning across different field types
+- Consider adding tooltips to variable picker buttons for better UX
+
+## [2024-12-31] – Discord Bot Status Feature & UI Improvements
+
+### Summary:
+- **Fixed double highlight issue** - Removed white border on focus to show only blue focus ring
+- **Added Discord bot status feature** - Shows bot status and provides "Add Bot" button when bot is not in server
+- **Enhanced field styling** - Improved focus states across all form fields with better visual feedback
+
+### Key Changes:
+- **Field Highlighting Fixes**:
+  - Added `overflow-visible` to ScrollArea to prevent clipping
+  - Enhanced focus states with blue ring (`focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`)
+  - Improved spacing with `px-2` padding and `mt-6` margins
+  - Better visual hierarchy with consistent spacing
+  - **Fixed Discord modal fields** - Enhanced focus states in FieldRenderer component for all field types
+  - **Fixed double highlight issue** - Changed `focus:border-blue-500` to `focus:border-transparent` to show only blue ring
+
+- **Discord Bot Status Feature**:
+  - Created `DiscordBotStatus` component with real-time status checking
+  - Added API endpoint `/api/discord/bot-status` for bot verification
+  - Integrated bot status into Discord configuration modals
+  - Provides "Add Bot" button that opens Discord OAuth invite URL
+  - Shows visual feedback for connected/not available states
+
+### Files Created:
+- `components/workflows/DiscordBotStatus.tsx` - New component for Discord bot status display
+- `app/api/discord/bot-status/route.ts` - New API endpoint for bot status verification
+- `learning/docs/DiscordBotStatus.md` - Component documentation
+- `learning/walkthroughs/DiscordBotStatus.md` - Detailed implementation walkthrough
+
+### Files Modified:
+- `components/ui/dialog.tsx` - Added DialogContentWithoutClose component
+- `components/workflows/AIAgentConfigModal.tsx` - Updated to use DialogContentWithoutClose, enhanced close button, and improved field styling
+- `components/workflows/configuration/ConfigurationModal.tsx` - Enhanced close button with hover effects
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added overflow-visible and better spacing for field highlights, integrated Discord bot status
+- `components/workflows/configuration/fields/FieldRenderer.tsx` - Added enhanced focus states to all form field types, fixed double highlight issue
+- `components/workflows/TriggerOutputSelector.tsx` - Enhanced close button and improved ScrollArea styling
+- `learning/docs/AIAgentConfigModal.md` - Created comprehensive component documentation
+- `learning/walkthroughs/AIAgentConfigModal.md` - Created detailed implementation walkthrough
+
+### Next Steps:
+- Test Discord bot status feature with various server configurations
+- Consider adding status caching for better performance
+- Monitor user feedback on the improved field highlighting

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Search, Eye, EyeOff, Info, Plus, X, Database } from 'lucide-react'
+import { Loader2, Search, Eye, EyeOff, Info, Plus, X, Database, Variable } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -153,8 +153,12 @@ export default function AllFieldsSelector({
           onVariableSelect={(variable) => onFieldValueChange(field.name, variable)}
           fieldType={field.type}
           trigger={
-            <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-              <Database className="w-4 h-4" />
+            <Button 
+              size="sm" 
+              className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md" 
+              title="Insert variable"
+            >
+              <span className="text-sm font-mono font-semibold">{`{}`}</span>
             </Button>
           }
         />
@@ -243,8 +247,12 @@ export default function AllFieldsSelector({
               onVariableSelect={(variable) => onFieldValueChange(field.name, variable)}
               fieldType={field.type}
               trigger={
-                <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                  <Database className="w-4 h-4" />
+                <Button 
+                  size="sm" 
+                  className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md" 
+                  title="Insert variable"
+                >
+                  <span className="text-sm font-mono font-semibold">{`{}`}</span>
                 </Button>
               }
             />

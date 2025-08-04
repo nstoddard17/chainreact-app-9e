@@ -9,13 +9,15 @@ import { ConfigField, NodeField } from "@/lib/workflows/availableNodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
+import { Card, CardContent } from "@/components/ui/card";
+import { useDragDrop } from "@/hooks/use-drag-drop";
 
 /**
  * Props for the Field component
@@ -31,6 +33,26 @@ interface FieldProps {
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any) => Promise<void>;
+}
+
+/**
+ * Get icon for field type
+ */
+const getFieldIcon = (fieldName: string, fieldType: string) => {
+  const name = fieldName.toLowerCase();
+  const type = fieldType.toLowerCase();
+  
+  if (name.includes('email') || name.includes('from') || name.includes('to')) return <Mail className="h-4 w-4" />
+  if (name.includes('subject') || name.includes('title')) return <Hash className="h-4 w-4" />
+  if (name.includes('date') || name.includes('time')) return <Calendar className="h-4 w-4" />
+  if (name.includes('message') || name.includes('body') || name.includes('content')) return <MessageSquare className="h-4 w-4" />
+  if (name.includes('url') || name.includes('link')) return <Link className="h-4 w-4" />
+  if (name.includes('user') || name.includes('name')) return <User className="h-4 w-4" />
+  if (name.includes('trigger') || name.includes('event')) return <Bell className="h-4 w-4" />
+  if (name.includes('action') || name.includes('task')) return <Zap className="h-4 w-4" />
+  if (type === 'file' || name.includes('file') || name.includes('attachment')) return <FileText className="h-4 w-4" />
+  
+  return <Hash className="h-4 w-4" />
 }
 
 /**
@@ -52,21 +74,49 @@ export function FieldRenderer({
   const fieldOptions = field.options || 
     (field.dynamic && dynamicOptions?.[field.name]) || 
     [];
+
+  // Drag and drop functionality
+  const { handleDragOver, handleDrop } = useDragDrop({
+    onVariableDrop: (variable: string) => {
+      // Insert variable at cursor position or append to current value
+      if (typeof value === 'string') {
+        const newValue = value + variable
+        onChange(newValue)
+      } else {
+        onChange(variable)
+      }
+    }
+  })
   
   /**
    * Renders the label with optional tooltip
    */
   const renderLabel = () => (
-    <div className="flex items-center mb-2">
-      <Label htmlFor={field.name} className={cn(field.required && "after:content-['*'] after:ml-0.5 after:text-red-500")}>
-        {field.label || field.name}
-      </Label>
+    <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 bg-slate-100 rounded-md text-slate-600">
+          {getFieldIcon(field.name, field.type)}
+        </div>
+        <Label 
+          htmlFor={field.name} 
+          className={cn(
+            "text-sm font-medium text-slate-700",
+            field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
+          )}
+        >
+          {field.label || field.name}
+        </Label>
+      </div>
       
       {field.description && (
         <EnhancedTooltip
           description={field.description}
           disabled={!tooltipsEnabled}
         />
+      )}
+      
+      {field.required && (
+        <span className="text-xs text-red-500 font-medium">Required</span>
       )}
     </div>
   );
@@ -101,196 +151,177 @@ export function FieldRenderer({
     switch (field.type) {
       case "text":
       case "email":
-      case "url":
-      case "phone":
+      case "email-autocomplete":
         return (
-          <div className="relative">
-            <Input
-              id={field.name}
-              placeholder={field.placeholder}
-              value={value || ""}
-              onChange={handleChange}
-              className={cn(error && "border-red-500")}
-              type={field.type === "email" ? "email" : field.type === "url" ? "url" : "text"}
-            />
-            
-            {workflowData && (
-              <div className="absolute right-0 top-0">
-                <SimpleVariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType={field.type}
-                />
-              </div>
+          <Input
+            id={field.name}
+            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
+            value={value || ""}
+            onChange={handleChange}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
-          </div>
+            type={field.type === "email" || field.type === "email-autocomplete" ? "email" : "text"}
+          />
         );
 
       case "number":
         return (
-          <div className="relative">
-            <Input
-              id={field.name}
-              placeholder={field.placeholder}
-              value={value || ""}
-              onChange={handleChange}
-              className={cn(error && "border-red-500")}
-              type="number"
-              min={field.min}
-              max={field.max}
-              step={field.step || 1}
-            />
-            
-            {workflowData && (
-              <div className="absolute right-0 top-0">
-                <SimpleVariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType="number"
-                />
-              </div>
+          <Input
+            id={field.name}
+            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
+            value={value || ""}
+            onChange={handleChange}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
-          </div>
+            type="number"
+            min={(field as any).min}
+            max={(field as any).max}
+            step={(field as any).step || 1}
+          />
         );
 
       case "textarea":
         return (
-          <div className="relative">
-            <Textarea
-              id={field.name}
-              placeholder={field.placeholder}
-              value={value || ""}
-              onChange={handleChange}
-              className={cn(error && "border-red-500")}
-              rows={field.rows || 3}
-            />
-            
-            {workflowData && (
-              <div className="absolute right-2 top-2">
-                <SimpleVariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType="text"
-                />
-              </div>
+          <Textarea
+            id={field.name}
+            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
+            value={value || ""}
+            onChange={handleChange}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "min-h-[80px] bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 resize-none",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
-          </div>
-        );
-
-      case "select":
-        if (field.dynamic) {
-          return (
-            <>
-              <Combobox
-                options={fieldOptions.map((opt: any) => ({
-                  label: opt.label || opt.name || opt.value,
-                  value: opt.value || opt.id,
-                }))}
-                value={value || ""}
-                onChange={handleSelectChange}
-                placeholder={field.placeholder || "Select an option..."}
-                className={cn(error && "border-red-500")}
-                loading={field.dynamic && loadingDynamic}
-                onOpenChange={() => {
-                  if (field.dynamic && onDynamicLoad && field.dependsOn) {
-                    // Load options when dropdown opens if it's a dynamic field
-                    onDynamicLoad(field.name, field.dependsOn, value);
-                  }
-                }}
-              />
-              
-              {field.dynamic && loadingDynamic && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Loading options...
-                </div>
-              )}
-            </>
-          );
-        } else {
-          return (
-            <Select value={value || ""} onValueChange={handleSelectChange}>
-              <SelectTrigger className={cn(error && "border-red-500")}>
-                <SelectValue placeholder={field.placeholder || "Select an option..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {fieldOptions.map((option: any) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label || option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-        }
-
-      case "multi-select":
-        return (
-          <MultiCombobox
-            options={fieldOptions.map((opt: any) => ({
-              label: opt.label || opt.name || opt.value,
-              value: opt.value || opt.id,
-            }))}
-            values={value || []}
-            onChange={(newValues) => onChange(newValues)}
-            placeholder={field.placeholder || "Select options..."}
-            className={cn(error && "border-red-500")}
-            loading={field.dynamic && loadingDynamic}
-            onOpenChange={() => {
-              if (field.dynamic && onDynamicLoad && field.dependsOn) {
-                onDynamicLoad(field.name, field.dependsOn, value);
-              }
-            }}
+            rows={(field as any).rows || 3}
           />
         );
 
-      case "checkbox":
+      case "select":
+        // Handle both array options and object options
+        const selectOptions = Array.isArray(field.options) 
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+        
+        // Show loading state or fallback message for dynamic fields
+        if (field.dynamic && loadingDynamic && selectOptions.length === 0) {
+          return (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              Loading options...
+            </div>
+          );
+        }
+        
+        // Show fallback message for Gmail fields when no options are available
+        if (field.dynamic && selectOptions.length === 0 && !loadingDynamic) {
+          if (field.name === 'from' || field.name === 'to') {
+            return (
+              <div className="text-sm text-slate-500">
+                <p>No recent recipients found. You may need to:</p>
+                <ul className="list-disc list-inside mt-1 ml-2">
+                  <li>Reconnect your Gmail account</li>
+                  <li>Send some emails to populate recent recipients</li>
+                </ul>
+              </div>
+            );
+          }
+          if (field.name === 'labelIds') {
+            return (
+              <div className="text-sm text-slate-500">
+                <p>No Gmail labels found. You may need to:</p>
+                <ul className="list-disc list-inside mt-1 ml-2">
+                  <li>Reconnect your Gmail account</li>
+                  <li>Create some labels in Gmail</li>
+                </ul>
+              </div>
+            );
+          }
+        }
+        
+        return (
+          <Select value={value || ""} onValueChange={handleSelectChange}>
+            <SelectTrigger className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}>
+              <SelectValue placeholder={field.placeholder || "Select an option..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions
+                .filter((option: any) => option.value || option.id) // Filter out options with empty values
+                .map((option: any, index: number) => (
+                  <SelectItem key={`${option.value || option.id}-${index}`} value={option.value || option.id}>
+                    {option.label || option.name || option.value || option.id}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        );
+
       case "boolean":
         return (
           <div className="flex items-center space-x-2">
             <Checkbox
               id={field.name}
-              checked={Boolean(value)}
+              checked={value || false}
               onCheckedChange={handleCheckboxChange}
+              className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
             />
-            <label
-              htmlFor={field.name}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              {field.checkboxLabel || field.label || field.name}
-            </label>
+            <Label htmlFor={field.name} className="text-sm text-slate-700">
+              {field.label || field.name}
+            </Label>
           </div>
         );
 
       case "date":
         return (
           <DatePicker
-            date={value ? new Date(value) : undefined}
+            value={value ? new Date(value) : undefined}
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
-            className={cn(error && "border-red-500")}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
           />
         );
 
       case "time":
         return (
-          <TimePicker
+          <Input
+            id={field.name}
+            placeholder={field.placeholder || "Select time..."}
             value={value || ""}
-            onChange={(time) => onChange(time)}
-            className={cn(error && "border-red-500")}
+            onChange={handleChange}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
+            type="time"
           />
         );
 
       case "file":
         return (
-          <EnhancedFileInput
-            fieldDef={field}
-            fieldValue={value}
-            onValueChange={onChange}
-            workflowData={workflowData}
-            currentNodeId={currentNodeId}
+          <Input
+            id={field.name}
+            placeholder={field.placeholder || "Select file..."}
+            value={value || ""}
+            onChange={handleChange}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
+            type="file"
           />
         );
 
@@ -298,20 +329,30 @@ export function FieldRenderer({
         return (
           <Input
             id={field.name}
-            placeholder={field.placeholder || "Enter value..."}
+            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
             value={value || ""}
             onChange={handleChange}
-            className={cn(error && "border-red-500")}
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
           />
         );
     }
   };
 
   return (
-    <div className="mb-4">
-      {renderLabel()}
-      {renderFieldByType()}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-    </div>
+    <Card className="border-slate-200 bg-white hover:border-slate-300 transition-all duration-200">
+      <CardContent className="p-4">
+        {renderLabel()}
+        {renderFieldByType()}
+        {error && (
+          <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+            <HelpCircle className="h-3 w-3" />
+            {error}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContentWithoutClose, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { SmartComposeField } from "@/components/ai/SmartComposeField"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -314,28 +315,41 @@ export default function AIAgentConfigModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
+      <DialogContentWithoutClose className="sm:max-w-[1400px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
         <div className="flex flex-col h-full">
-            {/* Main Configuration Content */}
-              <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Bot className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-lg font-semibold">
-                      Configure AI Agent
-                    </DialogTitle>
-                    <DialogDescription>
-                      Set up your AI agent's behavior, goals, and available tools
-                    </DialogDescription>
-                  </div>
+          {/* Main Configuration Content */}
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                  <Bot className="w-5 h-5" />
                 </div>
-              </DialogHeader>
+                <div>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    Configure AI Agent
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">AI</Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 mt-1">
+                    Set up your AI agent's behavior, goals, and available tools
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group"
+              >
+                <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
+            </div>
+          </DialogHeader>
 
           {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[70vh]">
-                <div className="px-6 py-4 space-y-6">
+          <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
+            <div className="pt-3 space-y-6 pb-6 px-2">
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="mb-4">
@@ -345,7 +359,7 @@ export default function AIAgentConfigModal({
                   </TabsList>
                 </div>
                 
-                <TabsContent value="basic" className="space-y-6">
+                <TabsContent value="basic" className="space-y-6 mt-6">
                   {/* Input Node Configuration */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -364,7 +378,7 @@ export default function AIAgentConfigModal({
                           value={config.inputNodeId}
                           onValueChange={handleInputNodeChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <SelectValue placeholder="Select a node to provide input..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -461,7 +475,7 @@ export default function AIAgentConfigModal({
                         }
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue placeholder="Select a template..." />
                       </SelectTrigger>
                       <SelectContent 
@@ -496,7 +510,7 @@ export default function AIAgentConfigModal({
                       value={config.memory}
                       onValueChange={(value) => setConfig(prev => ({ ...prev, memory: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue placeholder="Select memory option..." />
                       </SelectTrigger>
                                                 <SelectContent 
@@ -517,7 +531,7 @@ export default function AIAgentConfigModal({
                           value={config.memoryIntegration}
                           onValueChange={(value) => setConfig(prev => ({ ...prev, memoryIntegration: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <SelectValue placeholder="Choose a storage integration..." />
                           </SelectTrigger>
                           <SelectContent 
@@ -593,7 +607,7 @@ export default function AIAgentConfigModal({
                         value={config.contentType}
                         onValueChange={(value) => setConfig(prev => ({ ...prev, contentType: value }))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -631,7 +645,7 @@ export default function AIAgentConfigModal({
                       value={config.tone}
                       onValueChange={(value) => setConfig(prev => ({ ...prev, tone: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -841,7 +855,7 @@ export default function AIAgentConfigModal({
                   )}
                 </TabsContent>
 
-                <TabsContent value="advanced" className="p-6 space-y-6 pb-6">
+                <TabsContent value="advanced" className="space-y-6 mt-6">
                   {/* Model Configuration */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -852,7 +866,7 @@ export default function AIAgentConfigModal({
                       value={config.model}
                       onValueChange={(value) => setConfig(prev => ({ ...prev, model: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -917,7 +931,7 @@ export default function AIAgentConfigModal({
                       value={config.outputFormat}
                       onValueChange={(value) => setConfig(prev => ({ ...prev, outputFormat: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -934,17 +948,18 @@ export default function AIAgentConfigModal({
                     <div className="flex items-center gap-2">
                       <Brain className="w-5 h-5 text-primary" />
                       <Label className="text-base font-medium">Memory</Label>
-                      <EnhancedTooltip 
+                      <EnhancedTooltip
                         description="Choose how the AI agent should access memory and context"
-                        title="Memory Configuration Information"
+                        title="Memory Configuration"
                         showExpandButton={false}
                       />
                     </div>
+                    
                     <Select
                       value={config.memory || "all-storage"}
                       onValueChange={(value) => setConfig(prev => ({ ...prev, memory: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <SelectValue placeholder="Select memory configuration" />
                       </SelectTrigger>
                       <SelectContent>
@@ -955,7 +970,7 @@ export default function AIAgentConfigModal({
                       </SelectContent>
                     </Select>
                     
-                    {/* Single Storage Integration Selection */}
+                    {/* Memory Integration Selection */}
                     {config.memory === "single-storage" && (
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Memory Integration</Label>
@@ -963,7 +978,7 @@ export default function AIAgentConfigModal({
                           value={config.memoryIntegration || ""}
                           onValueChange={(value) => setConfig(prev => ({ ...prev, memoryIntegration: value }))}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <SelectValue placeholder="Select a storage integration for memory..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -1027,42 +1042,39 @@ export default function AIAgentConfigModal({
                   </div>
                 </TabsContent>
               </Tabs>
-                </div>
-              </ScrollArea>
+            </div>
+          </ScrollArea>
+        </div>
 
-              {/* Dialog Footer */}
-          <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 bg-background relative z-10">
-                <div className="flex items-center justify-between w-full">
-                  <div className="text-sm text-muted-foreground">
-                    {config.inputNodeId && (
-                      (() => {
-                        const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-                        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
-                        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
-                        const producesOutput = nodeComponent?.producesOutput
-                        
-                        return (
-                          <span className={cn(
-                            producesOutput ? "text-muted-foreground" : "text-yellow-600"
-                          )}>
-                            {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
-                          </span>
-                        )
-                      })()
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={onClose}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave}>
-                      Save Configuration
-                    </Button>
-                  </div>
-                </div>
-              </DialogFooter>
+        {/* Dialog Footer */}
+        <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 bg-background relative z-10">
+          <div className="flex items-center justify-between w-full">
+            <div className="text-sm text-muted-foreground">
+              {config.inputNodeId && (
+                (() => {
+                  const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+                  const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                  const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
+                  const producesOutput = nodeComponent?.producesOutput
+                  
+                  return (
+                    <span className={cn(
+                      producesOutput ? "text-muted-foreground" : "text-yellow-600"
+                    )}>
+                      {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
+                    </span>
+                  )
+                })()
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSave}>
+                Save Configuration
+              </Button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </DialogFooter>
+      </DialogContentWithoutClose>
+    </Dialog>
   )
 } 

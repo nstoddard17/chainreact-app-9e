@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, TestTube } from "lucide-react";
+import { Loader2, Play, TestTube, Save, Settings, Zap } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
 import { useFormState } from "./hooks/useFormState";
 import { useDynamicOptions } from "./hooks/useDynamicOptions";
@@ -13,6 +13,9 @@ import { shouldHideField } from "./utils/validation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen";
 import { useWorkflowTestStore } from "@/stores/workflowTestStore";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import DiscordBotStatus from "../DiscordBotStatus";
 
 /**
  * Component to render the configuration form based on node schema
@@ -66,12 +69,20 @@ export default function ConfigurationForm({
     // Load any required dynamic data
     if (nodeInfo?.configSchema) {
       nodeInfo.configSchema.forEach(field => {
-        if (field.dynamic && !field.dependsOn && initialData[field.name]) {
+        if (field.dynamic && !field.dependsOn) {
           loadOptions(field.name);
         }
       });
     }
-  }, [nodeInfo, initialData, setValues, validate, loadOptions]);
+    
+    // Debug logging
+    console.log("🔍 ConfigurationForm initialized:", {
+      nodeType: nodeInfo?.type,
+      configSchema: nodeInfo?.configSchema,
+      initialData,
+      values
+    });
+  }, [nodeInfo, initialData, setValues, validate, loadOptions, values]);
 
   /**
    * Handle field value change
@@ -163,17 +174,26 @@ export default function ConfigurationForm({
   /**
    * Split fields into basic and advanced tabs
    */
-  const { basicFields, advancedFields } = useCallback(() => {
+  const splitFields = () => {
     const visibleFields = getVisibleFields();
     
     return {
-      basicFields: visibleFields.filter(field => !field.advanced),
-      advancedFields: visibleFields.filter(field => field.advanced)
+      basicFields: visibleFields.filter(field => !(field as any).advanced),
+      advancedFields: visibleFields.filter(field => (field as any).advanced)
     };
-  }, [getVisibleFields])();
+  };
+
+  const { basicFields, advancedFields } = splitFields();
 
   if (!nodeInfo) {
-    return <div>No configuration available for this node.</div>;
+    return (
+      <div className="flex items-center justify-center h-32 text-slate-500">
+        <div className="text-center">
+          <Settings className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+          <p>No configuration available for this node.</p>
+        </div>
+      </div>
+    );
   }
 
   // Show loading screen when needed
@@ -189,16 +209,38 @@ export default function ConfigurationForm({
       {/* Show tabs only if we have advanced fields */}
       {advancedFields.length > 0 ? (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="basic">Basic</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100 p-1 rounded-lg">
+            <TabsTrigger 
+              value="basic" 
+              className={cn(
+                "rounded-md transition-all duration-200",
+                activeTab === "basic" 
+                  ? "bg-white text-slate-900 shadow-sm" 
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Basic Settings
+            </TabsTrigger>
+            <TabsTrigger 
+              value="advanced"
+              className={cn(
+                "rounded-md transition-all duration-200",
+                activeTab === "advanced" 
+                  ? "bg-white text-slate-900 shadow-sm" 
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Advanced
+            </TabsTrigger>
           </TabsList>
           
-          <ScrollArea className="h-[calc(60vh-120px)] pr-4">
-            <TabsContent value="basic" className="space-y-4 mt-0">
-              {basicFields.map((field) => (
+          <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
+            <TabsContent value="basic" className="space-y-3 mt-0 px-2 pb-6">
+              {basicFields.map((field, index) => (
                 <FieldRenderer
-                  key={`${field.name}-${field.type}`}
+                  key={`basic-${field.name}-${field.type}-${index}`}
                   field={field}
                   value={values[field.name]}
                   onChange={(value) => handleFieldChange(field.name, value)}
@@ -207,21 +249,21 @@ export default function ConfigurationForm({
                   currentNodeId={currentNodeId}
                   dynamicOptions={dynamicOptions}
                   loadingDynamic={loadingDynamic}
-                  onDynamicLoad={(fieldName, dependsOn, dependsOnValue) => {
+                  onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
                     if (dependsOn && values[dependsOn]) {
-                      loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
+                      await loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
                     } else {
-                      loadOptions(fieldName);
+                      await loadOptions(fieldName);
                     }
                   }}
                 />
               ))}
             </TabsContent>
             
-            <TabsContent value="advanced" className="space-y-4 mt-0">
-              {advancedFields.map((field) => (
+            <TabsContent value="advanced" className="space-y-3 mt-0 px-2 pb-6">
+              {advancedFields.map((field, index) => (
                 <FieldRenderer
-                  key={`${field.name}-${field.type}`}
+                  key={`advanced-${field.name}-${field.type}-${index}`}
                   field={field}
                   value={values[field.name]}
                   onChange={(value) => handleFieldChange(field.name, value)}
@@ -230,11 +272,11 @@ export default function ConfigurationForm({
                   currentNodeId={currentNodeId}
                   dynamicOptions={dynamicOptions}
                   loadingDynamic={loadingDynamic}
-                  onDynamicLoad={(fieldName, dependsOn, dependsOnValue) => {
+                  onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
                     if (dependsOn && values[dependsOn]) {
-                      loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
+                      await loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
                     } else {
-                      loadOptions(fieldName);
+                      await loadOptions(fieldName);
                     }
                   }}
                 />
@@ -244,11 +286,11 @@ export default function ConfigurationForm({
         </Tabs>
       ) : (
         // Simple view without tabs if no advanced fields
-        <ScrollArea className="h-[calc(60vh-120px)] pr-4">
-          <div className="space-y-4">
-            {basicFields.map((field) => (
+        <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
+          <div className="space-y-3 px-2 pb-6">
+            {basicFields.map((field, index) => (
               <FieldRenderer
-                key={`${field.name}-${field.type}`}
+                key={`basic-${field.name}-${field.type}-${index}`}
                 field={field}
                 value={values[field.name]}
                 onChange={(value) => handleFieldChange(field.name, value)}
@@ -257,11 +299,11 @@ export default function ConfigurationForm({
                 currentNodeId={currentNodeId}
                 dynamicOptions={dynamicOptions}
                 loadingDynamic={loadingDynamic}
-                onDynamicLoad={(fieldName, dependsOn, dependsOnValue) => {
+                onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
                   if (dependsOn && values[dependsOn]) {
-                    loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
+                    await loadOptions(fieldName, { [dependsOn]: values[dependsOn] });
                   } else {
-                    loadOptions(fieldName);
+                    await loadOptions(fieldName);
                   }
                 }}
               />
@@ -270,41 +312,47 @@ export default function ConfigurationForm({
         </ScrollArea>
       )}
 
+      {/* Discord Bot Status - Show only for Discord actions with guildId */}
+      {nodeInfo?.providerId === 'discord' && values.guildId && (
+        <div className="mt-6 px-6">
+          <DiscordBotStatus guildId={values.guildId} />
+        </div>
+      )}
+
       {/* Form buttons */}
-      <div className="flex justify-between mt-6">
-        <div>
+      <div className="flex justify-between items-center mt-8 pt-6 pb-4 px-6 border-t border-slate-200 bg-white">
+        <div className="flex items-center gap-3">
           {nodeInfo.testable && (
             <Button
               type="button"
               variant="outline"
               onClick={handleTest}
               disabled={isTestLoading}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 border-slate-200 hover:border-slate-300 transition-all duration-200"
             >
               {isTestLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <TestTube className="h-4 w-4" />
               )}
-              Test
+              Test Configuration
             </Button>
+          )}
+          
+          {Object.keys(errors).length > 0 && (
+            <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+              {Object.keys(errors).length} error{Object.keys(errors).length > 1 ? 's' : ''}
+            </Badge>
           )}
         </div>
         
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
+        <div className="flex gap-3">
           <Button
             type="submit"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
           >
-            <Play className="h-4 w-4" />
-            Save
+            <Save className="h-4 w-4" />
+            Save Configuration
           </Button>
         </div>
       </div>
