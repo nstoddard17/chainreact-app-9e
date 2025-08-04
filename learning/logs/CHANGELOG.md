@@ -227,3 +227,31 @@
 ### Next Steps:
 - Monitor OAuth popup behavior across all integrations
 - Consider standardizing other callbacks to use the centralized utility if not already done
+
+## [2024-12-19] – Investigated Microsoft Outlook Redirect Issue
+
+- **Problem**: When attempting to connect to Google Calendar, the OAuth flow was redirecting to Microsoft Outlook instead
+- **Investigation**: 
+  - Found duplicate Outlook callback files: `/api/integrations/outlook/callback/route.ts` and `/api/integrations/microsoft-outlook/callback/route.ts`
+  - OAuth configuration was pointing to the wrong callback path (`/api/integrations/outlook/callback` instead of `/api/integrations/microsoft-outlook/callback`)
+  - Added extensive debugging to track OAuth flow and identify provider confusion
+- **Solution**: 
+  - Removed duplicate `/api/integrations/outlook/callback/route.ts` file
+  - Updated OAuth configuration to use correct callback path: `/api/integrations/microsoft-outlook/callback`
+  - Added comprehensive logging to Google Calendar callback for debugging
+  - Added provider validation and state object logging to identify any provider confusion
+  - Added debugging to OAuth URL generation for Google Calendar
+
+### Files Modified:
+- `lib/integrations/oauthConfig.ts` - Updated Microsoft Outlook redirect URI path
+- `app/api/integrations/google-calendar/callback/route.ts` - Added extensive debugging and validation
+- `app/api/integrations/auth/generate-url/route.ts` - Added debugging for Google Calendar OAuth URL generation
+- `stores/integrationStore.ts` - Added debugging for Google Calendar reconnection
+
+### Files Removed:
+- `app/api/integrations/outlook/callback/route.ts` - Removed duplicate callback file
+
+### Next Steps:
+- Monitor OAuth flow logs to identify any remaining provider confusion
+- Test Google Calendar connection to ensure it no longer redirects to Microsoft Outlook
+- Consider adding additional safeguards to prevent cross-provider OAuth confusion

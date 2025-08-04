@@ -328,7 +328,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/outlook/callback",
+    redirectUriPath: "/api/integrations/microsoft-outlook/callback",
     scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Contacts.Read https://graph.microsoft.com/Contacts.ReadWrite",
   },
   teams: {

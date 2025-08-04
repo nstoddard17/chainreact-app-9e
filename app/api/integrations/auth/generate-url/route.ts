@@ -106,7 +106,10 @@ export async function POST(request: NextRequest) {
         authUrl = generateGoogleAuthUrl("google-docs", finalState)
         break
       case "google-calendar":
+        console.log("🔵 Generating Google Calendar OAuth URL")
+        console.log("🔵 State object:", stateObject)
         authUrl = generateGoogleAuthUrl("google-calendar", finalState)
+        console.log("🔵 Generated Google Calendar auth URL:", authUrl)
         break
       case "youtube":
         authUrl = generateGoogleAuthUrl("youtube", finalState)
