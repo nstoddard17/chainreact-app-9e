@@ -25,9 +25,12 @@ export async function POST(request: NextRequest) {
     const { processWebhookEvent } = await import('@/lib/webhooks/processor')
     
     const result = await processWebhookEvent({
+      id: `test-${Date.now()}`,
       provider: testEvent.provider,
+      eventType: testEvent.eventType,
       eventData: testEvent.eventData,
-      requestId: `test-${Date.now()}`
+      requestId: `test-${Date.now()}`,
+      timestamp: new Date()
     })
 
     return NextResponse.json({

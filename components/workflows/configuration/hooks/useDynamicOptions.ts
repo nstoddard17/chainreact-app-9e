@@ -65,6 +65,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     // Get integration
     const integration = getIntegrationByProvider(providerId);
     if (!integration) {
+      console.warn(`No integration found for provider: ${providerId}`);
       fetchingDependentData.current.delete(taskKey);
       activeLoadingTasks.current.delete(taskKey);
       setLoading(activeLoadingTasks.current.size > 0);
@@ -78,15 +79,13 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
           // Determine data to load based on field name
           const resourceType = getResourceTypeForField(fieldName, nodeType);
           if (!resourceType) {
+            console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
             resolve();
             return;
           }
           
           // Load integration data
-          const result = await loadIntegrationData(resourceType, {
-            ...dependentValues,
-            integrationId: integration.id
-          });
+          const result = await loadIntegrationData(resourceType, integration.id, dependentValues);
           
           // Format the results
           const formattedOptions = formatOptionsForField(fieldName, result);
@@ -99,28 +98,30 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
           
           resolve();
         } catch (error) {
-          console.error(`Error loading options for ${fieldName}:`, error);
-          reject(error);
-        } finally {
-          // Cleanup
-          fetchingDependentData.current.delete(taskKey);
-          activeLoadingTasks.current.delete(taskKey);
-          setLoading(activeLoadingTasks.current.size > 0);
-          setTimeout(() => {
-            requestCache.current.delete(taskKey);
-          }, 30000); // Cache expires after 30s
+          console.error(`Failed to load dynamic options for ${fieldName}:`, error);
+          // Don't reject, just resolve with empty options to prevent modal crash
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+          resolve();
         }
       });
       
-      // Cache the promise
       requestCache.current.set(taskKey, loadPromise);
-      return loadPromise;
+      await loadPromise;
+      
     } catch (error) {
-      // Handle errors
+      console.error(`Failed to load options for ${fieldName}:`, error);
+      // Set empty options to prevent modal crash
+      setDynamicOptions(prev => ({
+        ...prev,
+        [fieldName]: []
+      }));
+    } finally {
       fetchingDependentData.current.delete(taskKey);
       activeLoadingTasks.current.delete(taskKey);
       setLoading(activeLoadingTasks.current.size > 0);
-      console.error(`Error loading options for ${fieldName}:`, error);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, generateCacheKey]);
   
@@ -147,6 +148,20 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
   // Map field names to resource types
   const fieldToResourceMap: Record<string, Record<string, string>> = {
+    // Gmail fields
+    gmail_trigger_new_email: {
+      from: "gmail-recent-recipients",
+      to: "gmail-recent-recipients",
+      labelIds: "gmail_labels",
+    },
+    gmail_trigger_new_attachment: {
+      from: "gmail-recent-recipients",
+      to: "gmail-recent-recipients",
+    },
+    gmail_action_send_email: {
+      messageId: "gmail-recent-recipients",
+      labelIds: "gmail_labels",
+    },
     // Discord fields
     discord_action_send_message: {
       channelId: "discord_channels",
@@ -173,6 +188,9 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       fileId: "files",
       documentId: "documents",
       databaseId: "databases",
+      from: "gmail-recent-recipients",
+      to: "gmail-recent-recipients",
+      labelIds: "gmail_labels",
     }
   };
   
@@ -201,6 +219,20 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
   
   // Format based on field name
   switch (fieldName) {
+    case "from":
+    case "to":
+    case "messageId":
+      return data.map((item: any) => ({
+        value: item.email || item.id || item,
+        label: item.name || item.email || item.id || item,
+      }));
+      
+    case "labelIds":
+      return data.map((item: any) => ({
+        value: item.id || item,
+        label: item.name || item.id || item,
+      }));
+      
     case "channelId":
       return data.map((item: any) => ({
         value: item.id,

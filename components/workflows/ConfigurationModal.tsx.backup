@@ -25,7 +25,7 @@ import { TimePicker } from "@/components/ui/time-picker"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Calendar } from "@/components/ui/calendar"
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addWeeks } from "date-fns"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus, Copy } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus, Copy, Variable } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -899,7 +899,7 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               fieldType="file"
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                  <Database className="w-4 h-4" />
+                  <span className="text-sm font-mono">{`{}`}</span>
                 </Button>
               }
             />
@@ -4450,7 +4450,7 @@ function ConfigurationModal({
               fieldType="text"
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                  <Database className="w-4 h-4" />
+                  <span className="text-sm font-mono">{`{}`}</span>
                 </Button>
               }
             />
@@ -5444,7 +5444,7 @@ function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -5488,7 +5488,7 @@ function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -5522,7 +5522,7 @@ function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -5616,7 +5616,7 @@ function ConfigurationModal({
                           fieldType="file"
                           trigger={
                             <Button variant="outline" size="sm" className="gap-2">
-                              <Database className="w-4 h-4" />
+                              <span className="text-sm font-mono">{`{}`}</span>
                               Use File from Previous Node
                             </Button>
                           }
@@ -5647,7 +5647,7 @@ function ConfigurationModal({
                         fieldType={fieldDef.type === "multilineText" ? "textarea" : "text"}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -6335,7 +6335,7 @@ function ConfigurationModal({
                   fieldType={field.type}
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -6447,7 +6447,7 @@ function ConfigurationModal({
                     fieldType={field.type}
                     trigger={
                       <Button variant="outline" size="sm" className="gap-2">
-                        <Database className="w-4 h-4" />
+                        <span className="text-sm font-mono">{`{}`}</span>
                         Insert Variable
                       </Button>
                     }
@@ -6511,7 +6511,7 @@ function ConfigurationModal({
                 fieldType="file"
                 trigger={
                   <Button variant="outline" size="sm" className="gap-2">
-                    <Database className="w-4 h-4" />
+                    <span className="text-sm font-mono">{`{}`}</span>
                     Use File from Previous Node
                   </Button>
                 }
@@ -7022,7 +7022,7 @@ function ConfigurationModal({
                   fieldType={field.type}
                   trigger={
                     <Button variant="outline" size="sm" className="gap-2">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                       Insert Variable
                     </Button>
                   }
@@ -7282,7 +7282,7 @@ function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -7382,7 +7382,7 @@ function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -7525,7 +7525,7 @@ function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -7809,7 +7809,7 @@ function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -8156,7 +8156,7 @@ function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -8252,6 +8252,52 @@ function ConfigurationModal({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "email-autocomplete":
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex gap-2 w-full">
+              <div className="flex-1 relative">
+                <EmailAutocomplete
+                  value={value}
+                  onChange={handleChange}
+                  placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                  disabled={loadingDynamic}
+                  className={cn(
+                    "flex-1", 
+                    hasError && "border-red-500",
+                    loadingDynamic && "bg-muted/50 cursor-not-allowed"
+                  )}
+                />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!field.readonly && !loadingDynamic && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              )}
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -10543,7 +10589,7 @@ const EnhancedLocationInput = ({
             fieldType="text"
             trigger={
               <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                <Database className="w-4 h-4" />
+                <span className="text-sm font-mono">{`{}`}</span>
               </Button>
             }
           />

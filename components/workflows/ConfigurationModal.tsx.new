@@ -19,7 +19,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Variable } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
@@ -882,8 +882,8 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               onVariableSelect={(variable) => onValueChange(variable)}
               fieldType="file"
               trigger={
-                <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                  <Database className="w-4 h-4" />
+                <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                  <span className="text-sm font-mono">{`{}`}</span>
                 </Button>
               }
             />
@@ -3484,7 +3484,7 @@ export default function ConfigurationModal({
               fieldType="text"
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                  <Database className="w-4 h-4" />
+                  <span className="text-sm font-mono">{`{}`}</span>
                 </Button>
               }
             />
@@ -4274,7 +4274,7 @@ export default function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -4318,7 +4318,7 @@ export default function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -4352,7 +4352,7 @@ export default function ConfigurationModal({
                         fieldType="text"
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -4445,7 +4445,7 @@ export default function ConfigurationModal({
                           fieldType="file"
                           trigger={
                             <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                              <Database className="w-4 h-4" />
+                              <span className="text-sm font-mono">{`{}`}</span>
                             </Button>
                           }
                         />
@@ -4487,7 +4487,7 @@ export default function ConfigurationModal({
                         fieldType={fieldDef.type === "multilineText" ? "textarea" : "text"}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
-                            <Database className="w-4 h-4" />
+                            <span className="text-sm font-mono">{`{}`}</span>
                           </Button>
                         }
                       />
@@ -4920,8 +4920,8 @@ export default function ConfigurationModal({
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
                   trigger={
-                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                      <Database className="w-4 h-4" />
+                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -4937,7 +4937,8 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <div className="relative">
+            <div className="flex gap-2 w-full">
+              <div className="flex-1 relative">
               <Input
                 type="number"
                 value={value}
@@ -4984,6 +4985,19 @@ export default function ConfigurationModal({
                     Loading...
                   </div>
                 </div>
+              )}
+              {!field.readonly && !loadingDynamic && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
               )}
             </div>
             {hasError && (
@@ -5033,7 +5047,7 @@ export default function ConfigurationModal({
                     fieldType={field.type}
                     trigger={
                       <Button variant="outline" size="sm" className="gap-2">
-                        <Database className="w-4 h-4" />
+                        <span className="text-sm font-mono">{`{}`}</span>
                         Insert Variable
                       </Button>
                     }
@@ -5546,7 +5560,7 @@ export default function ConfigurationModal({
                   fieldType={field.type}
                   trigger={
                     <Button variant="outline" size="sm" className="gap-2">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                       Insert Variable
                     </Button>
                   }
@@ -5668,7 +5682,7 @@ export default function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -5954,7 +5968,7 @@ export default function ConfigurationModal({
                   fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
                 />
@@ -5985,19 +5999,21 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <Select
-              value={value}
-              onValueChange={(newValue) => {
-                console.log('🎯 TRELLO SELECT onValueChange called:', {
-                  fieldName: field.name,
-                  newValue,
-                  oldValue: value,
-                  isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
-                })
-                handleSelectChange(newValue)
-              }}
-              disabled={isFieldLoading || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
-            >
+            <div className="flex gap-2 w-full">
+              <div className="flex-1">
+                <Select
+                  value={value}
+                  onValueChange={(newValue) => {
+                    console.log('🎯 TRELLO SELECT onValueChange called:', {
+                      fieldName: field.name,
+                      newValue,
+                      oldValue: value,
+                      isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+                    })
+                    handleSelectChange(newValue)
+                  }}
+                  disabled={isFieldLoading || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
+                >
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={
                   isFieldLoading 
@@ -6039,6 +6055,21 @@ export default function ConfigurationModal({
                 )}
               </SelectContent>
             </Select>
+              </div>
+              {!field.readonly && !loadingDynamic && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              )}
+            </div>
             
             {/* Discord bot status indicator */}
             {nodeInfo?.type?.startsWith("discord_action_") && field.name === "guildId" && value && (
@@ -6165,6 +6196,52 @@ export default function ConfigurationModal({
               </div>
             )}
             
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "email-autocomplete":
+        return (
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="flex gap-2 w-full">
+              <div className="flex-1 relative">
+                <EmailAutocomplete
+                  value={value}
+                  onChange={handleChange}
+                  placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                  disabled={loadingDynamic}
+                  className={cn(
+                    "flex-1", 
+                    hasError && "border-red-500",
+                    loadingDynamic && "bg-muted/50 cursor-not-allowed"
+                  )}
+                />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!field.readonly && !loadingDynamic && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              )}
+            </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}

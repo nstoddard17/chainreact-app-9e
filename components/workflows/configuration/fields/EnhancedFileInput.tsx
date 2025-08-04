@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database } from "lucide-react";
+import { Database, Variable } from "lucide-react";
 import { NodeField } from "@/lib/workflows/availableNodes";
 import VariablePicker from "../../VariablePicker";
 
@@ -118,8 +118,12 @@ export default function EnhancedFileInput({
               onVariableSelect={(variable) => onValueChange(variable)}
               fieldType="file"
               trigger={
-                <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                  <Database className="w-4 h-4" />
+                <Button 
+                  size="sm" 
+                  className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-md" 
+                  title="Insert variable"
+                >
+                  <span className="text-sm font-mono font-semibold">{`{}`}</span>
                 </Button>
               }
             />
