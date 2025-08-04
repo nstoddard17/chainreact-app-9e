@@ -12,326 +12,231 @@ The OAuth implementation follows a standard OAuth 2.0 authorization code flow wi
 
 ## 1. OAuth URL Generation
 
-### Client-Side Initiation
+### Google Sign-In (Server-Side)
 ```typescript
-// stores/authStore.ts - signInWithGoogle()
-const params = new URLSearchParams({
-  client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-  redirect_uri: `${getBaseUrl()}/api/auth/callback`,
-  response_type: 'code',
-  scope: 'email profile',
-  state: state,
-  access_type: 'offline',
-  prompt: 'consent',
-})
+// app/actions/google-auth.ts - initiateGoogleSignIn()
+export async function initiateGoogleSignIn() {
+  const supabase = createServerActionClient({ cookies })
+  
+  // Generate secure state parameter
+  const state = crypto.randomBytes(32).toString('hex')
+  
+  // Store state in database for verification
+  const { error: stateError } = await supabase
+    .from('pkce_flow')
+    .insert({ 
+      state, 
+      code_verifier: crypto.randomBytes(32).toString("hex"),
+      provider: "google-signin"
+    })
+
+  // Generate OAuth URL server-side
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback`,
+    response_type: "code",
+    scope: "email profile",
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  })
+
+  return { authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` }
+}
 ```
 
-**Key Points:**
-- Uses `NEXT_PUBLIC_` prefix for client-side environment variable access
-- Generates random state parameter for CSRF protection
-- Stores state in sessionStorage for verification
-
-### Server-Side URL Generation
+### Integration OAuth (Server-Side)
 ```typescript
 // app/api/integrations/auth/generate-url/route.ts
-function generateGoogleAuthUrl(service: string, state: string): string {
-  const clientId = process.env.GOOGLE_CLIENT_ID // Server-side access
-  // ... build OAuth URL with service-specific scopes
+export async function POST(request: NextRequest) {
+  // Validate request and get provider
+  const { provider } = await request.json()
+  
+  // Generate state parameter with user ID
+  const state = btoa(JSON.stringify({ userId, timestamp: Date.now() }))
+  
+  // Generate provider-specific OAuth URL
+  const authUrl = generateProviderAuthUrl(provider, state)
+  
+  return NextResponse.json({ success: true, authUrl })
 }
 ```
 
-**Service-Specific Scopes:**
-- Gmail: `https://www.googleapis.com/auth/gmail.modify`
-- Drive: `https://www.googleapis.com/auth/drive`
-- Calendar: `https://www.googleapis.com/auth/calendar`
-- Sheets: `https://www.googleapis.com/auth/spreadsheets`
+## 2. OAuth Popup Communication
 
-## 2. State Management and Security
+The application uses a dual-channel approach for communication between the OAuth popup and the main window:
 
-### PKCE Flow Implementation
-```typescript
-// For providers that support PKCE (Twitter, Instagram, etc.)
-const codeVerifier = crypto.randomBytes(32).toString("hex")
-const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
-
-// Store in database for verification
-await supabase.from("pkce_flow").insert({ 
-  state, 
-  code_verifier: codeVerifier,
-  provider: "twitter" 
-})
-```
-
-### State Parameter Structure
-```typescript
-const stateObject = {
-  userId: user.id,
-  provider,
-  reconnect,
-  integrationId,
-  timestamp: Date.now(),
-}
-const state = btoa(JSON.stringify(stateObject))
-```
-
-## 3. Callback Processing
-
-### Standard Callback Flow
-```typescript
-// app/api/integrations/[provider]/callback/route.ts
-export async function GET(request: NextRequest) {
-  const { code, state, error } = extractParams(request)
-  
-  // 1. Handle OAuth errors
-  if (error) return createPopupResponse('error', provider, error)
-  
-  // 2. Validate state parameter
-  const { data: pkceData } = await supabase
-    .from('pkce_flow')
-    .select('*')
-    .eq('state', state)
-    .single()
-  
-  // 3. Exchange code for tokens
-  const tokenResponse = await fetch(tokenEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      grant_type: 'authorization_code',
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: redirectUri,
-    })
-  })
-  
-  // 4. Encrypt and store tokens
-  const integrationData = await prepareIntegrationData(
-    userId,
-    provider,
-    tokenData.access_token,
-    tokenData.refresh_token,
-    scopes,
-    expiresIn
-  )
-}
-```
-
-## 4. Token Encryption
-
-### Encryption Process
-```typescript
-// lib/security/encryption.ts
-export function encrypt(text: string, key: string = ENCRYPTION_KEY): string {
-  const iv = crypto.randomBytes(ENCRYPTION_IV_LENGTH)
-  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(key.slice(0, 32)), iv)
-  let encrypted = cipher.update(text, "utf8", "hex")
-  encrypted += cipher.final("hex")
-  return iv.toString("hex") + ":" + encrypted
-}
-```
-
-### Token Storage
-```typescript
-// lib/integrations/tokenUtils.ts
-export async function prepareIntegrationData(
-  userId: string,
-  provider: string,
-  accessToken: string,
-  refreshToken?: string,
-  scopes: string[] = [],
-  expiresIn?: number,
-  refreshTokenExpiresAt?: Date
-) {
-  const { encryptedAccessToken, encryptedRefreshToken } = await encryptTokens(accessToken, refreshToken)
-  
-  return {
-    user_id: userId,
-    provider,
-    access_token: encryptedAccessToken,
-    refresh_token: encryptedRefreshToken,
-    scopes,
-    expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-    refresh_token_expires_at: refreshTokenExpiresAt,
-  }
-}
-```
-
-## 5. Token Refresh System
-
-### Automatic Refresh Logic
-```typescript
-// lib/integrations/tokenRefreshService.ts
-export async function refreshTokenIfNeeded(integrationId: string): Promise<boolean> {
-  const integration = await getIntegration(integrationId)
-  const config = getOAuthConfig(integration.provider)
-  
-  // Check if token needs refresh
-  const timeUntilExpiry = integration.expires_at.getTime() - Date.now()
-  const bufferTime = config.accessTokenExpiryBuffer * 60 * 1000 // Convert to milliseconds
-  
-  if (timeUntilExpiry <= bufferTime) {
-    return await refreshToken(integrationId)
-  }
-  
-  return true
-}
-```
-
-### Refresh Token Exchange
-```typescript
-const refreshParams = new URLSearchParams({
-  grant_type: 'refresh_token',
-  refresh_token: decryptedRefreshToken,
-  client_id: process.env[config.clientIdEnv],
-})
-
-if (config.refreshRequiresClientAuth) {
-  refreshParams.append('client_secret', process.env[config.clientSecretEnv])
-}
-
-if (config.sendRedirectUriWithRefresh) {
-  refreshParams.append('redirect_uri', redirectUri)
-}
-```
-
-## 6. Error Handling
-
-### Popup Response System
+### Primary Channel: PostMessage API
 ```typescript
 // lib/utils/createPopupResponse.ts
-export function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '${baseUrl}');
-        setTimeout(() => window.close(), 2000);
-      }
-    </script>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+try {
+  if (window.opener && window.opener.postMessage) {
+    window.opener.postMessage(responseData, baseUrl);
+    console.log("Message posted to parent window");
+  }
+} catch (e) {
+  console.error('Failed to post message to parent:', e);
 }
 ```
 
-## 7. Security Considerations
-
-### CSRF Protection
-- State parameter validation prevents cross-site request forgery
-- Database storage ensures state integrity
-- Proper cleanup prevents state reuse
-
-### Token Security
-- All tokens encrypted before database storage
-- AES-256-CBC encryption with random IV
-- Environment variable-based encryption key
-
-### Error Handling
-- Comprehensive error logging
-- User-friendly error messages
-- Graceful degradation on failures
-
-## 8. Provider-Specific Implementations
-
-### Google Services
-- Shared client credentials across services
-- Service-specific scopes
-- Refresh tokens don't expire unless revoked
-
-### Discord
-- Requires specific scopes for bot functionality
-- Doesn't support scope in refresh requests
-- Uses PKCE for enhanced security
-
-### Facebook
-- Long-lived tokens (60 days)
-- Uses `fb_exchange_token` for refresh
-- Different token exchange flow
-
-## 9. Integration Points
-
-### Database Schema
-```sql
--- integrations table
-CREATE TABLE integrations (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  provider TEXT NOT NULL,
-  access_token TEXT NOT NULL, -- encrypted
-  refresh_token TEXT, -- encrypted
-  scopes TEXT[],
-  expires_at TIMESTAMP,
-  refresh_token_expires_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- pkce_flow table for state management
-CREATE TABLE pkce_flow (
-  state TEXT PRIMARY KEY,
-  code_verifier TEXT,
-  provider TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
+### Fallback Channel: LocalStorage (COOP-Safe)
+```typescript
+// lib/utils/createPopupResponse.ts
+try {
+  localStorage.setItem(storageKey, JSON.stringify(responseData));
+  console.log('Response stored in localStorage with key:', storageKey);
+} catch (e) {
+  console.error('Failed to store in localStorage:', e);
+}
 ```
 
-### Store Integration
+### Main Window Listener
 ```typescript
 // stores/integrationStore.ts
-const fetchIntegrations = async (silent = false) => {
-  const { data, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', currentUserId)
+// Check localStorage for OAuth responses (COOP-safe)
+const storageCheckTimer = setInterval(() => {
+  try {
+    // Check localStorage for any keys that match our prefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(storageCheckPrefix)) {
+        const storedData = localStorage.getItem(key);
+        if (storedData) {
+          const responseData = JSON.parse(storedData);
+          // Process the response...
+          localStorage.removeItem(key); // Clean up
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Error checking localStorage:`, error);
+  }
+}, 500);
+```
+
+## 3. Callback Handling
+
+### OAuth Callback Processing
+```typescript
+// app/api/integrations/google-calendar/callback/route.ts
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
   
-  // Decrypt tokens for use
-  const decryptedIntegrations = data?.map(integration => ({
-    ...integration,
-    access_token: decrypt(integration.access_token),
-    refresh_token: integration.refresh_token ? decrypt(integration.refresh_token) : null
-  }))
+  // Validate state parameter
+  let stateData = JSON.parse(atob(state))
+  const { userId } = stateData
+  
+  // Exchange code for tokens
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      redirect_uri: `${baseUrl}/api/integrations/google-calendar/callback`,
+      grant_type: "authorization_code",
+    }),
+  })
+  
+  // Process token response and store in database
+  // ...
+  
+  // Return response to popup
+  return createPopupResponse("success", "google-calendar", "Successfully connected Google Calendar", baseUrl)
 }
 ```
 
-## 10. Performance Optimizations
+## 4. Token Management
 
-### Lazy Loading
-- Integration data loaded on demand
-- Background token refresh
-- Minimal initial data loading
+### Token Encryption
+```typescript
+// lib/security/encryption.ts
+export function encryptToken(token: string): string {
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(encryptionKey), iv)
+  
+  let encrypted = cipher.update(token, "utf8", "hex")
+  encrypted += cipher.final("hex")
+  
+  return `${iv.toString("hex")}:${encrypted}`
+}
+```
 
-### Caching
-- Token refresh results cached
-- Integration list cached in store
-- Optimistic UI updates
+### Token Refresh
+```typescript
+// lib/integrations/tokenUtils.ts
+export async function refreshAccessToken(integration: Integration): Promise<TokenRefreshResult> {
+  const { provider, refresh_token } = integration
+  const providerConfig = OAUTH_PROVIDERS[provider]
+  
+  // Decrypt refresh token
+  const decryptedRefreshToken = decryptToken(refresh_token!)
+  
+  // Build token refresh request
+  const params = new URLSearchParams({
+    refresh_token: decryptedRefreshToken,
+    grant_type: "refresh_token",
+    client_id: process.env[providerConfig.clientIdEnv]!,
+  })
+  
+  if (providerConfig.refreshRequiresClientAuth) {
+    params.append("client_secret", process.env[providerConfig.clientSecretEnv]!)
+  }
+  
+  // Send refresh request
+  const response = await fetch(providerConfig.tokenEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params,
+  })
+  
+  // Process and store new tokens
+  // ...
+}
+```
 
-### Error Recovery
-- Automatic retry on token refresh failure
-- Fallback to unencrypted tokens if encryption fails
-- Graceful degradation on provider errors
+## Security Considerations
 
-## Common Issues and Solutions
+### CSRF Protection
+- State parameter used in all OAuth flows
+- State stored in database or sessionStorage
+- Verified during callback processing
 
-### Environment Variable Issues
-**Problem:** `client_id=undefined`
-**Solution:** Use `NEXT_PUBLIC_` prefix for client-side variables
+### Token Security
+- Tokens encrypted using AES-256-CBC
+- Refresh tokens never exposed to client
+- Access tokens have short expiry
 
-### Token Decryption Failures
-**Problem:** Inconsistent token encryption
-**Solution:** Run `scripts/fix-unencrypted-tokens.ts`
+### COOP Policy Compatibility
+- Dual-channel communication (postMessage + localStorage)
+- Graceful fallbacks for strict browser security policies
+- Proper error handling for security restrictions
 
-### State Validation Failures
-**Problem:** Invalid state parameter
-**Solution:** Check `pkce_flow` table and cleanup procedures
+## Browser Compatibility
 
-### Token Refresh Failures
-**Problem:** Expired refresh tokens
-**Solution:** Implement proper error handling and user re-authentication 
+The OAuth flow is designed to work with modern browsers and their security policies:
+
+- **Chrome/Edge**: Full support with both postMessage and localStorage
+- **Firefox**: Full support with both channels
+- **Safari**: Full support with localStorage fallback
+- **Mobile browsers**: Compatible with localStorage approach
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **COOP Policy Errors**: Fixed by using localStorage for communication
+2. **Undefined Client ID**: Check environment variables and ensure server-side generation
+3. **State Parameter Mismatch**: Usually caused by stale state in database
+4. **Redirect URI Mismatch**: Ensure redirect URIs match exactly in Google Console
+
+## Best Practices
+
+- Use server-side OAuth URL generation for security
+- Implement multiple communication channels between popup and main window
+- Store state in database for verification
+- Encrypt all sensitive tokens
+- Implement proper error handling and user feedback

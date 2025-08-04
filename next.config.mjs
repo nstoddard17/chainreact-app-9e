@@ -17,6 +17,20 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  // Fix Cross-Origin-Opener-Policy for OAuth popups
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     // Suppress the webpack cache warning about large strings
     config.infrastructureLogging = {

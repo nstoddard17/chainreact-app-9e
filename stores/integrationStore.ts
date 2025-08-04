@@ -12,7 +12,22 @@ let currentAbortController: AbortController | null = null
 
 // Helper function to check if popup is still valid
 function isPopupValid(popup: Window | null): boolean {
-  return !!(popup && !popup.closed)
+  // COOP policy blocks window.closed checks, so we rely on message events and localStorage
+  // Assume popup is valid if it exists
+  return !!popup
+}
+
+// Helper function to close existing popup and reset state
+function closeExistingPopup() {
+  if (currentOAuthPopup) {
+    try {
+      currentOAuthPopup.close()
+    } catch (e) {
+      console.warn("Failed to close existing popup:", e)
+    }
+    currentOAuthPopup = null
+  }
+  windowHasLostFocus = false
 }
 
 // Helper function to securely get user and session data
@@ -404,6 +419,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
+          // Close any existing popup before opening a new one
+          closeExistingPopup()
+          
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popup = window.open(data.authUrl, popupName, "width=600,height=700,scrollbars=yes,resizable=yes")
@@ -411,6 +429,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
             setLoading(`connect-${providerId}`, false)
             throw new Error("Popup blocked. Please allow popups for this site.")
           }
+
+          // Update global popup reference
+          currentOAuthPopup = popup
 
           console.log(`✅ OAuth popup opened for ${providerId}`)
 
@@ -426,9 +447,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
-              if (popup && !popup.closed) {
-                popup.close()
+              try {
+                popup?.close()
+              } catch (error) {
+                // COOP policy may block popup operations
+                console.warn("Failed to close popup:", error)
               }
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
               
               // Force refresh integrations with a small delay to ensure the backend has time to update
@@ -444,26 +470,83 @@ export const useIntegrationStore = create<IntegrationStore>()(
               closedByMessage = true
               popup?.close()
               window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             } else if (event.data && event.data.type === "oauth-cancelled") {
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             }
           }
 
           window.addEventListener("message", messageHandler)
 
-          const timer = setInterval(() => {
-            if (popup?.closed) {
-              clearInterval(timer)
-              window.removeEventListener("message", messageHandler)
-              if (!closedByMessage) {
-                console.log(`❌ Popup closed manually for ${providerId}`)
-                setError("Popup closed before completing authorization.")
-                setLoading(`connect-${providerId}`, false)
+          // Use localStorage to check for OAuth responses (COOP-safe)
+          const storageCheckPrefix = `oauth_response_${providerId}`;
+          const storageCheckTimer = setInterval(() => {
+            try {
+              // Check localStorage for any keys that match our prefix
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(storageCheckPrefix)) {
+                  try {
+                    // Found a matching key, parse the response
+                    const storedData = localStorage.getItem(key);
+                    if (storedData) {
+                      const responseData = JSON.parse(storedData);
+                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
+                      
+                      // Process the response
+                      if (responseData.type === 'oauth-success') {
+                        console.log(`✅ OAuth successful for ${providerId} via localStorage`);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        setLoading(`connect-${providerId}`, false);
+                        
+                        // Force refresh integrations
+                        setTimeout(() => {
+                          fetchIntegrations(true);
+                          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId });
+                        }, 1000);
+                      } else if (responseData.type === 'oauth-error') {
+                        console.error(`❌ OAuth error for ${providerId} via localStorage:`, responseData.message);
+                        setError(responseData.message);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        setLoading(`connect-${providerId}`, false);
+                      } else if (responseData.type === 'oauth-cancelled') {
+                        console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
+                        closedByMessage = true;
+                        clearInterval(storageCheckTimer);
+                        window.removeEventListener("message", messageHandler);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        setLoading(`connect-${providerId}`, false);
+                      }
+                      
+                      // Clean up localStorage
+                      localStorage.removeItem(key);
+                    }
+                  } catch (parseError) {
+                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
+                  }
+                }
               }
+              
+              // Note: We can't check popup.closed due to COOP policy
+              // We rely on message events and localStorage polling for communication
+            } catch (error) {
+              console.error(`Error checking localStorage for ${providerId}:`, error);
             }
           }, 500)
         } else {
@@ -1180,6 +1263,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         const { user, session } = await getSecureUserAndSession()
 
+        // Ensure provider is valid and properly formatted
+        const provider = integration.provider.trim().toLowerCase()
+        console.log(`🔍 Reconnecting provider: "${provider}" (ID: ${integrationId})`)
+        
+        // Extra validation for Google Calendar to prevent confusion with Microsoft Outlook
+        if (provider === 'google-calendar') {
+          console.log('⚠️ Special handling for Google Calendar reconnection')
+        }
+        
         // Generate OAuth URL for reconnection
         console.log("🔄 Generating OAuth URL for reconnection...")
         const authResponse = await fetch("/api/integrations/auth/generate-url", {
@@ -1189,9 +1281,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            provider: integration.provider,
+            provider: provider, // Use normalized provider name
             reconnect: true,
             integrationId: integrationId,
+            // Add timestamp to prevent caching
+            timestamp: Date.now()
           }),
         })
 
@@ -1207,16 +1301,39 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         console.log("✅ OAuth URL generated, opening popup...")
+        console.log("🔗 Auth URL:", authData.authUrl)
         
-        // Open OAuth popup
+        // Verify the URL is for the correct provider
+        const urlProvider = provider.toLowerCase()
+        const authUrl = authData.authUrl
+        
+        // Extra validation for Google Calendar to prevent Microsoft Outlook confusion
+        if (urlProvider === 'google-calendar' && !authUrl.includes('accounts.google.com')) {
+          throw new Error(`Invalid OAuth URL for Google Calendar: ${authUrl}`)
+        }
+        
+        // Open OAuth popup with unique name to prevent reuse of windows
         const width = 600
         const height = 700
         const left = window.screen.width / 2 - width / 2
         const top = window.screen.height / 2 - height / 2
-        const popupName = `oauth_reconnect_${integration.provider}_${Date.now()}`
+        const timestamp = Date.now()
+        const popupName = `oauth_reconnect_${urlProvider}_${timestamp}`
+        
+        // Clear any localStorage items with the same prefix to prevent confusion
+        const storagePrefix = `oauth_response_${urlProvider}`;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(storagePrefix)) {
+            localStorage.removeItem(key);
+          }
+        }
+        
+        // Close any existing popup before opening a new one
+        closeExistingPopup()
         
         const popup = window.open(
-          authData.authUrl,
+          authUrl,
           popupName,
           `width=${width},height=${height},left=${left},top=${top}`,
         )
@@ -1224,6 +1341,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         if (!popup) {
           throw new Error("Failed to open OAuth popup. Please allow popups and try again.")
         }
+
+        // Update global popup reference
+        currentOAuthPopup = popup
 
         // Wait for OAuth completion
         await new Promise((resolve, reject) => {
@@ -1245,6 +1365,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               fetchIntegrations(true)
               resolve(undefined)
             } else if (event.data.type === "oauth-error") {
@@ -1255,6 +1377,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               reject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
               console.log("🚫 OAuth reconnection cancelled")
@@ -1264,19 +1388,71 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               reject(new Error("OAuth reconnection was cancelled"))
             }
           }
 
           window.addEventListener("message", handleMessage)
           
-          // Check if popup closes without sending a message
+          // Use localStorage to check for OAuth responses (COOP-safe)
+          const storageCheckPrefix = `oauth_response_${integration.provider}`;
           const checkPopupClosed = setInterval(() => {
-            if (popup.closed && !messageReceived) {
-              console.log("❌ Popup closed without sending message")
-              clearInterval(checkPopupClosed)
-              window.removeEventListener("message", handleMessage)
-              reject(new Error("OAuth popup closed unexpectedly"))
+            try {
+              // Check localStorage for any keys that match our prefix
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(storageCheckPrefix)) {
+                  try {
+                    // Found a matching key, parse the response
+                    const storedData = localStorage.getItem(key);
+                    if (storedData) {
+                      const responseData = JSON.parse(storedData);
+                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
+                      
+                      // Process the response
+                      if (responseData.type === 'oauth-success') {
+                        console.log(`✅ OAuth reconnection successful via localStorage`);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        fetchIntegrations(true);
+                        emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider });
+                        resolve(undefined);
+                      } else if (responseData.type === 'oauth-error') {
+                        console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        reject(new Error(responseData.message || "OAuth reconnection failed"));
+                      } else if (responseData.type === 'oauth-cancelled') {
+                        console.log(`🚫 OAuth reconnection cancelled via localStorage`);
+                        messageReceived = true;
+                        clearInterval(checkPopupClosed);
+                        window.removeEventListener("message", handleMessage);
+                        // Reset global popup reference
+                        currentOAuthPopup = null;
+                        reject(new Error("OAuth reconnection was cancelled"));
+                      }
+                      
+                      // Clean up localStorage
+                      localStorage.removeItem(key);
+                    }
+                  } catch (parseError) {
+                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
+                  }
+                }
+              }
+              
+              // Note: We can't check popup.closed due to COOP policy
+              // We rely on message events and localStorage polling for communication
+            } catch (error) {
+              console.error(`Error checking localStorage for OAuth response:`, error);
             }
           }, 1000)
           
@@ -1290,6 +1466,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.warn("Failed to close popup on timeout:", e)
             }
             window.removeEventListener("message", handleMessage)
+            // Reset global popup reference
+            currentOAuthPopup = null
             reject(new Error("OAuth reconnection timed out"))
           }, 5 * 60 * 1000)
           
@@ -1330,6 +1508,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               fetchIntegrations(true)
               emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
               wrappedResolve(undefined)
@@ -1341,6 +1521,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               wrappedReject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
               console.log("🚫 OAuth reconnection cancelled")
@@ -1350,6 +1532,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 console.warn("Failed to close popup:", e)
               }
               window.removeEventListener("message", newHandleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
               wrappedReject(new Error("OAuth reconnection was cancelled"))
             }
           }
@@ -1385,18 +1569,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     resetConnectionState: () => {
-      // Close any existing popup
-      if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
-        try {
-          currentOAuthPopup.close()
-        } catch (e) {
-          console.warn("Failed to close popup during reset:", e)
-        }
-      }
-      
-      // Reset variables
-      currentOAuthPopup = null
-      windowHasLostFocus = false
+      // Close any existing popup and reset state
+      closeExistingPopup()
       
       // Clear any loading states related to connections
       const { loadingStates } = get()
