@@ -1270,6 +1270,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Extra validation for Google Calendar to prevent confusion with Microsoft Outlook
         if (provider === 'google-calendar') {
           console.log('⚠️ Special handling for Google Calendar reconnection')
+          console.log('🔵 Provider being reconnected:', provider)
+          console.log('🔵 Integration ID:', integrationId)
+          console.log('🔵 Integration provider:', integration.provider)
         }
         
         // Generate OAuth URL for reconnection

@@ -7,7 +7,10 @@ import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function GET(request: NextRequest) {
-  console.log("Google Calendar OAuth callback received")
+  console.log("🔵 Google Calendar OAuth callback received")
+  console.log("🔵 Request URL:", request.url)
+  console.log("🔵 Search params:", Object.fromEntries(request.nextUrl.searchParams.entries()))
+  
   const baseUrl = getBaseUrl()
   const provider = "google-calendar"
 
@@ -54,16 +57,22 @@ export async function GET(request: NextRequest) {
 
     const { userId, provider: stateProvider } = stateData
     
+    console.log("🔵 State data:", stateData)
+    console.log("🔵 Expected provider:", provider)
+    console.log("🔵 State provider:", stateProvider)
+    
     // Validate that this callback is for the correct provider
     if (stateProvider && stateProvider !== provider) {
-      console.error(`Provider mismatch in Google Calendar callback. Expected: ${provider}, Got: ${stateProvider}`)
+      console.error(`❌ Provider mismatch in Google Calendar callback. Expected: ${provider}, Got: ${stateProvider}`)
       return createPopupResponse(
         "error",
         provider,
-        "Provider mismatch in OAuth callback.",
+        `Provider mismatch in OAuth callback. Expected: ${provider}, Got: ${stateProvider}`,
         baseUrl,
       )
     }
+    
+    console.log("✅ Provider validation passed for Google Calendar")
     
     if (!userId) {
       console.error("Missing userId in Google Calendar state")
