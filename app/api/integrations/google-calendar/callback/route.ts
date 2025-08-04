@@ -1,76 +1,15 @@
 import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
 // Create a Supabase client with admin privileges
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '${baseUrl}');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
-
 export async function GET(request: NextRequest) {
   console.log("Google Calendar OAuth callback received")
   const baseUrl = getBaseUrl()
+  const provider = "google-calendar"
 
   try {
     const searchParams = request.nextUrl.searchParams
@@ -84,7 +23,7 @@ export async function GET(request: NextRequest) {
       console.error("Google Calendar OAuth error:", error, errorDescription)
       return createPopupResponse(
         "error",
-        "google-calendar",
+        provider,
         `${error}: ${errorDescription}`,
         baseUrl,
       )
@@ -94,7 +33,7 @@ export async function GET(request: NextRequest) {
       console.error("Missing code or state in Google Calendar callback")
       return createPopupResponse(
         "error",
-        "google-calendar",
+        provider,
         "Authorization code or state is missing.",
         baseUrl,
       )
@@ -107,18 +46,30 @@ export async function GET(request: NextRequest) {
       console.error("Invalid state parameter in Google Calendar callback:", e)
       return createPopupResponse(
         "error",
-        "google-calendar",
+        provider,
         "Invalid state parameter.",
         baseUrl,
       )
     }
 
-    const { userId } = stateData
+    const { userId, provider: stateProvider } = stateData
+    
+    // Validate that this callback is for the correct provider
+    if (stateProvider && stateProvider !== provider) {
+      console.error(`Provider mismatch in Google Calendar callback. Expected: ${provider}, Got: ${stateProvider}`)
+      return createPopupResponse(
+        "error",
+        provider,
+        "Provider mismatch in OAuth callback.",
+        baseUrl,
+      )
+    }
+    
     if (!userId) {
       console.error("Missing userId in Google Calendar state")
       return createPopupResponse(
         "error",
-        "google-calendar",
+        provider,
         "User ID is missing from state.",
         baseUrl,
       )
@@ -181,7 +132,7 @@ export async function GET(request: NextRequest) {
 
     const integrationData = {
       user_id: userId,
-      provider: "google-calendar",
+      provider: provider,
       provider_user_id: userInfo.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
@@ -199,7 +150,7 @@ export async function GET(request: NextRequest) {
       console.error("Error saving Google Calendar integration to DB:", upsertError)
       return createPopupResponse(
         "error",
-        "google-calendar",
+        provider,
         `Database error: ${upsertError.message}`,
         baseUrl,
       )
@@ -207,13 +158,13 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse(
       "success",
-      "google-calendar",
+      provider,
       "Your Google Calendar account has been successfully connected.",
       baseUrl,
     )
   } catch (error: any) {
     console.error("Google Calendar callback error:", error)
     const errorMessage = error.message || "An unexpected error occurred."
-    return createPopupResponse("error", "google-calendar", errorMessage, baseUrl)
+    return createPopupResponse("error", provider, errorMessage, baseUrl)
   }
 }

@@ -1,3 +1,7 @@
+/**
+ * Creates a response for OAuth popup windows that communicates with the parent window
+ * using both postMessage and localStorage for COOP policy compatibility
+ */
 export function createPopupResponse(
   type: "success" | "error",
   provider: string,
@@ -14,21 +18,48 @@ export function createPopupResponse(
   const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
   const safeMessage = message.replace(/[\\'"]/g, '\\$&');
   
+  // Create a unique storage key for this response
+  const storageKey = `oauth_response_${safeProvider}_${Date.now()}`;
+  
   const script = `
     <script>
       // Flag to track if we've already sent a response
       window.sentResponse = false;
       
+      // Create response data object
+      const responseData = {
+        type: 'oauth-${type}',
+        provider: '${safeProvider}',
+        message: '${safeMessage}',
+        timestamp: new Date().toISOString()
+      };
+      
+      // Store in localStorage for parent window to find (COOP-safe)
+      try {
+        localStorage.setItem('${storageKey}', JSON.stringify(responseData));
+        console.log('Response stored in localStorage with key: ${storageKey}');
+      } catch (e) {
+        console.error('Failed to store in localStorage:', e);
+      }
+      
       // More robust handling of window closing
       function sendCancelMessage() {
-        if (window.opener && !window.sentResponse) {
+        if (!window.sentResponse) {
           try {
-            window.opener.postMessage({
+            // Store cancellation in localStorage
+            const cancelData = {
               type: 'oauth-cancelled',
               provider: '${safeProvider}',
-              message: 'Authorization cancelled'
-            }, '${baseUrl}');
-            console.log('Cancel message sent to parent');
+              message: 'Authorization cancelled',
+              timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('${storageKey}_cancel', JSON.stringify(cancelData));
+            
+            // Also try postMessage if possible
+            if (window.opener) {
+              window.opener.postMessage(cancelData, '${baseUrl}');
+              console.log('Cancel message sent to parent');
+            }
             window.sentResponse = true;
           } catch (e) {
             console.error('Error sending cancel message:', e);
@@ -41,59 +72,44 @@ export function createPopupResponse(
         sendCancelMessage();
       });
       
-      // Periodic check to notify parent if connection is lost
-      let connectionCheckInterval = setInterval(function() {
-        if (window.opener === null) {
-          console.log('Lost connection to parent window');
-          clearInterval(connectionCheckInterval);
-          window.close();
-        }
-      }, 1000);
-      
       try {
-        if (window.opener) {
-          // Set flag to indicate we've sent a response
-          window.sentResponse = true;
-          
-          // Send message with retry logic
-          let messageSent = false;
-          let retryCount = 0;
-          const maxRetries = 3;
-          
-          const sendMessage = () => {
-            try {
-              const message = {
-                type: 'oauth-${type}',
-                provider: '${safeProvider}',
-                message: '${safeMessage}'
-              };
-              console.log('Sending message to parent window:', JSON.stringify(message));
+        // Set flag to indicate we've sent a response
+        window.sentResponse = true;
+        
+        // Send message with retry logic
+        let messageSent = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        const sendMessage = () => {
+          try {
+            // Try postMessage if opener is available
+            if (window.opener) {
+              console.log('Sending message to parent window:', JSON.stringify(responseData));
               console.log('Target origin:', '${baseUrl}');
               
-              window.opener.postMessage(message, '${baseUrl}');
-              messageSent = true;
+              window.opener.postMessage(responseData, '${baseUrl}');
               console.log('Message sent successfully to parent window');
-            } catch (e) {
-              console.error('Failed to send message:', e);
-              retryCount++;
-              if (retryCount < maxRetries) {
-                setTimeout(sendMessage, 500);
-              }
             }
-          };
-          
-          sendMessage();
-          
-          // Ensure window closes after a delay, regardless of message success
-          setTimeout(() => {
-            if (!messageSent) {
-              console.warn('Closing window without confirming message was sent');
+            messageSent = true;
+          } catch (e) {
+            console.error('Failed to send message:', e);
+            retryCount++;
+            if (retryCount < maxRetries) {
+              setTimeout(sendMessage, 500);
             }
-            window.close();
-          }, 2000);
-        } else {
-           document.getElementById('message').innerText = 'Something went wrong. Please close this window and try again.';
-        }
+          }
+        };
+        
+        sendMessage();
+        
+        // Ensure window closes after a delay, regardless of message success
+        setTimeout(() => {
+          if (!messageSent) {
+            console.warn('Closing window without confirming message was sent');
+          }
+          window.close();
+        }, 2000);
       } catch (e) {
         console.error('Error in popup window:', e);
         // Force close the window even if an error occurs

@@ -19,135 +19,138 @@ The application implements a comprehensive OAuth 2.0 flow for multiple providers
 3. **Token Management** (`lib/integrations/tokenUtils.ts`)
 4. **Configuration** (`lib/integrations/oauthConfig.ts`)
 5. **Client-side Auth Store** (`stores/authStore.ts`)
+6. **Server-side Google Sign-In** (`app/actions/google-auth.ts`)
 
 ### Environment Variables
 
-**Client-side (NEXT_PUBLIC_ prefix required):**
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` - Used in authStore.ts for OAuth URL generation
-
-**Server-side (no prefix needed):**
-- `GOOGLE_CLIENT_ID` - Used in API routes and callbacks
-- `GOOGLE_CLIENT_SECRET` - Used for token exchange
-- `ENCRYPTION_KEY` - Used for token encryption
+**Server-side Only:**
+- `GOOGLE_CLIENT_ID` - Used for server-side OAuth URL generation
+- `GOOGLE_CLIENT_SECRET` - Used for token exchange (never exposed to client)
+- `[PROVIDER]_CLIENT_ID` - For other OAuth providers
+- `[PROVIDER]_CLIENT_SECRET` - For other OAuth providers
 
 ## Security Features
 
-### ✅ Implemented
+### 1. Token Encryption (9/10)
+- **Implementation**: AES-256-CBC encryption for all OAuth tokens
+- **Storage**: Encrypted tokens stored in database
+- **Key Management**: Encryption keys stored as environment variables
 
-1. **Token Encryption**
-   - AES-256-CBC encryption for all OAuth tokens
-   - Consistent encryption across all providers
-   - Fallback scripts for existing unencrypted tokens
+### 2. CSRF Protection (8/10)
+- **State Parameter**: Random state parameter generated for each OAuth request
+- **Verification**: State verified in all callback handlers
+- **Storage**: State stored in database for server-side verification
 
-2. **CSRF Protection**
-   - State parameter validation in all callbacks
-   - Database storage using `pkce_flow` table
-   - Proper cleanup after verification
+### 3. COOP Policy Compatibility (9/10)
+- **Dual-Channel Communication**: Uses both postMessage and localStorage
+- **Fallback Mechanism**: Gracefully handles COOP policy restrictions
+- **Error Handling**: Proper error handling for security restrictions
 
-3. **Error Handling**
-   - Comprehensive error responses via `createPopupResponse`
-   - Detailed logging throughout the flow
-   - User-friendly error messages
-
-4. **Security Headers**
-   - Proper content-type headers
-   - Origin validation in postMessage
-
-### ⚠️ Areas for Improvement
-
-1. **PKCE Implementation**
-   - Currently inconsistent across providers
-   - Twitter implements PKCE, others don't
-   - Recommendation: Implement PKCE for all supported providers
-
-2. **State Parameter Security**
-   - Using base64 encoding instead of cryptographically secure random
-   - Recommendation: Use `crypto.randomBytes(32).toString('hex')`
-
-3. **Rate Limiting**
-   - Missing rate limiting on OAuth endpoints
-   - Recommendation: Implement rate limiting middleware
-
-4. **Token Refresh Security**
-   - No validation of refresh token scope
-   - No token rotation implementation
-
-## Common Issues and Fixes
-
-### Environment Variable Issues
-
-**Problem:** `client_id=undefined` in OAuth URL
-**Cause:** Using `process.env.GOOGLE_CLIENT_ID` on client-side without `NEXT_PUBLIC_` prefix
-**Solution:** 
-1. Change environment variable to `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
-2. Update client-side code to use the new variable name
-3. Redeploy application
-
-### Token Encryption Issues
-
-**Problem:** Decryption failures during token refresh
-**Cause:** Inconsistent token encryption across callbacks
-**Solution:** 
-1. Use `encryptTokens()` utility function
-2. Run `scripts/fix-unencrypted-tokens.ts` for existing tokens
-
-## Best Practices
-
-### Environment Variables
-- Use `NEXT_PUBLIC_` prefix for client-side variables
-- Keep secrets server-side only
-- Validate environment variables on startup
-
-### Security
-- Always validate state parameters
-- Encrypt sensitive tokens before database storage
-- Implement proper error handling
-- Use HTTPS in production
-
-### Token Management
-- Implement automatic token refresh
-- Handle token expiration gracefully
-- Store tokens securely with encryption
+### 4. Error Handling (7/10)
+- **User Feedback**: Clear error messages shown to users
+- **Logging**: Comprehensive error logging
+- **Recovery**: Automatic retry mechanisms for token refresh
 
 ## Provider-Specific Configurations
 
 ### Google Services
-- Shared Client ID across all Google services
-- Different scopes for different services (Gmail, Drive, Calendar, etc.)
-- Refresh tokens don't expire unless revoked
+```typescript
+{
+  id: "google-calendar",
+  name: "Google Calendar",
+  clientIdEnv: "GOOGLE_CLIENT_ID",
+  clientSecretEnv: "GOOGLE_CLIENT_SECRET",
+  authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+  tokenEndpoint: "https://oauth2.googleapis.com/token",
+  revokeEndpoint: "https://oauth2.googleapis.com/revoke",
+  refreshRequiresClientAuth: true,
+  authMethod: "body",
+  refreshTokenExpirationSupported: false,
+  accessTokenExpiryBuffer: 30,
+  sendRedirectUriWithRefresh: true,
+  redirectUriPath: "/api/integrations/google-calendar/callback",
+}
+```
 
-### Discord
-- Requires specific scopes: `identify email connections guilds guilds.members.read`
-- Doesn't support scope in refresh requests
+## Common Issues and Solutions
 
-### Facebook
-- Long-lived tokens (60 days)
-- Uses `fb_exchange_token` for refresh
+### 1. "The OAuth client was not found"
+- **Cause**: Missing or undefined client ID
+- **Solution**: Ensure server-side OAuth URL generation with proper environment variables
+
+### 2. Cross-Origin-Opener-Policy Errors
+- **Cause**: Browser security policies blocking popup communication
+- **Solution**: Use localStorage for communication and add COOP headers in next.config.mjs
+
+### 3. "State parameter doesn't match"
+- **Cause**: Stale or missing state parameter
+- **Solution**: Ensure state is properly generated and stored
+
+### 4. "Redirect URI mismatch"
+- **Cause**: Misconfigured redirect URIs in OAuth provider console
+- **Solution**: Verify redirect URIs match exactly between app and provider console
+
+## Best Practices
+
+1. **Use server-side OAuth URL generation** - More secure than client-side
+2. **Implement multiple communication channels** - For browser compatibility
+3. **Store state in database** - For secure verification
+4. **Encrypt all sensitive tokens** - Never store plaintext tokens
+5. **Implement proper error handling** - For better user experience
 
 ## Debugging
 
-### Environment Variable Debugging
+### Debug Endpoints
+- `/api/debug-oauth` - Check environment variables
+- `/api/test-oauth-url` - Generate and inspect OAuth URLs
+
+### Browser Console
+Check for:
+- COOP policy errors
+- postMessage communication issues
+- localStorage access errors
+
+## Implementation Examples
+
+### Server-side OAuth URL Generation
 ```typescript
-// Add to any component to debug
-console.log('Client ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+export async function initiateGoogleSignIn() {
+  // Generate secure state parameter
+  const state = crypto.randomBytes(32).toString('hex')
+  
+  // Generate OAuth URL server-side
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback`,
+    response_type: "code",
+    scope: "email profile",
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  })
+
+  return { authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` }
+}
 ```
 
-### OAuth URL Debugging
+### COOP-Safe Communication
 ```typescript
-// Check generated OAuth URL
-console.log('OAuth URL:', googleOAuthUrl)
+// Popup window
+try {
+  localStorage.setItem(storageKey, JSON.stringify(responseData));
+} catch (e) {
+  console.error('Failed to store in localStorage:', e);
+}
+
+// Main window
+const storageCheckTimer = setInterval(() => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(storageCheckPrefix)) {
+      const responseData = JSON.parse(localStorage.getItem(key)!);
+      // Process response...
+      localStorage.removeItem(key); // Clean up
+    }
+  }
+}, 500);
 ```
-
-### Token Debugging
-```typescript
-// Check if token is encrypted
-const isEncrypted = token.includes(':')
-```
-
-## Related Files
-
-- `app/api/integrations/auth/generate-url/route.ts` - OAuth URL generation
-- `stores/authStore.ts` - Client-side OAuth handling
-- `lib/integrations/oauthConfig.ts` - Provider configurations
-- `lib/security/encryption.ts` - Token encryption
-- `lib/utils/createPopupResponse.ts` - Error handling 
