@@ -75,6 +75,20 @@ export function FieldRenderer({
     (field.dynamic && dynamicOptions?.[field.name]) || 
     [];
 
+  // Debug logging for Discord guildId field
+  if (field.name === 'guildId' && field.dynamic) {
+    console.log('🔍 FieldRenderer for guildId:', {
+      fieldName: field.name,
+      fieldType: field.type,
+      isDynamic: field.dynamic,
+      fieldOptions: field.options,
+      dynamicOptions: JSON.stringify(dynamicOptions?.[field.name]),
+      finalFieldOptions: JSON.stringify(fieldOptions),
+      currentValue: value,
+      loadingDynamic
+    });
+  }
+
   // Drag and drop functionality
   const { handleDragOver, handleDrop } = useDragDrop({
     onVariableDrop: (variable: string) => {
@@ -128,7 +142,9 @@ export function FieldRenderer({
 
   // Handles select field changes
   const handleSelectChange = (newValue: string) => {
-    onChange(newValue);
+    console.log('🔍 handleSelectChange called:', { fieldName: field.name, newValue, currentValue: value });
+    // Ensure we're passing a properly formatted value
+    onChange(newValue === "" ? null : newValue);
   };
 
   // Handles checkbox changes
@@ -211,12 +227,55 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
         
+        // Debug Discord server selection specifically
+        if (field.name === 'guildId') {
+          console.log('🔍 Rendering Discord server dropdown with options:', JSON.stringify(selectOptions));
+        }
+        
+        // Force load options if they're empty (especially for Discord servers)
+        if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'guildId' && !loadingDynamic) {
+          console.log('🔍 No options available for guildId, triggering load...');
+          // Use setTimeout to avoid potential render issues
+          setTimeout(() => {
+            onDynamicLoad(field.name);
+          }, 100);
+        }
+        
         // Show loading state or fallback message for dynamic fields
         if (field.dynamic && loadingDynamic && selectOptions.length === 0) {
           return (
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
               Loading options...
+            </div>
+          );
+        }
+        
+        // Special case for Discord servers when no options are available
+        if (field.name === 'guildId' && selectOptions.length === 0 && !loadingDynamic) {
+          return (
+            <div className="text-sm text-slate-500">
+              <p>No Discord servers found. You may need to:</p>
+              <ul className="list-disc list-inside mt-1 ml-2">
+                <li>Reconnect your Discord account</li>
+                <li>Ensure the bot is added to your servers</li>
+                <li>Check server permissions</li>
+                <li>Check browser console for errors</li>
+              </ul>
+              <Button 
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  console.log('🔍 Manually triggering Discord guilds load');
+                  if (onDynamicLoad) {
+                    // Single call is enough, we've added rate limiting in useDynamicOptions
+                    onDynamicLoad(field.name);
+                  }
+                }}
+              >
+                Retry Loading Servers
+              </Button>
             </div>
           );
         }
@@ -248,21 +307,54 @@ export function FieldRenderer({
         }
         
         return (
-          <Select value={value || ""} onValueChange={handleSelectChange}>
-            <SelectTrigger className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}>
+          <Select 
+            value={value || ""} 
+            onValueChange={handleSelectChange}
+            onOpenChange={(open) => {
+              // Only try to load options when dropdown opens and we're not already loading
+              if (open && field.dynamic && onDynamicLoad && !loadingDynamic) {
+                // For Discord, only try to load if we have no options
+                if (field.name === 'guildId' && fieldOptions.length === 0) {
+                  console.log('🔍 Discord server dropdown opened with no options, loading data');
+                  onDynamicLoad(field.name);
+                } else if (field.name !== 'guildId' && selectOptions.length === 0) {
+                  console.log('🔍 Dropdown opened, loading dynamic options for:', field.name);
+                  onDynamicLoad(field.name);
+                }
+              }
+            }}
+          >
+            <SelectTrigger 
+              className={cn(
+                "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+                error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+              )}
+              onClick={() => {
+                // Handle trigger click if needed
+              }}
+            >
               <SelectValue placeholder={field.placeholder || "Select an option..."} />
             </SelectTrigger>
             <SelectContent>
-              {selectOptions
-                .filter((option: any) => option.value || option.id) // Filter out options with empty values
-                .map((option: any, index: number) => (
-                  <SelectItem key={`${option.value || option.id}-${index}`} value={option.value || option.id}>
-                    {option.label || option.name || option.value || option.id}
-                  </SelectItem>
-                ))}
+              {selectOptions.length > 0 ? (
+                selectOptions
+                  .filter((option: any) => option && (option.value || option.id)) // Ensure option is valid
+                  .map((option: any, index: number) => {
+                    const optionValue = option.value || option.id;
+                    const optionLabel = option.label || option.name || option.value || option.id;
+                    
+                    return (
+                      <SelectItem 
+                        key={`${optionValue}-${index}`} 
+                        value={optionValue}
+                      >
+                        {optionLabel}
+                      </SelectItem>
+                    );
+                  })
+              ) : (
+                <div className="p-2 text-sm text-slate-500 text-center">No options available</div>
+              )}
             </SelectContent>
           </Select>
         );

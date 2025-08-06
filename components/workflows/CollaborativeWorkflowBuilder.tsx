@@ -180,6 +180,7 @@ const useWorkflowBuilderState = () => {
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isRebuildingAfterSave, setIsRebuildingAfterSave] = useState(false)
+  const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -1929,6 +1930,26 @@ const useWorkflowBuilderState = () => {
     }
   }, [workflowId, handleConfigureNode, handleDeleteNodeWithConfirmation, handleChangeTrigger, handleAddActionClick, setNodes, setEdges, setCurrentWorkflow]);
 
+  // Check for Discord integration when workflow is loaded
+  useEffect(() => {
+    if (currentWorkflow && nodes.length > 0) {
+      // Check if any nodes require Discord integration
+      const hasDiscordNodes = nodes.some(node => 
+        node.data?.providerId === 'discord' || 
+        node.data?.type?.includes('discord')
+      );
+      
+      if (hasDiscordNodes) {
+        const connectedProviders = getConnectedProviders();
+        const hasDiscordIntegration = connectedProviders.includes('discord');
+        if (!hasDiscordIntegration) {
+          console.log('🔍 Discord nodes detected but no Discord integration found');
+          // For now, just log the issue - we'll handle the UI later
+        }
+      }
+    }
+  }, [currentWorkflow, nodes, getConnectedProviders]);
+
   return {
     nodes,
     edges,
@@ -2001,7 +2022,9 @@ const useWorkflowBuilderState = () => {
     setPendingNavigation,
     handleNavigation,
     handleSaveAndNavigate,
-    handleNavigateWithoutSaving
+    handleNavigateWithoutSaving,
+    showDiscordConnectionModal,
+    setShowDiscordConnectionModal
   }
 }
 
@@ -2026,7 +2049,7 @@ function WorkflowBuilderContent() {
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, testMode, setTestMode, handleResetLoadingStates,
     sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
-    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, forceReloadWorkflow
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -2818,6 +2841,30 @@ function WorkflowBuilderContent() {
               ) : (
                 'Save & Continue'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discord Connection Modal */}
+      <Dialog open={showDiscordConnectionModal} onOpenChange={setShowDiscordConnectionModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Discord Connection Required</DialogTitle>
+            <DialogDescription>
+              It seems like your workflow requires Discord integration, but no Discord integration has been found.
+              Please add a Discord integration to your workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDiscordConnectionModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              // Add Discord integration setup logic here
+              setShowDiscordConnectionModal(false);
+            }}>
+              Add Discord Integration
             </Button>
           </DialogFooter>
         </DialogContent>

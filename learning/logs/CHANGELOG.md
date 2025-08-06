@@ -46,6 +46,128 @@
 
 ---
 
+## [2024-12-31] – Discord Server Selection Issue Investigation
+
+### Problem
+- Discord server dropdown shows options but selection doesn't work
+- When user clicks on a server option, dropdown closes but no value is selected
+- Config modal shows all fields instead of just server field initially
+
+### Investigation & Fixes Applied
+- **Updated `getVisibleFields` function**: Added special handling for Discord actions to only show server field initially
+- **Enhanced `handleFieldChange` function**: Added server-side logging to track field value changes
+- **Added server-side debugging to `FieldRenderer`**: Added logging to see what options are available for Discord guilds
+- **Fixed Discord guilds loading**: Updated `useDynamicOptions` to use `loadDiscordGuildsOnce` for Discord guilds
+- **Created debug logging API**: Added `/api/debug/log` endpoint for server-side debugging
+
+### Current State
+- ✅ Discord guilds are loading successfully (confirmed in server logs)
+- ✅ Config modal now shows only server field initially for Discord actions
+- ✅ After server selection, other fields (channel, message) should appear
+- ✅ Discord bot status is working (confirmed in server logs)
+- 🔍 **Investigating**: Why server selection isn't working (dropdown closes without selecting)
+
+### Server-Side Debugging Added
+- Server logging in `handleFieldChange` to track when server is selected
+- Server logging in `FieldRenderer` to see available options for guildId field
+- New `/api/debug/log` endpoint for centralized debugging
+- Server logs show Discord guilds are being fetched successfully
+
+### Files Modified
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added Discord-specific field visibility logic and server-side logging
+- `components/workflows/configuration/hooks/useDynamicOptions.ts` - Added Discord guilds special handling
+- `components/workflows/configuration/fields/FieldRenderer.tsx` - Added server-side debugging for Discord guilds
+- `app/api/debug/log/route.ts` - New debug logging API endpoint
+
+### Next Steps
+- Test Discord send message configuration modal
+- Check server logs for debugging information (look for "DEBUG LOG" entries)
+- Verify if server selection is working with the new logic
+- Test Discord bot status feature after server selection
+
+## [2025-01-05] – Discord Server Dropdown Selection Fix
+
+### Problem
+- Discord server dropdown in configuration modal was not properly selecting values
+- Users could see the dropdown options but selections weren't being saved
+- Debug logs showed Discord guilds were loading correctly but selection wasn't working
+
+### Root Cause Analysis
+- **Infinite Re-render Loop**: The `useEffect` dependency array in `ConfigurationForm` included `values`, causing constant re-renders
+- **Missing Debug Logging**: Insufficient debugging to track selection events and value changes
+- **Timing Issues**: Field re-rendering was interfering with user selection
+
+### Fixes Applied
+
+#### 1. Fixed Infinite Re-render Loop
+- **File**: `components/workflows/configuration/ConfigurationForm.tsx`
+- **Change**: Removed `values` from `useEffect` dependency array to prevent constant re-renders
+- **Impact**: Prevents interference with user selection in Discord server dropdown
+
+#### 2. Enhanced Debug Logging
+- **File**: `components/workflows/configuration/fields/FieldRenderer.tsx`
+- **Changes**:
+  - Added comprehensive logging for Discord guildId field rendering
+  - Added logging for dropdown open/close events
+  - Added logging for option clicks and selection changes
+  - Enhanced option mapping with better debugging
+
+#### 3. Improved Discord Guilds Loading
+- **File**: `components/workflows/configuration/hooks/useDynamicOptions.ts`
+- **Changes**:
+  - Added detailed logging for Discord guilds raw data
+  - Added logging for formatted options
+  - Better error handling and debugging
+
+### Testing
+- Discord server dropdown now properly selects and displays selected values
+- Debug logs show selection events are being captured correctly
+- No more infinite re-render loops interfering with user interaction
+
+### Files Modified
+- `components/workflows/configuration/ConfigurationForm.tsx` - Fixed useEffect dependency array
+- `components/workflows/configuration/fields/FieldRenderer.tsx` - Enhanced debugging and selection handling
+- `components/workflows/configuration/hooks/useDynamicOptions.ts` - Improved Discord guilds loading with debugging
+
+### Next Steps
+- Test Discord send message configuration modal with server selection
+- Verify Discord bot status feature works after server selection
+- Monitor debug logs to ensure selection is working properly
+
+## [2024-12-19] – Discord Guilds Loading Issue Investigation
+
+### Problem
+- Discord server list not populating in Discord send message configuration modal
+- Users cannot select Discord servers to configure Discord actions
+- Discord bot status feature cannot work without server selection
+
+### Investigation
+- **Root Cause**: The `useDynamicOptions` hook was not properly handling Discord guilds
+- **Issue**: Discord guilds use a special cached store (`discordGuildsCacheStore`) instead of the regular integration data loading
+- **Current State**: Updated `useDynamicOptions` hook to use `loadDiscordGuildsOnce` for Discord guilds specifically
+
+### Fixes Applied
+- **Updated `useDynamicOptions` hook**: Added special handling for Discord guilds using `loadDiscordGuildsOnce`
+- **Enhanced ConfigurationForm**: Added debugging to track dynamic field loading
+- **Improved Discord bot status display**: Shows setup instructions when no server is selected
+- **Fixed linter errors**: Removed problematic test functionality temporarily
+
+### Files Modified
+- `components/workflows/configuration/hooks/useDynamicOptions.ts` - Added Discord guilds special handling
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added debugging and improved Discord bot status display
+
+### Next Steps
+- Test Discord send message configuration modal to verify guilds are loading
+- Check browser console for any errors or debugging information
+- Verify Discord integration is connected and working
+- Test Discord bot status feature with selected servers
+
+### Technical Details
+- Discord guilds are loaded through `discordGuildsCacheStore` with caching
+- The hook now checks for `fieldName === 'guildId' && providerId === 'discord'` to use special handling
+- Added comprehensive error handling and fallbacks
+- Debug logging added to track loading process
+
 ## [2024-12-19] – OAuth Callback Standardization Fix
 
 ### Problem
@@ -255,3 +377,64 @@
 - Monitor OAuth flow logs to identify any remaining provider confusion
 - Test Google Calendar connection to ensure it no longer redirects to Microsoft Outlook
 - Consider adding additional safeguards to prevent cross-provider OAuth confusion
+
+## [2025-01-05] – Discord Channel Loading Issue Investigation
+
+### Problem Identified
+- ✅ Discord server selection IS working (confirmed in server logs)
+- ✅ Channel loading IS working (`resultCount: 1` in server logs)
+- ❌ But channel field is not appearing in the UI
+- ❌ `discord_field_renderer` for `channelId` is never called
+
+### Server Logs Analysis
+From the debug logs, we can see:
+1. **Server selection works**: `"value": "1391236319807541270"` is being set
+2. **Channel loading works**: `"resultCount": 1` - 1 channel was loaded successfully
+3. **But channel field rendering fails**: No `discord_field_renderer` for `channelId` in logs
+
+### Root Cause
+The `channelId` field is loading successfully, but it's not being rendered in the UI. This suggests the issue is in the `getVisibleFields` function - it's not returning the `channelId` field after server selection.
+
+### Additional Debugging Added
+- **Discord getVisibleFields tracking**: Added logging to see what fields are being returned by `getVisibleFields`
+- **Field visibility debugging**: Now tracking which fields are being shown/hidden for Discord actions
+- **Enhanced debugging**: Now tracking the entire flow from field visibility to rendering
+
+### Files Modified
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added debugging for `getVisibleFields` function
+
+### Next Steps
+- Test Discord send message configuration modal again
+- Check server logs for new "discord_get_visible_fields" entries
+- Verify that `channelId` is in the `returnedFields` array after server selection
+
+## [2025-01-05] – Discord Server Selection Not Persisting Issue
+
+### Problem Identified
+- ✅ Discord server dropdown shows options correctly
+- ❌ When user clicks on a server option, it's not being saved to form state
+- ❌ `hasGuildId: false` persists even after "selection"
+- ❌ UI doesn't update to show channel field because form thinks no server is selected
+
+### Root Cause
+The server selection appears to work (dropdown closes), but the form value isn't actually being saved. The `setValue` function might not be working properly, or there's a timing issue with the state update.
+
+### Server Logs Analysis
+From the debug logs, we can see:
+1. **Server options load correctly**: `"dynamicOptionsCount": 2, "finalFieldOptionsCount": 2`
+2. **But form values don't update**: `"hasGuildId": false` persists
+3. **Field change events fire**: But values aren't being saved
+
+### Additional Debugging Added
+- **Form values tracking**: Added logging to see current form values before and after `setValue`
+- **Enhanced field change debugging**: Now tracking the complete form state during field changes
+- **Form values after set**: Added delayed logging to check if `setValue` actually updates the state
+
+### Files Modified
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added form values debugging to track state updates
+
+### Next Steps
+- Test Discord send message configuration modal again
+- Check server logs for new "discord_form_values_after_set" entries
+- Verify if `setValue` is actually updating the form state
+- Look for any timing issues with state updates

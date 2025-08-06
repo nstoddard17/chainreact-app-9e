@@ -11,7 +11,7 @@ import { NodeComponent } from '@/lib/workflows/availableNodes';
 const formReducer = (state: FormState, action: FormAction): FormState => {
   switch (action.type) {
     case 'SET_VALUE':
-      return {
+      const newState = {
         ...state,
         values: {
           ...state.values,
@@ -23,6 +23,15 @@ const formReducer = (state: FormState, action: FormAction): FormState => {
         },
         isDirty: true
       };
+      
+      console.log('🔍 formReducer SET_VALUE:', { 
+        field: action.field, 
+        value: action.value, 
+        oldValues: state.values, 
+        newValues: newState.values 
+      });
+      
+      return newState;
 
     case 'SET_VALUES':
       return {
@@ -110,13 +119,25 @@ export const useFormState = (
 
   // Set a single form value
   const setValue = useCallback((field: string, value: any) => {
+    console.log('🔍 useFormState setValue called:', { field, value, currentState: state.values });
     dispatch({ type: 'SET_VALUE', field, value });
-  }, []);
+    
+    // Clear error for this field if it exists
+    if (state.errors[field]) {
+      dispatch({ type: 'CLEAR_ERROR', field });
+    }
+  }, [state.errors]);
 
   // Set multiple form values at once
   const setValues = useCallback((values: Record<string, any>) => {
+    console.log('🔍 useFormState setValues called:', { values, currentState: state.values });
     dispatch({ type: 'SET_VALUES', values });
-  }, []);
+    
+    // Clear all errors when setting new values
+    Object.keys(state.errors).forEach(field => {
+      dispatch({ type: 'CLEAR_ERROR', field });
+    });
+  }, [state.errors]);
 
   // Reset the form to initial values or new values
   const resetForm = useCallback((values: Record<string, any> = initialValues) => {
