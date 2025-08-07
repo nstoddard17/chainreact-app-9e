@@ -32,6 +32,24 @@ export async function POST(
       timestamp: new Date().toISOString()
     })
 
+    // Handle Slack URL verification
+    if (provider === 'slack' && payload.type === 'url_verification') {
+      console.log('🔐 Handling Slack URL verification challenge')
+      return new NextResponse(payload.challenge, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' }
+      })
+    }
+
+    // Handle Microsoft Graph validation (plain text response)
+    if (provider === 'microsoft' && headers['content-type']?.includes('text/plain')) {
+      console.log('🔐 Handling Microsoft Graph validation')
+      return new NextResponse(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' }
+      })
+    }
+
     // Find all active workflows that have triggers for this provider
     const workflows = await findWorkflowsForProvider(provider)
     
@@ -78,12 +96,40 @@ export async function GET(
 ) {
   const { provider } = await params
   
+  const providerInfo = {
+    slack: {
+      description: "Slack webhook endpoint. Supports URL verification and event processing.",
+      setup: "Add this URL to your Slack app's Event Subscriptions with events: message.channels, message.groups, message.im, message.mpim",
+      verification: "Responds to url_verification challenges automatically"
+    },
+    microsoft: {
+      description: "Microsoft Graph webhook endpoint. Supports validation and subscription notifications.",
+      setup: "Use this URL for Microsoft Graph subscription notificationUrl",
+      verification: "Responds to validation requests automatically"
+    },
+    gmail: {
+      description: "Gmail webhook endpoint for Google Workspace notifications.",
+      setup: "Configure in Google Cloud Console Pub/Sub subscriptions"
+    },
+    discord: {
+      description: "Discord webhook endpoint for bot events and interactions.",
+      setup: "Configure in Discord Developer Portal webhook settings"
+    }
+  }
+  
+  const info = providerInfo[provider as keyof typeof providerInfo] || {
+    description: `Webhook endpoint for ${provider} workflows.`,
+    setup: "Configure this URL in your provider's webhook settings"
+  }
+  
   return NextResponse.json({
     message: "Workflow webhook endpoint active",
     provider: provider,
-    methods: ["POST"],
+    methods: ["POST", "GET"],
     timestamp: new Date().toISOString(),
-    description: `Webhook endpoint for ${provider} workflows. Send POST requests to trigger workflows.`
+    description: info.description,
+    setup: info.setup,
+    verification: info.verification || "Standard webhook processing"
   })
 }
 
