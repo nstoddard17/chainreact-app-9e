@@ -546,7 +546,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       {
         name: "finalResult",
         label: "Final Result",
-        type: "object",
+        type: "string",
         description: "The final result from the last step"
       },
       {
@@ -632,6 +632,62 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       attachments: "An array of attachment objects, if any.",
       receivedAt: "The timestamp when the email was received.",
     },
+    outputSchema: [
+      {
+        name: "id",
+        label: "Email ID",
+        type: "string",
+        description: "The unique ID of the email"
+      },
+      {
+        name: "threadId",
+        label: "Thread ID",
+        type: "string",
+        description: "The ID of the email thread"
+      },
+      {
+        name: "from",
+        label: "From",
+        type: "string",
+        description: "The sender's email address"
+      },
+      {
+        name: "to",
+        label: "To",
+        type: "string",
+        description: "The recipient's email address"
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "string",
+        description: "The subject of the email"
+      },
+      {
+        name: "body",
+        label: "Body",
+        type: "string",
+        description: "The full body of the email"
+      },
+      {
+        name: "snippet",
+        label: "Snippet",
+        type: "string",
+        description: "A short snippet of the email's content"
+      },
+      {
+        name: "attachments",
+        label: "Attachments",
+        type: "array",
+        description: "An array of attachment objects"
+      },
+      {
+        name: "receivedAt",
+        label: "Received At",
+        type: "string",
+        description: "The timestamp when the email was received"
+      }
+    ],
   },
   {
     type: "gmail_trigger_new_attachment",
@@ -645,6 +701,68 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
       { name: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
     ],
+    outputSchema: [
+      {
+        name: "id",
+        label: "Email ID",
+        type: "string",
+        description: "The unique ID of the email"
+      },
+      {
+        name: "threadId",
+        label: "Thread ID",
+        type: "string",
+        description: "The ID of the email thread"
+      },
+      {
+        name: "from",
+        label: "From",
+        type: "string",
+        description: "The sender's email address"
+      },
+      {
+        name: "to",
+        label: "To",
+        type: "string",
+        description: "The recipient's email address"
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "string",
+        description: "The subject of the email"
+      },
+      {
+        name: "attachment",
+        label: "Attachment",
+        type: "object",
+        description: "The attachment object"
+      },
+      {
+        name: "attachmentName",
+        label: "Attachment Name",
+        type: "string",
+        description: "The name of the attachment"
+      },
+      {
+        name: "attachmentType",
+        label: "Attachment Type",
+        type: "string",
+        description: "The MIME type of the attachment"
+      },
+      {
+        name: "attachmentSize",
+        label: "Attachment Size",
+        type: "number",
+        description: "The size of the attachment in bytes"
+      },
+      {
+        name: "receivedAt",
+        label: "Received At",
+        type: "string",
+        description: "The timestamp when the email was received"
+      }
+    ],
   },
   {
     type: "gmail_trigger_new_label",
@@ -655,6 +773,32 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: true,
     producesOutput: true,
+    outputSchema: [
+      {
+        name: "labelId",
+        label: "Label ID",
+        type: "string",
+        description: "The unique ID of the label"
+      },
+      {
+        name: "name",
+        label: "Label Name",
+        type: "string",
+        description: "The name of the label"
+      },
+      {
+        name: "type",
+        label: "Label Type",
+        type: "string",
+        description: "The type of the label (system or user)"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "The timestamp when the label was created"
+      }
+    ],
   },
   {
     type: GMAIL_SEND_EMAIL_METADATA.key,

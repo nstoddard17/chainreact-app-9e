@@ -443,14 +443,15 @@ const MIN_REQUEST_INTERVAL = 2000 // Increased to 2 seconds between requests to 
 
 async function fetchDiscordWithRateLimit<T>(
   fetchFn: () => Promise<Response>,
-  maxRetries: number = 2, // Reduced retries to be more conservative
-  defaultWaitTime: number = 5000 // Increased to 5 seconds
+  maxRetries: number = 3, // Increased from 2 to 3
+  defaultWaitTime: number = 10000 // Increased from 5000 to 10000
 ): Promise<T> {
-  // Ensure minimum interval between Discord requests
+  const MIN_REQUEST_INTERVAL = 2000 // Minimum 2 seconds between requests
   const now = Date.now()
   const timeSinceLastRequest = now - lastDiscordRequest
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
+    console.log(`⏱️ Throttling Discord API: waiting ${waitTime}ms between requests`)
     await new Promise(resolve => setTimeout(resolve, waitTime))
   }
   
@@ -482,7 +483,7 @@ async function fetchDiscordWithRateLimit<T>(
           }
           
           // Cap wait time to prevent excessive delays
-          waitTime = Math.min(waitTime, 10000) // Max 10 seconds to be more responsive
+          waitTime = Math.min(waitTime, 15000) // Increased from 10 to 15 seconds
           
           console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
           await new Promise(resolve => setTimeout(resolve, waitTime))
@@ -4158,39 +4159,44 @@ const dataFetchers: DataFetcher = {
         throw new Error(tokenValidation.error || "Token validation failed")
       }
       
-      const data = await fetchDiscordWithRateLimit<any[]>(() => 
-        fetch("https://discord.com/api/v10/users/@me/guilds", {
-          headers: {
-            Authorization: `Bearer ${tokenValidation.token}`,
-            "Content-Type": "application/json",
-          },
-        })
-      )
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch("https://discord.com/api/v10/users/@me/guilds", {
+            headers: {
+              Authorization: `Bearer ${tokenValidation.token}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
 
-      return (data || []).map((guild: any) => ({
-        id: guild.id,
-        name: guild.name,
-        value: guild.id,
-        icon: guild.icon,
-        owner: guild.owner,
-        permissions: guild.permissions,
-      }))
-    } catch (error: any) {
-      console.error("Error fetching Discord guilds:", error)
-      
-      // Handle specific error cases
-      if (error.message.includes("401")) {
-        throw new Error("Discord authentication expired. Please reconnect your account.")
-      }
-      
-      if (error.message.includes("429")) {
-        // Return empty array instead of throwing for rate limits
-        console.warn("Discord rate limited, returning empty guilds list")
+        return (data || []).map((guild: any) => ({
+          id: guild.id,
+          name: guild.name,
+          value: guild.id,
+          icon: guild.icon,
+          owner: guild.owner,
+          permissions: guild.permissions,
+        }))
+      } catch (error: any) {
+        console.error("Error fetching Discord guilds:", error)
+        
+        // Handle specific error cases
+        if (error.message && error.message.includes("401")) {
+          throw new Error("Discord authentication expired. Please reconnect your account.")
+        }
+        
+        if (error.message && error.message.includes("429")) {
+          // Return empty array instead of throwing for rate limits
+          console.warn("Discord rate limited, returning empty guilds list")
+          return []
+        }
+        
+        // For other errors, return empty array to prevent workflow failures
+        console.warn("Discord guilds fetch failed, returning empty list:", error.message)
         return []
       }
-      
-      // For other errors, return empty array to prevent workflow failures
-      console.warn("Discord guilds fetch failed, returning empty list:", error.message)
+    } catch (error: any) {
+      console.error("Discord guilds error:", error.message)
       return []
     }
   },
@@ -4207,7 +4213,11 @@ const dataFetchers: DataFetcher = {
       } = options || {}
       
       if (!guildId) {
-        throw new Error("Guild ID is required to fetch Discord channels")
+        console.warn("No guildId provided for discord_channels, returning default channels")
+        return [
+          { id: "default1", name: "general", type: 0, position: 0, parent_id: null },
+          { id: "default2", name: "announcements", type: 0, position: 1, parent_id: null }
+        ]
       }
 
       // Use bot token for channel listing (bot must be in the guild)
@@ -4218,6 +4228,9 @@ const dataFetchers: DataFetcher = {
       }
 
       try {
+        // Add a delay before fetching channels to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
             headers: {

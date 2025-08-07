@@ -573,6 +573,99 @@ export async function generateWorkflow(request: WorkflowGenerationRequest): Prom
   }
 }
 
+// New function to extract all available variables from workflow nodes
+export function extractWorkflowVariables(workflowData: any): Record<string, any> {
+  if (!workflowData || !workflowData.nodes || !Array.isArray(workflowData.nodes)) {
+    return {};
+  }
+  
+  const variables: Record<string, any> = {};
+  
+  // Process each node to extract its output schema
+  workflowData.nodes.forEach((node: any) => {
+    if (!node.data) return;
+    
+    const nodeTitle = node.data.title || node.data.type || 'Unknown';
+    const nodeId = node.id;
+    
+    // Extract output schema if available
+    const outputSchema = node.data.outputSchema || [];
+    if (outputSchema.length > 0) {
+      const nodeVariables: Record<string, any> = {};
+      
+      outputSchema.forEach((output: any) => {
+        const outputName = output.name;
+        const outputLabel = output.label || output.name;
+        const outputType = output.type || 'string';
+        const outputDescription = output.description || '';
+        
+        nodeVariables[outputName] = {
+          type: outputType,
+          label: outputLabel,
+          description: outputDescription,
+          variableRef: `{{${nodeTitle}.${outputLabel}}}`
+        };
+      });
+      
+      variables[nodeTitle] = {
+        id: nodeId,
+        outputs: nodeVariables
+      };
+    }
+  });
+  
+  return variables;
+}
+
+// Enhanced function to suggest node configuration with variable awareness
+export async function suggestNodeConfigurationWithVariables(nodeType: string, workflowData: any) {
+  try {
+    // Extract all available variables from the workflow
+    const variables = extractWorkflowVariables(workflowData);
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: `
+            Suggest configuration for a ${nodeType} node in a workflow.
+            
+            Available variables from previous nodes:
+            ${JSON.stringify(variables, null, 2)}
+            
+            Workflow context:
+            ${JSON.stringify(workflowData, null, 2)}
+            
+            Provide a JSON configuration object that would be appropriate for this node type.
+            Use the available variables where appropriate, using the exact variableRef format shown.
+            
+            Return only valid JSON.
+          `,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      throw new Error("No response from OpenAI");
+    }
+
+    return {
+      success: true,
+      config: JSON.parse(response),
+    }
+  } catch (error) {
+    console.error("Error suggesting node configuration with variables:", error);
+    return {
+      success: false,
+      error: "Failed to suggest configuration"
+    }
+  }
+}
+
 export async function chatWithAI(message: string, context?: any): Promise<string> {
   try {
     const completion = await openai.chat.completions.create({

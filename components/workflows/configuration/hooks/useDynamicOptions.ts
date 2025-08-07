@@ -3,7 +3,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore'
-import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore'
 import { DynamicOptionsState } from '../utils/types';
 
 interface UseDynamicOptionsProps {
@@ -33,7 +32,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   const activeLoadingTasks = useRef<Set<string>>(new Set());
   const requestCache = useRef<Map<string, Promise<any>>>(new Map());
   const fetchingDependentData = useRef<Set<string>>(new Set());
-  const discordLoadAttemptTimestamp = useRef<number>(0);
   
   // Cache key generator
   const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
@@ -55,25 +53,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 
     console.log(`🔍 loadOptions called for ${fieldName} in ${nodeType}/${providerId}`, { dependsOn, dependsOnValue });
 
-    // If it's Discord guilds, check if we've attempted a load recently (rate limit protection)
-    if (fieldName === 'guildId' && providerId === 'discord') {
-      const now = Date.now();
-      // If we've tried loading Discord guilds in the last 5 seconds, don't try again
-      if (now - discordLoadAttemptTimestamp.current < 5000) {
-        console.log('⏱️ Skipping Discord guilds load - rate limit protection (5s cooldown)');
-        return;
-      }
-      discordLoadAttemptTimestamp.current = now;
-    }
-
-    // Prevent concurrent requests for the same field
-    const cacheKey = generateCacheKey(fieldName, { [dependsOn || '']: dependsOnValue });
-    if (activeLoadingTasks.current.has(cacheKey)) {
-      console.log(`🔄 Already loading options for ${fieldName}, skipping duplicate request`);
-      return;
-    }
-    
-    activeLoadingTasks.current.add(cacheKey);
     setLoading(true);
 
     try {
@@ -81,26 +60,16 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       if (fieldName === 'guildId' && providerId === 'discord') {
         console.log('🔍 Special handling for Discord guilds activated');
         try {
-          // If we already have options, show them while we're loading new ones
-          const existingOptions = dynamicOptions[fieldName];
-          if (existingOptions && existingOptions.length > 0) {
-            console.log('🔍 Using existing Discord guild options while refreshing');
-            // We're keeping the existing options, just refreshing in background
-          }
-          
           console.log('🔍 Calling loadDiscordGuildsOnce with forceRefresh=true...');
           const guilds = await loadDiscordGuildsOnce(true);
           console.log('🔍 Discord guilds loaded:', JSON.stringify(guilds));
           
           if (!guilds || guilds.length === 0) {
             console.warn('⚠️ No Discord guilds found or guilds array is empty');
-            // Only clear options if we don't already have any
-            if (!existingOptions || existingOptions.length === 0) {
-              setDynamicOptions(prev => ({
-                ...prev,
-                [fieldName]: []
-              }));
-            }
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
             return;
           }
           
@@ -121,62 +90,13 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
           });
         } catch (error) {
           console.error('❌ Error loading Discord guilds:', error);
-          // Don't clear existing options on error
-        } finally {
-          setLoading(false);
-          activeLoadingTasks.current.delete(cacheKey);
-        }
-        return;
-      }
-      
-      // Special handling for Discord channels
-      if (fieldName === 'channelId' && providerId === 'discord' && dependsOn === 'guildId' && dependsOnValue) {
-        console.log('🔍 Special handling for Discord channels activated');
-        try {
-          // If we already have options, show them while we're loading new ones
-          const existingOptions = dynamicOptions[fieldName];
-          if (existingOptions && existingOptions.length > 0) {
-            console.log('🔍 Using existing Discord channel options while refreshing');
-            // We're keeping the existing options, just refreshing in background
-          }
-          
-          console.log(`🔍 Loading Discord channels for guild ${dependsOnValue}...`);
-          const channels = await loadDiscordChannelsOnce(dependsOnValue, false);
-          console.log('🔍 Discord channels loaded:', channels.length);
-          
-          if (!channels || channels.length === 0) {
-            console.warn('⚠️ No Discord channels found or channels array is empty');
-            // Only clear options if we don't already have any
-            if (!existingOptions || existingOptions.length === 0) {
-              setDynamicOptions(prev => ({
-                ...prev,
-                [fieldName]: []
-              }));
-            }
-            setLoading(false);
-            activeLoadingTasks.current.delete(cacheKey);
-            return;
-          }
-          
-          const formattedOptions = channels.map(channel => ({
-            value: channel.id,
-            label: channel.name,
+          // Set empty options
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
           }));
-          
-          // Set options immediately 
-          setDynamicOptions(prev => {
-            const updatedOptions = {
-              ...prev,
-              [fieldName]: formattedOptions
-            };
-            return updatedOptions;
-          });
-        } catch (error) {
-          console.error('❌ Error loading Discord channels:', error);
-          // Don't clear existing options on error
         } finally {
           setLoading(false);
-          activeLoadingTasks.current.delete(cacheKey);
         }
         return;
       }
@@ -186,7 +106,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       if (!integration) {
         console.warn(`No integration found for provider: ${providerId}`);
         setLoading(false);
-        activeLoadingTasks.current.delete(cacheKey);
         return;
       }
 
@@ -195,7 +114,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       if (!resourceType) {
         console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
         setLoading(false);
-        activeLoadingTasks.current.delete(cacheKey);
         return;
       }
 
@@ -213,12 +131,14 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       
     } catch (error) {
       console.error(`Failed to load options for ${fieldName}:`, error);
-      // Don't clear existing options on error
+      setDynamicOptions(prev => ({
+        ...prev,
+        [fieldName]: []
+      }));
     } finally {
       setLoading(false);
-      activeLoadingTasks.current.delete(cacheKey);
     }
-  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, generateCacheKey, dynamicOptions]);
+  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
   
   // Clear all options when node type changes
   useEffect(() => {
@@ -226,7 +146,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     fetchingDependentData.current.clear();
     activeLoadingTasks.current.clear();
     requestCache.current.clear();
-    discordLoadAttemptTimestamp.current = 0;
     setLoading(false);
   }, [nodeType, providerId]);
   
