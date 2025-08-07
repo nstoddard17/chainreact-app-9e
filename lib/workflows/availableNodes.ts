@@ -2529,6 +2529,74 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
+    outputSchema: [
+      {
+        name: "messageId",
+        label: "Message ID",
+        type: "string",
+        description: "The unique ID of the message"
+      },
+      {
+        name: "content",
+        label: "Message Content",
+        type: "string",
+        description: "The content of the message"
+      },
+      {
+        name: "authorId",
+        label: "Author ID",
+        type: "string",
+        description: "The ID of the message author"
+      },
+      {
+        name: "authorName",
+        label: "Author Name",
+        type: "string",
+        description: "The username of the message author"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the message was posted"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the message was posted"
+      },
+      {
+        name: "guildId",
+        label: "Server ID",
+        type: "string",
+        description: "The ID of the Discord server"
+      },
+      {
+        name: "guildName",
+        label: "Server Name",
+        type: "string",
+        description: "The name of the Discord server"
+      },
+      {
+        name: "timestamp",
+        label: "Message Time",
+        type: "string",
+        description: "When the message was posted (ISO 8601 format)"
+      },
+      {
+        name: "attachments",
+        label: "Attachments",
+        type: "array",
+        description: "Array of file attachments in the message"
+      },
+      {
+        name: "mentions",
+        label: "Mentions",
+        type: "array",
+        description: "Array of user mentions in the message"
+      }
+    ]
   },
   {
     type: "discord_action_send_message",
@@ -4306,6 +4374,62 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [{ name: "command", label: "Command", type: "text" }],
+    outputSchema: [
+      {
+        name: "commandName",
+        label: "Command Name",
+        type: "string",
+        description: "The name of the slash command that was used"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who used the command"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The username of the user who used the command"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the command was used"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the command was used"
+      },
+      {
+        name: "guildId",
+        label: "Server ID",
+        type: "string",
+        description: "The ID of the Discord server"
+      },
+      {
+        name: "guildName",
+        label: "Server Name",
+        type: "string",
+        description: "The name of the Discord server"
+      },
+      {
+        name: "options",
+        label: "Command Options",
+        type: "object",
+        description: "The options/parameters passed with the command"
+      },
+      {
+        name: "timestamp",
+        label: "Command Time",
+        type: "string",
+        description: "When the command was used (ISO 8601 format)"
+      }
+    ]
   },
 
 
