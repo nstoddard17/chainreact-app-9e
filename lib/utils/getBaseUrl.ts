@@ -58,3 +58,91 @@ export function getApiBaseUrl(): string {
   // Fallback to production URL
   return "https://chainreact.app"
 }
+
+/**
+ * Get webhook-specific base URL that supports environment-specific configuration
+ * This function prioritizes environment variables and provides clear fallbacks
+ */
+export function getWebhookBaseUrl(): string {
+  // Priority 1: Explicit webhook base URL for testing
+  if (process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL) {
+    return process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
+  }
+  
+  // Priority 2: General base URL
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL
+  }
+  
+  // Priority 3: App URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  
+  // Priority 4: Environment detection
+  if (typeof window !== 'undefined') {
+    // Client-side detection
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${window.location.protocol}//${window.location.host}`
+    }
+    // Check for ngrok URLs
+    if (hostname.includes('ngrok.io') || hostname.includes('ngrok-free.app')) {
+      return `${window.location.protocol}//${window.location.host}`
+    }
+  } else {
+    // Server-side detection
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:3000'
+    }
+  }
+  
+  // Fallback to production URL
+  return "https://chainreact.app"
+}
+
+/**
+ * Get environment-specific webhook URL for a provider
+ */
+export function getWebhookUrl(provider: string): string {
+  const baseUrl = getWebhookBaseUrl()
+  return `${baseUrl}/api/workflow/${provider}`
+}
+
+/**
+ * Detect if we're running in a development environment
+ */
+export function isDevelopment(): boolean {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('ngrok')
+  }
+  return process.env.NODE_ENV === 'development'
+}
+
+/**
+ * Detect if we're running in production
+ */
+export function isProduction(): boolean {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    return hostname === 'chainreact.app' || hostname.includes('vercel.app')
+  }
+  return process.env.NODE_ENV === 'production'
+}
+
+/**
+ * Get environment name for display purposes
+ */
+export function getEnvironmentName(): string {
+  if (isDevelopment()) {
+    if (typeof window !== 'undefined' && window.location.hostname.includes('ngrok')) {
+      return 'Development (ngrok)'
+    }
+    return 'Development (localhost)'
+  }
+  if (isProduction()) {
+    return 'Production'
+  }
+  return 'Unknown'
+}

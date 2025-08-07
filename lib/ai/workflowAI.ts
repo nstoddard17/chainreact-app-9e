@@ -608,7 +608,6 @@ export function extractWorkflowVariables(workflowData: any): Record<string, any>
       });
       
       variables[nodeTitle] = {
-        id: nodeId,
         outputs: nodeVariables
       };
     }

@@ -81,7 +81,7 @@ async function showWebhookUrls() {
           if (triggerNodes.length > 0) {
             console.log(`  • ${workflow.name}:`)
             triggerNodes.forEach(trigger => {
-              const webhookUrl = `${supabaseUrl.replace('.supabase.co', '.supabase.co')}/api/webhooks/${workflow.id}`
+              const webhookUrl = `${supabaseUrl.replace('.supabase.co', '.supabase.co')}/api/workflow/${trigger.data.providerId || 'webhook'}`
               console.log(`    - ${trigger.data.label || trigger.type}: ${webhookUrl}`)
             })
             console.log('')

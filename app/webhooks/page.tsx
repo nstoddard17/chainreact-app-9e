@@ -1,8 +1,9 @@
 import AppLayout from "@/components/layout/AppLayout"
 import CustomWebhookManager from "@/components/webhooks/CustomWebhookManager"
 import IntegrationWebhookManager from "@/components/webhooks/IntegrationWebhookManager"
+import WebhookConfigurationPanel from "@/components/webhooks/WebhookConfigurationPanel"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Webhook, Zap } from "lucide-react"
+import { Webhook, Zap, Settings } from "lucide-react"
 
 export default function WebhooksPage() {
   return (
@@ -10,8 +11,12 @@ export default function WebhooksPage() {
       title="Webhooks" 
       subtitle="Manage custom webhooks and integration webhook URLs"
     >
-      <Tabs defaultValue="custom" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="configuration" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="configuration" className="flex items-center space-x-2">
+            <Settings className="w-4 h-4" />
+            <span>Configuration</span>
+          </TabsTrigger>
           <TabsTrigger value="custom" className="flex items-center space-x-2">
             <Webhook className="w-4 h-4" />
             <span>Custom Webhooks</span>
@@ -21,6 +26,10 @@ export default function WebhooksPage() {
             <span>Integration Webhooks</span>
           </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="configuration" className="mt-6">
+          <WebhookConfigurationPanel />
+        </TabsContent>
         
         <TabsContent value="custom" className="mt-6">
           <CustomWebhookManager />

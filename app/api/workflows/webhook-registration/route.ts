@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Get webhook URL for this workflow
-    const webhookUrl = webhookManager.getWebhookUrl(workflowId)
+    const webhookUrl = webhookManager.getWebhookUrl(workflowId, providerId)
 
     // Register the webhook
     const webhookId = await webhookManager.registerWebhook({
