@@ -1,7 +1,7 @@
 import { generateObject, generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
-import { generateWorkflow } from "./workflowAI"
+import { generateWorkflow, extractWorkflowVariables, suggestNodeConfigurationWithVariables } from "./workflowAI"
 
 const WorkflowNodeSchema = z.object({
   id: z.string(),
@@ -62,6 +62,12 @@ export async function generateWorkflowFromPrompt(prompt: string) {
 
 export async function suggestNodeConfiguration(nodeType: string, context: any) {
   try {
+    // Use the enhanced function with variable awareness if context includes workflowData
+    if (context && context.workflowData) {
+      return await suggestNodeConfigurationWithVariables(nodeType, context.workflowData);
+    }
+    
+    // Fall back to the original implementation if no workflow data
     const { text } = await generateText({
       model: openai("gpt-4o"),
       prompt: `

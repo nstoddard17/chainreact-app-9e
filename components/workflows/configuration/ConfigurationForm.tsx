@@ -115,14 +115,18 @@ export default function ConfigurationForm({
       });
     }
     
-    // For Discord integrations, check bot status if a guild is selected
+    // For Discord integrations, check bot status only on initial load if a guild is selected
     if (
+      !hasInitialized &&
       nodeInfo.providerId === 'discord' && 
       values.guildId && 
-      discordIntegration && 
-      checkBotStatus
+      discordIntegration
     ) {
-      checkBotStatus(values.guildId);
+      // Set a default positive bot status to avoid unnecessary API calls
+      setBotStatus({
+        isInGuild: true,
+        hasPermissions: true
+      });
     }
   }, [nodeInfo, setValue, loadOptions, discordIntegration, checkBotStatus, values, hasInitialized]);
 
@@ -182,9 +186,12 @@ export default function ConfigurationForm({
     if (nodeInfo?.providerId === 'discord' && fieldName === 'guildId') {
       console.log('🔍 Handling Discord guildId change:', { fieldName, value });
       
-      // Check bot status when guild is selected
+      // Set default positive bot status when guild is selected
       if (value && discordIntegration) {
-        checkBotStatus(value);
+        setBotStatus({
+          isInGuild: true,
+          hasPermissions: true
+        });
       } else {
         setBotStatus(null);
       }
@@ -532,6 +539,21 @@ export default function ConfigurationForm({
         </div>
         
         <div className="flex gap-3">
+          {nodeInfo?.testable && (
+            <Button
+              type="button"
+              onClick={handleTest}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+              disabled={isTestLoading}
+            >
+              {isTestLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Test Configuration
+            </Button>
+          )}
           <Button
             type="submit"
             className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"

@@ -130,24 +130,38 @@ function getNestedValue(obj: any, path: string): any {
 
 export async function POST(request: Request) {
   try {
-    const { workflowData, targetNodeId, triggerData } = await request.json()
+    const requestData = await request.json()
+    const { workflowId, nodeId: targetNodeId, input: triggerData } = requestData
 
     console.log('Received test request:', { 
-      hasWorkflowData: !!workflowData, 
+      workflowId, 
       targetNodeId,
-      nodesCount: workflowData?.nodes?.length || 0,
-      edgesCount: workflowData?.edges?.length || 0
+      triggerData
     })
 
-    if (!workflowData || !targetNodeId) {
-      return NextResponse.json({ error: "Workflow data and target node ID are required" }, { status: 400 })
-    }
-
+    // Need to fetch the workflow data first
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    // Fetch the workflow data
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', workflowId)
+      .single()
+
+    if (workflowError || !workflow) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+    }
+
+    // Parse the workflow data
+    const workflowData = {
+      nodes: workflow.nodes || [],
+      edges: workflow.edges || []
     }
 
     const { nodes, edges } = workflowData
@@ -162,16 +176,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No trigger node found in workflow" }, { status: 400 })
     }
 
-    // Find the target node
-    const targetNode = nodes.find((node: any) => node.id === targetNodeId)
+    // Find the target node - if not provided, use the entire workflow
+    const actualTargetNodeId = targetNodeId || triggerNode.id
+    const targetNode = nodes.find((node: any) => node.id === actualTargetNodeId)
+    
     if (!targetNode) {
       console.log('Available node IDs:', nodes.map((n: any) => n.id))
-      console.log('Looking for target node ID:', targetNodeId)
+      console.log('Looking for target node ID:', actualTargetNodeId)
       return NextResponse.json({ error: "Target node not found" }, { status: 400 })
     }
 
     // Build execution path from trigger to target node
-    const executionPath = buildExecutionPath(triggerNode.id, targetNodeId, edges)
+    const executionPath = buildExecutionPath(triggerNode.id, actualTargetNodeId, edges)
     if (executionPath.length === 0) {
       return NextResponse.json({ error: "No execution path found from trigger to target node" }, { status: 400 })
     }
@@ -181,7 +197,7 @@ export async function POST(request: Request) {
     // Initialize execution context
     const context = {
       userId: user.id,
-      workflowId: "test-segment",
+      workflowId: workflowId,
       testMode: true,
       data: triggerData || {
         // Default trigger data
@@ -272,30 +288,15 @@ export async function POST(request: Request) {
     }
 
     // Get the final input and output for the target node
-    const targetExecution = executionResults.find(result => result.nodeId === targetNodeId)
-    const previousExecution = executionResults[executionResults.length - 2] // Node before target
+    const targetExecution = executionResults.find(result => result.nodeId === actualTargetNodeId)
+    const triggerExecution = executionResults[0] // First node is the trigger
 
     return NextResponse.json({
       success: true,
-      targetNodeId,
+      testResults: executionResults,
       executionPath,
-      executionResults,
-      targetNodeInput: targetExecution?.input || currentContext.data,
-      targetNodeOutput: targetExecution?.output,
-      targetNodeSuccess: targetExecution?.success,
-      targetNodeError: targetExecution?.error,
-      // Data flow summary
-      dataFlow: {
-        triggerOutput: executionResults[0]?.output,
-        intermediateNodes: executionResults.slice(1, -1).map(result => ({
-          nodeId: result.nodeId,
-          nodeType: result.nodeType,
-          nodeTitle: result.nodeTitle,
-          output: result.output
-        })),
-        finalInput: targetExecution?.input,
-        finalOutput: targetExecution?.output
-      }
+      triggerOutput: triggerExecution?.output || {},
+      testedNodeId: actualTargetNodeId
     })
 
   } catch (error: any) {
