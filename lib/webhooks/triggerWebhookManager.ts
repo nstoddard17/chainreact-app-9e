@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 interface WebhookTriggerConfig {
   workflowId: string
@@ -546,8 +547,11 @@ export class TriggerWebhookManager {
   /**
    * Get webhook URL for a workflow
    */
-  getWebhookUrl(workflowId: string): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  getWebhookUrl(workflowId: string, providerId?: string): string {
+    const baseUrl = getWebhookBaseUrl()
+    if (providerId) {
+      return `${baseUrl}/api/workflow/${providerId}`
+    }
     return `${baseUrl}/api/webhooks/${workflowId}`
   }
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 interface IntegrationWebhookConfig {
   providerId: string
@@ -39,7 +40,7 @@ export class IntegrationWebhookService {
    * Get webhook configurations for a specific provider
    */
   private getWebhookConfigsForProvider(providerId: string, userId: string, integrationConfig: Record<string, any>): IntegrationWebhookConfig[] {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = getWebhookBaseUrl()
     
     // Get all trigger types for this provider from the available nodes
     const triggerTypes = this.getTriggerTypesForProvider(providerId)
@@ -52,7 +53,7 @@ export class IntegrationWebhookService {
     return [{
       providerId,
       triggerTypes,
-      webhookUrl: `${baseUrl}/api/integration-webhooks/${providerId}`,
+      webhookUrl: `${baseUrl}/api/workflow/${providerId}`,
       userId,
       integrationConfig
     }]

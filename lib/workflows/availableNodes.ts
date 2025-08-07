@@ -4587,6 +4587,123 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
 
+  // Google Docs Triggers
+  {
+    type: "google_docs_trigger_new_document",
+    title: "New Document Created",
+    description: "Triggers when a new Google Document is created",
+    icon: FileText,
+    providerId: "google-docs",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+    outputSchema: [
+      {
+        name: "documentId",
+        label: "Document ID",
+        type: "string",
+        description: "The unique ID of the created document"
+      },
+      {
+        name: "title",
+        label: "Document Title",
+        type: "string",
+        description: "The title of the created document"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "The timestamp when the document was created"
+      },
+      {
+        name: "createdBy",
+        label: "Created By",
+        type: "string",
+        description: "The email address of the user who created the document"
+      },
+      {
+        name: "documentUrl",
+        label: "Document URL",
+        type: "string",
+        description: "The URL to access the document"
+      },
+      {
+        name: "folderId",
+        label: "Folder ID",
+        type: "string",
+        description: "The ID of the folder where the document was created (if any)"
+      }
+    ]
+  },
+  {
+    type: "google_docs_trigger_document_updated",
+    title: "Document Updated",
+    description: "Triggers when a Google Document is modified or updated",
+    icon: Edit,
+    providerId: "google-docs",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+    configSchema: [
+      {
+        name: "documentId",
+        label: "Document",
+        type: "select",
+        dynamic: "google-docs_recent_documents",
+        required: false,
+        placeholder: "Select a specific document to monitor (optional)",
+        description: "Leave empty to monitor all documents, or select a specific document"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "documentId",
+        label: "Document ID",
+        type: "string",
+        description: "The unique ID of the updated document"
+      },
+      {
+        name: "title",
+        label: "Document Title",
+        type: "string",
+        description: "The title of the updated document"
+      },
+      {
+        name: "updatedAt",
+        label: "Updated At",
+        type: "string",
+        description: "The timestamp when the document was last updated"
+      },
+      {
+        name: "updatedBy",
+        label: "Updated By",
+        type: "string",
+        description: "The email address of the user who made the update"
+      },
+      {
+        name: "documentUrl",
+        label: "Document URL",
+        type: "string",
+        description: "The URL to access the document"
+      },
+      {
+        name: "changeType",
+        label: "Change Type",
+        type: "string",
+        description: "The type of change made (content, metadata, etc.)"
+      },
+      {
+        name: "contentLength",
+        label: "Content Length",
+        type: "number",
+        description: "The length of the document content after the update"
+      }
+    ]
+  },
+
   // GitHub Actions
   {
     type: "github_action_create_repository",
