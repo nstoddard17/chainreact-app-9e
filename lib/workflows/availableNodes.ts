@@ -4912,6 +4912,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "shopify",
     category: "eCommerce",
     isTrigger: true,
+    comingSoon: true,
   },
   {
     type: "shopify_action_create_product",
@@ -5021,6 +5022,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "kit",
     category: "Email",
     isTrigger: true,
+    comingSoon: true,
   },
   {
     type: "kit_trigger_tag_added",
@@ -5030,6 +5032,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "kit",
     category: "Email",
     isTrigger: true,
+    comingSoon: true,
   },
 
   // OneDrive
@@ -5063,6 +5066,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "box",
     category: "Storage",
     isTrigger: true,
+    comingSoon: true,
     requiredScopes: ["root_readwrite"],
   },
   {
@@ -5073,6 +5077,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "box",
     category: "Storage",
     isTrigger: true,
+    comingSoon: true,
     requiredScopes: ["root_readwrite"],
   },
 
@@ -5085,6 +5090,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "paypal",
     category: "Finance",
     isTrigger: true,
+    comingSoon: true,
   },
   {
     type: "paypal_trigger_new_subscription",
@@ -5094,6 +5100,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "paypal",
     category: "Finance",
     isTrigger: true,
+    comingSoon: true,
   },
 
   // GitLab
@@ -5746,6 +5753,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
+    comingSoon: true,
   },
   {
     type: "manychat_action_send_message",
@@ -5776,6 +5784,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
+    comingSoon: true,
   },
   {
     type: "beehiiv_action_add_subscriber",
@@ -7681,6 +7690,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "blackbaud",
     category: "Other",
     isTrigger: true,
+    comingSoon: true,
     configSchema: [
       { name: "constituentType", label: "Constituent Type", type: "select", required: false, options: [
         { value: "Individual", label: "Individual" },
@@ -7696,6 +7706,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "blackbaud",
     category: "Other",
     isTrigger: true,
+    comingSoon: true,
     configSchema: [
       { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum donation amount" },
       { name: "fundId", label: "Fund ID", type: "text", required: false, placeholder: "Specific fund ID to monitor" }
@@ -7747,6 +7758,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gumroad",
     category: "E-commerce",
     isTrigger: true,
+    comingSoon: true,
     configSchema: [
       { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" },
       { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum sale amount" }
@@ -7760,6 +7772,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gumroad",
     category: "E-commerce",
     isTrigger: true,
+    comingSoon: true,
     configSchema: [
       { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" }
     ]

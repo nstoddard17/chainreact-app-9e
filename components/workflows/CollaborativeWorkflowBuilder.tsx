@@ -2340,7 +2340,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-1/3 border-r border-border flex-1">
+            <ScrollArea className="w-1/3 border-r border-border h-[70vh]">
               <div className="pt-2 pb-8 px-3">
               {filteredIntegrations.length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -2376,8 +2376,8 @@ function WorkflowBuilderContent() {
               )}
               </div>
             </ScrollArea>
-            <div className="w-2/3 h-full">
-              <ScrollArea className="flex-1">
+            <div className="w-2/3 h-[70vh]">
+              <ScrollArea className="h-full">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
