@@ -2678,6 +2678,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "github",
     category: "Development",
     isTrigger: true,
+    comingSoon: true,
   },
   {
     type: "github_action_create_issue",
@@ -5104,6 +5105,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Development",
     isTrigger: true,
     requiredScopes: ["read_repository"],
+    comingSoon: true,
   },
   {
     type: "gitlab_trigger_new_issue",
@@ -5114,6 +5116,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Development",
     isTrigger: true,
     requiredScopes: ["read_repository"],
+    comingSoon: true,
   },
 
   // Microsoft Outlook
