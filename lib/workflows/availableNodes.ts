@@ -2759,15 +2759,618 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
   },
 
-  // HubSpot
+  // HubSpot Triggers
   {
-    type: "hubspot_trigger_new_contact",
-    title: "New Contact",
-    description: "Triggers when a new contact is created",
-    icon: Briefcase,
+    type: "hubspot_trigger_contact_created",
+    title: "Contact Created",
+    description: "Triggers when a new contact is created in HubSpot",
+    icon: UserPlus,
     providerId: "hubspot",
     category: "CRM",
     isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "contactId",
+        label: "Contact ID",
+        type: "string",
+        description: "The unique ID of the created contact"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The contact's email address"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "The contact's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "The contact's last name"
+      },
+      {
+        name: "company",
+        label: "Company",
+        type: "string",
+        description: "The contact's company name"
+      },
+      {
+        name: "phone",
+        label: "Phone",
+        type: "string",
+        description: "The contact's phone number"
+      },
+      {
+        name: "hubspotOwner",
+        label: "HubSpot Owner",
+        type: "string",
+        description: "The contact's assigned owner in HubSpot"
+      },
+      {
+        name: "leadStatus",
+        label: "Lead Status",
+        type: "string",
+        description: "The contact's current lead status"
+      },
+      {
+        name: "createDate",
+        label: "Create Date",
+        type: "string",
+        description: "When the contact was created"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_contact_updated",
+    title: "Contact Property Updated",
+    description: "Triggers when a contact property is updated in HubSpot",
+    icon: User,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "text",
+        required: false,
+        placeholder: "e.g., email, phone, hs_lead_status",
+        description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "contactId",
+        label: "Contact ID",
+        type: "string",
+        description: "The unique ID of the updated contact"
+      },
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "string",
+        description: "The name of the property that was updated"
+      },
+      {
+        name: "propertyValue",
+        label: "New Property Value",
+        type: "string",
+        description: "The new value of the updated property"
+      },
+      {
+        name: "previousValue",
+        label: "Previous Value",
+        type: "string",
+        description: "The previous value of the property"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The contact's email address"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "The contact's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "The contact's last name"
+      },
+      {
+        name: "changeSource",
+        label: "Change Source",
+        type: "string",
+        description: "What triggered the property change (e.g., CRM_UI, API, WORKFLOW)"
+      },
+      {
+        name: "timestamp",
+        label: "Update Timestamp",
+        type: "string",
+        description: "When the property was updated"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_contact_deleted",
+    title: "Contact Deleted",
+    description: "Triggers when a contact is deleted from HubSpot",
+    icon: UserMinus,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "contactId",
+        label: "Contact ID",
+        type: "string",
+        description: "The unique ID of the deleted contact"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The contact's email address (if available)"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "The contact's first name (if available)"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "The contact's last name (if available)"
+      },
+      {
+        name: "deleteTimestamp",
+        label: "Delete Timestamp",
+        type: "string",
+        description: "When the contact was deleted"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_company_created",
+    title: "Company Created",
+    description: "Triggers when a new company is created in HubSpot",
+    icon: Building,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "companyId",
+        label: "Company ID",
+        type: "string",
+        description: "The unique ID of the created company"
+      },
+      {
+        name: "name",
+        label: "Company Name",
+        type: "string",
+        description: "The company's name"
+      },
+      {
+        name: "domain",
+        label: "Website Domain",
+        type: "string",
+        description: "The company's website domain"
+      },
+      {
+        name: "industry",
+        label: "Industry",
+        type: "string",
+        description: "The company's industry"
+      },
+      {
+        name: "city",
+        label: "City",
+        type: "string",
+        description: "The company's city"
+      },
+      {
+        name: "state",
+        label: "State",
+        type: "string",
+        description: "The company's state/region"
+      },
+      {
+        name: "country",
+        label: "Country",
+        type: "string",
+        description: "The company's country"
+      },
+      {
+        name: "phone",
+        label: "Phone",
+        type: "string",
+        description: "The company's phone number"
+      },
+      {
+        name: "hubspotOwner",
+        label: "HubSpot Owner",
+        type: "string",
+        description: "The company's assigned owner in HubSpot"
+      },
+      {
+        name: "createDate",
+        label: "Create Date",
+        type: "string",
+        description: "When the company was created"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_company_updated",
+    title: "Company Property Updated",
+    description: "Triggers when a company property is updated in HubSpot",
+    icon: Building,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "text",
+        required: false,
+        placeholder: "e.g., name, domain, industry",
+        description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "companyId",
+        label: "Company ID",
+        type: "string",
+        description: "The unique ID of the updated company"
+      },
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "string",
+        description: "The name of the property that was updated"
+      },
+      {
+        name: "propertyValue",
+        label: "New Property Value",
+        type: "string",
+        description: "The new value of the updated property"
+      },
+      {
+        name: "previousValue",
+        label: "Previous Value",
+        type: "string",
+        description: "The previous value of the property"
+      },
+      {
+        name: "name",
+        label: "Company Name",
+        type: "string",
+        description: "The company's name"
+      },
+      {
+        name: "domain",
+        label: "Website Domain",
+        type: "string",
+        description: "The company's website domain"
+      },
+      {
+        name: "changeSource",
+        label: "Change Source",
+        type: "string",
+        description: "What triggered the property change (e.g., CRM_UI, API, WORKFLOW)"
+      },
+      {
+        name: "timestamp",
+        label: "Update Timestamp",
+        type: "string",
+        description: "When the property was updated"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_company_deleted",
+    title: "Company Deleted",
+    description: "Triggers when a company is deleted from HubSpot",
+    icon: Building,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "companyId",
+        label: "Company ID",
+        type: "string",
+        description: "The unique ID of the deleted company"
+      },
+      {
+        name: "name",
+        label: "Company Name",
+        type: "string",
+        description: "The company's name (if available)"
+      },
+      {
+        name: "domain",
+        label: "Website Domain",
+        type: "string",
+        description: "The company's website domain (if available)"
+      },
+      {
+        name: "deleteTimestamp",
+        label: "Delete Timestamp",
+        type: "string",
+        description: "When the company was deleted"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_deal_created",
+    title: "Deal Created",
+    description: "Triggers when a new deal is created in HubSpot",
+    icon: DollarSign,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "dealId",
+        label: "Deal ID",
+        type: "string",
+        description: "The unique ID of the created deal"
+      },
+      {
+        name: "dealName",
+        label: "Deal Name",
+        type: "string",
+        description: "The name/title of the deal"
+      },
+      {
+        name: "amount",
+        label: "Deal Amount",
+        type: "string",
+        description: "The monetary value of the deal"
+      },
+      {
+        name: "dealStage",
+        label: "Deal Stage",
+        type: "string",
+        description: "The current stage of the deal"
+      },
+      {
+        name: "pipeline",
+        label: "Pipeline",
+        type: "string",
+        description: "The sales pipeline the deal belongs to"
+      },
+      {
+        name: "closeDate",
+        label: "Close Date",
+        type: "string",
+        description: "The expected close date of the deal"
+      },
+      {
+        name: "dealType",
+        label: "Deal Type",
+        type: "string",
+        description: "The type of deal (e.g., New Business, Existing Business)"
+      },
+      {
+        name: "hubspotOwner",
+        label: "HubSpot Owner",
+        type: "string",
+        description: "The deal's assigned owner in HubSpot"
+      },
+      {
+        name: "priority",
+        label: "Priority",
+        type: "string",
+        description: "The priority level of the deal"
+      },
+      {
+        name: "createDate",
+        label: "Create Date",
+        type: "string",
+        description: "When the deal was created"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_deal_updated",
+    title: "Deal Property Updated",
+    description: "Triggers when a deal property is updated in HubSpot",
+    icon: DollarSign,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "text",
+        required: false,
+        placeholder: "e.g., dealstage, amount, closedate",
+        description: "Optional: Filter to a specific property. Leave empty to listen to all property updates."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "dealId",
+        label: "Deal ID",
+        type: "string",
+        description: "The unique ID of the updated deal"
+      },
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "string",
+        description: "The name of the property that was updated"
+      },
+      {
+        name: "propertyValue",
+        label: "New Property Value",
+        type: "string",
+        description: "The new value of the updated property"
+      },
+      {
+        name: "previousValue",
+        label: "Previous Value",
+        type: "string",
+        description: "The previous value of the property"
+      },
+      {
+        name: "dealName",
+        label: "Deal Name",
+        type: "string",
+        description: "The name/title of the deal"
+      },
+      {
+        name: "amount",
+        label: "Deal Amount",
+        type: "string",
+        description: "The monetary value of the deal"
+      },
+      {
+        name: "dealStage",
+        label: "Deal Stage",
+        type: "string",
+        description: "The current stage of the deal"
+      },
+      {
+        name: "changeSource",
+        label: "Change Source",
+        type: "string",
+        description: "What triggered the property change (e.g., CRM_UI, API, WORKFLOW)"
+      },
+      {
+        name: "timestamp",
+        label: "Update Timestamp",
+        type: "string",
+        description: "When the property was updated"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
+  },
+  {
+    type: "hubspot_trigger_deal_deleted",
+    title: "Deal Deleted",
+    description: "Triggers when a deal is deleted from HubSpot",
+    icon: DollarSign,
+    providerId: "hubspot",
+    category: "CRM",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "dealId",
+        label: "Deal ID",
+        type: "string",
+        description: "The unique ID of the deleted deal"
+      },
+      {
+        name: "dealName",
+        label: "Deal Name",
+        type: "string",
+        description: "The name/title of the deal (if available)"
+      },
+      {
+        name: "amount",
+        label: "Deal Amount",
+        type: "string",
+        description: "The monetary value of the deal (if available)"
+      },
+      {
+        name: "dealStage",
+        label: "Deal Stage",
+        type: "string",
+        description: "The stage the deal was in when deleted (if available)"
+      },
+      {
+        name: "deleteTimestamp",
+        label: "Delete Timestamp",
+        type: "string",
+        description: "When the deal was deleted"
+      },
+      {
+        name: "portalId",
+        label: "Portal ID",
+        type: "string",
+        description: "The HubSpot portal ID"
+      }
+    ],
   },
   {
     type: "hubspot_action_create_contact",
