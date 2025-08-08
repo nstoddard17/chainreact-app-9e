@@ -2058,6 +2058,18 @@ function WorkflowBuilderContent() {
     return ['all', ...Array.from(new Set(allCategories))];
   }, [availableIntegrations]);
 
+  // Integrations to mark as coming soon in the trigger selection modal
+  const comingSoonIntegrations = useMemo(() => new Set([
+    'beehiiv',
+    'manychat',
+    'gumroad',
+    'kit',
+    'paypal',
+    'shopify',
+    'blackbaud',
+    'box',
+  ]), []);
+
   const handleOpenTriggerDialog = () => {
     setSelectedIntegration(null);
     setSelectedTrigger(null);
@@ -2369,7 +2381,12 @@ function WorkflowBuilderContent() {
                     onClick={() => setSelectedIntegration(integration)}
                   >
                     {renderLogo(integration.id, integration.name)}
-                    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                    <span className="font-semibold ml-4 flex-grow flex items-center gap-2">
+                      {integration.name}
+                      {comingSoonIntegrations.has(integration.id) && (
+                        <Badge variant="secondary" className="text-[10px] h-5 px-2">Coming soon</Badge>
+                      )}
+                    </span>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 ))
