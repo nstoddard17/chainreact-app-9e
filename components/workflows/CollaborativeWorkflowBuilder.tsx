@@ -2389,12 +2389,12 @@ function WorkflowBuilderContent() {
                     aria-disabled={comingSoonIntegrations.has(integration.id)}
                   >
                     {renderLogo(integration.id, integration.name)}
-                    <span className="font-semibold ml-4 flex-grow flex items-center gap-2">
+                    <span className="font-semibold ml-4 flex-grow truncate">
                       {integration.name}
-                      {comingSoonIntegrations.has(integration.id) && (
-                        <Badge variant="secondary" className="text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
-                      )}
                     </span>
+                    {comingSoonIntegrations.has(integration.id) && (
+                      <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
+                    )}
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 ))
@@ -2430,9 +2430,9 @@ function WorkflowBuilderContent() {
                               aria-disabled={isTriggerComingSoon}
                             >
                               <div className="flex items-center gap-2">
-                                <p className="font-medium">{trigger.title}</p>
+                                <p className="font-medium flex-1 min-w-0 truncate">{trigger.title}</p>
                                 {isTriggerComingSoon && (
-                                  <Badge variant="secondary" className="text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
+                                  <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
