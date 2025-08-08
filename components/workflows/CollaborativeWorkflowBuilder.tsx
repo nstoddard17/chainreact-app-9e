@@ -2310,16 +2310,7 @@ function WorkflowBuilderContent() {
                   </DialogDescription>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowTriggerDialog(false)}
-                className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full transition-all duration-200"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
+              {/* Rely on default Dialog close button to avoid double X */}
             </div>
           </DialogHeader>
           
@@ -2395,7 +2386,8 @@ function WorkflowBuilderContent() {
                     {comingSoonIntegrations.has(integration.id) && (
                       <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
                     )}
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    {/* Right indicator: subtle dot indicator instead of arrow */}
+                    <span className="ml-2 shrink-0 inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
                   </div>
                 ))
               )}
@@ -2508,16 +2500,7 @@ function WorkflowBuilderContent() {
                   </DialogDescription>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleActionDialogClose}
-                className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full transition-all duration-200"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
+              {/* Rely on default Dialog close button to avoid double X */}
             </div>
           </DialogHeader>
           
