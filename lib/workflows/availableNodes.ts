@@ -1710,11 +1710,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
 
-  // Slack
+  // Slack Triggers
   {
-    type: "slack_trigger_new_message",
-    title: "New Message (Slack)",
-    description: "Triggers when a new message is posted in a channel",
+    type: "slack_trigger_message_channels",
+    title: "New Message in Public Channel",
+    description: "Triggers when a message is posted to a public channel",
     icon: MessageSquare,
     providerId: "slack",
     category: "Communication",
@@ -1725,16 +1725,235 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "channel",
         label: "Channel",
         type: "select",
-        required: true,
+        required: false,
         dynamic: "slack-channels",
+        description: "Optional: Filter to a specific channel. Leave empty to listen to all public channels."
       },
+    ],
+    outputSchema: [
+      {
+        name: "messageText",
+        label: "Message Text",
+        type: "string",
+        description: "The content of the message"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who sent the message"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who sent the message"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the message was posted"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the message was posted"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the message was posted"
+      },
+      {
+        name: "threadTs",
+        label: "Thread Timestamp",
+        type: "string",
+        description: "The timestamp of the parent message if this is in a thread"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
     ],
   },
   {
-    type: "slack_trigger_new_reaction",
-    title: "New Reaction",
-    description: "Triggers when a reaction is added to a message",
+    type: "slack_trigger_message_groups",
+    title: "New Message in Private Channel",
+    description: "Triggers when a message is posted to a private channel",
     icon: MessageSquare,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "channel",
+        label: "Private Channel",
+        type: "select",
+        required: false,
+        dynamic: "slack-channels",
+        description: "Optional: Filter to a specific private channel. Leave empty to listen to all private channels."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "messageText",
+        label: "Message Text",
+        type: "string",
+        description: "The content of the message"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who sent the message"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who sent the message"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the private channel where the message was posted"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the private channel where the message was posted"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the message was posted"
+      },
+      {
+        name: "threadTs",
+        label: "Thread Timestamp",
+        type: "string",
+        description: "The timestamp of the parent message if this is in a thread"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_message_im",
+    title: "New Direct Message",
+    description: "Triggers when a direct message is sent",
+    icon: MessageCircle,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "messageText",
+        label: "Message Text",
+        type: "string",
+        description: "The content of the direct message"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who sent the message"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who sent the message"
+      },
+      {
+        name: "channelId",
+        label: "DM Channel ID",
+        type: "string",
+        description: "The ID of the direct message channel"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the message was sent"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_message_mpim",
+    title: "New Group Direct Message",
+    description: "Triggers when a message is sent in a group direct message",
+    icon: MessageCircle,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "messageText",
+        label: "Message Text",
+        type: "string",
+        description: "The content of the group direct message"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who sent the message"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who sent the message"
+      },
+      {
+        name: "channelId",
+        label: "Group DM Channel ID",
+        type: "string",
+        description: "The ID of the group direct message channel"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the message was sent"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_reaction_added",
+    title: "Reaction Added",
+    description: "Triggers when a reaction is added to a message",
+    icon: Heart,
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
@@ -1744,10 +1963,335 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "channel",
         label: "Channel",
         type: "select",
-        required: true,
+        required: false,
         dynamic: "slack-channels",
+        description: "Optional: Filter to a specific channel. Leave empty to listen to all channels."
       },
-      { name: "emoji", label: "Emoji", type: "text", placeholder: "e.g., :thumbsup:" },
+      { 
+        name: "emoji", 
+        label: "Emoji", 
+        type: "text", 
+        required: false,
+        placeholder: "e.g., thumbsup (without colons)",
+        description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "reaction",
+        label: "Reaction Emoji",
+        type: "string",
+        description: "The emoji that was added (without colons)"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who added the reaction"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who added the reaction"
+      },
+      {
+        name: "messageUserId",
+        label: "Message Author ID",
+        type: "string",
+        description: "The ID of the user who wrote the original message"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the reaction was added"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the reaction was added"
+      },
+      {
+        name: "messageTimestamp",
+        label: "Message Timestamp",
+        type: "string",
+        description: "The timestamp of the message that was reacted to"
+      },
+      {
+        name: "eventTimestamp",
+        label: "Reaction Timestamp",
+        type: "string",
+        description: "When the reaction was added"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_reaction_removed",
+    title: "Reaction Removed",
+    description: "Triggers when a reaction is removed from a message",
+    icon: HeartOff,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: false,
+        dynamic: "slack-channels",
+        description: "Optional: Filter to a specific channel. Leave empty to listen to all channels."
+      },
+      { 
+        name: "emoji", 
+        label: "Emoji", 
+        type: "text", 
+        required: false,
+        placeholder: "e.g., thumbsup (without colons)",
+        description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "reaction",
+        label: "Reaction Emoji",
+        type: "string",
+        description: "The emoji that was removed (without colons)"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who removed the reaction"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who removed the reaction"
+      },
+      {
+        name: "messageUserId",
+        label: "Message Author ID",
+        type: "string",
+        description: "The ID of the user who wrote the original message"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the reaction was removed"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the reaction was removed"
+      },
+      {
+        name: "messageTimestamp",
+        label: "Message Timestamp",
+        type: "string",
+        description: "The timestamp of the message that the reaction was removed from"
+      },
+      {
+        name: "eventTimestamp",
+        label: "Reaction Timestamp",
+        type: "string",
+        description: "When the reaction was removed"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_channel_created",
+    title: "Channel Created",
+    description: "Triggers when a new channel is created",
+    icon: Hash,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the newly created channel"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the newly created channel"
+      },
+      {
+        name: "creatorId",
+        label: "Creator ID",
+        type: "string",
+        description: "The ID of the user who created the channel"
+      },
+      {
+        name: "creatorName",
+        label: "Creator Name",
+        type: "string",
+        description: "The display name of the user who created the channel"
+      },
+      {
+        name: "created",
+        label: "Creation Timestamp",
+        type: "string",
+        description: "When the channel was created"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_member_joined_channel",
+    title: "Member Joined Channel",
+    description: "Triggers when a user joins a channel",
+    icon: UserPlus,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: false,
+        dynamic: "slack-channels",
+        description: "Optional: Filter to a specific channel. Leave empty to listen to all channels."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who joined the channel"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who joined the channel"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel that was joined"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel that was joined"
+      },
+      {
+        name: "channelType",
+        label: "Channel Type",
+        type: "string",
+        description: "The type of channel (C for public/private, G for old private channels)"
+      },
+      {
+        name: "inviterId",
+        label: "Inviter ID",
+        type: "string",
+        description: "The ID of the user who invited them (if applicable)"
+      },
+      {
+        name: "inviterName",
+        label: "Inviter Name",
+        type: "string",
+        description: "The display name of the user who invited them (if applicable)"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
+    ],
+  },
+  {
+    type: "slack_trigger_member_left_channel",
+    title: "Member Left Channel",
+    description: "Triggers when a user leaves a channel",
+    icon: UserMinus,
+    providerId: "slack",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: false,
+        dynamic: "slack-channels",
+        description: "Optional: Filter to a specific channel. Leave empty to listen to all channels."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who left the channel"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who left the channel"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel that was left"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel that was left"
+      },
+      {
+        name: "channelType",
+        label: "Channel Type",
+        type: "string",
+        description: "The type of channel (C for public/private, G for old private channels)"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      }
     ],
   },
   {
@@ -4346,7 +4890,57 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [{ name: "command", label: "Command", type: "text" }],
+    configSchema: [{ name: "command", label: "Command", type: "text", required: true, placeholder: "/my-command" }],
+    outputSchema: [
+      {
+        name: "commandName",
+        label: "Command Name",
+        type: "string",
+        description: "The name of the slash command that was used"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user who used the command"
+      },
+      {
+        name: "userName",
+        label: "User Name",
+        type: "string",
+        description: "The display name of the user who used the command"
+      },
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the command was used"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the channel where the command was used"
+      },
+      {
+        name: "teamId",
+        label: "Workspace ID",
+        type: "string",
+        description: "The ID of the Slack workspace"
+      },
+      {
+        name: "text",
+        label: "Command Text",
+        type: "string",
+        description: "The text/parameters passed with the command"
+      },
+      {
+        name: "responseUrl",
+        label: "Response URL",
+        type: "string",
+        description: "URL to send delayed responses to the command"
+      }
+    ],
   },
   {
     type: "slack_action_post_interactive",
