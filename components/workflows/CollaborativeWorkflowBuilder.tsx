@@ -2344,7 +2344,7 @@ function WorkflowBuilderContent() {
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-2/5 border-r border-border h-[70vh]" style={{ scrollbarGutter: 'stable' }}>
-              <div className="pt-2 pb-8 pl-3 pr-5">
+              <div className="pt-2 pb-3 pl-3 pr-5">
               {filteredIntegrations.length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="text-muted-foreground mb-2">
@@ -2538,7 +2538,7 @@ function WorkflowBuilderContent() {
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-2/5 border-r border-border h-[70vh]" style={{ scrollbarGutter: 'stable' }}>
-              <div className="pt-2 pb-8 pl-3 pr-5">
+              <div className="pt-2 pb-3 pl-3 pr-5">
               {availableIntegrations.filter(int => {
                 if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                 if (filterCategory !== 'all' && int.category !== filterCategory) return false
