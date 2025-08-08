@@ -15,6 +15,7 @@ export async function POST(
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
     
+    console.log('🔍 Debug - signature:', signature ? 'present' : 'missing')
     if (!signature && !isTestMode) {
       console.error('❌ Missing Stripe signature')
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
@@ -29,6 +30,9 @@ export async function POST(
 
     // For testing purposes, allow requests without signature verification
     const isTestMode = process.env.NODE_ENV === 'development' || webhookSecret === 'whsec_test_secret_for_testing'
+    console.log('🔍 Debug - NODE_ENV:', process.env.NODE_ENV)
+    console.log('🔍 Debug - webhookSecret:', webhookSecret ? webhookSecret.substring(0, 20) + '...' : 'undefined')
+    console.log('🔍 Debug - isTestMode:', isTestMode)
 
     let event
     try {
