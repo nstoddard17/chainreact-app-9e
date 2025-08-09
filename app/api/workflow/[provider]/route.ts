@@ -50,6 +50,22 @@ export async function POST(
       })
     }
 
+    // Handle Notion webhook URL verification (they POST a token to our URL)
+    if (provider === 'notion') {
+      // Token can be in headers or JSON body depending on Notion UI
+      const tokenFromHeader = headers['x-notion-verification-token'] || headers['notion-verification-token']
+      const tokenFromBody = typeof payload === 'object' ? (payload?.verification_token || payload?.verificationToken) : undefined
+      const verificationToken = tokenFromHeader || tokenFromBody
+      if (verificationToken) {
+        console.log('🧩 Notion verification token received:', verificationToken)
+        return NextResponse.json({
+          message: 'Notion verification token received. Copy this value and paste it in the Notion dashboard to verify the webhook URL.',
+          verification_token: verificationToken,
+          timestamp: new Date().toISOString()
+        })
+      }
+    }
+
     // Find all active workflows that have triggers for this provider
     const workflows = await findWorkflowsForProvider(provider)
     
