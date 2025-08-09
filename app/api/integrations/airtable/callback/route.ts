@@ -145,12 +145,18 @@ export async function GET(request: NextRequest) {
       console.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
     }
 
-    return createPopupResponse(
-      "success",
-      "airtable",
-      "Airtable account connected successfully.",
-      baseUrl,
-    )
+    // Kick off base sync in background (best-effort)
+    try {
+      await fetch(`${baseUrl}/api/integrations/airtable/sync-bases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+    } catch (e) {
+      console.warn('Failed to start Airtable base sync', e)
+    }
+
+    return createPopupResponse("success", "airtable", "Airtable account connected successfully.", baseUrl)
   } catch (e: any) {
     console.error("Airtable callback error:", e)
     return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
