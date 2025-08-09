@@ -138,6 +138,17 @@ export async function GET(
     }
     return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
   }
+
+  // Instagram Webhooks verification flow
+  if (provider === 'instagram') {
+    const mode = request.nextUrl.searchParams.get('hub.mode')
+    const token = request.nextUrl.searchParams.get('hub.verify_token')
+    const challenge = request.nextUrl.searchParams.get('hub.challenge')
+    if (mode === 'subscribe' && token === process.env.INSTAGRAM_VERIFY_TOKEN && challenge) {
+      return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
+    }
+    return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
+  }
   
   const providerInfo = {
     slack: {
