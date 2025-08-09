@@ -124,6 +124,17 @@ export async function GET(
 ) {
   const { provider } = await params
   
+  // Facebook Webhooks verification flow
+  if (provider === 'facebook') {
+    const mode = request.nextUrl.searchParams.get('hub.mode')
+    const token = request.nextUrl.searchParams.get('hub.verify_token')
+    const challenge = request.nextUrl.searchParams.get('hub.challenge')
+    if (mode === 'subscribe' && token === process.env.FACEBOOK_VERIFY_TOKEN && challenge) {
+      return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
+    }
+    return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
+  }
+  
   const providerInfo = {
     slack: {
       description: "Slack webhook endpoint. Supports URL verification and event processing.",
