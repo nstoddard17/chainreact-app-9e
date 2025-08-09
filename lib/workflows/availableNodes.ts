@@ -5184,6 +5184,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "linkedin",
     category: "Social",
     isTrigger: true,
+    comingSoon: true,
     requiredScopes: ["w_member_social"],
   },
   {
@@ -5194,6 +5195,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "linkedin",
     category: "Social",
     isTrigger: true,
+    comingSoon: true,
     requiredScopes: ["w_member_social"],
   },
 
