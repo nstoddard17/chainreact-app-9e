@@ -58,6 +58,18 @@ export async function POST(
       const verificationToken = tokenFromHeader || tokenFromBody
       if (verificationToken) {
         console.log('🧩 Notion verification token received:', verificationToken)
+        try {
+          await supabase
+            .from('webhook_logs')
+            .insert({
+              provider: 'notion',
+              event_type: 'verification',
+              payload: { verification_token: verificationToken },
+              status: 'received'
+            })
+        } catch (e) {
+          console.warn('Failed to persist Notion verification token', e)
+        }
         return NextResponse.json({
           message: 'Notion verification token received. Copy this value and paste it in the Notion dashboard to verify the webhook URL.',
           verification_token: verificationToken,
