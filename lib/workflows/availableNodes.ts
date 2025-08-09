@@ -4820,6 +4820,87 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
+    type: "trello_trigger_card_updated",
+    title: "Card Updated",
+    description: "Triggers when a card's properties change (name, desc, due, fields, labels, etc.)",
+    icon: Briefcase,
+    providerId: "trello",
+    category: "Productivity",
+    isTrigger: true,
+    configSchema: [
+      { name: "boardId", label: "Board", type: "select", dynamic: "trello-boards", required: false },
+      { name: "listId", label: "List", type: "select", dynamic: "trello_lists", dependsOn: "boardId", required: false }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string" },
+      { name: "listId", label: "List ID", type: "string" },
+      { name: "cardId", label: "Card ID", type: "string" },
+      { name: "changedFields", label: "Changed Fields", type: "object" },
+      { name: "previousValues", label: "Previous Values", type: "object" },
+      { name: "updatedAt", label: "Updated At", type: "string" }
+    ]
+  },
+  {
+    type: "trello_trigger_card_moved",
+    title: "Card Moved",
+    description: "Triggers when a card is moved between lists or boards",
+    icon: Briefcase,
+    providerId: "trello",
+    category: "Productivity",
+    isTrigger: true,
+    configSchema: [
+      { name: "boardId", label: "Board", type: "select", dynamic: "trello-boards", required: false }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string" },
+      { name: "fromListId", label: "From List ID", type: "string" },
+      { name: "toListId", label: "To List ID", type: "string" },
+      { name: "cardId", label: "Card ID", type: "string" },
+      { name: "movedAt", label: "Moved At", type: "string" }
+    ]
+  },
+  {
+    type: "trello_trigger_comment_added",
+    title: "Comment Added",
+    description: "Triggers when a new comment is added to a card",
+    icon: MessageSquare,
+    providerId: "trello",
+    category: "Productivity",
+    isTrigger: true,
+    configSchema: [
+      { name: "boardId", label: "Board", type: "select", dynamic: "trello-boards", required: false }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string" },
+      { name: "cardId", label: "Card ID", type: "string" },
+      { name: "commentId", label: "Comment ID", type: "string" },
+      { name: "commentText", label: "Comment Text", type: "string" },
+      { name: "authorId", label: "Author ID", type: "string" },
+      { name: "authorName", label: "Author Name", type: "string" },
+      { name: "createdAt", label: "Created At", type: "string" }
+    ]
+  },
+  {
+    type: "trello_trigger_member_changed",
+    title: "Card Members Changed",
+    description: "Triggers when a member is added to or removed from a card",
+    icon: Users,
+    providerId: "trello",
+    category: "Productivity",
+    isTrigger: true,
+    configSchema: [
+      { name: "boardId", label: "Board", type: "select", dynamic: "trello-boards", required: false }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string" },
+      { name: "cardId", label: "Card ID", type: "string" },
+      { name: "action", label: "Action", type: "string" },
+      { name: "memberId", label: "Member ID", type: "string" },
+      { name: "memberName", label: "Member Name", type: "string" },
+      { name: "changedAt", label: "Changed At", type: "string" }
+    ]
+  },
+  {
     type: "trello_action_create_card",
     title: "Create Card",
     description: "Creates a new card on a Trello board.",
