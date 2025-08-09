@@ -124,12 +124,16 @@ export async function GET(
 ) {
   const { provider } = await params
   
-  // Facebook Webhooks verification flow
+  // Facebook Webhooks verification flow (supports Pages and Users tokens)
   if (provider === 'facebook') {
     const mode = request.nextUrl.searchParams.get('hub.mode')
     const token = request.nextUrl.searchParams.get('hub.verify_token')
     const challenge = request.nextUrl.searchParams.get('hub.challenge')
-    if (mode === 'subscribe' && token === process.env.FACEBOOK_VERIFY_TOKEN && challenge) {
+    const tokenMatches = [
+      process.env.FACEBOOK_PAGES_VERIFY_TOKEN,
+      process.env.FACEBOOK_USER_VERIFY_TOKEN,
+    ].filter(Boolean).some((t) => t === token)
+    if (mode === 'subscribe' && tokenMatches && challenge) {
       return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
     return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
