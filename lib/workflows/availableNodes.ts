@@ -2490,6 +2490,60 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: false, dependsOn: "workspace" }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string" },
+      { name: "databaseId", label: "Database ID", type: "string" },
+      { name: "title", label: "Title", type: "string" },
+      { name: "url", label: "URL", type: "string" },
+      { name: "createdAt", label: "Created At", type: "string" }
+    ]
+  },
+  {
+    type: "notion_trigger_page_updated",
+    title: "Page Updated",
+    description: "Triggers when a page's properties or content are updated",
+    icon: FileText,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: false, dependsOn: "workspace" }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string" },
+      { name: "databaseId", label: "Database ID", type: "string" },
+      { name: "title", label: "Title", type: "string" },
+      { name: "changedProperties", label: "Changed Properties", type: "object" },
+      { name: "updatedAt", label: "Updated At", type: "string" },
+      { name: "url", label: "URL", type: "string" }
+    ]
+  },
+  {
+    type: "notion_trigger_comment_added",
+    title: "Comment Added",
+    description: "Triggers when a new comment is added to a page",
+    icon: MessageSquare,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string" },
+      { name: "commentId", label: "Comment ID", type: "string" },
+      { name: "commentText", label: "Comment Text", type: "string" },
+      { name: "authorId", label: "Author ID", type: "string" },
+      { name: "authorName", label: "Author Name", type: "string" },
+      { name: "createdAt", label: "Created At", type: "string" }
+    ]
   },
   {
     type: "notion_action_create_page",
@@ -4751,6 +4805,19 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "trello",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { name: "boardId", label: "Board", type: "select", dynamic: "trello-boards", required: false },
+      { name: "listId", label: "List", type: "select", dynamic: "trello_lists", dependsOn: "boardId", required: false }
+    ],
+    outputSchema: [
+      { name: "boardId", label: "Board ID", type: "string" },
+      { name: "listId", label: "List ID", type: "string" },
+      { name: "cardId", label: "Card ID", type: "string" },
+      { name: "name", label: "Name", type: "string" },
+      { name: "desc", label: "Description", type: "string" },
+      { name: "url", label: "URL", type: "string" },
+      { name: "createdAt", label: "Created At", type: "string" }
+    ]
   },
   {
     type: "trello_action_create_card",
