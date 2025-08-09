@@ -3524,6 +3524,62 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
+      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+    ],
+    outputSchema: [
+      { name: "baseId", label: "Base ID", type: "string" },
+      { name: "tableId", label: "Table ID", type: "string" },
+      { name: "tableName", label: "Table Name", type: "string" },
+      { name: "recordId", label: "Record ID", type: "string" },
+      { name: "fields", label: "Fields", type: "object" },
+      { name: "createdAt", label: "Created At", type: "string" }
+    ]
+  },
+  {
+    type: "airtable_trigger_record_updated",
+    title: "Record Updated (Airtable)",
+    description: "Triggers when an existing record is updated",
+    icon: Database,
+    providerId: "airtable",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
+      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+    ],
+    outputSchema: [
+      { name: "baseId", label: "Base ID", type: "string" },
+      { name: "tableId", label: "Table ID", type: "string" },
+      { name: "tableName", label: "Table Name", type: "string" },
+      { name: "recordId", label: "Record ID", type: "string" },
+      { name: "changedFields", label: "Changed Fields", type: "object" },
+      { name: "previousValues", label: "Previous Values", type: "object" },
+      { name: "updatedAt", label: "Updated At", type: "string" }
+    ]
+  },
+  {
+    type: "airtable_trigger_record_deleted",
+    title: "Record Deleted (Airtable)",
+    description: "Triggers when a record is deleted",
+    icon: Database,
+    providerId: "airtable",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
+      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+    ],
+    outputSchema: [
+      { name: "baseId", label: "Base ID", type: "string" },
+      { name: "tableId", label: "Table ID", type: "string" },
+      { name: "tableName", label: "Table Name", type: "string" },
+      { name: "recordId", label: "Record ID", type: "string" },
+      { name: "deletedAt", label: "Deleted At", type: "string" }
+    ]
   },
   {
     type: "airtable_action_create_record",

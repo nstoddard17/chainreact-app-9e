@@ -152,6 +152,11 @@ export async function GET(request: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       })
+      await fetch(`${baseUrl}/api/integrations/airtable/register-webhooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
     } catch (e) {
       console.warn('Failed to start Airtable base sync', e)
     }
