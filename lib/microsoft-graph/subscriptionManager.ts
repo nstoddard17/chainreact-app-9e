@@ -238,7 +238,7 @@ export class MicrosoftGraphSubscriptionManager {
         return []
       }
 
-      return data || []
+      return data.map(this.mapDbSubscriptionToModel) || []
     } catch (error) {
       console.error('Error getting user subscriptions:', error)
       return []
@@ -265,7 +265,7 @@ export class MicrosoftGraphSubscriptionManager {
         return []
       }
 
-      return data || []
+      return data.map(this.mapDbSubscriptionToModel) || []
     } catch (error) {
       console.error('Error getting subscriptions needing renewal:', error)
       return []
@@ -308,6 +308,24 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   /**
+   * Check subscription health
+   */
+  async checkSubscriptionHealth(subscriptionId: string, accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Helpers to build resource strings for common areas
    */
   buildOneDriveRootResource(): string {
@@ -315,7 +333,7 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   buildOneDriveItemResource(itemId: string): string {
-    return `/drives/me/items/${itemId}`
+    return `/me/drive/items/${itemId}`
   }
 
   buildOutlookMailResource(): string {
@@ -332,6 +350,10 @@ export class MicrosoftGraphSubscriptionManager {
 
   buildChatMessagesResource(chatId: string): string {
     return `/chats/${chatId}/messages`
+  }
+
+  buildOneNoteResource(): string {
+    return '/me/onenote/notebooks'
   }
 
   // Private helper methods
@@ -413,6 +435,10 @@ export class MicrosoftGraphSubscriptionManager {
 
     if (!data) return null
 
+    return this.mapDbSubscriptionToModel(data)
+  }
+
+  private mapDbSubscriptionToModel(data: any): MicrosoftGraphSubscription {
     return {
       id: data.id,
       resource: data.resource,
