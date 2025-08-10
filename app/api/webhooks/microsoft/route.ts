@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,12 +44,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
     }
 
-    // Verify the webhook is from Microsoft (basic verification)
+    // Verify the webhook is from Microsoft: check clientState
     const clientState = headers['clientstate']
     if (!clientState) {
       console.warn('⚠️ No clientState header found')
       // In production, implement proper verification
     }
+
+    // Idempotency: de-dupe by subscriptionId + changeToken + timestamp
+    const changeKey = `${payload.subscriptionId}:${payload.changeType}:${payload.resource}:${payload.subscriptionExpirationDateTime || ''}`
+    // Dedup check
+    const { data: dedupHit } = await supabase
+      .from('microsoft_webhook_dedup')
+      .select('dedup_key')
+      .eq('dedup_key', changeKey)
+      .maybeSingle()
+    if (dedupHit) {
+      return NextResponse.json({ success: true, deduped: true })
+    }
+    await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: changeKey })
 
     // Process the webhook data
     console.log('📊 Processing Microsoft Graph webhook:', {
@@ -58,7 +72,18 @@ export async function POST(request: NextRequest) {
       clientState: clientState
     })
 
-    // Find workflows that use Microsoft Graph triggers
+    // Enqueue processing job (minimal sync work)
+    await supabase.from('microsoft_webhook_queue').insert({
+      user_id: null,
+      subscription_id: payload.subscriptionId,
+      resource: payload.resource,
+      change_type: payload.changeType,
+      payload,
+      headers,
+      status: 'pending'
+    })
+
+    // Optionally, find workflows now (kept for compatibility; main work should happen in worker)
     const workflows = await findWorkflowsForMicrosoftGraph(payload)
     
     if (workflows.length === 0) {
