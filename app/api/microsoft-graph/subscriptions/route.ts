@@ -1,44 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { MicrosoftGraphSubscriptionManager, CreateSubscriptionRequest } from '@/lib/microsoft-graph/subscriptionManager'
+import { createClient } from '@supabase/supabase-js'
+import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
-export async function POST(request: NextRequest) {
+// Get all subscriptions for the authenticated user
+export async function GET(req: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const url = new URL(req.url)
+    const userId = url.searchParams.get('userId')
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 })
     }
+    
+    const subscriptions = await subscriptionManager.getUserSubscriptions(userId)
+    
+    // Format subscriptions for the frontend
+    const formattedSubscriptions = subscriptions.map(sub => ({
+      id: sub.id,
+      resource: sub.resource,
+      changeType: sub.changeType,
+      expirationDateTime: sub.expirationDateTime,
+      status: sub.status,
+      createdAt: sub.createdAt
+    }))
+    
+    return NextResponse.json({
+      subscriptions: formattedSubscriptions,
+      count: formattedSubscriptions.length
+    })
+  } catch (error: any) {
+    console.error('Error fetching subscriptions:', error)
+    return NextResponse.json({ error: error.message || 'Failed to fetch subscriptions' }, { status: 500 })
+  }
+}
 
-    const body = await request.json()
-    const { resource, changeType, accessToken, expirationMinutes } = body
-
-    // Validate required fields
-    if (!resource || !changeType || !accessToken) {
+// Create a new subscription
+export async function POST(req: NextRequest) {
+  try {
+    const { userId, resource, changeType } = await req.json()
+    
+    if (!userId || !resource || !changeType) {
       return NextResponse.json({ 
-        error: 'Missing required fields: resource, changeType, accessToken' 
+        error: 'Missing required parameters: userId, resource, changeType' 
       }, { status: 400 })
     }
-
-    // Create subscription request
-    const subscriptionRequest: CreateSubscriptionRequest = {
+    
+    // Get user's Microsoft access token
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('access_token')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft')
+      .single()
+      
+    if (!integration) {
+      return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
+    }
+    
+    // Create the subscription
+    const subscription = await subscriptionManager.createSubscription({
       resource,
       changeType,
-      userId: user.id,
-      accessToken,
-      expirationMinutes
-    }
-
-    console.log('📤 Creating Microsoft Graph subscription for user:', user.id)
-
-    // Create the subscription
-    const subscription = await subscriptionManager.createSubscription(subscriptionRequest)
-
+      userId,
+      accessToken: integration.access_token
+    })
+    
     return NextResponse.json({
       success: true,
       subscription: {
@@ -46,65 +79,59 @@ export async function POST(request: NextRequest) {
         resource: subscription.resource,
         changeType: subscription.changeType,
         expirationDateTime: subscription.expirationDateTime,
-        status: subscription.status
+        status: subscription.status,
+        createdAt: subscription.createdAt
       }
     })
-
   } catch (error: any) {
-    console.error('❌ Error creating subscription:', error)
-    
-    // Handle specific Microsoft Graph errors
-    if (error.message.includes('401')) {
-      return NextResponse.json({ 
-        error: 'Invalid or expired access token. Please re-authenticate with Microsoft.' 
-      }, { status: 401 })
-    }
-    
-    if (error.message.includes('403')) {
-      return NextResponse.json({ 
-        error: 'Insufficient permissions. Please ensure your Microsoft account has the required permissions.' 
-      }, { status: 403 })
-    }
-
-    return NextResponse.json({ 
-      error: 'Failed to create subscription',
-      details: error.message 
-    }, { status: 500 })
+    console.error('Error creating subscription:', error)
+    return NextResponse.json({ error: error.message || 'Failed to create subscription' }, { status: 500 })
   }
 }
 
-export async function GET(request: NextRequest) {
+// Delete a subscription by ID
+export async function DELETE(req: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const url = new URL(req.url)
+    const pathParts = url.pathname.split('/')
+    const subscriptionId = pathParts[pathParts.length - 1]
+    
+    if (!subscriptionId || subscriptionId === 'subscriptions') {
+      return NextResponse.json({ error: 'Missing subscription ID' }, { status: 400 })
     }
-
-    console.log('📋 Fetching Microsoft Graph subscriptions for user:', user.id)
-
-    // Get user's subscriptions
-    const subscriptions = await subscriptionManager.getUserSubscriptions(user.id)
-
+    
+    // Get subscription details to find user and access token
+    const { data: subscription } = await supabase
+      .from('microsoft_graph_subscriptions')
+      .select('user_id')
+      .eq('id', subscriptionId)
+      .single()
+      
+    if (!subscription) {
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
+    }
+    
+    // Get user's Microsoft access token
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('access_token')
+      .eq('user_id', subscription.user_id)
+      .eq('provider', 'microsoft')
+      .single()
+      
+    if (!integration) {
+      return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
+    }
+    
+    // Delete the subscription
+    await subscriptionManager.deleteSubscription(subscriptionId, integration.access_token)
+    
     return NextResponse.json({
       success: true,
-      subscriptions: subscriptions.map(sub => ({
-        id: sub.id,
-        resource: sub.resource,
-        changeType: sub.changeType,
-        expirationDateTime: sub.expirationDateTime,
-        status: sub.status,
-        createdAt: sub.createdAt
-      }))
+      message: 'Subscription deleted successfully'
     })
-
   } catch (error: any) {
-    console.error('❌ Error fetching subscriptions:', error)
-    return NextResponse.json({ 
-      error: 'Failed to fetch subscriptions',
-      details: error.message 
-    }, { status: 500 })
+    console.error('Error deleting subscription:', error)
+    return NextResponse.json({ error: error.message || 'Failed to delete subscription' }, { status: 500 })
   }
 }

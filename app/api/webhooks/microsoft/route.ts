@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
 const supabase = createClient(
@@ -8,8 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Store active subscriptions in memory (in production, use database)
-const activeSubscriptions = new Map<string, any>()
+const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,9 +44,14 @@ export async function POST(request: NextRequest) {
 
     // Verify the webhook is from Microsoft: check clientState
     const clientState = headers['clientstate']
-    if (!clientState) {
-      console.warn('⚠️ No clientState header found')
-      // In production, implement proper verification
+    if (clientState && payload.subscriptionId) {
+      const isValid = await subscriptionManager.verifyClientState(clientState, payload.subscriptionId)
+      if (!isValid) {
+        console.warn('⚠️ Invalid clientState, possible security issue')
+        return NextResponse.json({ error: 'Invalid clientState' }, { status: 403 })
+      }
+    } else {
+      console.warn('⚠️ No clientState header or subscriptionId found')
     }
 
     // Idempotency: de-dupe by subscriptionId + changeToken + timestamp
@@ -64,17 +67,27 @@ export async function POST(request: NextRequest) {
     }
     await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: changeKey })
 
+    // Get subscription details to identify the user
+    const { data: subscription } = await supabase
+      .from('microsoft_graph_subscriptions')
+      .select('user_id')
+      .eq('id', payload.subscriptionId)
+      .single()
+
+    const userId = subscription?.user_id
+
     // Process the webhook data
     console.log('📊 Processing Microsoft Graph webhook:', {
       subscriptionId: payload.subscriptionId,
       changeType: payload.changeType,
       resource: payload.resource,
-      clientState: clientState
+      clientState: clientState,
+      userId: userId || 'unknown'
     })
 
-    // Enqueue processing job (minimal sync work)
+    // Enqueue processing job
     await supabase.from('microsoft_webhook_queue').insert({
-      user_id: null,
+      user_id: userId,
       subscription_id: payload.subscriptionId,
       resource: payload.resource,
       change_type: payload.changeType,
@@ -83,47 +96,19 @@ export async function POST(request: NextRequest) {
       status: 'pending'
     })
 
-    // Optionally, find workflows now (kept for compatibility; main work should happen in worker)
-    const workflows = await findWorkflowsForMicrosoftGraph(payload)
-    
-    if (workflows.length === 0) {
-      console.log('No active workflows found for Microsoft Graph')
-      return NextResponse.json({ 
-        message: 'No active workflows for this provider',
-        provider: 'microsoft-graph'
-      }, { status: 200 })
-    }
-
-    // Process each workflow
-    const results = []
-    for (const workflow of workflows) {
-      try {
-        const result = await processMicrosoftGraphWebhook(workflow, payload, headers)
-        results.push(result)
-      } catch (error) {
-        console.error(`Error processing workflow ${workflow.id}:`, error)
-        results.push({ 
-          workflowId: workflow.id, 
-          success: false, 
-          error: error.message 
-        })
-      }
-    }
-
     // Log the webhook execution
     await logWebhookExecution(
       'microsoft-graph',
       payload,
       headers,
-      results.length > 0 ? 'success' : 'no_workflows',
+      'queued',
       Date.now()
     )
 
     return NextResponse.json({
       success: true,
       provider: 'microsoft-graph',
-      workflowsProcessed: results.length,
-      results: results
+      message: 'Webhook received and queued for processing'
     })
 
   } catch (error: any) {
@@ -140,86 +125,6 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     description: "Webhook endpoint for Microsoft Graph workflows. Send POST requests to trigger workflows."
   })
-}
-
-async function findWorkflowsForMicrosoftGraph(payload: any): Promise<any[]> {
-  const { data: workflows, error } = await supabase
-    .from('workflows')
-    .select('*')
-    .eq('status', 'active')
-
-  if (error) {
-    console.error('Error fetching workflows:', error)
-    return []
-  }
-
-  // Filter workflows that have Microsoft Graph triggers
-  return workflows.filter(workflow => {
-    try {
-      const nodes = JSON.parse(workflow.nodes || '[]')
-      return nodes.some((node: any) => 
-        node.type?.startsWith('microsoft_graph_trigger') ||
-        node.type?.startsWith('outlook_trigger')
-      )
-    } catch {
-      return false
-    }
-  })
-}
-
-async function processMicrosoftGraphWebhook(
-  workflow: any,
-  payload: any,
-  headers: any
-): Promise<any> {
-  const startTime = Date.now()
-  
-  try {
-    // Transform the payload for workflow execution
-    const transformedPayload = transformMicrosoftGraphPayload(payload)
-    
-    // Execute the workflow
-    const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
-    
-    const result = await executionEngine.executeWorkflow(workflow.id, {
-      triggerData: transformedPayload,
-      webhookSource: 'microsoft-graph',
-      headers: headers
-    })
-
-    const executionTime = Date.now() - startTime
-    
-    return {
-      workflowId: workflow.id,
-      sessionId: result.sessionId,
-      success: true,
-      executionTime: executionTime,
-      result: result
-    }
-  } catch (error: any) {
-    const executionTime = Date.now() - startTime
-    
-    return {
-      workflowId: workflow.id,
-      success: false,
-      error: error.message,
-      executionTime: executionTime
-    }
-  }
-}
-
-function transformMicrosoftGraphPayload(payload: any): any {
-  // Transform Microsoft Graph webhook payload to match our trigger expectations
-  return {
-    subscriptionId: payload.subscriptionId,
-    changeType: payload.changeType,
-    resource: payload.resource,
-    clientState: payload.clientState,
-    value: payload.value || [],
-    // Add common fields that triggers might expect
-    timestamp: new Date().toISOString(),
-    source: 'microsoft-graph'
-  }
 }
 
 async function logWebhookExecution(
