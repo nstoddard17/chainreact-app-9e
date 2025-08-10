@@ -250,8 +250,9 @@ export class MicrosoftGraphSubscriptionManager {
    */
   async getSubscriptionsNeedingRenewal(): Promise<MicrosoftGraphSubscription[]> {
     try {
+      // Renew ~15 minutes before expiry
       const renewalThreshold = new Date()
-      renewalThreshold.setHours(renewalThreshold.getHours() + 24)
+      renewalThreshold.setMinutes(renewalThreshold.getMinutes() + 15)
 
       const { data, error } = await supabase
         .from('microsoft_graph_subscriptions')
@@ -297,13 +298,40 @@ export class MicrosoftGraphSubscriptionManager {
   /**
    * Verify client state for webhook security
    */
-  verifyClientState(clientState: string, subscriptionId: string): boolean {
+  async verifyClientState(clientState: string, subscriptionId: string): Promise<boolean> {
     try {
-      const subscription = this.getSubscription(subscriptionId)
-      return subscription?.clientState === clientState
+      const subscription = await this.getSubscription(subscriptionId)
+      return Boolean(subscription && subscription.clientState === clientState)
     } catch {
       return false
     }
+  }
+
+  /**
+   * Helpers to build resource strings for common areas
+   */
+  buildOneDriveRootResource(): string {
+    return '/me/drive/root'
+  }
+
+  buildOneDriveItemResource(itemId: string): string {
+    return `/drives/me/items/${itemId}`
+  }
+
+  buildOutlookMailResource(): string {
+    return '/me/messages'
+  }
+
+  buildOutlookCalendarResource(): string {
+    return '/me/events'
+  }
+
+  buildTeamsChannelMessagesResource(teamId: string, channelId: string): string {
+    return `/teams/${teamId}/channels/${channelId}/messages`
+  }
+
+  buildChatMessagesResource(chatId: string): string {
+    return `/chats/${chatId}/messages`
   }
 
   // Private helper methods
