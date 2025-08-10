@@ -124,6 +124,14 @@ export async function GET(
 ) {
   const { provider } = await params
   
+  // Dropbox webhook verification (echo challenge)
+  if (provider === 'dropbox') {
+    const challenge = request.nextUrl.searchParams.get('challenge')
+    if (challenge) {
+      return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
+    }
+  }
+  
   // Facebook Webhooks verification flow (supports Pages and Users tokens)
   if (provider === 'facebook') {
     const mode = request.nextUrl.searchParams.get('hub.mode')
