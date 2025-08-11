@@ -143,7 +143,12 @@ export default function ConfigurationForm({
           // For Discord integrations, load guilds for the guildId field
           if (nodeInfo.providerId === 'discord' && field.name === 'guildId') {
             loadOptions(field.name);
-          } 
+          }
+          // For Gmail integrations, load enhanced recipients for email fields
+          else if (nodeInfo.providerId === 'gmail' && (field.name === 'to' || field.name === 'cc' || field.name === 'bcc')) {
+            console.log(`📧 [FORM] Loading Gmail enhanced recipients for field: ${field.name}`);
+            loadOptions(field.name);
+          }
           // Skip loading other fields initially to avoid rate limits
           // They'll be loaded when needed (on dropdown open, etc.)
         }
@@ -272,19 +277,7 @@ export default function ConfigurationForm({
         }
       }
       
-      // Auto-save configuration changes for Discord triggers
-      if (nodeInfo.type === 'discord_trigger_new_message' && currentNodeId) {
-        // Use setTimeout to ensure the form state is updated before saving
-        setTimeout(() => {
-          const workflowId = getWorkflowId();
-          if (workflowId) {
-            // Get the current values including the new value
-            const updatedValues = { ...values, [fieldName]: value };
-            console.log('📋 Auto-saving Discord trigger configuration:', { fieldName, value });
-            saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, updatedValues, dynamicOptions);
-          }
-        }, 100);
-      }
+      // Don't auto-save configuration changes - let user save manually when they click Save or Listen
     }
   }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, currentNodeId, getWorkflowId, dynamicOptions]);
   

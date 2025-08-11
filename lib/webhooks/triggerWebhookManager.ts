@@ -420,13 +420,41 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Register Discord webhook via Discord API
+   */
+  private async registerDiscordWebhook(config: WebhookTriggerConfig): Promise<void> {
+    try {
+      const { registerDiscordWebhook } = await import('./registration')
+      
+      const registration = {
+        provider: 'discord',
+        webhookUrl: config.webhookUrl,
+        events: ['message_create'], // Discord event types
+        secret: this.generateWebhookSecret(),
+        config: config.config,
+        userId: config.userId
+      }
+      
+      await registerDiscordWebhook(registration)
+      console.log('✅ Discord webhook registered successfully via API')
+    } catch (error) {
+      console.error('Failed to register Discord webhook:', error)
+      throw error
+    }
+  }
+
+  /**
    * Register webhook with external service
    */
   private async registerWithExternalService(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
-    // This would integrate with external APIs to register webhooks
-    // For now, we'll implement basic support for common services
+    // This integrates with external APIs to register webhooks
     
     switch (config.providerId) {
+      case 'discord':
+        // Discord webhooks are automatically created via Discord API
+        await this.registerDiscordWebhook(config)
+        break
+        
       case 'gmail':
         // Gmail uses push notifications - would need to set up with Google Cloud Pub/Sub
         console.log('Gmail webhook registration would require Google Cloud Pub/Sub setup')
@@ -453,11 +481,56 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Unregister Discord webhook via Discord API
+   */
+  private async unregisterDiscordWebhook(webhookConfig: any): Promise<void> {
+    try {
+      // Get the Discord webhook details from our database
+      const { data: registration } = await this.supabase
+        .from('webhook_registrations')
+        .select('*')
+        .eq('provider', 'discord')
+        .eq('webhook_url', webhookConfig.webhook_url)
+        .single()
+      
+      if (registration && registration.external_webhook_id && registration.external_webhook_token) {
+        // Delete the Discord webhook using Discord API
+        const deleteResponse = await fetch(
+          `https://discord.com/api/v10/webhooks/${registration.external_webhook_id}/${registration.external_webhook_token}`,
+          { method: 'DELETE' }
+        )
+        
+        if (deleteResponse.ok) {
+          console.log('✅ Discord webhook deleted successfully')
+        } else {
+          console.warn('Failed to delete Discord webhook, but continuing cleanup')
+        }
+        
+        // Remove from our webhook_registrations table
+        await this.supabase
+          .from('webhook_registrations')
+          .delete()
+          .eq('id', registration.id)
+      }
+    } catch (error) {
+      console.error('Failed to unregister Discord webhook:', error)
+      // Don't throw - continue with cleanup even if Discord API fails
+    }
+  }
+
+  /**
    * Unregister webhook from external service
    */
   private async unregisterFromExternalService(webhookConfig: any): Promise<void> {
-    // Implementation would depend on the external service
-    console.log(`Unregistering webhook from ${webhookConfig.provider_id}`)
+    // Implementation depends on the external service
+    switch (webhookConfig.provider_id) {
+      case 'discord':
+        await this.unregisterDiscordWebhook(webhookConfig)
+        break
+      
+      default:
+        console.log(`Unregistering webhook from ${webhookConfig.provider_id} not yet implemented`)
+    }
   }
 
   /**

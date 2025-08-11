@@ -7,6 +7,8 @@ export interface WebhookRegistration {
   events: string[]
   secret?: string
   metadata?: Record<string, any>
+  config?: Record<string, any>
+  userId?: string
 }
 
 export async function registerGoogleWebhook(registration: WebhookRegistration): Promise<boolean> {
@@ -79,17 +81,69 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
 
 export async function registerDiscordWebhook(registration: WebhookRegistration): Promise<boolean> {
   try {
-    const { webhookUrl, events, secret } = registration
+    const { webhookUrl, events, secret, config } = registration
     
-    // For Discord, we register with Discord's webhook system
-    console.log('Registering Discord webhook:', {
+    console.log('🔗 Registering Discord webhook via API:', {
       webhookUrl,
       events,
-      secret: secret ? '[REDACTED]' : undefined
+      secret: secret ? '[REDACTED]' : undefined,
+      config
     })
     
-    // Store registration in database
+    // Get Discord integration details to access token
     const supabase = await createSupabaseServiceClient()
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('provider', 'discord')
+      .eq('user_id', registration.userId)
+      .single()
+    
+    if (integrationError || !integration) {
+      console.error('Discord integration not found:', integrationError)
+      return false
+    }
+    
+    const accessToken = integration.access_token
+    if (!accessToken) {
+      console.error('Discord access token not found')
+      return false
+    }
+    
+    // Extract channel ID from config - this determines where to create the webhook
+    const channelId = config?.channelId
+    if (!channelId) {
+      console.error('Channel ID not provided in config')
+      return false
+    }
+    
+    // Create webhook using Discord API
+    const discordResponse = await fetch(`https://discord.com/api/v10/channels/${channelId}/webhooks`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'ChainReact Workflow',
+        avatar: null // You can add a base64 encoded image here if desired
+      })
+    })
+    
+    if (!discordResponse.ok) {
+      const error = await discordResponse.text()
+      console.error('Failed to create Discord webhook:', error)
+      return false
+    }
+    
+    const discordWebhook = await discordResponse.json()
+    console.log('✅ Discord webhook created:', {
+      id: discordWebhook.id,
+      name: discordWebhook.name,
+      channelId: discordWebhook.channel_id
+    })
+    
+    // Store both our internal registration and Discord's webhook info
     await supabase
       .from('webhook_registrations')
       .insert({
@@ -98,10 +152,30 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
         events: events,
         secret: secret,
         status: 'active',
+        external_webhook_id: discordWebhook.id,
+        external_webhook_token: discordWebhook.token,
+        channel_id: channelId,
         created_at: new Date().toISOString()
       })
     
+    // Update the Discord webhook URL to point to our endpoint
+    const updateResponse = await fetch(`https://discord.com/api/v10/webhooks/${discordWebhook.id}/${discordWebhook.token}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url: webhookUrl
+      })
+    })
+    
+    if (!updateResponse.ok) {
+      console.warn('Failed to update Discord webhook URL, but webhook was created')
+    }
+    
+    console.log('🎉 Discord webhook fully configured!')
     return true
+    
   } catch (error) {
     console.error('Failed to register Discord webhook:', error)
     return false

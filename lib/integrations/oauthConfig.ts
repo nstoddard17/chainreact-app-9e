@@ -269,7 +269,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: false, // Discord doesn't support scope in refresh requests
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/discord/callback",
-    scope: "identify email connections guilds guilds.members.read",
+    scope: "identify email connections guilds guilds.members.read webhook.incoming",
   },
   spotify: {
     id: "spotify",

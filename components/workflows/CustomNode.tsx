@@ -3,7 +3,7 @@
 import React, { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
-import { Settings, Trash2, TestTube } from "lucide-react"
+import { Settings, Trash2, TestTube, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
@@ -19,6 +19,9 @@ interface CustomNodeData {
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
   error?: string
+  executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
+  isActiveExecution?: boolean
+  isListening?: boolean
 }
 
 function CustomNode({ id, data, selected }: NodeProps) {
@@ -32,6 +35,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onConfigure,
     onDelete,
     error,
+    executionStatus,
+    isActiveExecution,
+    isListening,
   } = data as unknown as CustomNodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
@@ -41,6 +47,58 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
+  
+  // Get execution status styling - now just border colors
+  const getExecutionStatusStyle = () => {
+    if (!executionStatus && !isListening) return ""
+    
+    switch (executionStatus) {
+      case 'running':
+        return "border-yellow-500"
+      case 'completed':
+        return "border-green-500"
+      case 'error':
+        return "border-red-500"
+      case 'pending':
+        return "border-blue-500"
+      default:
+        return isListening && isTrigger ? "border-indigo-500" : ""
+    }
+  }
+  
+  // Get execution status indicator for corner
+  const getExecutionStatusIndicator = () => {
+    if (!executionStatus && !isListening) return null
+    
+    switch (executionStatus) {
+      case 'running':
+        return (
+          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
+            <Loader2 className="w-3 h-3 text-yellow-600 animate-spin" />
+          </div>
+        )
+      case 'completed':
+        return null // No indicator for completed - just green border
+      case 'error':
+        return (
+          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full bg-red-500" />
+          </div>
+        )
+      case 'pending':
+        return (
+          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
+            <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+          </div>
+        )
+      default:
+        return isListening && isTrigger ? (
+          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          </div>
+        ) : null
+    }
+  }
   
   // Check if this node has configuration options
   const nodeHasConfiguration = (): boolean => {
@@ -82,14 +140,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`w-[400px] bg-card rounded-lg shadow-sm border ${
-        selected ? "border-primary" : "border-border"
-      } hover:shadow-md transition-shadow ${
-        error ? "border-destructive" : ""
-      } ${nodeHasConfiguration() ? "cursor-pointer" : ""}`}
+      className={`relative w-[400px] bg-card rounded-lg shadow-sm border ${
+        selected ? "border-primary" : error ? "border-destructive" : "border-border"
+      } hover:shadow-md transition-all duration-200 ${
+        nodeHasConfiguration() ? "cursor-pointer" : ""
+      } ${getExecutionStatusStyle()}`}
       data-testid={`node-${id}`}
       onDoubleClick={handleDoubleClick}
     >
+      {/* Execution status indicator */}
+      {getExecutionStatusIndicator()}
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
@@ -113,6 +173,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         </div>
       )}
+      
+
       <div className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">

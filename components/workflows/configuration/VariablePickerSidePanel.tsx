@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,64 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+// Define relevant outputs for each node type
+const RELEVANT_OUTPUTS: Record<string, string[]> = {
+  // Discord
+  'discord_trigger_new_message': ['authorName', 'channelName', 'content'],
+  'discord_action_send_message': ['messageId', 'content', 'channelName'],
+  'discord_action_add_reaction': ['success', 'messageId'],
+  
+  // Gmail
+  'gmail_trigger_new_email': ['from', 'subject', 'body'],
+  'gmail_action_send_email': ['messageId', 'subject'],
+  'gmail_action_reply_email': ['messageId', 'subject'],
+  
+  // Slack
+  'slack_trigger_new_message': ['user', 'channel', 'text'],
+  'slack_action_send_message': ['messageId', 'text', 'channel'],
+  
+  // AI/OpenAI
+  'openai_action_chat_completion': ['response', 'usage'],
+  'ai_agent': ['finalResult'],
+  
+  // Notion
+  'notion_action_create_page': ['pageId', 'title', 'url'],
+  'notion_action_update_page': ['pageId', 'title'],
+  'notion_trigger_new_page': ['pageId', 'title', 'url'],
+  
+  // GitHub
+  'github_trigger_new_issue': ['title', 'body', 'author'],
+  'github_trigger_new_pr': ['title', 'body', 'author'],
+  'github_action_create_issue': ['issueId', 'title', 'url'],
+  
+  // Trello
+  'trello_action_create_card': ['cardId', 'name', 'url'],
+  'trello_action_move_card': ['cardId', 'listName'],
+  
+  // HubSpot
+  'hubspot_trigger_new_contact': ['firstName', 'lastName', 'email'],
+  'hubspot_action_create_contact': ['contactId', 'email'],
+  
+  // Webhook
+  'webhook_trigger': ['body', 'headers', 'method'],
+  'webhook_action': ['response', 'statusCode'],
+  
+  // Google Sheets
+  'google_sheets_action_add_row': ['rowId', 'values'],
+  'google_sheets_action_read_data': ['data', 'range'],
+  
+  // Calendar
+  'google_calendar_trigger_new_event': ['title', 'startTime', 'attendees'],
+  'google_calendar_action_create_event': ['eventId', 'title', 'url'],
+  
+  // Microsoft/Outlook
+  'outlook_trigger_new_email': ['from', 'subject', 'body'],
+  'outlook_action_send_email': ['messageId', 'subject'],
+  
+  // Default fallback - show first 3 outputs
+  'default': []
+}
 
 interface VariablePickerSidePanelProps {
   workflowData?: { nodes: any[], edges: any[] }
@@ -29,6 +87,30 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
+
+  // Function to filter outputs based on node type
+  const getRelevantOutputs = useCallback((nodeType: string, allOutputs: any[]) => {
+    const relevantOutputNames = RELEVANT_OUTPUTS[nodeType] || RELEVANT_OUTPUTS['default']
+    
+    if (relevantOutputNames.length === 0) {
+      // For unknown node types, show first 3 outputs
+      console.log(`📊 [VARIABLES] No specific outputs defined for ${nodeType}, showing first 3 of ${allOutputs.length}`)
+      return allOutputs.slice(0, 3)
+    }
+    
+    // Filter outputs to only include relevant ones, maintaining order
+    const relevantOutputs = relevantOutputNames
+      .map(outputName => allOutputs.find(output => output.name === outputName))
+      .filter(Boolean)
+    
+    console.log(`📊 [VARIABLES] Filtered ${nodeType}: ${allOutputs.length} → ${relevantOutputs.length} outputs`, {
+      nodeType,
+      relevantNames: relevantOutputNames,
+      filteredOutputs: relevantOutputs.map(o => o.name)
+    })
+    
+    return relevantOutputs
+  }, [])
   
   // Access test store data
   const { 
@@ -82,12 +164,16 @@ export function VariablePickerSidePanel({
       const nodeComponent = ALL_NODE_COMPONENTS.find(comp => comp.type === node.data?.type)
       
       // Get outputs from the node component's outputSchema
-      const outputs = nodeComponent?.outputSchema || []
+      const allOutputs = nodeComponent?.outputSchema || []
+      
+      // Filter outputs to show only relevant ones for this node type
+      const relevantOutputs = getRelevantOutputs(node.data?.type || '', allOutputs)
       
       return {
         id: node.id,
         title: node.data?.title || node.data?.type || node.type || 'Unknown Node',
-        outputs: Array.isArray(outputs) ? outputs : [],
+        type: node.data?.type,
+        outputs: Array.isArray(relevantOutputs) ? relevantOutputs : [],
         isTrigger: node.data?.isTrigger || false
       }
     })
@@ -109,22 +195,11 @@ export function VariablePickerSidePanel({
     }
     
     return allNodes;
-  }, [workflowData, currentNodeId])
+  }, [workflowData, currentNodeId, getRelevantOutputs])
 
   // Filter nodes and outputs based on search term
   const filteredNodes = useMemo(() => {
     return nodes.filter(node => {
-      // Filter out all outputs except finalResult for AI agent nodes
-      if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
-        // Create a copy of the node with only the finalResult output
-        const aiNodeOutputs = node.outputs.filter((output: any) => 
-          output.name === "finalResult"
-        );
-        
-        // Update the node's outputs
-        node.outputs = aiNodeOutputs;
-      }
-
       const nodeMatches = node.title.toLowerCase().includes(searchTerm.toLowerCase())
       const outputMatches = node.outputs.some((output: any) => 
         output.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||

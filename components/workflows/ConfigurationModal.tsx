@@ -1075,55 +1075,78 @@ export default function ConfigurationModal({
   // Track errors for dynamic fields
   const [dynamicErrors, setDynamicErrors] = useState<Record<string, string>>({})
   
-  // Gmail enhanced recipients: Use the existing loadIntegrationData system
+  // Gmail enhanced recipients loading
   useEffect(() => {
-    const fetchGmailRecipients = async () => {
+    const loadGmailRecipients = async () => {
+      console.log('🔍 Gmail loading effect triggered:', { 
+        isOpen, 
+        nodeType: nodeInfo?.type, 
+        expectedType: 'gmail_action_send_email',
+        matches: nodeInfo?.type === 'gmail_action_send_email'
+      });
+      
       // Only proceed if modal is open and it's a Gmail send email node
       if (!isOpen || nodeInfo?.type !== 'gmail_action_send_email') {
+        console.log('❌ Gmail loading skipped due to conditions not met');
         return;
       }
       
-      console.log('🚀 [RESTORED] Modal opened with Gmail node - using loadIntegrationData system');
+      console.log('🚀 Loading Gmail enhanced recipients...');
       
       const integration = getIntegrationByProvider('gmail');
+      console.log('🔍 Gmail integration lookup result:', integration ? {
+        id: integration.id,
+        provider: integration.provider,
+        status: integration.status
+      } : 'null');
+      
       if (!integration) {
-        console.error('❌ [RESTORED] No Gmail integration found');
+        console.error('❌ No Gmail integration found');
+        setDynamicErrors(prev => ({
+          ...prev,
+          'gmail-enhanced-recipients': 'Gmail integration not found. Please connect your Gmail account.'
+        }));
         return;
       }
       
       try {
-        console.log('📡 [RESTORED] Calling loadIntegrationData for gmail-enhanced-recipients');
+        console.log('📡 Calling loadIntegrationData for gmail-enhanced-recipients with integration ID:', integration.id);
         const data = await loadIntegrationData('gmail-enhanced-recipients', integration.id);
+        console.log('📦 loadIntegrationData returned:', { 
+          isArray: Array.isArray(data), 
+          length: Array.isArray(data) ? data.length : 'not array',
+          type: typeof data,
+          data: data 
+        });
         
         if (data && Array.isArray(data)) {
-          console.log('✅ [RESTORED] Gmail recipients loaded via loadIntegrationData:', data.length, 'items');
+          console.log('✅ Gmail recipients loaded:', data.length, 'items');
+          console.log('📧 Sample recipients:', data.slice(0, 3));
           
-          // Process the data the same way as the existing code
-          const processedData = data.map((recipient: any) => ({
-            value: recipient.email || recipient.value,
-            label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
-            email: recipient.email || recipient.value,
-            name: recipient.name,
-            type: recipient.type,
-            isGroup: recipient.isGroup,
-            groupId: recipient.groupId,
-            members: recipient.members
-          }));
-          
-          // Update dynamic options with the processed data
+          // Update dynamic options with the data
           setDynamicOptions(prev => ({
             ...prev,
-            'gmail-enhanced-recipients': processedData
+            'gmail-enhanced-recipients': data
+          }));
+          
+          // Clear any errors
+          setDynamicErrors(prev => ({
+            ...prev,
+            'gmail-enhanced-recipients': undefined
           }));
         } else {
-          console.warn('⚠️ [RESTORED] No Gmail recipients data returned');
+          console.warn('⚠️ No Gmail recipients data returned or not an array');
           setDynamicOptions(prev => ({
             ...prev,
             'gmail-enhanced-recipients': []
           }));
+          setDynamicErrors(prev => ({
+            ...prev,
+            'gmail-enhanced-recipients': 'No email suggestions available. Make sure your Gmail account has sent or received emails.'
+          }));
         }
       } catch (error) {
-        console.error('❌ [RESTORED] Error loading Gmail recipients:', error);
+        console.error('❌ Error loading Gmail recipients:', error);
         setDynamicErrors(prev => ({
           ...prev,
           'gmail-enhanced-recipients': 'Unable to load email suggestions. Please check your Gmail integration.'
@@ -1131,130 +1154,17 @@ export default function ConfigurationModal({
       }
     };
     
-    // Call the function immediately
-    fetchGmailRecipients();
+    loadGmailRecipients();
     
   }, [isOpen, nodeInfo?.type, getIntegrationByProvider, loadIntegrationData]);
 
-  // Listen for custom event from EmailAutocomplete component
+  // Debug dynamic options state
   useEffect(() => {
-    const handleGmailRecipientsLoaded = (event: any) => {
-      console.log('📬 [EVENT] Received Gmail recipients from direct fetch:', event.detail.recipients.length)
-      
-      // Update dynamic options with the fetched data
-      setDynamicOptions(prev => ({
-        ...prev,
-        'gmail-enhanced-recipients': event.detail.recipients || []
-      }))
-      
-      // Clear any errors
-      setDynamicErrors(prev => ({
-        ...prev,
-        'gmail-enhanced-recipients': undefined
-      }))
+    console.log('🔍 Dynamic options updated:', Object.keys(dynamicOptions))
+    if (dynamicOptions['gmail-enhanced-recipients']) {
+      console.log('📧 Gmail enhanced recipients in dynamic options:', dynamicOptions['gmail-enhanced-recipients'].length, 'items')
     }
-    
-    const handleGmailRecipientsError = (event: any) => {
-      console.error('❌ [EVENT] Gmail recipients error:', event.detail.error)
-      
-      // Set error message
-      setDynamicErrors(prev => ({
-        ...prev,
-        'gmail-enhanced-recipients': event.detail.error
-      }))
-    }
-    
-    // Direct fetch function
-    const fetchGmailRecipients = async () => {
-      console.log('🔄 [MODAL] Manually triggering Gmail recipients fetch')
-      
-      try {
-        // Get integrations data
-        const integrationsResponse = await fetch('/api/integrations')
-        if (!integrationsResponse.ok) {
-          console.error('❌ [MODAL] Failed to fetch integrations')
-          return
-        }
-        
-        const integrationsData = await integrationsResponse.json()
-        const gmailIntegration = integrationsData.find((integration: any) => integration.provider === 'gmail')
-        
-        if (!gmailIntegration) {
-          console.error('❌ [MODAL] No Gmail integration found')
-          return
-        }
-        
-        console.log('🔍 [MODAL] Gmail integration found:', { 
-          id: gmailIntegration.id, 
-          name: gmailIntegration.name 
-        })
-        
-        console.log('📡 [MODAL] Making API call to fetch Gmail recipients...')
-        const response = await fetch('/api/integrations/fetch-user-data', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            integrationId: gmailIntegration.id, 
-            dataType: 'gmail-enhanced-recipients' 
-          })
-        })
-        
-        console.log('📡 [MODAL] API response status:', response.status)
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('✅ [MODAL] Gmail recipients loaded:', data.data?.length || 0, 'items')
-          
-          // Update dynamic options with the fetched data
-          setDynamicOptions(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': data.data || []
-          }))
-        } else {
-          console.error('❌ [MODAL] API call failed:', response.status, response.statusText)
-          
-          // Set error message
-          setDynamicErrors(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': 'Unable to load email suggestions. Please check your Gmail integration.'
-          }))
-        }
-      } catch (error) {
-        console.error('❌ [MODAL] Error fetching Gmail recipients:', error)
-        
-        // Set error message
-        setDynamicErrors(prev => ({
-          ...prev,
-          'gmail-enhanced-recipients': 'Unable to load email suggestions. Please check your Gmail integration.'
-        }))
-      }
-    }
-    
-    // Handle click event
-    const handleGmailFetchRequested = () => {
-      fetchGmailRecipients()
-    }
-    
-    // Add event listeners
-    window.addEventListener('gmail-recipients-loaded', handleGmailRecipientsLoaded)
-    window.addEventListener('gmail-recipients-error', handleGmailRecipientsError)
-    window.addEventListener('gmail-fetch-requested', handleGmailFetchRequested)
-    
-    // Force fetch on mount
-    if (nodeInfo?.type === 'gmail_action_send_email') {
-      console.log('🔄 [MODAL] ConfigurationModal mounted with Gmail node - forcing fetch')
-      fetchGmailRecipients()
-    }
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('gmail-recipients-loaded', handleGmailRecipientsLoaded)
-      window.removeEventListener('gmail-recipients-error', handleGmailRecipientsError)
-      window.removeEventListener('gmail-fetch-requested', handleGmailFetchRequested)
-    }
-  }, [nodeInfo?.type])
+  }, [dynamicOptions])
   
   // Initialize config with persisted data or initialData
   const [config, setConfig] = useState<Record<string, any>>(() => {
@@ -2646,160 +2556,7 @@ export default function ConfigurationModal({
       })
     }
     
-    // Force Gmail preloading for testing (temporary)
-    if (nodeInfo?.type === 'gmail_action_send_email') {
-      console.log('🔄 [CLIENT] Forcing Gmail preload for testing')
-      
-      // Force the API call to happen regardless of providerId
-      const preloadGmailRecipientsTask = async () => {
-        try {
-          console.log('🚀 [CLIENT] Executing forced Gmail preload task...')
-          
-          // Get integrations data
-          const integrationsResponse = await fetch('/api/integrations')
-          if (!integrationsResponse.ok) {
-            console.error('❌ [CLIENT] Failed to fetch integrations')
-            return
-          }
-          
-          const integrationsData = await integrationsResponse.json()
-          const gmailIntegration = integrationsData.find((integration: any) => integration.provider === 'gmail')
-          
-          if (!gmailIntegration) {
-            console.error('❌ [CLIENT] No Gmail integration found')
-            return
-          }
-          
-          console.log('🔍 [CLIENT] Gmail integration found:', { 
-            id: gmailIntegration.id, 
-            name: gmailIntegration.name 
-          })
-          
-          console.log('📡 [CLIENT] Making API call to fetch Gmail recipients...')
-          const response = await fetch('/api/integrations/fetch-user-data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-              integrationId: gmailIntegration.id, 
-              dataType: 'gmail-enhanced-recipients' 
-            })
-          })
-          
-          console.log('📡 [CLIENT] API response status:', response.status)
-          
-          if (response.ok) {
-            const data = await response.json()
-            console.log('✅ [CLIENT] Gmail recipients loaded:', data.data?.length || 0, 'items')
-            
-            // Set the dynamic options
-            setDynamicOptions(prev => ({
-              ...prev,
-              'gmail-enhanced-recipients': data.data || []
-            }))
-          } else {
-            console.error('❌ [CLIENT] API call failed:', response.status, response.statusText)
-            const errorData = await response.json().catch(() => ({}))
-            console.error('❌ [CLIENT] Error details:', errorData)
-          }
-        } catch (error) {
-          console.error('❌ [CLIENT] Error in forced Gmail preload:', error)
-        }
-      }
-      
-      // Execute the task
-      preloadGmailRecipientsTask()
-    }
-    
-    if (nodeInfo.providerId === 'gmail' && nodeInfo.type === 'gmail_action_send_email') {
-      console.log('🔄 Preloading Gmail enhanced recipients for node:', nodeInfo.type)
-      console.log('🔍 Integration info:', { integrationId: integration?.id, integrationName: integration?.name })
-      console.log('🔍 Node info:', { providerId: nodeInfo.providerId, type: nodeInfo.type })
-      console.log('🔍 Available integrations:', Object.keys(integrationData || {}))
-      
-      if (!integration) {
-        console.error('❌ No Gmail integration found!')
-        return
-      }
-      
-      const preloadGmailRecipientsTask = async () => {
-        try {
-          console.log('🔄 Starting Gmail enhanced recipients fetch...')
-          
-          console.log('📡 Making API call to fetch Gmail recipients...')
-          const response = await fetch('/api/integrations/fetch-user-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              integrationId: integration.id,
-              dataType: 'gmail-enhanced-recipients'
-            })
-          })
-          
-          console.log('📡 API response status:', response.status)
-          
-          if (response.ok) {
-            const apiData = await response.json()
-            
-            if (Array.isArray(apiData) && apiData.length > 0) {
-              const apiProcessedData = apiData.map((recipient: any) => ({
-                value: recipient.email || recipient.value,
-                label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
-                email: recipient.email || recipient.value,
-                name: recipient.name,
-                type: recipient.type || 'contact',
-                isGroup: recipient.isGroup || false,
-                groupId: recipient.groupId,
-                members: recipient.members
-              }))
-              
-              // Update with real data
-              setDynamicOptions(prev => ({
-                ...prev,
-                'gmail-enhanced-recipients': apiProcessedData,
-                'to': apiProcessedData,
-                'cc': apiProcessedData,
-                'bcc': apiProcessedData
-              }))
-              
-              console.log('✅ Gmail enhanced recipients loaded:', apiProcessedData.length)
-            } else {
-              console.warn('⚠️ No Gmail recipients data returned from API')
-              setDynamicOptions(prev => ({
-                ...prev,
-                'gmail-enhanced-recipients': [],
-                'to': [],
-                'cc': [],
-                'bcc': []
-              }))
-            }
-          } else {
-            console.error('❌ Gmail API call failed:', response.status, response.statusText)
-            setDynamicOptions(prev => ({
-              ...prev,
-              'gmail-enhanced-recipients': [],
-              'to': [],
-              'cc': [],
-              'bcc': []
-            }))
-          }
-        } catch (error) {
-          console.error('❌ Error fetching Gmail enhanced recipients:', error)
-          setDynamicOptions(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': [],
-            'to': [],
-            'cc': [],
-            'bcc': []
-          }))
-        }
-      }
-      
-      // Execute the preload task
-      console.log('🚀 Executing Gmail preload task...')
-      preloadGmailRecipientsTask()
-    }
+    // Gmail enhanced recipients will be loaded by the dedicated useEffect above
     
     // Special handling for Discord - preload members for author filter
     if (nodeInfo.providerId === 'discord' && config.guildId) {
@@ -3453,7 +3210,7 @@ export default function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId, config]) // Added config to dependencies
+  }, [isOpen, nodeInfo, config.guildId, config.channelId]) // Only depend on specific config values, not entire config object
 
   // Debug dynamicOptions state changes
   useEffect(() => {

@@ -34,7 +34,7 @@ import AIAgentConfigModal from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
-import { ExecutionMonitor, type ExecutionEvent } from "./ExecutionMonitor"
+
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -159,7 +159,8 @@ const useWorkflowBuilderState = () => {
 
   const [isSaving, setIsSaving] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
-  const [executionEvents, setExecutionEvents] = useState<ExecutionEvent[]>([])
+  const [activeExecutionNodeId, setActiveExecutionNodeId] = useState<string | null>(null)
+  const [executionResults, setExecutionResults] = useState<Record<string, { status: 'pending' | 'running' | 'completed' | 'error', timestamp: number }>>({})
   const [workflowName, setWorkflowName] = useState("")
   const [workflowDescription, setWorkflowDescription] = useState("")
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
@@ -741,7 +742,11 @@ const useWorkflowBuilderState = () => {
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
-                providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0]
+                providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0],
+                // Add execution status for visual feedback
+                executionStatus: executionResults[node.id]?.status || null,
+                isActiveExecution: activeExecutionNodeId === node.id,
+                isListening: listeningMode
               },
             };
           })
@@ -867,15 +872,9 @@ const useWorkflowBuilderState = () => {
     setEdges(allEdges);
     setHasUnsavedChanges(true);
     
-    // Auto-save the workflow
-    setTimeout(() => {
-      handleSave();
-    }, 100);
+    // Don't auto-save when trigger is selected - let user save manually
 
-    // Register webhook if trigger supports it
-    if (trigger.triggerType === 'webhook' || isWebhookSupportedTrigger(trigger.type)) {
-      registerWebhookForTrigger(trigger, integration.id, config);
-    }
+    // Webhook registration is now handled only by the Listen button or workflow activation
   };
 
   // Check if a trigger supports webhooks
@@ -1122,6 +1121,8 @@ const useWorkflowBuilderState = () => {
       console.log("React Flow nodes:", reactFlowNodes)
       console.log("React Flow edges:", reactFlowEdges)
       console.log("🔍 Save - Node positions:", reactFlowNodes.map(n => ({ id: n.id, position: n.position })))
+      console.log("🔗 All edges from getEdges():", getEdges())
+      console.log("🔗 Filtered edges count:", reactFlowEdges.length)
 
       // Map to database format without losing React Flow properties
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
@@ -1194,6 +1195,8 @@ const useWorkflowBuilderState = () => {
       
       console.log("✅ Save completed successfully")
       console.log("✅ Saved workflow with nodes:", JSON.stringify(mappedNodes.map(n => ({ id: n.id, position: n.position })), null, 2))
+      
+      // Note: Webhook registration happens only when "Listen" button is clicked, not on save
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
       
       // Immediately clear unsaved changes flag to prevent UI flicker
@@ -1339,10 +1342,11 @@ const useWorkflowBuilderState = () => {
       if (listeningMode) {
         setListeningMode(false)
         setIsExecuting(false)
-        setExecutionEvents([])
+        setActiveExecutionNodeId(null)
+        setExecutionResults({})
         toast({
           title: "Listening Mode Disabled",
-          description: "No longer listening for webhook triggers.",
+          description: "No longer listening for triggers.",
         })
         return
       }
@@ -1365,7 +1369,7 @@ const useWorkflowBuilderState = () => {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
       )
       
-      // Subscribe to execution events for this workflow
+      // Subscribe to execution events for this workflow to track node status
       const channel = supabaseClient
         .channel(`execution_events_${currentWorkflow.id}`)
         .on(
@@ -1377,19 +1381,81 @@ const useWorkflowBuilderState = () => {
             filter: `workflow_id=eq.${currentWorkflow.id}`,
           },
           (payload) => {
-            console.log("Received execution event:", payload.new)
-            // Add the event to our state
-            setExecutionEvents(prev => [...prev, payload.new as ExecutionEvent].slice(-50))
+            console.log("🎯 Received execution event:", payload.new)
+            const event = payload.new as any
+            
+            // Update node execution status
+            if (event.node_id) {
+              setExecutionResults(prev => ({
+                ...prev,
+                [event.node_id]: {
+                  status: event.event_type === 'node_started' ? 'running' : 
+                         event.event_type === 'node_completed' ? 'completed' :
+                         event.event_type === 'node_error' ? 'error' : 'pending',
+                  timestamp: Date.now()
+                }
+              }))
+              
+              // Set active node if it's running
+              if (event.event_type === 'node_started') {
+                setActiveExecutionNodeId(event.node_id)
+              } else if (event.event_type === 'node_completed' || event.event_type === 'node_error') {
+                setActiveExecutionNodeId(null)
+              }
+            }
           }
         )
         .subscribe()
+      
+      // Register webhooks for trigger nodes
+      let registeredWebhooks = 0
+      for (const triggerNode of triggerNodes) {
+        const nodeData = triggerNode.data
+        const providerId = nodeData?.providerId
+        
+        if (providerId) {
+          try {
+            console.log(`🔗 Registering webhook for ${providerId} trigger:`, {
+              nodeType: nodeData.type,
+              workflowId: currentWorkflow.id,
+              nodeId: triggerNode.id,
+              providerId: providerId,
+              config: nodeData.config
+            })
+            
+            // Register webhook with the provider
+            const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workflowId: currentWorkflow.id,
+                nodeId: triggerNode.id,
+                providerId: providerId,
+                triggerType: nodeData.type,
+                config: nodeData.config || {}
+              })
+            })
+            
+            if (webhookResponse.ok) {
+              const webhookResult = await webhookResponse.json()
+              registeredWebhooks++
+              console.log(`✅ Successfully registered webhook for ${providerId}:`, webhookResult)
+              console.log(`🌐 Discord webhook URL: ${webhookResult.webhookUrl}`)
+            } else {
+              console.error(`❌ Failed to register webhook for ${providerId}:`, await webhookResponse.text())
+            }
+          } catch (error) {
+            console.error(`❌ Error registering webhook for ${providerId}:`, error)
+          }
+        }
+      }
       
       // Enable listening mode
       setListeningMode(true)
       
       toast({
         title: "Listening Mode Enabled",
-        description: "Waiting for webhook triggers. Send a webhook to see the workflow execute in real-time.",
+        description: `Now listening for triggers. ${registeredWebhooks} webhook(s) registered. Trigger the events to see the workflow execute.`,
       })
       
     } catch (error: any) {
@@ -1925,7 +1991,8 @@ const useWorkflowBuilderState = () => {
     getWorkflowStatus,
     currentWorkflow,
     isExecuting,
-    executionEvents,
+    activeExecutionNodeId,
+    executionResults,
     configuringNode,
     setConfiguringNode,
     handleSaveConfiguration,
@@ -1990,7 +2057,7 @@ function WorkflowBuilderContent() {
   const {
     nodes, edges, setNodes, setEdges, onNodesChange, debugOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
-    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
+    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
@@ -2233,7 +2300,6 @@ function WorkflowBuilderContent() {
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="hsl(var(--muted))" />
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
-          {listeningMode && <ExecutionMonitor events={executionEvents} />}
         </ReactFlow>
         </>
       )}

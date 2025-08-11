@@ -45,6 +45,14 @@ export async function POST(request: Request) {
       webhookUrl
     })
 
+    console.log(`✅ Webhook registered successfully:`, {
+      workflowId,
+      triggerType,
+      providerId,
+      webhookUrl,
+      webhookId
+    })
+
     return NextResponse.json({
       success: true,
       webhookId,

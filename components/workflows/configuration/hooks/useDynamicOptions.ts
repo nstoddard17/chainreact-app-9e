@@ -51,7 +51,12 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
     if (!nodeType || !providerId) return;
 
-    console.log(`🔍 loadOptions called for ${fieldName} in ${nodeType}/${providerId}`, { dependsOn, dependsOnValue });
+    console.log(`🔍 [DYNAMIC] loadOptions called for ${fieldName} in ${nodeType}/${providerId}`, { dependsOn, dependsOnValue });
+    
+    // Special debug for Gmail enhanced recipients
+    if (fieldName === 'to' || fieldName === 'cc' || fieldName === 'bcc') {
+      console.log(`📧 [GMAIL] Loading Gmail enhanced recipients for field: ${fieldName}`);
+    }
 
     setLoading(true);
 
@@ -111,6 +116,8 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 
       // Determine data to load based on field name
       const resourceType = getResourceTypeForField(fieldName, nodeType);
+      console.log(`🔍 [DYNAMIC] Resource type for ${fieldName}: ${resourceType}`);
+      
       if (!resourceType) {
         console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
         setLoading(false);
@@ -174,6 +181,9 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       to: "gmail-recent-recipients",
     },
     gmail_action_send_email: {
+      to: "gmail-enhanced-recipients",
+      cc: "gmail-enhanced-recipients", 
+      bcc: "gmail-enhanced-recipients",
       messageId: "gmail-recent-recipients",
       labelIds: "gmail_labels",
     },
@@ -241,10 +251,18 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
   switch (fieldName) {
     case "from":
     case "to":
+    case "cc":
+    case "bcc":
     case "messageId":
       return data.map((item: any) => ({
-        value: item.email || item.id || item,
-        label: item.name || item.email || item.id || item,
+        value: item.email || item.value || item.id || item,
+        label: item.label || (item.name ? `${item.name} <${item.email || item.value}>` : item.email || item.value || item.id || item),
+        email: item.email || item.value,
+        name: item.name,
+        type: item.type,
+        isGroup: item.isGroup,
+        groupId: item.groupId,
+        members: item.members
       }));
       
     case "labelIds":
