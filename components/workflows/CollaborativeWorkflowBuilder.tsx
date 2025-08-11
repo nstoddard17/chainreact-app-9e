@@ -868,6 +868,28 @@ const useWorkflowBuilderState = () => {
       }
     }
     
+    // Add the "add action" node after the trigger
+    const addActionId = `add-action-${triggerNode.id}`;
+    const addActionNode: Node = {
+      id: addActionId,
+      type: 'addAction',
+      position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+      data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+    };
+    
+    // Add edge from trigger to add action node
+    const addActionEdge: Edge = {
+      id: `${triggerNode.id}->${addActionId}`,
+      source: triggerNode.id,
+      target: addActionId,
+      animated: true,
+      style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
+      type: 'straight'
+    };
+    
+    allNodes.push(addActionNode);
+    allEdges.push(addActionEdge);
+    
     setNodes(allNodes);
     setEdges(allEdges);
     setHasUnsavedChanges(true);
