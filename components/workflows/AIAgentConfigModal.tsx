@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,22 +46,79 @@ export default function AIAgentConfigModal({
   workflowData,
   currentNodeId,
 }: AIAgentConfigModalProps) {
-  const [config, setConfig] = useState<Record<string, any>>({
-    inputNodeId: "",
-    memory: "all-storage",
-    memoryIntegration: "",
-    customMemoryIntegrations: [],
-    systemPrompt: "",
-    template: "none",
-    customTemplate: "",
-    contentType: "email",
-    tone: "neutral",
-    responseLength: 50,
-    model: "gpt-4",
-    temperature: 0.7,
-    maxTokens: 1000,
-    outputFormat: "text",
-    ...initialData,
+  // Get workflow ID from the URL or context
+  const getWorkflowId = useCallback(() => {
+    if (typeof window === "undefined") return ""
+    
+    // Extract workflow ID from URL (e.g., /workflows/builder/[id])
+    const pathParts = window.location.pathname.split('/')
+    const builderIndex = pathParts.indexOf('builder')
+    
+    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
+      return pathParts[builderIndex + 1]
+    }
+    
+    return ""
+  }, [])
+  
+  // Initialize config with persisted data or initialData
+  const [config, setConfig] = useState<Record<string, any>>(() => {
+    // Default configuration
+    const defaultConfig = {
+      inputNodeId: "",
+      memory: "all-storage",
+      memoryIntegration: "",
+      customMemoryIntegrations: [],
+      systemPrompt: "",
+      template: "none",
+      customTemplate: "",
+      contentType: "email",
+      tone: "neutral",
+      responseLength: 50,
+      model: "gpt-4",
+      temperature: 0.7,
+      maxTokens: 1000,
+      outputFormat: "text",
+      ...initialData,
+    }
+    
+    // Only try to load saved config if we have a valid node ID (not a pending node)
+    if (currentNodeId && currentNodeId !== 'pending-action' && currentNodeId !== 'pending-trigger') {
+      const workflowId = getWorkflowId()
+      if (workflowId) {
+        const savedNodeData = loadNodeConfig(workflowId, currentNodeId, "ai_agent")
+        if (savedNodeData) {
+          console.log('📋 Loaded saved configuration for AI agent node:', currentNodeId)
+          
+          // If we have saved dynamic options, restore them
+          if (savedNodeData.dynamicOptions) {
+            console.log('📋 Restoring saved dynamic options for AI agent')
+            // Use setTimeout to ensure this happens after initial render
+            setTimeout(() => {
+              const options = savedNodeData.dynamicOptions;
+              
+              // Restore selectedVariables if available
+              if (options.selectedVariables) {
+                setSelectedVariables(options.selectedVariables);
+              }
+              
+              // Restore variableValues if available
+              if (options.variableValues) {
+                setVariableValues(options.variableValues);
+              }
+              
+              // Restore useStaticValues if available
+              if (options.useStaticValues) {
+                setUseStaticValues(options.useStaticValues);
+              }
+            }, 0)
+          }
+          
+          return { ...defaultConfig, ...savedNodeData.config }
+        }
+      }
+    }
+    return defaultConfig
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState("basic")
@@ -248,6 +306,22 @@ export default function AIAgentConfigModal({
         useStatic: useStaticValues[varName] || false,
         staticValue: useStaticValues[varName] ? variableValues[varName] : undefined
       }))
+    }
+    
+    // Save configuration to persistent storage if we have a valid node ID
+    if (currentNodeId && currentNodeId !== 'pending-action' && currentNodeId !== 'pending-trigger') {
+      const workflowId = getWorkflowId()
+      if (workflowId) {
+        console.log('📋 Saving configuration for AI agent node:', currentNodeId)
+        // Save both config and dynamic options
+        const dynamicOptions = {
+          // Save any dynamic options needed for AI agent
+          "selectedVariables": selectedVariables,
+          "variableValues": variableValues,
+          "useStaticValues": useStaticValues
+        }
+        saveNodeConfig(workflowId, currentNodeId, "ai_agent", configToSave, dynamicOptions)
+      }
     }
     
     onSave(configToSave)

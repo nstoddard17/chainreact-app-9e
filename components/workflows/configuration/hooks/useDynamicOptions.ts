@@ -56,13 +56,16 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     setLoading(true);
 
     try {
-      // Special handling for Discord guilds
+      // Special handling for Discord guilds – load once from cache (no forced refresh)
       if (fieldName === 'guildId' && providerId === 'discord') {
-        console.log('🔍 Special handling for Discord guilds activated');
         try {
-          console.log('🔍 Calling loadDiscordGuildsOnce with forceRefresh=true...');
-          const guilds = await loadDiscordGuildsOnce(true);
-          console.log('🔍 Discord guilds loaded:', JSON.stringify(guilds));
+          // First try cached/stale-aware load
+          let guilds = await loadDiscordGuildsOnce(false);
+          
+          // If nothing returned, attempt a single forced refresh
+          if (!guilds || guilds.length === 0) {
+            guilds = await loadDiscordGuildsOnce(true);
+          }
           
           if (!guilds || guilds.length === 0) {
             console.warn('⚠️ No Discord guilds found or guilds array is empty');
@@ -77,15 +80,12 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
             value: guild.id,
             label: guild.name,
           }));
-          console.log('🔍 Formatted guild options:', JSON.stringify(formattedOptions));
-          
-          // Set options immediately without setTimeout
+          // Set options immediately
           setDynamicOptions(prev => {
             const updatedOptions = {
               ...prev,
               [fieldName]: formattedOptions
             };
-            console.log('🔍 Updated dynamic options state:', JSON.stringify(updatedOptions));
             return updatedOptions;
           });
         } catch (error) {
@@ -178,6 +178,11 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       labelIds: "gmail_labels",
     },
     // Discord fields
+    discord_trigger_new_message: {
+      channelId: "discord_channels",
+      guildId: "discord_guilds",
+      authorFilter: "discord_users",
+    },
     discord_action_send_message: {
       channelId: "discord_channels",
       guildId: "discord_guilds",
@@ -249,10 +254,28 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
       }));
       
     case "channelId":
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.name || item.id,
+      // Ensure we have proper data for Discord channels
+      const formattedChannels = data.map((item: any) => ({
+        value: item.id || item.value,
+        label: item.name || item.label || item.id,
       }));
+      
+      // Log the formatted channel data
+      console.log('📋 Formatted channel data:', formattedChannels);
+      
+      return formattedChannels;
+      
+    case "authorFilter":
+      // Ensure we have proper data for Discord members/users
+      const formattedData = data.map((item: any) => ({
+        value: item.id || item.value,
+        label: item.username || item.name || item.label || item.id,
+      }));
+      
+      // Log the formatted author filter data
+      console.log('📋 Formatted author filter data:', formattedData);
+      
+      return formattedData;
       
     case "messageId":
       return data.map((item: any) => ({

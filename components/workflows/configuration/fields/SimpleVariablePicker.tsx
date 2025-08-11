@@ -96,6 +96,7 @@ export function SimpleVariablePicker({
     outputs: node.data?.outputSchema || []
   })) || [];
   
+  // Always show only previous nodes when in configuration mode
   const nodes = currentNodeId ? getPreviousNodes() : allNodes;
 
   // Filter nodes and outputs based on search term
