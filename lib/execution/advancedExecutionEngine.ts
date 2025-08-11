@@ -659,41 +659,59 @@ export class AdvancedExecutionEngine {
   }
 
   private async executeNode(node: any, workflow: any, context: any): Promise<any> {
-    await this.logExecutionEvent(context.session.id, "node_execution_start", node.id, { nodeType: node.data.type });
-    // Placeholder for fetching integration-specific API clients and handling auth
-    // This would involve fetching stored credentials and handling OAuth token refreshes.
-    const apiClient = await this.getApiClientForNode(node.data.providerId, context.session.user_id);
+    try {
+      await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type });
+      console.log(`🎯 Executing node: ${node.id} (${node.data.type})`);
+      
+      // Placeholder for fetching integration-specific API clients and handling auth
+      // This would involve fetching stored credentials and handling OAuth token refreshes.
+      const apiClient = await this.getApiClientForNode(node.data.providerId, context.session.user_id);
 
-    // Placeholder for handling different node types
-    switch (node.data.type) {
-      case 'custom_script':
-        // Execute custom script
-        break;
-      // Other generic node types...
+      let result = context.data;
 
-      default:
-        // Handle integration-specific actions
-        if (node.data.providerId && apiClient) {
-          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
-          
-          if (nodeComponent && nodeComponent.actionParamsSchema) {
-            // Map workflow data to action parameters
-            const params = this.mapWorkflowData(context.data, node.data.config);
+      // Placeholder for handling different node types
+      switch (node.data.type) {
+        case 'custom_script':
+          // Execute custom script
+          break;
+        // Other generic node types...
 
-            if (node.data.providerId === 'gmail' && apiClient) {
-              if (nodeComponent?.actionParamsSchema) {
-                if (node.data.type === 'gmail_action_send_email') {
-                  const result = await retry(() => (apiClient as GmailService).sendEmail(params));
-                  await this.logExecutionEvent(context.session.id, "node_execution_end", node.id, { success: true, result });
-                  return { ...context.data, [node.id]: result };
+        default:
+          // Handle integration-specific actions
+          if (node.data.providerId && apiClient) {
+            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+            
+            if (nodeComponent && nodeComponent.actionParamsSchema) {
+              // Map workflow data to action parameters
+              const params = this.mapWorkflowData(context.data, node.data.config);
+
+              if (node.data.providerId === 'gmail' && apiClient) {
+                if (nodeComponent?.actionParamsSchema) {
+                  if (node.data.type === 'gmail_action_send_email') {
+                    const actionResult = await retry(() => (apiClient as GmailService).sendEmail(params));
+                    result = { ...context.data, [node.id]: actionResult };
+                  }
                 }
               }
+              // Add other provider handling here...
             }
           }
-        }
+      }
+      
+      await this.logExecutionEvent(context.session.id, "node_completed", node.id, { 
+        success: true, 
+        result: result[node.id] || "completed" 
+      });
+      console.log(`✅ Node completed: ${node.id}`);
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ Node failed: ${node.id}`, error);
+      await this.logExecutionEvent(context.session.id, "node_error", node.id, { 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+      throw error;
     }
-    await this.logExecutionEvent(context.session.id, "node_execution_end", node.id, { success: false, reason: "No action taken" });
-    return context.data; // Return original data if no action taken
   }
 
   private async getApiClientForNode(providerId: string | undefined, userId: string): Promise<any | null> {
@@ -803,11 +821,20 @@ export class AdvancedExecutionEngine {
     nodeId: string | null,
     eventData: any = {},
   ): Promise<void> {
+    // Get workflow_id from session
+    const session = await this.getExecutionSession(sessionId)
+    if (!session) {
+      console.error("Cannot log execution event: session not found")
+      return
+    }
+
     await this.supabase.from("live_execution_events").insert({
       session_id: sessionId,
+      workflow_id: session.workflow_id,
       event_type: eventType,
       node_id: nodeId,
       event_data: eventData,
+      timestamp: new Date().toISOString()
     })
   }
 }

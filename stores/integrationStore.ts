@@ -1182,7 +1182,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         
         // Handle the structured response from apiClient
         if (!response.success) {
-          // console.error(`❌ Integration Store: Failed response for ${providerId}:`, response)
           throw new Error(response.error || 'Failed to load integration data')
         }
         

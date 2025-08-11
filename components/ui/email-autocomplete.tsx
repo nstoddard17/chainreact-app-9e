@@ -290,85 +290,13 @@ export function EmailAutocomplete({
     }
   }, [selectedIndex])
   
-  // Direct Gmail recipients fetching - ALWAYS fetch on mount
+  // Log suggestions when they change for debugging
   useEffect(() => {
-    console.log('🚀 [DIRECT] EmailAutocomplete mounted - forcing Gmail recipients fetch')
-    
-    // Always fetch when component mounts, regardless of conditions
-    const fetchGmailRecipients = async () => {
-        try {
-          console.log('🔄 [DIRECT] Fetching Gmail recipients directly from EmailAutocomplete...')
-          
-          // Get integrations data
-          console.log('📡 [DIRECT] Fetching integrations list...')
-          const integrationsResponse = await fetch('/api/integrations')
-          console.log('📡 [DIRECT] Integrations response status:', integrationsResponse.status)
-          
-          if (!integrationsResponse.ok) {
-            console.error('❌ [DIRECT] Failed to fetch integrations')
-            return
-          }
-          
-          const integrationsData = await integrationsResponse.json()
-          const gmailIntegration = integrationsData.find((integration: any) => integration.provider === 'gmail')
-          
-          if (!gmailIntegration) {
-            console.error('❌ [DIRECT] No Gmail integration found')
-            return
-          }
-          
-          console.log('🔍 [DIRECT] Gmail integration found:', { 
-            id: gmailIntegration.id, 
-            name: gmailIntegration.name 
-          })
-          
-          console.log('📡 [DIRECT] Making API call to fetch Gmail recipients...')
-          const response = await fetch('/api/integrations/fetch-user-data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-              integrationId: gmailIntegration.id, 
-              dataType: 'gmail-enhanced-recipients' 
-            })
-          })
-          
-          console.log('📡 [DIRECT] API response status:', response.status)
-          
-          if (response.ok) {
-            const data = await response.json()
-            console.log('✅ [DIRECT] Gmail recipients loaded:', data.data?.length || 0, 'items')
-            
-            // We can't directly update suggestions since it's a prop
-            // But we can dispatch a custom event that the parent component can listen for
-            const event = new CustomEvent('gmail-recipients-loaded', { 
-              detail: { recipients: data.data || [] }
-            })
-            window.dispatchEvent(event)
-          } else {
-            console.error('❌ [DIRECT] API call failed:', response.status, response.statusText)
-            
-            // Dispatch error event
-            const errorEvent = new CustomEvent('gmail-recipients-error', { 
-              detail: { error: 'Unable to load email suggestions. Please check your Gmail integration.' }
-            })
-            window.dispatchEvent(errorEvent)
-          }
-        } catch (error) {
-          console.error('❌ [DIRECT] Error fetching Gmail recipients:', error)
-          
-          // Dispatch error event
-          const errorEvent = new CustomEvent('gmail-recipients-error', { 
-            detail: { error: 'Unable to load email suggestions. Please check your Gmail integration.' }
-          })
-          window.dispatchEvent(errorEvent)
-        }
-      }
-      
-      fetchGmailRecipients()
+    console.log('📧 EmailAutocomplete suggestions updated:', suggestions?.length || 0, 'items')
+    if (suggestions && suggestions.length > 0) {
+      console.log('📧 Sample suggestions:', suggestions.slice(0, 3))
     }
-  }, []) // Empty dependency array ensures it runs once on mount
+  }, [suggestions])
 
   return (
     <div className={cn("relative", className)}>
@@ -414,15 +342,6 @@ export function EmailAutocomplete({
               if (!isOpen) {
                 setIsOpen(true)
                 setSelectedIndex(-1)
-                
-                // Force fetch on click as well
-                if (!suggestions || suggestions.length === 0) {
-                  console.log('🖱️ [DIRECT] Input clicked - triggering Gmail recipients fetch')
-                  
-                  // Dispatch event to trigger fetch
-                  const clickEvent = new CustomEvent('gmail-fetch-requested')
-                  window.dispatchEvent(clickEvent)
-                }
               }
             }}
             placeholder={isLoading ? "Loading suggestions..." : placeholder}

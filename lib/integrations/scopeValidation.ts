@@ -107,7 +107,8 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       "connections",
       "guilds",
       "guilds.members.read",
-      "guilds.messages.read"
+      "guilds.messages.read",
+      "webhook.incoming"
     ]
     const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
 

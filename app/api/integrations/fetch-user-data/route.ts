@@ -27,32 +27,29 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Missing required parameters' }, { status: 400 });
     }
     
-    // Special case for hardcoded 'gmail' integrationId
-    if (integrationId === 'gmail' && dataType === 'gmail-enhanced-recipients') {
-      console.log('🔍 [SERVER] Special case: hardcoded Gmail integration');
+    // Special handling for Gmail enhanced recipients
+    if (dataType === 'gmail-enhanced-recipients') {
+      console.log('🔍 [SERVER] Processing Gmail enhanced recipients request, integrationId:', integrationId);
       
-      // Get all user integrations
-      const { data: userIntegrations, error } = await supabase
-        .from('user_integrations')
-        .select('*')
-        .eq('provider', 'gmail')
-        .order('created_at', { ascending: false })
-        .limit(1);
-        
-      if (error || !userIntegrations || userIntegrations.length === 0) {
-        console.error('❌ [SERVER] No Gmail integration found:', error);
-        return Response.json({ error: 'No Gmail integration found' }, { status: 404 });
-      }
-      
-      // Use the first Gmail integration found
-      const integration = userIntegrations[0];
-      console.log('✅ [SERVER] Found Gmail integration:', { id: integration.id });
-      
-      // Continue with this integration
+      // Continue with normal flow using provided integrationId
       const dataFetcher = dataFetchers[dataType];
       if (!dataFetcher) {
         return Response.json({ error: `Data type ${dataType} not supported` }, { status: 400 });
       }
+      
+      // Get integration from database using the provided integrationId
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('id', integrationId)
+        .single();
+
+      if (integrationError || !integration) {
+        console.error('❌ [SERVER] Gmail integration not found:', integrationError);
+        return Response.json({ error: 'Gmail integration not found' }, { status: 404 });
+      }
+      
+      console.log('✅ [SERVER] Found Gmail integration:', { id: integration.id, provider: integration.provider });
       
       console.log(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const result = await dataFetcher(integration, options);
@@ -1943,11 +1940,70 @@ const dataFetchers: DataFetcher = {
         hasAccessToken: !!integration.access_token 
       })
       
+      // Email filtering patterns to exclude unwanted addresses
+      const shouldFilterEmail = (email: string, name: string = ''): boolean => {
+        const emailLower = email.toLowerCase()
+        const nameLower = name.toLowerCase()
+        
+        // Filter patterns for unwanted emails
+        const filterPatterns = [
+          // Unsubscribe/opt-out patterns
+          /unsubscrib/i,
+          /opt[-_]?out/i,
+          /do[-_]?not[-_]?reply/i,
+          /no[-_]?reply/i,
+          /noreply/i,
+          /donotreply/i,
+          
+          // Marketing/automation patterns
+          /newsletter/i,
+          /marketing/i,
+          /promo/i,
+          /campaign/i,
+          /bulk/i,
+          /auto/i,
+          /automated/i,
+          /bounce/i,
+          /mailer[-_]?daemon/i,
+          
+          // System/service patterns
+          /notification/i,
+          /alert/i,
+          /system/i,
+          /service/i,
+          /daemon/i,
+          /postmaster/i,
+          /webmaster/i,
+          /admin/i,
+          
+          // Extremely long emails (likely generated/spam)
+          /.{80,}@/, // Emails with 80+ characters before @
+        ]
+        
+        // Check if email or name matches any filter pattern
+        const matchesPattern = filterPatterns.some(pattern => 
+          pattern.test(emailLower) || pattern.test(nameLower)
+        )
+        
+        // Additional checks
+        const hasMultipleNumbers = (emailLower.match(/\d/g) || []).length > 6 // Lots of numbers
+        const hasRandomChars = /[a-z]{20,}/.test(emailLower) // Very long random strings
+        
+        return matchesPattern || hasMultipleNumbers || hasRandomChars
+      }
+      
       // Extract unique addresses from emails and contacts
       const addressMap = new Map<string, { email: string; name: string; count: number; type: string; isContact: boolean }>()
 
       const addAddress = (email: string, name: string, type: string, isContact: boolean = false) => {
         if (!email || !isValidEmail(email)) return
+        
+        // Filter out unwanted emails
+        if (shouldFilterEmail(email, name)) {
+          console.log(`🚫 Filtered out email: ${email} (${name})`)
+          return
+        }
+        
         if (addressMap.has(email)) {
           const existing = addressMap.get(email)!
           existing.count++

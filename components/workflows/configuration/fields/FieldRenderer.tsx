@@ -18,6 +18,8 @@ import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
+import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
+import { useEffect } from "react";
 
 /**
  * Props for the Field component
@@ -88,6 +90,14 @@ export function FieldRenderer({
       loadingDynamic
     });
   }
+
+  // Effect to trigger dynamic loading for email autocomplete fields
+  useEffect(() => {
+    if (field.type === 'email-autocomplete' && field.dynamic && fieldOptions.length === 0 && onDynamicLoad && !loadingDynamic) {
+      console.log(`📧 [FIELD] Triggering dynamic load for ${field.name}`);
+      onDynamicLoad(field.name);
+    }
+  }, [field.type, field.dynamic, field.name, fieldOptions.length, onDynamicLoad, loadingDynamic]);
 
   // Drag and drop functionality
   const { handleDragOver, handleDrop } = useDragDrop({
@@ -165,9 +175,31 @@ export function FieldRenderer({
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
+      case "email-autocomplete":
+        console.log(`📧 [FIELD] Rendering email-autocomplete for ${field.name}`, {
+          fieldOptions: fieldOptions?.length || 0,
+          dynamicOptions: dynamicOptions?.[field.name]?.length || 0,
+          loadingDynamic
+        });
+        
+        return (
+          <EmailAutocomplete
+            value={value || ""}
+            onChange={onChange}
+            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
+            suggestions={fieldOptions}
+            multiple={true}
+            isLoading={loadingDynamic}
+            disabled={loadingDynamic}
+            className={cn(
+              "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
+          />
+        );
+
       case "text":
       case "email":
-      case "email-autocomplete":
         return (
           <Input
             id={field.name}
@@ -180,7 +212,7 @@ export function FieldRenderer({
               "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
               error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
-            type={field.type === "email" || field.type === "email-autocomplete" ? "email" : "text"}
+            type={field.type === "email" ? "email" : "text"}
           />
         );
 
