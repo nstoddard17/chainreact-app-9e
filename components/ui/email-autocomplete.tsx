@@ -26,7 +26,8 @@ interface EmailAutocompleteProps {
   multiple?: boolean
   className?: string
   isLoading?: boolean
-  endAdornment?: ReactNode // <-- Add this line
+  endAdornment?: ReactNode
+  error?: string
 }
 
 export function EmailAutocomplete({
@@ -38,8 +39,10 @@ export function EmailAutocomplete({
   multiple = false,
   className,
   isLoading = false,
-  endAdornment // <-- Add this line
+  endAdornment,
+  error
 }: EmailAutocompleteProps) {
+
   const [inputValue, setInputValue] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -57,18 +60,68 @@ export function EmailAutocomplete({
 
   // Filter suggestions based on input and exclude already selected emails
   const filteredSuggestions = useMemo(() => {
-    if (!inputValue.trim()) return suggestions.slice(0, 50)
-    
     const query = inputValue.toLowerCase()
-    const filtered = suggestions.filter(suggestion => {
-      const matchesQuery = 
-        suggestion.email.toLowerCase().includes(query) ||
+    
+    // First filter out already selected emails
+    const availableSuggestions = suggestions.filter(suggestion => 
+      !multiple || !selectedEmails.includes(suggestion.email)
+    )
+    
+    if (!query) {
+      // When empty, return all available suggestions with smart ordering
+      return availableSuggestions
+        .sort((a, b) => {
+          // Prioritize contacts first
+          if (a.type === 'contact' && b.type !== 'contact') return -1
+          if (b.type === 'contact' && a.type !== 'contact') return 1
+          
+          // Then recent contacts
+          if (a.type === 'recent' && b.type !== 'recent') return -1
+          if (b.type === 'recent' && a.type !== 'recent') return 1
+          
+          // Then by name availability
+          if (a.name && !b.name) return -1
+          if (b.name && !a.name) return 1
+          
+          // Default to alphabetical
+          return (a.name || a.email).localeCompare(b.name || b.email)
+        })
+        .slice(0, 50)
+    }
+    
+    // When there's input, filter by query with smarter ranking
+    const filtered = availableSuggestions.filter(suggestion => {
+      // Check if query matches email or name
+      return suggestion.email.toLowerCase().includes(query) ||
         (suggestion.name && suggestion.name.toLowerCase().includes(query))
+    }).sort((a, b) => {
+      // Sort by relevance:
+      // 1. Exact matches at beginning of email or name
+      // 2. Matches at beginning of email or name
+      // 3. Contains matches
+      // 4. Recent contacts (if they have a type field with 'recent')
       
-      // Exclude already selected emails in multiple mode
-      const notSelected = !multiple || !selectedEmails.includes(suggestion.email)
+      const aEmail = a.email.toLowerCase()
+      const bEmail = b.email.toLowerCase()
+      const aName = (a.name || '').toLowerCase()
+      const bName = (b.name || '').toLowerCase()
       
-      return matchesQuery && notSelected
+      // Exact matches at beginning
+      if (aEmail.startsWith(query) && !bEmail.startsWith(query)) return -1
+      if (bEmail.startsWith(query) && !aEmail.startsWith(query)) return 1
+      if (aName.startsWith(query) && !bName.startsWith(query)) return -1
+      if (bName.startsWith(query) && !aName.startsWith(query)) return 1
+      
+      // Recent contacts
+      if (a.type === 'recent' && b.type !== 'recent') return -1
+      if (b.type === 'recent' && a.type !== 'recent') return 1
+      
+      // Prioritize contacts over generic emails
+      if (a.name && !b.name) return -1
+      if (b.name && !a.name) return 1
+      
+      // Default to alphabetical
+      return aEmail.localeCompare(bEmail)
     })
     
     return filtered.slice(0, 50)
@@ -77,6 +130,8 @@ export function EmailAutocomplete({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
+    
+    // Always open dropdown when typing
     setIsOpen(true)
     setSelectedIndex(-1)
     
@@ -197,7 +252,16 @@ export function EmailAutocomplete({
   }
 
   const handleInputFocus = () => {
+    // Always show suggestions dropdown on focus, even if input is empty
     setIsOpen(true)
+    
+    // Reset selected index when opening dropdown
+    setSelectedIndex(-1)
+    
+    // Focus the input to ensure it's ready for typing
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
   }
 
   const handleInputBlur = () => {
@@ -225,6 +289,86 @@ export function EmailAutocomplete({
       }
     }
   }, [selectedIndex])
+  
+  // Direct Gmail recipients fetching - ALWAYS fetch on mount
+  useEffect(() => {
+    console.log('🚀 [DIRECT] EmailAutocomplete mounted - forcing Gmail recipients fetch')
+    
+    // Always fetch when component mounts, regardless of conditions
+    const fetchGmailRecipients = async () => {
+        try {
+          console.log('🔄 [DIRECT] Fetching Gmail recipients directly from EmailAutocomplete...')
+          
+          // Get integrations data
+          console.log('📡 [DIRECT] Fetching integrations list...')
+          const integrationsResponse = await fetch('/api/integrations')
+          console.log('📡 [DIRECT] Integrations response status:', integrationsResponse.status)
+          
+          if (!integrationsResponse.ok) {
+            console.error('❌ [DIRECT] Failed to fetch integrations')
+            return
+          }
+          
+          const integrationsData = await integrationsResponse.json()
+          const gmailIntegration = integrationsData.find((integration: any) => integration.provider === 'gmail')
+          
+          if (!gmailIntegration) {
+            console.error('❌ [DIRECT] No Gmail integration found')
+            return
+          }
+          
+          console.log('🔍 [DIRECT] Gmail integration found:', { 
+            id: gmailIntegration.id, 
+            name: gmailIntegration.name 
+          })
+          
+          console.log('📡 [DIRECT] Making API call to fetch Gmail recipients...')
+          const response = await fetch('/api/integrations/fetch-user-data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+              integrationId: gmailIntegration.id, 
+              dataType: 'gmail-enhanced-recipients' 
+            })
+          })
+          
+          console.log('📡 [DIRECT] API response status:', response.status)
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log('✅ [DIRECT] Gmail recipients loaded:', data.data?.length || 0, 'items')
+            
+            // We can't directly update suggestions since it's a prop
+            // But we can dispatch a custom event that the parent component can listen for
+            const event = new CustomEvent('gmail-recipients-loaded', { 
+              detail: { recipients: data.data || [] }
+            })
+            window.dispatchEvent(event)
+          } else {
+            console.error('❌ [DIRECT] API call failed:', response.status, response.statusText)
+            
+            // Dispatch error event
+            const errorEvent = new CustomEvent('gmail-recipients-error', { 
+              detail: { error: 'Unable to load email suggestions. Please check your Gmail integration.' }
+            })
+            window.dispatchEvent(errorEvent)
+          }
+        } catch (error) {
+          console.error('❌ [DIRECT] Error fetching Gmail recipients:', error)
+          
+          // Dispatch error event
+          const errorEvent = new CustomEvent('gmail-recipients-error', { 
+            detail: { error: 'Unable to load email suggestions. Please check your Gmail integration.' }
+          })
+          window.dispatchEvent(errorEvent)
+        }
+      }
+      
+      fetchGmailRecipients()
+    }
+  }, []) // Empty dependency array ensures it runs once on mount
 
   return (
     <div className={cn("relative", className)}>
@@ -265,6 +409,22 @@ export function EmailAutocomplete({
               handleInputFocus()
             }}
             onBlur={handleInputBlur}
+            onClick={() => {
+              // Ensure dropdown opens when clicking on the input
+              if (!isOpen) {
+                setIsOpen(true)
+                setSelectedIndex(-1)
+                
+                // Force fetch on click as well
+                if (!suggestions || suggestions.length === 0) {
+                  console.log('🖱️ [DIRECT] Input clicked - triggering Gmail recipients fetch')
+                  
+                  // Dispatch event to trigger fetch
+                  const clickEvent = new CustomEvent('gmail-fetch-requested')
+                  window.dispatchEvent(clickEvent)
+                }
+              }
+            }}
             placeholder={isLoading ? "Loading suggestions..." : placeholder}
             disabled={disabled || isLoading}
             className="w-full pr-10" // Reduce right padding for flush button
@@ -299,7 +459,7 @@ export function EmailAutocomplete({
       </div>
 
       {/* Suggestions dropdown */}
-      {isOpen && (isLoading || filteredSuggestions.length > 0) && (
+      {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto">
           {isLoading ? (
             // Loading state in dropdown
@@ -307,47 +467,214 @@ export function EmailAutocomplete({
               <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin"></div>
               <span className="text-sm text-muted-foreground">Loading email suggestions...</span>
             </div>
-          ) : (
+          ) : filteredSuggestions.length > 0 ? (
             <ul ref={listRef} className="py-1">
-              {filteredSuggestions.map((suggestion, index) => (
-                <li key={suggestion.email}>
-                  <button
-                    type="button"
-                    className={cn(
-                      "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
-                      selectedIndex === index && "bg-accent text-accent-foreground"
-                    )}
-                    onMouseDown={(e) => {
-                      e.preventDefault() // Prevent input blur
-                      handleSuggestionSelect(suggestion)
-                    }}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    {suggestion.isGroup ? (
-                      <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                    ) : (
-                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                                          <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-popover-foreground truncate">
-                          {suggestion.name || suggestion.email}
+              {/* Recent contacts section */}
+              {filteredSuggestions.some(s => s.type === 'recent') && (
+                <li className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
+                  Recent Contacts
+                </li>
+              )}
+              
+              {/* Recent contacts */}
+              {filteredSuggestions
+                .filter(s => s.type === 'recent')
+                .map((suggestion, index) => {
+                  const actualIndex = filteredSuggestions.findIndex(s => s.email === suggestion.email)
+                  return (
+                    <li key={`recent-${suggestion.email}`}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
+                          selectedIndex === actualIndex && "bg-accent text-accent-foreground"
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Prevent input blur
+                          handleSuggestionSelect(suggestion)
+                        }}
+                        onMouseEnter={() => setSelectedIndex(actualIndex)}
+                      >
+                        <Mail className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-popover-foreground truncate">
+                            {suggestion.name || suggestion.email}
+                          </div>
+                          {suggestion.name && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {suggestion.email}
+                            </div>
+                          )}
                         </div>
-                        {suggestion.name && !suggestion.isGroup && (
-                          <div className="text-xs text-muted-foreground truncate">
+                      </button>
+                    </li>
+                  )
+                })
+              }
+              
+              {/* Contacts section */}
+              {filteredSuggestions.some(s => s.type === 'contact' || (!s.type && s.name)) && (
+                <li className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
+                  Contacts
+                </li>
+              )}
+              
+              {/* Regular contacts */}
+              {filteredSuggestions
+                .filter(s => s.type === 'contact' || (!s.type && s.name && !s.isGroup))
+                .map((suggestion, index) => {
+                  const actualIndex = filteredSuggestions.findIndex(s => s.email === suggestion.email)
+                  return (
+                    <li key={`contact-${suggestion.email}`}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
+                          selectedIndex === actualIndex && "bg-accent text-accent-foreground"
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Prevent input blur
+                          handleSuggestionSelect(suggestion)
+                        }}
+                        onMouseEnter={() => setSelectedIndex(actualIndex)}
+                      >
+                        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-popover-foreground truncate">
+                            {suggestion.name || suggestion.email}
+                          </div>
+                          {suggestion.name && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {suggestion.email}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })
+              }
+              
+              {/* Groups section */}
+              {filteredSuggestions.some(s => s.isGroup) && (
+                <li className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
+                  Contact Groups
+                </li>
+              )}
+              
+              {/* Groups */}
+              {filteredSuggestions
+                .filter(s => s.isGroup)
+                .map((suggestion, index) => {
+                  const actualIndex = filteredSuggestions.findIndex(s => s.email === suggestion.email)
+                  return (
+                    <li key={`group-${suggestion.email}`}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
+                          selectedIndex === actualIndex && "bg-accent text-accent-foreground"
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Prevent input blur
+                          handleSuggestionSelect(suggestion)
+                        }}
+                        onMouseEnter={() => setSelectedIndex(actualIndex)}
+                      >
+                        <Users className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-popover-foreground truncate">
+                            {suggestion.name || suggestion.email}
+                          </div>
+                          {suggestion.members && (
+                            <div className="text-xs text-primary truncate">
+                              {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
+                              {suggestion.members.length > 2 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })
+              }
+              
+              {/* Other emails section */}
+              {filteredSuggestions.some(s => !s.type && !s.name && !s.isGroup) && (
+                <li className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
+                  Other Emails
+                </li>
+              )}
+              
+              {/* Other emails */}
+              {filteredSuggestions
+                .filter(s => !s.type && !s.name && !s.isGroup)
+                .map((suggestion, index) => {
+                  const actualIndex = filteredSuggestions.findIndex(s => s.email === suggestion.email)
+                  return (
+                    <li key={`other-${suggestion.email}`}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
+                          selectedIndex === actualIndex && "bg-accent text-accent-foreground"
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Prevent input blur
+                          handleSuggestionSelect(suggestion)
+                        }}
+                        onMouseEnter={() => setSelectedIndex(actualIndex)}
+                      >
+                        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-popover-foreground truncate">
                             {suggestion.email}
                           </div>
-                        )}
-                        {suggestion.isGroup && suggestion.members && (
-                          <div className="text-xs text-primary truncate">
-                            {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
-                            {suggestion.members.length > 2 && '...'}
-                          </div>
-                        )}
-                      </div>
-                  </button>
-                </li>
-              ))}
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })
+              }
             </ul>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 px-4">
+              {error ? (
+                <div className="text-sm text-red-500 text-center">
+                  {error}
+                </div>
+              ) : (
+                <>
+                  <div className="text-sm text-muted-foreground text-center">
+                    {inputValue ? 
+                      "No matching email addresses found" : 
+                      "Type to search or enter a new email address"
+                    }
+                  </div>
+                  {inputValue && isValidEmail(inputValue) && (
+                    <button
+                      type="button"
+                      className="mt-2 text-sm text-primary hover:underline"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        if (multiple) {
+                          const newEmails = [...selectedEmails, inputValue.trim()]
+                          setSelectedEmails(newEmails)
+                          onChange(newEmails.join(', '))
+                          setInputValue("")
+                        } else {
+                          onChange(inputValue.trim())
+                          setInputValue(inputValue.trim())
+                          setIsOpen(false)
+                        }
+                      }}
+                    >
+                      Use "{inputValue}"
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       )}

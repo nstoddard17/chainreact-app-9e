@@ -46,6 +46,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeHasConfiguration = (): boolean => {
     if (!component) return false
     
+    // All trigger nodes should have configuration
+    if (isTrigger) {
+      return true
+    }
+    
     // Check if the node has configuration schema
     const hasConfigSchema = !!(component.configSchema && component.configSchema.length > 0)
     

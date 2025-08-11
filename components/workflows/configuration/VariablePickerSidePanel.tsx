@@ -102,7 +102,7 @@ export function VariablePickerSidePanel({
              node.id !== 'add-node-button'
     }) || []
     
-    // If we have a current node ID, filter to only show previous nodes
+    // Always show only previous nodes when in configuration mode
     if (currentNodeId) {
       const previousNodeIds = getPreviousNodes(currentNodeId);
       return allNodes.filter(node => previousNodeIds.includes(node.id) || node.isTrigger);

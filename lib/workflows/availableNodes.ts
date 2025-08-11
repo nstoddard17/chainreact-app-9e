@@ -803,13 +803,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: GMAIL_SEND_EMAIL_METADATA.key,
-    title: GMAIL_SEND_EMAIL_METADATA.name,
+    title: "Send Email",
     description: GMAIL_SEND_EMAIL_METADATA.description,
     icon: Mail,
     isTrigger: false,
     providerId: "gmail",
     testable: true,
-    requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
+    requiredScopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/contacts.readonly"],
     category: "Email",
     outputSchema: [
       {
@@ -3788,6 +3788,46 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      {
+        name: "guildId",
+        label: "Discord Server",
+        type: "select",
+        description: "The Discord server to monitor",
+        placeholder: "Select a Discord server",
+        dynamic: "discord_guilds",
+        required: true
+      },
+      {
+        name: "channelId",
+        label: "Channel",
+        type: "select",
+        description: "The channel to monitor for new messages",
+        placeholder: "Select a channel",
+        dynamic: "discord_channels",
+        dependsOn: "guildId",
+        required: true,
+        hidden: true
+      },
+      {
+        name: "contentFilter",
+        label: "Content Filter",
+        type: "text",
+        description: "Only trigger on messages containing this text (optional)",
+        placeholder: "e.g., !command or keyword",
+        hidden: true
+      },
+      {
+        name: "authorFilter",
+        label: "Author Filter",
+        type: "select",
+        description: "Only trigger on messages from this user (optional)",
+        placeholder: "Any user",
+        dynamic: "discord_users",
+        dependsOn: "guildId",
+        hidden: true
+      }
+    ],
     outputSchema: [
       {
         name: "messageId",
@@ -5490,7 +5530,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
-    requiresTriggerProvider: "gmail", // Only available when workflow has Gmail trigger
     configSchema: [
       { 
         name: "messageId", 

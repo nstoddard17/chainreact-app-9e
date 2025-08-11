@@ -28,7 +28,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
 import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
-import { supabase } from "@/utils/supabaseClient"
+import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import AIAgentConfigModal from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
@@ -38,7 +38,7 @@ import { ExecutionMonitor, type ExecutionEvent } from "./ExecutionMonitor"
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -174,7 +174,7 @@ const useWorkflowBuilderState = () => {
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
-  const [testMode, setTestMode] = useState(false)
+  const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
@@ -200,7 +200,12 @@ const useWorkflowBuilderState = () => {
   }, [])
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
-    // Check if the node has a configuration schema
+    // All trigger nodes should have configuration
+    if (nodeComponent.isTrigger) {
+      return true;
+    }
+    
+    // For non-trigger nodes, check if they have a configuration schema
     const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0);
     
     // Node needs configuration if it has a config schema
@@ -220,12 +225,7 @@ const useWorkflowBuilderState = () => {
     // If no trigger yet, allow all actions
     if (!trigger) return true
     
-    // Gmail actions should only be available with Gmail triggers
-    if (action.providerId === 'gmail') {
-      return trigger.data?.providerId === 'gmail'
-    }
-    
-    // All other actions are available regardless of trigger
+    // Show all actions regardless of trigger
     return true
   }
 
@@ -243,11 +243,6 @@ const useWorkflowBuilderState = () => {
     const trigger = getNodes().find(node => node.data?.isTrigger)
     
     return actions.filter(action => {
-      // Gmail actions should only be available with Gmail triggers
-      if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-        return false
-      }
-      
       // AI Agent can only be used after nodes that produce outputs
       if (action.type === 'ai_agent' && sourceAddNode) {
         const parentNode = getNodes().find(n => n.id === sourceAddNode.parentId)
@@ -970,7 +965,13 @@ const useWorkflowBuilderState = () => {
   };
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
-    console.log('🔍 handleActionSelect called:', { integration: integration.id, action: action.type, sourceAddNode })
+    console.log('🔍 handleActionSelect called:', { 
+      integration: integration.id, 
+      action: action.type, 
+      actionProviderId: action.providerId,
+      actionKeys: Object.keys(action),
+      sourceAddNode 
+    })
     
     let effectiveSourceAddNode = sourceAddNode
     
@@ -1002,12 +1003,18 @@ const useWorkflowBuilderState = () => {
       setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: effectiveSourceAddNode });
       const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
       
-      setConfiguringNode({ 
+      const configuringNodeData = { 
         id: 'pending-action', 
         integration: integrationConfig, 
         nodeComponent: action, 
         config: {} 
+      };
+      console.log('🔍 Setting configuringNode:', {
+        nodeComponentType: configuringNodeData.nodeComponent.type,
+        nodeComponentProviderId: configuringNodeData.nodeComponent.providerId,
+        nodeComponentKeys: Object.keys(configuringNodeData.nodeComponent)
       });
+      setConfiguringNode(configuringNodeData);
       setShowActionDialog(false);
       // Clear sourceAddNode immediately to prevent dialog from reopening
       setSourceAddNode(null);
@@ -1317,147 +1324,86 @@ const useWorkflowBuilderState = () => {
   }
 
   const handleExecute = async () => { 
-    // Prevent multiple simultaneous executions
-    if (isExecuting) {
-      console.log("Execution already in progress, skipping...")
+    // Toggle listening mode instead of executing
+    if (isExecuting && !listeningMode) {
+      console.log("Operation in progress, skipping...")
       return
     }
-    
-    setIsExecuting(true)
-    
-    // Add timeout protection
-    const executeTimeout = setTimeout(() => {
-      console.error("Execution operation timed out")
-      setIsExecuting(false)
-      toast({ 
-        title: "Execution Timeout", 
-        description: "Workflow execution took too long. Please try again.", 
-        variant: "destructive" 
-      })
-    }, 60000) // 60 second timeout for execution
     
     try {
       if (!currentWorkflow) {
         throw new Error("No workflow selected")
       }
 
-      console.log("Starting workflow execution...")
-      console.log("Test mode:", testMode)
+      // If we're already in listening mode, turn it off
+      if (listeningMode) {
+        setListeningMode(false)
+        setIsExecuting(false)
+        setExecutionEvents([])
+        toast({
+          title: "Listening Mode Disabled",
+          description: "No longer listening for webhook triggers.",
+        })
+        return
+      }
 
+      setIsExecuting(true)
+      
       // Get all workflow nodes and edges
       const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const workflowEdges = getEdges()
       
-      console.log("Workflow nodes:", workflowNodes.map(n => ({ id: n.id, type: n.data.type, config: n.data.config })))
-      console.log("Workflow edges:", workflowEdges)
-
-      // Track emails from all email-sending nodes
-      for (const node of workflowNodes) {
-        if (node.data.config && typeof node.data.type === 'string' && node.data.type.includes('send_email')) {
-          // Only pass integrationId if it's a valid UUID, not a node type
-          const providerId = node.data.providerId as string | undefined
-          const integrationId = providerId && !providerId.includes('_') ? providerId : undefined
-          await trackWorkflowEmails(node.data.config, integrationId)
-        }
+      // Find trigger nodes
+      const triggerNodes = workflowNodes.filter(node => node.data?.isTrigger)
+      
+      if (triggerNodes.length === 0) {
+        throw new Error("No trigger nodes found in workflow")
       }
-
-      // Prepare workflow data for execution
-      const workflowData = {
-        id: currentWorkflow.id,
-        nodes: workflowNodes.map(node => ({
-          id: node.id,
-          type: node.type,
-          data: {
-            type: node.data.type,
-            title: node.data.title,
-            description: node.data.description,
-            providerId: node.data.providerId,
-            isTrigger: node.data.isTrigger,
-            config: node.data.config || {},
-            requiredScopes: node.data.requiredScopes || []
+      
+      // Setup real-time monitoring for execution events
+      const supabaseClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      )
+      
+      // Subscribe to execution events for this workflow
+      const channel = supabaseClient
+        .channel(`execution_events_${currentWorkflow.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "live_execution_events",
+            filter: `workflow_id=eq.${currentWorkflow.id}`,
           },
-          position: node.position
-        })),
-        connections: workflowEdges.map(edge => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle
-        }))
-      }
-
-      console.log("Sending workflow execution request...")
-
-      // Call the execution API with timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout for fetch
+          (payload) => {
+            console.log("Received execution event:", payload.new)
+            // Add the event to our state
+            setExecutionEvents(prev => [...prev, payload.new as ExecutionEvent].slice(-50))
+          }
+        )
+        .subscribe()
       
-      const response = await fetch("/api/workflows/execute", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          workflowId: currentWorkflow.id,
-          testMode: testMode,
-          inputData: {},
-          workflowData: workflowData
-        }),
-        signal: controller.signal
+      // Enable listening mode
+      setListeningMode(true)
+      
+      toast({
+        title: "Listening Mode Enabled",
+        description: "Waiting for webhook triggers. Send a webhook to see the workflow execute in real-time.",
       })
       
-      clearTimeout(timeoutId)
-
-      console.log("Execution response status:", response.status)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      console.log("Execution result:", result)
-
-      if (result.success) {
-        toast({ 
-          title: "Workflow Executed Successfully!", 
-          description: "Workflow execution was successful."
-        })
-        
-        // Log execution results for debugging
-        console.log("Workflow execution results:", result)
-        
-        // Update execution events if available
-        if (result.executionEvents) {
-          setExecutionEvents(result.executionEvents)
-        }
-      } else {
-        throw new Error(result.error || "Workflow execution failed")
-      }
-      
     } catch (error: any) {
-      console.error("Failed to execute workflow:", error)
+      console.error("Failed to setup listening mode:", error)
       
-      // Provide more specific error messages
-      let errorMessage = "Failed to execute workflow. Please try again."
-      if (error.name === 'AbortError') {
-        errorMessage = "Execution timed out. Please try again."
-      } else if (error.message?.includes("network")) {
-        errorMessage = "Network error. Please check your connection and try again."
-      } else if (error.message?.includes("unauthorized")) {
-        errorMessage = "Session expired. Please refresh the page and try again."
-      } else if (error.message) {
-        errorMessage = error.message
-      }
+      let errorMessage = error.message || "Failed to setup listening mode"
       
       toast({ 
-        title: "Execution Failed", 
+        title: "Setup Failed", 
         description: errorMessage, 
         variant: "destructive" 
       })
-    } finally {
-      // Always clear the timeout and reset loading state
-      clearTimeout(executeTimeout)
+      
+      setListeningMode(false)
       setIsExecuting(false)
     }
   }
@@ -2004,8 +1950,8 @@ const useWorkflowBuilderState = () => {
     isIntegrationConnected,
     integrationsLoading,
     workflowLoading,
-    testMode,
-    setTestMode,
+    listeningMode,
+    setListeningMode,
     handleResetLoadingStates,
     sourceAddNode,
     handleActionDialogClose,
@@ -2047,7 +1993,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, testMode, setTestMode, handleResetLoadingStates,
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow
   } = useWorkflowBuilderState()
@@ -2170,17 +2116,17 @@ function WorkflowBuilderContent() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant={testMode ? "destructive" : "outline"} 
+                    variant={listeningMode ? "destructive" : "outline"} 
                     onClick={handleExecute} 
-                    disabled={isExecuting || isSaving}
+                    disabled={isExecuting && !listeningMode || isSaving}
                     size="sm"
                   >
-                    {isExecuting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
-                    {testMode ? "Stop Test" : "Test"}
+                    {isExecuting && !listeningMode ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : listeningMode ? <Ear className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                    {listeningMode ? "Stop Listening" : "Listen"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{testMode ? "Stop the current test execution" : "Test your workflow with sample data"}</p>
+                  <p>{listeningMode ? "Stop listening for webhook triggers" : "Listen for webhook triggers in real-time"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -2287,7 +2233,7 @@ function WorkflowBuilderContent() {
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="hsl(var(--muted))" />
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
-          {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
+          {listeningMode && <ExecutionMonitor events={executionEvents} />}
         </ReactFlow>
         </>
       )}
@@ -2612,13 +2558,10 @@ function WorkflowBuilderContent() {
                     if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                     if (filterCategory !== 'all' && int.category !== filterCategory) return false
                     
-                    // Filter out integrations that have no compatible actions
+                    // Get all actions for this integration
                     const trigger = nodes.find(node => node.data?.isTrigger)
                     const compatibleActions = int.actions.filter(action => {
-                      // Gmail actions should only be available with Gmail triggers
-                      if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-                        return false
-                      }
+                      // Show all actions regardless of trigger
                       return true
                     })
                     // Don't filter out AI Agent integration even if it has no actions initially
@@ -2656,13 +2599,6 @@ function WorkflowBuilderContent() {
                     <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
                         .filter(action => {
-                          
-                          // First check if action is compatible with current trigger
-                          const trigger = nodes.find(node => node.data?.isTrigger)
-                          if (trigger && action.providerId === 'gmail' && trigger.data?.providerId !== 'gmail') {
-                            return false
-                          }
-                          
                           // AI Agent is always shown - validation happens in config modal
                           // If no sourceAddNode, allow AI Agent to show (it will be restricted when actually adding)
                           

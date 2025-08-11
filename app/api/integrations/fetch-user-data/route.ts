@@ -20,8 +20,45 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { integrationId, dataType, options = {} } = body;
 
+    console.log('🔍 [SERVER] fetch-user-data API called:', { integrationId, dataType, options });
+
     if (!integrationId || !dataType) {
+      console.log('❌ [SERVER] Missing required parameters');
       return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+    }
+    
+    // Special case for hardcoded 'gmail' integrationId
+    if (integrationId === 'gmail' && dataType === 'gmail-enhanced-recipients') {
+      console.log('🔍 [SERVER] Special case: hardcoded Gmail integration');
+      
+      // Get all user integrations
+      const { data: userIntegrations, error } = await supabase
+        .from('user_integrations')
+        .select('*')
+        .eq('provider', 'gmail')
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (error || !userIntegrations || userIntegrations.length === 0) {
+        console.error('❌ [SERVER] No Gmail integration found:', error);
+        return Response.json({ error: 'No Gmail integration found' }, { status: 404 });
+      }
+      
+      // Use the first Gmail integration found
+      const integration = userIntegrations[0];
+      console.log('✅ [SERVER] Found Gmail integration:', { id: integration.id });
+      
+      // Continue with this integration
+      const dataFetcher = dataFetchers[dataType];
+      if (!dataFetcher) {
+        return Response.json({ error: `Data type ${dataType} not supported` }, { status: 400 });
+      }
+      
+      console.log(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
+      const result = await dataFetcher(integration, options);
+      console.log(`✅ [SERVER] DataFetcher completed for ${dataType}, result length:`, Array.isArray(result) ? result.length : 'not an array');
+      
+      return Response.json({ data: result });
     }
 
     // Get user from authorization header
@@ -72,7 +109,9 @@ export async function POST(req: NextRequest) {
 
     // Fetch the data
     try {
+      console.log(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const result = await dataFetcher(integration, options);
+      console.log(`✅ [SERVER] DataFetcher completed for ${dataType}, result length:`, Array.isArray(result) ? result.length : 'not an array');
       
       // If the result is an object with data and error properties
       if (result && typeof result === 'object' && 'data' in result && 'error' in result) {
@@ -82,7 +121,7 @@ export async function POST(req: NextRequest) {
       // Otherwise, assume it's just the data array
       return Response.json({ data: result });
     } catch (error: any) {
-      console.error(`Error fetching ${dataType}:`, error);
+      console.error(`❌ [SERVER] Error fetching ${dataType}:`, error);
       
       // Provide more detailed error information
       let errorMessage = error.message || `Error fetching ${dataType}`;
@@ -135,7 +174,7 @@ async function validateAndRefreshToken(integration: any): Promise<{
 }> {
   try {
     // Import required modules
-    const { decrypt } = await import("@/lib/security/encryption")
+    const { decrypt, safeDecrypt } = await import("@/lib/security/encryption")
     const { getSecret } = await import("@/lib/secrets")
     
     // Get encryption secret
@@ -160,16 +199,9 @@ async function validateAndRefreshToken(integration: any): Promise<{
 
         if (integration.refresh_token) {
           try {
-            // Decrypt refresh token if needed
+            // Safely decrypt refresh token
             let refreshToken = integration.refresh_token;
-            if (refreshToken.includes(":")) {
-              try {
-                refreshToken = decrypt(refreshToken, secret);
-              } catch (decryptError) {
-                console.error(`Failed to decrypt refresh token for ${integration.provider}:`, decryptError);
-                // Continue with the original token if decryption fails
-              }
-            }
+            refreshToken = safeDecrypt(refreshToken, secret);
             
             const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
             const refreshResult = await TokenRefreshService.refreshTokenForProvider(
@@ -213,46 +245,23 @@ async function validateAndRefreshToken(integration: any): Promise<{
       }
     }
 
-    // Check if token is already decrypted (doesn't contain ":")
-    console.log(`🔍 Checking if token is encrypted...`);
-    console.log(`🔍 Token contains ":" : ${integration.access_token.includes(":")}`);
-    console.log(`🔍 Token preview: ${integration.access_token.substring(0, 50)}...`);
-    
-    if (!integration.access_token.includes(":")) {
-      // Token is already decrypted
-      console.log(`🔍 Token appears to be already decrypted`);
-      
-      // But let's try to decrypt it anyway in case the encryption format is different
-      try {
-        console.log(`🔍 Trying decryption anyway to be sure...`);
-        const decryptedToken = decrypt(integration.access_token, secret)
-        console.log(`✅ Token was actually encrypted, decryption successful`);
-        console.log(`🔍 Decrypted token preview: ${decryptedToken.substring(0, 50)}...`);
-        return {
-          success: true,
-          token: decryptedToken,
-        }
-      } catch (fallbackDecryptError) {
-        console.log(`🔍 Fallback decryption failed, using token as-is`);
-        return {
-          success: true,
-          token: integration.access_token,
-        }
-      }
-    }
-
-    // Token is encrypted, decrypt it
-    console.log(`🔍 Token appears to be encrypted, attempting decryption...`);
+    // Use the safe decrypt function to handle the token
+    console.log(`🔍 Safely handling access token...`);
     try {
-      const decryptedToken = decrypt(integration.access_token, secret)
-      console.log(`✅ Token decryption successful`);
-      console.log(`🔍 Decrypted token preview: ${decryptedToken.substring(0, 50)}...`);
+      // This will return either the decrypted token or the original if it's not encrypted
+      const token = safeDecrypt(integration.access_token, secret);
+      console.log(`✅ Token handling successful`);
+      
+      // Safely get token preview
+      const tokenPreview = token.substring(0, Math.min(50, token.length));
+      console.log(`🔍 Token preview: ${tokenPreview}...`);
+      
       return {
         success: true,
-        token: decryptedToken,
-      }
+        token: token,
+      };
     } catch (decryptError: any) {
-      console.error(`Failed to decrypt token for ${integration.provider}:`, decryptError)
+      console.error(`Failed to handle token for ${integration.provider}:`, decryptError)
       
       // Special handling for Facebook tokens
       if (integration.provider === 'facebook') {
@@ -1927,109 +1936,159 @@ const dataFetchers: DataFetcher = {
 
   "gmail-enhanced-recipients": async (integration: any) => {
     try {
-      // Fetch recent emails to extract unique recipients (both senders and recipients)
-      const inboxResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=INBOX", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-        },
+      console.log("🔍 [SERVER] Starting Gmail enhanced recipients fetch...")
+      console.log("🔍 [SERVER] Integration details:", { 
+        id: integration.id, 
+        provider: integration.provider, 
+        hasAccessToken: !!integration.access_token 
       })
-      const inboxData = await inboxResponse.json()
-      const inboxMessages = inboxData.messages || []
+      
+      // Extract unique addresses from emails and contacts
+      const addressMap = new Map<string, { email: string; name: string; count: number; type: string; isContact: boolean }>()
 
-      const sentResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=SENT", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-        },
-      })
-      const sentData = await sentResponse.json()
-      const sentMessages = sentData.messages || []
-
-      // Extract unique addresses from both INBOX and SENT
-      const addressMap = new Map<string, { email: string; name: string; count: number; type: string }>()
-
-      const addAddress = (email: string, name: string, type: string) => {
-        if (!email) return
+      const addAddress = (email: string, name: string, type: string, isContact: boolean = false) => {
+        if (!email || !isValidEmail(email)) return
         if (addressMap.has(email)) {
-          addressMap.get(email)!.count++
+          const existing = addressMap.get(email)!
+          existing.count++
+          existing.isContact = existing.isContact || isContact
         } else {
-          addressMap.set(email, { email, name, count: 1, type })
+          addressMap.set(email, { email, name, count: 1, type, isContact })
         }
       }
 
-      // Process INBOX (senders)
-      await Promise.all(
-        inboxMessages.slice(0, 100).map(async (message: any) => {
-          try {
-            const detailResponse = await fetch(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
-              {
-                headers: {
-                  Authorization: `Bearer ${integration.access_token}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            )
-            if (detailResponse.ok) {
-              const detailData = await detailResponse.json()
-              const headers = detailData.payload?.headers || []
-              const fromHeader = headers.find((h: any) => h.name === "From")?.value || ""
-              const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
-              const nameMatch = fromHeader.match(/^(.+?)\s*</)
-              if (emailMatch) {
-                const email = emailMatch[1]
-                const name = nameMatch ? nameMatch[1].trim() : email
-                addAddress(email, name, "sender")
-              }
-            }
-          } catch {}
+      // 1. Fetch Gmail contacts first (highest priority)
+      try {
+        const contactsResponse = await fetch("https://people.googleapis.com/v1/people/me/connections?pageSize=100&personFields=names,emailAddresses", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
         })
-      )
-
-      // Process SENT (recipients)
-      await Promise.all(
-        sentMessages.slice(0, 100).map(async (message: any) => {
-          try {
-            const detailResponse = await fetch(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To`,
-              {
-                headers: {
-                  Authorization: `Bearer ${integration.access_token}`,
-                  "Content-Type": "application/json",
-                },
+        
+        if (contactsResponse.ok) {
+          const contactsData = await contactsResponse.json()
+          console.log(`👥 Found ${contactsData.connections?.length || 0} Gmail contacts`)
+          
+          contactsData.connections?.forEach((contact: any) => {
+            const name = contact.names?.[0]?.displayName || contact.names?.[0]?.givenName || ""
+            contact.emailAddresses?.forEach((email: any) => {
+              if (email.value && isValidEmail(email.value)) {
+                addAddress(email.value, name || email.value, "contact", true)
               }
-            )
-            if (detailResponse.ok) {
-              const detailData = await detailResponse.json()
-              const headers = detailData.payload?.headers || []
-              const toHeader = headers.find((h: any) => h.name === "To")?.value || ""
-              const addresses = toHeader.split(/,|;/).map((addr: string) => addr.trim()).filter(Boolean)
-              for (const addr of addresses as string[]) {
-                const emailMatch = addr.match(/<(.+?)>/) || addr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
-                const nameMatch = addr.match(/^(.+?)\s*</)
+            })
+          })
+        } else {
+          console.log(`⚠️ Gmail contacts fetch failed: ${contactsResponse.status}`)
+        }
+      } catch (error) {
+        console.log("⚠️ Gmail contacts fetch error:", error)
+      }
+
+      // 2. Fetch recent emails to extract unique recipients (both senders and recipients)
+      try {
+        const inboxResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=INBOX", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        })
+        const inboxData = await inboxResponse.json()
+        const inboxMessages = inboxData.messages || []
+
+        const sentResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=SENT", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        })
+        const sentData = await sentResponse.json()
+        const sentMessages = sentData.messages || []
+
+        // Process INBOX (senders)
+        await Promise.all(
+          inboxMessages.slice(0, 50).map(async (message: any) => {
+            try {
+              const detailResponse = await fetch(
+                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${integration.access_token}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+              if (detailResponse.ok) {
+                const detailData = await detailResponse.json()
+                const headers = detailData.payload?.headers || []
+                const fromHeader = headers.find((h: any) => h.name === "From")?.value || ""
+                const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+                const nameMatch = fromHeader.match(/^(.+?)\s*</)
                 if (emailMatch) {
                   const email = emailMatch[1]
                   const name = nameMatch ? nameMatch[1].trim() : email
-                  addAddress(email, name, "recipient")
+                  addAddress(email, name, "recent")
                 }
               }
-            }
-          } catch {}
-        })
-      )
+            } catch {}
+          })
+        )
 
-      // Convert to array and sort by frequency
+        // Process SENT (recipients)
+        await Promise.all(
+          sentMessages.slice(0, 50).map(async (message: any) => {
+            try {
+              const detailResponse = await fetch(
+                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${integration.access_token}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+              if (detailResponse.ok) {
+                const detailData = await detailResponse.json()
+                const headers = detailData.payload?.headers || []
+                const toHeader = headers.find((h: any) => h.name === "To")?.value || ""
+                const addresses = toHeader.split(/,|;/).map((addr: string) => addr.trim()).filter(Boolean)
+                for (const addr of addresses as string[]) {
+                  const emailMatch = addr.match(/<(.+?)>/) || addr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+                  const nameMatch = addr.match(/^(.+?)\s*</)
+                  if (emailMatch) {
+                    const email = emailMatch[1]
+                    const name = nameMatch ? nameMatch[1].trim() : email
+                    addAddress(email, name, "recent")
+                  }
+                }
+              }
+            } catch {}
+          })
+        )
+      } catch (error) {
+        console.log("⚠️ Gmail messages fetch error:", error)
+      }
+
+      // Convert to array and sort by priority: contacts first, then by frequency
       const addresses = Array.from(addressMap.values())
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 100)
+        .sort((a, b) => {
+          // Contacts first
+          if (a.isContact && !b.isContact) return -1
+          if (!a.isContact && b.isContact) return 1
+          // Then by frequency
+          return b.count - a.count
+        })
+        .slice(0, 150)
         .map((addr) => ({
           value: addr.email,
           label: addr.name,
-          type: addr.type,
-          description: `${addr.email} (${addr.count} emails)`
+          email: addr.email,
+          name: addr.name,
+          type: addr.isContact ? "contact" : addr.type,
+          description: `${addr.email} (${addr.isContact ? "contact" : `${addr.count} emails`})`
         }))
 
+      console.log(`✅ Gmail enhanced recipients: ${addresses.length} total addresses`)
       return addresses
     } catch (error: any) {
       console.error("Error fetching Gmail enhanced recipients:", error)
@@ -2169,10 +2228,11 @@ const dataFetchers: DataFetcher = {
         index === self.findIndex(a => a.value === addr.value)
       )
 
-      console.log(`✅ Returning ${uniqueAddresses.length} enhanced recipients (${contacts.length} contacts + ${addresses.length} email addresses)`)
+      console.log(`✅ [SERVER] Returning ${uniqueAddresses.length} enhanced recipients (${contacts.length} contacts + ${addresses.length} email addresses)`)
+      console.log(`✅ [SERVER] Gmail enhanced recipients fetch completed successfully`)
       return uniqueAddresses
     } catch (error: any) {
-      console.error("Error fetching Outlook enhanced recipients:", error)
+      console.error("❌ [SERVER] Error fetching Gmail enhanced recipients:", error)
       return []
     }
   },
@@ -4882,15 +4942,33 @@ const dataFetchers: DataFetcher = {
     // Only the user's own account and their connections (friends/linked accounts) are available.
     try {
       // Validate and refresh token
-      const tokenValidation = await validateAndRefreshToken(integration)
-      if (!tokenValidation.success) {
-        throw new Error(tokenValidation.error || "Token validation failed")
+      let tokenValidation;
+      try {
+        tokenValidation = await validateAndRefreshToken(integration);
+        if (!tokenValidation.success) {
+          console.warn("Token validation failed, returning default users");
+          // Return some default users instead of failing completely
+          return [
+            { id: "anyone", name: "Anyone", value: "anyone" },
+            { id: "bot", name: "Discord Bot", value: "bot" }
+          ];
+        }
+      } catch (tokenError) {
+        console.error("Error during token validation:", tokenError);
+        // Return some default users instead of failing completely
+        return [
+          { id: "anyone", name: "Anyone", value: "anyone" },
+          { id: "bot", name: "Discord Bot", value: "bot" }
+        ];
       }
       
-      const userToken = tokenValidation.token
+      const userToken = tokenValidation.token;
       if (!userToken) {
-        console.warn("User Discord token not available - returning empty users list")
-        return []
+        console.warn("User Discord token not available - returning default users");
+        return [
+          { id: "anyone", name: "Anyone", value: "anyone" },
+          { id: "bot", name: "Discord Bot", value: "bot" }
+        ];
       }
 
       let users: any[] = []

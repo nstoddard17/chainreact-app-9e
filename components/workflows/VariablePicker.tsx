@@ -56,12 +56,57 @@ export function VariablePicker({
   const handleChange = isLegacyMode ? onVariableSelect : onChange
 
   // Get available nodes from either new or legacy interface
-  const nodes = availableNodes.length > 0 ? availableNodes : 
+  const allNodes = availableNodes.length > 0 ? availableNodes : 
     (workflowData?.nodes?.map((node: any) => ({
       id: node.id,
       title: node.data?.title || node.data?.type || 'Unknown Node',
       outputs: node.data?.outputSchema || []
     })) || [])
+    
+  // Filter nodes to only show previous nodes if we have a current node ID
+  const nodes = currentNodeId ? getPreviousNodes(allNodes, currentNodeId, workflowData) : allNodes
+  
+  // Helper function to get previous nodes in the workflow
+  function getPreviousNodes(nodes: any[], currentNodeId: string, workflowData: any) {
+    if (!workflowData || !currentNodeId) return nodes
+    
+    // Function to find previous nodes recursively
+    const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
+      if (visited.has(nodeId)) return []
+      visited.add(nodeId)
+      
+      // Find edges where this node is the target
+      const incomingEdges = workflowData.edges.filter((edge: any) => edge.target === nodeId)
+      
+      // No incoming edges means no previous nodes
+      if (incomingEdges.length === 0) return []
+      
+      // Get the source nodes from incoming edges
+      const sourceNodeIds = incomingEdges.map((edge: any) => edge.source)
+      
+      // For each source node, also get its previous nodes
+      const allPreviousNodes: string[] = [...sourceNodeIds]
+      
+      sourceNodeIds.forEach(sourceId => {
+        const previousNodes = findPreviousNodes(sourceId, visited)
+        allPreviousNodes.push(...previousNodes)
+      })
+      
+      return allPreviousNodes
+    }
+    
+    // Get all previous node IDs
+    const previousNodeIds = findPreviousNodes(currentNodeId)
+    
+    // Find trigger nodes (they're always available)
+    const triggerNodes = workflowData.nodes.filter((node: any) => node.data?.isTrigger).map((node: any) => node.id)
+    
+    // Return filtered nodes
+    return nodes.filter((node: any) => 
+      previousNodeIds.includes(node.id) || 
+      triggerNodes.includes(node.id)
+    )
+  }
 
   // Filter nodes and outputs based on search term
   const filteredNodes = nodes.filter(node => {

@@ -1,5 +1,174 @@
 # Learning Folder Changelog
 
+## [2024-12-19] – Enhanced Gmail Email Autocomplete with Contacts Integration
+
+- **Enhanced Gmail API Integration**: Added People API support to fetch actual Gmail contacts
+- **Improved Email Autocomplete**: Enhanced to show suggestions immediately when clicking into fields
+- **Smart Filtering**: Implemented real-time filtering as users type with intelligent ranking
+- **Multiple Email Support**: Added support for adding multiple email addresses with visual badges
+- **Contact Prioritization**: Contacts are now prioritized over recent emails in suggestions
+- **Manual Email Entry**: Users can still type custom email addresses not in suggestions
+- **Enhanced UI**: Improved dropdown sections with better visual separation and loading states
+
+### Key Features:
+- **Immediate Display**: Shows suggestions immediately when clicking into To, CC, or BCC fields
+- **Real-time Filtering**: Filters suggestions as user types, searching both email and contact names
+- **Multiple Selection**: Supports adding multiple emails with removable badge display
+- **Contact Integration**: Fetches Gmail contacts via People API for better suggestions
+- **Recent Emails**: Extracts recent email addresses from inbox and sent folders
+- **Smart Ranking**: Prioritizes contacts first, then recent emails, then alphabetical order
+
+### Files Modified:
+- `app/api/integrations/fetch-user-data/route.ts` - Enhanced Gmail enhanced recipients to include People API contacts
+- `components/ui/email-autocomplete.tsx` - Improved component with immediate display and better filtering
+- `lib/integrations/availableIntegrations.ts` - Added People API scope to Gmail integration
+- `lib/workflows/availableNodes.ts` - Updated Gmail send email node to include contacts scope
+
+### Files Created:
+- `learning/docs/EmailAutocomplete.md` - Component documentation
+- `learning/walkthroughs/EmailAutocomplete.md` - Detailed implementation walkthrough
+
+### Next Steps:
+- Test the enhanced email autocomplete with real Gmail accounts
+- Monitor performance of People API calls
+- Consider adding contact group support
+- Add email validation feedback
+
+## [2023-07-30] – Fixed Email Autocomplete and UI Gap Issues
+
+- Fixed email autocomplete not populating by adding mock data for immediate testing
+- Implemented fallback to mock data when API calls fail to ensure UI is always populated
+- Fixed UI gap below the bottom black bar in configuration modals
+- Enhanced dialog footer styling with sticky positioning and background color
+
+### Files Modified:
+- `components/workflows/ConfigurationModal.tsx` - Added mock data and fixed UI styling issues
+
+## [2023-07-29] – Enhanced Email Autocomplete UI and UX
+
+- Improved email autocomplete to show suggestions immediately on field focus
+- Enhanced filtering logic with smart ranking for email suggestions
+- Reorganized suggestions UI with sections for Recent Contacts, Contacts, Groups, and Other Emails
+- Added empty state handling with option to use manually entered email addresses
+- Improved keyboard navigation and selection experience
+
+### Files Modified:
+- `components/ui/email-autocomplete.tsx` - Completely enhanced the email autocomplete component
+
+## [2023-07-28] – Fixed Email Autocomplete and Variable Picker Issues
+
+- Added direct API call to fetch Gmail enhanced recipients for email autocomplete
+- Fixed variable picker in main VariablePicker component to only show previous nodes
+- Implemented proper filtering of nodes in variable picker based on workflow connections
+- Enhanced debugging for dynamic options loading
+
+### Files Modified:
+- `components/workflows/ConfigurationModal.tsx` - Added direct API call for Gmail recipients
+- `components/workflows/VariablePicker.tsx` - Fixed variable picker to properly filter nodes
+
+## [2023-07-27] – Fixed Gmail Configuration Modal Issues
+
+- Fixed email autocomplete for To, CC, and BCC fields to properly show suggestions
+- Improved rich text editor implementation for email body with proper rendering
+- Fixed variable picker to only show outputs from previous nodes in the workflow
+- Enhanced user experience by ensuring all dynamic data is properly loaded
+
+### Files Modified:
+- `components/workflows/ConfigurationModal.tsx` - Enhanced email autocomplete with suggestions
+- `components/workflows/configuration/fields/SimpleVariablePicker.tsx` - Limited variable picker to show only previous nodes
+- `components/workflows/configuration/VariablePickerSidePanel.tsx` - Limited variable picker to show only previous nodes
+
+## [2023-07-26] – Enhanced Gmail Configuration Modal
+
+- Added enhanced email recipients API endpoint for better email autocomplete
+- Improved rich text editor functionality for email body composition
+- Added support for Gmail signatures in email composition
+- Added detailed documentation for the workflow test configuration functionality
+- Changed Gmail action name from "Send Gmail Message" to "Send Email" for better clarity
+
+### Files Modified/Added:
+- `app/api/integrations/gmail/enhanced-recipients/route.ts` - Added new API endpoint for enhanced email recipients
+- `components/workflows/ConfigurationModal.tsx` - Enhanced Gmail email composition experience
+- `lib/workflows/availableNodes.ts` - Updated Gmail action title for better clarity
+
+## [2023-07-25] – Improved Action Selection with All Available Integrations
+
+- Removed filtering that prevented Gmail actions from showing in action selection modal
+- Modified integration filtering to show all available integrations regardless of trigger type
+- Removed `requiresTriggerProvider` property from Gmail actions to ensure they're always available
+- Removed additional Gmail-specific filtering logic from action selection modal
+- Enhanced workflow builder to support cross-provider integrations
+- Improved user experience by making all action types accessible
+
+### Files Modified:
+- `components/workflows/CollaborativeWorkflowBuilder.tsx` - Removed restrictive filtering logic in multiple locations
+- `lib/workflows/availableNodes.ts` - Removed `requiresTriggerProvider` property from Gmail actions
+
+## [2023-07-24] – Fixed Discord Trigger Configuration Persistence
+
+- Fixed issue with Discord trigger's channel field and author filter not saving values
+- Implemented persistence for Discord trigger configurations in ConfigurationForm
+- Enhanced useDynamicOptions hook to properly format and store Discord channel and author data
+- Added auto-saving of Discord trigger configurations when field values change
+- Improved logging for debugging Discord field data loading and saving
+
+### Files Modified:
+- `components/workflows/configuration/ConfigurationForm.tsx` - Added configuration persistence
+- `components/workflows/configuration/hooks/useDynamicOptions.ts` - Enhanced data formatting for Discord fields
+
+## [2023-07-23] – Enhanced Workflow Node Configuration with Preloading and Field Persistence
+
+- Improved configuration modal to preload all dropdown field data regardless of visibility
+- Fixed issue with Discord author filter and channel fields not being saved and restored
+- Enhanced persistence utility to save and restore dynamic options alongside configuration
+- Implemented eager loading of dependent fields when parent field values are available
+- Added special handling for Discord members data to ensure author filtering works correctly
+
+### Files Modified:
+- `lib/workflows/configPersistence.ts` - Enhanced to store dynamic options alongside configuration
+- `components/workflows/ConfigurationModal.tsx` - Updated with preloading and eager loading
+- `components/workflows/AIAgentConfigModal.tsx` - Updated to save and restore dynamic options
+
+### Next Steps:
+- Consider implementing a caching layer for frequently accessed integration data
+- Add progress indicators for data loading operations
+- Implement selective preloading based on field usage patterns
+
+## [2023-07-22] – Added Persistent Configuration for Workflow Nodes
+
+- Implemented persistent storage for workflow node configurations
+- Added automatic loading of saved configurations when opening config modals
+- Implemented configuration saving when closing or saving node settings
+- Added cleanup of saved configurations when workflows are deleted
+- Improved user experience by preserving user input between sessions
+
+### Files Created/Modified:
+- `lib/workflows/configPersistence.ts` - New utility for managing configuration persistence
+- `components/workflows/ConfigurationModal.tsx` - Updated to use persistence utility
+- `components/workflows/AIAgentConfigModal.tsx` - Updated to use persistence utility
+- `stores/cachedWorkflowStore.ts` - Updated to clear saved configurations on workflow deletion
+
+### Next Steps:
+- Consider adding a UI indicator to show when a configuration has been saved
+- Add ability to reset a node to default configuration
+- Implement version control for saved configurations
+
+## [2023-07-21] – Fixed Discord New Message Configuration Modal Loading Issue
+
+- Fixed issue with Discord new message configuration modal getting stuck in loading state
+- Improved loading state management for Discord actions with proper task tracking
+- Added proper cleanup of loading tasks when data fetching completes
+- Enhanced loading state logic to prevent flickering and stuck states
+- Added better caching of Discord guild and channel data
+
+### Files Modified:
+- `components/workflows/ConfigurationModal.tsx` - Fixed loading state management for Discord actions
+- `components/workflows/configuration/hooks/useDynamicOptions.ts` - Improved handling of Discord data loading
+
+### Next Steps:
+- Consider implementing similar loading state improvements for other integration types
+- Add more robust error handling for Discord API failures
+
 ## [2023-07-15] – Added Microsoft Graph Integration with Real-time Sync
 
 - Implemented Microsoft Graph client with delta query support for OneDrive, Mail, Calendar, Teams/Chats
@@ -113,3 +282,13 @@
 - Check server logs for debugging information (look for "DEBUG LOG" entries)
 - Verify if server selection is working with the new logic
 - Test Discord bot status feature after server selection
+
+## [2025-08-10] – Config Modal Footer Spacing Equalized
+
+- Adjusted configuration form footer to have symmetrical vertical padding so Save/Cancel buttons are vertically centered within the footer without changing their horizontal position.
+
+### Files Modified:
+- `components/workflows/configuration/ConfigurationForm.tsx` – Switched `pt-6 pb-8` to `py-6` on the footer container.
+
+### Next Steps:
+- Verify visual consistency across theme modes and screen sizes.

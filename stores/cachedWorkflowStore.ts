@@ -289,4 +289,17 @@ export async function deleteWorkflow(id: string): Promise<void> {
   const workflows = useWorkflowsListStore.getState().data || []
   const updatedWorkflows = workflows.filter(w => w.id !== id)
   useWorkflowsListStore.getState().setData(updatedWorkflows)
+  
+  // Clear saved configurations for this workflow
+  if (typeof window !== "undefined") {
+    try {
+      // Import dynamically to avoid SSR issues
+      import("@/lib/workflows/configPersistence").then(({ clearWorkflowConfigs }) => {
+        clearWorkflowConfigs(id)
+        console.log(`✅ Cleared saved configurations for deleted workflow: ${id}`)
+      })
+    } catch (error) {
+      console.error("Failed to clear saved configurations:", error)
+    }
+  }
 } 

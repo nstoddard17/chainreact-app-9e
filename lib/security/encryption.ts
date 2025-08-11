@@ -44,9 +44,20 @@ export function encrypt(text: string, key: string = ENCRYPTION_KEY): string {
  */
 export function decrypt(encryptedText: string, key: string = ENCRYPTION_KEY): string {
   try {
+    // Safety check for null or undefined
+    if (!encryptedText) {
+      throw new Error("Empty encrypted text");
+    }
+    
     // Split IV and encrypted text
     const textParts = encryptedText.split(":");
     if (textParts.length !== 2) {
+      // If the text doesn't contain a colon, it might be unencrypted
+      // Return it as-is instead of throwing an error
+      if (!encryptedText.includes(":")) {
+        console.log("Text appears to be unencrypted, returning as-is");
+        return encryptedText;
+      }
       throw new Error("Invalid encrypted text format");
     }
     
@@ -67,6 +78,29 @@ export function decrypt(encryptedText: string, key: string = ENCRYPTION_KEY): st
     return decrypted;
   } catch (error) {
     console.error("Decryption error:", error);
-    throw new Error("Failed to decrypt data");
+    // Include original error message for better debugging
+    throw new Error(`Failed to decrypt data: ${error.message}`);
+  }
+}
+
+/**
+ * Safely decrypts a token, returning the original value if decryption fails
+ * This is a helper function to handle potentially invalid encrypted tokens
+ * 
+ * @param possiblyEncryptedText - Text that may or may not be encrypted
+ * @param key - Optional custom encryption key
+ * @returns Decrypted text if successful, or original text if decryption fails
+ */
+export function safeDecrypt(possiblyEncryptedText: string, key: string = ENCRYPTION_KEY): string {
+  // If the text doesn't look like it's encrypted, return it as-is
+  if (!possiblyEncryptedText || !possiblyEncryptedText.includes(":")) {
+    return possiblyEncryptedText;
+  }
+  
+  try {
+    return decrypt(possiblyEncryptedText, key);
+  } catch (error) {
+    console.warn("Decryption failed, returning original text:", error.message);
+    return possiblyEncryptedText;
   }
 }

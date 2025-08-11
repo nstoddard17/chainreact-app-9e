@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, TestTube, Save, Settings, Zap, Link } from "lucide-react";
+import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
 import { useFormState } from "./hooks/useFormState";
 import { useDynamicOptions } from "./hooks/useDynamicOptions";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
+import { loadNodeConfig, saveNodeConfig } from '@/lib/workflows/configPersistence';
 
 /**
  * Component to render the configuration form based on node schema
@@ -36,6 +37,17 @@ export default function ConfigurationForm({
   const [isTestLoading, setIsTestLoading] = useState(false);
   const [botStatus, setBotStatus] = useState<{ isInGuild: boolean; hasPermissions: boolean } | null>(null);
   const [isBotStatusChecking, setIsBotStatusChecking] = useState(false);
+  
+  // Function to get the current workflow ID from the URL
+  const getWorkflowId = useCallback(() => {
+    if (typeof window === "undefined") return "";
+    const pathParts = window.location.pathname.split('/');
+    const builderIndex = pathParts.indexOf('builder');
+    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
+      return pathParts[builderIndex + 1];
+    }
+    return "";
+  }, []);
   
   // Form state management
   const {
@@ -91,8 +103,31 @@ export default function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    // Initialize form values from config schema
-    const defaultValues: Record<string, any> = {};
+    // Try to load saved configuration
+    if (currentNodeId && nodeInfo?.type) {
+      const workflowId = getWorkflowId();
+      if (workflowId) {
+        const savedNodeData = loadNodeConfig(workflowId, currentNodeId, nodeInfo.type);
+        if (savedNodeData) {
+          console.log('📋 Loaded saved configuration for Discord trigger node:', currentNodeId);
+          
+          // Apply saved configuration to form values
+          const savedConfig = savedNodeData.config || {};
+          Object.entries(savedConfig).forEach(([key, value]) => {
+            if (value !== undefined) {
+              setValue(key, value);
+            }
+          });
+          
+          // If we have saved dynamic options, restore them
+          if (savedNodeData.dynamicOptions) {
+            console.log('📋 Found saved dynamic options for Discord trigger');
+          }
+        }
+      }
+    }
+
+    // Initialize form values from config schema for any missing values
     nodeInfo.configSchema.forEach(field => {
       if (field.defaultValue !== undefined && !values[field.name]) {
         setValue(field.name, field.defaultValue);
@@ -127,8 +162,17 @@ export default function ConfigurationForm({
         isInGuild: true,
         hasPermissions: true
       });
+      
+      // If we have a guild ID, also load dependent data
+      if (values.guildId) {
+        // Load channels for the selected guild
+        loadOptions('channelId', 'guildId', values.guildId);
+        
+        // Load author filter options
+        loadOptions('authorFilter', 'guildId', values.guildId);
+      }
     }
-  }, [nodeInfo, setValue, loadOptions, discordIntegration, checkBotStatus, values, hasInitialized]);
+  }, [nodeInfo, setValue, loadOptions, discordIntegration, checkBotStatus, values, hasInitialized, currentNodeId, getWorkflowId]);
 
   /**
    * Handle Discord connection
@@ -182,38 +226,94 @@ export default function ConfigurationForm({
     // Update the form value
     setValue(fieldName, value);
     
-    // Additional handling for Discord fields
-    if (nodeInfo?.providerId === 'discord' && fieldName === 'guildId') {
-      console.log('🔍 Handling Discord guildId change:', { fieldName, value });
-      
-      // Set default positive bot status when guild is selected
-      if (value && discordIntegration) {
-        setBotStatus({
-          isInGuild: true,
-          hasPermissions: true
-        });
-      } else {
-        setBotStatus(null);
+    // Special handling for Discord trigger fields
+    if (nodeInfo?.providerId === 'discord') {
+      if (fieldName === 'guildId') {
+        console.log('🔍 Handling Discord guildId change:', { fieldName, value });
+        
+        // For Discord triggers, only load the channels without other side effects
+        if (nodeInfo.type === 'discord_trigger_new_message') {
+          // Load all related data when guild is selected
+          if (value) {
+            console.log('🔍 Loading all Discord data for trigger with guildId:', value);
+            
+            // Load dependent options once per selection (non-blocking)
+            loadOptions('channelId', 'guildId', value);
+            loadOptions('authorFilter', 'guildId', value);
+          } else {
+            console.log('🔍 Clearing dependent fields as guildId is empty');
+            setValue('channelId', '');
+            setValue('authorFilter', '');
+            setValue('contentFilter', '');
+          }
+        } 
+        // For Discord actions, keep the existing behavior
+        else {
+          // Set default positive bot status when guild is selected
+          if (value && discordIntegration) {
+            setBotStatus({
+              isInGuild: true,
+              hasPermissions: true
+            });
+          } else {
+            setBotStatus(null);
+          }
+          
+          // Clear dependent fields when guildId changes
+          if (nodeInfo.configSchema) {
+            nodeInfo.configSchema.forEach(field => {
+              if (field.dependsOn === 'guildId') {
+                console.log('🔍 Clearing dependent field:', field.name);
+                setValue(field.name, '');
+                loadOptions(field.name, 'guildId', value);
+              }
+            });
+          }
+        }
       }
       
-      // Clear dependent fields when guildId changes
-      if (nodeInfo.configSchema) {
-        nodeInfo.configSchema.forEach(field => {
-          if (field.dependsOn === 'guildId') {
-            console.log('🔍 Clearing dependent field:', field.name);
-            setValue(field.name, '');
-            loadOptions(field.name, 'guildId', value);
+      // Auto-save configuration changes for Discord triggers
+      if (nodeInfo.type === 'discord_trigger_new_message' && currentNodeId) {
+        // Use setTimeout to ensure the form state is updated before saving
+        setTimeout(() => {
+          const workflowId = getWorkflowId();
+          if (workflowId) {
+            // Get the current values including the new value
+            const updatedValues = { ...values, [fieldName]: value };
+            console.log('📋 Auto-saving Discord trigger configuration:', { fieldName, value });
+            saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, updatedValues, dynamicOptions);
           }
-        });
+        }, 100);
       }
     }
-  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus]);
+  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, currentNodeId, getWorkflowId, dynamicOptions]);
   
   /**
    * Get visible fields based on current values and dependencies
    */
   const getVisibleFields = () => {
     if (!nodeInfo?.configSchema) return [];
+    
+    // Special handling for Discord triggers
+    if (nodeInfo.providerId === 'discord' && nodeInfo.type === 'discord_trigger_new_message') {
+      // For Discord triggers, show fields conditionally
+      return nodeInfo.configSchema.filter(field => {
+        // Always show guildId (server field)
+        if (field.name === 'guildId') return true;
+        
+        // Show channelId only if guildId is selected
+        if (field.name === 'channelId') {
+          return !!values.guildId;
+        }
+        
+        // Show content filter and author filter if channelId is selected
+        if (field.name === 'contentFilter' || field.name === 'authorFilter') {
+          return !!values.channelId;
+        }
+        
+        return true;
+      });
+    }
     
     // Special handling for Discord actions
     if (nodeInfo.providerId === 'discord' && nodeInfo.type?.includes('discord_action')) {
@@ -335,6 +435,17 @@ export default function ConfigurationForm({
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
+      
+      // Save configuration to persistent storage if we have a valid node ID
+      if (currentNodeId && nodeInfo?.type) {
+        const workflowId = getWorkflowId();
+        if (workflowId) {
+          console.log('📋 Saving configuration for Discord trigger node:', currentNodeId);
+          // Save both config and dynamicOptions
+          saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, values, dynamicOptions);
+        }
+      }
+      
       handleSubmit(onSubmit)();
     }}>
       {/* Show tabs only if we have advanced fields */}
@@ -465,51 +576,7 @@ export default function ConfigurationForm({
               </div>
             </div>
           ) : values.guildId ? (
-            <div className="space-y-3">
-              {isBotStatusChecking ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-                    <span className="text-sm text-blue-700">Checking bot status...</span>
-                  </div>
-                </div>
-              ) : botStatus === null ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-                    <span className="text-sm text-blue-700">Checking bot status...</span>
-                  </div>
-                </div>
-              ) : botStatus?.isInGuild && botStatus?.hasPermissions ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                    <span className="text-sm text-green-700 font-medium">Bot is connected and has permissions</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-orange-800">Bot Setup Required</h3>
-                      <p className="text-sm text-orange-700 mt-1">
-                        {!botStatus?.isInGuild 
-                          ? "The bot is not in this server. Add it to continue."
-                          : "The bot doesn't have the required permissions in this server."
-                        }
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => window.open('https://discord.com/api/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=2048&scope=bot', '_blank')}
-                      size="sm"
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      Add Bot to Server
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <DiscordBotStatus guildId={values.guildId} className="w-full" />
           ) : (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
@@ -529,13 +596,22 @@ export default function ConfigurationForm({
       )}
 
       {/* Form buttons */}
-      <div className="flex justify-between items-center mt-8 pt-6 pb-4 px-6 border-t border-slate-200 bg-white">
+      <div className="flex justify-between items-center mt-8 h-[80px] px-6 border-t border-slate-200 bg-white">
         <div className="flex items-center gap-3">
           {Object.keys(errors).length > 0 && (
             <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
               {Object.keys(errors).length} error{Object.keys(errors).length > 1 ? 's' : ''}
             </Badge>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="flex items-center gap-2"
+          >
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
         </div>
         
         <div className="flex gap-3">
