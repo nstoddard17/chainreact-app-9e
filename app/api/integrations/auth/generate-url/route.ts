@@ -681,7 +681,7 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
 }
 
 async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.AIRTABLE_CLIENT_ID
+  const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -700,9 +700,15 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
     throw new Error(`Failed to store PKCE code verifier: ${error.message}`)
   }
 
+  const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
+  console.log('🔍 Airtable OAuth Debug:')
+  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  console.log('  - Redirect URI:', redirectUri)
+  console.log('  - Base URL:', baseUrl)
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "data.records:read data.records:write schema.bases:read",
     state,
@@ -710,7 +716,10 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
     code_challenge_method: "S256",
   })
 
-  return `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
+  const authUrl = `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
+  console.log('  - Final OAuth URL (first 200 chars):', authUrl.substring(0, 200) + '...')
+  
+  return authUrl
 }
 
 function generateMailchimpAuthUrl(state: string): string {

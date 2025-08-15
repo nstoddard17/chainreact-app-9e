@@ -644,21 +644,20 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
-          // Use server action to generate OAuth URL
-          const { initiateGoogleSignIn } = await import("@/app/actions/google-auth")
-          const result = await initiateGoogleSignIn()
+          // Use Supabase's built-in Google OAuth
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/dashboard`,
+            },
+          })
 
-          if (!result.success) {
-            throw new Error(result.error || "Failed to initiate Google sign-in")
+          if (error) {
+            throw error
           }
 
-          // Redirect to Google OAuth
-          if (result.authUrl) {
-            window.location.href = result.authUrl
-          } else {
-            throw new Error("No OAuth URL received from server")
-          }
-
+          // Supabase handles the redirect automatically
+          // No need for manual redirect
         } catch (error: any) {
           console.error("Google sign in error:", error)
           set({ error: error.message, loading: false })
