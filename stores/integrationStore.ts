@@ -464,6 +464,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
           console.log(`✅ OAuth popup opened for ${providerId}`)
 
           let closedByMessage = false
+          
+          // Declare timeout early so it can be referenced in messageHandler
+          let connectionTimeout: NodeJS.Timeout
 
           const messageHandler = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return
@@ -585,7 +588,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }, 500)
           
           // Add timeout for initial connection (5 minutes, same as reconnection)
-          const connectionTimeout = setTimeout(() => {
+          connectionTimeout = setTimeout(() => {
             if (!closedByMessage) {
               console.log(`⏰ OAuth connection timed out for ${providerId}`)
               clearInterval(storageCheckTimer)
@@ -601,13 +604,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setError(`Connection to ${provider.name} timed out. Please try again.`)
             }
           }, 5 * 60 * 1000) // 5 minutes
-          
-          // Clean up timeout when connection completes
-          const originalMessageHandler = messageHandler
-          messageHandler = (event: MessageEvent) => {
-            clearTimeout(connectionTimeout)
-            originalMessageHandler(event)
-          }
           
         } else {
           throw new Error(data.error || "Failed to get auth URL")
