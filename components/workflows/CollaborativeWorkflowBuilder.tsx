@@ -28,12 +28,14 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
 import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
+import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import AIAgentConfigModal from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
+import ErrorNotificationPopup from "./ErrorNotificationPopup"
 
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
@@ -138,6 +140,7 @@ const useWorkflowBuilderState = () => {
   const { currentWorkflow, setCurrentWorkflow, updateWorkflow, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
+  const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
   
   // Use cached stores for workflows and integrations
   const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
@@ -160,7 +163,7 @@ const useWorkflowBuilderState = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [activeExecutionNodeId, setActiveExecutionNodeId] = useState<string | null>(null)
-  const [executionResults, setExecutionResults] = useState<Record<string, { status: 'pending' | 'running' | 'completed' | 'error', timestamp: number }>>({})
+  const [executionResults, setExecutionResults] = useState<Record<string, { status: 'pending' | 'running' | 'completed' | 'error', timestamp: number, error?: string }>>({})
   const [workflowName, setWorkflowName] = useState("")
   const [workflowDescription, setWorkflowDescription] = useState("")
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
@@ -595,7 +598,11 @@ const useWorkflowBuilderState = () => {
   }, [onNodesChange])
 
   useEffect(() => {
-    if (workflowId) joinCollaboration(workflowId)
+    if (workflowId) {
+      joinCollaboration(workflowId)
+      // Set current workflow in error store
+      setErrorStoreWorkflow(workflowId)
+    }
     return () => { 
       if (workflowId) leaveCollaboration() 
       // Reset loading states on cleanup
@@ -603,7 +610,7 @@ const useWorkflowBuilderState = () => {
       setIsExecuting(false)
       isSavingRef.current = false
     }
-  }, [workflowId, joinCollaboration, leaveCollaboration])
+  }, [workflowId, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow])
 
   // Debug sourceAddNode changes (trimmed for performance)
   // useEffect(() => {
@@ -626,6 +633,11 @@ const useWorkflowBuilderState = () => {
       })
     }
   }, [integrationsData.length, integrationsCacheLoading, getCurrentUserId])
+
+  // Debug listeningMode state changes
+  useEffect(() => {
+    console.log("🎧 listeningMode state changed to:", listeningMode)
+  }, [listeningMode])
 
   useEffect(() => {
     if (workflowId) {
@@ -746,9 +758,20 @@ const useWorkflowBuilderState = () => {
                 // Add execution status for visual feedback
                 executionStatus: executionResults[node.id]?.status || null,
                 isActiveExecution: activeExecutionNodeId === node.id,
-                isListening: listeningMode
+                isListening: listeningMode,
+                error: executionResults[node.id]?.error,
+                errorMessage: getLatestErrorForNode(node.id)?.errorMessage,
+                errorTimestamp: getLatestErrorForNode(node.id)?.timestamp,
+                // Debug data
+                debugListeningMode: listeningMode,
+                debugExecutionStatus: executionResults[node.id]?.status || 'none'
               },
             };
+            
+            // Debug node data being passed
+            if (node.id === 'trigger') {
+              console.log(`🎯 Creating trigger node with listeningMode: ${listeningMode}`)
+            }
           })
 
         let allNodes: Node[] = [...customNodes]
@@ -1408,21 +1431,58 @@ const useWorkflowBuilderState = () => {
             
             // Update node execution status
             if (event.node_id) {
+              const status = event.event_type === 'node_started' ? 'running' : 
+                           event.event_type === 'node_completed' ? 'completed' :
+                           event.event_type === 'node_error' ? 'error' : 'pending'
+              
               setExecutionResults(prev => ({
                 ...prev,
                 [event.node_id]: {
-                  status: event.event_type === 'node_started' ? 'running' : 
-                         event.event_type === 'node_completed' ? 'completed' :
-                         event.event_type === 'node_error' ? 'error' : 'pending',
-                  timestamp: Date.now()
+                  status,
+                  timestamp: Date.now(),
+                  error: event.error_message || undefined
                 }
               }))
+              
+              // Handle error state - add to error store
+              if (event.event_type === 'node_error' && event.error_message) {
+                const nodeName = getNodes().find(n => n.id === event.node_id)?.data?.title || `Node ${event.node_id}`
+                console.log(`❌ Adding error for node ${event.node_id}:`, event.error_message)
+                addError({
+                  workflowId: currentWorkflow.id,
+                  nodeId: event.node_id,
+                  nodeName,
+                  errorMessage: event.error_message,
+                  timestamp: new Date().toISOString(),
+                  executionSessionId: event.execution_session_id
+                })
+              }
+              
+              // Debug execution results update
+              console.log(`🔄 Updating execution results for ${event.node_id}:`, status)
+              console.log(`🎨 Current execution results state:`, Object.keys(executionResults).map(key => ({ 
+                nodeId: key, 
+                status: executionResults[key].status 
+              })))
               
               // Set active node if it's running
               if (event.event_type === 'node_started') {
                 setActiveExecutionNodeId(event.node_id)
               } else if (event.event_type === 'node_completed' || event.event_type === 'node_error') {
                 setActiveExecutionNodeId(null)
+                
+                // Stop listening after successful completion (not on error)
+                if (event.event_type === 'node_completed' && !getNodes().some(n => 
+                  n.id !== event.node_id && 
+                  executionResults[n.id]?.status === 'running' || 
+                  executionResults[n.id]?.status === 'pending'
+                )) {
+                  // All nodes completed successfully - stop listening mode
+                  setTimeout(() => {
+                    setIsExecuting(false)
+                    setListeningMode(false)
+                  }, 2000) // Wait 2 seconds to show success state
+                }
               }
             }
           }
@@ -1458,13 +1518,23 @@ const useWorkflowBuilderState = () => {
               })
             })
             
+            console.log(`🔍 Webhook response status: ${webhookResponse.status}`)
+            
             if (webhookResponse.ok) {
               const webhookResult = await webhookResponse.json()
               registeredWebhooks++
-              console.log(`✅ Successfully registered webhook for ${providerId}:`, webhookResult)
+              console.log(`✅ Successfully registered webhook for ${providerId}:`)
+              console.log(`📋 Full webhook response:`, JSON.stringify(webhookResult, null, 2))
               console.log(`🌐 Discord webhook URL: ${webhookResult.webhookUrl}`)
+              
+              // Check for our special debug message
+              if (webhookResult.message?.includes('🚨')) {
+                console.log(`🚨 SPECIAL MESSAGE DETECTED: ${webhookResult.message}`)
+              }
             } else {
-              console.error(`❌ Failed to register webhook for ${providerId}:`, await webhookResponse.text())
+              const errorText = await webhookResponse.text()
+              console.error(`❌ Failed to register webhook for ${providerId}:`, errorText)
+              console.error(`❌ Response status: ${webhookResponse.status}`)
             }
           } catch (error) {
             console.error(`❌ Error registering webhook for ${providerId}:`, error)
@@ -1473,7 +1543,9 @@ const useWorkflowBuilderState = () => {
       }
       
       // Enable listening mode
-      setListeningMode(true)
+              console.log("🎧 Setting listening mode to TRUE")
+        setListeningMode(true)
+        console.log("🎧 Listening mode state updated, should trigger re-render")
       
       toast({
         title: "Listening Mode Enabled",
@@ -2112,14 +2184,14 @@ function WorkflowBuilderContent() {
     setShowTriggerDialog(true);
   }
 
-  // Debug loading states
-  console.log('🔍 Loading states:', {
-    currentWorkflow: !!currentWorkflow,
-    integrationsLoading,
-    workflowLoading,
-    workflowsLength: workflows.length,
-    workflowId
-  })
+  // Debug loading states (reduced frequency)
+  // console.log('🔍 Loading states:', {
+  //   currentWorkflow: !!currentWorkflow,
+  //   integrationsLoading,
+  //   workflowLoading,
+  //   workflowsLength: workflows.length,
+  //   workflowId
+  // })
 
   // Use a more robust loading condition that prevents double loading
   // Only show loading if we're actually in a loading state AND we don't have the required data
@@ -2145,25 +2217,26 @@ function WorkflowBuilderContent() {
   // Track if we should show loading and prevent double loading
   const isLoading = shouldShowLoading()
   
-  // Set hasShownLoading to true when we start loading
-  if (isLoading && !hasShownLoading) {
-    setHasShownLoading(true)
-  }
-  
-  // Reset hasShownLoading when we're no longer loading
-  if (!isLoading && hasShownLoading) {
-    setHasShownLoading(false)
-  }
+  // Use useEffect to manage hasShownLoading state to prevent infinite re-renders
+  useEffect(() => {
+    if (isLoading && !hasShownLoading) {
+      setHasShownLoading(true)
+    } else if (!isLoading && hasShownLoading) {
+      setHasShownLoading(false)
+    }
+  }, [isLoading, hasShownLoading])
 
   if (isLoading) {
-    console.log('🔄 Showing loading screen due to:', {
-      workflowId,
-      hasCurrentWorkflow: !!currentWorkflow,
-      integrationsLoading,
-      workflowLoading,
-      workflowsLength: workflows.length,
-      hasShownLoading
-    })
+    // Only log loading screen reason once per loading cycle to prevent console spam
+    if (!hasShownLoading) {
+      console.log('🔄 Showing loading screen due to:', {
+        workflowId,
+        hasCurrentWorkflow: !!currentWorkflow,
+        integrationsLoading,
+        workflowLoading,
+        workflowsLength: workflows.length
+      })
+    }
     return <WorkflowLoadingScreen />
   }
   return (
@@ -2916,6 +2989,9 @@ function WorkflowBuilderContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Error Notification Popup */}
+      {workflowId && <ErrorNotificationPopup workflowId={workflowId} />}
     </div>
   )
 }

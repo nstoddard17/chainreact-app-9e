@@ -23,6 +23,17 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         nodeResult = await executeGmailTriggerNode(node, context)
         break
       
+      // AI Agent
+      case "ai_agent":
+        console.log(`Using executeAction for AI agent node: ${node.id}`)
+        nodeResult = await executeAction({
+          node,
+          input: context.data,
+          userId: context.userId,
+          workflowId: context.workflowId
+        })
+        break
+      
       // Actions - use the generic executeAction for most
       default:
         if (node.data.type && node.data.type.includes('_action_')) {

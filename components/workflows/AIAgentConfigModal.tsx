@@ -380,6 +380,23 @@ export default function AIAgentConfigModal({
   const getInputVariables = () => {
     if (!inputNodeData) return []
     
+    // Get the node component definition to access its output schema
+    const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+    const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === inputNodeData.data?.type)
+    
+    // Use the node's outputSchema if available, otherwise fall back to trigger outputs
+    if (nodeComponent?.outputSchema && nodeComponent.outputSchema.length > 0) {
+      return nodeComponent.outputSchema.map((output: any) => ({
+        name: output.name,
+        label: output.label,
+        type: output.type,
+        description: output.description,
+        example: output.example,
+        selected: selectedVariables[output.name] || false
+      }))
+    }
+    
+    // Fallback to trigger-specific outputs for backward compatibility
     const outputs = getTriggerOutputsByType(inputNodeData.data?.type, inputNodeData.data?.providerId)
     return outputs.map(output => ({
       ...output,
@@ -758,10 +775,47 @@ export default function AIAgentConfigModal({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Database className="w-5 h-5 text-primary" />
-                          <Label className="text-base font-medium">Input Variables</Label>
+                          <Label className="text-base font-medium">Available Output Variables</Label>
+                          <EnhancedTooltip 
+                            description="These are the output variables available from the selected input node. Select which variables you want to pass to the AI Agent."
+                            title="Available Output Variables"
+                            showExpandButton={false}
+                          />
                         </div>
                         {!hasTriggeredData && getInputVariables().length > 0 && (
-                          <Button
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Auto-select variables that have actual data available or are commonly useful
+                                const allVariables = getInputVariables()
+                                const nodeIO = getNodeInputOutput(config.inputNodeId)
+                                const realNodeOutput = nodeIO?.output || null
+                                const newSelection: Record<string, boolean> = {}
+                                const newValues: Record<string, string> = { ...variableValues }
+                                const newStaticValues: Record<string, boolean> = { ...useStaticValues }
+                                
+                                allVariables.forEach(v => {
+                                  // Auto-select if data is available or if it's a commonly useful field
+                                  const hasData = realNodeOutput && realNodeOutput[v.name] !== undefined && realNodeOutput[v.name] !== null && String(realNodeOutput[v.name]).trim() !== ""
+                                  const isCommonField = ['content', 'message', 'text', 'body', 'subject', 'title', 'name', 'description', 'email', 'from', 'to'].includes(v.name.toLowerCase())
+                                  const shouldSelect = hasData || isCommonField
+                                  
+                                  newSelection[v.name] = shouldSelect
+                                  newStaticValues[v.name] = false // Default to automatic values
+                                  if (!(v.name in newValues)) newValues[v.name] = ""
+                                })
+                                setSelectedVariables(newSelection)
+                                setVariableValues(newValues)
+                                setUseStaticValues(newStaticValues)
+                              }}
+                              className="text-xs h-7"
+                            >
+                              Smart Select
+                            </Button>
+                            <Button
                             type="button"
                             variant="outline"
                             size="sm"
@@ -789,12 +843,44 @@ export default function AIAgentConfigModal({
                             }}
                           >
                             {getInputVariables().every(v => selectedVariables[v.name]) ? "Deselect All" : "Select All"}
-                          </Button>
+                            </Button>
+                          </div>
                         )}
                       </div>
                       
-                      <div className="space-y-2">
-                        {getInputVariables().map((variable) => (
+                      {getInputVariables().length === 0 ? (
+                        <div className="p-4 border border-dashed rounded-lg text-center">
+                          <p className="text-sm text-muted-foreground">
+                            No output variables available from the selected node. The node might not have any configured outputs or might not be fully set up yet.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {(() => {
+                            // Check if we're using outputSchema (dynamic) vs trigger outputs (hardcoded)
+                            const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                            const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === inputNodeData?.data?.type)
+                            const usingOutputSchema = nodeComponent?.outputSchema && nodeComponent.outputSchema.length > 0
+                            
+                            return (
+                              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                                <p className="text-blue-800">
+                                  {usingOutputSchema ? (
+                                    <>
+                                      ✨ <strong>Dynamic Variables:</strong> These variables are automatically detected from the selected node's output schema.
+                                    </>
+                                  ) : (
+                                    <>
+                                      📋 <strong>Predefined Variables:</strong> These are common variables for this trigger type. Use "Smart Select" to choose relevant ones.
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            )
+                          })()}
+                          
+                          <div className="space-y-2">
+                            {getInputVariables().map((variable) => (
                           <div key={variable.name} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
                             <Checkbox
                               id={`variable-${variable.name}`}
@@ -830,6 +916,21 @@ export default function AIAgentConfigModal({
                                 <Badge variant="outline" className="text-xs">
                                   {variable.type}
                                 </Badge>
+                                {(() => {
+                                  // Check if this variable has actual data available
+                                  const nodeIO = getNodeInputOutput(config.inputNodeId)
+                                  const realNodeOutput = nodeIO?.output || null
+                                  const hasData = realNodeOutput && realNodeOutput[variable.name] !== undefined && realNodeOutput[variable.name] !== null && String(realNodeOutput[variable.name]).trim() !== ""
+                                  
+                                  if (hasData) {
+                                    return (
+                                      <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                        Data Available
+                                      </Badge>
+                                    )
+                                  }
+                                  return null
+                                })()}
                               </div>
                               <div className="text-xs text-muted-foreground mt-1">
                                 {variable.description || 'No description available'}
@@ -878,8 +979,10 @@ export default function AIAgentConfigModal({
                               )}
                             </div>
                           </div>
-                        ))}
-                      </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
 
                       {!canGenerate() && (
                         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

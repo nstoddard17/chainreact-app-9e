@@ -1,5 +1,6 @@
 import { TokenRefreshService } from "../../../integrations/tokenRefreshService"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 
@@ -9,7 +10,21 @@ import { getSecret } from "@/lib/secrets"
  */
 export async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
   try {
-    const supabase = await createSupabaseServerClient()
+    // Use service role client for webhook execution context (bypasses RLS)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    
+    console.log(`🔍 Looking for integration: userId="${userId}", provider="${provider}"`)
+    
+    // First, let's see what integrations exist for this user
+    const { data: allUserIntegrations, error: allError } = await supabase
+      .from("integrations")
+      .select("id, provider, status")
+      .eq("user_id", userId)
+    
+    console.log(`📋 All integrations for user ${userId}:`, allUserIntegrations)
     
     // Get the user's integration
     const { data: integration, error } = await supabase
