@@ -57,7 +57,7 @@ export function createPopupResponse(
             
             // Also try postMessage if possible
             if (window.opener) {
-              window.opener.postMessage(cancelData, '${baseUrl}');
+              window.opener.postMessage(cancelData, '*');
               console.log('Cancel message sent to parent');
             }
             window.sentResponse = true;
@@ -88,7 +88,7 @@ export function createPopupResponse(
               console.log('Sending message to parent window:', JSON.stringify(responseData));
               console.log('Target origin:', '${baseUrl}');
               
-              window.opener.postMessage(responseData, '${baseUrl}');
+              window.opener.postMessage(responseData, '*');
               console.log('Message sent successfully to parent window');
             }
             messageSent = true;

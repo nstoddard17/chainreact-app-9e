@@ -18,7 +18,7 @@ function createPopupResponse(
           type: 'oauth-${type}',
           provider: '${provider}',
           message: '${message}'
-        }, '${baseUrl}');
+        }, '*');
       }
       setTimeout(() => window.close(), 1000);
     </script>
