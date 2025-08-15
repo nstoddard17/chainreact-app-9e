@@ -527,48 +527,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
     outputSchema: [
       {
-        name: "input",
-        label: "Input Data",
-        type: "object",
-        description: "The data received from the previous node"
-      },
-      {
-        name: "goal",
-        label: "Goal",
+        name: "output",
+        label: "AI Agent Output",
         type: "string",
-        description: "The goal that was accomplished"
-      },
-      {
-        name: "stepsCompleted",
-        label: "Steps Completed",
-        type: "number",
-        description: "Number of steps taken to accomplish the goal"
-      },
-      {
-        name: "finalResult",
-        label: "Final Result",
-        type: "string",
-        description: "The final result from the last step"
-      },
-      {
-        name: "steps",
-        label: "Steps",
-        type: "array",
-        description: "Detailed breakdown of all steps taken"
-      },
-      {
-        name: "context",
-        label: "Context",
-        type: "object",
-        description: "The final context including all gathered data"
-      },
-      {
-        name: "memory",
-        label: "Memory",
-        type: "object",
-        description: "Memory data accessed during execution"
+        description: "The generated response from the AI agent"
       }
-    ]
+    ],
+    producesOutput: true
   },
   {
     type: "conditional",

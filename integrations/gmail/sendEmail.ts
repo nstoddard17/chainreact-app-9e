@@ -56,6 +56,10 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
   try {
     const { userId, config, input } = params
     
+    console.log(`📧 Gmail sendEmail called with:`)
+    console.log(`📧 Config:`, JSON.stringify(config, null, 2))
+    console.log(`📧 Input:`, JSON.stringify(input, null, 2))
+    
     // 1. Get Gmail OAuth token
     const credentials = await getIntegrationCredentials(userId, "gmail")
     
@@ -63,6 +67,8 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
     const resolvedConfig = resolveValue(config, {
       input,
     })
+    
+    console.log(`📧 Resolved config:`, JSON.stringify(resolvedConfig, null, 2))
     
     // 3. Extract required parameters
     const { 
@@ -74,6 +80,13 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       attachments,
       isHtml = false
     } = resolvedConfig
+    
+    console.log(`📧 EXTRACTED PARAMETERS:`)
+    console.log(`📧 to: "${to}"`)
+    console.log(`📧 subject: "${subject}"`) 
+    console.log(`📧 body: "${body}"`)
+    console.log(`📧 body type: ${typeof body}`)
+    console.log(`📧 body length: ${body ? body.length : 'N/A'}`)
     
     // 4. Validate required parameters
     if (!to) {
@@ -108,9 +121,16 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       body
     ]
     
+    console.log(`📧 EMAIL LINES:`, emailLines)
+    
     // Join lines and encode the email
     const emailContent = emailLines.filter(Boolean).join('\r\n')
+    console.log(`📧 FINAL EMAIL CONTENT:`)
+    console.log(emailContent)
+    console.log(`📧 EMAIL CONTENT LENGTH: ${emailContent.length}`)
+    
     const encodedEmail = encodeBase64(emailContent)
+    console.log(`📧 ENCODED EMAIL LENGTH: ${encodedEmail.length}`)
     
     // 6. Make Gmail API request
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {

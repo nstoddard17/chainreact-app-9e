@@ -13,6 +13,7 @@ import {
   generateContent,
   classifyContent,
 } from './actions/aiDataProcessing'
+import { executeAIAgent } from './aiAgent'
 import {
   // Core utilities
   ActionResult,
@@ -92,6 +93,43 @@ import {
   executeFilterAction,
   executeDelayAction
 } from './actions'
+
+/**
+ * Wrapper function for AI agent execution that adapts to the executeAction signature
+ */
+async function executeAIAgentWrapper(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    // Resolve any variable references in the config using the enhanced resolveValue function
+    const resolvedConfig = resolveValue(config, input)
+    
+    const result = await executeAIAgent({
+      userId,
+      config: resolvedConfig,
+      input,
+      workflowContext: {
+        nodes: [],
+        previousResults: input.nodeOutputs || {}
+      }
+    })
+    
+    return {
+      success: result.success,
+      output: result.output || {},
+      message: result.message || "AI Agent execution completed"
+    }
+  } catch (error: any) {
+    console.error("AI Agent execution error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "AI Agent execution failed"
+    }
+  }
+}
 
 /**
  * Interface for action execution parameters
@@ -1778,7 +1816,8 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     
     // Generic actions
     "filter": executeFilterAction,
-    "delay": executeDelayAction
+    "delay": executeDelayAction,
+    "ai_agent": executeAIAgentWrapper
   }
 
   // Get the appropriate handler for this node type

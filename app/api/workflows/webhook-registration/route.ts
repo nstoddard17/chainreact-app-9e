@@ -5,6 +5,8 @@ import { TriggerWebhookManager } from "@/lib/webhooks/triggerWebhookManager"
 const webhookManager = new TriggerWebhookManager()
 
 export async function POST(request: Request) {
+  console.log('🚨🚨🚨 WEBHOOK REGISTRATION API CALLED! 🚨🚨🚨')
+  
   const supabase = await createSupabaseRouteHandlerClient()
   
   try {
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
     const webhookUrl = webhookManager.getWebhookUrl(workflowId, providerId)
 
     // Register the webhook
-    const webhookId = await webhookManager.registerWebhook({
+    console.log('🔧 About to call webhookManager.registerWebhook with:', {
       workflowId,
       userId: user.id,
       triggerType,
@@ -44,6 +46,22 @@ export async function POST(request: Request) {
       config: config || {},
       webhookUrl
     })
+    
+    let webhookId
+    try {
+      webhookId = await webhookManager.registerWebhook({
+        workflowId,
+        userId: user.id,
+        triggerType,
+        providerId,
+        config: config || {},
+        webhookUrl
+      })
+      console.log('🎉 webhookManager.registerWebhook completed, webhookId:', webhookId)
+    } catch (error) {
+      console.error('❌ Error in webhookManager.registerWebhook:', error)
+      throw error
+    }
 
     console.log(`✅ Webhook registered successfully:`, {
       workflowId,
@@ -57,7 +75,12 @@ export async function POST(request: Request) {
       success: true,
       webhookId,
       webhookUrl,
-      message: "Webhook registered successfully"
+      message: "🚨 DISCORD GATEWAY SHOULD BE CONNECTED NOW! 🚨",
+      debugInfo: {
+        apiCalled: true,
+        serverReceived: true,
+        discordProcessed: true
+      }
     })
 
   } catch (error: any) {

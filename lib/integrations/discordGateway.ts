@@ -177,6 +177,9 @@ class DiscordGateway extends EventEmitter {
       case 'RESUMED':
         this.handleResumed(payload.d)
         break
+      case 'MESSAGE_CREATE':
+        this.handleMessageCreate(payload.d)
+        break
       default:
         // Handle other events as needed
         break
@@ -196,6 +199,54 @@ class DiscordGateway extends EventEmitter {
    */
   private handleResumed(data: any): void {
     this.emit('resumed', data)
+  }
+
+  /**
+   * Handle MESSAGE_CREATE event and trigger workflows
+   */
+  private handleMessageCreate(messageData: any): void {
+    // Ignore messages from bots (including our own bot)
+    if (messageData.author?.bot) {
+      return
+    }
+
+    // Emit message event for workflow processing
+    this.emit('message', messageData)
+    
+    // Trigger workflow processing
+    this.processDiscordMessageForWorkflows(messageData)
+  }
+
+  /**
+   * Process Discord message and trigger matching workflows
+   */
+  private async processDiscordMessageForWorkflows(messageData: any): Promise<void> {
+    try {
+      // Get the base URL for internal API calls
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      
+      // Send to webhook processing endpoint
+      const response = await fetch(`${baseUrl}/api/workflow/discord`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'ChainReact-DiscordGateway/1.0'
+        },
+        body: JSON.stringify(messageData)
+      })
+
+      if (!response.ok) {
+        console.error('Failed to process Discord message for workflows:', response.status)
+      } else {
+        console.log('✅ Discord message processed for workflows:', {
+          messageId: messageData.id,
+          channelId: messageData.channel_id,
+          author: messageData.author?.username
+        })
+      }
+    } catch (error) {
+      console.error('Error processing Discord message for workflows:', error)
+    }
   }
 
   /**

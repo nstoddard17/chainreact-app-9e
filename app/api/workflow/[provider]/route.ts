@@ -2,16 +2,75 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
+// Discord API helpers to resolve IDs to names
+async function resolveDiscordChannelName(channelId: string, guildId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+      headers: {
+        'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (response.ok) {
+      const channel = await response.json()
+      console.log(`🏷️ Resolved channel ${channelId} to: ${channel.name}`)
+      return channel.name || null
+    }
+  } catch (error) {
+    console.error(`Failed to resolve channel name for ${channelId}:`, error)
+  }
+  return null
+}
+
+async function resolveDiscordGuildName(guildId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
+      headers: {
+        'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (response.ok) {
+      const guild = await response.json()
+      console.log(`🏷️ Resolved guild ${guildId} to: ${guild.name}`)
+      return guild.name || null
+    }
+  } catch (error) {
+    console.error(`Failed to resolve guild name for ${guildId}:`, error)
+  }
+  return null
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// In-memory cache to prevent duplicate Discord message processing
+// This handles the race condition where two requests arrive nearly simultaneously
+const discordMessageCache = new Map<string, { timestamp: number; requestId: string }>()
+
+// Clean up old cache entries every 5 minutes
+setInterval(() => {
+  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
+  for (const [messageId, data] of discordMessageCache.entries()) {
+    if (data.timestamp < fiveMinutesAgo) {
+      discordMessageCache.delete(messageId)
+    }
+  }
+}, 5 * 60 * 1000)
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider } = await params
+  
+  // Generate unique request ID for tracking
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  console.log(`🚀 [${requestId}] Starting webhook processing for provider: ${provider}`)
   
   try {
     // Get the raw body and headers
@@ -26,11 +85,68 @@ export async function POST(
       payload = body
     }
 
-    console.log(`📥 Received webhook from ${provider}:`, {
+    console.log(`📥 [${requestId}] Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
+      messageId: payload?.id || 'no-id',
       timestamp: new Date().toISOString()
     })
+    
+    // EARLY duplicate detection for Discord - before any processing
+    if (provider === 'discord') {
+      console.log(`📥 Discord payload full content:`, JSON.stringify(payload, null, 2))
+      
+      const messageId = payload.id
+      if (messageId) {
+        console.log(`🔍 [${requestId}] Checking for duplicate Discord message: ${messageId} at ${new Date().toISOString()}`)
+        
+        // Check in-memory cache first for very recent duplicates
+        const cachedEntry = discordMessageCache.get(messageId)
+        if (cachedEntry) {
+          const timeDiff = Date.now() - cachedEntry.timestamp
+          console.log(`🚫 [${requestId}] Duplicate Discord message detected in cache: ${messageId} - skipping (original request ${cachedEntry.requestId}, ${timeDiff}ms ago)`)
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Duplicate message ignored - cached',
+            originalRequestId: cachedEntry.requestId,
+            timeDifference: timeDiff,
+            messageId: messageId,
+            requestId: requestId
+          })
+        }
+        
+        // Add to cache immediately to prevent future duplicates
+        discordMessageCache.set(messageId, { timestamp: Date.now(), requestId: requestId })
+        console.log(`📝 [${requestId}] Added Discord message to cache: ${messageId}`)
+        
+        // Also check database for older duplicates (in case server restarted)
+        const { data: existingExecutions } = await supabase
+          .from('webhook_executions')
+          .select('id, created_at, payload, status, workflow_id')
+          .eq('provider_id', 'discord')
+          .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(50)
+          
+        const existingExecution = existingExecutions?.find(exec => 
+          exec.payload && exec.payload.id === messageId
+        )
+        
+        if (existingExecution) {
+          console.log(`🚫 [${requestId}] Duplicate Discord message detected in database: ${messageId} - skipping (original execution ${existingExecution.id} at ${existingExecution.created_at})`)
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Duplicate message ignored - already in database',
+            originalTimestamp: existingExecution.created_at,
+            originalExecutionId: existingExecution.id,
+            messageId: messageId,
+            requestId: requestId
+          })
+        }
+        
+        console.log(`✅ [${requestId}] New Discord message: ${messageId} - proceeding with workflow`)
+      }
+    }
 
     // Handle Slack URL verification
     if (provider === 'slack' && payload.type === 'url_verification') {
@@ -82,18 +198,22 @@ export async function POST(
     const workflows = await findWorkflowsForProvider(provider)
     
     if (workflows.length === 0) {
-      console.log(`No active workflows found for provider: ${provider}`)
+      console.log(`[${requestId}] No active workflows found for provider: ${provider}`)
       return NextResponse.json({ 
         message: 'No active workflows for this provider',
-        provider: provider
+        provider: provider,
+        requestId: requestId
       }, { status: 200 })
     }
+
+    console.log(`[${requestId}] Found ${workflows.length} workflow(s) to process`)
 
     // Process each workflow
     const results = []
     for (const workflow of workflows) {
       try {
-        const result = await processWorkflowWebhook(workflow, payload, headers, provider)
+        console.log(`[${requestId}] Processing workflow: ${workflow.name} (${workflow.id})`)
+        const result = await processWorkflowWebhook(workflow, payload, headers, provider, requestId)
         results.push(result)
       } catch (error) {
         console.error(`Error processing workflow ${workflow.id}:`, error)
@@ -105,11 +225,16 @@ export async function POST(
       }
     }
 
+
+
+    console.log(`[${requestId}] Completed processing ${results.length} workflow(s) for ${provider}`)
+    
     return NextResponse.json({
       success: true,
       provider: provider,
       workflowsProcessed: results.length,
-      results: results
+      results: results,
+      requestId: requestId
     })
 
   } catch (error: any) {
@@ -199,36 +324,52 @@ async function findWorkflowsForProvider(provider: string): Promise<any[]> {
   const { data: workflows, error } = await supabase
     .from('workflows')
     .select('*')
-    .eq('status', 'active')
+    .in('status', ['draft', 'active']) // Include both draft and active workflows
 
   if (error) {
     console.error('Error fetching workflows:', error)
     return []
   }
 
+  console.log(`🔍 Found ${workflows.length} workflows (draft/active) for provider: ${provider}`)
+
   // Filter workflows that have triggers for this provider
-  return workflows.filter(workflow => {
+  const matchingWorkflows = workflows.filter(workflow => {
     try {
       const nodes = workflow.nodes || []
-      return nodes.some((node: any) => 
+      const hasProviderTrigger = nodes.some((node: any) => 
         node.data?.providerId === provider && 
         node.data?.isTrigger === true
       )
-    } catch {
+      
+      if (hasProviderTrigger) {
+        console.log(`✅ Found matching workflow: ${workflow.name} (${workflow.id}) - status: ${workflow.status}`)
+      }
+      
+      return hasProviderTrigger
+    } catch (error) {
+      console.error('Error checking workflow nodes:', error)
       return false
     }
   })
+
+  console.log(`🎯 Final matching workflows for ${provider}: ${matchingWorkflows.length}`)
+  return matchingWorkflows
 }
 
 async function processWorkflowWebhook(
   workflow: any,
   payload: any,
   headers: any,
-  provider: string
+  provider: string,
+  requestId?: string
 ): Promise<any> {
   const startTime = Date.now()
   
   try {
+    const logPrefix = requestId ? `[${requestId}]` : '';
+    console.log(`${logPrefix} Processing workflow ${workflow.id} (${workflow.name})`)
+    
     // Find the trigger node for this provider
     const triggerNode = workflow.nodes.find((node: any) => 
       node.data?.providerId === provider && 
@@ -240,7 +381,7 @@ async function processWorkflowWebhook(
     }
 
     // Transform payload for the workflow
-    const transformedPayload = transformPayloadForWorkflow(provider, payload, triggerNode)
+    const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
     
     // Create execution session
     const executionEngine = new AdvancedExecutionEngine()
@@ -251,12 +392,17 @@ async function processWorkflowWebhook(
       { 
         inputData: transformedPayload,
         provider: provider,
-        triggerNode: triggerNode
+        triggerNode: triggerNode,
+        requestId: requestId
       }
     )
 
+    console.log(`${logPrefix} Created execution session: ${session.id}`)
+
     // Execute the workflow
+    console.log(`${logPrefix} Starting workflow execution...`)
     await executionEngine.executeWorkflowAdvanced(session.id, transformedPayload)
+    console.log(`${logPrefix} Workflow execution completed`)
     
     // Log webhook execution
     await logWebhookExecution(workflow.id, provider, payload, headers, 'success', Date.now() - startTime)
@@ -275,21 +421,24 @@ async function processWorkflowWebhook(
   }
 }
 
-function transformPayloadForWorkflow(provider: string, payload: any, triggerNode: any): any {
+async function transformPayloadForWorkflow(provider: string, payload: any, triggerNode: any): Promise<any> {
   // Transform the external payload to match what the workflow expects
+  // Get provider-specific transformations
+  const providerTransformation = await getProviderSpecificTransformation(provider, payload)
+  
   const baseTransformation = {
     provider,
     timestamp: new Date().toISOString(),
     originalPayload: payload,
     triggerType: triggerNode.data?.type,
     // Add provider-specific transformations
-    ...getProviderSpecificTransformation(provider, payload)
+    ...providerTransformation
   }
 
   return baseTransformation
 }
 
-function getProviderSpecificTransformation(provider: string, payload: any): any {
+async function getProviderSpecificTransformation(provider: string, payload: any): Promise<any> {
   switch (provider) {
     case 'gmail':
       return {
@@ -313,14 +462,28 @@ function getProviderSpecificTransformation(provider: string, payload: any): any 
       }
     
     case 'discord':
-      return {
+      console.log('🔧 Discord payload received for transformation:', JSON.stringify(payload, null, 2))
+      
+      // Resolve Discord names from IDs
+      const channelName = await resolveDiscordChannelName(payload.channel_id, payload.guild_id)
+      const guildName = await resolveDiscordGuildName(payload.guild_id)
+      
+      const transformedData = {
         message: {
-          content: payload.content,
-          channelId: payload.channel_id,
-          authorId: payload.author?.id,
-          guildId: payload.guild_id
+          content: payload.content || '',
+          channelId: payload.channel_id || '',
+          channelName: channelName || `Channel ${payload.channel_id}`,
+          authorId: payload.author?.id || '',
+          authorName: payload.author?.username || payload.author?.global_name || payload.author?.display_name || 'Unknown User',
+          authorDisplayName: payload.author?.display_name || payload.author?.username || payload.author?.global_name || 'Unknown User',
+          guildId: payload.guild_id || '',
+          guildName: guildName || `Server ${payload.guild_id}`,
+          messageId: payload.id || '',
+          timestamp: payload.timestamp || new Date().toISOString()
         }
       }
+      console.log('🔧 Transformed Discord data:', JSON.stringify(transformedData, null, 2))
+      return transformedData
     
     case 'github':
       return {
