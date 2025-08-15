@@ -85,7 +85,22 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to save Microsoft Outlook integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
+    // Return a minimal response that immediately closes the popup
+    const script = `
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth-success',
+            provider: 'microsoft-outlook',
+            message: 'Connected successfully'
+          }, '*');
+        }
+        window.close();
+      </script>
+    `
+    return new Response(`<html><head><title>Success</title></head><body>${script}</body></html>`, {
+      headers: { "Content-Type": "text/html" }
+    })
   } catch (e: any) {
     console.error("Microsoft Outlook callback error:", e)
     return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)

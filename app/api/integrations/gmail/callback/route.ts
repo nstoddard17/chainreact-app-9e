@@ -97,7 +97,23 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Gmail integration successfully saved with status: connected')
-    return createPopupResponse('success', provider, 'Gmail account connected successfully.', baseUrl)
+    
+    // Return a minimal response that immediately closes the popup
+    const script = `
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth-success',
+            provider: 'gmail',
+            message: 'Connected successfully'
+          }, '*');
+        }
+        window.close();
+      </script>
+    `
+    return new Response(`<html><head><title>Success</title></head><body>${script}</body></html>`, {
+      headers: { "Content-Type": "text/html" }
+    })
   } catch (error) {
     console.error('Error during Gmail OAuth callback:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
