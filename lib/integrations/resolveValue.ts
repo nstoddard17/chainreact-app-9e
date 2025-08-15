@@ -11,23 +11,24 @@
  */
 export function resolveValue<T>(
   template: T, 
-  context: Record<string, any>
+  context: Record<string, any>,
+  dataFlowManager?: any
 ): T {
   // For string templates with {{variable}} syntax
   if (typeof template === 'string') {
-    return resolveStringTemplate(template, context) as T
+    return resolveStringTemplate(template, context, dataFlowManager) as T
   }
   
   // For objects with nested templates
   if (template && typeof template === 'object') {
     if (Array.isArray(template)) {
       // Handle arrays
-      return template.map(item => resolveValue(item, context)) as T
+      return template.map(item => resolveValue(item, context, dataFlowManager)) as T
     } else {
       // Handle objects
       const result: Record<string, any> = {}
       for (const [key, value] of Object.entries(template)) {
-        result[key] = resolveValue(value, context)
+        result[key] = resolveValue(value, context, dataFlowManager)
       }
       return result as T
     }
@@ -42,28 +43,47 @@ export function resolveValue<T>(
  * 
  * @param template - String with {{variable}} placeholders
  * @param context - Context object with values to inject
+ * @param dataFlowManager - Optional DataFlowManager for node output resolution
  * @returns Resolved string
  */
 function resolveStringTemplate(
   template: string, 
-  context: Record<string, any>
+  context: Record<string, any>,
+  dataFlowManager?: any
 ): string {
   // Regular expression to match {{variable}} pattern
   const regex = /\{\{([^}]+)\}\}/g
   
   return template.replace(regex, (match, path) => {
-    // Get the value from the context using the dot path
-    const value = getValueByPath(context, path.trim())
+    const trimmedPath = path.trim()
+    console.log(`🔧 Legacy resolveValue attempting to resolve: "${match}"`)
     
-    // Return the value or the original placeholder if not found
-    if (value === undefined) {
-      return match // Keep original placeholder
+    // First try to get the value from the context using the dot path
+    const value = getValueByPath(context, trimmedPath)
+    
+    if (value !== undefined) {
+      console.log(`✅ Found in context:`, value)
+      return typeof value === 'object' 
+        ? JSON.stringify(value) 
+        : String(value)
     }
     
-    // Convert to string if needed
-    return typeof value === 'object' 
-      ? JSON.stringify(value) 
-      : String(value)
+    // If not found in context and we have a DataFlowManager, try that
+    if (dataFlowManager && dataFlowManager.resolveVariable) {
+      console.log(`🔧 Trying DataFlowManager for: "${match}"`)
+      const dataFlowValue = dataFlowManager.resolveVariable(match)
+      
+      if (dataFlowValue !== match) { // If it resolved to something different
+        console.log(`✅ DataFlowManager resolved:`, dataFlowValue)
+        return typeof dataFlowValue === 'object' 
+          ? JSON.stringify(dataFlowValue) 
+          : String(dataFlowValue)
+      }
+    }
+    
+    console.log(`❌ Could not resolve: "${match}"`)
+    // Return the original placeholder if not found
+    return match
   })
 }
 

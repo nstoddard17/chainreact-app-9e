@@ -402,6 +402,12 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
     
     // Store output in data flow manager
     if (context.dataFlowManager) {
+      console.log(`💾 Storing node output for ${node.id} (${node.data.type}):`, {
+        nodeResult,
+        output: (nodeResult as any).output,
+        success: !(nodeResult as any).error
+      })
+      
       context.dataFlowManager.setNodeOutput(node.id, {
         success: !(nodeResult as any).error,
         data: (nodeResult as any).output || nodeResult,
@@ -2050,9 +2056,22 @@ async function executeGmailSendEmailNode(node: any, context: any) {
   const { executeAction } = await import("@/lib/workflows/executeNode")
   
   try {
+    // Enhance input with node outputs from DataFlowManager
+    const enhancedInput = {
+      ...context.data,
+      dataFlowManager: context.dataFlowManager,
+      nodeOutputs: context.dataFlowManager?.context?.nodeOutputs || {}
+    }
+    
+    console.log(`📧 Enhanced input for Gmail action:`, {
+      originalData: context.data,
+      nodeOutputsCount: Object.keys(enhancedInput.nodeOutputs).length,
+      nodeOutputKeys: Object.keys(enhancedInput.nodeOutputs)
+    })
+    
     const result = await executeAction({
       node,
-      input: context.data,
+      input: enhancedInput,
       userId: context.userId,
       workflowId: context.workflowId
     })
