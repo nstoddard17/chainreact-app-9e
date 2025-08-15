@@ -114,100 +114,61 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Gmail integration successfully saved with status: connected')
     
-    // Return a minimal response that immediately closes the popup  
+    // For redirect-based OAuth flow, redirect back to the application with success
     const script = `
       <script>
-        console.log('🔍 Gmail callback script running in window:', window.name || 'unknown window');
-        console.log('🔍 Window location:', window.location.href);
-        console.log('🔍 Window opener exists:', !!window.opener);
-        console.log('🔍 Window parent:', window.parent === window ? 'same' : 'different');
-        console.log('🔍 Window top:', window.top === window ? 'top level' : 'nested');
-        console.log('🔍 Document title:', document.title);
+        console.log('🔍 Gmail callback handling redirect-based OAuth');
         
-        // Enhanced verification that this is running in a popup, not a new tab
-        const isPopup = window.opener && window.opener !== window;
-        const isNamedWindow = window.name && window.name.includes('oauth_popup');
+        // Check if this is redirect-based OAuth (no popup context)
+        const isRedirectFlow = !window.opener || window.opener === window;
         
-        console.log('🔍 Is popup window:', isPopup);
-        console.log('🔍 Is named OAuth window:', isNamedWindow);
-        
-        if (isPopup) {
-          try {
-            // Send success message to parent window
-            const message = {
+        if (isRedirectFlow) {
+          console.log('✅ Handling Gmail redirect-based OAuth success');
+          
+          // Get stored state from sessionStorage
+          const storedState = sessionStorage.getItem('gmail_oauth_state');
+          let returnUrl = '/dashboard'; // Default fallback
+          
+          if (storedState) {
+            try {
+              const stateData = JSON.parse(storedState);
+              returnUrl = stateData.returnUrl || '/dashboard';
+              console.log('📍 Redirecting back to:', returnUrl);
+              
+              // Clean up stored state
+              sessionStorage.removeItem('gmail_oauth_state');
+            } catch (e) {
+              console.warn('⚠️ Failed to parse stored state:', e);
+            }
+          }
+          
+          // Add success indicator to URL for the frontend to handle
+          const urlObj = new URL(returnUrl, window.location.origin);
+          urlObj.searchParams.set('gmail_connected', 'true');
+          urlObj.searchParams.set('integration_success', 'gmail');
+          
+          console.log('🔄 Redirecting to:', urlObj.toString());
+          window.location.href = urlObj.toString();
+          
+        } else {
+          // Fallback to popup communication if this somehow runs in a popup
+          console.log('⚠️ Unexpected popup context, falling back to popup communication');
+          
+          if (window.opener) {
+            window.opener.postMessage({
               type: 'oauth-success',
               provider: 'gmail',
-              message: 'Connected successfully',
-              timestamp: Date.now(),
-              windowName: window.name
-            };
-            
-            console.log('📤 Sending message to parent:', message);
-            window.opener.postMessage(message, '*');
-            console.log('✅ Gmail success message sent to parent');
-            
-            // Also store in localStorage as backup
-            try {
-              localStorage.setItem('gmail_oauth_success', JSON.stringify(message));
-              console.log('💾 Gmail success stored in localStorage');
-            } catch (e) {
-              console.warn('⚠️ Could not store in localStorage:', e);
-            }
-            
-          } catch (e) {
-            console.error('❌ Error sending message to parent:', e);
+              message: 'Connected successfully'
+            }, '*');
           }
-        } else {
-          console.error('❌ Gmail callback NOT running in popup context');
-          console.error('❌ This indicates OAuth broke out of popup containment');
-          
-          // Try to communicate with any potential parent window
-          try {
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'gmail',
-                message: 'OAuth callback opened in wrong window context',
-                timestamp: Date.now()
-              }, '*');
-            }
-          } catch (e) {
-            console.error('❌ Failed to send error message:', e);
-          }
+          window.close();
         }
-        
-        // Force close this window after a short delay
-        setTimeout(() => {
-          try {
-            console.log('🔄 Attempting to close Gmail OAuth window');
-            window.close();
-            
-            // If window.close() fails, try alternative methods
-            setTimeout(() => {
-              if (!window.closed) {
-                console.warn('⚠️ Window still open, trying alternative close');
-                try {
-                  window.opener && window.opener.focus();
-                  window.close();
-                } catch (e) {
-                  console.error('❌ Alternative close failed:', e);
-                }
-              }
-            }, 100);
-            
-          } catch (e) {
-            console.error('❌ Error closing window:', e);
-          }
-        }, 250);
       </script>
     `
-    return new Response(`<html><head><title>Gmail Connected</title></head><body>Connecting Gmail... This window should close automatically.</body>${script}</html>`, {
+    return new Response(`<html><head><title>Gmail Connected</title></head><body><h1>Gmail Connected Successfully!</h1><p>Redirecting you back to the application...</p>${script}</body></html>`, {
       headers: { 
         "Content-Type": "text/html",
-        "X-Frame-Options": "SAMEORIGIN",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-        "Cross-Origin-Embedder-Policy": "unsafe-none"
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     })
   } catch (error) {

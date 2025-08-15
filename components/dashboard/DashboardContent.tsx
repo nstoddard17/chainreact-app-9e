@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
@@ -14,14 +15,39 @@ import { OnlineStatusIndicator } from "@/components/providers/PresenceProvider"
 import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
+  const searchParams = useSearchParams()
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
   const { user } = useAuthStore()
-  const { getConnectedProviders } = useIntegrationStore()
+  const { getConnectedProviders, fetchIntegrations } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const connectedIntegrationsCount = getConnectedProviders().length
 
   // Count active workflows (workflows that are not drafts)
   const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
+
+  // Handle Gmail OAuth redirect success
+  useEffect(() => {
+    const gmailConnected = searchParams?.get('gmail_connected')
+    const integrationSuccess = searchParams?.get('integration_success')
+    
+    if (gmailConnected === 'true' && integrationSuccess === 'gmail') {
+      console.log('✅ Gmail OAuth redirect completed successfully')
+      
+      // Refresh integrations to show the new Gmail connection
+      fetchIntegrations(true)
+      
+      // Clean up URL parameters
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('gmail_connected')
+        url.searchParams.delete('integration_success')
+        window.history.replaceState({}, '', url.toString())
+      }
+      
+      // Optional: Show success notification
+      console.log('🎉 Gmail integration connected successfully!')
+    }
+  }, [searchParams, fetchIntegrations])
 
   useEffect(() => {
     fetchMetrics()
