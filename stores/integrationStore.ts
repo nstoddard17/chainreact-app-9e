@@ -447,16 +447,29 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
+          // For Gmail, use redirect-based OAuth instead of popup
+          if (providerId === 'gmail') {
+            console.log('🔄 Using redirect-based OAuth for Gmail')
+            
+            // Store the current state to restore after redirect
+            sessionStorage.setItem('gmail_oauth_state', JSON.stringify({
+              provider: providerId,
+              timestamp: Date.now(),
+              returnUrl: window.location.href
+            }))
+            
+            // Redirect to Gmail OAuth (this will navigate the main window)
+            window.location.href = data.authUrl
+            return // Don't continue with popup logic
+          }
+          
+          // For all other providers, use popup-based OAuth
           // Close any existing popup before opening a new one
           closeExistingPopup()
           
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
-          
-          // Enhanced popup features for better containment, especially for Gmail
-          const popupFeatures = providerId === 'gmail' 
-            ? "width=600,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no,dependent=yes"
-            : "width=600,height=700,scrollbars=yes,resizable=yes"
+          const popupFeatures = "width=600,height=700,scrollbars=yes,resizable=yes"
             
           console.log(`🔍 Opening ${providerId} popup with features:`, popupFeatures)
           const popup = window.open(data.authUrl, popupName, popupFeatures)
