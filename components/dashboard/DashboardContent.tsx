@@ -25,29 +25,6 @@ export default function DashboardContent() {
   // Count active workflows (workflows that are not drafts)
   const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
 
-  // Handle Gmail OAuth redirect success
-  useEffect(() => {
-    const gmailConnected = searchParams?.get('gmail_connected')
-    const integrationSuccess = searchParams?.get('integration_success')
-    
-    if (gmailConnected === 'true' && integrationSuccess === 'gmail') {
-      console.log('✅ Gmail OAuth redirect completed successfully')
-      
-      // Refresh integrations to show the new Gmail connection
-      fetchIntegrations(true)
-      
-      // Clean up URL parameters
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href)
-        url.searchParams.delete('gmail_connected')
-        url.searchParams.delete('integration_success')
-        window.history.replaceState({}, '', url.toString())
-      }
-      
-      // Optional: Show success notification
-      console.log('🎉 Gmail integration connected successfully!')
-    }
-  }, [searchParams, fetchIntegrations])
 
   useEffect(() => {
     fetchMetrics()
