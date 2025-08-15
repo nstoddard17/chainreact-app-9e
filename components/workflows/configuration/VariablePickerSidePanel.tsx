@@ -12,6 +12,7 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
@@ -31,7 +32,7 @@ const RELEVANT_OUTPUTS: Record<string, string[]> = {
   
   // AI/OpenAI
   'openai_action_chat_completion': ['response', 'usage'],
-  'ai_agent': ['finalResult'],
+  'ai_agent': ['output'],
   
   // Notion
   'notion_action_create_page': ['pageId', 'title', 'url'],
@@ -188,10 +189,26 @@ export function VariablePickerSidePanel({
              node.id !== 'add-node-button'
     }) || []
     
-    // Always show only previous nodes when in configuration mode
+    // Show previous nodes, trigger nodes, and any nodes that produce output (excluding current node)
     if (currentNodeId) {
       const previousNodeIds = getPreviousNodes(currentNodeId);
-      return allNodes.filter(node => previousNodeIds.includes(node.id) || node.isTrigger);
+      const filteredNodes = allNodes.filter(node => 
+        node.id !== currentNodeId && // Exclude the current node being configured
+        (previousNodeIds.includes(node.id) || 
+        node.isTrigger || 
+        (node.outputs && node.outputs.length > 0)) // Include any node that has outputs
+      );
+      
+      // Debug: Log which nodes are being included
+      console.log('📊 [VARIABLES] Available nodes for variables menu:', filteredNodes.map(n => ({
+        id: n.id,
+        title: n.title,
+        type: n.type,
+        hasOutputs: n.outputs.length > 0,
+        outputs: n.outputs.map(o => o.name)
+      })));
+      
+      return filteredNodes;
     }
     
     return allNodes;
@@ -248,9 +265,18 @@ export function VariablePickerSidePanel({
     }
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 
-  const handleVariableSelect = (variable: string) => {
+  const handleVariableSelect = (variable: string, nodeId: string, outputName: string) => {
     if (onVariableSelect) {
-      onVariableSelect(variable)
+      // Try to resolve the actual value using our new resolution system
+      const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
+      
+      if (resolvedValue !== variable) {
+        // Pass the actual resolved value
+        onVariableSelect(resolvedValue)
+      } else {
+        // Fallback to variable reference if we can't resolve it
+        onVariableSelect(variable)
+      }
     }
   }
 
@@ -364,14 +390,9 @@ export function VariablePickerSidePanel({
 
   // Get the actual value of a variable if test results are available
   const getVariableValue = (nodeId: string, outputName: string) => {
-    const nodeResult = getNodeTestResult(nodeId);
-    if (!nodeResult) return null;
-    
-    try {
-      return nodeResult.output?.[outputName];
-    } catch (e) {
-      return null;
-    }
+    // Use the new resolution system to get variable values
+    const nodeValues = getNodeVariableValues(nodeId, workflowData || { nodes: [], edges: [] }, testResults)
+    return nodeValues[outputName] || null
   };
 
   // Format variable value for display
@@ -478,7 +499,17 @@ export function VariablePickerSidePanel({
                 <Collapsible 
                   key={node.id} 
                   open={isExpanded} 
-                  onOpenChange={() => toggleNodeExpansion(node.id)}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      setExpandedNodes(prev => new Set(prev).add(node.id))
+                    } else {
+                      setExpandedNodes(prev => {
+                        const newSet = new Set(prev)
+                        newSet.delete(node.id)
+                        return newSet
+                      })
+                    }
+                  }}
                   className={`mb-3 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm ${isNodeTested ? 'border-green-300' : ''}`}
                 >
                   {/* Node Header */}
@@ -520,7 +551,7 @@ export function VariablePickerSidePanel({
                             draggable
                             onDragStart={(e) => handleDragStart(e, variableRef)}
                             onDragEnd={handleDragEnd}
-                            onClick={() => handleVariableSelect(variableRef)}
+                            onClick={() => handleVariableSelect(variableRef, node.id, output.name)}
                           >
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-700 border-blue-200 ${hasValue ? 'border-green-300' : ''}`}>

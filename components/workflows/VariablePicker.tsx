@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Search, Copy, Check } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { resolveVariableValue } from '@/lib/workflows/variableResolution'
 
 interface VariablePickerProps {
   value?: string
@@ -50,6 +51,18 @@ export function VariablePicker({
   const [searchTerm, setSearchTerm] = useState('')
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Function to handle popover state changes to prevent auto-closing
+  const handleOpenChange = (open: boolean) => {
+    // If closing, check if it's due to an outside click
+    if (!open) {
+      // We set a timeout to allow click handlers inside to execute first
+      setTimeout(() => setIsOpen(open), 100);
+    } else {
+      // When opening, set immediately
+      setIsOpen(open);
+    }
+  };
 
   // Handle legacy interface
   const isLegacyMode = !onChange && onVariableSelect
@@ -101,10 +114,12 @@ export function VariablePicker({
     // Find trigger nodes (they're always available)
     const triggerNodes = workflowData.nodes.filter((node: any) => node.data?.isTrigger).map((node: any) => node.id)
     
-    // Return filtered nodes
+    // Return filtered nodes - include previous nodes, trigger nodes, and any nodes with outputs (excluding current node)
     return nodes.filter((node: any) => 
-      previousNodeIds.includes(node.id) || 
-      triggerNodes.includes(node.id)
+      node.id !== currentNodeId && // Exclude the current node being configured
+      (previousNodeIds.includes(node.id) || 
+      triggerNodes.includes(node.id) ||
+      (node.outputs && node.outputs.length > 0)) // Include any node that has outputs
     )
   }
 
@@ -120,7 +135,16 @@ export function VariablePicker({
 
   const handleVariableSelect = (variable: string) => {
     if (handleChange) {
-      handleChange(variable)
+      // Try to resolve the actual value using our new resolution system
+      const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] })
+      
+      if (resolvedValue !== variable) {
+        // Use the actual resolved value
+        handleChange(resolvedValue)
+      } else {
+        // Fallback to variable reference if we can't resolve it
+        handleChange(variable)
+      }
     }
     setIsOpen(false)
     setSearchTerm('')
@@ -145,12 +169,21 @@ export function VariablePicker({
   }
 
   const insertVariable = (variable: string) => {
+    // Try to resolve the actual value using our new resolution system
+    const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] })
+    
+    let valueToInsert = variable
+    if (resolvedValue !== variable) {
+      // Use the actual resolved value
+      valueToInsert = resolvedValue
+    }
+    
     // If there's already text, insert the variable at cursor position or append
     if (value && handleChange) {
       // For now, just append. In a more sophisticated version, we could track cursor position
-      handleChange(value + variable)
+      handleChange(value + valueToInsert)
     } else if (handleChange) {
-      handleChange(variable)
+      handleChange(valueToInsert)
     }
     setIsOpen(false)
     setSearchTerm('')
@@ -165,7 +198,7 @@ export function VariablePicker({
           placeholder={placeholder}
           className="flex-1"
         />
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover open={isOpen} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="icon">
               <ChevronDown className="h-4 w-4" />

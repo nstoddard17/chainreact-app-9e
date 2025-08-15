@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 import { GmailService } from "@/lib/integrations/gmail"
+import { sendGmail } from "@/lib/workflows/actions/gmail/sendGmail"
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -83,6 +84,12 @@ export class AdvancedExecutionEngine {
   ): Promise<any> {
     const session = await this.getExecutionSession(sessionId)
     if (!session) throw new Error("Execution session not found")
+
+    // Check if session is already running to prevent duplicate executions
+    if (session.status === "running") {
+      console.log(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
+      return { success: false, message: "Session already running" }
+    }
 
     // Update session status
     await this.updateSessionStatus(sessionId, "running")
@@ -227,31 +234,11 @@ export class AdvancedExecutionEngine {
       workflow,
     }
 
-    // Execute parallel branches
-    if (options.enableParallel && executionPlan.parallelBranches.length > 0) {
-      const parallelResults = await this.executeParallelBranches(
-        session.id,
-        executionPlan.parallelBranches,
-        workflow,
-        context,
-        options.maxConcurrency || 3,
-      )
-      results.parallelResults = parallelResults
-    }
-
-    // Execute sub-workflows
-    if (options.enableSubWorkflows && executionPlan.subWorkflows.length > 0) {
-      const subWorkflowResults = await this.executeSubWorkflows(session.id, executionPlan.subWorkflows, context)
-      results.subWorkflowResults = subWorkflowResults
-    }
-
-    // Execute loops
-    if (executionPlan.loops.length > 0) {
-      const loopResults = await this.executeLoops(session.id, executionPlan.loops, workflow, context)
-      results.loopResults = loopResults
-    }
-
-    // Execute main workflow path
+    // For now, disable parallel processing to prevent duplicate executions
+    // Only execute the main workflow path to avoid duplicate emails
+    console.log(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
+    
+    // Execute main workflow path only
     const mainResult = await this.executeMainWorkflowPath(session.id, workflow, context, options.startNodeId)
     results.mainResult = mainResult
 
@@ -612,6 +599,7 @@ export class AdvancedExecutionEngine {
     const connections = workflow.connections || [];
     
     let executionQueue: any[] = [];
+    const executedNodeIds = new Set<string>();
 
     if (startNodeId) {
       const startNode = nodes.find((n: any) => n.id === startNodeId);
@@ -626,21 +614,32 @@ export class AdvancedExecutionEngine {
       if (triggerNodes.length === 0) {
         throw new Error("No trigger node found in the workflow.");
       }
-      // For simplicity, this example assumes one trigger. Real-world scenarios might need to handle multiple.
-      const initialConnections = connections.filter((c: any) => c.source === triggerNodes[0].id);
+      
+      console.log(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
+      
+      // Execute the trigger first to pass through data
+      const triggerNode = triggerNodes[0]; // Use first trigger
+      currentData = await this.executeNode(triggerNode, workflow, { ...context, data: currentData });
+      executedNodeIds.add(triggerNode.id);
+      
+      // Find action nodes connected to this trigger
+      const initialConnections = connections.filter((c: any) => c.source === triggerNode.id);
       const firstActionNodes = initialConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
+      
+      console.log(`🎯 Found ${firstActionNodes.length} action node(s) connected to trigger`)
       executionQueue.push(...firstActionNodes);
     }
-    
-    const executedNodeIds = new Set<string>();
 
     while (executionQueue.length > 0) {
       const currentNode = executionQueue.shift();
       
+      // Skip if node has already been executed to prevent duplicates
       if (executedNodeIds.has(currentNode.id)) {
+        console.log(`🔄 Skipping already executed node: ${currentNode.id}`);
         continue;
       }
 
+      console.log(`🎯 Executing node: ${currentNode.id} (${currentNode.data.type})`);
       currentData = await this.executeNode(currentNode, workflow, { ...context, data: currentData });
       executedNodeIds.add(currentNode.id);
       
@@ -648,8 +647,10 @@ export class AdvancedExecutionEngine {
       const nextConnections = connections.filter((c: any) => c.source === currentNode.id);
       const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
       
+      // Add next nodes to queue only if they haven't been executed and aren't already in queue
       for (const nextNode of nextNodes) {
-        if (!executedNodeIds.has(nextNode.id)) {
+        if (!executedNodeIds.has(nextNode.id) && !executionQueue.some(queuedNode => queuedNode.id === nextNode.id)) {
+          console.log(`➡️ Adding node to queue: ${nextNode.id}`);
           executionQueue.push(nextNode);
         }
       }
@@ -660,6 +661,24 @@ export class AdvancedExecutionEngine {
 
   private async executeNode(node: any, workflow: any, context: any): Promise<any> {
     try {
+      // Create unique execution key for this node in this session
+      const nodeExecutionKey = `${context.session.id}_${node.id}`;
+      
+      // Check if this node has already been executed in this session
+      const { data: existingNodeExecution } = await this.supabase
+        .from('live_execution_events')
+        .select('id')
+        .eq('session_id', context.session.id)
+        .eq('node_id', node.id)
+        .eq('event_type', 'node_completed')
+        .limit(1)
+        .maybeSingle()
+        
+      if (existingNodeExecution) {
+        console.log(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
+        return context.data
+      }
+      
       await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type });
       console.log(`🎯 Executing node: ${node.id} (${node.data.type})`);
       
@@ -677,24 +696,31 @@ export class AdvancedExecutionEngine {
         // Other generic node types...
 
         default:
-          // Handle integration-specific actions
-          if (node.data.providerId && apiClient) {
+          // Handle integration-specific actions (skip triggers)
+          if (node.data.providerId && apiClient && !node.data.isTrigger) {
             const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
             
             if (nodeComponent && nodeComponent.actionParamsSchema) {
               // Map workflow data to action parameters
               const params = this.mapWorkflowData(context.data, node.data.config);
+              
+              console.log(`🔧 Mapped params for ${node.data.type}:`, JSON.stringify(params, null, 2))
 
-              if (node.data.providerId === 'gmail' && apiClient) {
+              if (node.data.providerId === 'gmail') {
                 if (nodeComponent?.actionParamsSchema) {
                   if (node.data.type === 'gmail_action_send_email') {
-                    const actionResult = await retry(() => (apiClient as GmailService).sendEmail(params));
+                    // Call sendGmail with correct signature to prevent duplicates
+                    const actionResult = await sendGmail(params, context.session.user_id, context.data);
                     result = { ...context.data, [node.id]: actionResult };
                   }
                 }
               }
               // Add other provider handling here...
             }
+          } else if (node.data.isTrigger) {
+            // Triggers just pass through the input data
+            console.log(`🎯 Trigger node ${node.id} completed - passing through data`);
+            result = context.data;
           }
       }
       
@@ -759,10 +785,84 @@ export class AdvancedExecutionEngine {
     const mappedData: Record<string, any> = {};
 
     for (const [targetKey, sourcePath] of Object.entries(mapping)) {
-      mappedData[targetKey] = this.evaluateExpression(sourcePath, { data })
+      mappedData[targetKey] = this.replaceTemplateVariables(sourcePath, data)
     }
 
     return mappedData;
+  }
+
+  private replaceTemplateVariables(template: string, data: any): any {
+    if (typeof template !== 'string') return template;
+    
+    console.log(`🔧 Replacing variables in template: "${template}"`)
+    console.log(`🔧 Available data:`, JSON.stringify(data, null, 2))
+    
+    // Special debug for message content
+    if (template.includes('Message Content')) {
+      console.log(`🔧 🚨 MESSAGE CONTENT DEBUG:`)
+      console.log(`🔧   - template contains: ${template}`)
+      console.log(`🔧   - data.message: ${JSON.stringify(data?.message, null, 2)}`)
+      console.log(`🔧   - data.message.content: "${data?.message?.content}"`)
+    }
+    
+    // Handle template syntax like {{New Message in Channel.Message Content}}
+    return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+      const trimmedPath = path.trim()
+      console.log(`🔧 Processing variable path: "${trimmedPath}"`)
+      
+      // Handle "New Message in Channel.Field Name" format
+      if (trimmedPath.includes('.')) {
+        const parts = trimmedPath.split('.')
+        const nodeName = parts[0].trim()
+        const fieldName = parts.slice(1).join('.').trim()
+        
+        console.log(`🔧 Node: "${nodeName}", Field: "${fieldName}"`)
+        
+        // Map Discord trigger fields to actual data paths
+        if (nodeName === 'New Message in Channel') {
+          switch (fieldName) {
+            case 'Message Content':
+              const content = data?.message?.content || ''
+              console.log(`🔧 Found Message Content: "${content}"`)
+              return content
+            case 'Channel Name':
+              const channelName = data?.message?.channelName || data?.message?.channelId || ''
+              console.log(`🔧 Found Channel Name: "${channelName}"`)
+              return channelName
+            case 'Author Name':
+              const authorName = data?.message?.authorName || data?.message?.authorDisplayName || data?.message?.authorId || ''
+              console.log(`🔧 Found Author Name: "${authorName}"`)
+              return authorName
+            case 'Guild Name':
+              const guildName = data?.message?.guildName || data?.message?.guildId || ''
+              console.log(`🔧 Found Guild Name: "${guildName}"`)
+              return guildName
+            case 'Message ID':
+              const messageId = data?.message?.messageId || ''
+              console.log(`🔧 Found Message ID: "${messageId}"`)
+              return messageId
+            case 'Timestamp':
+              const timestamp = data?.message?.timestamp || ''
+              console.log(`🔧 Found Timestamp: "${timestamp}"`)
+              return timestamp
+            default:
+              console.log(`🔧 Unknown field: "${fieldName}"`)
+              return match
+          }
+        }
+      }
+      
+      // Fallback to direct path resolution
+      const value = this.getNestedValue(data, trimmedPath)
+      console.log(`🔧 Direct path result: "${value}"`)
+      return value !== undefined ? value : match
+    })
+  }
+
+  private getNestedValue(obj: any, path: string): any {
+    return path.split('.').reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : undefined
+    }, obj)
   }
 
   private evaluateExpression(expression: string, context: any): any {

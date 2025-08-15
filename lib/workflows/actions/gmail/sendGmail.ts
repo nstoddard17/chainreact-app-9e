@@ -13,15 +13,17 @@ export async function sendGmail(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log("Starting Gmail send process", { userId, config: { ...config, body: config.body ? "[CONTENT]" : undefined } })
+    const executionId = `gmail_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`📧 Starting Gmail send process [${executionId}]`, { userId, config: { ...config, body: config.body ? "[CONTENT]" : undefined } })
     
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
-    const to = resolveValue(config.to, input)
-    const cc = resolveValue(config.cc, input)
-    const bcc = resolveValue(config.bcc, input)
-    const subject = resolveValue(config.subject, input)
-    const body = resolveValue(config.body, input)
+    // Values are already resolved by execution engine
+    const to = config.to
+    const cc = config.cc
+    const bcc = config.bcc
+    const subject = config.subject
+    const body = config.body
     const attachmentIds = config.attachments as string[] | undefined
 
     console.log("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, attachmentIds: attachmentIds?.length || 0 })
@@ -133,7 +135,7 @@ export async function sendGmail(
       throw new Error(errorMessage)
     }
 
-    console.log("Gmail send successful:", { messageId: result.id })
+    console.log(`📧 Gmail send successful [${executionId}]:`, { messageId: result.id })
     
     return {
       success: true,
@@ -144,15 +146,18 @@ export async function sendGmail(
         to,
         subject,
         sentAt: new Date().toISOString(),
+        executionId,
       },
       message: "Email sent successfully via Gmail",
     }
   } catch (error: any) {
-    console.error("Gmail send error:", error)
+    const errorExecutionId = executionId || `gmail_error_${Date.now()}`;
+    console.error(`📧 Gmail send error [${errorExecutionId}]:`, error)
     return {
       success: false,
       message: `Failed to send email: ${error.message}`,
       error: error.message,
+      executionId: errorExecutionId,
     }
   }
 } 

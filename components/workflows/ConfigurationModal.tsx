@@ -7660,28 +7660,28 @@ export default function ConfigurationModal({
           
           {/* Loading Overlay with double loading prevention */}
           {(() => {
-            // Debug loading states
-            console.log('🔍 ConfigurationModal Loading states:', {
-              loadingDynamic,
-              hasShownLoading,
-              retryCount,
-              nodeInfoType: nodeInfo?.type,
-              integrationName
-            })
+            // Debug loading states (reduced frequency)
+            // console.log('🔍 ConfigurationModal Loading states:', {
+            //   loadingDynamic,
+            //   hasShownLoading,
+            //   retryCount,
+            //   nodeInfoType: nodeInfo?.type,
+            //   integrationName
+            // })
 
             // Use a more robust loading condition that prevents double loading
             const shouldShowLoading = () => {
-              // Debug current loading state
-              console.log('🔍 shouldShowLoading check:', {
-                loadingDynamic,
-                hasShownLoading,
-                activeTasks: Array.from(activeLoadingTasksRef.current),
-                nodeInfoType: nodeInfo?.type,
-                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
-                checkingBot,
-                hasGuildId: !!config.guildId,
-                hasChannels: !!dynamicOptions.discord_channels
-              })
+              // Debug current loading state (reduced frequency)
+              // console.log('🔍 shouldShowLoading check:', {
+              //   loadingDynamic,
+              //   hasShownLoading,
+              //   activeTasks: Array.from(activeLoadingTasksRef.current),
+              //   nodeInfoType: nodeInfo?.type,
+              //   isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+              //   checkingBot,
+              //   hasGuildId: !!config.guildId,
+              //   hasChannels: !!dynamicOptions.discord_channels
+              // })
               
               // If we're not in a loading state, don't show loading
               if (!loadingDynamic) {

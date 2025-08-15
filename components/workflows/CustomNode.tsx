@@ -22,6 +22,8 @@ interface CustomNodeData {
   executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
   isActiveExecution?: boolean
   isListening?: boolean
+  errorMessage?: string
+  errorTimestamp?: string
 }
 
 function CustomNode({ id, data, selected }: NodeProps) {
@@ -38,7 +40,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
     executionStatus,
     isActiveExecution,
     isListening,
-  } = data as unknown as CustomNodeData
+    errorMessage,
+    errorTimestamp,
+    debugListeningMode,
+    debugExecutionStatus,
+  } = data as unknown as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
@@ -48,22 +54,41 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
   
-  // Get execution status styling - now just border colors
+  // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
+    // Comprehensive debug log for visual feedback
+    console.log(`🔍 Node ${id} (${title}) visual data:`)
+    console.log(`  - executionStatus: "${executionStatus}"`)
+    console.log(`  - isListening: ${isListening}`)
+    console.log(`  - isTrigger: ${isTrigger}`)
+    console.log(`  - debugListeningMode: ${debugListeningMode}`)
+    console.log(`  - debugExecutionStatus: "${debugExecutionStatus}"`)
+    console.log(`  - shouldShowBorder: ${!(!executionStatus && !isListening)}`)
+    
     if (!executionStatus && !isListening) return ""
+    
+    let cssClass = ""
     
     switch (executionStatus) {
       case 'running':
-        return "border-yellow-500"
+        cssClass = "border-2 border-yellow-500 shadow-lg shadow-yellow-200"
+        break
       case 'completed':
-        return "border-green-500"
+        cssClass = "border-2 border-green-500 shadow-lg shadow-green-200"
+        break
       case 'error':
-        return "border-red-500"
+        cssClass = "border-2 border-red-500 shadow-lg shadow-red-200"
+        break
       case 'pending':
-        return "border-blue-500"
+        cssClass = "border-2 border-blue-500 shadow-lg shadow-blue-200"
+        break
       default:
-        return isListening && isTrigger ? "border-indigo-500" : ""
+        cssClass = isListening && isTrigger ? "border-2 border-indigo-500 border-dashed animate-pulse shadow-lg shadow-indigo-200" : ""
+        break
     }
+    
+    console.log(`🎨 CSS class for ${id}: "${cssClass}"`)
+    return cssClass
   }
   
   // Get execution status indicator for corner
@@ -73,22 +98,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
     switch (executionStatus) {
       case 'running':
         return (
-          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
-            <Loader2 className="w-3 h-3 text-yellow-600 animate-spin" />
+          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
+            <Loader2 className="w-4 h-4 text-yellow-600 animate-spin" />
           </div>
         )
       case 'completed':
         return null // No indicator for completed - just green border
       case 'error':
         return (
-          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
+          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-red-500" />
           </div>
         )
       case 'pending':
         return (
-          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
-            <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
+            <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
           </div>
         )
       default:
@@ -98,6 +123,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         ) : null
     }
+  }
+
+  // Get error label for top-left corner
+  const getErrorLabel = () => {
+    if (executionStatus === 'error' && (error || errorMessage)) {
+      return (
+        <div className="absolute top-1 left-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-sm font-medium shadow-sm z-10">
+          ERROR
+        </div>
+      )
+    }
+    return null
   }
   
   // Check if this node has configuration options
@@ -150,6 +187,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
     >
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
+      {/* Error label */}
+      {getErrorLabel()}
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
