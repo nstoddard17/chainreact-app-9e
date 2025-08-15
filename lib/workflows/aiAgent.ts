@@ -319,26 +319,8 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       }
     }
     
-    // 1. Resolve templated values, passing triggerOutputs as mockTriggerOutputs
-    const resolvedConfig = resolveValue(config, { input }, config.triggerOutputs)
-    
-    // 2. Extract parameters
-    const {
-      inputNodeId,
-      memory = 'all-storage',
-      memoryIntegration,
-      customMemoryIntegrations = [],
-      systemPrompt
-    } = resolvedConfig
-
-    if (!inputNodeId) {
-      return {
-        success: false,
-        error: "Missing required parameter: inputNodeId"
-      }
-    }
-
-    // 3. Filter input data based on selected variables and their value sources
+    // 1. First process the variable filtering, then resolve templated values
+    // Extract and process selected variables before resolving config
     const selectedVariables = config.selectedVariables || {}
     const useStaticValues = config.useStaticValues || {}
     const variableValues = config.variableValues || {}
@@ -365,7 +347,26 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
     
-    // 4. Gather context from filtered input (previous node)
+    // Now resolve templated values with the filtered input available
+    const resolvedConfig = resolveValue(config, { input: filteredInput, ...filteredInput }, config.triggerOutputs)
+    
+    // 2. Extract parameters
+    const {
+      inputNodeId,
+      memory = 'all-storage',
+      memoryIntegration,
+      customMemoryIntegrations = [],
+      systemPrompt
+    } = resolvedConfig
+
+    if (!inputNodeId) {
+      return {
+        success: false,
+        error: "Missing required parameter: inputNodeId"
+      }
+    }
+    
+    // 3. Gather context from filtered input (previous node)
     const context: any = {
       goal: `Process and analyze the data from node ${inputNodeId}`,
       input: filteredInput,
@@ -375,16 +376,16 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       availableTools: [] // AI Agent can use any available integrations dynamically
     }
 
-    // 5. Fetch memory based on memory configuration
+    // 4. Fetch memory based on memory configuration
     const memoryContext = await fetchMemory(
       { memory, memoryIntegration, customMemoryIntegrations }, 
       userId
     )
 
-    // 6. Build the AI prompt
+    // 5. Build the AI prompt
     const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt)
 
-    // 7. Execute single step AI processing
+    // 6. Execute single step AI processing
     const steps: AIAgentStep[] = []
     let currentContext = { ...context, memory: memoryContext }
 
@@ -413,7 +414,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
 
-    // 8. Return results - simplified output format matching the new outputSchema
+    // 7. Return results - simplified output format matching the new outputSchema
     const finalOutput = steps[steps.length - 1]?.output || ""
     
     const result = {
@@ -460,3 +461,67 @@ function buildAIPrompt(
   const basePrompt = systemPrompt || `You are an AI agent that can use various tools to accomplish goals. 
 You have access to workflow context and can call tools to gather information or perform actions.
 Always think step by step and explain your reasoning.`
+
+  const contextSection = `
+## Current Context
+Goal: ${goal}
+
+## Available Input Data
+${JSON.stringify(context.input, null, 2)}
+
+## Memory Context
+${memory.external.length > 0 ? 
+  `External memory available from: ${memory.external.map(m => m.source).join(', ')}` : 
+  'No external memory available'
+}
+
+## Instructions
+Please process the input data according to the goal and system prompt. Return your analysis or response based on the available information.
+`
+
+  return basePrompt + contextSection
+}
+
+/**
+ * Mock AI decision function - in a real implementation, this would call an LLM service
+ */
+async function getAIDecision(
+  prompt: string, 
+  context: any, 
+  steps: AIAgentStep[]
+): Promise<{
+  action: string
+  tool?: string
+  input?: any
+  output: any
+  reasoning: string
+}> {
+  // This is a simplified mock implementation
+  // In a real implementation, this would call OpenAI, Claude, or another LLM service
+  
+  try {
+    // For now, return a simple response based on the input data
+    const inputData = context.input || {}
+    const inputString = JSON.stringify(inputData, null, 2)
+    
+    // Create a simple response based on the available input
+    let output = ""
+    if (Object.keys(inputData).length > 0) {
+      output = `Processed input data: ${inputString}. Analysis complete.`
+    } else {
+      output = "No input data available to process."
+    }
+    
+    return {
+      action: "process_input",
+      output: output,
+      reasoning: "Analyzed the provided input data and generated a response based on the available information."
+    }
+  } catch (error: any) {
+    return {
+      action: "error",
+      output: `Error processing input: ${error.message}`,
+      reasoning: "Failed to process the input due to an error."
+    }
+  }
+}
