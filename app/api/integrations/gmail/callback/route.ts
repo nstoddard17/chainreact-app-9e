@@ -76,12 +76,9 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
-    console.log('🔍 Gmail token response keys:', Object.keys(tokenData))
-    console.log('🔍 Gmail token scopes:', tokenData.scope)
-    // Check if token contains sensitive info
-    if (tokenData.id_token) {
-      console.log('⚠️ Gmail token contains id_token - might have user info')
-    }
+    console.log('🔍 Gmail token response received with', Object.keys(tokenData).length, 'properties')
+    console.log('🔍 Gmail token scopes granted')
+    // Note: id_token may contain user email - not logging to prevent mailto triggers
 
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
