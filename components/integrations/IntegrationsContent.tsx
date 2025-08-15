@@ -451,7 +451,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
 
   const providersWithStatus = useMemo(() => {
-    return providers.map((provider) => {
+    console.log('🔍 ProvidersWithStatus debug:', {
+      providers: providers.length,
+      integrations: integrations.length,
+      firstFewProviders: providers.slice(0, 3).map(p => ({ id: p.id, name: p.name })),
+      firstFewIntegrations: integrations.slice(0, 3).map(i => ({ provider: i.provider, status: i.status }))
+    })
+
+    const result = providers.map((provider) => {
       const integration = integrations.find((i) => i.provider === provider.id)
       const config = INTEGRATION_CONFIGS[provider.id] || {}
       let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
@@ -484,9 +491,23 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         status,
       }
     })
+
+    console.log('🔍 ProvidersWithStatus result:', {
+      total: result.length,
+      firstFew: result.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
+    })
+
+    return result
   }, [providers, integrations])
 
   const filteredProviders = useMemo(() => {
+    console.log('🔍 Filtering debug:', {
+      providersWithStatus: providersWithStatus.length,
+      activeFilter,
+      searchQuery,
+      firstFewProviders: providersWithStatus.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
+    })
+
     const filtered = providersWithStatus
       .filter((p) => {
         // Exclude AI Agent, Logic, and Control integrations
@@ -501,6 +522,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       })
       .sort((a, b) => a.name.localeCompare(b.name))
     
+    console.log('🔍 After filtering:', {
+      filtered: filtered.length,
+      activeFilter,
+      firstFewFiltered: filtered.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
+    })
+
     // Debug log to help diagnose the discrepancy
     if (activeFilter === "expiring") {
       console.log(`Expiring filter active: ${filtered.length} items shown, metrics reports ${metrics.expiring}`)
@@ -522,6 +549,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your integrations...</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Debug: providers.length={providers.length}, loading={loading}, user={!!user}
+            </p>
           </div>
         </div>
       </AppLayout>
