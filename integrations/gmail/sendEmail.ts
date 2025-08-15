@@ -64,9 +64,41 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
     const credentials = await getIntegrationCredentials(userId, "gmail")
     
     // 2. Resolve any templated values in the config
+    // Try to get DataFlowManager from input if available
+    const dataFlowManager = input?.dataFlowManager || input?.nodeOutputs ? {
+      resolveVariable: (ref: string) => {
+        console.log(`📧 Email action trying to resolve: ${ref}`)
+        // Simple fallback resolution for node outputs
+        if (input.nodeOutputs && typeof ref === 'string') {
+          const match = ref.match(/\{\{([^.]+)\.([^}]+)\}\}/)
+          if (match) {
+            const [, nodeTitle, fieldName] = match
+            console.log(`📧 Looking for nodeTitle: ${nodeTitle}, fieldName: ${fieldName}`)
+            console.log(`📧 Available nodeOutputs:`, Object.keys(input.nodeOutputs))
+            
+            // Find node by title (this is a simplified approach)
+            for (const [nodeId, output] of Object.entries(input.nodeOutputs)) {
+              if (output && (output as any).data) {
+                const data = (output as any).data
+                if (data[fieldName] !== undefined) {
+                  console.log(`📧 Found in node ${nodeId}:`, data[fieldName])
+                  return data[fieldName]
+                }
+                if (data.output !== undefined && (fieldName === "AI Agent Output" || fieldName === "output")) {
+                  console.log(`📧 Found AI output in node ${nodeId}:`, data.output)
+                  return data.output
+                }
+              }
+            }
+          }
+        }
+        return ref // Return unchanged if not found
+      }
+    } : undefined
+    
     const resolvedConfig = resolveValue(config, {
       input,
-    })
+    }, dataFlowManager)
     
     console.log(`📧 Resolved config:`, JSON.stringify(resolvedConfig, null, 2))
     
