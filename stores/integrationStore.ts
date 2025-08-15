@@ -474,6 +474,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
               console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
+              clearTimeout(connectionTimeout)
               window.removeEventListener("message", messageHandler)
               try {
                 popup?.close()
@@ -496,6 +497,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)
               closedByMessage = true
+              clearTimeout(connectionTimeout)
               popup?.close()
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
@@ -504,6 +506,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             } else if (event.data && event.data.type === "oauth-cancelled") {
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
+              clearTimeout(connectionTimeout)
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
               currentOAuthPopup = null
@@ -533,6 +536,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         console.log(`✅ OAuth successful for ${providerId} via localStorage`);
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
+                        clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
                         // Reset global popup reference
                         currentOAuthPopup = null;
@@ -548,6 +552,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         setError(responseData.message);
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
+                        clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
                         // Reset global popup reference
                         currentOAuthPopup = null;
@@ -556,6 +561,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
                         closedByMessage = true;
                         clearInterval(storageCheckTimer);
+                        clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
                         // Reset global popup reference
                         currentOAuthPopup = null;
@@ -577,6 +583,32 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.error(`Error checking localStorage for ${providerId}:`, error);
             }
           }, 500)
+          
+          // Add timeout for initial connection (5 minutes, same as reconnection)
+          const connectionTimeout = setTimeout(() => {
+            if (!closedByMessage) {
+              console.log(`⏰ OAuth connection timed out for ${providerId}`)
+              clearInterval(storageCheckTimer)
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup on timeout:", e)
+              }
+              window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
+              setLoading(`connect-${providerId}`, false)
+              setError(`Connection to ${provider.name} timed out. Please try again.`)
+            }
+          }, 5 * 60 * 1000) // 5 minutes
+          
+          // Clean up timeout when connection completes
+          const originalMessageHandler = messageHandler
+          messageHandler = (event: MessageEvent) => {
+            clearTimeout(connectionTimeout)
+            originalMessageHandler(event)
+          }
+          
         } else {
           throw new Error(data.error || "Failed to get auth URL")
         }
