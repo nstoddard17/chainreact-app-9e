@@ -14,6 +14,17 @@ export interface DataFlowContext {
   variables: Record<string, any>   // custom variables set by users
   globalData: Record<string, any>  // workflow-level data
   
+  // Node metadata for variable resolution
+  nodeMetadata: Record<string, {
+    title: string
+    type: string
+    outputSchema?: Array<{
+      name: string
+      label: string
+      type: string
+    }>
+  }>
+  
   // Metadata
   executionStartTime: Date
   currentNodeId?: string
@@ -42,8 +53,16 @@ export class DataFlowManager {
       nodeOutputs: {},
       variables: {},
       globalData: {},
+      nodeMetadata: {},
       executionStartTime: new Date()
     }
+  }
+
+  /**
+   * Store node metadata for variable resolution
+   */
+  setNodeMetadata(nodeId: string, metadata: { title: string, type: string, outputSchema?: any[] }): void {
+    this.context.nodeMetadata[nodeId] = metadata
   }
 
   /**
@@ -89,11 +108,56 @@ export class DataFlowManager {
   }
 
   /**
+   * Set the current node being executed
+   */
+  setCurrentNode(nodeId: string): void {
+    this.context.currentNodeId = nodeId
+  }
+
+  /**
    * Resolve a variable reference (e.g., "{{node1.output.subject}}" or "{{var.customField}}")
    */
   resolveVariable(reference: string): any {
     if (!reference || typeof reference !== 'string') {
       return reference
+    }
+
+    // Handle human-readable node output references: {{Node Title.Field Label}} or {{Node Title → Field Label}}
+    const humanReadableMatch = reference.match(/\{\{([^.→]+)(?:\.|\s*→\s*)([^}]+)\}\}/)
+    if (humanReadableMatch) {
+      const nodeTitle = humanReadableMatch[1].trim()
+      const fieldLabel = humanReadableMatch[2].trim()
+      
+      // Find the node by title using metadata
+      const nodeId = Object.keys(this.context.nodeMetadata).find(id => 
+        this.context.nodeMetadata[id].title === nodeTitle
+      )
+      
+      if (nodeId) {
+        const output = this.getNodeOutput(nodeId)
+        const metadata = this.context.nodeMetadata[nodeId]
+        
+        if (output && output.success && metadata.outputSchema) {
+          // Find the field by label in the output schema
+          const field = metadata.outputSchema.find(f => f.label === fieldLabel || f.name === fieldLabel)
+          
+          if (field) {
+            // Use the field name to get the actual value
+            return this.getNestedValue(output.data, field.name)
+          } else {
+            // Fallback: try to get the value directly if it's a simple structure
+            if (output.data && typeof output.data === 'object') {
+              // For AI Agent with nested output structure
+              if (output.data.output !== undefined && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
+                return output.data.output
+              }
+              // Try direct property access
+              return output.data[fieldLabel] || output.data
+            }
+            return output.data
+          }
+        }
+      }
     }
 
     // Handle node output references: {{nodeId.output.field}}
