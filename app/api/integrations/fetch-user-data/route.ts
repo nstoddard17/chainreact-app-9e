@@ -2000,7 +2000,7 @@ const dataFetchers: DataFetcher = {
         
         // Filter out unwanted emails
         if (shouldFilterEmail(email, name)) {
-          console.log(`🚫 Filtered out email: ${email} (${name})`)
+          console.log(`🚫 Filtered out email: [REDACTED] (${name})`)
           return
         }
         

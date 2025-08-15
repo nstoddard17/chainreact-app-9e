@@ -452,7 +452,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
-          const popup = window.open(data.authUrl, popupName, "width=600,height=700,scrollbars=yes,resizable=yes")
+          
+          // Enhanced popup features for better containment, especially for Gmail
+          const popupFeatures = providerId === 'gmail' 
+            ? "width=600,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no,dependent=yes"
+            : "width=600,height=700,scrollbars=yes,resizable=yes"
+            
+          console.log(`🔍 Opening ${providerId} popup with features:`, popupFeatures)
+          const popup = window.open(data.authUrl, popupName, popupFeatures)
           if (!popup) {
             setLoading(`connect-${providerId}`, false)
             throw new Error("Popup blocked. Please allow popups for this site.")
@@ -462,6 +469,41 @@ export const useIntegrationStore = create<IntegrationStore>()(
           currentOAuthPopup = popup
 
           console.log(`✅ OAuth popup opened for ${providerId}`)
+
+          // Monitor popup state for Gmail specifically
+          let popupMonitor: NodeJS.Timeout | null = null
+          if (providerId === 'gmail') {
+            let popupCheckCount = 0
+            popupMonitor = setInterval(() => {
+              popupCheckCount++
+              try {
+                // Note: window.closed might not work due to COOP, but let's try
+                const isClosed = popup.closed
+                const hasOpener = !!popup.opener
+                console.log(`🔍 Gmail popup check ${popupCheckCount}: closed=${isClosed}, hasOpener=${hasOpener}`)
+                
+                if (isClosed) {
+                  console.error(`❌ Gmail popup was closed unexpectedly at check ${popupCheckCount}`)
+                  clearInterval(popupMonitor!)
+                  popupMonitor = null
+                }
+              } catch (e) {
+                console.log(`🔍 Gmail popup check ${popupCheckCount}: COOP restriction - ${e.message}`)
+                if (popupCheckCount > 60) { // Stop monitoring after 30 seconds (500ms intervals)
+                  clearInterval(popupMonitor!)
+                  popupMonitor = null
+                }
+              }
+            }, 500)
+            
+            // Clear monitor when OAuth completes or times out
+            setTimeout(() => {
+              if (popupMonitor) {
+                clearInterval(popupMonitor)
+                popupMonitor = null
+              }
+            }, 5 * 60 * 1000)
+          }
 
           let closedByMessage = false
           
@@ -478,6 +520,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
               clearTimeout(connectionTimeout)
+              // Clear Gmail popup monitor if it exists
+              if (popupMonitor) {
+                clearInterval(popupMonitor)
+                popupMonitor = null
+              }
               window.removeEventListener("message", messageHandler)
               try {
                 popup?.close()
@@ -501,6 +548,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setError(event.data.message)
               closedByMessage = true
               clearTimeout(connectionTimeout)
+              // Clear Gmail popup monitor if it exists
+              if (popupMonitor) {
+                clearInterval(popupMonitor)
+                popupMonitor = null
+              }
               popup?.close()
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
@@ -510,6 +562,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
               clearTimeout(connectionTimeout)
+              // Clear Gmail popup monitor if it exists
+              if (popupMonitor) {
+                clearInterval(popupMonitor)
+                popupMonitor = null
+              }
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
               currentOAuthPopup = null
@@ -592,6 +649,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
             if (!closedByMessage) {
               console.log(`⏰ OAuth connection timed out for ${providerId}`)
               clearInterval(storageCheckTimer)
+              // Clear Gmail popup monitor if it exists
+              if (popupMonitor) {
+                clearInterval(popupMonitor)
+                popupMonitor = null
+              }
               try {
                 popup.close()
               } catch (e) {
