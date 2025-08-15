@@ -681,7 +681,7 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
 }
 
 async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+  const clientId = process.env.AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
   const baseUrl = getBaseUrl()
 
@@ -744,9 +744,9 @@ function generateShopifyAuthUrl(state: string): string {
   
   // Shopify requires a shop parameter - this should be set in the app admin
   // For draft apps, this needs to be your development store
-  const shopifyStore = process.env.NEXT_PUBLIC_SHOPIFY_STORE
+  const shopifyStore = process.env.SHOPIFY_STORE
   if (!shopifyStore) {
-    throw new Error("Shopify store not configured. Set NEXT_PUBLIC_SHOPIFY_STORE env variable to your store domain, e.g., 'your-store.myshopify.com'")
+    throw new Error("Shopify store not configured. Set SHOPIFY_STORE env variable to your store domain, e.g., 'your-store.myshopify.com'")
   }
   
   const params = new URLSearchParams({
