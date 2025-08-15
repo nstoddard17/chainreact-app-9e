@@ -48,6 +48,7 @@ export function IntegrationCard({
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
+  const [showTeamsWarningDialog, setShowTeamsWarningDialog] = useState(false)
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -161,12 +162,25 @@ export function IntegrationCard({
   ].filter(Boolean).join(' \n ')
 
   const handleConnectClick = () => {
-    if (isConfigured) {
-      if (status === "expired") {
-        onReconnect();
-      } else {
-        onConnect();
-      }
+    // Show warning dialog for Teams integration
+    if (provider.id === 'teams') {
+      setShowTeamsWarningDialog(true);
+      return;
+    }
+    
+    if (status === "expired") {
+      onReconnect();
+    } else {
+      onConnect();
+    }
+  }
+
+  const handleTeamsConnect = () => {
+    setShowTeamsWarningDialog(false);
+    if (status === "expired") {
+      onReconnect();
+    } else {
+      onConnect();
     }
   }
 
@@ -187,12 +201,54 @@ export function IntegrationCard({
         <div className="flex items-center gap-4 min-w-0 flex-1">
           {renderLogo()}
           <div className="min-w-0 flex-1">
-            <h3 
-              className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
-              title={provider.name}
-            >
-              {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 
+                className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
+                title={provider.name}
+              >
+                {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
+              </h3>
+              {provider.id === 'teams' && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTeamsWarningDialog(true);
+                        }}
+                        className="p-0 hover:scale-110 transition-transform"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Click for Teams requirements info</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {showTeamsUpgradeMessage && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTeamsWarningDialog(true);
+                        }}
+                        className="p-0 hover:scale-110 transition-transform"
+                      >
+                        <Info className="w-4 h-4 text-blue-500" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Click for Teams plan requirements</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
           </div>
         </div>
         <Badge 
@@ -230,26 +286,6 @@ export function IntegrationCard({
         </div>
         <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
-          {provider.id === 'teams' && (
-            <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-amber-800 dark:text-amber-200">
-                  <strong>Work/School Account Required:</strong> Microsoft Teams integration only works with work or school accounts that have Microsoft 365 subscription. Personal accounts (@outlook.com, @hotmail.com) are not supported.
-                </div>
-              </div>
-            </div>
-          )}
-          {showTeamsUpgradeMessage && (
-            <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>Business Plan Required:</strong> Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
-                </div>
-              </div>
-            </div>
-          )}
           {provider.id === 'microsoft-onenote' && (
             <div>
               <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
@@ -298,7 +334,6 @@ export function IntegrationCard({
           ) : (
             <Button
               className="w-full"
-              disabled={!isConfigured || showTeamsUpgradeMessage}
               onClick={handleConnectClick}
             >
               <LinkIcon className="mr-2 h-4 w-4" />
@@ -326,17 +361,6 @@ export function IntegrationCard({
           )}
         </div>
         
-        {showTeamsUpgradeMessage && (
-          <div className="w-full">
-            <Button
-              variant="outline"
-              className="w-full text-xs"
-              onClick={() => window.open('/settings/billing', '_blank')}
-            >
-              Upgrade to Business Plan
-            </Button>
-          </div>
-        )}
       </CardFooter>
 
       <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
@@ -351,6 +375,51 @@ export function IntegrationCard({
             </Button>
             <Button variant="destructive" onClick={handleDisconnectConfirm}>
               Disconnect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTeamsWarningDialog} onOpenChange={setShowTeamsWarningDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Microsoft Teams Requirements
+            </DialogTitle>
+            <DialogDescription>
+              Please review these requirements before connecting Microsoft Teams.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Work/School Account Required:</strong> Microsoft Teams integration only works with work or school accounts that have Microsoft 365 subscription. Personal accounts (@outlook.com, @hotmail.com) are not supported.
+                </div>
+              </div>
+            </div>
+            
+            {showTeamsUpgradeMessage && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Business Plan Required:</strong> Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowTeamsWarningDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTeamsConnect}>
+              Continue to Connect
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -26,15 +24,7 @@ interface IntegrationsContentProps {
 
 function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [activeFilter, setActiveFilter] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const [autoRefreshOnTabSwitch, setAutoRefreshOnTabSwitch] = useState(() => {
-    // Initialize from localStorage if available, default to true
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('autoRefreshOnTabSwitch');
-      return saved !== null ? saved === 'true' : true;
-    }
-    return true;
-  });
+  // Removed manual toggle states - using smart auto-refresh instead
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
@@ -64,33 +54,28 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const { user } = useAuthStore()
   const router = useRouter()
 
-  // Save autoRefreshOnTabSwitch to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('autoRefreshOnTabSwitch', autoRefreshOnTabSwitch.toString());
-    }
-  }, [autoRefreshOnTabSwitch]);
+  // Removed localStorage management for auto-refresh toggles
 
-  // Add visibility change listener to detect tab switching
+  // Smart refresh on tab focus - only if user was away for more than 5 minutes
   useEffect(() => {
+    let lastHiddenTime: number | null = null;
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // User switched away from this tab
+        lastHiddenTime = Date.now();
         setWasHidden(true);
-      } else if (document.visibilityState === 'visible' && wasHidden && autoRefreshOnTabSwitch) {
-        // User returned to this tab after switching away and auto-refresh is enabled
-        console.log('User returned to integrations tab - refreshing page to restore popup functionality');
-        // Show a brief toast notification
-        toast({
-          title: "Refreshing page",
-          description: "Refreshing to ensure integrations work properly",
-          duration: 2000,
-        });
+      } else if (document.visibilityState === 'visible' && wasHidden && lastHiddenTime) {
+        const timeAway = Date.now() - lastHiddenTime;
+        const fiveMinutes = 5 * 60 * 1000;
         
-        // Give the toast time to display before refreshing
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+        // Only refresh if user was away for more than 5 minutes
+        if (timeAway > fiveMinutes) {
+          console.log('User returned after extended absence - refreshing data');
+          fetchIntegrations(true);
+          fetchMetrics();
+        }
+        setWasHidden(false);
+        lastHiddenTime = null;
       }
     };
 
@@ -99,7 +84,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wasHidden, toast, autoRefreshOnTabSwitch]);
+  }, [wasHidden, fetchIntegrations]);
 
   useEffect(() => {
     if (providers.length === 0) {
@@ -156,24 +141,29 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
   }
 
-  // Auto-refresh metrics when integrations change
+  // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
   useEffect(() => {
     if (user && integrations.length > 0) {
-      // Refresh metrics whenever integrations change
-      fetchMetrics()
+      // Debounce metrics fetching to avoid excessive API calls
+      const timeoutId = setTimeout(() => {
+        fetchMetrics()
+      }, 1000) // Wait 1 second before fetching to debounce rapid changes
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [integrations, user])
 
-  // Set up periodic refresh for metrics (every 30 seconds)
+  // Smart periodic refresh - only check for expiring tokens every 10 minutes
   useEffect(() => {
-    if (!user || !autoRefresh) return
+    if (!user) return
 
     const interval = setInterval(() => {
+      // Only refresh metrics to check for token expiration
       fetchMetrics()
-    }, 30000) // 30 seconds
+    }, 600000) // 10 minutes - less aggressive
 
     return () => clearInterval(interval)
-  }, [user, autoRefresh])
+  }, [user])
 
   // Listen for integration change events
   useEffect(() => {
@@ -617,17 +607,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
 
   // Extract the status summary content for reuse
-  const StatusSummaryContent = ({ 
-    autoRefresh, 
-    setAutoRefresh,
-    autoRefreshOnTabSwitch,
-    setAutoRefreshOnTabSwitch 
-  }: {
-    autoRefresh: boolean;
-    setAutoRefresh: (value: boolean) => void;
-    autoRefreshOnTabSwitch: boolean;
-    setAutoRefreshOnTabSwitch: (value: boolean) => void;
-  }) => (
+  const StatusSummaryContent = () => (
     <Card className="shadow-sm rounded-lg border-border bg-card">
       <CardHeader className="pb-3 sm:pb-4">
         <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground flex items-center gap-2">
@@ -677,23 +657,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           </li>
         </ul>
         <div className="border-t my-4 sm:my-6" />
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-card-foreground">
-              Auto-refresh tokens
-            </Label>
-            <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-          </div>
-          
-          <div className="flex items-center justify-between pt-2">
-            <Label htmlFor="auto-refresh-tab" className="text-xs sm:text-sm font-medium text-card-foreground">
-              <div>
-                <span>Auto-refresh on tab switch</span>
-                <p className="text-xs text-muted-foreground mt-1">Refreshes page when returning to this tab to fix popup issues</p>
-              </div>
-            </Label>
-            <Switch id="auto-refresh-tab" checked={autoRefreshOnTabSwitch} onCheckedChange={setAutoRefreshOnTabSwitch} />
-          </div>
+        <div className="text-xs text-muted-foreground">
+          <p>⚡ Auto-refreshes every 10 minutes and after extended absence</p>
+          <p>🔄 Updates automatically when connecting/disconnecting integrations</p>
         </div>
       </CardContent>
     </Card>
@@ -762,24 +728,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
               {/* Mobile: Status summary at the bottom */}
               <div className="block lg:hidden mt-6">
-                <StatusSummaryContent
-                  autoRefresh={autoRefresh}
-                  setAutoRefresh={setAutoRefresh}
-                  autoRefreshOnTabSwitch={autoRefreshOnTabSwitch}
-                  setAutoRefreshOnTabSwitch={setAutoRefreshOnTabSwitch}
-                />
+                <StatusSummaryContent />
               </div>
             </div>
           </main>
           {/* Desktop: Sticky status summary sidebar */}
           <aside className="hidden lg:block lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
             <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-              <StatusSummaryContent
-                autoRefresh={autoRefresh}
-                setAutoRefresh={setAutoRefresh}
-                autoRefreshOnTabSwitch={autoRefreshOnTabSwitch}
-                setAutoRefreshOnTabSwitch={setAutoRefreshOnTabSwitch}
-              />
+              <StatusSummaryContent />
             </div>
           </aside>
         </div>
