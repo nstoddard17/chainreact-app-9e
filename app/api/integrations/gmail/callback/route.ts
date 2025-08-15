@@ -76,9 +76,8 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
-    console.log('🔍 Gmail token response received with', Object.keys(tokenData).length, 'properties')
-    console.log('🔍 Gmail token scopes granted')
-    // Note: id_token may contain user email - not logging to prevent mailto triggers
+    console.log('🔍 Gmail token response keys:', Object.keys(tokenData))
+    console.log('🔍 Gmail token scopes:', tokenData.scope)
 
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
@@ -111,63 +110,7 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Gmail integration successfully saved with status: connected')
     
-    // For redirect-based OAuth flow, redirect back to the application with success
-    const script = `
-      <script>
-        console.log('🔍 Gmail callback handling redirect-based OAuth');
-        
-        // Check if this is redirect-based OAuth (no popup context)
-        const isRedirectFlow = !window.opener || window.opener === window;
-        
-        if (isRedirectFlow) {
-          console.log('✅ Handling Gmail redirect-based OAuth success');
-          
-          // Get stored state from sessionStorage
-          const storedState = sessionStorage.getItem('gmail_oauth_state');
-          let returnUrl = '/dashboard'; // Default fallback
-          
-          if (storedState) {
-            try {
-              const stateData = JSON.parse(storedState);
-              returnUrl = stateData.returnUrl || '/dashboard';
-              console.log('📍 Redirecting back to:', returnUrl);
-              
-              // Clean up stored state
-              sessionStorage.removeItem('gmail_oauth_state');
-            } catch (e) {
-              console.warn('⚠️ Failed to parse stored state:', e);
-            }
-          }
-          
-          // Add success indicator to URL for the frontend to handle
-          const urlObj = new URL(returnUrl, window.location.origin);
-          urlObj.searchParams.set('gmail_connected', 'true');
-          urlObj.searchParams.set('integration_success', 'gmail');
-          
-          console.log('🔄 Redirecting to:', urlObj.toString());
-          window.location.href = urlObj.toString();
-          
-        } else {
-          // Fallback to popup communication if this somehow runs in a popup
-          console.log('⚠️ Unexpected popup context, falling back to popup communication');
-          
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'oauth-success',
-              provider: 'gmail',
-              message: 'Connected successfully'
-            }, '*');
-          }
-          window.close();
-        }
-      </script>
-    `
-    return new Response(`<html><head><title>Gmail Connected</title></head><body><h1>Gmail Connected Successfully!</h1><p>Redirecting you back to the application...</p>${script}</body></html>`, {
-      headers: { 
-        "Content-Type": "text/html",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
-      }
-    })
+    return createPopupResponse('success', provider, 'Gmail connected successfully!', baseUrl)
   } catch (error) {
     console.error('Error during Gmail OAuth callback:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'

@@ -354,7 +354,7 @@ export function SubProcessors() {
             </p>
             <div className="bg-slate-50 p-4 rounded-lg">
               <p className="text-slate-700">
-                <strong>Email:</strong> <span>chainreact</span>@<span>gmail</span>.<span>com</span>
+                <strong>Email:</strong> chainreact@gmail.com
                 <br />
                 <strong>Subject:</strong> Sub-processor Inquiry
                 <br />
