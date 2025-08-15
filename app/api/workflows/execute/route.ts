@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 
 interface ExecutionContext {
   userId: string
@@ -174,8 +175,20 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
   console.log(`Executing node: ${node.id} (${node.data.type})`)
 
   try {
-    // Set current node in data flow manager
-    context.dataFlowManager?.setCurrentNode(node.id)
+    // Set current node in data flow manager and store metadata
+    if (context.dataFlowManager) {
+      context.dataFlowManager.setCurrentNode(node.id)
+      
+      // Get the outputSchema from availableNodes definition
+      const nodeDefinition = ALL_NODE_COMPONENTS.find(def => def.type === node.data.type)
+      const outputSchema = nodeDefinition?.outputSchema || []
+      
+      context.dataFlowManager.setNodeMetadata(node.id, {
+        title: node.data.title || node.data.type || 'Unknown Node',
+        type: node.data.type,
+        outputSchema: outputSchema
+      })
+    }
     
     let nodeResult
 
