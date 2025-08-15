@@ -300,30 +300,34 @@ function generateGoogleAuthUrl(service: string, state: string): string {
   if (!clientId) throw new Error("Google client ID not configured")
   const baseUrl = getBaseUrl()
 
-  // Map service to specific scopes
-  let scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
+  // Map service to specific scopes - avoid userinfo.email for Gmail to prevent mailto triggers
+  let scopes = ""
 
   switch (service) {
     case "gmail":
-      scopes += " https://www.googleapis.com/auth/gmail.modify"
+      // Only request Gmail-specific scopes to avoid email exposure
+      scopes = "https://www.googleapis.com/auth/gmail.modify"
+      break
+    case "google":
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
       break
     case "google-drive":
-      scopes += " https://www.googleapis.com/auth/drive"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/drive"
       break
     case "google-sheets":
-      scopes += " https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly"
       break
     case "google-docs":
-      scopes += " https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.readonly"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.readonly"
       break
     case "google-calendar":
-      scopes += " https://www.googleapis.com/auth/calendar"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/calendar"
       break
     case "youtube":
-      scopes += " https://www.googleapis.com/auth/youtube"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtube"
       break
     case "youtube-studio":
-      scopes += " https://www.googleapis.com/auth/youtubepartner"
+      scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtubepartner"
       break
   }
 
