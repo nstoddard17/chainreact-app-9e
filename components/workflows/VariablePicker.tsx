@@ -135,16 +135,10 @@ export function VariablePicker({
 
   const handleVariableSelect = (variable: string) => {
     if (handleChange) {
-      // Try to resolve the actual value using our new resolution system
-      const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] })
-      
-      if (resolvedValue !== variable) {
-        // Use the actual resolved value
-        handleChange(resolvedValue)
-      } else {
-        // Fallback to variable reference if we can't resolve it
-        handleChange(variable)
-      }
+      // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
+      // Do NOT try to resolve it at design time - that should happen during workflow execution
+      console.log(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
+      handleChange(variable)
     }
     setIsOpen(false)
     setSearchTerm('')
@@ -169,21 +163,17 @@ export function VariablePicker({
   }
 
   const insertVariable = (variable: string) => {
-    // Try to resolve the actual value using our new resolution system
-    const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] })
+    // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
+    // Do NOT try to resolve it at design time - that should happen during workflow execution
     
-    let valueToInsert = variable
-    if (resolvedValue !== variable) {
-      // Use the actual resolved value
-      valueToInsert = resolvedValue
-    }
+    console.log(`🎯 VariablePicker inserting template variable: ${variable}`)
     
     // If there's already text, insert the variable at cursor position or append
     if (value && handleChange) {
       // For now, just append. In a more sophisticated version, we could track cursor position
-      handleChange(value + valueToInsert)
+      handleChange(value + variable)
     } else if (handleChange) {
-      handleChange(valueToInsert)
+      handleChange(variable)
     }
     setIsOpen(false)
     setSearchTerm('')

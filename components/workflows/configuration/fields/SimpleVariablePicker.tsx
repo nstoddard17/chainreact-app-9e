@@ -179,16 +179,10 @@ export function SimpleVariablePicker({
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 
   const handleVariableSelect = (variable: string) => {
-    // Try to resolve the actual value using our new resolution system
-    const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
-    
-    if (resolvedValue !== variable) {
-      // Pass the actual resolved value
-      onVariableSelect(resolvedValue)
-    } else {
-      // Fallback to variable reference if we can't resolve it
-      onVariableSelect(variable)
-    }
+    // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
+    // Do NOT try to resolve it at design time - that should happen during workflow execution
+    console.log(`🎯 SimpleVariablePicker inserting template variable: ${variable}`)
+    onVariableSelect(variable)
     
     setIsOpen(false)
     setSearchTerm('')
