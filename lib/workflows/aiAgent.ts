@@ -413,17 +413,13 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
 
-    // 8. Return results
+    // 8. Return results - simplified output format matching the new outputSchema
+    const finalOutput = steps[steps.length - 1]?.output || ""
+    
     const result = {
       success: true,
       output: {
-        input: input || {},
-        goal: context.goal,
-        stepsCompleted: steps.length,
-        finalResult: steps[steps.length - 1]?.output,
-        steps,
-        context: currentContext,
-        memory: memoryContext
+        output: finalOutput // Single output field as defined in outputSchema
       },
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps

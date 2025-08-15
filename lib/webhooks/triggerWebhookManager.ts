@@ -448,11 +448,14 @@ export class TriggerWebhookManager {
    */
   private async registerWithExternalService(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
     // This integrates with external APIs to register webhooks
+    console.log('🔗 registerWithExternalService called for provider:', config.providerId)
     
     switch (config.providerId) {
       case 'discord':
         // Discord webhooks are automatically created via Discord API
+        console.log('🎯 Calling registerDiscordWebhook for config:', config)
         await this.registerDiscordWebhook(config)
+        console.log('✅ registerDiscordWebhook completed')
         break
         
       case 'gmail':

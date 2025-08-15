@@ -271,6 +271,23 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
           workflowId: context.workflowId
         })
         break
+      case "ai_agent":
+        // Resolve variable references in config before executing
+        const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
+        const aiNodeWithResolvedConfig = {
+          ...node,
+          data: {
+            ...node.data,
+            config: aiResolvedConfig
+          }
+        }
+        nodeResult = await executeAction({
+          node: aiNodeWithResolvedConfig,
+          input: context.data,
+          userId: context.userId,
+          workflowId: context.workflowId
+        })
+        break
       case "google_calendar_action_create_event":
         nodeResult = await executeCalendarEventNode(node, context)
         break

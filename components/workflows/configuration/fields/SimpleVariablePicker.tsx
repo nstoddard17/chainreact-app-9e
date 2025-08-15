@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
+import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 
 interface SimpleVariablePickerProps {
   workflowData?: { nodes: any[], edges: any[] }
@@ -96,16 +97,34 @@ export function SimpleVariablePicker({
     outputs: node.data?.outputSchema || []
   })) || [];
   
-  // Always show only previous nodes when in configuration mode
-  const nodes = currentNodeId ? getPreviousNodes() : allNodes;
+  // Show previous nodes or all nodes with outputs when in configuration mode (excluding current node)
+  const nodes = currentNodeId ? 
+    // Include previous nodes and any nodes that have outputs
+    allNodes.filter(node => {
+      if (node.id === currentNodeId) return false; // Exclude the current node being configured
+      const previousNodes = getPreviousNodes();
+      const isPreviousNode = previousNodes.some((prevNode: any) => prevNode.id === node.id);
+      const hasOutputs = node.outputs && node.outputs.length > 0;
+      return isPreviousNode || hasOutputs;
+    }) : 
+    allNodes;
+
+  // Debug: Log which nodes are being included
+  console.log('📊 [SIMPLE VARIABLES] Available nodes:', nodes.map(n => ({
+    id: n.id,
+    title: n.title,
+    type: n.title,
+    hasOutputs: n.outputs.length > 0,
+    outputs: n.outputs.map(o => o.name)
+  })));
 
   // Filter nodes and outputs based on search term
   const filteredNodes = nodes.filter(node => {
-    // Filter out all outputs except finalResult for AI agent nodes
+    // Filter out all outputs except output for AI agent nodes
     if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
-      // Create a copy of the node with only the finalResult output
+      // Create a copy of the node with only the output field
       const aiNodeOutputs = node.outputs.filter((output: any) => 
-        output.name === "finalResult"
+        output.name === "output"
       );
       
       // Update the node's outputs
@@ -160,7 +179,17 @@ export function SimpleVariablePicker({
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 
   const handleVariableSelect = (variable: string) => {
-    onVariableSelect(variable)
+    // Try to resolve the actual value using our new resolution system
+    const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
+    
+    if (resolvedValue !== variable) {
+      // Pass the actual resolved value
+      onVariableSelect(resolvedValue)
+    } else {
+      // Fallback to variable reference if we can't resolve it
+      onVariableSelect(variable)
+    }
+    
     setIsOpen(false)
     setSearchTerm('')
   }
@@ -265,14 +294,9 @@ export function SimpleVariablePicker({
 
   // Get the actual value of a variable if test results are available
   const getVariableValue = (nodeId: string, outputName: string) => {
-    const nodeResult = getNodeTestResult(nodeId);
-    if (!nodeResult) return null;
-    
-    try {
-      return nodeResult.output?.[outputName];
-    } catch (e) {
-      return null;
-    }
+    // Use the new resolution system to get variable values
+    const nodeValues = getNodeVariableValues(nodeId, workflowData || { nodes: [], edges: [] }, testResults)
+    return nodeValues[outputName] || null
   };
 
   // Format variable value for display
