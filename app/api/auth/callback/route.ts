@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { getBaseUrl } from '@/lib/utils/getBaseUrl';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -121,22 +123,33 @@ export async function GET(request: NextRequest) {
           throw sessionError;
         }
 
-        // Set the session cookies and redirect
-        const response = NextResponse.redirect(`${getBaseUrl()}/dashboard`);
-        response.cookies.set('sb-access-token', sessionData.session.access_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'lax',
-          maxAge: sessionData.session.expires_in
-        });
-        response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 30 // 30 days
+        // Create SSR client to properly set cookies
+        const cookieStore = cookies();
+        const supabaseSSR = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            cookies: {
+              get(name: string) {
+                return cookieStore.get(name)?.value;
+              },
+              set(name: string, value: string, options: any) {
+                cookieStore.set({ name, value, ...options });
+              },
+              remove(name: string, options: any) {
+                cookieStore.set({ name, value: '', ...options });
+              },
+            },
+          }
+        );
+
+        // Set the session using SSR client
+        await supabaseSSR.auth.setSession({
+          access_token: sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token
         });
         
-        return response;
+        return NextResponse.redirect(`${getBaseUrl()}/dashboard`);
       } else {
         // User exists but doesn't have Google linked - automatically link them
         console.log(`🔄 Auto-linking existing email account to Google for: ${userInfo.email}`);
@@ -176,22 +189,33 @@ export async function GET(request: NextRequest) {
 
         console.log('✅ Session created for linked account');
 
-        // Set the session cookies and redirect
-        const response = NextResponse.redirect(`${getBaseUrl()}/dashboard`);
-        response.cookies.set('sb-access-token', sessionData.session.access_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'lax',
-          maxAge: sessionData.session.expires_in
-        });
-        response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 30 // 30 days
+        // Create SSR client to properly set cookies
+        const cookieStore = cookies();
+        const supabaseSSR = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            cookies: {
+              get(name: string) {
+                return cookieStore.get(name)?.value;
+              },
+              set(name: string, value: string, options: any) {
+                cookieStore.set({ name, value, ...options });
+              },
+              remove(name: string, options: any) {
+                cookieStore.set({ name, value: '', ...options });
+              },
+            },
+          }
+        );
+
+        // Set the session using SSR client
+        await supabaseSSR.auth.setSession({
+          access_token: sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token
         });
         
-        return response;
+        return NextResponse.redirect(`${getBaseUrl()}/dashboard`);
       }
     }
 
@@ -240,22 +264,33 @@ export async function GET(request: NextRequest) {
       throw sessionError;
     }
 
-    // Set the session cookies and redirect
-    const response = NextResponse.redirect(`${getBaseUrl()}/setup-username`);
-    response.cookies.set('sb-access-token', sessionData.session.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: sessionData.session.expires_in
-    });
-    response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30 // 30 days
+    // Create SSR client to properly set cookies
+    const cookieStore = cookies();
+    const supabaseSSR = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+
+    // Set the session using SSR client
+    await supabaseSSR.auth.setSession({
+      access_token: sessionData.session.access_token,
+      refresh_token: sessionData.session.refresh_token
     });
     
-    return response;
+    return NextResponse.redirect(`${getBaseUrl()}/setup-username`);
 
   } catch (error) {
     console.error('OAuth callback error:', error);
