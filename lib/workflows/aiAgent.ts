@@ -123,6 +123,8 @@ export async function fetchMemory(
   // Determine which integrations to fetch memory from
   let integrationsToFetch: string[] = []
   
+  console.log("🧠 Memory config:", JSON.stringify(memoryConfig, null, 2))
+  
   switch (memoryConfig.memory) {
     case 'none':
       // No memory needed
@@ -148,6 +150,11 @@ export async function fetchMemory(
       }
       break
   }
+  
+  // Filter out 'ai' from integrations list since it doesn't need external credentials
+  integrationsToFetch = integrationsToFetch.filter(integration => integration !== 'ai')
+  
+  console.log("🔍 Integrations to fetch from:", integrationsToFetch)
 
   try {
     // Fetch data from specified integrations
@@ -309,15 +316,23 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
   try {
     const { userId, config, input, workflowContext } = params
     
+    console.log("🤖 AI Agent execution started:")
+    console.log("📋 Raw Config:", JSON.stringify(config, null, 2))
+    console.log("📥 Raw Input data:", JSON.stringify(input, null, 2))
+    console.log("👤 User ID:", userId)
+    console.log("🔧 Workflow context:", workflowContext ? "present" : "missing")
+    
     // Check AI usage limits before execution
     const { checkUsageLimit, trackUsage } = await import("@/lib/usageTracking")
     const usageCheck = await checkUsageLimit(userId, "ai_agent")
     if (!usageCheck.allowed) {
+      console.log("❌ AI usage limit exceeded for user:", userId)
       return {
         success: false,
         error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI agent executions this month. Please upgrade your plan for more AI usage.`
       }
     }
+    console.log("✅ Usage limit check passed")
     
     // 1. First process the variable filtering, then resolve templated values
     // Extract and process selected variables before resolving config
@@ -347,8 +362,14 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
     
+    console.log("🔍 Filtered input data:", JSON.stringify(filteredInput, null, 2))
+    console.log("🔍 Selected variables:", JSON.stringify(selectedVariables, null, 2))
+    console.log("🔍 Use static values:", JSON.stringify(useStaticValues, null, 2))
+    console.log("🔍 Variable values:", JSON.stringify(variableValues, null, 2))
+    
     // Now resolve templated values with the filtered input available
     const resolvedConfig = resolveValue(config, { input: filteredInput, ...filteredInput }, config.triggerOutputs)
+    console.log("🔧 Resolved config:", JSON.stringify(resolvedConfig, null, 2))
     
     // 2. Extract parameters
     const {
@@ -481,7 +502,7 @@ Please process the input data according to the goal and system prompt. Return yo
 }
 
 /**
- * Mock AI decision function - in a real implementation, this would call an LLM service
+ * Real AI decision function using OpenAI API
  */
 async function getAIDecision(
   prompt: string, 
@@ -494,20 +515,74 @@ async function getAIDecision(
   output: any
   reasoning: string
 }> {
-  // This is a simplified mock implementation
-  // In a real implementation, this would call OpenAI, Claude, or another LLM service
-  
   try {
+    console.log("🤖 Making OpenAI API call...")
+    console.log("📝 Prompt:", prompt)
+    console.log("🎯 Context:", JSON.stringify(context, null, 2))
+    
+    // Import OpenAI (dynamic import to avoid issues)
+    const { OpenAI } = await import('openai')
+    
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key not configured")
+    }
+    
     const inputData = context.input || {}
     const inputKeys = Object.keys(inputData)
     
-    // Generate a more meaningful response based on the input data
-    let output = ""
+    // Build context information for the AI
+    let contextInfo = ""
+    if (inputKeys.length > 0) {
+      const dataItems = inputKeys.map(key => {
+        const value = inputData[key]
+        if (typeof value === 'string' && value.length > 200) {
+          return `${key}: "${value.substring(0, 200)}..."`
+        } else {
+          return `${key}: ${JSON.stringify(value)}`
+        }
+      })
+      contextInfo = `Available data:\n${dataItems.join('\n')}\n\n`
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: prompt
+        },
+        {
+          role: 'user',
+          content: `${contextInfo}Please analyze this data and provide a helpful response based on the context and any instructions in the system prompt.`
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
+    })
+
+    const aiResponse = completion.choices[0]?.message?.content?.trim()
+    console.log("✅ OpenAI API response:", aiResponse)
+
+    return {
+      action: "analyze_and_respond",
+      output: aiResponse || "No response generated",
+      reasoning: `Generated response using OpenAI GPT-4o-mini based on ${inputKeys.length} input fields.`
+    }
+  } catch (error: any) {
+    console.error("❌ OpenAI API Error:", error)
     
+    // Fallback to a simple response if OpenAI fails
+    const inputData = context.input || {}
+    const inputKeys = Object.keys(inputData)
+    
+    let fallbackOutput = ""
     if (inputKeys.length === 0) {
-      output = "No input data provided to analyze."
+      fallbackOutput = "No input data provided to analyze."
     } else {
-      // Create a summary response based on available data
       const dataItems = inputKeys.map(key => {
         const value = inputData[key]
         if (typeof value === 'string' && value.length > 100) {
@@ -517,19 +592,13 @@ async function getAIDecision(
         }
       })
       
-      output = `AI Analysis completed. I've processed the following data:\n\n${dataItems.join('\n')}\n\nBased on this information, I can help you with further analysis, generate responses, or take specific actions based on your needs.`
+      fallbackOutput = `AI Analysis completed (fallback mode). I've processed the following data:\n\n${dataItems.join('\n')}\n\nNote: This is a fallback response due to OpenAI API unavailability. Error: ${error.message}`
     }
     
     return {
-      action: "analyze_and_respond",
-      output: output,
-      reasoning: `Analyzed ${inputKeys.length} data fields and generated a comprehensive response based on the available information.`
-    }
-  } catch (error: any) {
-    return {
-      action: "error",
-      output: `Error processing input: ${error.message}`,
-      reasoning: "Failed to process the input due to an error."
+      action: "analyze_and_respond", 
+      output: fallbackOutput,
+      reasoning: `Fallback response due to OpenAI error: ${error.message}`
     }
   }
 }
