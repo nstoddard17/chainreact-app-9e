@@ -1,6 +1,6 @@
 /**
  * Resolves a value from input data using template syntax
- * Supports {{data.field}}, {{trigger.field}}, and {{NodeTitle.output}} syntax for accessing nested properties
+ * Supports {{data.field}}, {{trigger.field}}, {{NodeTitle.output}}, and {{variableName}} syntax for accessing nested properties
  * If a trigger variable is referenced and not present in input, uses mockTriggerOutputs if provided
  */
 export function resolveValue(
@@ -58,7 +58,28 @@ export function resolveValue(
       return dataKey.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
     }
     
-    // Fallback to direct input access
+    // Handle direct variable references for single-part keys like {{variableName}}
+    // This is especially important for AI agent variable resolution
+    if (parts.length === 1) {
+      const variableName = parts[0]
+      
+      // First check if the variable exists directly in input
+      if (input && input[variableName] !== undefined) {
+        return input[variableName]
+      }
+      
+      // Check in input.input for nested structure
+      if (input && input.input && input.input[variableName] !== undefined) {
+        return input.input[variableName]
+      }
+      
+      // Check in mockTriggerOutputs if available
+      if (mockTriggerOutputs && mockTriggerOutputs[variableName]) {
+        return mockTriggerOutputs[variableName].value ?? mockTriggerOutputs[variableName].example ?? mockTriggerOutputs[variableName]
+      }
+    }
+    
+    // Fallback to direct input access using dot notation
     return parts.reduce((acc: any, part: any) => acc && acc[part], input)
   }
   
