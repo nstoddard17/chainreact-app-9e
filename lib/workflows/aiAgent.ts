@@ -419,9 +419,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     
     const result = {
       success: true,
-      output: {
-        output: finalOutput // Single output field as defined in outputSchema
-      },
+      output: finalOutput, // Direct AI response text that matches outputSchema's "output" field
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
     }
@@ -500,22 +498,32 @@ async function getAIDecision(
   // In a real implementation, this would call OpenAI, Claude, or another LLM service
   
   try {
-    // For now, return a simple response based on the input data
     const inputData = context.input || {}
-    const inputString = JSON.stringify(inputData, null, 2)
+    const inputKeys = Object.keys(inputData)
     
-    // Create a simple response based on the available input
+    // Generate a more meaningful response based on the input data
     let output = ""
-    if (Object.keys(inputData).length > 0) {
-      output = `Processed input data: ${inputString}. Analysis complete.`
+    
+    if (inputKeys.length === 0) {
+      output = "No input data provided to analyze."
     } else {
-      output = "No input data available to process."
+      // Create a summary response based on available data
+      const dataItems = inputKeys.map(key => {
+        const value = inputData[key]
+        if (typeof value === 'string' && value.length > 100) {
+          return `${key}: "${value.substring(0, 100)}..."`
+        } else {
+          return `${key}: ${JSON.stringify(value)}`
+        }
+      })
+      
+      output = `AI Analysis completed. I've processed the following data:\n\n${dataItems.join('\n')}\n\nBased on this information, I can help you with further analysis, generate responses, or take specific actions based on your needs.`
     }
     
     return {
-      action: "process_input",
+      action: "analyze_and_respond",
       output: output,
-      reasoning: "Analyzed the provided input data and generated a response based on the available information."
+      reasoning: `Analyzed ${inputKeys.length} data fields and generated a comprehensive response based on the available information.`
     }
   } catch (error: any) {
     return {

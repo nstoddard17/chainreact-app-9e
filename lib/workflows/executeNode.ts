@@ -118,7 +118,9 @@ async function executeAIAgentWrapper(
     
     return {
       success: result.success,
-      output: result.output || {},
+      output: {
+        output: result.output || "" // Structure matches outputSchema: { output: "AI response text" }
+      },
       message: result.message || "AI Agent execution completed"
     }
   } catch (error: any) {
