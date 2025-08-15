@@ -335,7 +335,13 @@ function generateGoogleAuthUrl(service: string, state: string): string {
     state,
     access_type: "offline",
     prompt: "consent",
+    include_granted_scopes: "true",
   })
+
+  // Add debugging for Gmail specifically
+  if (service === "gmail") {
+    console.log("🔍 Generated Gmail OAuth URL with params:", Object.fromEntries(params))
+  }
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
