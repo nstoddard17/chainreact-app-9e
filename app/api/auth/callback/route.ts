@@ -111,21 +111,32 @@ export async function GET(request: NextRequest) {
           console.log('✅ Ensured user profile has provider: google');
         }
         
-        // User already has Google linked, just sign them in
-        const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-          type: 'magiclink',
-          email: userInfo.email,
-          options: {
-            redirectTo: `${getBaseUrl()}/dashboard`,
-          },
+        // User already has Google linked, create a session directly
+        const { data: sessionData, error: sessionError } = await supabase.auth.admin.createSession({
+          user_id: existingUser.id,
+          refresh_token: existingUser.refresh_token || undefined
         });
 
         if (sessionError) {
           throw sessionError;
         }
 
-        // Redirect to the magic link URL
-        return NextResponse.redirect(sessionData.properties.action_link);
+        // Set the session cookies and redirect
+        const response = NextResponse.redirect(`${getBaseUrl()}/dashboard`);
+        response.cookies.set('sb-access-token', sessionData.session.access_token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          maxAge: sessionData.session.expires_in
+        });
+        response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 30 // 30 days
+        });
+        
+        return response;
       } else {
         // User exists but doesn't have Google linked - automatically link them
         console.log(`🔄 Auto-linking existing email account to Google for: ${userInfo.email}`);
@@ -154,22 +165,33 @@ export async function GET(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Create session for the linked account
-        const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-          type: 'magiclink',
-          email: userInfo.email,
-          options: {
-            redirectTo: `${getBaseUrl()}/dashboard`,
-          },
+        const { data: sessionData, error: sessionError } = await supabase.auth.admin.createSession({
+          user_id: existingUser.id,
+          refresh_token: existingUser.refresh_token || undefined
         });
 
         if (sessionError) {
           throw sessionError;
         }
 
-        console.log('✅ Magic link generated:', sessionData.properties.action_link);
+        console.log('✅ Session created for linked account');
 
-        // Redirect to the magic link URL
-        return NextResponse.redirect(sessionData.properties.action_link);
+        // Set the session cookies and redirect
+        const response = NextResponse.redirect(`${getBaseUrl()}/dashboard`);
+        response.cookies.set('sb-access-token', sessionData.session.access_token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          maxAge: sessionData.session.expires_in
+        });
+        response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 30 // 30 days
+        });
+        
+        return response;
       }
     }
 
@@ -210,19 +232,30 @@ export async function GET(request: NextRequest) {
     console.log('✅ New user and profile created successfully');
 
     // Create session for new user and redirect to username setup
-    const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: userInfo.email,
-      options: {
-        redirectTo: `${getBaseUrl()}/setup-username`,
-      },
+    const { data: sessionData, error: sessionError } = await supabase.auth.admin.createSession({
+      user_id: userData.user.id
     });
 
     if (sessionError) {
       throw sessionError;
     }
 
-    return NextResponse.redirect(sessionData.properties.action_link);
+    // Set the session cookies and redirect
+    const response = NextResponse.redirect(`${getBaseUrl()}/setup-username`);
+    response.cookies.set('sb-access-token', sessionData.session.access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: sessionData.session.expires_in
+    });
+    response.cookies.set('sb-refresh-token', sessionData.session.refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30 // 30 days
+    });
+    
+    return response;
 
   } catch (error) {
     console.error('OAuth callback error:', error);
