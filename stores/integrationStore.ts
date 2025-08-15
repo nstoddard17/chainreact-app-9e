@@ -204,25 +204,53 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     initializeProviders: async () => {
       const { loading } = get()
-      if (loading) return
+      console.log("🚀 initializeProviders called", { loading })
+      if (loading) {
+        console.log("⏸️ Skipping initializeProviders - already loading")
+        return
+      }
 
       try {
+        console.log("🔄 Starting initializeProviders API call")
         set({ loading: true, error: null })
 
-        const response = await apiClient.get("/api/integrations/available")
-
-        if (!response.success) {
-          throw new Error(response.error || "Failed to fetch available integrations")
+        // Use direct fetch instead of apiClient for this public endpoint
+        const fetchResponse = await fetch("/api/integrations/available")
+        
+        if (!fetchResponse.ok) {
+          throw new Error(`HTTP ${fetchResponse.status}: Failed to fetch available integrations`)
         }
 
-        const providers = Array.isArray(response.data) ? response.data : response.data?.integrations || response.data.integrations || response.data.providers || []
+        const responseData = await fetchResponse.json()
+        console.log("📡 Direct API response received:", { 
+          success: responseData.success, 
+          dataType: typeof responseData.data,
+          hasDataIntegrations: !!responseData.data?.integrations,
+          integrationsCount: responseData.data?.integrations?.length || 0
+        })
+
+        if (!responseData.success) {
+          throw new Error(responseData.error || "Failed to fetch available integrations")
+        }
+
+        // Parse the providers from the API response structure
+        const providers = responseData.data?.integrations || []
+
+        console.log("🔧 InitializeProviders debug:", {
+          responseSuccess: responseData.success,
+          responseDataType: typeof responseData.data,
+          isArray: Array.isArray(responseData.data),
+          hasDataIntegrations: !!responseData.data?.integrations,
+          providersCount: providers.length,
+          firstProvider: providers[0]?.id
+        })
 
         set({
           providers,
           loading: false,
         })
 
-        // console.log("✅ Providers initialized:", providers.length)
+        console.log("✅ Providers initialized:", providers.length)
       } catch (error: any) {
         console.error("Failed to initialize providers:", error)
         set({
