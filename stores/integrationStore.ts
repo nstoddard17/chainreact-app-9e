@@ -386,12 +386,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     connectIntegration: async (providerId: string) => {
-      const { setLoading, providers, setError, fetchIntegrations, integrations } = get()
+      const { setLoading, providers, setError, fetchIntegrations, integrations, loadingStates } = get()
       const provider = providers.find((p) => p.id === providerId)
 
       if (!provider) {
         throw new Error(`Provider ${providerId} not found`)
       }
+
+      // Check if already loading to prevent duplicate requests
+      if (loadingStates[`connect-${providerId}`]) {
+        console.warn(`⚠️ Already connecting to ${providerId}, ignoring duplicate request`)
+        return
+      }
+
+      console.log(`🔗 Starting connection process for ${providerId}`)
 
       if (!provider.isAvailable) {
         throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
@@ -447,18 +455,51 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
+          console.log(`🔍 About to open ${providerId} popup with URL:`, data.authUrl.substring(0, 100) + '...')
+          
           // Close any existing popup before opening a new one
+          const hadExistingPopup = !!currentOAuthPopup
           closeExistingPopup()
+          
+          if (hadExistingPopup) {
+            console.log(`🔄 Closed existing popup before opening ${providerId}`)
+          }
           
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popupFeatures = "width=600,height=700,scrollbars=yes,resizable=yes"
             
-          console.log(`🔍 Opening ${providerId} popup with features:`, popupFeatures)
-          const popup = window.open(data.authUrl, popupName, popupFeatures)
+          console.log(`🔍 Opening ${providerId} popup with name: ${popupName}`)
+          console.log(`🔍 Popup features: ${popupFeatures}`)
+          
+          // Check if document has focus (required for popup opening)
+          if (!document.hasFocus()) {
+            console.warn(`⚠️ Document doesn't have focus, popup might be blocked for ${providerId}`)
+          }
+          
+          let popup = window.open(data.authUrl, popupName, popupFeatures)
+          
+          console.log(`🔍 window.open returned:`, popup ? 'valid popup window' : 'null/undefined')
+          
+          // Retry popup opening if it failed (sometimes helps with timing issues)
+          if (!popup) {
+            console.warn(`⚠️ First popup attempt failed for ${providerId}, retrying...`)
+            await new Promise(resolve => setTimeout(resolve, 100)) // Brief delay
+            popup = window.open(data.authUrl, popupName + '_retry', popupFeatures)
+            console.log(`🔍 Retry window.open returned:`, popup ? 'valid popup window' : 'null/undefined')
+          }
+          
           if (!popup) {
             setLoading(`connect-${providerId}`, false)
-            throw new Error("Popup blocked. Please allow popups for this site.")
+            console.error(`❌ Popup blocked or failed to open for ${providerId}`)
+            throw new Error("Popup blocked. Please allow popups for this site and ensure you clicked the button directly.")
+          }
+          
+          // Additional popup validation
+          if (popup.closed) {
+            setLoading(`connect-${providerId}`, false)
+            console.error(`❌ Popup was immediately closed for ${providerId}`)
+            throw new Error("Popup was immediately closed. Please check popup blocker settings.")
           }
 
           // Update global popup reference
@@ -613,7 +654,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
       } catch (error: any) {
         console.error(`Error connecting to ${providerId}:`, error.message)
-        setError(`Failed to connect to ${providerId}: ${error.message}`)
+        
+        // Provide more specific error messages for common popup issues
+        if (error.message.includes('Popup blocked')) {
+          setError(`Popup blocked for ${provider.name}. Please allow popups for this site in your browser settings, then try again.`)
+        } else if (error.message.includes('popup was immediately closed')) {
+          setError(`Popup was blocked for ${provider.name}. Please check your browser's popup blocker settings.`)
+        } else if (error.message.includes('duplicate request')) {
+          setError(`Already connecting to ${provider.name}. Please wait for the current connection to complete.`)
+        } else {
+          setError(`Failed to connect to ${provider.name}: ${error.message}`)
+        }
+        
         setLoading(`connect-${providerId}`, false)
       }
     },
