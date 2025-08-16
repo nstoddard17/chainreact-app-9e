@@ -15,28 +15,58 @@ export function resolveValue(
     const key = match[1]
     const parts = key.split(".")
     
-    // Handle node output references: {{NodeTitle.output}}
-    if (parts.length === 2 && parts[1] === "output") {
+    // Handle node output references: {{NodeTitle.output}} or {{NodeTitle.AI Agent Output}}
+    if (parts.length >= 2) {
       const nodeTitle = parts[0]
+      const outputField = parts.slice(1).join(".")
       
-      // Look for the node output in the input data
+      // First try to use the dataFlowManager if available for proper node title matching
+      if (input && input.dataFlowManager && typeof input.dataFlowManager.resolveVariable === 'function') {
+        try {
+          const resolvedValue = input.dataFlowManager.resolveVariable(value)
+          if (resolvedValue !== value) {
+            return resolvedValue
+          }
+        } catch (error) {
+          console.warn('DataFlowManager resolution failed:', error)
+        }
+      }
+      
+      // Fallback: Look for the node output in the input data
       if (input && input.nodeOutputs) {
-        // Find the node by title in nodeOutputs
+        // Find the node by title in nodeOutputs - try to match with available metadata
         for (const [nodeId, nodeResult] of Object.entries(input.nodeOutputs)) {
-          if (nodeResult && nodeResult.output && nodeResult.output.output !== undefined) {
-            return nodeResult.output.output
+          // Check if this node matches our title (simple heuristic)
+          const couldMatch = nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent")
+          
+          if (nodeResult && nodeResult.output && couldMatch) {
+            // Handle AI agent nested output structure: { output: { output: "actual value" } }
+            if (nodeResult.output.output !== undefined && (outputField === "output" || outputField === "AI Agent Output")) {
+              return nodeResult.output.output
+            }
+            // Handle regular output structure: { output: { fieldName: "value" } }
+            if (nodeResult.output[outputField] !== undefined) {
+              return nodeResult.output[outputField]
+            }
           }
         }
       }
       
       // Also check in the main input data for direct node outputs
-      if (input && input.output && input.output.output !== undefined) {
-        return input.output.output
+      if (input && input.output) {
+        // Handle AI agent nested output structure
+        if (input.output.output !== undefined && (outputField === "output" || outputField === "AI Agent Output")) {
+          return input.output.output
+        }
+        // Handle regular output structure
+        if (input.output[outputField] !== undefined) {
+          return input.output[outputField]
+        }
       }
       
       // Check if the input itself contains the node output
-      if (input && input.output !== undefined) {
-        return input.output
+      if (input && input[outputField] !== undefined) {
+        return input[outputField]
       }
     }
     

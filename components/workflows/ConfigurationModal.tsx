@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence"
+import { loadNodeConfig, saveNodeConfig, clearNodeConfig } from "@/lib/workflows/configPersistence"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -882,6 +882,7 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               currentNodeId={currentNodeId}
               onVariableSelect={(variable) => onValueChange(variable)}
               fieldType="file"
+              currentNodeType={nodeInfo?.type}
               trigger={
                 <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                   <span className="text-sm font-mono">{`{}`}</span>
@@ -3857,6 +3858,7 @@ export default function ConfigurationModal({
                 setConfig(prev => ({ ...prev, [field.name]: variable }))
               }}
               fieldType="text"
+              currentNodeType={nodeInfo?.type}
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                   <span className="text-sm font-mono">{`{}`}</span>
@@ -4647,6 +4649,7 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
+                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4691,6 +4694,7 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
+                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4725,6 +4729,7 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
+                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4818,6 +4823,7 @@ export default function ConfigurationModal({
                             setConfig(prev => ({ ...prev, fields: newFields }))
                           }}
                           fieldType="file"
+                          currentNodeType={nodeInfo?.type}
                           trigger={
                             <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                               <span className="text-sm font-mono">{`{}`}</span>
@@ -4860,6 +4866,7 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType={fieldDef.type === "multilineText" ? "textarea" : "text"}
+                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -5307,6 +5314,7 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -5380,6 +5388,7 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -5946,6 +5955,7 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button variant="outline" size="sm" className="gap-2">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6068,6 +6078,7 @@ export default function ConfigurationModal({
                     setConfig(prev => ({ ...prev, [field.name]: variable }))
                   }}
                   fieldType="text"
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6354,6 +6365,7 @@ export default function ConfigurationModal({
                     setConfig(prev => ({ ...prev, [field.name]: variable }))
                   }}
                   fieldType="text"
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6450,6 +6462,7 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6618,6 +6631,7 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
+                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                       <span className="text-sm font-mono">{`{}`}</span>

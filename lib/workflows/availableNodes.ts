@@ -78,7 +78,7 @@ import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "email-rich-text" | "discord-rich-text" | "multi-select"
   required?: boolean
   placeholder?: string
   description?: string
@@ -96,7 +96,7 @@ export interface ConfigField {
 export interface NodeField {
   name: string
   label: string
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "multi-select"
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "email-rich-text" | "discord-rich-text" | "multi-select"
   required?: boolean
   placeholder?: string
   defaultValue?: any
@@ -530,7 +530,43 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "output",
         label: "AI Agent Output",
         type: "string",
-        description: "The generated response from the AI agent"
+        description: "The complete, unprocessed AI response"
+      },
+      {
+        name: "email_subject",
+        label: "Email Subject",
+        type: "string",
+        description: "Generated email subject line"
+      },
+      {
+        name: "email_body",
+        label: "Email Body",
+        type: "string",
+        description: "Generated email body content"
+      },
+      {
+        name: "slack_message",
+        label: "Slack Message",
+        type: "string",
+        description: "Generated message for Slack actions"
+      },
+      {
+        name: "discord_message",
+        label: "Discord Message",
+        type: "string",
+        description: "Generated message for Discord actions"
+      },
+      {
+        name: "notion_title",
+        label: "Notion Page Title",
+        type: "string",
+        description: "Generated title for Notion page creation"
+      },
+      {
+        name: "notion_content",
+        label: "Notion Page Content",
+        type: "string",
+        description: "Generated content for Notion page creation"
       }
     ],
     producesOutput: true
@@ -825,7 +861,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "Enter CC email addresses...", dynamic: "gmail-enhanced-recipients" },
       { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "Enter BCC email addresses...", dynamic: "gmail-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
-      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email message..." },
+      { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail" },
       { 
         name: "attachments", 
         label: "Attachments", 
@@ -3892,9 +3928,67 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       {
         name: "message",
         label: "Message",
-        type: "textarea",
+        type: "discord-rich-text",
+        provider: "discord",
         required: true,
-        placeholder: "Enter your message"
+        placeholder: "Enter your Discord message with formatting, mentions, and emojis"
+      },
+      {
+        name: "embedTitle",
+        label: "Embed Title",
+        type: "text",
+        required: false,
+        placeholder: "Optional embed title"
+      },
+      {
+        name: "embedDescription",
+        label: "Embed Description",
+        type: "textarea",
+        required: false,
+        placeholder: "Optional embed description"
+      },
+      {
+        name: "embedColor",
+        label: "Embed Color",
+        type: "text",
+        required: false,
+        placeholder: "Hex color code (e.g., #FF5733)"
+      },
+      {
+        name: "embedFields",
+        label: "Embed Fields",
+        type: "textarea",
+        required: false,
+        placeholder: "JSON array of field objects: [{\"name\": \"Field Name\", \"value\": \"Field Value\", \"inline\": true}]"
+      },
+      {
+        name: "embedImage",
+        label: "Embed Image URL",
+        type: "text",
+        required: false,
+        placeholder: "URL to image for embed"
+      },
+      {
+        name: "embedThumbnail",
+        label: "Embed Thumbnail URL",
+        type: "text",
+        required: false,
+        placeholder: "URL to thumbnail image for embed"
+      },
+      {
+        name: "embedFooter",
+        label: "Embed Footer",
+        type: "text",
+        required: false,
+        placeholder: "Footer text for embed"
+      },
+      {
+        name: "embedTimestamp",
+        label: "Embed Timestamp",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Include current timestamp in embed"
       }
     ]
   },
@@ -7393,7 +7487,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
-      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email..." },
+      { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email...", provider: "outlook" },
       { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
     ]
   },
@@ -7569,7 +7663,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email to reply to", description: "Search for emails by sender, subject, or content" },
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
-      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your reply..." },
+      { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your reply...", provider: "outlook" },
       { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
     ]
   },
@@ -7587,7 +7681,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
-      { name: "body", label: "Additional Note", type: "textarea", required: false, placeholder: "Additional note to include with the forwarded email" },
+      { name: "body", label: "Additional Note", type: "email-rich-text", required: false, placeholder: "Additional note to include with the forwarded email", provider: "outlook" },
     ]
   },
   {

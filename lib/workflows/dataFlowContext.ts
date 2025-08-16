@@ -118,6 +118,8 @@ export class DataFlowManager {
    * Resolve a variable reference (e.g., "{{node1.output.subject}}" or "{{var.customField}}")
    */
   resolveVariable(reference: string): any {
+    console.log(`🔧 DataFlowManager resolving variable: "${reference}"`)
+    
     if (!reference || typeof reference !== 'string') {
       return reference
     }
@@ -128,34 +130,100 @@ export class DataFlowManager {
       const nodeTitle = humanReadableMatch[1].trim()
       const fieldLabel = humanReadableMatch[2].trim()
       
-      // Find the node by title using metadata
-      const nodeId = Object.keys(this.context.nodeMetadata).find(id => 
-        this.context.nodeMetadata[id].title === nodeTitle
-      )
+      console.log(`🔍 Human-readable format detected: nodeTitle="${nodeTitle}", fieldLabel="${fieldLabel}"`)
+      console.log(`📝 Available node metadata:`, Object.keys(this.context.nodeMetadata).map(id => ({
+        id,
+        title: this.context.nodeMetadata[id].title,
+        type: this.context.nodeMetadata[id].type
+      })))
+      console.log(`📦 Available node outputs:`, Object.keys(this.context.nodeOutputs).map(id => ({
+        id,
+        success: this.context.nodeOutputs[id]?.success,
+        dataKeys: this.context.nodeOutputs[id]?.data ? Object.keys(this.context.nodeOutputs[id].data) : []
+      })))
       
-      if (nodeId) {
-        const output = this.getNodeOutput(nodeId)
-        const metadata = this.context.nodeMetadata[nodeId]
+      // Find the node by title using metadata
+      const nodeId = Object.keys(this.context.nodeMetadata).find(id => {
+        const metadata = this.context.nodeMetadata[id]
+        const titleMatch = metadata.title === nodeTitle
+        console.log(`🔍 Checking node ${id}: title="${metadata.title}" vs looking for="${nodeTitle}" match=${titleMatch}`)
+        return titleMatch
+      })
+      
+      console.log(`🎯 Found nodeId for title "${nodeTitle}": ${nodeId}`)
+      
+      // If no exact title match, try multiple fallback strategies
+      let fallbackNodeId = nodeId
+      if (!nodeId) {
+        // Strategy 1: Look for AI agent by type
+        if (nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent")) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+            this.context.nodeMetadata[id].type === "ai_agent"
+          )
+          console.log(`🔄 Fallback 1: Looking for ai_agent type, found: ${fallbackNodeId}`)
+        }
+        
+        // Strategy 2: Look for partial title matches (case-insensitive)
+        if (!fallbackNodeId) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => {
+            const metadata = this.context.nodeMetadata[id]
+            return metadata.title.toLowerCase().includes(nodeTitle.toLowerCase()) || 
+                   nodeTitle.toLowerCase().includes(metadata.title.toLowerCase())
+          })
+          console.log(`🔄 Fallback 2: Looking for partial title match, found: ${fallbackNodeId}`)
+        }
+        
+        // Strategy 3: If looking for AI-related fields, find any AI agent node
+        if (!fallbackNodeId && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+            this.context.nodeMetadata[id].type === "ai_agent"
+          )
+          console.log(`🔄 Fallback 3: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
+        }
+      }
+      
+      if (fallbackNodeId) {
+        const output = this.getNodeOutput(fallbackNodeId)
+        const metadata = this.context.nodeMetadata[fallbackNodeId]
         
         if (output && output.success && metadata.outputSchema) {
+          console.log(`📋 Output schema for ${fallbackNodeId}:`, metadata.outputSchema)
+          console.log(`💾 Actual output data:`, output.data)
+          
           // Find the field by label in the output schema
-          const field = metadata.outputSchema.find(f => f.label === fieldLabel || f.name === fieldLabel)
+          const field = metadata.outputSchema.find(f => {
+            const labelMatch = f.label === fieldLabel
+            const nameMatch = f.name === fieldLabel
+            console.log(`🔍 Checking field: name="${f.name}" label="${f.label}" vs looking for="${fieldLabel}" labelMatch=${labelMatch} nameMatch=${nameMatch}`)
+            return labelMatch || nameMatch
+          })
+          
+          console.log(`🎯 Found field for label "${fieldLabel}":`, field)
           
           if (field) {
             // Use the field name to get the actual value
-            return this.getNestedValue(output.data, field.name)
+            const result = this.getNestedValue(output.data, field.name)
+            console.log(`✅ Resolved value:`, result)
+            return result
           } else {
+            console.log(`⚠️ Field not found in schema, trying fallback approaches...`)
             // Fallback: try to get the value directly if it's a simple structure
             if (output.data && typeof output.data === 'object') {
               // For AI Agent with nested output structure
               if (output.data.output !== undefined && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
+                console.log(`✅ Found AI Agent output using fallback:`, output.data.output)
                 return output.data.output
               }
               // Try direct property access
-              return output.data[fieldLabel] || output.data
+              const fallbackResult = output.data[fieldLabel] || output.data
+              console.log(`✅ Fallback result:`, fallbackResult)
+              return fallbackResult
             }
+            console.log(`✅ Returning raw output data:`, output.data)
             return output.data
           }
+        } else {
+          console.log(`❌ No valid output or metadata found for nodeId: ${fallbackNodeId}`)
         }
       }
     }

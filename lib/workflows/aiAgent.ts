@@ -161,7 +161,10 @@ export async function fetchMemory(
     for (const integration of integrationsToFetch) {
       try {
         const credentials = await getIntegrationCredentials(userId, integration)
-        if (!credentials) continue
+        if (!credentials) {
+          console.log(`⚠️ Skipping ${integration} - not connected`)
+          continue
+        }
 
         switch (integration) {
           case 'gmail':
@@ -299,7 +302,7 @@ export async function fetchMemory(
             break
         }
       } catch (error) {
-        console.warn(`Failed to fetch memory for ${integration}:`, error)
+        console.log(`⚠️ Skipping ${integration} - not available:`, error.message)
       }
     }
   } catch (error) {
@@ -368,7 +371,12 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     console.log("🔍 Variable values:", JSON.stringify(variableValues, null, 2))
     
     // Now resolve templated values with the filtered input available
-    const resolvedConfig = resolveValue(config, { input: filteredInput, ...filteredInput }, config.triggerOutputs)
+    const resolvedConfig = resolveValue(config, { 
+      input: filteredInput, 
+      ...filteredInput, 
+      dataFlowManager: input.dataFlowManager,
+      nodeOutputs: input.nodeOutputs 
+    }, config.triggerOutputs)
     console.log("🔧 Resolved config:", JSON.stringify(resolvedConfig, null, 2))
     
     // 2. Extract parameters
@@ -389,12 +397,17 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     
     // 3. Gather context from filtered input (previous node)
     const context: any = {
-      goal: `Process and analyze the data from node ${inputNodeId}`,
-      input: filteredInput,
-      availableData: filteredInput,
+      goal: input?.message?.content 
+        ? `Respond to this Discord message: "${input.message.content}"` 
+        : `Process and analyze the data from node ${inputNodeId}`,
+      input: Object.keys(filteredInput).length > 0 ? filteredInput : input, // Use original input if filtered is empty
+      availableData: Object.keys(filteredInput).length > 0 ? filteredInput : input,
       nodeOutputs: filteredInput,
       workflowState: workflowContext?.previousResults || {},
-      availableTools: [] // AI Agent can use any available integrations dynamically
+      availableTools: [], // AI Agent can use any available integrations dynamically
+      // Specifically extract Discord message for better context
+      discordMessage: input?.message?.content || input?.originalPayload?.content || null,
+      triggerData: input?.originalPayload || null
     }
 
     // 4. Fetch memory based on memory configuration
@@ -435,12 +448,30 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
 
-    // 7. Return results - simplified output format matching the new outputSchema
+    // 7. Return results - dynamic output format based on workflow context
     const finalOutput = steps[steps.length - 1]?.output || ""
+    
+    // Try to parse as JSON for dynamic outputs, fallback to legacy format
+    let dynamicOutputs = {}
+    try {
+      // Check if the AI response is JSON
+      if (finalOutput.trim().startsWith('{') && finalOutput.trim().endsWith('}')) {
+        dynamicOutputs = JSON.parse(finalOutput)
+        console.log("🎯 Parsed dynamic AI outputs:", dynamicOutputs)
+      }
+    } catch (error) {
+      console.log("📝 Using legacy text parsing for AI output")
+    }
+    
+    // Generate legacy subject/body fields for backward compatibility
+    const { subject, body } = parseAIResponseForEmail(finalOutput, context.goal)
     
     const result = {
       success: true,
-      output: finalOutput, // Direct AI response text that matches outputSchema's "output" field
+      output: finalOutput, // Complete AI response for "AI Agent Output" variable
+      subject: subject,    // Legacy "Email Subject" variable
+      body: body,          // Legacy "Email Body" variable
+      ...dynamicOutputs,   // Dynamic outputs from JSON (email_subject, email_body, etc.)
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
     }
@@ -469,6 +500,99 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
 }
 
 /**
+ * Parse AI response to extract subject and body for email actions
+ */
+function parseAIResponseForEmail(aiResponse: string, goal: string): { subject: string; body: string } {
+  if (!aiResponse) {
+    return {
+      subject: "Response from AI Assistant",
+      body: "No response generated."
+    }
+  }
+
+  // Try to find a subject line in the AI response
+  let subject = ""
+  let body = aiResponse
+
+  // Pattern 1: Look for "Subject: ..." at the beginning
+  const subjectMatch = aiResponse.match(/^Subject:\s*(.+?)(?:\n|$)/i)
+  if (subjectMatch) {
+    subject = subjectMatch[1].trim()
+    // Remove the subject line from the body
+    body = aiResponse.replace(/^Subject:\s*.+?(?:\n|$)/i, '').trim()
+  }
+  
+  // Pattern 2: Look for lines that start with common subject indicators
+  else {
+    const firstLine = aiResponse.split('\n')[0].trim()
+    const subjectIndicators = /^(Re:|Fw:|Fwd:|RE:|FW:|About:|Regarding:)/i
+    
+    if (subjectIndicators.test(firstLine) && firstLine.length < 100) {
+      subject = firstLine
+      body = aiResponse.split('\n').slice(1).join('\n').trim()
+    }
+  }
+
+  // If no subject found, generate one based on content or goal
+  if (!subject) {
+    if (goal.includes('Discord message')) {
+      subject = "Re: Discord Discussion"
+    } else if (goal.includes('email')) {
+      subject = "Re: Your Email"
+    } else {
+      // Generate subject from first few words of the response
+      const words = body.replace(/\n/g, ' ').split(' ').slice(0, 8)
+      subject = words.join(' ')
+      if (body.split(' ').length > 8) {
+        subject += '...'
+      }
+      subject = subject || "Response from AI Assistant"
+    }
+  }
+
+  // Clean up the body - remove signatures, placeholders, and extra whitespace
+  body = body
+    .replace(/^\n+/, '') // Remove leading newlines
+    .replace(/\n+$/, '') // Remove trailing newlines
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    
+    // Remove common signature patterns
+    .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you)[\s\S]*$/i, '')
+    .replace(/\n\n?\[Your .*?\][\s\S]*$/i, '') // Remove [Your Name], [Your Position], etc.
+    .replace(/\n\n?--[\s\S]*$/i, '') // Remove signature separators
+    
+    // Remove standalone placeholder lines
+    .replace(/\n\[Your .*?\]/gi, '')
+    .replace(/\n\[.*? Information\]/gi, '')
+    .replace(/\n\[.*? Organization\]/gi, '')
+    
+    .trim()
+
+  // If body is empty after processing, use the original response but clean it
+  if (!body) {
+    body = aiResponse
+      .replace(/^Subject:\s*.+?(?:\n|$)/i, '') // Remove subject if present
+      .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you)[\s\S]*$/i, '')
+      .replace(/\[Your .*?\]/gi, '')
+      .trim()
+  }
+
+  return { subject, body }
+}
+
+/**
+ * Generate a simple subject line from email body content (legacy function)
+ */
+function generateSubjectFromBody(body: string): string {
+  const words = body.split(' ').slice(0, 8)
+  let subject = words.join(' ')
+  if (body.split(' ').length > 8) {
+    subject += '...'
+  }
+  return subject || "Re: Your Message"
+}
+
+/**
  * Builds the AI prompt with context and memory
  */
 function buildAIPrompt(
@@ -477,9 +601,38 @@ function buildAIPrompt(
   memory: MemoryContext, 
   systemPrompt?: string
 ): string {
-  const basePrompt = systemPrompt || `You are an AI agent that can use various tools to accomplish goals. 
-You have access to workflow context and can call tools to gather information or perform actions.
-Always think step by step and explain your reasoning.`
+  const basePrompt = systemPrompt || `You are an AI Agent in a workflow automation platform. Generate context-specific outputs based on the target action type.
+
+RESPONSE FORMAT: Return a JSON object with action-specific fields:
+
+For EMAIL actions, generate:
+{
+  "email_subject": "Professional subject line",
+  "email_body": "Clean email content without signatures or placeholders"
+}
+
+For SLACK actions, generate:
+{
+  "slack_message": "Concise, engaging message text"
+}
+
+For DISCORD actions, generate:
+{
+  "discord_message": "Appropriate Discord response"
+}
+
+For NOTION actions, generate:
+{
+  "notion_title": "Descriptive page title",
+  "notion_content": "Structured page content"
+}
+
+REQUIREMENTS:
+- Return ONLY valid JSON, no explanation
+- Use professional, helpful tone
+- No signatures, placeholders, or boilerplate
+- Content should be complete and actionable
+- Match the integration's expected format`
 
   const contextSection = `
 ## Current Context
@@ -567,9 +720,44 @@ async function getAIDecision(
     const aiResponse = completion.choices[0]?.message?.content?.trim()
     console.log("✅ OpenAI API response:", aiResponse)
 
+    // Parse subject and body from AI response
+    let subject = "Re: Your Message"
+    let body = aiResponse || "No response generated"
+    
+    if (aiResponse) {
+      // Check if this is a subject-only request
+      const isSubjectRequest = context.goal?.toLowerCase().includes('subject') || 
+                              context.goal?.toLowerCase().includes('subject line')
+      
+      if (isSubjectRequest) {
+        // For subject requests, the entire response is the subject
+        subject = aiResponse.trim()
+        body = aiResponse.trim()
+      } else {
+        // For regular requests, check if structured format is used
+        const subjectMatch = aiResponse.match(/SUBJECT:\s*(.+?)(?:\n|$)/i)
+        const bodyMatch = aiResponse.match(/BODY:\s*([\s\S]+?)$/i)
+        
+        if (subjectMatch && bodyMatch) {
+          subject = subjectMatch[1].trim()
+          body = bodyMatch[1].trim()
+        } else {
+          // Default: treat whole response as body content
+          body = aiResponse.trim()
+          // Generate a generic subject if none provided
+          subject = generateSubjectFromBody(body)
+        }
+      }
+    }
+    
+    console.log("📧 Parsed subject:", subject)
+    console.log("📧 Parsed body:", body)
+
     return {
       action: "analyze_and_respond",
       output: aiResponse || "No response generated",
+      subject: subject,
+      body: body,
       reasoning: `Generated response using OpenAI GPT-4o-mini based on ${inputKeys.length} input fields.`
     }
   } catch (error: any) {
