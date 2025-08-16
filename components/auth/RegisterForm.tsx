@@ -222,12 +222,12 @@ function RegisterFormContent() {
                   placeholder="Create a password"
                   required
                   minLength={8}
-                  maxLength={128}
-                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,128}$"
+                  maxLength={15}
+                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,15}$"
                 />
               </div>
               <div className="text-xs text-slate-500">
-                8-128 characters, must include uppercase, lowercase, number, and special character
+                8-15 characters, must include uppercase, lowercase, number, and special character
               </div>
             </div>
 
