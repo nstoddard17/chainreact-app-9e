@@ -213,6 +213,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authEndpoint: "https://twitter.com/i/oauth2/authorize",
     tokenEndpoint: "https://api.twitter.com/2/oauth2/token",
     revokeEndpoint: "https://api.twitter.com/2/oauth2/revoke",
+    scope: ["tweet.read", "users.read", "tweet.write", "follows.read", "offline.access"],
     refreshRequiresClientAuth: true,
     authMethod: "basic",
     sendClientIdWithRefresh: true,
