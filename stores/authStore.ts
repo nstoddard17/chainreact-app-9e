@@ -595,42 +595,39 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
+          // Set up email confirmation URL
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL
+          
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
               data: metadata || {},
+              emailRedirectTo: `${baseUrl}/auth/confirm`,
             },
           })
 
           if (error) throw error
 
-          if (data.user) {
+          // Don't set user state immediately - wait for email confirmation
+          // Store signup data temporarily for when confirmation is complete
+          if (data.user && !data.session) {
+            // User needs to confirm email
+            localStorage.setItem('pendingSignup', JSON.stringify({
+              userId: data.user.id,
+              email: data.user.email,
+              metadata: metadata,
+              timestamp: Date.now()
+            }))
+            set({ loading: false })
+          } else if (data.user && data.session) {
+            // Auto-confirmed (shouldn't happen with email confirmation enabled)
             const user: User = {
               id: data.user.id,
               email: data.user.email || "",
               name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
               avatar: data.user.user_metadata?.avatar_url,
             }
-
-            // Create user profile record
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .insert({
-                id: data.user.id,
-                full_name: user.name,
-                first_name: metadata?.first_name,
-                last_name: metadata?.last_name,
-                username: metadata?.username,
-                provider: 'email',
-                role: 'free',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              });
-
-            if (profileError) {
-            }
-
             set({ user, loading: false })
           }
         } catch (error: any) {
