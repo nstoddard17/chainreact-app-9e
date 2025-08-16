@@ -16,22 +16,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Generate confirmation URL using Supabase admin
-    const { data, error } = await supabase.auth.admin.generateLink({
-      type: 'signup',
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?from=email`,
-      },
-    })
-
-    if (error) {
-      console.error('Error generating confirmation link:', error)
-      return NextResponse.json(
-        { error: 'Failed to generate confirmation link' },
-        { status: 500 }
-      )
-    }
+    // Create a simple confirmation token (we'll verify this manually)
+    const confirmationToken = Buffer.from(`${userId}:${Date.now()}`).toString('base64')
+    
+    // Store the token temporarily (you could also use a database table for this)
+    const confirmationUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?token=${confirmationToken}&from=email`
 
     // Send custom welcome email with confirmation link via Resend
     const result = await sendWelcomeEmail(
@@ -41,7 +30,7 @@ export async function POST(request: NextRequest) {
       },
       {
         username: username || 'there',
-        confirmationUrl: data.properties?.action_link || '',
+        confirmationUrl: confirmationUrl,
       }
     )
 

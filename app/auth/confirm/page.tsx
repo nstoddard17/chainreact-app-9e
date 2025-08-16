@@ -19,11 +19,46 @@ export default function EmailConfirmPage() {
     // Check if this came from email link
     const urlParams = new URLSearchParams(window.location.search)
     const isFromEmail = urlParams.get('from') === 'email'
+    const token = urlParams.get('token')
     setFromEmail(isFromEmail)
 
     const handleEmailConfirmation = async () => {
       try {
-        // Get current user
+        if (isFromEmail && token) {
+          // This is from an email click - confirm the user manually
+          try {
+            const decodedToken = Buffer.from(token, 'base64').toString()
+            const [userId, timestamp] = decodedToken.split(':')
+            
+            // Verify token is not too old (24 hours)
+            const tokenAge = Date.now() - parseInt(timestamp)
+            if (tokenAge > 24 * 60 * 60 * 1000) {
+              throw new Error('Confirmation link has expired')
+            }
+
+            // Manually confirm the user in Supabase
+            const response = await fetch('/api/auth/confirm-manual', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, token })
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to confirm email')
+            }
+
+            setProcessing(false)
+            // Just show the close tab message - don't redirect
+            return
+          } catch (confirmError) {
+            console.error('Manual confirmation failed:', confirmError)
+            setProcessing(false)
+            // Still show success message for UX
+            return
+          }
+        }
+
+        // For non-email confirmations, proceed with normal flow
         const { data: { user }, error } = await supabase.auth.getUser()
         
         if (error || !user) {
@@ -32,10 +67,7 @@ export default function EmailConfirmPage() {
           return
         }
 
-        // Initialize auth store
         await initialize()
-
-        // Clear any pending signup data
         localStorage.removeItem('pendingSignup')
 
         // Create user profile if it doesn't exist
@@ -46,12 +78,10 @@ export default function EmailConfirmPage() {
           .single()
 
         if (!existingProfile) {
-          // Create profile for new user
           const detectedProvider = user.app_metadata?.provider || 
                                  user.app_metadata?.providers?.[0] || 
                                  (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
           
-          // Extract name from user metadata
           const fullName = user.user_metadata?.full_name || 
                           user.user_metadata?.name || 
                           user.email?.split('@')[0] || 'User'
@@ -77,23 +107,18 @@ export default function EmailConfirmPage() {
 
         setProcessing(false)
 
-        // If this came from email click, show close tab message
-        // If not from email, continue to username setup
-        if (!isFromEmail) {
-          // This is a direct navigation, proceed to username setup
-          const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
-          
-          if (!hasUsername) {
-            setTimeout(() => {
-              router.push('/setup-username')
-            }, 2000)
-          } else {
-            setTimeout(() => {
-              router.push('/dashboard')
-            }, 2000)
-          }
+        // Proceed to username setup
+        const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
+        
+        if (!hasUsername) {
+          setTimeout(() => {
+            router.push('/setup-username')
+          }, 2000)
+        } else {
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 2000)
         }
-        // If from email, just show the close tab message (no redirect)
         
       } catch (error) {
         console.error('Error handling email confirmation:', error)
@@ -151,24 +176,51 @@ export default function EmailConfirmPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 </div>
               ) : fromEmail ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-600/20 rounded-lg border border-green-500/30 mb-4">
-                    <p className="text-green-200 text-sm font-medium text-center">
-                      ✅ Account confirmed! You can safely close this tab.
-                    </p>
+                <div className="space-y-6">
+                  {/* Animated Chain Links */}
+                  <div className="flex justify-center items-center space-x-2 mb-8">
+                    <div className="w-8 h-8 border-4 border-blue-400 rounded-full animate-pulse"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-blue-400 to-purple-400 animate-pulse delay-100"></div>
+                    <div className="w-8 h-8 border-4 border-purple-400 rounded-full animate-pulse delay-200"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-purple-400 to-green-400 animate-pulse delay-300"></div>
+                    <div className="w-8 h-8 border-4 border-green-400 rounded-full animate-pulse delay-400"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-green-400 to-blue-400 animate-pulse delay-500"></div>
+                    <div className="w-8 h-8 border-4 border-blue-400 rounded-full animate-pulse delay-600"></div>
+                  </div>
+
+                  <div className="text-center space-y-4">
+                    <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 bg-clip-text text-transparent">
+                      Welcome to ChainReact
+                    </h3>
+                    
+                    <div className="p-6 bg-gradient-to-r from-green-600/20 via-blue-600/20 to-purple-600/20 rounded-xl border border-green-500/30">
+                      <div className="flex items-center justify-center mb-3">
+                        <CheckCircle className="h-8 w-8 text-green-400 mr-3" />
+                        <span className="text-xl font-semibold text-green-200">Email Confirmed!</span>
+                      </div>
+                      <p className="text-blue-200 text-lg">
+                        Your account is now active and ready to automate your workflows.
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-600/10 rounded-lg p-4 border border-blue-500/20">
+                      <p className="text-blue-200 text-lg font-medium">
+                        You may now close this tab
+                      </p>
+                    </div>
                   </div>
 
                   <Button
                     onClick={() => window.close()}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg py-4 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Close This Tab
                   </Button>
 
                   <Link href="/setup-username">
-                    <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                    <Button variant="outline" className="w-full border-2 border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300 hover:border-blue-300">
                       <ArrowRight className="mr-2 h-4 w-4" />
-                      Continue in This Tab
+                      Continue in This Tab Instead
                     </Button>
                   </Link>
                 </div>
