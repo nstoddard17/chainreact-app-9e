@@ -655,27 +655,39 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error
 
-          // Don't set user state immediately - wait for email confirmation
-          // Store signup data temporarily for when confirmation is complete
-          if (data.user && !data.session) {
-            // User needs to confirm email
+          // Store signup data temporarily
+          if (data.user) {
             localStorage.setItem('pendingSignup', JSON.stringify({
               userId: data.user.id,
               email: data.user.email,
               metadata: metadata,
               timestamp: Date.now()
             }))
-            set({ loading: false })
-          } else if (data.user && data.session) {
-            // Auto-confirmed (shouldn't happen with email confirmation enabled)
-            const user: User = {
-              id: data.user.id,
-              email: data.user.email || "",
-              name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
-              avatar: data.user.user_metadata?.avatar_url,
+
+            // Send custom confirmation email via Resend
+            try {
+              const response = await fetch('/api/auth/send-confirmation', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                  email: data.user.email, 
+                  userId: data.user.id,
+                  username: metadata?.first_name || metadata?.full_name || 'there'
+                }),
+              })
+
+              if (!response.ok) {
+                console.error('Failed to send custom confirmation email')
+              }
+            } catch (emailError) {
+              console.error('Error sending custom confirmation email:', emailError)
+              // Don't throw - let signup continue even if email fails
             }
-            set({ user, loading: false })
           }
+
+          set({ loading: false })
         } catch (error: any) {
           console.error("Sign up error:", error)
           set({ error: error.message, loading: false })

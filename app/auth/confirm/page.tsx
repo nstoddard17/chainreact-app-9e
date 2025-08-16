@@ -71,38 +71,9 @@ export default function EmailConfirmPage() {
 
         setProcessing(false)
 
-        // Check if user needs to set username
-        const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
+        // This page is reached from email link - show success and ask to close tab
+        // The waiting tab will detect confirmation and proceed automatically
         
-        if (!hasUsername) {
-          // Start countdown to username setup
-          const timer = setInterval(() => {
-            setCountdown((prev) => {
-              if (prev <= 1) {
-                clearInterval(timer)
-                router.push('/setup-username')
-                return 0
-              }
-              return prev - 1
-            })
-          }, 1000)
-          
-          return () => clearInterval(timer)
-        } else {
-          // User already has username, go to dashboard
-          const timer = setInterval(() => {
-            setCountdown((prev) => {
-              if (prev <= 1) {
-                clearInterval(timer)
-                router.push('/dashboard')
-                return 0
-              }
-              return prev - 1
-            })
-          }, 1000)
-          
-          return () => clearInterval(timer)
-        }
       } catch (error) {
         console.error('Error handling email confirmation:', error)
         setProcessing(false)
@@ -145,8 +116,8 @@ export default function EmailConfirmPage() {
               </h2>
               
               <p className="text-blue-200 mb-6 leading-relaxed">
-                Welcome to ChainReact! Your email has been verified and your account is now active. 
-                {processing ? "We're setting up your profile..." : "Let's complete your profile setup."}
+                Welcome to ChainReact! Your email has been verified and your account is now active.
+                {processing ? " We're setting up your profile..." : " You can now close this tab."}
               </p>
 
               {processing ? (
@@ -155,17 +126,23 @@ export default function EmailConfirmPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Link href="/setup-username">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      Set Up Username
-                    </Button>
-                  </Link>
+                  <div className="p-4 bg-green-600/20 rounded-lg border border-green-500/30 mb-4">
+                    <p className="text-green-200 text-sm font-medium text-center">
+                      ✅ Account confirmed! You can safely close this tab.
+                    </p>
+                  </div>
 
-                  <Link href="/dashboard">
+                  <Button
+                    onClick={() => window.close()}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                  >
+                    Close This Tab
+                  </Button>
+
+                  <Link href="/setup-username">
                     <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Skip for Now
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Continue in This Tab
                     </Button>
                   </Link>
                 </div>
@@ -175,7 +152,7 @@ export default function EmailConfirmPage() {
                 <p className="text-sm text-blue-200">
                   {processing 
                     ? "Setting up your account..." 
-                    : `Redirecting to username setup in ${countdown} seconds...`
+                    : "Return to your original tab to continue setup"
                   }
                 </p>
               </div>
