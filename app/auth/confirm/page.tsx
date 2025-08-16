@@ -47,6 +47,26 @@ export default function EmailConfirmPage() {
               throw new Error('Failed to confirm email')
             }
 
+            // Signal the waiting tab that confirmation is complete
+            const confirmationData = {
+              userId: userId,
+              timestamp: Date.now(),
+              confirmed: true
+            }
+            
+            localStorage.setItem('emailConfirmed', JSON.stringify(confirmationData))
+
+            // Storage events don't fire on the same window that sets the item
+            // We need to manually trigger other windows to check
+            // Try using BroadcastChannel for more reliable cross-tab communication
+            try {
+              const channel = new BroadcastChannel('emailConfirmation')
+              channel.postMessage(confirmationData)
+              channel.close()
+            } catch (error) {
+              console.warn('BroadcastChannel not supported, using localStorage polling')
+            }
+
             setProcessing(false)
             // Just show the close tab message - don't redirect
             return
