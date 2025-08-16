@@ -98,7 +98,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
 
       const result = await response.json()
 
-      if (result.success) {
+      if (response.ok && result.success) {
         set({
           collaborationSession: result.session,
           loading: false,
@@ -107,10 +107,24 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         // Set up real-time subscriptions
         get().setupRealtimeSubscriptions(workflowId)
       } else {
-        set({ error: result.error, loading: false })
+        let errorMessage = result.error || 'Failed to join collaboration'
+        
+        // Handle specific status codes
+        if (response.status === 404) {
+          errorMessage = 'Workflow not found or access denied'
+        } else if (response.status === 503) {
+          errorMessage = 'Collaboration feature temporarily unavailable'
+        } else if (response.status === 401) {
+          errorMessage = 'Authentication required'
+        }
+        
+        set({ error: errorMessage, loading: false })
+        console.error('Failed to join collaboration:', response.status, result)
       }
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      const errorMessage = error.message || 'Unable to connect to collaboration service'
+      set({ error: errorMessage, loading: false })
+      console.error('Collaboration join network error:', error)
     }
   },
 

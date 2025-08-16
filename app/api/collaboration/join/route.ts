@@ -23,22 +23,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 })
     }
 
-    // Verify workflow access
-    const { data: workflow, error: workflowError } = await supabase
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(workflowId)) {
+      return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
+    }
+
+    // Verify workflow access - first try as owner
+    let { data: workflow, error: workflowError } = await supabase
       .from("workflows")
       .select("*")
       .eq("id", workflowId)
+      .eq("user_id", user.id)
       .single()
 
-    if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+    let hasEditAccess = true // Owner has edit access
+
+    // If not found as owner, check shared access
+    if (workflowError && (workflowError.code === 'PGRST116' || workflowError.message.includes('No rows'))) {
+      const { data: sharedWorkflow, error: sharedError } = await supabase
+        .from("workflows")
+        .select(`
+          *,
+          workflow_shares!inner(
+            permission,
+            shared_with
+          )
+        `)
+        .eq("id", workflowId)
+        .eq("workflow_shares.shared_with", user.id)
+        .single()
+
+      workflow = sharedWorkflow
+      workflowError = sharedError
+      hasEditAccess = sharedWorkflow?.workflow_shares?.[0]?.permission === 'edit'
     }
 
-    // Check if user has access to this workflow
-    const hasAccess = workflow.user_id === user.id || workflow.is_public
+    if (workflowError || !workflow) {
+      return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
+    }
 
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    // Check if collaboration tables exist by testing a simple query
+    try {
+      await supabase
+        .from("collaboration_sessions")
+        .select("id")
+        .limit(1)
+    } catch (tableError: any) {
+      console.error("Collaboration tables not found:", tableError)
+      return NextResponse.json({ 
+        error: "Collaboration feature not available. Please contact support." 
+      }, { status: 503 })
     }
 
     const collaboration = new RealTimeCollaboration()
@@ -46,10 +81,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      session: collaborationSession,
+      session: {
+        ...collaborationSession,
+        hasEditAccess
+      },
     })
   } catch (error: any) {
     console.error("Collaboration join error:", error)
+    
+    // Provide more specific error messages
+    if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+      return NextResponse.json({ 
+        error: "Collaboration feature not available. Database tables missing." 
+      }, { status: 503 })
+    }
+    
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
