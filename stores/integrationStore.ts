@@ -521,6 +521,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
               console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
+              clearInterval(popupCheckTimer)
+              clearInterval(storageCheckTimer)
               clearTimeout(connectionTimeout)
               window.removeEventListener("message", messageHandler)
               try {
@@ -543,6 +545,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
             } else if (event.data && event.data.type === "oauth-info") {
               console.log(`ℹ️ OAuth info for ${providerId}:`, event.data.message)
               closedByMessage = true
+              clearInterval(popupCheckTimer)
+              clearInterval(storageCheckTimer)
               clearTimeout(connectionTimeout)
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
@@ -556,6 +560,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)
               closedByMessage = true
+              clearInterval(popupCheckTimer)
+              clearInterval(storageCheckTimer)
               clearTimeout(connectionTimeout)
               popup?.close()
               window.removeEventListener("message", messageHandler)
@@ -565,6 +571,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
             } else if (event.data && event.data.type === "oauth-cancelled") {
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
+              clearInterval(popupCheckTimer)
+              clearInterval(storageCheckTimer)
               clearTimeout(connectionTimeout)
               window.removeEventListener("message", messageHandler)
               // Reset global popup reference
@@ -575,9 +583,36 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           window.addEventListener("message", messageHandler)
 
+          // Add popup close detection (manual close by user)
+          let popupClosedManually = false
+          const popupCheckTimer = setInterval(() => {
+            try {
+              // Try to check if popup is closed (may fail due to COOP)
+              if (popup && popup.closed && !closedByMessage) {
+                console.log(`🚫 Popup was manually closed for ${providerId}`)
+                popupClosedManually = true
+                clearInterval(popupCheckTimer)
+                clearInterval(storageCheckTimer)
+                clearTimeout(connectionTimeout)
+                window.removeEventListener("message", messageHandler)
+                // Reset global popup reference
+                currentOAuthPopup = null
+                setLoading(`connect-${providerId}`, false)
+                // Don't set error for manual close - user intentionally cancelled
+                console.log(`User manually cancelled ${provider.name} connection`)
+              }
+            } catch (error) {
+              // COOP policy may block popup.closed access - this is expected
+              // We'll rely on other methods (localStorage, messages) in this case
+            }
+          }, 1000) // Check every second
+
           // Use localStorage to check for OAuth responses (COOP-safe)
           const storageCheckPrefix = `oauth_response_${providerId}`;
           const storageCheckTimer = setInterval(() => {
+            // Skip if popup was manually closed
+            if (popupClosedManually) return
+            
             try {
               // Check localStorage for any keys that match our prefix
               for (let i = 0; i < localStorage.length; i++) {
@@ -594,6 +629,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                       if (responseData.type === 'oauth-success') {
                         console.log(`✅ OAuth successful for ${providerId} via localStorage`);
                         closedByMessage = true;
+                        clearInterval(popupCheckTimer);
                         clearInterval(storageCheckTimer);
                         clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
@@ -610,6 +646,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         console.error(`❌ OAuth error for ${providerId} via localStorage:`, responseData.message);
                         setError(responseData.message);
                         closedByMessage = true;
+                        clearInterval(popupCheckTimer);
                         clearInterval(storageCheckTimer);
                         clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
@@ -619,6 +656,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                       } else if (responseData.type === 'oauth-cancelled') {
                         console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
                         closedByMessage = true;
+                        clearInterval(popupCheckTimer);
                         clearInterval(storageCheckTimer);
                         clearTimeout(connectionTimeout);
                         window.removeEventListener("message", messageHandler);
@@ -645,8 +683,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           // Add timeout for initial connection (5 minutes, same as reconnection)
           connectionTimeout = setTimeout(() => {
-            if (!closedByMessage) {
+            if (!closedByMessage && !popupClosedManually) {
               console.log(`⏰ OAuth connection timed out for ${providerId}`)
+              clearInterval(popupCheckTimer)
               clearInterval(storageCheckTimer)
               try {
                 popup.close()
@@ -1521,9 +1560,34 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           window.addEventListener("message", handleMessage)
           
+          // Add manual popup close detection for reconnection
+          let popupClosedManually = false
+          const popupCloseCheckTimer = setInterval(() => {
+            try {
+              // Try to check if popup is closed (may fail due to COOP)
+              if (popup && popup.closed && !messageReceived) {
+                console.log(`🚫 Reconnection popup was manually closed for ${integration.provider}`)
+                popupClosedManually = true
+                clearInterval(popupCloseCheckTimer)
+                clearInterval(checkPopupClosed)
+                window.removeEventListener("message", handleMessage)
+                // Reset global popup reference
+                currentOAuthPopup = null
+                // Don't reject - user intentionally cancelled
+                reject(new Error("User cancelled the reconnection"))
+              }
+            } catch (error) {
+              // COOP policy may block popup.closed access - this is expected
+              // We'll rely on other methods (localStorage, messages) in this case
+            }
+          }, 1000) // Check every second
+          
           // Use localStorage to check for OAuth responses (COOP-safe)
           const storageCheckPrefix = `oauth_response_${integration.provider}`;
           const checkPopupClosed = setInterval(() => {
+            // Skip if popup was manually closed
+            if (popupClosedManually) return
+            
             try {
               // Check localStorage for any keys that match our prefix
               for (let i = 0; i < localStorage.length; i++) {
@@ -1540,6 +1604,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                       if (responseData.type === 'oauth-success') {
                         console.log(`✅ OAuth reconnection successful via localStorage`);
                         messageReceived = true;
+                        clearInterval(popupCloseCheckTimer);
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
                         // Reset global popup reference
@@ -1550,6 +1615,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                       } else if (responseData.type === 'oauth-error') {
                         console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message);
                         messageReceived = true;
+                        clearInterval(popupCloseCheckTimer);
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
                         // Reset global popup reference
@@ -1558,6 +1624,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                       } else if (responseData.type === 'oauth-cancelled') {
                         console.log(`🚫 OAuth reconnection cancelled via localStorage`);
                         messageReceived = true;
+                        clearInterval(popupCloseCheckTimer);
                         clearInterval(checkPopupClosed);
                         window.removeEventListener("message", handleMessage);
                         // Reset global popup reference
@@ -1583,17 +1650,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           // Timeout after 5 minutes
           const timeout = setTimeout(() => {
-            console.log("⏰ OAuth reconnection timed out")
-            clearInterval(checkPopupClosed)
-            try {
-              popup.close()
-            } catch (e) {
-              console.warn("Failed to close popup on timeout:", e)
+            if (!messageReceived && !popupClosedManually) {
+              console.log("⏰ OAuth reconnection timed out")
+              clearInterval(popupCloseCheckTimer)
+              clearInterval(checkPopupClosed)
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup on timeout:", e)
+              }
+              window.removeEventListener("message", handleMessage)
+              // Reset global popup reference
+              currentOAuthPopup = null
+              reject(new Error("OAuth reconnection timed out"))
             }
-            window.removeEventListener("message", handleMessage)
-            // Reset global popup reference
-            currentOAuthPopup = null
-            reject(new Error("OAuth reconnection timed out"))
           }, 5 * 60 * 1000)
           
           // Clean up timeout and interval when message is received
@@ -1603,12 +1673,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Override resolve/reject to clean up timers
           const wrappedResolve = (value: any) => {
             clearTimeout(timeout)
+            clearInterval(popupCloseCheckTimer)
             clearInterval(checkPopupClosed)
             originalResolve(value)
           }
           
           const wrappedReject = (error: any) => {
             clearTimeout(timeout)
+            clearInterval(popupCloseCheckTimer)
             clearInterval(checkPopupClosed)
             originalReject(error)
           }

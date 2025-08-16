@@ -384,8 +384,14 @@ async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<s
 }
 
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  const clientId = process.env.TWITTER_CLIENT_ID
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("twitter")
+  if (!config) throw new Error("Twitter OAuth config not found")
+  
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("Twitter client ID not configured")
+  
   const baseUrl = getBaseUrl()
 
   // Generate PKCE challenge
@@ -403,15 +409,25 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store PKCE code verifier: ${error.message}`)
   }
 
+  // Use the scope from OAuth config, joining array scopes with spaces
+  const scopeString = Array.isArray(config.scope) 
+    ? config.scope.join(" ") 
+    : (config.scope || "tweet.read users.read offline.access")
+
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
-    scope: "tweet.read users.read tweet.write offline.access",
+    scope: scopeString,
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
   })
+
+  console.log('🐦 Twitter OAuth URL Generation:')
+  console.log('  - Scope from config:', config.scope)
+  console.log('  - Final scope string:', scopeString)
+  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
 
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
