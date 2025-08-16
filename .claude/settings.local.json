@@ -9,7 +9,8 @@
       "Bash(git push:*)",
       "Bash(rm:*)",
       "Bash(grep:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(taskkill:*)"
     ],
     "defaultMode": "acceptEdits"
   }
