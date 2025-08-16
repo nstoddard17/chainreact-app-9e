@@ -1854,5 +1854,5 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   }
 
   // Execute the handler with the provided parameters
-  return handler(config, userId, input)
+  return handler({ config, userId, input })
 }

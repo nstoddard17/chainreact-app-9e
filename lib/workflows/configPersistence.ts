@@ -72,6 +72,28 @@ export interface SavedNodeConfig {
 }
 
 /**
+ * Clear node configuration from local storage
+ * @param workflowId The ID of the workflow
+ * @param nodeId The ID of the node
+ * @param nodeType The type of the node
+ */
+export const clearNodeConfig = (
+  workflowId: string,
+  nodeId: string,
+  nodeType: string
+): void => {
+  if (typeof window === "undefined") return
+
+  try {
+    const key = getConfigKey(workflowId, nodeId, nodeType)
+    window.localStorage.removeItem(key)
+    console.log(`🗑️ Cleared saved configuration for node: ${nodeId}`)
+  } catch (error) {
+    console.error("Failed to clear node configuration:", error)
+  }
+}
+
+/**
  * Load node configuration from local storage
  * @param workflowId The ID of the workflow
  * @param nodeId The ID of the node

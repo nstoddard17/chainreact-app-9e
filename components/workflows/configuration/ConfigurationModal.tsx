@@ -231,6 +231,7 @@ export function ConfigurationModal({
             <VariablePickerSidePanel
               workflowData={workflowData}
               currentNodeId={currentNodeId}
+              currentNodeType={nodeInfo?.type}
             />
           )}
         </div>

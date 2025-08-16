@@ -287,19 +287,39 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "ai_agent":
         // Resolve variable references in config before executing
         const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
-        const aiNodeWithResolvedConfig = {
-          ...node,
-          data: {
-            ...node.data,
-            config: aiResolvedConfig
+        
+        console.log("🤖 AI Agent executing with resolved config:", JSON.stringify(aiResolvedConfig, null, 2))
+        
+        // Call AI agent directly instead of going through executeAction to avoid integration lookup
+        const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
+        nodeResult = await executeAIAgent({
+          userId: context.userId,
+          config: aiResolvedConfig,
+          input: {
+            ...context.data,
+            nodeOutputs: context.dataFlowManager.getNodeOutputs(),
+            dataFlowManager: context.dataFlowManager
+          },
+          workflowContext: {
+            nodes: context.workflowData?.nodes || [],
+            previousResults: context.dataFlowManager.getNodeOutputs()
+          }
+        })
+        
+        console.log("🤖 AI Agent raw result:", JSON.stringify(nodeResult, null, 2))
+        
+        // Transform result to match ActionResult interface expected by the execution flow
+        if (nodeResult && nodeResult.success) {
+          nodeResult = {
+            success: true,
+            output: {
+              output: nodeResult.output || "" // AI response goes into output.output for variable access
+            },
+            message: nodeResult.message || "AI Agent execution completed"
           }
         }
-        nodeResult = await executeAction({
-          node: aiNodeWithResolvedConfig,
-          input: context.data,
-          userId: context.userId,
-          workflowId: context.workflowId
-        })
+        
+        console.log("🤖 AI Agent transformed result:", JSON.stringify(nodeResult, null, 2))
         break
       case "google_calendar_action_create_event":
         nodeResult = await executeCalendarEventNode(node, context)
@@ -385,9 +405,17 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         // Handle any action type that ends with _action_ using the generic executeAction function
         if (node.data.type && node.data.type.includes('_action_')) {
           console.log(`Using generic executeAction for node type: ${node.data.type}`)
+          
+          // Enhance input with node outputs from DataFlowManager
+          const enhancedInput = {
+            ...context.data,
+            dataFlowManager: context.dataFlowManager,
+            nodeOutputs: context.dataFlowManager?.getNodeOutputs() || {}
+          }
+          
           nodeResult = await executeAction({
             node,
-            input: context.data,
+            input: enhancedInput,
             userId: context.userId,
             workflowId: context.workflowId
           })
@@ -2060,7 +2088,7 @@ async function executeGmailSendEmailNode(node: any, context: any) {
     const enhancedInput = {
       ...context.data,
       dataFlowManager: context.dataFlowManager,
-      nodeOutputs: context.dataFlowManager?.context?.nodeOutputs || {}
+      nodeOutputs: context.dataFlowManager?.getNodeOutputs() || {}
     }
     
     console.log(`📧 Enhanced input for Gmail action:`, {

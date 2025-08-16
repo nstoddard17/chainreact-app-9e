@@ -19,7 +19,10 @@ import EnhancedFileInput from "./EnhancedFileInput";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
+import { EmailRichTextEditor } from "./EmailRichTextEditor";
+import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 import { useEffect } from "react";
+import { useAuthStore } from "@/stores/authStore";
 
 /**
  * Props for the Field component
@@ -172,9 +175,51 @@ export function FieldRenderer({
     onChange(variable);
   };
 
+  // Get user session for email signature integration
+  const { user } = useAuthStore()
+
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
+      case "email-rich-text":
+        // Enhanced rich text editor specifically for email composition
+        return (
+          <EmailRichTextEditor
+            value={value || ""}
+            onChange={onChange}
+            placeholder={field.placeholder || "Compose your email..."}
+            error={error}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableInsert={onChange}
+            integrationProvider={field.provider || 'gmail'}
+            userId={user?.id}
+            className={cn(
+              error && "border-red-500"
+            )}
+          />
+        );
+
+      case "discord-rich-text":
+        // Enhanced rich text editor specifically for Discord message composition
+        return (
+          <DiscordRichTextEditor
+            value={value || ""}
+            onChange={onChange}
+            placeholder={field.placeholder || "Type your Discord message..."}
+            error={error}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableInsert={onChange}
+            guildId={workflowData?.nodes?.find(n => n.id === currentNodeId)?.data?.config?.guildId}
+            channelId={workflowData?.nodes?.find(n => n.id === currentNodeId)?.data?.config?.channelId}
+            userId={user?.id}
+            className={cn(
+              error && "border-red-500"
+            )}
+          />
+        );
+
       case "email-autocomplete":
         console.log(`📧 [FIELD] Rendering email-autocomplete for ${field.name}`, {
           fieldOptions: fieldOptions?.length || 0,
