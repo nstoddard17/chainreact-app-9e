@@ -27,50 +27,81 @@ export default function WaitingConfirmationPage() {
     }
 
     let pollInterval: NodeJS.Timeout
+    let broadcastChannel: BroadcastChannel | null = null
+
+    // Handle confirmation from any source
+    const handleConfirmation = (confirmData: any, source: string) => {
+      if (confirmData && confirmData.confirmed) {
+        console.log(`Email confirmed via ${source}!`)
+        setIsPolling(false)
+        localStorage.removeItem('pendingSignup')
+        localStorage.removeItem('emailConfirmed') // Clean up
+        router.push('/setup-username')
+      }
+    }
+
+    // Listen for confirmation from other tabs via storage events
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (event.key === 'emailConfirmed' && event.newValue) {
+        try {
+          const confirmData = JSON.parse(event.newValue)
+          handleConfirmation(confirmData, 'storage event')
+        } catch (error) {
+          console.error('Error parsing confirmation data:', error)
+        }
+      }
+    }
+
+    // Listen for confirmation via BroadcastChannel (more reliable)
+    try {
+      broadcastChannel = new BroadcastChannel('emailConfirmation')
+      broadcastChannel.onmessage = (event) => {
+        handleConfirmation(event.data, 'broadcast channel')
+      }
+    } catch (error) {
+      console.warn('BroadcastChannel not supported, using storage events only')
+    }
+
+    // Listen for storage events (when another tab confirms)
+    window.addEventListener('storage', handleStorageEvent)
 
     if (isPolling) {
-      // Poll for authentication status every 2 seconds
+      // Still poll as backup, but less frequently
       pollInterval = setInterval(async () => {
         try {
+          // Check localStorage first
+          const emailConfirmed = localStorage.getItem('emailConfirmed')
+          if (emailConfirmed) {
+            try {
+              const confirmData = JSON.parse(emailConfirmed)
+              if (confirmData.confirmed) {
+                handleConfirmation(confirmData, 'localStorage polling')
+                return
+              }
+            } catch (error) {
+              console.error('Error parsing localStorage confirmation data:', error)
+            }
+          }
+
+          // Fallback: check Supabase auth state (less frequently)
           console.log('Polling for confirmation...')
           const { data: { user: currentUser }, error } = await supabase.auth.getUser()
           
-          console.log('Current user:', currentUser?.id, 'Confirmed:', currentUser?.email_confirmed_at)
-          
           if (currentUser && currentUser.email_confirmed_at) {
-            console.log('Email confirmed! Proceeding to username setup...')
-            // Email is confirmed, clear pending signup
-            localStorage.removeItem('pendingSignup')
-            setIsPolling(false)
-            
-            // Initialize auth store to load user data
-            await initialize()
-            
-            // Check if user needs to set username
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('username')
-              .eq('id', currentUser.id)
-              .single()
-            
-            console.log('User profile:', profile)
-            
-            if (!profile?.username || profile.username.trim() === '') {
-              console.log('Redirecting to username setup')
-              router.push('/setup-username')
-            } else {
-              console.log('Redirecting to dashboard')
-              router.push('/dashboard')
-            }
+            handleConfirmation({ confirmed: true, userId: currentUser.id }, 'Supabase polling')
           }
         } catch (error) {
           console.error('Error checking auth status:', error)
         }
-      }, 2000)
+      }, 5000) // Reduced frequency to 5 seconds
     }
 
     return () => {
       if (pollInterval) clearInterval(pollInterval)
+      window.removeEventListener('storage', handleStorageEvent)
+      if (broadcastChannel) {
+        broadcastChannel.close()
+      }
     }
   }, [isPolling, user, router, initialize])
 
