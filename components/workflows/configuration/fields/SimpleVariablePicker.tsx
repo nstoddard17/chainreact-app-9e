@@ -18,6 +18,7 @@ interface SimpleVariablePickerProps {
   currentNodeId?: string
   onVariableSelect: (variable: string) => void
   fieldType?: string
+  currentNodeType?: string
 }
 
 /**
@@ -28,7 +29,8 @@ export function SimpleVariablePicker({
   workflowData,
   currentNodeId,
   onVariableSelect,
-  fieldType
+  fieldType,
+  currentNodeType
 }: SimpleVariablePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -118,14 +120,55 @@ export function SimpleVariablePicker({
     outputs: n.outputs.map(o => o.name)
   })));
 
-  // Filter nodes and outputs based on search term
+  // Function to get relevant AI agent outputs based on current node type
+  const getRelevantAIAgentOutputs = (currentNodeType: string): string[] => {
+    if (!currentNodeType) return ['output']; // Default to generic output
+    
+    // Email actions should show email-specific fields
+    if (currentNodeType.includes('gmail') || currentNodeType.includes('outlook') || currentNodeType.includes('email')) {
+      return ['email_subject', 'email_body', 'output'];
+    }
+    
+    // Discord actions should show discord-specific and general output
+    if (currentNodeType.includes('discord')) {
+      return ['output', 'discord_message'];
+    }
+    
+    // Slack actions should show slack-specific and general output
+    if (currentNodeType.includes('slack')) {
+      return ['output', 'slack_message'];
+    }
+    
+    // Notion actions should show notion-specific and general output
+    if (currentNodeType.includes('notion')) {
+      return ['output', 'notion_title', 'notion_content'];
+    }
+    
+    // For other actions, show general output
+    return ['output'];
+  };
+
+  // Filter nodes and outputs based on search term and context
   const filteredNodes = nodes.filter(node => {
-    // Filter out all outputs except output for AI agent nodes
+    // Context-aware filtering for AI agent nodes
     if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
-      // Create a copy of the node with only the output field
+      const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
+      console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in SimpleVariablePicker for ${currentNodeType}:`, {
+        currentNodeType,
+        relevantOutputs,
+        availableOutputs: node.outputs.map((o: any) => o.name),
+        originalOutputsCount: node.outputs.length
+      });
+      
+      // Filter AI agent outputs to only show relevant ones for the current action type
       const aiNodeOutputs = node.outputs.filter((output: any) => 
-        output.name === "output"
+        relevantOutputs.includes(output.name)
       );
+      
+      console.log(`🎯 [CONTEXT-AWARE] SimpleVariablePicker After filtering:`, {
+        filteredOutputsCount: aiNodeOutputs.length,
+        filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
+      });
       
       // Update the node's outputs
       node.outputs = aiNodeOutputs;
@@ -184,8 +227,9 @@ export function SimpleVariablePicker({
     console.log(`🎯 SimpleVariablePicker inserting template variable: ${variable}`)
     onVariableSelect(variable)
     
-    setIsOpen(false)
-    setSearchTerm('')
+    // Keep the dropdown open after selecting a variable
+    // setIsOpen(false) - removed to keep dropdown persistent
+    // setSearchTerm('') - keep search term for multiple selections
   }
 
   const copyToClipboard = async (text: string) => {

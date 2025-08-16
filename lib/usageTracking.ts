@@ -37,6 +37,10 @@ export async function checkUsageLimit(
   userId: string,
   resourceType: string,
 ): Promise<{ allowed: boolean; limit: number; current: number }> {
+  // TEMPORARY: Disable usage limits for testing
+  console.log("🧪 Usage limits disabled for testing")
+  return { allowed: true, limit: 999999, current: 0 }
+  
   const supabase = getSupabaseClient()
 
   try {

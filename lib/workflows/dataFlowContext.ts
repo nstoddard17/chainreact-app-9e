@@ -143,22 +143,60 @@ export class DataFlowManager {
       })))
       
       // Find the node by title using metadata
-      const nodeId = Object.keys(this.context.nodeMetadata).find(id => 
-        this.context.nodeMetadata[id].title === nodeTitle
-      )
+      const nodeId = Object.keys(this.context.nodeMetadata).find(id => {
+        const metadata = this.context.nodeMetadata[id]
+        const titleMatch = metadata.title === nodeTitle
+        console.log(`🔍 Checking node ${id}: title="${metadata.title}" vs looking for="${nodeTitle}" match=${titleMatch}`)
+        return titleMatch
+      })
       
       console.log(`🎯 Found nodeId for title "${nodeTitle}": ${nodeId}`)
       
-      if (nodeId) {
-        const output = this.getNodeOutput(nodeId)
-        const metadata = this.context.nodeMetadata[nodeId]
+      // If no exact title match, try multiple fallback strategies
+      let fallbackNodeId = nodeId
+      if (!nodeId) {
+        // Strategy 1: Look for AI agent by type
+        if (nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent")) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+            this.context.nodeMetadata[id].type === "ai_agent"
+          )
+          console.log(`🔄 Fallback 1: Looking for ai_agent type, found: ${fallbackNodeId}`)
+        }
+        
+        // Strategy 2: Look for partial title matches (case-insensitive)
+        if (!fallbackNodeId) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => {
+            const metadata = this.context.nodeMetadata[id]
+            return metadata.title.toLowerCase().includes(nodeTitle.toLowerCase()) || 
+                   nodeTitle.toLowerCase().includes(metadata.title.toLowerCase())
+          })
+          console.log(`🔄 Fallback 2: Looking for partial title match, found: ${fallbackNodeId}`)
+        }
+        
+        // Strategy 3: If looking for AI-related fields, find any AI agent node
+        if (!fallbackNodeId && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+            this.context.nodeMetadata[id].type === "ai_agent"
+          )
+          console.log(`🔄 Fallback 3: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
+        }
+      }
+      
+      if (fallbackNodeId) {
+        const output = this.getNodeOutput(fallbackNodeId)
+        const metadata = this.context.nodeMetadata[fallbackNodeId]
         
         if (output && output.success && metadata.outputSchema) {
-          console.log(`📋 Output schema for ${nodeId}:`, metadata.outputSchema)
+          console.log(`📋 Output schema for ${fallbackNodeId}:`, metadata.outputSchema)
           console.log(`💾 Actual output data:`, output.data)
           
           // Find the field by label in the output schema
-          const field = metadata.outputSchema.find(f => f.label === fieldLabel || f.name === fieldLabel)
+          const field = metadata.outputSchema.find(f => {
+            const labelMatch = f.label === fieldLabel
+            const nameMatch = f.name === fieldLabel
+            console.log(`🔍 Checking field: name="${f.name}" label="${f.label}" vs looking for="${fieldLabel}" labelMatch=${labelMatch} nameMatch=${nameMatch}`)
+            return labelMatch || nameMatch
+          })
           
           console.log(`🎯 Found field for label "${fieldLabel}":`, field)
           
@@ -185,7 +223,7 @@ export class DataFlowManager {
             return output.data
           }
         } else {
-          console.log(`❌ No valid output or metadata found for nodeId: ${nodeId}`)
+          console.log(`❌ No valid output or metadata found for nodeId: ${fallbackNodeId}`)
         }
       }
     }

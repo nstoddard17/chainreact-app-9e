@@ -693,6 +693,61 @@ export class AdvancedExecutionEngine {
         case 'custom_script':
           // Execute custom script
           break;
+        case 'ai_agent':
+          // Handle AI agent execution - doesn't need integration credentials
+          console.log(`🤖 Executing AI agent node: ${node.id}`);
+          try {
+            const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
+            const aiResult = await executeAIAgent({
+              userId: context.session.user_id,
+              config: node.data.config || {},
+              input: {
+                ...context.data,
+                // Add trigger data if available
+                triggerData: context.data.originalPayload || context.data,
+                workflowData: context.data
+              },
+              workflowContext: {
+                nodes: [],
+                previousResults: context.data
+              }
+            });
+            
+            console.log(`🤖 AI Agent result:`, JSON.stringify(aiResult, null, 2));
+            
+            if (aiResult && aiResult.success) {
+              result = {
+                ...context.data,
+                [node.id]: {
+                  success: true,
+                  output: {
+                    output: aiResult.output || "",
+                    subject: aiResult.subject || "Re: Your Message",
+                    body: aiResult.body || aiResult.output || ""
+                  },
+                  message: aiResult.message || "AI Agent execution completed"
+                }
+              };
+            } else {
+              result = {
+                ...context.data,
+                [node.id]: {
+                  success: false,
+                  error: aiResult.error || "AI Agent execution failed"
+                }
+              };
+            }
+          } catch (error: any) {
+            console.error(`❌ AI Agent execution failed:`, error);
+            result = {
+              ...context.data,
+              [node.id]: {
+                success: false,
+                error: error.message || "AI Agent execution failed"
+              }
+            };
+          }
+          break;
         // Other generic node types...
 
         default:
@@ -742,6 +797,11 @@ export class AdvancedExecutionEngine {
 
   private async getApiClientForNode(providerId: string | undefined, userId: string): Promise<any | null> {
     if (!providerId) return null;
+    
+    // AI agents don't need OAuth integrations - they use global OpenAI API key
+    if (providerId === 'ai') {
+      return { provider: 'ai', type: 'global' };
+    }
 
     const { data: integration, error } = await this.supabase
       .from('integrations')
@@ -849,6 +909,39 @@ export class AdvancedExecutionEngine {
               console.log(`🔧 Unknown field: "${fieldName}"`)
               return match
           }
+        }
+        
+        // Handle AI Agent variables like {{AI Agent.AI Agent Output}}
+        if (nodeName === 'AI Agent' || nodeName.includes('AI')) {
+          console.log(`🔧 Looking for AI Agent output in data:`, Object.keys(data))
+          
+          // Look for any node result that might be an AI agent
+          for (const [key, value] of Object.entries(data)) {
+            if (value && typeof value === 'object' && (value as any).output) {
+              const nodeResult = value as any
+              console.log(`🔧 Checking node result ${key}:`, JSON.stringify(nodeResult, null, 2))
+              
+              // Check if this looks like an AI agent result
+              if (nodeResult.output) {
+                // Handle specific field requests
+                if (fieldName === 'Email Subject' && nodeResult.output.subject) {
+                  console.log(`🔧 Found AI Agent subject: "${nodeResult.output.subject}"`)
+                  return nodeResult.output.subject
+                }
+                if (fieldName === 'Email Body' && nodeResult.output.body) {
+                  console.log(`🔧 Found AI Agent body: "${nodeResult.output.body}"`)
+                  return nodeResult.output.body
+                }
+                if ((fieldName === 'AI Agent Output' || fieldName === 'output') && nodeResult.output.output) {
+                  console.log(`🔧 Found AI Agent output: "${nodeResult.output.output}"`)
+                  return nodeResult.output.output
+                }
+              }
+            }
+          }
+          
+          console.log(`🔧 AI Agent output not found for field: "${fieldName}"`)
+          return match
         }
       }
       

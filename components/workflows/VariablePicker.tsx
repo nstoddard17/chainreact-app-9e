@@ -31,6 +31,7 @@ interface VariablePickerProps {
   currentNodeId?: string
   onVariableSelect?: (variable: string) => void
   fieldType?: string
+  currentNodeType?: string
   trigger?: React.ReactNode
 }
 
@@ -45,6 +46,7 @@ export function VariablePicker({
   currentNodeId,
   onVariableSelect,
   fieldType,
+  currentNodeType,
   trigger
 }: VariablePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -54,14 +56,8 @@ export function VariablePicker({
 
   // Function to handle popover state changes to prevent auto-closing
   const handleOpenChange = (open: boolean) => {
-    // If closing, check if it's due to an outside click
-    if (!open) {
-      // We set a timeout to allow click handlers inside to execute first
-      setTimeout(() => setIsOpen(open), 100);
-    } else {
-      // When opening, set immediately
-      setIsOpen(open);
-    }
+    // Only allow manual closing by clicking the trigger button or outside the popover
+    setIsOpen(open);
   };
 
   // Handle legacy interface
@@ -123,8 +119,60 @@ export function VariablePicker({
     )
   }
 
-  // Filter nodes and outputs based on search term
+  // Function to get relevant AI agent outputs based on current node type
+  const getRelevantAIAgentOutputs = (currentNodeType: string): string[] => {
+    if (!currentNodeType) return ['output']; // Default to generic output
+    
+    // Email actions should show email-specific fields
+    if (currentNodeType.includes('gmail') || currentNodeType.includes('outlook') || currentNodeType.includes('email')) {
+      return ['email_subject', 'email_body', 'output'];
+    }
+    
+    // Discord actions should show discord-specific and general output
+    if (currentNodeType.includes('discord')) {
+      return ['output', 'discord_message'];
+    }
+    
+    // Slack actions should show slack-specific and general output
+    if (currentNodeType.includes('slack')) {
+      return ['output', 'slack_message'];
+    }
+    
+    // Notion actions should show notion-specific and general output
+    if (currentNodeType.includes('notion')) {
+      return ['output', 'notion_title', 'notion_content'];
+    }
+    
+    // For other actions, show general output
+    return ['output'];
+  };
+
+  // Filter nodes and outputs based on search term and context
   const filteredNodes = nodes.filter(node => {
+    // Context-aware filtering for AI agent nodes
+    if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
+      const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
+      console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in VariablePicker for ${currentNodeType}:`, {
+        currentNodeType,
+        relevantOutputs,
+        availableOutputs: node.outputs.map((o: any) => o.name),
+        originalOutputsCount: node.outputs.length
+      });
+      
+      // Filter AI agent outputs to only show relevant ones for the current action type
+      const aiNodeOutputs = node.outputs.filter((output: any) => 
+        relevantOutputs.includes(output.name)
+      );
+      
+      console.log(`🎯 [CONTEXT-AWARE] After filtering:`, {
+        filteredOutputsCount: aiNodeOutputs.length,
+        filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
+      });
+      
+      // Update the node's outputs
+      node.outputs = aiNodeOutputs;
+    }
+
     const nodeMatches = node.title.toLowerCase().includes(searchTerm.toLowerCase())
     const outputMatches = node.outputs.some((output: any) => 
       output.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,8 +188,9 @@ export function VariablePicker({
       console.log(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
       handleChange(variable)
     }
-    setIsOpen(false)
-    setSearchTerm('')
+    // Keep the popover open after selecting a variable
+    // setIsOpen(false) - removed to keep dropdown persistent
+    // setSearchTerm('') - keep search term for multiple selections
   }
 
   const copyToClipboard = async (text: string) => {
@@ -175,8 +224,9 @@ export function VariablePicker({
     } else if (handleChange) {
       handleChange(variable)
     }
-    setIsOpen(false)
-    setSearchTerm('')
+    // Keep the popover open after inserting a variable
+    // setIsOpen(false) - removed to keep dropdown persistent
+    // setSearchTerm('') - keep search term for multiple selections
   }
 
   return (

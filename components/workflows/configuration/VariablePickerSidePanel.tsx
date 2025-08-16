@@ -75,12 +75,14 @@ const RELEVANT_OUTPUTS: Record<string, string[]> = {
 interface VariablePickerSidePanelProps {
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
+  currentNodeType?: string
   onVariableSelect?: (variable: string) => void
 }
 
 export function VariablePickerSidePanel({
   workflowData,
   currentNodeId,
+  currentNodeType,
   onVariableSelect
 }: VariablePickerSidePanelProps) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -89,8 +91,53 @@ export function VariablePickerSidePanel({
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
 
+  // Function to get relevant AI agent outputs based on current node type
+  const getRelevantAIAgentOutputs = useCallback((currentNodeType: string): string[] => {
+    if (!currentNodeType) return ['output']; // Default to generic output
+    
+    // Email actions should show email-specific fields
+    if (currentNodeType.includes('gmail') || currentNodeType.includes('outlook') || currentNodeType.includes('email')) {
+      return ['email_subject', 'email_body', 'output'];
+    }
+    
+    // Discord actions should show discord-specific and general output
+    if (currentNodeType.includes('discord')) {
+      return ['output', 'discord_message'];
+    }
+    
+    // Slack actions should show slack-specific and general output
+    if (currentNodeType.includes('slack')) {
+      return ['output', 'slack_message'];
+    }
+    
+    // Notion actions should show notion-specific and general output
+    if (currentNodeType.includes('notion')) {
+      return ['output', 'notion_title', 'notion_content'];
+    }
+    
+    // For other actions, show general output
+    return ['output'];
+  }, []);
+
   // Function to filter outputs based on node type
   const getRelevantOutputs = useCallback((nodeType: string, allOutputs: any[]) => {
+    // Special context-aware filtering for AI agent nodes based on current action type
+    if (nodeType === 'ai_agent' && currentNodeType) {
+      const relevantAIOutputs = getRelevantAIAgentOutputs(currentNodeType);
+      const filteredOutputs = allOutputs.filter(output => relevantAIOutputs.includes(output.name));
+      
+      console.log(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
+        nodeType,
+        currentNodeType,
+        relevantAIOutputs,
+        originalOutputs: allOutputs.map(o => o.name),
+        filteredOutputs: filteredOutputs.map(o => o.name)
+      });
+      
+      return filteredOutputs;
+    }
+    
+    // Default filtering logic for other node types
     const relevantOutputNames = RELEVANT_OUTPUTS[nodeType] || RELEVANT_OUTPUTS['default']
     
     if (relevantOutputNames.length === 0) {
@@ -111,7 +158,7 @@ export function VariablePickerSidePanel({
     })
     
     return relevantOutputs
-  }, [])
+  }, [currentNodeType, getRelevantAIAgentOutputs])
   
   // Access test store data
   const { 
@@ -304,8 +351,10 @@ export function VariablePickerSidePanel({
     e.dataTransfer.effectAllowed = 'copy'
   }
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    e.preventDefault()
+  const handleDragEnd = (e?: React.DragEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
   }
 
   // Run workflow test to get actual output values
@@ -417,7 +466,10 @@ export function VariablePickerSidePanel({
             <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-r from-purple-400 to-purple-600 rounded-md shadow-sm">
               <span className="text-sm font-mono font-semibold text-white">{`{}`}</span>
             </div>
-            <h3 className="text-lg font-semibold text-white">Variables</h3>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Variables</h3>
+              <span className="text-xs text-white/80">Click headers to expand/collapse</span>
+            </div>
           </div>
           <TooltipProvider>
             <Tooltip>
@@ -549,9 +601,18 @@ export function VariablePickerSidePanel({
                             key={`${node.id}-${output.name}`}
                             className={`flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
-                            onDragStart={(e) => handleDragStart(e, variableRef)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => handleVariableSelect(variableRef, node.id, output.name)}
+                            onDragStart={(e) => {
+                              e.stopPropagation() // Prevent collapsible from closing
+                              handleDragStart(e, variableRef)
+                            }}
+                            onDragEnd={(e) => {
+                              e.stopPropagation() // Prevent collapsible from closing
+                              handleDragEnd(e)
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation() // Prevent collapsible from closing
+                              handleVariableSelect(variableRef, node.id, output.name)
+                            }}
                           >
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-700 border-blue-200 ${hasValue ? 'border-green-300' : ''}`}>

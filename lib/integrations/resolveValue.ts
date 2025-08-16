@@ -71,14 +71,22 @@ function resolveStringTemplate(
     // If not found in context and we have a DataFlowManager, try that
     if (dataFlowManager && dataFlowManager.resolveVariable) {
       console.log(`🔧 Trying DataFlowManager for: "${match}"`)
-      const dataFlowValue = dataFlowManager.resolveVariable(match)
-      
-      if (dataFlowValue !== match) { // If it resolved to something different
-        console.log(`✅ DataFlowManager resolved:`, dataFlowValue)
-        return typeof dataFlowValue === 'object' 
-          ? JSON.stringify(dataFlowValue) 
-          : String(dataFlowValue)
+      try {
+        const dataFlowValue = dataFlowManager.resolveVariable(match)
+        
+        if (dataFlowValue !== match) { // If it resolved to something different
+          console.log(`✅ DataFlowManager resolved:`, dataFlowValue)
+          return typeof dataFlowValue === 'object' 
+            ? JSON.stringify(dataFlowValue) 
+            : String(dataFlowValue)
+        } else {
+          console.log(`⚠️ DataFlowManager could not resolve: "${match}"`)
+        }
+      } catch (error) {
+        console.error(`❌ DataFlowManager error for "${match}":`, error)
       }
+    } else {
+      console.log(`⚠️ No DataFlowManager available for: "${match}"`)
     }
     
     console.log(`❌ Could not resolve: "${match}"`)
