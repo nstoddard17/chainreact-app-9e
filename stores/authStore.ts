@@ -435,10 +435,37 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          // Clear local state immediately to prevent loading screens
-          set({ user: null, profile: null, loading: false, error: null })
+          // Clear local state immediately and mark as signed out
+          set({ 
+            user: null, 
+            profile: null, 
+            loading: false, 
+            error: null, 
+            initialized: false, // Reset initialization to prevent auto-login
+            hydrated: false 
+          })
 
-          // Clear all stores synchronously
+          // Clear localStorage immediately to prevent rehydration
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('chainreact-auth')
+            localStorage.removeItem('pendingSignup')
+            
+            // Clear any Supabase session data that might be cached
+            const keys = Object.keys(localStorage)
+            keys.forEach(key => {
+              if (key.startsWith('sb-') || key.includes('supabase')) {
+                localStorage.removeItem(key)
+              }
+            })
+          }
+
+          // Sign out from Supabase and wait for completion
+          const { error: signOutError } = await supabase.auth.signOut()
+          if (signOutError) {
+            console.error("Supabase sign out error:", signOutError)
+          }
+
+          // Clear all stores after successful sign out
           try {
             // Clear integration store
             const { useIntegrationStore } = await import("./integrationStore")
@@ -484,22 +511,41 @@ export const useAuthStore = create<AuthState>()(
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('user-signout'))
           }
-          
-          // Sign out from Supabase (don't wait for this to complete)
-          supabase.auth.signOut().catch(error => {
-            console.error("Supabase sign out error:", error)
-          })
 
-          // Redirect immediately
+          // Force a hard redirect to ensure clean state
           if (typeof window !== 'undefined') {
-            window.location.href = '/'
+            window.location.replace('/')
           }
         } catch (error: any) {
           console.error("Sign out error:", error)
-          set({ error: error.message, loading: false })
+          
+          // Clear everything even if sign out failed
+          set({ 
+            user: null, 
+            profile: null, 
+            loading: false, 
+            error: null, 
+            initialized: false,
+            hydrated: false 
+          })
+          
+          // Clear localStorage even if sign out failed
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('chainreact-auth')
+            localStorage.removeItem('pendingSignup')
+            
+            // Clear any Supabase session data
+            const keys = Object.keys(localStorage)
+            keys.forEach(key => {
+              if (key.startsWith('sb-') || key.includes('supabase')) {
+                localStorage.removeItem(key)
+              }
+            })
+          }
+          
           // Still redirect even if there's an error
           if (typeof window !== 'undefined') {
-            window.location.href = '/'
+            window.location.replace('/')
           }
         }
       },
