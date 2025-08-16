@@ -28,12 +28,12 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
 
   const handleSignOut = async () => {
     try {
+      console.log("Starting sign out process...")
       await signOut()
-      // Redirect to homepage after successful logout
-      router.push("/")
+      // signOut() handles the redirect automatically, don't redirect here
     } catch (error) {
       console.error("Logout error:", error)
-      // Still redirect even if there's an error
+      // Only redirect if signOut failed completely
       router.push("/")
     }
   }

@@ -32,9 +32,13 @@ export default function WaitingConfirmationPage() {
       // Poll for authentication status every 2 seconds
       pollInterval = setInterval(async () => {
         try {
+          console.log('Polling for confirmation...')
           const { data: { user: currentUser }, error } = await supabase.auth.getUser()
           
+          console.log('Current user:', currentUser?.id, 'Confirmed:', currentUser?.email_confirmed_at)
+          
           if (currentUser && currentUser.email_confirmed_at) {
+            console.log('Email confirmed! Proceeding to username setup...')
             // Email is confirmed, clear pending signup
             localStorage.removeItem('pendingSignup')
             setIsPolling(false)
@@ -49,9 +53,13 @@ export default function WaitingConfirmationPage() {
               .eq('id', currentUser.id)
               .single()
             
+            console.log('User profile:', profile)
+            
             if (!profile?.username || profile.username.trim() === '') {
+              console.log('Redirecting to username setup')
               router.push('/setup-username')
             } else {
+              console.log('Redirecting to dashboard')
               router.push('/dashboard')
             }
           }

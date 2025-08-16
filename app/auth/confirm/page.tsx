@@ -11,10 +11,16 @@ import { supabase } from "@/utils/supabaseClient"
 export default function EmailConfirmPage() {
   const [countdown, setCountdown] = useState(5)
   const [processing, setProcessing] = useState(true)
+  const [fromEmail, setFromEmail] = useState(false)
   const router = useRouter()
   const { initialize } = useAuthStore()
 
   useEffect(() => {
+    // Check if this came from email link
+    const urlParams = new URLSearchParams(window.location.search)
+    const isFromEmail = urlParams.get('from') === 'email'
+    setFromEmail(isFromEmail)
+
     const handleEmailConfirmation = async () => {
       try {
         // Get current user
@@ -71,8 +77,23 @@ export default function EmailConfirmPage() {
 
         setProcessing(false)
 
-        // This page is reached from email link - show success and ask to close tab
-        // The waiting tab will detect confirmation and proceed automatically
+        // If this came from email click, show close tab message
+        // If not from email, continue to username setup
+        if (!isFromEmail) {
+          // This is a direct navigation, proceed to username setup
+          const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
+          
+          if (!hasUsername) {
+            setTimeout(() => {
+              router.push('/setup-username')
+            }, 2000)
+          } else {
+            setTimeout(() => {
+              router.push('/dashboard')
+            }, 2000)
+          }
+        }
+        // If from email, just show the close tab message (no redirect)
         
       } catch (error) {
         console.error('Error handling email confirmation:', error)
@@ -117,14 +138,19 @@ export default function EmailConfirmPage() {
               
               <p className="text-blue-200 mb-6 leading-relaxed">
                 Welcome to ChainReact! Your email has been verified and your account is now active.
-                {processing ? " We're setting up your profile..." : " You can now close this tab."}
+                {processing 
+                  ? " We're setting up your profile..." 
+                  : fromEmail 
+                    ? " You can now close this tab." 
+                    : " Let's complete your profile setup."
+                }
               </p>
 
               {processing ? (
                 <div className="flex justify-center mb-6">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 </div>
-              ) : (
+              ) : fromEmail ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-green-600/20 rounded-lg border border-green-500/30 mb-4">
                     <p className="text-green-200 text-sm font-medium text-center">
@@ -146,13 +172,30 @@ export default function EmailConfirmPage() {
                     </Button>
                   </Link>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <Link href="/setup-username">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Set Up Username
+                    </Button>
+                  </Link>
+
+                  <Link href="/dashboard">
+                    <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                      Skip for Now
+                    </Button>
+                  </Link>
+                </div>
               )}
 
               <div className="mt-6 p-4 bg-blue-600/20 rounded-lg border border-blue-500/30">
                 <p className="text-sm text-blue-200">
                   {processing 
                     ? "Setting up your account..." 
-                    : "Return to your original tab to continue setup"
+                    : fromEmail 
+                      ? "Return to your original tab to continue setup"
+                      : `Redirecting to username setup in ${countdown} seconds...`
                   }
                 </p>
               </div>
