@@ -47,6 +47,44 @@ function encodeBase64(text: string): string {
 }
 
 /**
+ * Formats email body for professional appearance
+ */
+function formatEmailBody(body: string, isHtml: boolean = false): string {
+  if (isHtml) {
+    // For HTML emails, wrap in proper HTML structure with clean styling
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            max-width: 600px;
+            margin: 0;
+            padding: 20px;
+        }
+        p { 
+            margin: 16px 0; 
+        }
+    </style>
+</head>
+<body>
+    ${body.replace(/\n/g, '<br>')}
+</body>
+</html>`.trim()
+  } else {
+    // For plain text emails, just clean up formatting
+    return body
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+}
+
+/**
  * Sends an email via the Gmail API
  * 
  * @param params - Standard action parameters
@@ -63,10 +101,51 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
     // 1. Get Gmail OAuth token
     const credentials = await getIntegrationCredentials(userId, "gmail")
     
-    // 2. Resolve any templated values in the config
+    // 2. Resolve any templated values in the config using the enhanced DataFlowManager
+    let dataFlowManager = input?.dataFlowManager
+    
+    // If we don't have a DataFlowManager, create a simple fallback
+    if (!dataFlowManager && input?.nodeOutputs) {
+      console.log(`📧 Creating fallback DataFlowManager`)
+      dataFlowManager = {
+        resolveVariable: (ref: string) => {
+          console.log(`📧 Fallback resolver trying to resolve: ${ref}`)
+          if (typeof ref === 'string') {
+            const match = ref.match(/\{\{([^.]+)\.([^}]+)\}\}/)
+            if (match) {
+              const [, nodeTitle, fieldName] = match
+              console.log(`📧 Looking for nodeTitle: ${nodeTitle}, fieldName: ${fieldName}`)
+              console.log(`📧 Available nodeOutputs:`, Object.keys(input.nodeOutputs))
+              
+              // Find node by title in the stored outputs
+              for (const [nodeId, output] of Object.entries(input.nodeOutputs)) {
+                if (output && (output as any).data) {
+                  const data = (output as any).data
+                  // Check for exact field match
+                  if (data[fieldName] !== undefined) {
+                    console.log(`📧 Found field "${fieldName}" in node ${nodeId}:`, data[fieldName])
+                    return data[fieldName]
+                  }
+                  // Special handling for AI Agent outputs
+                  if (data.output !== undefined && (fieldName === "AI Agent Output" || fieldName === "output")) {
+                    console.log(`📧 Found AI output in node ${nodeId}:`, data.output)
+                    return data.output
+                  }
+                }
+              }
+            }
+          }
+          console.log(`📧 Could not resolve variable: ${ref}`)
+          return ref // Return unchanged if not found
+        }
+      }
+    }
+    
+    console.log(`📧 Using DataFlowManager:`, dataFlowManager ? 'Available' : 'Not available')
+    
     const resolvedConfig = resolveValue(config, {
       input,
-    })
+    }, dataFlowManager)
     
     console.log(`📧 Resolved config:`, JSON.stringify(resolvedConfig, null, 2))
     
@@ -110,6 +189,9 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       }
     }
     
+    // 4.5. Format email body for professional appearance
+    const formattedBody = formatEmailBody(body, isHtml)
+    
     // 5. Construct the email headers and body
     const emailLines = [
       `To: ${to}`,
@@ -118,7 +200,7 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       bcc ? `Bcc: ${bcc}` : '',
       'Content-Type: ' + (isHtml ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8'),
       '',
-      body
+      formattedBody
     ]
     
     console.log(`📧 EMAIL LINES:`, emailLines)

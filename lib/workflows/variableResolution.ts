@@ -71,9 +71,9 @@ export function getNodeVariableValues(
   const output = nodeResult.output || {}
   
   // Handle AI agent's nested output structure: { output: { output: "actual value" } }
-  if (output.output && typeof output.output === 'object' && Object.keys(output).length === 1) {
-    // This is likely an AI agent output, flatten it
-    return output.output
+  if (output.output !== undefined && Object.keys(output).length === 1) {
+    // This is likely an AI agent output, return the nested output
+    return { output: output.output }
   }
   
   return output
