@@ -657,13 +657,13 @@ export const useAuthStore = create<AuthState>()(
             password,
             options: {
               data: metadata || {},
-              // Don't set emailRedirectTo to prevent Supabase from sending emails
+              emailRedirectTo: `${baseUrl}/auth/waiting-confirmation?confirmed=true`
             },
           })
 
           if (error) throw error
 
-          // Store signup data temporarily
+          // Store signup data temporarily for the waiting page
           if (data.user) {
             localStorage.setItem('pendingSignup', JSON.stringify({
               userId: data.user.id,
@@ -671,28 +671,6 @@ export const useAuthStore = create<AuthState>()(
               metadata: metadata,
               timestamp: Date.now()
             }))
-
-            // Send custom confirmation email via Resend
-            try {
-              const response = await fetch('/api/auth/send-confirmation', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                  email: data.user.email, 
-                  userId: data.user.id,
-                  username: metadata?.first_name || metadata?.full_name || 'there'
-                }),
-              })
-
-              if (!response.ok) {
-                console.error('Failed to send custom confirmation email')
-              }
-            } catch (emailError) {
-              console.error('Error sending custom confirmation email:', emailError)
-              // Don't throw - let signup continue even if email fails
-            }
           }
 
           set({ loading: false })
