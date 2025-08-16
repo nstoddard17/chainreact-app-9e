@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from "../utils/getBaseUrl"
+import { sendCustomEmail } from './resend'
 
 interface EmailOptions {
   to: string
@@ -91,27 +92,19 @@ export class EmailService {
 
   private async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      // For now, we'll use a simple console log to simulate email sending
-      // In production, you would integrate with a service like SendGrid, AWS SES, or Resend
-      console.log('Sending email:', {
+      const result = await sendCustomEmail({
         to: options.to,
         subject: options.subject,
-        html: options.html.substring(0, 200) + '...',
-        text: options.text?.substring(0, 200) + '...'
+        html: options.html,
+        text: options.text,
       })
 
-      // TODO: Integrate with actual email service
-      // Example with SendGrid:
-      // const sgMail = require('@sendgrid/mail')
-      // sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-      // await sgMail.send({
-      //   to: options.to,
-      //   from: process.env.FROM_EMAIL,
-      //   subject: options.subject,
-      //   html: options.html,
-      //   text: options.text
-      // })
+      if (!result.success) {
+        console.error('Failed to send email via Resend:', result.error)
+        return false
+      }
 
+      console.log('Email sent successfully via Resend:', result.id)
       return true
     } catch (error) {
       console.error('Failed to send email:', error)

@@ -1,7 +1,5 @@
-"use client"
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { loadNodeConfig, saveNodeConfig, clearNodeConfig } from "@/lib/workflows/configPersistence"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,20 +7,28 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { useConfigPreferences } from "@/hooks/use-config-preferences"
+import { useIntegrationSpecificData } from "@/hooks/use-integration-specific-data"
+import { useToast } from "@/hooks/use-toast"
+
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
 import { GmailLabelsInput } from "@/components/ui/gmail-labels-input"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
-import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Variable } from "lucide-react"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
+import { Calendar } from "@/components/ui/calendar"
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addWeeks } from "date-fns"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus, Copy, Variable } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
@@ -34,10 +40,19 @@ import SlackTemplatePreview from "../ui/slack-template-preview"
 import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
 import { DiscordUserSelector } from "./DiscordUserSelector"
 import { DiscordMessagesPreview } from "./DiscordMessagesPreview"
+import { DiscordChannelsPreview } from "./DiscordChannelsPreview"
+import { DiscordMembersPreview } from "./DiscordMembersPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
+import { FacebookInsightsPreview } from "./FacebookInsightsPreview"
+import { FacebookMessagePreview } from "./FacebookMessagePreview"
+import { FacebookCommentPreview } from "./FacebookCommentPreview"
 import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
 import { Smile } from "lucide-react"
+import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
+import DynamicFieldInputs from "./DynamicFieldInputs"
+import AllFieldsSelector from "./AllFieldsSelector"
+import CompanyFieldsSelector from "./CompanyFieldsSelector"
 
 
 import { getUser } from "@/lib/supabase-client";
@@ -882,9 +897,8 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               currentNodeId={currentNodeId}
               onVariableSelect={(variable) => onValueChange(variable)}
               fieldType="file"
-              currentNodeType={nodeInfo?.type}
               trigger={
-                <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
                   <span className="text-sm font-mono">{`{}`}</span>
                 </Button>
               }
@@ -1004,7 +1018,7 @@ const FreeLabel = () => (
   }}>✅ Free</span>
 );
 
-export default function ConfigurationModal({
+function ConfigurationModal({
   isOpen,
   onClose,
   onSave,
@@ -1014,29 +1028,6 @@ export default function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
-  // Debug: Log the full nodeInfo object for Gmail
-  if (nodeInfo?.type === 'gmail_action_send_email') {
-    console.log('🔍 Gmail nodeInfo debug:', {
-      nodeInfo,
-      hasProviderId: 'providerId' in nodeInfo,
-      providerIdValue: nodeInfo.providerId,
-      allKeys: Object.keys(nodeInfo)
-    });
-  }
-  
-  // Ensure nodeInfo has providerId set correctly for Gmail
-  if (nodeInfo && nodeInfo.type === 'gmail_action_send_email' && !nodeInfo.providerId) {
-    console.log('🔧 Fixing missing providerId for Gmail action');
-    nodeInfo.providerId = 'gmail';
-  }
-  
-  console.log("🔍 ConfigurationModal rendered:", { 
-    isOpen, 
-    nodeType: nodeInfo?.type, 
-    integrationName,
-    providerId: nodeInfo?.providerId,
-    nodeInfoKeys: nodeInfo ? Object.keys(nodeInfo) : []
-  });
   
   // ADD DEBUG LOG FOR TRELLO
   if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
@@ -1052,149 +1043,48 @@ export default function ConfigurationModal({
   
   // State to control tooltip visibility
   const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
+  const [config, setConfig] = useState<Record<string, any>>(initialData)
   
-  // Get workflow ID from the URL or context
-  const getWorkflowId = useCallback(() => {
-    if (typeof window === "undefined") return ""
-    
-    // Extract workflow ID from URL (e.g., /workflows/builder/[id])
-    const pathParts = window.location.pathname.split('/')
-    const builderIndex = pathParts.indexOf('builder')
-    
-    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
-      return pathParts[builderIndex + 1]
-    }
-    
-    return ""
-  }, [])
-  
-  // Initialize state for dynamic options
-  const [dynamicOptions, setDynamicOptions] = useState<
-    Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>
-  >({})
-  
-  // Track errors for dynamic fields
-  const [dynamicErrors, setDynamicErrors] = useState<Record<string, string>>({})
-  
-  // Gmail enhanced recipients loading
-  useEffect(() => {
-    const loadGmailRecipients = async () => {
-      console.log('🔍 Gmail loading effect triggered:', { 
-        isOpen, 
-        nodeType: nodeInfo?.type, 
-        expectedType: 'gmail_action_send_email',
-        matches: nodeInfo?.type === 'gmail_action_send_email'
-      });
-      
-      // Only proceed if modal is open and it's a Gmail send email node
-      if (!isOpen || nodeInfo?.type !== 'gmail_action_send_email') {
-        console.log('❌ Gmail loading skipped due to conditions not met');
-        return;
-      }
-      
-      console.log('🚀 Loading Gmail enhanced recipients...');
-      
-      const integration = getIntegrationByProvider('gmail');
-      console.log('🔍 Gmail integration lookup result:', integration ? {
-        id: integration.id,
-        provider: integration.provider,
-        status: integration.status
-      } : 'null');
-      
-      if (!integration) {
-        console.error('❌ No Gmail integration found');
-        setDynamicErrors(prev => ({
-          ...prev,
-          'gmail-enhanced-recipients': 'Gmail integration not found. Please connect your Gmail account.'
-        }));
-        return;
-      }
-      
-      try {
-        console.log('📡 Calling loadIntegrationData for gmail-enhanced-recipients with integration ID:', integration.id);
-        const data = await loadIntegrationData('gmail-enhanced-recipients', integration.id);
-        console.log('📦 loadIntegrationData returned:', { 
-          isArray: Array.isArray(data), 
-          length: Array.isArray(data) ? data.length : 'not array',
-          type: typeof data,
-          data: data 
-        });
-        
-        if (data && Array.isArray(data)) {
-          console.log('✅ Gmail recipients loaded:', data.length, 'items');
-          console.log('📧 Sample recipients:', data.slice(0, 3));
-          
-          // Update dynamic options with the data
-          setDynamicOptions(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': data
-          }));
-          
-          // Clear any errors
-          setDynamicErrors(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': undefined
-          }));
-        } else {
-          console.warn('⚠️ No Gmail recipients data returned or not an array');
-          setDynamicOptions(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': []
-          }));
-          setDynamicErrors(prev => ({
-            ...prev,
-            'gmail-enhanced-recipients': 'No email suggestions available. Make sure your Gmail account has sent or received emails.'
-          }));
-        }
-      } catch (error) {
-        console.error('❌ Error loading Gmail recipients:', error);
-        setDynamicErrors(prev => ({
-          ...prev,
-          'gmail-enhanced-recipients': 'Unable to load email suggestions. Please check your Gmail integration.'
-        }));
-      }
-    };
-    
-    loadGmailRecipients();
-    
-  }, [isOpen, nodeInfo?.type, getIntegrationByProvider, loadIntegrationData]);
-
-  // Debug dynamic options state
-  useEffect(() => {
-    console.log('🔍 Dynamic options updated:', Object.keys(dynamicOptions))
-    if (dynamicOptions['gmail-enhanced-recipients']) {
-      console.log('📧 Gmail enhanced recipients in dynamic options:', dynamicOptions['gmail-enhanced-recipients'].length, 'items')
-    }
-  }, [dynamicOptions])
-  
-  // Initialize config with persisted data or initialData
-  const [config, setConfig] = useState<Record<string, any>>(() => {
-    // Only try to load saved config if we have a valid node ID (not a pending node)
-    if (currentNodeId && currentNodeId !== 'pending-action' && currentNodeId !== 'pending-trigger' && nodeInfo?.type) {
-      const workflowId = getWorkflowId()
-      if (workflowId) {
-        const savedNodeData = loadNodeConfig(workflowId, currentNodeId, nodeInfo.type)
-        if (savedNodeData) {
-          console.log('📋 Loaded saved configuration for node:', currentNodeId)
-          
-          // If we have saved dynamic options, restore them
-          if (savedNodeData.dynamicOptions) {
-            console.log('📋 Restoring saved dynamic options')
-            // Use setTimeout to ensure this happens after initial render
-            setTimeout(() => {
-              setDynamicOptions(prev => ({
-                ...prev,
-                ...savedNodeData.dynamicOptions
-              }))
-            }, 0)
-          }
-          
-          return { ...initialData, ...savedNodeData.config }
-        }
-      }
-    }
-    return initialData
+  // Config preferences hook for persistent storage
+  const configPreferences = useConfigPreferences({
+    nodeType: nodeInfo?.type || "",
+    providerId: nodeInfo?.providerId || "",
+    autoSave: true,
+    autoLoad: true,
+    debounceMs: 1000
   })
+  
+  // Memoize saved preferences to prevent unnecessary re-renders
+  const savedPreferences = useMemo(() => {
+    if (isOpen && nodeInfo?.type && !configPreferences.loading) {
+      return configPreferences.getFields()
+    }
+    return {}
+  }, [isOpen, nodeInfo?.type, configPreferences.loading, configPreferences.preferences])
+
+  // Load saved preferences when modal opens and apply them to config
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type && !configPreferences.loading) {
+      if (Object.keys(savedPreferences).length > 0) {
+        console.log('🔄 Loading saved preferences for', nodeInfo.type, ':', savedPreferences)
+        
+        // Merge saved preferences with initial data, giving priority to saved preferences
+        // but preserve any existing node configuration that might be more specific
+        const mergedConfig = {
+          ...initialData,
+          ...savedPreferences,
+          // Preserve any existing node-specific data that shouldn't be overridden
+          ...(currentNodeId && initialData ? { nodeId: currentNodeId } : {})
+        }
+        
+        setConfig(mergedConfig)
+        console.log('✅ Applied saved preferences to config:', mergedConfig)
+      } else {
+        console.log('📝 No saved preferences found for', nodeInfo.type)
+        setConfig(initialData)
+      }
+    }
+  }, [isOpen, nodeInfo?.type, configPreferences.loading, savedPreferences, initialData, currentNodeId])
   
   // Enable tooltips after modal opens
   useEffect(() => {
@@ -1218,7 +1108,43 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type])
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
+  const { getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
+  
+  // Use integration-specific data loading to avoid cross-integration API calls
+  const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
+  const { loadData: loadIntegrationSpecificData, loadNotionDatabaseProperties, loading: dataLoading, error: dataError } = useIntegrationSpecificData({
+    integrationId: integration?.id,
+    providerId: nodeInfo?.providerId
+  })
+  
+  // Toast hook for notifications
+  const { toast } = useToast()
+  
+  // Coordinate data loading to prevent race conditions
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type && !dataLoading && !configPreferences.loading) {
+      // This effect ensures that data loading happens after preferences are loaded
+      // and prevents race conditions between different loading processes
+      console.log('🔄 Data loading coordination: All systems ready for', nodeInfo.type)
+    }
+  }, [isOpen, nodeInfo?.type, dataLoading, configPreferences.loading])
+  
+  // Debug logging after all variables are declared
+  console.log("🔍 ConfigurationModal rendered:", { 
+    isOpen, 
+    nodeType: nodeInfo?.type, 
+    integrationName,
+    integration: integration ? { id: integration.id, provider: integration.provider, status: integration.status } : null,
+    configPreferences: {
+      loading: configPreferences.loading,
+      preferencesCount: Object.keys(configPreferences.preferences).length
+    },
+    dataLoading,
+    dataError
+  });
+  const [dynamicOptions, setDynamicOptions] = useState<
+    Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>
+  >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [createNewTables, setCreateNewTables] = useState<Record<string, boolean>>({})
@@ -1347,6 +1273,13 @@ export default function ConfigurationModal({
   // Discord specific loading states
   const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false)
   const [loadingDiscordMessages, setLoadingDiscordMessages] = useState(false)
+  const [loadingDiscordCategories, setLoadingDiscordCategories] = useState(false)
+  const [loadingDiscordMembers, setLoadingDiscordMembers] = useState(false)
+  const [isModalFullyLoaded, setIsModalFullyLoaded] = useState(false)
+  const [loadingDiscordRoles, setLoadingDiscordRoles] = useState(false)
+  const [loadingDiscordBannedUsers, setLoadingDiscordBannedUsers] = useState(false)
+  
+  // Removed custom hook usage - now using integration store approach only
   
   // Function to fetch message data and reactions for Discord add reaction
   const fetchMessageDataAndReactions = useCallback(async (messageId: string, channelId: string) => {
@@ -1363,7 +1296,7 @@ export default function ConfigurationModal({
       setLoadingMessageReactions(true);
       
       // Fetch the full message data directly from Discord API
-      const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId });
+      const messageData = await loadIntegrationSpecificData("discord_messages", { channelId });
       const selectedMessage = messageData?.find((msg: any) => msg.id === messageId);
       
       if (selectedMessage) {
@@ -1378,7 +1311,7 @@ export default function ConfigurationModal({
       }
       
       // Fetch reactions for the message
-      const reactionsData = await loadIntegrationData("discord_reactions", integration.id, { 
+      const reactionsData = await loadIntegrationSpecificData("discord_reactions", { 
         channelId, 
         messageId 
       });
@@ -1394,7 +1327,7 @@ export default function ConfigurationModal({
     } finally {
       setLoadingMessageReactions(false);
     }
-  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationData]);
+  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationSpecificData]);
   
   // Global test store
   const { 
@@ -1429,6 +1362,12 @@ export default function ConfigurationModal({
   // Cache for Discord reactions to persist data between modal opens
   const [discordReactionsCache, setDiscordReactionsCache] = useState<Record<string, any[]>>({});
   
+  // Facebook emoji picker state
+  const [facebookEmojiPickerOpen, setFacebookEmojiPickerOpen] = useState(false);
+  
+  // DateTime picker state
+  const [dateTimePickerOpen, setDateTimePickerOpen] = useState<Record<string, boolean>>({});
+  
 
 
   // Preview functionality state
@@ -1461,10 +1400,45 @@ export default function ConfigurationModal({
       // Determine the correct preview endpoint based on node type
       if (nodeInfo.type === "discord_action_fetch_messages") {
         endpoint = "/api/workflows/discord/fetch-messages-preview"
+      } else if (nodeInfo.type === "discord_action_list_channels") {
+        endpoint = "/api/workflows/discord/fetch-channels-preview"
+      } else if (nodeInfo.type === "discord_action_fetch_guild_members") {
+        endpoint = "/api/discord/fetch-guild-members-preview"
       } else if (nodeInfo.type === "gmail_action_search_emails" || nodeInfo.type === "gmail_action_search_email") {
         endpoint = "/api/workflows/gmail/search-emails-preview"
+      } else if (nodeInfo.type === "microsoft-outlook_action_search_email" || nodeInfo.type === "microsoft-outlook_action_fetch_emails") {
+        endpoint = "/api/workflows/outlook/search-emails-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
+      } else if (nodeInfo.type === "microsoft-outlook_action_get_contacts") {
+        endpoint = "/api/workflows/outlook/fetch-contacts-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
+      } else if (nodeInfo.type === "microsoft-outlook_action_get_calendar_events") {
+        endpoint = "/api/workflows/outlook/fetch-calendar-events-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
       } else if (nodeInfo.type === "notion_action_search_pages") {
         endpoint = "/api/workflows/notion/search-pages-preview"
+      } else if (nodeInfo.type === "facebook_action_get_page_insights") {
+        endpoint = "/api/workflows/facebook/fetch-page-insights-preview"
+      } else if (nodeInfo.type === "facebook_action_comment_on_post") {
+        endpoint = "/api/workflows/facebook/comment-on-post-preview"
       } else {
         throw new Error("Preview not available for this action type")
       }
@@ -1667,6 +1641,8 @@ export default function ConfigurationModal({
       setDiscordReactionsCache({})
       setSelectedMessageData(null)
       setMessageReactions([])
+      // Reset modal fully loaded state
+      setIsModalFullyLoaded(false)
     }
   }, [isOpen])
 
@@ -1686,7 +1662,7 @@ export default function ConfigurationModal({
   }, [nodeInfo?.providerId, getIntegrationByProvider, errors.integrationError])
 
   // Check Discord bot status when guild is selected
-  const checkBotInGuild = async (guildId: string) => {
+  const checkBotInGuild = async (guildId: string, channelId?: string) => {
     if (!guildId || checkingBot) return
     
     const taskId = `bot-check-${guildId}`
@@ -1697,7 +1673,7 @@ export default function ConfigurationModal({
       const response = await fetch('/api/integrations/discord/check-bot-in-guild', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guildId })
+        body: JSON.stringify({ guildId, channelId })
       })
       
       if (response.ok) {
@@ -1706,9 +1682,32 @@ export default function ConfigurationModal({
         setBotStatus(prev => ({ ...prev, [guildId]: isBotPresent }))
         
         if (isBotPresent) {
-          console.log('✅ Bot is connected to guild:', guildId, '- channels will be fetched by fetchDependentFields')
+          console.log('✅ Bot is connected to guild:', guildId)
+          
+          // Log additional details if available
+          if (data.channelAccess) {
+            console.log('📋 Channel access details:', data.channelAccess)
+            if (data.channelAccess.canSendMessages) {
+              console.log('✅ Bot can send messages to channel:', data.channelAccess.channelName)
+            } else {
+              console.log('❌ Bot cannot send messages to channel:', data.channelAccess.error || 'Insufficient permissions')
+            }
+          }
+          
+          if (data.note) {
+            console.log('ℹ️ Note:', data.note)
+          }
+          
+          console.log('- channels will be fetched by fetchDependentFields')
         } else {
           console.log('❌ Bot is not connected to guild:', guildId)
+          if (data.details) {
+            console.log('📋 Details:', data.details)
+          }
+          if (data.error) {
+            console.log('❌ Error:', data.error)
+          }
+          
           // Clear any existing channels when bot is not connected
           setDynamicOptions(prev => ({
             ...prev,
@@ -1780,6 +1779,34 @@ export default function ConfigurationModal({
       // Set default timezone to user's current timezone if not specified
       if (config.timeZone === undefined || config.timeZone === "user-timezone") {
         defaultValues.timeZone = getUserTimezone()
+      }
+      
+      // Set default start date/time to current time rounded to nearest 5 minutes
+      if (config.startDate === undefined) {
+        const now = new Date()
+        const roundedTime = roundToNearest5Minutes(now)
+        defaultValues.startDate = roundedTime.toISOString()
+      }
+      
+      if (config.startTime === undefined) {
+        const now = new Date()
+        const roundedTime = roundToNearest5Minutes(now)
+        defaultValues.startTime = formatTime(roundedTime)
+      }
+      
+      // Set default end date/time to 1 hour after start
+      if (config.endDate === undefined) {
+        const startTime = config.startDate ? new Date(config.startDate) : roundToNearest5Minutes(new Date())
+        const endTime = new Date(startTime)
+        endTime.setHours(endTime.getHours() + 1)
+        defaultValues.endDate = endTime.toISOString()
+      }
+      
+      if (config.endTime === undefined) {
+        const startTime = config.startDate ? new Date(config.startDate) : roundToNearest5Minutes(new Date())
+        const endTime = new Date(startTime)
+        endTime.setHours(endTime.getHours() + 1)
+        defaultValues.endTime = formatTime(endTime)
       }
     }
 
@@ -1928,7 +1955,7 @@ export default function ConfigurationModal({
                 dataType = "airtable_feedback_records"
               }
               
-              const linkedTableData = await loadIntegrationData(
+              const linkedTableData = await loadIntegrationSpecificData(
                 dataType,
                 integration.id,
                 { baseId: config.baseId, tableName: fieldDef.linkedTableName }
@@ -2060,6 +2087,11 @@ export default function ConfigurationModal({
         return true
       }
       
+      // If bot is missing from the server, don't show any other fields
+      if (config.guildId && typeof botStatus[config.guildId] === "boolean" && !botStatus[config.guildId]) {
+        return false
+      }
+      
       // Show channel field if guild is selected
       if (field.name === "channelId" && config.guildId) {
         return true
@@ -2106,6 +2138,82 @@ export default function ConfigurationModal({
       }
       
       return true
+    }
+
+    // Special logic for Discord create channel action
+    if (nodeInfo?.type === "discord_action_create_channel") {
+      const channelType = parseInt(config.type || "0")
+      
+      // Always show basic fields
+      if (field.name === "guildId" || field.name === "name" || field.name === "type" || 
+          field.name === "parentId" || field.name === "nsfw" || field.name === "position") {
+        return true
+      }
+      
+      // Show topic only for text-based channels (0, 5, 15, 16)
+      if (field.name === "topic") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      // Text channel specific fields (0, 5, 15, 16)
+      if (field.name === "rateLimitPerUser" || field.name === "defaultAutoArchiveDuration") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      // Voice channel specific fields (2, 13)
+      if (field.name === "bitrate" || field.name === "userLimit" || field.name === "rtcRegion") {
+        return [2, 13].includes(channelType)
+      }
+      
+      // Forum channel specific fields (15)
+      if (field.name === "defaultReactionEmoji" || field.name === "defaultThreadRateLimitPerUser" || 
+          field.name === "defaultSortOrder" || field.name === "defaultForumLayout") {
+        return channelType === 15
+      }
+      
+      // Advanced fields - show based on channel type
+      if (field.name === "permissionOverwrites") {
+        return true // Available for all channel types
+      }
+      
+      if (field.name === "availableTags") {
+        return channelType === 15 // Only for forum channels
+      }
+      
+      if (field.name === "defaultAutoArchiveDurationAdvanced") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      if (field.name === "defaultThreadRateLimitPerUserAdvanced") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      if (field.name === "bitrateAdvanced") {
+        return [2, 13].includes(channelType)
+      }
+      
+      if (field.name === "userLimitAdvanced") {
+        return [2, 13].includes(channelType)
+      }
+      
+      return true
+    }
+    
+    // Special logic for Discord update channel action
+    if (nodeInfo?.type === "discord_action_update_channel") {
+      // Always show basic fields
+      if (field.name === "guildId" || field.name === "channelId" || field.name === "name") {
+        return true
+      }
+      
+      // For update channel, we need to determine channel type from the selected channel
+      // Since we don't have the channel type in config, we'll show all advanced fields
+      // The backend will handle which fields are applicable based on the actual channel type
+      if (field.uiTab === "advanced") {
+        return true
+      }
+      
+      return false
     }
     
     // Special logic for read data action (applies to all fields, including those with dependencies)
@@ -2209,31 +2317,31 @@ export default function ConfigurationModal({
       let data
       // Special handling for Trello lists: pass boardId as param
       if (field.dynamic === "trello_lists" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
         )
       } else if (field.dynamic === "trello_cards" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
         )
       } else if (field.dynamic === "trello-list-templates" && field.dependsOn === "listId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { listId: dependentValue }
         )
       } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "listId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { listId: dependentValue }
         )
       } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "boardId") {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
           integration.id,
           { boardId: dependentValue }
@@ -2242,60 +2350,67 @@ export default function ConfigurationModal({
         console.log('🔄 Discord channels: Starting fetch for guildId:', dependentValue)
         setLoadingDiscordChannels(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord channels: Fetch completed, data:', data)
         } finally {
           setLoadingDiscordChannels(false)
         }
+      } else if (field.dynamic === "discord_categories" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord categories: Starting fetch for guildId:', dependentValue)
+        setLoadingDiscordCategories(true)
+        try {
+          data = await loadIntegrationSpecificData(
+            field.dynamic as string,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord categories: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordCategories(false)
+        }
       } else if (field.dynamic === "discord_messages" && field.dependsOn === "channelId") {
         console.log('🔄 Discord messages: Starting fetch for channelId:', dependentValue)
         setLoadingDiscordMessages(true)
         try {
-          data = await loadIntegrationData(
+          data = await loadIntegrationSpecificData(
             field.dynamic as string,
-            integration.id,
             { channelId: dependentValue }
           )
           console.log('🔄 Discord messages: Fetch completed, data:', data)
         } finally {
           setLoadingDiscordMessages(false)
         }
-      } else if ((field.name === "authorFilter" || field.name === "filterAuthor") && field.dependsOn === "guildId") {
-        console.log('🔄 Discord author filter: Starting fetch for guildId:', dependentValue)
+      } else if (field.dynamic === "discord_members" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord members: Starting fetch for guildId:', dependentValue)
+        console.log('🎯 SETTING loadingDiscordMembers to TRUE')
         setLoadingDiscordMembers(true)
         try {
-          data = await loadIntegrationData(
-            "discord_members",
-            integration.id,
+          data = await loadIntegrationSpecificData(
+            field.dynamic as string,
             { guildId: dependentValue }
           )
-          console.log('🔄 Discord author filter: Fetch completed, data:', data?.length || 0, 'members')
-          
-          // Also save to discord_members for reuse
-          if (data && data.length > 0) {
-            const mappedMembers = data.map((member: any) => ({
-              value: member.value || member.id,
-              label: member.label || member.name || member.username
-            }))
-            
-            // Update both specific field and general discord_members
-            setDynamicOptions(prev => ({
-              ...prev,
-              'discord_members': mappedMembers,
-              [field.name]: mappedMembers
-            }))
-          }
+          console.log('🔄 Discord members: Fetch completed, data:', data)
         } finally {
+          console.log('🎯 SETTING loadingDiscordMembers to FALSE')
           setLoadingDiscordMembers(false)
         }
+      } else if (field.dynamic === "discord_roles" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord roles: Starting fetch for guildId:', dependentValue)
+        setLoadingDiscordRoles(true)
+        try {
+          data = await loadIntegrationSpecificData(
+            field.dynamic as string,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord roles: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordRoles(false)
+        }
       } else {
-        data = await loadIntegrationData(
+        data = await loadIntegrationSpecificData(
           field.dynamic as string,
-          integration.id,
           { [field.dependsOn]: dependentValue }
         )
       }
@@ -2348,6 +2463,33 @@ export default function ConfigurationModal({
             description: channel.description,
           }))
           console.log('🔄 Discord channels: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_categories") {
+          // Discord categories specific mapping
+          console.log('🔄 Discord categories: Mapping data:', data)
+          mappedData = data.map((category: any) => ({
+            value: category.value || category.id,
+            label: category.name || category.label,
+            description: category.description,
+          }))
+          console.log('🔄 Discord categories: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_members") {
+          // Discord members specific mapping
+          console.log('🔄 Discord members: Mapping data:', data)
+          mappedData = data.map((member: any) => ({
+            value: member.value || member.id,
+            label: member.name || member.label,
+            description: member.description,
+          }))
+          console.log('🔄 Discord members: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_roles") {
+          // Discord roles specific mapping
+          console.log('🔄 Discord roles: Mapping data:', data)
+          mappedData = data.map((role: any) => ({
+            value: role.value || role.id,
+            label: role.name || role.label,
+            description: role.description,
+          }))
+          console.log('🔄 Discord roles: Mapped data:', mappedData)
         } else {
           // Default mapping for other integrations
           mappedData = data.map((item: any) => ({
@@ -2446,7 +2588,7 @@ export default function ConfigurationModal({
     requestCache.current.set(requestKey, requestPromise)
     
     return requestPromise
-  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
+  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Automatically check Discord bot status when a server is selected
   useEffect(() => {
@@ -2461,6 +2603,308 @@ export default function ConfigurationModal({
     // Only run when guildId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.guildId])
+
+  // Automatically load Discord data when guild is selected
+  useEffect(() => {
+    if (
+      nodeInfo?.type?.startsWith("discord_action_") &&
+      config.guildId
+    ) {
+      // For assign/remove role actions, we can load members and roles even without bot
+      // since they use user's OAuth token, not bot token
+      const canLoadWithoutBot = nodeInfo?.type === "discord_action_assign_role" || 
+                                nodeInfo?.type === "discord_action_remove_role"
+      
+      // For other actions, require bot to be present
+      const botRequired = !canLoadWithoutBot
+      const botPresent = botStatus[config.guildId] === true
+      
+      if (botRequired && !botPresent) {
+        return
+      }
+      const loadDiscordData = async () => {
+        try {
+          console.log('🤖 Bot is now available, loading Discord data for guildId:', config.guildId)
+          
+          const integration = getIntegrationByProvider("discord")
+          if (!integration) return
+
+          // Only load channels, categories, and messages if bot is present
+          const botPresent = botStatus[config.guildId] === true
+
+          // Load channels for the guild (only if bot is present)
+          if (botPresent && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
+            console.log('🔄 Loading channels for guildId:', config.guildId)
+            setLoadingDiscordChannels(true)
+            try {
+              // Prepare filter options
+              const filterOptions: any = { guildId: config.guildId }
+              
+              // Add filters if they exist in config
+              if (config.channelTypes) filterOptions.channelTypes = config.channelTypes
+              if (config.nameFilter) filterOptions.nameFilter = config.nameFilter
+              if (config.sortBy) filterOptions.sortBy = config.sortBy
+              if (config.includeArchived !== undefined) filterOptions.includeArchived = config.includeArchived
+              if (config.parentCategory) filterOptions.parentCategory = config.parentCategory
+              
+              const channelData = await loadIntegrationSpecificData("discord_channels", filterOptions)
+              if (channelData && channelData.length > 0) {
+                const mappedChannels = channelData.map((channel: any) => ({
+                  value: channel.value || channel.id,
+                  label: channel.label || channel.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  channelId: mappedChannels
+                }))
+                console.log('✅ Loaded channels:', mappedChannels.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading channels:', error)
+            } finally {
+              setLoadingDiscordChannels(false)
+            }
+          }
+
+          // Load categories for the guild (only if bot is present)
+          if (botPresent && (!dynamicOptions.categoryId || dynamicOptions.categoryId.length === 0)) {
+            console.log('🔄 Loading categories for guildId:', config.guildId)
+            setLoadingDiscordCategories(true)
+            try {
+              // Prepare filter options
+              const filterOptions: any = { guildId: config.guildId }
+              
+              // Add filters if they exist in config
+              if (config.nameFilter) filterOptions.nameFilter = config.nameFilter
+              if (config.sortBy) filterOptions.sortBy = config.sortBy
+              
+              const categoryData = await loadIntegrationSpecificData("discord_categories", filterOptions)
+              if (categoryData && categoryData.length > 0) {
+                const mappedCategories = categoryData.map((category: any) => ({
+                  value: category.value || category.id,
+                  label: category.label || category.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  categoryId: mappedCategories
+                }))
+                console.log('✅ Loaded categories:', mappedCategories.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading categories:', error)
+            } finally {
+              setLoadingDiscordCategories(false)
+            }
+          }
+
+          // If channelId is already set, load messages for that channel (only if bot is present)
+          if (botPresent && config.channelId && (!dynamicOptions.messageId || dynamicOptions.messageId.length === 0)) {
+            console.log('🔄 Loading messages for channelId:', config.channelId)
+            setLoadingDiscordMessages(true)
+            try {
+              const messageData = await loadIntegrationSpecificData("discord_messages", { channelId: config.channelId })
+              if (messageData && messageData.length > 0) {
+                const mappedMessages = messageData.map((message: any) => ({
+                  value: message.value || message.id,
+                  label: message.label || message.content || message.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  messageId: mappedMessages
+                }))
+                console.log('✅ Loaded messages:', mappedMessages.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading messages:', error)
+            } finally {
+              setLoadingDiscordMessages(false)
+            }
+          }
+
+          // Load members for the guild (for assign/remove role actions)
+          if (!dynamicOptions.userId || dynamicOptions.userId.length === 0) {
+            console.log('🔄 Loading members for guildId:', config.guildId)
+            setLoadingDiscordMembers(true)
+            try {
+              const memberData = await loadIntegrationSpecificData("discord_members", { guildId: config.guildId })
+              if (memberData && memberData.length > 0) {
+                const mappedMembers = memberData.map((member: any) => ({
+                  value: member.value || member.id,
+                  label: member.label || member.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: mappedMembers
+                }))
+                console.log('✅ Loaded members:', mappedMembers.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading members:', error)
+            } finally {
+              setLoadingDiscordMembers(false)
+            }
+          }
+
+          // Load roles for the guild (for assign/remove role actions)
+          if (!dynamicOptions.roleId || dynamicOptions.roleId.length === 0) {
+            console.log('🔄 Loading roles for guildId:', config.guildId)
+            setLoadingDiscordRoles(true)
+            try {
+              const roleData = await loadIntegrationSpecificData("discord_roles", { guildId: config.guildId })
+              if (roleData && roleData.length > 0) {
+                const mappedRoles = roleData.map((role: any) => ({
+                  value: role.value || role.id,
+                  label: role.label || role.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  roleId: mappedRoles
+                }))
+                console.log('✅ Loaded roles:', mappedRoles.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading roles:', error)
+            } finally {
+              setLoadingDiscordRoles(false)
+            }
+          }
+
+          // Load banned users for the guild (for unban member actions)
+          if (nodeInfo?.type === "discord_action_unban_member" && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
+            console.log('🔄 Loading banned users for guildId:', config.guildId)
+            setLoadingDiscordBannedUsers(true)
+            try {
+              const bannedUserData = await loadIntegrationSpecificData("discord_banned_users", { guildId: config.guildId })
+              if (bannedUserData && bannedUserData.length > 0) {
+                const mappedBannedUsers = bannedUserData.map((user: any) => ({
+                  value: user.value || user.id,
+                  label: user.label || user.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: mappedBannedUsers
+                }))
+                console.log('✅ Loaded banned users:', mappedBannedUsers.length)
+              } else {
+                // Set empty array to indicate no banned users found
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: []
+                }))
+                console.log('✅ No banned users found in server')
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading banned users:', error)
+            } finally {
+              setLoadingDiscordBannedUsers(false)
+            }
+          }
+        } catch (error: any) {
+          // Suppress errors if the bot is not present or API returns a known error
+          if (
+            error?.message?.includes("bot not in guild") ||
+            error?.response?.status === 403 ||
+            error?.response?.status === 404
+          ) {
+            console.log('🤖 Suppressing expected error for bot not in guild')
+            return
+          }
+          // For other errors, log but don't let them bubble up
+          console.error('❌ Error in loadDiscordData:', error)
+        }
+      }
+
+      // If we have a guild ID but no members data yet, set loading state immediately
+      if (config.guildId && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
+        setLoadingDiscordMembers(true);
+      }
+      
+      // Add a small delay to ensure the bot status change is fully processed
+      const timer = setTimeout(() => {
+        loadDiscordData()
+      }, 100)
+
+      return () => clearTimeout(timer)
+    }
+  }, [
+    nodeInfo?.type, 
+    config.guildId, 
+    config.channelId, 
+    config.channelTypes, 
+    config.nameFilter, 
+    config.sortBy, 
+    config.includeArchived, 
+    config.parentCategory,
+    config.roleFilter,
+    config.includeBots,
+    botStatus, 
+    dynamicOptions.channelId, 
+    dynamicOptions.categoryId, 
+    dynamicOptions.messageId,
+    dynamicOptions.userId,
+    dynamicOptions.roleId,
+    loadingDiscordBannedUsers
+  ])
 
   const fetchDynamicData = useCallback(async () => {
     // Prevent duplicate calls
@@ -2531,69 +2975,13 @@ export default function ConfigurationModal({
     let hasData = false
     const newOptions: Record<string, any[]> = {}
 
-    // Collect all dynamic fields (excluding dependent fields), regardless of visibility
-    const dynamicFields = (nodeInfo.configSchema || []).filter(field => field.dynamic && !field.dependsOn)
-    
-    // Debug: Always log node info to see what we're working with
-    console.log('🔍 Node info for Gmail check:', { 
-      providerId: nodeInfo?.providerId, 
-      type: nodeInfo?.type,
-      isGmailProvider: nodeInfo?.providerId === 'gmail',
-      isGmailSendEmail: nodeInfo?.type === 'gmail_action_send_email',
-      conditionMet: nodeInfo?.providerId === 'gmail' && nodeInfo?.type === 'gmail_action_send_email',
-      nodeInfoExists: !!nodeInfo,
-      nodeInfoType: typeof nodeInfo
-    })
-    
-    // Special handling for Gmail - preload enhanced recipients
-    if (nodeInfo.providerId === 'gmail' && nodeInfo.type === 'gmail_action_send_email') {
-      console.log('🔄 [CLIENT] Gmail condition met - starting preload')
-    } else {
-      console.log('❌ [CLIENT] Gmail condition NOT met:', { 
-        providerId: nodeInfo?.providerId, 
-        type: nodeInfo?.type,
-        expectedProviderId: 'gmail',
-        expectedType: 'gmail_action_send_email'
-      })
-    }
-    
-    // Gmail enhanced recipients will be loaded by the dedicated useEffect above
-    
-    // Special handling for Discord - preload members for author filter
-    if (nodeInfo.providerId === 'discord' && config.guildId) {
-      // Check if we need to preload discord_members for author filtering
-      const hasAuthorFilterField = (nodeInfo.configSchema || []).some(
-        field => field.name === 'authorFilter' || field.name === 'filterAuthor'
-      )
-      
-      if (hasAuthorFilterField && !dynamicOptions['discord_members']) {
-        console.log('🔄 Preloading Discord members for author filtering')
-        // Add a task to preload discord_members
-        const preloadMembersTask = async () => {
-          try {
-            const memberData = await loadIntegrationData('discord_members', integration.id, { guildId: config.guildId })
-            if (memberData && memberData.length > 0) {
-              const mappedMembers = memberData.map((member: any) => ({
-                value: member.value || member.id,
-                label: member.label || member.name || member.username
-              }))
-              setDynamicOptions(prev => ({
-                ...prev,
-                'discord_members': mappedMembers,
-                'authorFilter': mappedMembers,
-                'filterAuthor': mappedMembers
-              }))
-              console.log('✅ Preloaded Discord members:', mappedMembers.length)
-            }
-          } catch (error) {
-            console.error('❌ Error preloading Discord members:', error)
-          }
-        }
-        
-        // Execute the preload task
-        preloadMembersTask()
-      }
-    }
+    // Collect all dynamic fields (excluding dependent fields and Notion pages/databases which need workspace context)
+    const dynamicFields = (nodeInfo.configSchema || []).filter(field => 
+      field.dynamic && 
+      !field.dependsOn && 
+      field.dynamic !== 'notion_pages' && // Exclude notion_pages from initial load
+      field.dynamic !== 'notion_databases' // Exclude notion_databases from initial load
+    )
 
     // Add signature fetches for email providers
     const signatureFetches: Array<{ name: string, dynamic: string }> = []
@@ -2660,8 +3048,33 @@ export default function ConfigurationModal({
             processedData = data.map((guild: any) => ({ value: guild.id, label: guild.name }))
           } else if (field.dynamic === "discord_channels") {
             processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
+          } else if (field.dynamic === "hubspot_all_contact_properties") {
+            // Handle the special structure of our HubSpot all-contact-properties endpoint
+            if (data && data.data && data.data.properties) {
+              processedData = data.data.properties.map((prop: any) => ({ 
+                value: prop.name, 
+                label: prop.label,
+                description: prop.description,
+                type: prop.type,
+                fieldType: prop.fieldType,
+                groupName: prop.groupName,
+                hidden: prop.hidden,
+                existingValues: prop.existingValues || []
+              }))
+            } else {
+              processedData = []
+            }
           } else {
-            processedData = data.map((item: any) => ({ value: item.value || item.id || item.name, label: item.name || item.label || item.title }))
+            // Ensure data is an array before calling map
+            if (Array.isArray(data)) {
+              processedData = data.map((item: any) => ({ 
+                value: item.value || item.id || item.name, 
+                label: item.name || item.label || item.title || item.displayName || 'Untitled' 
+              }))
+            } else {
+              console.warn(`⚠️ Expected array for ${field.dynamic}, got:`, typeof data, data)
+              processedData = []
+            }
           }
           
           // Update options immediately with cached data
@@ -2677,7 +3090,7 @@ export default function ConfigurationModal({
     const fetchPromises = [
       ...fieldsToFetch.map(field => {
         console.log(`🔍 Fetching data for field: ${field.name} (${field.dynamic})`)
-        return loadIntegrationData(field.dynamic as string, integration.id)
+        return loadIntegrationSpecificData(field.dynamic as string)
           .then(data => {
             console.log(`✅ Successfully loaded data for ${field.dynamic}:`, data ? data.length : 0, 'items')
             return { field, data, error: null }
@@ -2689,7 +3102,7 @@ export default function ConfigurationModal({
       }),
       ...signaturesNotCached.map(sig => {
         console.log(`🔍 Fetching signature data for: ${sig.dynamic}`)
-        return loadIntegrationData(sig.dynamic, integration.id)
+        return loadIntegrationSpecificData(sig.dynamic)
           .then(data => ({ field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }))
           .catch(error => ({ field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }))
       })
@@ -2754,10 +3167,16 @@ export default function ConfigurationModal({
           }
           continue
         }
-                  if (data) {
-            hasData = true
-            // Process the data based on dynamic type
-            let processedData: any[] = []
+                          if (data) {
+          hasData = true
+          console.log(`🔍 Processing data for ${field.dynamic}:`, { 
+            type: typeof data, 
+            isArray: Array.isArray(data), 
+            length: Array.isArray(data) ? data.length : 'N/A',
+            data: data 
+          })
+          // Process the data based on dynamic type
+          let processedData: any[] = []
             
             if (field.dynamic === "slack-channels") {
               processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
@@ -2822,16 +3241,64 @@ export default function ConfigurationModal({
               processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
             } else if (field.dynamic === "facebook_pages") {
               processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
+            } else if (field.dynamic === "facebook_conversations") {
+              processedData = data.map((conversation: any) => ({ 
+                value: `${conversation.conversationId}:${conversation.senderId}`, 
+                label: conversation.senderName,
+                description: conversation.lastMessage
+              }))
+            } else if (field.dynamic === "facebook_posts") {
+              processedData = data.map((post: any) => ({ 
+                value: post.postId, 
+                label: post.displayLabel,
+                description: new Date(post.createdTime).toLocaleDateString()
+              }))
             } else if (field.dynamic === "onenote_notebooks") {
-              processedData = data.map((notebook: any) => ({ value: notebook.id, label: notebook.name, description: notebook.is_default ? "Default notebook" : undefined }))
+              if (Array.isArray(data)) {
+                processedData = data.map((notebook: any) => ({ 
+                  value: notebook.id, 
+                  label: notebook.displayName || notebook.name, 
+                  description: notebook.isDefault ? "Default notebook" : undefined 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_notebooks, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "onenote_sections") {
-              processedData = data.map((section: any) => ({ value: section.id, label: section.name }))
+              if (Array.isArray(data)) {
+                processedData = data.map((section: any) => ({ 
+                  value: section.id, 
+                  label: section.displayName || section.name 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_sections, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "onenote_pages") {
-              processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
+              if (Array.isArray(data)) {
+                processedData = data.map((page: any) => ({ 
+                  value: page.id, 
+                  label: page.title || page.name 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_pages, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "outlook_folders") {
               processedData = data.map((folder: any) => ({ value: folder.id, label: folder.name, description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined }))
             } else if (field.dynamic === "outlook_messages") {
-              processedData = data.map((message: any) => ({ value: message.id, label: message.name, description: `${message.fromName} (${message.from})`, email: message.from, fromName: message.fromName, receivedDateTime: message.receivedDateTime, isRead: message.isRead, hasAttachments: message.hasAttachments }))
+              processedData = data.map((message: any) => ({ 
+                value: message.id, 
+                label: message.name || message.subject || 'No subject', 
+                description: `${message.fromName || 'Unknown'} (${message.from || message.sender || 'No email'})`, 
+                email: message.from || message.sender, 
+                fromName: message.fromName, 
+                receivedDateTime: message.receivedDateTime, 
+                isRead: message.isRead, 
+                hasAttachments: message.hasAttachments,
+                body: message.body || message.bodyPreview || '',
+                subject: message.name || message.subject || 'No subject'
+              }))
             } else if (field.dynamic === "outlook_contacts") {
               processedData = data.map((contact: any) => ({ value: contact.id, label: contact.name, description: contact.email ? contact.email : contact.company ? contact.company : undefined, email: contact.email, businessPhone: contact.businessPhone, mobilePhone: contact.mobilePhone, company: contact.company, jobTitle: contact.jobTitle }))
             } else if (field.dynamic === "outlook-enhanced-recipients") {
@@ -2840,6 +3307,22 @@ export default function ConfigurationModal({
               processedData = data.map((calendar: any) => ({ value: calendar.id, label: calendar.name, description: calendar.isDefaultCalendar ? "Default calendar" : undefined }))
             } else if (field.dynamic === "outlook_events") {
               processedData = data.map((event: any) => ({ value: event.id, label: event.name, description: event.start ? new Date(event.start).toLocaleString() : undefined, start: event.start, end: event.end, isAllDay: event.isAllDay, location: event.location, attendees: event.attendees }))
+            } else if (field.dynamic === "hubspot_all_contact_properties") {
+              // Handle the special structure of our HubSpot all-contact-properties endpoint
+              if (data && data.data && data.data.properties) {
+                processedData = data.data.properties.map((prop: any) => ({ 
+                  value: prop.name, 
+                  label: prop.label,
+                  description: prop.description,
+                  type: prop.type,
+                  fieldType: prop.fieldType,
+                  groupName: prop.groupName,
+                  hidden: prop.hidden,
+                  existingValues: prop.existingValues || []
+                }))
+              } else {
+                processedData = []
+              }
             } else if (field.dynamic === "teams_channels") {
               processedData = data.map((channel: any) => ({ value: channel.value, label: channel.label }))
             } else if (field.dynamic === "teams_teams") {
@@ -2913,44 +3396,9 @@ export default function ConfigurationModal({
     
     // Reset the flag when function completes
     fetchingDynamicData.current = false
-  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData, setLoadingDynamicDebounced])
+  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationSpecificData, integrationData, setLoadingDynamicDebounced])
 
   const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
-
-  // Preload all dependent fields data
-  const preloadAllDependentFields = useCallback(async () => {
-    if (!nodeInfo?.configSchema || !isOpen) return
-    
-    console.log('🔄 Preloading all dependent field data')
-    
-    // Get all fields with dependencies
-    const fieldsWithDependencies = nodeInfo.configSchema.filter(field => field.dependsOn)
-    
-    // Group fields by their dependency
-    const fieldsByDependency: Record<string, ConfigField[]> = {}
-    fieldsWithDependencies.forEach(field => {
-      const dependsOn = field.dependsOn as string
-      if (!fieldsByDependency[dependsOn]) {
-        fieldsByDependency[dependsOn] = []
-      }
-      fieldsByDependency[dependsOn].push(field as ConfigField)
-    })
-    
-    // For each dependency that has a value in config, load all dependent fields
-    Object.entries(fieldsByDependency).forEach(([dependsOn, fields]) => {
-      const dependentValue = config[dependsOn]
-      if (dependentValue) {
-        console.log(`🔄 Found value for dependency ${dependsOn}: ${dependentValue}, preloading ${fields.length} dependent fields`)
-        fields.forEach(field => {
-          // Only preload if the field has dynamic options
-          if (field.dynamic) {
-            console.log(`🔄 Preloading data for field ${field.name} with dependency on ${dependsOn}`)
-            fetchDependentData(field, dependentValue)
-          }
-        })
-      }
-    })
-  }, [nodeInfo?.configSchema, isOpen, config, fetchDependentData])
 
   useEffect(() => {
     // Only fetch if modal is open and nodeInfo is present
@@ -2965,11 +3413,6 @@ export default function ConfigurationModal({
           nodeId: currentNodeId,
           providerId: nodeInfo.providerId,
         }
-        
-        // After a short delay, preload all dependent fields
-        setTimeout(() => {
-          preloadAllDependentFields()
-        }, 500)
       }
     } else if (!isOpen) {
       // Reset all flags and clear cache when modal closes
@@ -2979,7 +3422,7 @@ export default function ConfigurationModal({
       hasHandledInitialDiscordGuild.current = false
       lastFetchedRef.current = {}
     }
-  }, [isOpen, currentNodeId, nodeInfo?.providerId, fetchDynamicData, preloadAllDependentFields])
+  }, [isOpen, currentNodeId, nodeInfo?.providerId, fetchDynamicData])
 
   // Initialize Discord bot when Discord nodes are opened
   useEffect(() => {
@@ -3009,52 +3452,72 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type])
 
-  // Eager loading optimization: Start fetching Discord data as soon as modal opens
+  // Comprehensive Discord data pre-loader: Load ALL data upfront for instant dropdown population
   useEffect(() => {
     if (isOpen && nodeInfo?.type === "discord_action_send_message") {
       const integration = getIntegrationByProvider("discord")
-      if (integration && !integrationData["discord_guilds"] && !fetchingDynamicData.current) {
-        console.log('🚀 Eager loading Discord guilds for faster UX')
-        
-        // Track this loading task
-        const taskId = "eager_discord_guilds_load"
-        activeLoadingTasksRef.current.add(taskId)
-        setLoadingDynamic(true)
-        
-        // Pre-load Discord guilds immediately without waiting for form render
-        loadIntegrationData("discord_guilds", integration.id)
-          .then(data => {
-            if (data) {
-              console.log('✅ Pre-loaded Discord guilds:', data.length, 'guilds')
-              
-              // Update dynamic options with the guilds
-              if (data.length > 0) {
-                const mappedGuilds = data.map((guild: any) => ({
-                  value: guild.value || guild.id,
-                  label: guild.label || guild.name
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "guildId": mappedGuilds
-                }))
+      if (!integration) return
+
+      console.log('🚀 Starting comprehensive Discord data pre-loading')
+      setLoadingDynamic(true)
+      
+      const preloadAllDiscordData = async () => {
+        try {
+          // Load guilds first
+          console.log('🔄 Loading Discord guilds...')
+          const guildData = await loadIntegrationSpecificData("discord_guilds")
+          
+          if (guildData && guildData.length > 0) {
+            const mappedGuilds = guildData.map((guild: any) => ({
+              value: guild.value || guild.id,
+              label: guild.label || guild.name
+            }))
+            
+            setDynamicOptions(prev => ({
+              ...prev,
+              "guildId": mappedGuilds
+            }))
+            
+            console.log('✅ Loaded guilds:', mappedGuilds.length)
+            
+            // Now load ALL channels for ALL guilds
+            console.log('🔄 Loading ALL Discord channels for all guilds...')
+            const allChannels: any[] = []
+            
+            for (const guild of mappedGuilds) {
+              try {
+                const channelData = await loadIntegrationSpecificData("discord_channels", { guildId: guild.value })
+                if (channelData && channelData.length > 0) {
+                  const mappedChannels = channelData.map((channel: any) => ({
+                    ...channel,
+                    guildId: guild.value, // Add guildId for filtering
+                    value: channel.value || channel.id,
+                    label: channel.label || channel.name
+                  }))
+                  allChannels.push(...mappedChannels)
+                }
+              } catch (error) {
+                console.warn(`⚠️ Failed to load channels for guild ${guild.label}:`, error)
               }
             }
-          })
-          .catch(error => {
-            console.warn('⚠️ Pre-loading Discord guilds failed:', error)
-          })
-          .finally(() => {
-            // Remove this task from active tasks
-            activeLoadingTasksRef.current.delete(taskId)
             
-            // If no more active tasks, clear loading state
-            if (activeLoadingTasksRef.current.size === 0) {
-              setLoadingDynamic(false)
-              setHasShownLoading(false)
-              loadingStateRef.current = false
-            }
-          })
+            // Store all channels with guild information for filtering
+            setDynamicOptions(prev => ({
+              ...prev,
+              "allDiscordChannels": allChannels
+            }))
+            
+            console.log('✅ Loaded all channels:', allChannels.length)
+            setIsModalFullyLoaded(true)
+          }
+        } catch (error) {
+          console.error('❌ Comprehensive Discord data pre-loading failed:', error)
+        } finally {
+          setLoadingDynamic(false)
+        }
       }
+      
+      preloadAllDiscordData()
     }
   }, [isOpen, nodeInfo?.type])
 
@@ -3076,29 +3539,80 @@ export default function ConfigurationModal({
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
 
+    // Load dependent data for Facebook actions
+    if (nodeInfo && (nodeInfo.type === "facebook_action_send_message" || nodeInfo.type === "facebook_action_comment_on_post")) {
+      const loadFacebookDependentData = async () => {
+        console.log('🔄 Loading dependent data for Facebook action with config:', config)
+        
+        const integration = getIntegrationByProvider("facebook")
+        if (!integration) return
+
+        // If pageId is set, load conversations for send message action
+        if (config.pageId && nodeInfo.type === "facebook_action_send_message") {
+          console.log('🔄 Loading conversations for pageId:', config.pageId)
+          try {
+            const conversationData = await loadIntegrationSpecificData("facebook_conversations", { pageId: config.pageId })
+            if (conversationData && conversationData.length > 0) {
+              const mappedConversations = conversationData.map((conversation: any) => ({
+                value: conversation.value || `${conversation.conversationId}:${conversation.senderId}`,
+                label: conversation.label || conversation.senderName,
+                description: conversation.description || conversation.lastMessage
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "recipientId": mappedConversations
+              }))
+              console.log('✅ Loaded conversations:', mappedConversations.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading conversations:', error)
+          }
+        }
+
+        // If pageId is set, load posts for comment on post action
+        if (config.pageId && nodeInfo.type === "facebook_action_comment_on_post") {
+          console.log('🔄 Loading posts for pageId:', config.pageId)
+          try {
+            const postData = await loadIntegrationSpecificData("facebook_posts", { pageId: config.pageId })
+            if (postData && postData.length > 0) {
+              const mappedPosts = postData.map((post: any) => ({
+                value: post.value || post.postId,
+                label: post.label || post.displayLabel,
+                description: post.description || new Date(post.createdTime).toLocaleDateString()
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "postId": mappedPosts
+              }))
+              console.log('✅ Loaded posts:', mappedPosts.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading posts:', error)
+          }
+        }
+      }
+
+      // Add a small delay to ensure the modal is fully opened and config is set before loading data
+      const timer = setTimeout(() => {
+        loadFacebookDependentData()
+      }, 200)
+
+      return () => clearTimeout(timer)
+    }
+
     // Load dependent data for Discord message actions
-    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel")) {
+    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel" || nodeInfo.type === "discord_action_create_channel")) {
       const loadDependentData = async () => {
         console.log('🔄 Loading dependent data for Discord message action with config:', config)
         
         const integration = getIntegrationByProvider("discord")
         if (!integration) return
 
-        // Create unique task IDs for tracking
-        const guildsTaskId = "load_discord_guilds"
-        const channelsTaskId = "load_discord_channels"
-        const messagesTaskId = "load_discord_messages"
-
         // Always load guilds first when modal opens (even if no guild is selected)
         if (!dynamicOptions.guildId || dynamicOptions.guildId.length === 0) {
           console.log('🔄 Loading guilds for initial dropdown population')
-          
-          // Track this loading task
-          activeLoadingTasksRef.current.add(guildsTaskId)
-          setLoadingDynamic(true)
-          
           try {
-            const guildData = await loadIntegrationData("discord_guilds", integration.id)
+            const guildData = await loadIntegrationSpecificData("discord_guilds")
             if (guildData && guildData.length > 0) {
               const mappedGuilds = guildData.map((guild: any) => ({
                 value: guild.value || guild.id,
@@ -3112,70 +3626,80 @@ export default function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading guilds:', error)
-          } finally {
-            // Remove this task
-            activeLoadingTasksRef.current.delete(guildsTaskId)
-            
-            // If no more active tasks, clear loading state
-            if (activeLoadingTasksRef.current.size === 0) {
-              setLoadingDynamic(false)
-              setHasShownLoading(false)
-              loadingStateRef.current = false
-            }
           }
         }
         
-        // If guildId is set, load channels
+        // If guildId is set, load channels and categories (only if bot is connected)
         if (config.guildId) {
-          console.log('🔄 Loading channels for guildId:', config.guildId)
+          // Check if bot is connected to this guild before loading data
+          const isBotConnected = botStatus[config.guildId]
+          console.log('🔄 Bot connection status for guild:', config.guildId, 'is:', isBotConnected)
           
-          // Track this loading task
-          activeLoadingTasksRef.current.add(channelsTaskId)
-          setLoadingDynamic(true)
-          setLoadingDiscordChannels(true)
-          
-          try {
-            const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
-            if (channelData && channelData.length > 0) {
-              const mappedChannels = channelData.map((channel: any) => ({
-                value: channel.value || channel.id,
-                label: channel.label || channel.name
-              }))
-              setDynamicOptions(prev => ({
-                ...prev,
-                "channelId": mappedChannels,
-                // Store all channels for reference
-                "allDiscordChannels": mappedChannels
-              }))
-              console.log('✅ Loaded channels:', mappedChannels.length)
+          if (isBotConnected === true) {
+            console.log('🔄 Loading channels for guildId:', config.guildId)
+            setLoadingDiscordChannels(true)
+            try {
+              const channelData = await loadIntegrationSpecificData("discord_channels", { guildId: config.guildId })
+              if (channelData && channelData.length > 0) {
+                const mappedChannels = channelData.map((channel: any) => ({
+                  value: channel.value || channel.id,
+                  label: channel.label || channel.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "channelId": mappedChannels
+                }))
+                console.log('✅ Loaded channels:', mappedChannels.length)
+              }
+            } catch (error) {
+              console.error('❌ Error loading channels:', error)
+            } finally {
+              setLoadingDiscordChannels(false)
             }
-          } catch (error) {
-            console.error('❌ Error loading channels:', error)
-          } finally {
-            // Remove this task
-            activeLoadingTasksRef.current.delete(channelsTaskId)
-            setLoadingDiscordChannels(false)
-            
-            // If no more active tasks, clear loading state
-            if (activeLoadingTasksRef.current.size === 0) {
-              setLoadingDynamic(false)
-              setHasShownLoading(false)
-              loadingStateRef.current = false
+
+            // Also load categories for Discord create channel action
+            if (nodeInfo.type === "discord_action_create_channel") {
+              console.log('🔄 Loading categories for guildId:', config.guildId)
+              setLoadingDiscordCategories(true)
+              try {
+                const categoryData = await loadIntegrationSpecificData("discord_categories", { guildId: config.guildId })
+                if (categoryData && categoryData.length > 0) {
+                  const mappedCategories = categoryData.map((category: any) => ({
+                    value: category.value || category.id,
+                    label: category.label || category.name
+                  }))
+                  setDynamicOptions(prev => ({
+                    ...prev,
+                    "parentId": mappedCategories
+                  }))
+                  console.log('✅ Loaded categories:', mappedCategories.length)
+                  console.log('✅ Mapped categories data:', mappedCategories)
+                }
+              } catch (error) {
+                console.error('❌ Error loading categories:', error)
+              } finally {
+                setLoadingDiscordCategories(false)
+              }
             }
+          } else if (isBotConnected === false) {
+            console.log('❌ Bot is not connected to guild:', config.guildId, '- skipping data load')
+            // Clear any existing channels and categories when bot is not connected
+            setDynamicOptions(prev => ({
+              ...prev,
+              "channelId": [],
+              "parentId": []
+            }))
+          } else {
+            console.log('⏳ Bot connection status unknown for guild:', config.guildId, '- waiting for bot check to complete')
           }
         }
 
         // If channelId is set, load messages
         if (config.channelId) {
           console.log('🔄 Loading messages for channelId:', config.channelId)
-          
-          // Track this loading task
-          activeLoadingTasksRef.current.add(messagesTaskId)
-          setLoadingDynamic(true)
           setLoadingDiscordMessages(true)
-          
           try {
-            const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
+            const messageData = await loadIntegrationSpecificData("discord_messages", { channelId: config.channelId })
             if (messageData && messageData.length > 0) {
               const mappedMessages = messageData.map((message: any) => ({
                 value: message.value || message.id,
@@ -3189,19 +3713,12 @@ export default function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading messages:', error)
-          } finally {
-            // Remove this task
-            activeLoadingTasksRef.current.delete(messagesTaskId)
-            setLoadingDiscordMessages(false)
-            
-            // If no more active tasks, clear loading state
-            if (activeLoadingTasksRef.current.size === 0) {
-              setLoadingDynamic(false)
-              setHasShownLoading(false)
-              loadingStateRef.current = false
+            } finally {
+              setLoadingDiscordMessages(false)
             }
-          }
         }
+
+
       }
 
       // Add a small delay to ensure the modal is fully opened and config is set before loading data
@@ -3211,7 +3728,91 @@ export default function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId]) // Only depend on specific config values, not entire config object
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, config.pageId, dynamicOptions.guildId, botStatus]) // Removed config object to prevent infinite loops
+
+  // Load Notion data for create page action
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "notion_action_create_page" && !dataLoading && !configPreferences.loading) {
+      const loadNotionData = async () => {
+        console.log('🔄 Loading Notion data for create page action')
+        
+        const integration = getIntegrationByProvider("notion")
+        if (!integration) {
+          console.log('❌ No Notion integration found')
+          return
+        }
+
+        // Load workspaces if not already loaded
+        if (!dynamicOptions.workspace || dynamicOptions.workspace.length === 0) {
+          console.log('🔄 Loading Notion workspaces')
+          try {
+            const workspaceData = await loadIntegrationSpecificData("notion_workspaces")
+            if (workspaceData && workspaceData.length > 0) {
+              const mappedWorkspaces = workspaceData.map((workspace: any) => ({
+                value: workspace.value || workspace.id,
+                label: workspace.label || workspace.name || 'Untitled Workspace'
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "workspace": mappedWorkspaces
+              }))
+              console.log('✅ Loaded Notion workspaces:', mappedWorkspaces.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion workspaces:', error)
+          }
+        }
+
+        // Load databases if workspace is selected
+        if (config.workspace && (!dynamicOptions.database || dynamicOptions.database.length === 0)) {
+          console.log('🔄 Loading Notion databases for workspace:', config.workspace)
+          try {
+            const databaseData = await loadIntegrationSpecificData("notion_databases", { workspace: config.workspace })
+            if (databaseData && databaseData.length > 0) {
+              const mappedDatabases = databaseData.map((database: any) => ({
+                value: database.value || database.id,
+                label: database.label || database.name || 'Untitled Database'
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "database": mappedDatabases
+              }))
+              console.log('✅ Loaded Notion databases:', mappedDatabases.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion databases:', error)
+          }
+        }
+
+        // Load database properties if database is selected
+        if (config.database && (!dynamicOptions.databaseProperties || dynamicOptions.databaseProperties.length === 0)) {
+          console.log('🔄 Loading Notion database properties for database:', config.database)
+          try {
+            const propertiesData = await loadNotionDatabaseProperties(config.database)
+            if (propertiesData && propertiesData.length > 0) {
+              const mappedProperties = propertiesData.map((property: any) => ({
+                value: property.value || property.name,
+                label: property.label || property.name,
+                type: property.type,
+                options: property.options || [],
+                description: property.description
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "databaseProperties": mappedProperties
+              }))
+              console.log('✅ Loaded Notion database properties:', mappedProperties.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading Notion database properties:', error)
+          }
+        }
+      }
+
+      // Load immediately without delay
+      loadNotionData()
+    }
+  }, [isOpen, nodeInfo?.type, config.workspace, config.database, dynamicOptions.workspace, dynamicOptions.database, dynamicOptions.databaseProperties, loadIntegrationSpecificData, loadNotionDatabaseProperties, dataLoading, configPreferences.loading])
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -3246,6 +3847,8 @@ export default function ConfigurationModal({
     }
   }, [config, nodeInfo?.type, dynamicOptions])
 
+
+
   // Handle dependent field updates when their dependencies change
   useEffect(() => {
     return // DISABLED to fix infinite loop - dependent fields now handled in handleSelectChange
@@ -3268,7 +3871,7 @@ export default function ConfigurationModal({
         const loadPriorityRecords = async () => {
           try {
             if (!dynamicOptions["project_records"] || dynamicOptions["project_records"].length === 0) {
-              const projectData = await loadIntegrationData("airtable_project_records", integration.id, { baseId: config.baseId })
+              const projectData = await loadIntegrationSpecificData("airtable_project_records", { baseId: config.baseId })
               if (projectData && projectData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3278,7 +3881,7 @@ export default function ConfigurationModal({
             }
             
             if (!dynamicOptions["task_records"] || dynamicOptions["task_records"].length === 0) {
-              const taskData = await loadIntegrationData("airtable_task_records", integration.id, { baseId: config.baseId })
+              const taskData = await loadIntegrationSpecificData("airtable_task_records", { baseId: config.baseId })
               if (taskData && taskData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3288,7 +3891,7 @@ export default function ConfigurationModal({
             }
             
             if (!dynamicOptions["feedback_records"] || dynamicOptions["feedback_records"].length === 0) {
-              const feedbackData = await loadIntegrationData("airtable_feedback_records", integration.id, { baseId: config.baseId })
+              const feedbackData = await loadIntegrationSpecificData("airtable_feedback_records", { baseId: config.baseId })
               if (feedbackData && feedbackData.length > 0) {
                 setDynamicOptions(prev => ({
                   ...prev,
@@ -3304,7 +3907,7 @@ export default function ConfigurationModal({
         loadPriorityRecords()
       }
     }
-  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationData, dynamicOptions])
+  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationSpecificData, dynamicOptions])
 
   // Retry mechanism for stuck loading states - only retry after 10 seconds and max 2 retries
   useEffect(() => {
@@ -3380,7 +3983,7 @@ export default function ConfigurationModal({
         setLoadingDynamicDebounced(true, taskId)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
         if (!integration) return
-        const data = await loadIntegrationData(
+        const data = await loadIntegrationSpecificData(
           "google-sheets_sheet-data",
           integration.id,
           { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
@@ -3403,7 +4006,7 @@ export default function ConfigurationModal({
       }
     }
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
@@ -3427,7 +4030,7 @@ export default function ConfigurationModal({
         
         try {
           setLoadingDynamicDebounced(true, taskId)
-          const previewData = await loadIntegrationData(
+          const previewData = await loadIntegrationSpecificData(
             "google-sheets_sheet-preview",
             integration.id,
             { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
@@ -3472,7 +4075,7 @@ export default function ConfigurationModal({
     }
 
     fetchSheetPreview()
-  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
 
   // Enhanced workflow segment testing
   const handleTestWorkflowSegment = async () => {
@@ -3552,8 +4155,8 @@ export default function ConfigurationModal({
           error: result.error || "Test failed"
         })
         setShowDataFlowPanels(true)
-      }
-    } catch (error: any) {
+          }
+        } catch (error: any) {
       console.error('Test request failed:', error)
       setSegmentTestResult({
         success: false,
@@ -3588,15 +4191,8 @@ export default function ConfigurationModal({
         attachments
       }
       
-      // Save configuration to persistent storage if we have a valid node ID
-      if (currentNodeId && currentNodeId !== 'pending-action' && currentNodeId !== 'pending-trigger' && nodeInfo?.type) {
-        const workflowId = getWorkflowId()
-        if (workflowId) {
-          console.log('📋 Saving configuration for node:', currentNodeId)
-          // Save both config and dynamicOptions
-          saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, configWithAttachments, dynamicOptions)
-        }
-      }
+      // Save all current configuration as preferences
+      configPreferences.updateFields(configWithAttachments)
       
       onSave(configWithAttachments)
       onClose(true) // Pass true to indicate the configuration was saved
@@ -3618,14 +4214,8 @@ export default function ConfigurationModal({
     const value = config[field.name] || (field.type === "multi-select" ? [] : "");
     const hasError = !!errors[field.name];
     const handleSelectChange = (newValue: string) => {
-      setConfig(prev => ({ ...prev, [field.name]: newValue }));
-      if (hasError) {
-        setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[field.name];
-          return newErrors;
-        });
-      }
+      console.log(`🔄 Select change for field ${field.name}:`, newValue);
+      handleFieldSelectChange(newValue);
     };
     const renderLabel = () => (
       <Label className="text-sm font-medium">
@@ -3700,7 +4290,7 @@ export default function ConfigurationModal({
                     size="sm"
                     onClick={() => {
                       const popup = window.open(
-                        "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
+                        getDiscordBotInviteUrl(),
                         "discord_bot_invite",
                         "width=500,height=600,scrollbars=yes,resizable=yes"
                       )
@@ -3747,12 +4337,12 @@ export default function ConfigurationModal({
       const value = config[field.name] || "";
       const hasError = !!errors[field.name];
       
-      // Get options from dynamic data
-      const options = dynamicOptions[field.name] || 
-                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
-                     [];
-      
-      const handleVideoSelect = async (newValue: string) => {
+                      // Get options from dynamic data
+        const options = dynamicOptions[field.name] || 
+                       (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                       []
+        
+        const handleVideoSelect = async (newValue: string) => {
         setConfig({ ...config, [field.name]: newValue });
         
         // Clear error when user selects a video
@@ -3770,8 +4360,8 @@ export default function ConfigurationModal({
             const integration = getIntegrationByProvider("youtube");
             if (!integration) {
               console.error("YouTube integration not found");
-              return;
-            }
+            return;
+          }
             
             // Fetch video details from YouTube API
             const response = await fetch("/api/integrations/youtube/get-video-details", {
@@ -3858,7 +4448,6 @@ export default function ConfigurationModal({
                 setConfig(prev => ({ ...prev, [field.name]: variable }))
               }}
               fieldType="text"
-              currentNodeType={nodeInfo?.type}
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                   <span className="text-sm font-mono">{`{}`}</span>
@@ -3951,6 +4540,210 @@ export default function ConfigurationModal({
         fieldDef: field
       })
     }
+    // Custom Facebook create post rendering
+    if (nodeInfo?.type === "facebook_action_create_post") {
+      // Custom message field with emoji picker
+      if (field.name === "message" && activeTab === "basic") {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Label className="text-sm font-medium">
+                {field.label || field.name}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              {field.description && (
+                <EnhancedTooltip 
+                  description={field.description}
+                  title={`${field.label || field.name} Information`}
+                  showExpandButton={field.description.length > 150}
+                  disabled={!tooltipsEnabled}
+                />
+              )}
+            </div>
+            <div className="relative">
+              <Textarea
+                value={value || ""}
+                onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="min-h-[120px] resize-none"
+              />
+              {/* Emoji picker button */}
+              <button
+                type="button"
+                onClick={() => setFacebookEmojiPickerOpen(!facebookEmojiPickerOpen)}
+                className="absolute top-2 right-2 p-1 rounded-md hover:bg-muted transition-colors"
+              >
+                <span className="text-lg">😊</span>
+              </button>
+              
+              {/* Emoji picker popover */}
+              {facebookEmojiPickerOpen && (
+                <div className="absolute top-full right-0 z-50 mt-1">
+                  <DiscordEmojiPicker
+                    guildId={undefined} // No guild ID for Facebook, so no custom emojis
+                    onSelect={(emoji) => {
+                      const currentMessage = value || "";
+                      const cursorPosition = (document.activeElement as HTMLTextAreaElement)?.selectionStart || currentMessage.length;
+                      const emojiText = emoji.custom ? emoji.name : emoji.native;
+                      const newMessage = currentMessage.slice(0, cursorPosition) + emojiText + currentMessage.slice(cursorPosition);
+                      setConfig(prev => ({ ...prev, [field.name]: newMessage }));
+                      setFacebookEmojiPickerOpen(false);
+                    }}
+                    trigger={null}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
+      
+      // Custom file upload field
+      if (field.name === "mediaFile" && activeTab === "basic") {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Label className="text-sm font-medium">
+                {field.label || field.name}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              {field.description && (
+                <EnhancedTooltip 
+                  description={field.description}
+                  title={`${field.label || field.name} Information`}
+                  showExpandButton={field.description.length > 150}
+                  disabled={!tooltipsEnabled}
+                />
+              )}
+            </div>
+            <div className="space-y-3">
+              <FileUpload
+                value={value ? [value] : []}
+                onChange={async (files) => {
+                  if (files && files.length > 0) {
+                    const file = files[0];
+                    // Check file size
+                    const maxSize = typeof field.maxSize === 'number' ? field.maxSize : 10485760;
+                    if (file.size > maxSize) {
+                      alert(`File size must be less than ${Math.round(maxSize / 1024 / 1024)}MB`);
+                      return;
+                    }
+                    
+                    try {
+                      // Upload file to storage API
+                      const formData = new FormData();
+                      formData.append('files', file);
+                      if (workflowData?.nodes) {
+                        formData.append('workflowId', workflowData.nodes[0]?.workflowId || '');
+                      }
+                      
+                      const response = await fetch('/api/workflows/files/store', {
+                        method: 'POST',
+                        body: formData
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('Failed to upload file');
+                      }
+                      
+                      const result = await response.json();
+                      if (result.fileIds && result.fileIds.length > 0) {
+                        // Store the file ID instead of the file object
+                        setConfig(prev => ({ ...prev, [field.name]: result.fileIds[0] }));
+                      } else {
+                        throw new Error('No file ID returned');
+                      }
+                    } catch (error) {
+                      console.error('File upload error:', error);
+                      alert('Failed to upload file. Please try again.');
+                    }
+                  } else {
+                    setConfig(prev => ({ ...prev, [field.name]: null }));
+                  }
+                }}
+                accept={field.accept || "image/*,video/*"}
+                maxSize={typeof field.maxSize === 'number' ? field.maxSize : 10485760}
+                maxFiles={1}
+                placeholder="Upload photo or video for Facebook post"
+                className="w-full"
+              />
+            </div>
+          </div>
+        )
+
+      
+      // Custom monetization section rendering
+      if (activeTab === "monetization") {
+        if (field.name === "productLinkUrl") {
+          return (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Add a product link</h3>
+                <p className="text-white mb-2">Share an affiliate product with your audience and earn commissions on qualifying purchases.</p>
+                <a href="#" className="text-blue-400 hover:text-blue-300 text-sm">Learn more about earning affiliate income</a>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium text-white">URL</Label>
+                  <Input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleSelectChange(e.target.value)}
+                    placeholder="URL"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-white">Link name (optional)</Label>
+                  <Input
+                    type="text"
+                    value={config.productLinkName || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, productLinkName: e.target.value }))}
+                    placeholder="Link name (optional)"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">This is what your audience will read.</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-white">Existing promo code (optional)</Label>
+                  <Input
+                    type="text"
+                    value={config.productPromoCode || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, productPromoCode: e.target.value }))}
+                    placeholder="Existing promo code (optional)"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">This is what your audience will read.</p>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        
+        if (field.name === "paidPartnershipLabel") {
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Add paid partnership label</h3>
+                  <p className="text-white">Let your audience know that you can earn commissions by posting this link.</p>
+                </div>
+                <Switch
+                  checked={value || false}
+                  onCheckedChange={(checked) => setConfig(prev => ({ ...prev, [field.name]: checked }))}
+                  className="data-[state=checked]:bg-blue-600"
+                />
+              </div>
+            </div>
+          )
+        }
+        
+        // Don't render other monetization fields individually since they're handled above
+        return null
+      }
+    }
+  }
+
     // Custom Google Meet button/card rendering for Google Calendar create event
     if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "createMeetLink") {
       const handleAddMeet = async () => {
@@ -3965,7 +4758,7 @@ export default function ConfigurationModal({
           }
         } catch (err) {
           alert("Failed to create Google Meet link. Please try again.")
-        } finally {
+          } finally {
           setMeetLoading(false)
         }
       }
@@ -4035,7 +4828,7 @@ export default function ConfigurationModal({
     }
 
     // Add label rendering
-    const renderLabel = () => (
+    const renderDynamicLabel = () => (
       <div className="flex items-center gap-2 mb-2">
         <Label className="text-sm font-medium">
           {dynamicLabel || field.label || field.name}
@@ -4122,7 +4915,7 @@ export default function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderLabel()}
+          {renderDynamicLabel()}
           
           <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
             {/* Reaction bar with selected emojis and plus button */}
@@ -4234,7 +5027,7 @@ export default function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderLabel()}
+          {renderDynamicLabel()}
           <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
             {/* Instructions */}
             <div className="mb-3 text-sm text-muted-foreground">
@@ -4355,7 +5148,7 @@ export default function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderLabel()}
+          {renderDynamicLabel()}
           <div className="space-y-3">
             {sheets.map((sheet, index) => (
               <div key={`sheet-${index}-${sheet.name || index}`} className="border rounded-lg p-4 space-y-3">
@@ -4498,7 +5291,7 @@ export default function ConfigurationModal({
       
       return (
         <div className="space-y-4">
-          {renderLabel()}
+          {renderDynamicLabel()}
           <div className="text-sm text-muted-foreground">
             Map your data to table columns from "{config.tableName}":
           </div>
@@ -4571,7 +5364,7 @@ export default function ConfigurationModal({
           {/* Main Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
             {sortedFields.map((fieldDef: any, fieldIndex: number) => {
-              const fieldValue = config.fields?.[fieldDef.name] || ""
+                                  const fieldValue = config[fieldDef.name] || ""
               
               // Check if this field represents a linked table (foreign key relationship)
               const isLinkedField = fieldDef.type === "linkedRecord" || 
@@ -4649,7 +5442,6 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
-                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4694,7 +5486,6 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
-                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4729,7 +5520,6 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType="text"
-                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4786,63 +5576,52 @@ export default function ConfigurationModal({
                       </div>
                     </div>
                   ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-3">
                       {/* DEBUG: Log when generic file input is used for icon/cover */}
-                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && console.log('❌ Generic file input used for icon/cover:', { fieldName: fieldDef.name, nodeType: nodeInfo?.type, fieldType: fieldDef.type })}
+                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && (() => {
+                        console.log('❌ Generic file input used for icon/cover:', { fieldName: fieldDef.name, nodeType: nodeInfo?.type, fieldType: fieldDef.type })
+                        return null
+                      })()}
                       {(fieldDef.name === "icon" || fieldDef.name === "cover") && (
                         <div style={{ color: 'white', background: 'red', padding: 4, fontWeight: 'bold', borderRadius: 4, marginBottom: 8 }}>
                           USING GENERIC FILE INPUT FOR {fieldDef.name.toUpperCase()} (SHOULD USE ENHANCED)
                         </div>
                       )}
-                      <input
-                        type="file"
-                        id={`file-${fieldDef.name}`}
-                        multiple={fieldDef.type === "attachment"}
-                        accept={fieldDef.type === "image" ? "image/*" : undefined}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || [])
-                          const newFields = { ...config.fields, [fieldDef.name]: files }
-                          setConfig(prev => ({ ...prev, fields: newFields }))
+                      
+                      {/* Use FileUpload component for better UX */}
+                      <FileUpload
+                        value={fieldValue ? (Array.isArray(fieldValue) ? fieldValue : [fieldValue]) : []}
+                        onChange={(files) => {
+                          if (fieldDef.multiple || fieldDef.type === "attachment") {
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: files }))
+                          } else {
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: files.length > 0 ? files[0] : null }))
+                          }
                         }}
-                        className="hidden"
+                        accept={fieldDef.accept || (fieldDef.type === "image" ? "image/*" : "*/*")}
+                        maxSize={typeof fieldDef.maxSize === 'number' ? fieldDef.maxSize : 25 * 1024 * 1024} // 25MB default
+                        maxFiles={fieldDef.multiple || fieldDef.type === "attachment" ? 5 : 1}
+                        placeholder={fieldDef.type === "image" ? "Upload Image" : (fieldDef.type === "attachment" || fieldDef.multiple === true) ? "Upload Files" : "Upload File"}
+                        className="w-full"
                       />
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById(`file-${fieldDef.name}`)?.click()}
-                          className="min-h-[2.5rem] text-sm flex-1"
-                        >
-                          Upload {fieldDef.type === "image" ? "Image" : fieldDef.type === "attachment" ? "Files" : "File"}
-                        </Button>
+                      
+                      {/* Variable Picker */}
+                      <div className="flex justify-center">
                         <VariablePicker
                           workflowData={workflowData}
                           currentNodeId={currentNodeId}
                           onVariableSelect={(variable) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: variable }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: variable }))
                           }}
                           fieldType="file"
-                          currentNodeType={nodeInfo?.type}
                           trigger={
-                            <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Button variant="outline" size="sm" className="gap-2">
                               <span className="text-sm font-mono">{`{}`}</span>
+                              Use File from Previous Node
                             </Button>
                           }
                         />
                       </div>
-                      {fieldValue && (
-                        <div className="text-xs text-muted-foreground">
-                          {Array.isArray(fieldValue) && fieldValue.length > 0 
-                            ? fieldValue.length === 1
-                              ? `Selected: ${fieldValue[0].name}`
-                              : `${fieldValue.length} files: ${fieldValue.map(f => f.name).join(', ')}`
-                            : typeof fieldValue === 'string' && fieldValue.includes('{{')
-                            ? 'Using file from previous node'
-                            : 'File selected'
-                          }
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -4866,7 +5645,6 @@ export default function ConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         fieldType={fieldDef.type === "multilineText" ? "textarea" : "text"}
-                        currentNodeType={nodeInfo?.type}
                         trigger={
                           <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
                             <span className="text-sm font-mono">{`{}`}</span>
@@ -4985,20 +5763,9 @@ export default function ConfigurationModal({
         handleUrlFieldChange(newValue)
       } else {
         setConfig({ ...config, [field.name]: newValue })
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       }
-      
-      // Clear error when user starts typing
-      if (hasError && newValue.trim() !== '') {
-        setErrors(prev => {
-          const newErrors = { ...prev }
-          delete newErrors[field.name]
-          return newErrors
-        })
-      }
-    }
-
-    const handleEmailAutocompleteChange = (newValue: string) => {
-      setConfig({ ...config, [field.name]: newValue })
       
       // Clear error when user starts typing
       if (hasError && newValue.trim() !== '') {
@@ -5040,6 +5807,8 @@ export default function ConfigurationModal({
           [field.name]: newValue,
           [`${field.name}_label`]: label || newValue
         }))
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
         // Continue with the rest of the logic, but return early to avoid duplicate setConfig
         return;
       }
@@ -5055,8 +5824,12 @@ export default function ConfigurationModal({
               properties: templateConfig.properties,
               views: templateConfig.views
             }))
+            // Save preference
+            configPreferences.updateField(field.name, newValue)
           } else {
             setConfig({ ...config, [field.name]: newValue })
+            // Save preference
+            configPreferences.updateField(field.name, newValue)
           }
         } else {
           // Clear template - reset to empty properties and views
@@ -5066,6 +5839,8 @@ export default function ConfigurationModal({
             properties: [],
             views: []
           }))
+          // Save preference
+          configPreferences.updateField(field.name, newValue)
         }
       }
       // Clear dependent fields when base changes for Airtable
@@ -5081,6 +5856,8 @@ export default function ConfigurationModal({
           tableName: undefined,
           fields: undefined
         }))
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       } else {
         console.log('🔄 Updating config state:', {
           fieldName: field.name,
@@ -5089,11 +5866,110 @@ export default function ConfigurationModal({
           isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
         })
         setConfig({ ...config, [field.name]: newValue })
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       }
       
       // For Discord actions, channels will be loaded automatically by fetchDependentData
       if (nodeInfo?.type === "discord_action_send_message" && field.name === "guildId" && newValue) {
         console.log(`🔄 Guild selected: ${newValue}, channels will be loaded automatically`)
+      }
+      
+      // For Notion actions, load databases when workspace is selected
+      if (nodeInfo?.type === "notion_action_create_page" && field.name === "workspace" && newValue) {
+        console.log(`🔄 Notion workspace selected: ${newValue}, loading databases for this workspace`)
+        
+        // Reset the database and parent page selections when workspace changes
+        setConfig(prev => ({
+          ...prev,
+          database: undefined, // Clear the database selection
+          parentPageId: undefined // Clear the parent page selection
+        }))
+        
+        const integration = getIntegrationByProvider("notion")
+        if (integration) {
+          loadIntegrationSpecificData("notion_databases", { workspace: newValue })
+            .then((databaseData) => {
+              console.log('🔍 Database data received:', databaseData?.length || 0, 'databases')
+              if (databaseData && databaseData.length > 0) {
+                const mappedDatabases = databaseData.map((database: any) => ({
+                  value: database.value || database.id,
+                  label: database.label || database.name || 'Untitled',
+                  description: database.description || database.url,
+                  icon: database.icon
+                }))
+                console.log('🔍 Mapped databases:', mappedDatabases.slice(0, 3))
+                setDynamicOptions(prev => {
+                  const newOptions = {
+                    ...prev,
+                    "database": mappedDatabases
+                  }
+                  console.log('🔍 Updated dynamic options for database:', newOptions.database?.length || 0)
+                  return newOptions
+                })
+                console.log('✅ Loaded databases for workspace:', mappedDatabases.length)
+              } else {
+                console.log('⚠️ No databases found for workspace')
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "database": []
+                }))
+              }
+            })
+            .catch((error) => {
+              console.error('❌ Error loading databases for workspace:', error)
+            })
+        } else {
+          console.error('❌ No Notion integration found')
+        }
+      }
+      
+      // For Notion actions, load pages when database is selected
+      if (nodeInfo?.type === "notion_action_create_page" && field.name === "database" && newValue) {
+        console.log(`🔄 Notion database selected: ${newValue}, loading pages for this database`)
+        
+        // Reset the parent page selection when database changes
+        setConfig(prev => ({
+          ...prev,
+          parentPageId: undefined // Clear the parent page selection
+        }))
+        
+        const integration = getIntegrationByProvider("notion")
+        if (integration) {
+          loadIntegrationSpecificData("notion_pages", { database: newValue })
+            .then((pageData) => {
+              console.log('🔍 Page data received:', pageData?.length || 0, 'pages')
+              if (pageData && pageData.length > 0) {
+                const mappedPages = pageData.map((page: any) => ({
+                  value: page.value || page.id,
+                  label: page.label || page.title || 'Untitled',
+                  description: page.description || page.url,
+                  icon: page.icon
+                }))
+                console.log('🔍 Mapped pages:', mappedPages.slice(0, 3))
+                setDynamicOptions(prev => {
+                  const newOptions = {
+                    ...prev,
+                    "parentPageId": mappedPages
+                  }
+                  console.log('🔍 Updated dynamic options for parentPageId:', newOptions.parentPageId?.length || 0)
+                  return newOptions
+                })
+                console.log('✅ Loaded pages for database:', mappedPages.length)
+              } else {
+                console.log('⚠️ No pages found for database')
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "parentPageId": []
+                }))
+              }
+            })
+            .catch((error) => {
+              console.error('❌ Error loading pages for database:', error)
+            })
+        } else {
+          console.error('❌ No Notion integration found')
+        }
       }
       
       // Clear error when user selects a value
@@ -5118,8 +5994,8 @@ export default function ConfigurationModal({
       // Skip dependent field updates for Discord message actions - handled by separate effect
       if (nodeInfo?.type === "discord_action_edit_message" || nodeInfo?.type === "discord_action_delete_message" || nodeInfo?.type === "discord_action_send_message" || nodeInfo?.type === "discord_action_fetch_messages" || nodeInfo?.type === "discord_action_add_reaction" || nodeInfo?.type === "discord_action_remove_reaction" || nodeInfo?.type === "discord_action_fetch_reactions" || nodeInfo?.type === "discord_action_update_channel" || nodeInfo?.type === "discord_action_delete_channel") {
         console.log('🔄 Skipping dependent field updates for Discord message action - handled by separate effect')
-        return
-      }
+            return
+          }
       
       nodeInfo?.configSchema?.forEach(dependentField => {
         console.log('🔄 Checking field:', {
@@ -5157,6 +6033,8 @@ export default function ConfigurationModal({
 
     const handleMultiSelectChange = (newValue: string[]) => {
       setConfig({ ...config, [field.name]: newValue })
+      // Save preference
+      configPreferences.updateField(field.name, newValue)
       
       // Clear error when user selects values
       if (hasError) {
@@ -5170,6 +6048,8 @@ export default function ConfigurationModal({
 
     const handleCheckboxChange = (checked: boolean) => {
       setConfig(prev => ({ ...prev, [field.name]: checked }))
+      // Save preference
+      configPreferences.updateField(field.name, checked)
     }
 
     const handleFileChange = async (files: FileList | File[]) => {
@@ -5249,7 +6129,7 @@ export default function ConfigurationModal({
       console.log(`🎯 EnhancedFileInput triggered for:`, { fieldName: field.name, nodeType: nodeInfo?.type, fieldType: field.type })
       return (
         <div className="space-y-2">
-          {renderLabel()}
+          {renderDynamicLabel()}
           <EnhancedFileInput
             fieldDef={field as NodeField}
             fieldValue={value}
@@ -5268,12 +6148,151 @@ export default function ConfigurationModal({
 
     switch (String(field.type)) {
       case "text":
+      case "location-autocomplete":
+        // Special handling for Outlook calendar event location fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "location" || field.name === "locations")) {
+          
+          // For the main location field
+          if (field.name === "location") {
+            return (
+              <div className="space-y-2">
+                {renderDynamicLabel()}
+                <EnhancedLocationInput
+                  value={value || ""}
+                  onChange={(newValue) => {
+                    setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                    if (hasError) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev }
+                        delete newErrors[field.name]
+                        return newErrors
+                      })
+                    }
+                  }}
+                  placeholder={field.placeholder || "Enter location or room number"}
+                  disabled={loadingDynamic}
+                  className={cn(hasError && "border-red-500")}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                />
+                {hasError && (
+                  <p className="text-xs text-red-500">{errors[field.name]}</p>
+                )}
+              </div>
+            )
+          }
+          
+          // For the locations field (additional locations)
+          if (field.name === "locations") {
+            const locations = Array.isArray(value) ? value : []
+            
+            return (
+              <div className="space-y-4">
+                {renderDynamicLabel()}
+                <div className="space-y-3">
+                  {locations.map((location, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <EnhancedLocationInput
+                          value={location || ""}
+                          onChange={(newValue) => {
+                            const newLocations = [...locations]
+                            newLocations[index] = newValue
+                            setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                            if (hasError) {
+                              setErrors(prev => {
+                                const newErrors = { ...prev }
+                                delete newErrors[field.name]
+                                return newErrors
+                              })
+                            }
+                          }}
+                          placeholder={`Additional location ${index + 1}`}
+                          disabled={loadingDynamic}
+                          className={cn(hasError && "border-red-500")}
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          onVariableSelect={handleVariableSelect}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newLocations = locations.filter((_, i) => i !== index)
+                          setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newLocations = [...locations, ""]
+                      setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Additional Location
+                  </Button>
+                </div>
+                {hasError && (
+                  <p className="text-xs text-red-500">{errors[field.name]}</p>
+                )}
+              </div>
+            )
+          }
+        }
+        
+        // Special handling for Google Calendar event location fields
+        if (nodeInfo?.type === "google_calendar_action_create_event" && 
+            field.name === "location") {
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <EnhancedLocationInput
+                value={value || ""}
+                onChange={(newValue) => {
+                  setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                  if (hasError) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev }
+                      delete newErrors[field.name]
+                      return newErrors
+                    })
+                  }
+                }}
+                placeholder={field.placeholder || "Enter location or room number"}
+                disabled={loadingDynamic}
+                className={cn(hasError && "border-red-500")}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={handleVariableSelect}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
         // Fall through to default text handling
       case "email":
       case "password":
         return (
           <div className="space-y-2">
-            {renderLabel()}
+            {renderDynamicLabel()}
             <div className="flex gap-2 w-full">
               <div className="flex-1 relative">
                 <Input
@@ -5314,9 +6333,8 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
-                  currentNodeType={nodeInfo?.type}
                   trigger={
-                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
                       <span className="text-sm font-mono">{`{}`}</span>
                     </Button>
                   }
@@ -5332,9 +6350,8 @@ export default function ConfigurationModal({
       case "number":
         return (
           <div className="space-y-2">
-            {renderLabel()}
-            <div className="flex gap-2 w-full">
-              <div className="flex-1 relative">
+            {renderDynamicLabel()}
+            <div className="relative">
               <Input
                 type="number"
                 value={value}
@@ -5382,20 +6399,6 @@ export default function ConfigurationModal({
                   </div>
                 </div>
               )}
-              {!field.readonly && !loadingDynamic && (
-                <VariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType={field.type}
-                  currentNodeType={nodeInfo?.type}
-                  trigger={
-                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
-                      <span className="text-sm font-mono">{`{}`}</span>
-                    </Button>
-                  }
-                />
-              )}
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -5406,7 +6409,7 @@ export default function ConfigurationModal({
       case "textarea":
         return (
           <div className="space-y-2">
-            {renderLabel()}
+            {renderDynamicLabel()}
             <div className="w-full space-y-2">
               <div className="relative">
                 <Textarea
@@ -5458,10 +6461,72 @@ export default function ConfigurationModal({
           </div>
         )
 
+      case "boolean":
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id={field.name}
+                checked={Boolean(value)}
+                onCheckedChange={handleCheckboxChange}
+                disabled={loadingDynamic}
+              />
+              <Label htmlFor={field.name} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                {field.description || "Enable this option"}
+              </Label>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "file":
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <FileUpload
+              value={value ? (Array.isArray(value) ? value : [value]) : []}
+              onChange={(files) => {
+                if (field.multiple) {
+                  setConfig(prev => ({ ...prev, [field.name]: files }))
+                } else {
+                  setConfig(prev => ({ ...prev, [field.name]: files.length > 0 ? files[0] : null }))
+                }
+              }}
+              accept={field.accept || "*/*"}
+              maxSize={typeof field.maxSize === 'number' ? field.maxSize : 25 * 1024 * 1024} // 25MB default
+              maxFiles={field.multiple ? 5 : 1}
+              placeholder={field.placeholder || "Upload Files"}
+              className="w-full"
+            />
+            <div className="flex justify-center">
+              <VariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={(variable) => {
+                  setConfig(prev => ({ ...prev, [field.name]: variable }))
+                }}
+                fieldType="file"
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <span className="text-sm font-mono">{`{}`}</span>
+                    Use File from Previous Node
+                  </Button>
+                }
+              />
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       case "rich-text":
         return (
           <div className="space-y-2">
-            {renderLabel()}
+            {renderDynamicLabel()}
             
             <div className="w-full space-y-2">
               <div className="border rounded-md">
@@ -5955,7 +7020,6 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
-                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button variant="outline" size="sm" className="gap-2">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -5989,8 +7053,8 @@ export default function ConfigurationModal({
           )
         }
 
-        // Add variable picker for Discord message action channel and message fields
-        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel") && (field.name === "channelId" || field.name === "messageId")) {
+        // Add variable picker for Discord message action message fields only (exclude channelId)
+        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel") && field.name === "messageId") {
           // Get options for the select field
           let options: any[] = []
           if (field.dynamic) {
@@ -6002,7 +7066,7 @@ export default function ConfigurationModal({
           }
           
           // Determine loading state for this specific field
-          const isFieldLoading = field.name === 'channelId' ? loadingDiscordChannels : 
+          const isFieldLoading = field.name === 'channelId' ? false : // Never show loading for channels since we pre-load them
                                 field.name === 'messageId' ? loadingDiscordMessages : 
                                 loadingDynamic
           
@@ -6023,8 +7087,16 @@ export default function ConfigurationModal({
           
           return (
             <div className="space-y-2">
-              {renderLabel()}
-              <div className="flex gap-2 w-full">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {isFieldLoading && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {field.label?.toLowerCase() || 'options'}...
+                    </div>
+                  </div>
+                )}
                 <div className="flex-1">
                   <Select
                     value={value}
@@ -6032,11 +7104,7 @@ export default function ConfigurationModal({
                     disabled={isFieldLoading}
                   >
                     <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-                      <SelectValue placeholder={
-                        isFieldLoading 
-                          ? `Loading ${field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...` 
-                          : field.placeholder
-                      }>
+                      <SelectValue placeholder={field.placeholder}>
                         {selectedLabel}
                       </SelectValue>
                     </SelectTrigger>
@@ -6047,15 +7115,249 @@ export default function ConfigurationModal({
                       align="start"
                     >
                       {isFieldLoading ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Loading {field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...
+                          Loading {field.label?.toLowerCase() || 'options'}...
                         </div>
                       ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          {field.name === 'channelId' ? 'No channels available' : 
-                           field.name === 'messageId' ? 'No messages available' : 
-                           'No options available'}
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {field.label?.toLowerCase() || 'options'} available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  value={value}
+                  onChange={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  availableNodes={workflowData?.nodes?.map((node: any) => ({
+                    id: node.id,
+                    title: node.data?.title || node.data?.type || 'Unknown Node',
+                    outputs: node.data?.outputSchema || []
+                  })) || []}
+                  placeholder={field.placeholder}
+                  className="flex-1"
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Add enhanced email selection for Outlook reply to email
+        if (nodeInfo?.type === "microsoft-outlook_action_reply_to_email" && field.name === "messageId") {
+          const [searchQuery, setSearchQuery] = React.useState("")
+          
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Filter emails based on search query
+          const filteredEmails = options.filter((option: any) => {
+            if (!searchQuery) return true
+            const searchText = `${option.label || ''} ${option.subject || ''} ${option.fromName || ''} ${option.email || option.from || ''} ${option.body || ''} ${option.description || ''}`.toLowerCase()
+            return searchText.includes(searchQuery.toLowerCase())
+          })
+          
+          // Limit to past 10 emails and enhance the display
+          const recentEmails = filteredEmails.slice(0, 10).map((option: any) => ({
+            ...option,
+            label: option.label || option.name || option.subject || 'No subject',
+            description: option.description || `${option.fromName || 'Unknown'} (${option.email || option.from || 'No email'})`,
+            searchText: `${option.label || ''} ${option.subject || ''} ${option.fromName || ''} ${option.email || option.from || ''} ${option.body || ''} ${option.description || ''}`.toLowerCase()
+          }))
+          
+          // Find the selected option to display the label properly
+          const selectedOption = recentEmails.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading recent emails...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading recent emails...
+                        </div>
+                      ) : recentEmails.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No recent emails available
+                        </div>
+                      ) : (
+                        <>
+                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                            Recent 10 emails (search by subject, sender, or content)
+                          </div>
+                          <div className="p-2 border-b">
+                            <Input
+                              placeholder="Search emails..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          {recentEmails.map((option: any, optionIndex: number) => {
+                            const optionValue = typeof option === 'string' ? option : option.value
+                            const optionLabel = typeof option === 'string' ? option : option.label
+                            const optionDescription = typeof option === 'string' ? undefined : option.description
+                            return (
+                              <SelectItem key={`email-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <div className="font-medium">{optionLabel}</div>
+                                  {optionDescription && (
+                                    <div className="text-xs text-muted-foreground">{optionDescription}</div>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            )
+                          })}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Add variable picker for Outlook move email fields
+        if (nodeInfo?.type === "microsoft-outlook_action_move_email" && (field.name === "messageId" || field.name === "destinationFolderId")) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {field.label?.toLowerCase() || 'options'}...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading {field.label?.toLowerCase() || 'options'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {field.label?.toLowerCase() || 'options'} available
                         </div>
                       ) : (
                         options.map((option: any, optionIndex: number) => {
@@ -6078,7 +7380,149 @@ export default function ConfigurationModal({
                     setConfig(prev => ({ ...prev, [field.name]: variable }))
                   }}
                   fieldType="text"
-                  currentNodeType={nodeInfo?.type}
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Add variable picker for Discord member selection fields (assign role, remove role, kick member, ban member, unban member)
+        if (nodeInfo && (nodeInfo.type === "discord_action_assign_role" || nodeInfo.type === "discord_action_remove_role" || nodeInfo.type === "discord_action_kick_member" || nodeInfo.type === "discord_action_ban_member" || nodeInfo.type === "discord_action_unban_member") && field.name === "userId") {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = dynamicOptions[field.name] || 
+                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options
+          }
+          
+          // Determine loading state for this specific field
+          // For Discord member fields, always show loading state when loadingDiscordMembers is true
+          // or when there are no options yet but the field depends on guildId
+          const isDiscordMembersField = field.dynamic === 'discord_members';
+          const isDiscordBannedUsersField = field.dynamic === 'discord_banned_users';
+          const hasNoOptionsYet = options.length === 0;
+          const dependsOnGuildId = field.dependsOn === 'guildId';
+          const isFieldLoading = isDiscordMembersField ? 
+            (loadingDiscordMembers || (hasNoOptionsYet && dependsOnGuildId && config.guildId)) : 
+            isDiscordBannedUsersField ?
+            (loadingDiscordBannedUsers || (hasNoOptionsYet && dependsOnGuildId && config.guildId)) :
+            loadingDynamic;
+          
+          // Debug logging for Discord members loading state
+          if (isDiscordMembersField) {
+            console.log(`🎯 DISCORD MEMBERS LOADING STATE for "${field.name}":`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              loadingDiscordMembers,
+              loadingDynamic,
+              isFieldLoading,
+              hasOptions: options.length > 0,
+              optionsCount: options.length,
+              hasGuildId: !!config.guildId,
+              guildId: config.guildId
+            })
+          }
+
+          // Debug logging for Discord banned users loading state
+          if (isDiscordBannedUsersField) {
+            console.log(`🎯 DISCORD BANNED USERS LOADING STATE for "${field.name}":`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              loadingDiscordBannedUsers,
+              loadingDynamic,
+              isFieldLoading,
+              hasOptions: options.length > 0,
+              optionsCount: options.length,
+              hasGuildId: !!config.guildId,
+              guildId: config.guildId
+            })
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {isFieldLoading && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground pl-3">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {isDiscordBannedUsersField ? 'banned users' : field.label?.toLowerCase() || 'members'}...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={isFieldLoading}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {isFieldLoading ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Loading {isDiscordBannedUsersField ? 'banned users' : field.label?.toLowerCase() || 'members'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {isDiscordBannedUsersField ? 'banned users' : 'members'} available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6163,34 +7607,32 @@ export default function ConfigurationModal({
           dynamicOptionsForField: dynamicOptions[field.name]
         })
         
-        // Special debugging for Discord channels
+                // Special debugging for Discord channels
         if (field.dynamic === "discord_channels") {
           console.log(`🎯 DISCORD CHANNELS DEBUG for "${field.name}":`, {
             fieldName: field.name,
-            fieldDynamic: field.dynamic,
-            optionsCount: options.length,
-            options: options,
-            dynamicOptionsKeys: Object.keys(dynamicOptions),
-            dynamicOptionsForField: dynamicOptions[field.name],
-            allDynamicOptions: dynamicOptions,
-            currentConfig: config,
-            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
-            currentValue: value,
-            nodeType: nodeInfo?.type
           })
         }
-
-
         
-
-        
+        // Special debugging for Discord categories
+        if (field.dynamic === "discord_categories") {
+          console.log(`🎯 DISCORD CATEGORIES DEBUG for "${field.name}":`, {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            optionsFromFieldName: dynamicOptions[field.name],
+            optionsFromDynamic: typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : [],
+            finalOptions: options,
+            allDynamicOptionsKeys: Object.keys(dynamicOptions),
+            nodeInfoType: nodeInfo?.type
+          })
+        }
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
           // Special handling for Gmail labels to make it more like Gmail's interface
           if (field.name === 'labelIds' && field.dynamic === 'gmail-labels') {
             return (
               <div className="space-y-2">
-                {renderLabel()}
+                {renderDynamicLabel()}
                 <GmailLabelsInput
                   options={options.map((option) => {
                     if (typeof option === 'string') {
@@ -6244,7 +7686,7 @@ export default function ConfigurationModal({
           // For all other multiple/creatable fields, use MultiCombobox
           return (
             <div className="space-y-2">
-              {renderLabel()}
+              {renderDynamicLabel()}
               <MultiCombobox
                 options={options.map((option) => {
                   if (typeof option === 'string') {
@@ -6280,7 +7722,7 @@ export default function ConfigurationModal({
         if (field.creatable) {
           return (
             <div className="space-y-2">
-              {renderLabel()}
+              {renderDynamicLabel()}
               <Combobox
                 options={options.map((option) => ({
                   value: typeof option === 'string' ? option : option.value,
@@ -6306,7 +7748,7 @@ export default function ConfigurationModal({
         if (field.dynamic === "youtube_videos") {
           return (
             <div className="space-y-2">
-              {renderLabel()}
+              {renderDynamicLabel()}
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select
@@ -6336,12 +7778,12 @@ export default function ConfigurationModal({
                       align="start"
                     >
                       {loadingDynamic ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           Loading videos...
                         </div>
                       ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           No videos available
                         </div>
                       ) : (
@@ -6365,7 +7807,6 @@ export default function ConfigurationModal({
                     setConfig(prev => ({ ...prev, [field.name]: variable }))
                   }}
                   fieldType="text"
-                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6393,35 +7834,75 @@ export default function ConfigurationModal({
         // Determine loading state for Discord fields
         const isDiscordField = nodeInfo?.providerId === 'discord' && (field.name === 'channelId' || field.name === 'messageId')
         const isFieldLoading = isDiscordField ? 
-          (field.name === 'channelId' ? loadingDiscordChannels : loadingDiscordMessages) : 
+          (field.name === 'channelId' ? false : loadingDiscordMessages) : // Never show loading for channels since we pre-load them
           loadingDynamic
         
         return (
           <div className="space-y-2">
-            {renderLabel()}
-            <div className="flex gap-2 w-full">
-              <div className="flex-1">
-                <Select
-                  value={value}
-                  onValueChange={(newValue) => {
-                    console.log('🎯 TRELLO SELECT onValueChange called:', {
-                      fieldName: field.name,
-                      newValue,
-                      oldValue: value,
-                      isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
-                    })
-                    handleSelectChange(newValue)
-                  }}
-                  disabled={isFieldLoading || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
-                >
+            {renderDynamicLabel()}
+            <Select
+              value={value}
+              onValueChange={(newValue) => {
+                console.log('🎯 TRELLO SELECT onValueChange called:', {
+                  fieldName: field.name,
+                  newValue,
+                  oldValue: value,
+                  isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+                })
+                handleSelectChange(newValue)
+              }}
+              disabled={isFieldLoading || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
+            >
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={
                   isFieldLoading 
-                    ? (isDiscordField ? `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : "Loading...")
+                    ? (isDiscordField ? `Loading ${field.name === 'messageId' ? 'messages' : 'options'}...` : "Loading...")
                     : ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && field.dependsOn)
                     ? `Select ${field.dependsOn} first`
                     : field.placeholder
-                } />
+                }>
+                  {/* Enhanced display for integration fields with labels */}
+                  {value && config[`${field.name}_label`] && (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">
+                          {nodeInfo?.title || `${nodeInfo?.providerId || 'Action'} Action`}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {config[`${field.name}_label`]}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 ml-2"
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          try {
+                            // Copy the value to clipboard
+                            await navigator.clipboard.writeText(value)
+                            // Show a toast notification
+                            toast({
+                              title: "Value copied",
+                              description: `${field.label || field.name} copied to clipboard`,
+                            })
+                          } catch (error) {
+                            console.error('Failed to copy value:', error)
+                            toast({
+                              title: "Copy failed",
+                              description: "Failed to copy value to clipboard",
+                              variant: "destructive",
+                            })
+                          }
+                        }}
+                        title={`Copy ${field.label || field.name}`}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent 
                 className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
@@ -6430,16 +7911,16 @@ export default function ConfigurationModal({
                 align="start"
               >
                 {isFieldLoading ? (
-                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     {isDiscordField ? 
-                      `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : 
+                      `Loading ${field.name === 'messageId' ? 'messages' : 'options'}...` : 
                       'Loading options...'}
                   </div>
                 ) : options.length === 0 ? (
-                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     {isDiscordField ? 
-                      (field.name === 'channelId' ? 'No channels available' : 'No messages available') : 
+                      (field.name === 'messageId' ? 'No messages available' : 'No options available') : 
                       'No options available'}
                   </div>
                 ) : (
@@ -6455,22 +7936,6 @@ export default function ConfigurationModal({
                 )}
               </SelectContent>
             </Select>
-              </div>
-              {!field.readonly && !loadingDynamic && (
-                <VariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType={field.type}
-                  currentNodeType={nodeInfo?.type}
-                  trigger={
-                    <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
-                      <span className="text-sm font-mono">{`{}`}</span>
-                    </Button>
-                  }
-                />
-              )}
-            </div>
             
             {/* Discord bot status indicator */}
             {nodeInfo?.type?.startsWith("discord_action_") && field.name === "guildId" && value && (
@@ -6501,7 +7966,7 @@ export default function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
+                            getDiscordBotInviteUrl(),
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6557,7 +8022,7 @@ export default function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
+                            getDiscordBotInviteUrl(),
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6603,27 +8068,222 @@ export default function ConfigurationModal({
           </div>
         )
 
+        // Default case for select fields with variable picker support
+        if (field.hasVariablePicker) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {field.label?.toLowerCase() || 'options'}...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading {field.label?.toLowerCase() || 'options'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {field.label?.toLowerCase() || 'options'} available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <span className="text-sm font-mono">{`{}`}</span>
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Default case for regular select fields with Discord filtering
+        let selectOptions: any[] = [];
+        
+        if (nodeInfo?.type === "discord_action_send_message" && field.name === "channelId" && config.guildId) {
+          // Filter channels based on selected guild
+          const allChannels = dynamicOptions.allDiscordChannels || [];
+          selectOptions = allChannels.filter((channel: any) => channel.guildId === config.guildId);
+        } else {
+          selectOptions = field.dynamic ? (dynamicOptions[field.name] as any[]) || [] : (field.options as any[]) || [];
+        }
+        
+        // Improved loading logic for Discord fields
+        let isSelectLoading = false;
+        if (field.dynamic && loadingDynamic) {
+          if (nodeInfo?.type === "discord_action_send_message") {
+            // For Discord send message, only show loading if we don't have options yet
+            if (field.name === "guildId") {
+              isSelectLoading = !selectOptions.length && loadingDynamic;
+            } else if (field.name === "channelId") {
+              // For channel field, never show loading since we pre-load all channels
+              // Only show loading if we don't have any channels at all
+              const hasAnyChannels = dynamicOptions.allDiscordChannels && dynamicOptions.allDiscordChannels.length > 0;
+              isSelectLoading = !hasAnyChannels && loadingDynamic;
+            } else {
+              isSelectLoading = !selectOptions.length && loadingDynamic;
+            }
+          } else {
+            // For other integrations, use the original logic
+            isSelectLoading = Boolean(field.dynamic && loadingDynamic);
+          }
+        }
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex gap-2 w-full relative">
+              {isSelectLoading && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading {field.label?.toLowerCase() || 'options'}...
+                  </div>
+                </div>
+              )}
+              <div className="flex-1">
+                <Select
+                  value={value}
+                  onValueChange={handleSelectChange}
+                  disabled={isSelectLoading}
+                >
+                  <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                    <SelectValue placeholder={field.placeholder}>
+                      {value}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent 
+                    className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                    side="bottom" 
+                    sideOffset={0} 
+                    align="start"
+                  >
+                    {isSelectLoading ? (
+                      <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Loading {field.label?.toLowerCase() || 'options'}...
+                      </div>
+                    ) : selectOptions.length === 0 ? (
+                      <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                        No {field.label?.toLowerCase() || 'options'} available
+                      </div>
+                    ) : (
+                      selectOptions.map((option: any, optionIndex: number) => {
+                        const optionValue = typeof option === 'string' ? option : option.value
+                        const optionLabel = typeof option === 'string' ? option : option.label
+                        return (
+                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                            {optionLabel}
+                          </SelectItem>
+                        )
+                      })
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       case "email-autocomplete":
         return (
           <div className="space-y-2">
-            {renderLabel()}
+            {renderDynamicLabel()}
             <div className="flex gap-2 w-full">
               <div className="flex-1 relative">
                 <EmailAutocomplete
                   value={value}
-                  onChange={handleEmailAutocompleteChange}
+                  onChange={handleChange}
                   placeholder={loadingDynamic ? "Loading..." : field.placeholder}
                   disabled={loadingDynamic}
-                  suggestions={dynamicOptions[field.dynamic] || []}
-                  multiple={true}
-                  isLoading={!!loadingDynamic[field.name]}
-                  error={dynamicErrors[field.dynamic] || (!loadingDynamic && (!dynamicOptions[field.dynamic] || dynamicOptions[field.dynamic].length === 0) ? "Unable to load email suggestions. Please check your Gmail integration." : undefined)}
                   className={cn(
                     "flex-1", 
                     hasError && "border-red-500",
                     loadingDynamic && "bg-muted/50 cursor-not-allowed"
                   )}
                 />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
+                )}
               </div>
               {!field.readonly && !loadingDynamic && (
                 <VariablePicker
@@ -6631,7 +8291,6 @@ export default function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   onVariableSelect={handleVariableSelect}
                   fieldType={field.type}
-                  currentNodeType={nodeInfo?.type}
                   trigger={
                     <Button size="sm" className="flex-shrink-0 px-3 h-10 bg-gradient-to-r from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-sm" title="Insert variable">
                       <span className="text-sm font-mono">{`{}`}</span>
@@ -6655,7 +8314,7 @@ export default function ConfigurationModal({
             : (typeof value === "string" && value ? value.split(",").map(e => e.trim()).filter(Boolean) : []);
           return (
             <div className="space-y-2">
-              {renderLabel()}
+              {renderDynamicLabel()}
               {slackUserFetchError && (
                 <div className="text-red-500 text-xs flex items-center gap-2">
                   {slackUserFetchError}
@@ -6685,10 +8344,544 @@ export default function ConfigurationModal({
           );
         }
 
+        // Default case for combobox fields
+        const comboboxOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || [];
+        const isComboboxLoading = field.dynamic && loadingDynamic;
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex gap-2 w-full relative">
+              {isComboboxLoading && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading {field.label?.toLowerCase() || 'options'}...
+                  </div>
+                </div>
+              )}
+              <div className="flex-1">
+                <Combobox
+                  options={comboboxOptions.map((option) => ({
+                    value: typeof option === 'string' ? option : option.value,
+                    label: typeof option === 'string' ? option : option.label,
+                    description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+                  }))}
+                  value={value}
+                  onChange={handleSelectChange}
+                  disabled={Boolean(isComboboxLoading)}
+                  placeholder={isComboboxLoading ? "Loading..." : field.placeholder}
+                  searchPlaceholder="Search or type to create new..."
+                  emptyPlaceholder={isComboboxLoading ? "Loading..." : "No results found."}
+                  creatable={!!field.creatable}
+                />
+              </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        );
+
+      case "datetime":
+        // Use the new DateTimePicker for Facebook create post scheduledPublishTime
+        if (nodeInfo?.type === "facebook_action_create_post" && field.name === "scheduledPublishTime") {
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <DateTimePicker
+                  value={value ? new Date(value) : undefined}
+                  onChange={(date) => {
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: date ? date.toISOString() : null 
+                    }))
+                  }}
+                  placeholder={field.placeholder || "Select date and time for publishing"}
+                  className="flex-1"
+                />
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Use the original datetime picker for other fields
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="relative">
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !value && "text-muted-foreground"
+                  )}
+                  onClick={() => setDateTimePickerOpen(prev => ({
+                    ...prev,
+                    [field.name]: !prev[field.name]
+                  }))}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {value ? new Date(value).toLocaleString() : <span>Select date and time</span>}
+                </Button>
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              {dateTimePickerOpen[field.name] && (
+                <div className="absolute z-50 mt-1 bg-background border rounded-md shadow-md p-4 w-[350px]">
+                  <div className="space-y-4">
+                    <div>
+                      <Calendar
+                        mode="single"
+                        selected={value ? new Date(value) : undefined}
+                        onSelect={(date: Date | undefined) => {
+                          if (date) {
+                            // Preserve time if exists, otherwise use current time
+                            const currentValue = value ? new Date(value) : new Date();
+                            const hours = currentValue.getHours();
+                            const minutes = currentValue.getMinutes();
+                            
+                            date.setHours(hours, minutes, 0, 0);
+                            setConfig(prev => ({ ...prev, [field.name]: date.toISOString() }));
+                          } else {
+                            setConfig(prev => ({ ...prev, [field.name]: null }));
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Time</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={value ? String(new Date(value).getHours()).padStart(2, '0') : "12"}
+                          onValueChange={(hour) => {
+                            const newDate = value ? new Date(value) : new Date();
+                            newDate.setHours(parseInt(hour));
+                            setConfig(prev => ({ ...prev, [field.name]: newDate.toISOString() }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Hour" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <SelectItem key={i} value={String(i).padStart(2, '0')}>
+                                {String(i).padStart(2, '0')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={value ? String(new Date(value).getMinutes()).padStart(2, '0') : "00"}
+                          onValueChange={(minute) => {
+                            const newDate = value ? new Date(value) : new Date();
+                            newDate.setMinutes(parseInt(minute));
+                            setConfig(prev => ({ ...prev, [field.name]: newDate.toISOString() }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Minute" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i * 5).map((minute) => (
+                              <SelectItem key={minute} value={String(minute).padStart(2, '0')}>
+                                {String(minute).padStart(2, '0')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setDateTimePickerOpen(prev => ({ ...prev, [field.name]: false }))}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          if (!value) {
+                            const now = new Date();
+                            setConfig(prev => ({ ...prev, [field.name]: now.toISOString() }));
+                          }
+                          setDateTimePickerOpen(prev => ({ ...prev, [field.name]: false }));
+                        }}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "custom":
+        // Handle custom field types
+
+        
+        if (field.name === "additional_properties") {
+          // Import the DynamicFieldSelector component
+          const DynamicFieldSelector = require("./DynamicFieldSelector").default
+          const selectedProperties = Array.isArray(value) ? value : []
+          const additionalValues = config.additional_values || {}
+          
+          return (
+            <div className="space-y-4">
+              {renderDynamicLabel()}
+              <DynamicFieldSelector
+                value={selectedProperties}
+                onChange={(newValue: string[]) => {
+                  setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                  if (hasError) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev }
+                      delete newErrors[field.name]
+                      return newErrors
+                    })
+                  }
+                }}
+                description={field.description}
+                integrationId={getIntegrationByProvider("hubspot")?.id}
+              />
+              
+              {/* Render input fields for selected properties */}
+              <DynamicFieldInputs
+                selectedProperties={selectedProperties}
+                values={additionalValues}
+                onChange={(newValues) => {
+                  setConfig(prev => ({ ...prev, additional_values: newValues }))
+                }}
+                integrationId={getIntegrationByProvider("hubspot")?.id}
+              />
+              
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // For HubSpot all available fields
+        if (field.name === "all_available_fields") {
+          const selectedFields = Array.isArray(config.all_available_fields) ? config.all_available_fields : []
+          const fieldValues = config.all_field_values || {}
+          
+          // Check if company field is selected
+          const hasCompanyField = selectedFields.includes('company') || selectedFields.includes('hs_analytics_source_data_1')
+          const companyFields = Array.isArray(config.company_fields) ? config.company_fields : []
+          const companyFieldValues = config.company_field_values || {}
+          
+          return (
+            <div className="space-y-6">
+              <AllFieldsSelector
+                integrationId={getIntegrationByProvider("hubspot")?.id || ""}
+                selectedFields={selectedFields}
+                onFieldsChange={(newSelectedFields) => {
+                  setConfig(prev => ({ ...prev, all_available_fields: newSelectedFields }))
+                  // Clear values for removed fields
+                  setConfig(prev => {
+                    const newValues = { ...prev.all_field_values }
+                    Object.keys(newValues).forEach(key => {
+                      if (!newSelectedFields.includes(key)) {
+                        delete newValues[key]
+                      }
+                    })
+                    return { ...prev, all_field_values: newValues }
+                  })
+                }}
+                fieldValues={fieldValues}
+                onFieldValueChange={(fieldName, value) => {
+                  setConfig(prev => ({
+                    ...prev,
+                    all_field_values: {
+                      ...prev.all_field_values,
+                      [fieldName]: value
+                    }
+                  }))
+                }}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+              />
+              
+              {/* Show Company Fields Selector when company field is selected */}
+              {hasCompanyField && (
+                <div className="border-t pt-6">
+                  <CompanyFieldsSelector
+                    integrationId={getIntegrationByProvider("hubspot")?.id || ""}
+                    selectedFields={companyFields}
+                    onFieldsChange={(newCompanyFields) => {
+                      setConfig(prev => ({ ...prev, company_fields: newCompanyFields }))
+                      // Clear values for removed company fields
+                      setConfig(prev => {
+                        const newValues = { ...prev.company_field_values }
+                        Object.keys(newValues).forEach(key => {
+                          if (!newCompanyFields.includes(key)) {
+                            delete newValues[key]
+                          }
+                        })
+                        return { ...prev, company_field_values: newValues }
+                      })
+                    }}
+                    fieldValues={companyFieldValues}
+                    onFieldValueChange={(fieldName, value) => {
+                      setConfig(prev => ({
+                        ...prev,
+                        company_field_values: {
+                          ...prev.company_field_values,
+                          [fieldName]: value
+                        }
+                      }))
+                    }}
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                  />
+                </div>
+              )}
+              
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // For other custom fields, render as a section header
+        if (field.name === "additional_fields_section") {
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <Label className="text-sm font-medium text-muted-foreground px-2">
+                  {field.label}
+                </Label>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              {field.description && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {field.description}
+                </p>
+              )}
+            </div>
+          )
+        }
+        
+        // Default custom field rendering
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="p-3 bg-muted/50 rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">
+                Custom field: {field.label}
+              </p>
+              {field.description && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {field.description}
+                </p>
+              )}
+            </div>
+          </div>
+        )
+
+      case "date":
+        // Special handling for Outlook calendar event date fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "startDate" || field.name === "endDate")) {
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <DateOnlyPicker
+                  value={value ? new Date(value) : undefined}
+                  onChange={(date) => {
+                    if (date) {
+                      // For start date, set the time to current time rounded to nearest 5 minutes
+                      if (field.name === "startDate") {
+                        const now = new Date()
+                        const roundedTime = roundToNearest5Minutes(now)
+                        date.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0)
+                        
+                        // Also update the start time field
+                        setConfig(prev => ({ 
+                          ...prev, 
+                          startTime: formatTime(date)
+                        }))
+                      }
+                      
+                      // For end date, set it to 1 hour after start if it's the same as start
+                      if (field.name === "endDate") {
+                        const startDate = config.startDate ? new Date(config.startDate) : new Date()
+                        if (date.toDateString() === startDate.toDateString()) {
+                          date.setHours(startDate.getHours() + 1, startDate.getMinutes(), 0, 0)
+                          
+                          // Also update the end time field
+                          setConfig(prev => ({ 
+                            ...prev, 
+                            endTime: formatTime(date)
+                          }))
+                        }
+                      }
+                    }
+                    
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: date ? date.toISOString() : null 
+                    }))
+                  }}
+                  placeholder={field.placeholder || "Select date"}
+                  className="flex-1"
+                />
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Default date picker for other date fields
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <DateOnlyPicker
+              value={value ? new Date(value) : undefined}
+              onChange={handleDateChange}
+              placeholder={field.placeholder || "Pick a date"}
+              className="w-full"
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "time":
+        // Special handling for Outlook calendar event time fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "startTime" || field.name === "endTime")) {
+          // Generate time options in 5-minute intervals with AM/PM format
+          const timeOptions = [];
+          for (let hour = 0; hour < 24; hour++) {
+            for (let minute = 0; minute < 60; minute += 5) {
+              const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+              const ampm = hour < 12 ? 'AM' : 'PM';
+              const displayTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${ampm}`;
+              timeOptions.push({
+                value: timeString,
+                label: displayTime
+              });
+            }
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <Select
+                  value={value}
+                  onValueChange={(newValue) => {
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: newValue 
+                    }))
+                  }}
+                >
+                  <SelectTrigger className={cn("flex-1", hasError && "border-red-500")}>
+                    <SelectValue placeholder={field.placeholder || "Select time"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {value && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setConfig(prev => ({ 
+                        ...prev, 
+                        [field.name]: null 
+                      }))
+                    }}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <Input
+              type="time"
+              value={value}
+              onChange={(e) => handleTimeChange(e.target.value)}
+              placeholder={field.placeholder || "Select time"}
+              className={cn("w-full", hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       default:
         return (
           <div className="space-y-2">
-            {renderLabel()}
+            {renderDynamicLabel()}
             <Input
               value={value}
               onChange={handleChange}
@@ -6936,7 +9129,7 @@ export default function ConfigurationModal({
             body: JSON.stringify({ userId: user.id, workspaceId: config.workspace }),
           });
           // Reload integration data from store
-          await loadIntegrationData("slack", config.workspace, { forceRefresh: true });
+          await loadIntegrationSpecificData("slack", { forceRefresh: true });
         } catch (err) {
           console.error("Failed to refresh Slack provider plan:", err);
         }
@@ -6964,7 +9157,7 @@ export default function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-7xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden rounded-b-none",
+            "max-w-7xl w-full max-h-[85vh] p-0 gap-0 overflow-hidden",
             showDataFlowPanels && "max-w-[98vw]"
           )}
         >
@@ -6987,7 +9180,7 @@ export default function ConfigurationModal({
                     true
                   )
                 ) : null}
-              </div>
+    </div>
             )}
 
             {/* Main Configuration Content */}
@@ -7083,7 +9276,7 @@ export default function ConfigurationModal({
               </DialogHeader>
 
               {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[70vh] overflow-x-hidden">
+              <ScrollArea className="flex-1 max-h-[65vh] overflow-x-hidden">
                 <div className="px-6 py-4 space-y-6 w-full max-w-full">
                   {/* Integration Error */}
                   {errors.integrationError && (
@@ -7246,6 +9439,223 @@ export default function ConfigurationModal({
                     </>
                   )}
 
+                  {/* Outlook Search Email Preview Button */}
+                  {nodeInfo?.type === "microsoft-outlook_action_search_email" && (
+                    <div className="flex justify-end mb-6">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        onClick={handlePreview}
+                        disabled={previewLoading}
+                      >
+                        {previewLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4" />
+                            Load Preview
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Discord Create Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_create_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic channel settings. Fields shown depend on the selected channel type. Use the Advanced tab for permission overwrites and custom configurations.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including permission overwrites and custom values. These settings override basic tab values if both are provided.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Update Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_update_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic channel update settings. Select a server and channel, then specify the new name. Use the Advanced tab for topic, position, and permission overwrites.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including topic, position, and permission overwrites. These settings provide fine-grained control over channel updates.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Fetch Channels Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_list_channels" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for fetching Discord channels. Select a server and set the number of channels to fetch. Use the Advanced tab for filtering and sorting options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering and sorting options. Filter by channel types, name, parent category, and sort results as needed.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Delete Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_delete_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for deleting a Discord channel. Select a server and channel to delete. Use the Advanced tab for filtering options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering options to help find the specific channel you want to delete. Filter by channel types, name, and parent category.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Create Category Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_create_category" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for creating a Discord category. Select a server, specify the category name, and choose if it should be private. Use the Advanced tab for position and permission overwrites.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including position and permission overwrites. These settings provide fine-grained control over category creation.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Delete Category Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_delete_category" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for deleting a Discord category. Select a server and category to delete, and choose whether to move channels to general. Use the Advanced tab for filtering options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering options to help find the specific category you want to delete. Filter by name and sort categories as needed.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Fetch Guild Members Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_fetch_guild_members" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for fetching Discord guild members. Select a server and set the number of members to fetch. Use the Advanced tab for filtering and sorting options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering and sorting options. Filter by name, role, and sort results as needed. You can also choose to include or exclude bot users.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Facebook Create Post Basic/Monetization Tabs */}
+                  {nodeInfo?.type === "facebook_action_create_post" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="monetization">Monetization</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic post settings including page selection, title, message, and scheduling. Use the Monetization tab to add affiliate links and partnership labels.
+                        </div>
+                      )}
+                      
+                      {activeTab === "monetization" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Add affiliate product links and partnership labels to monetize your Facebook posts. Earn commissions on qualifying purchases.
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Configuration Fields */}
                   {isNotionDatabaseNode ? (
                     <>
@@ -7273,6 +9683,38 @@ export default function ConfigurationModal({
                     // Default: render all fields as before
                     nodeInfo?.configSchema?.map((field, configFieldIndex) => {
                       if (!shouldShowField(field)) return null
+
+                      // For Discord actions with guildId, check if bot is missing and only server field is visible
+                      const isDiscordActionWithGuildId = nodeInfo?.providerId === "discord" && field.name === "guildId"
+                      const isBotMissing = isDiscordActionWithGuildId && typeof botStatus[config.guildId] === "boolean" && !botStatus[config.guildId]
+                      const visibleFields = nodeInfo?.configSchema?.filter(f => shouldShowField(f)) || [];
+                      const hasOnlyServerField = isDiscordActionWithGuildId && visibleFields.length === 1
+
+                      // If bot is missing and only server field is visible, render without wrapper div
+                      if (isBotMissing && hasOnlyServerField) {
+                        return (
+                          <React.Fragment key={`config-field-${configFieldIndex}-${field.name}`}>
+                            {renderField(field)}
+                          </React.Fragment>
+                        )
+                      }
+
+                      // Handle tabbed interface for Discord and Facebook actions
+                      const isTabbedAction = nodeInfo?.type === "discord_action_create_channel" || 
+                                           nodeInfo?.type === "discord_action_update_channel" ||
+                                           nodeInfo?.type === "discord_action_list_channels" ||
+                                           nodeInfo?.type === "discord_action_delete_channel" ||
+                                           nodeInfo?.type === "discord_action_create_category" ||
+                                           nodeInfo?.type === "discord_action_delete_category" ||
+                                           nodeInfo?.type === "discord_action_fetch_guild_members" ||
+                                           nodeInfo?.type === "facebook_action_create_post"
+                      if (isTabbedAction && field.uiTab) {
+                        // Only render fields that match the current active tab
+                        if (field.uiTab !== activeTab) {
+                          return null
+                        }
+                      }
+
                       return (
                         <div key={`config-field-${configFieldIndex}-${field.name}`} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
                           {renderField(field)}
@@ -7533,7 +9975,13 @@ export default function ConfigurationModal({
 
                   {/* Preview Functionality */}
                   {(nodeInfo?.type === "discord_action_fetch_messages" || 
-                    nodeInfo?.type === "notion_action_search_pages") && (
+                    nodeInfo?.type === "discord_action_list_channels" ||
+                    nodeInfo?.type === "discord_action_fetch_guild_members" ||
+                    nodeInfo?.type === "notion_action_search_pages" ||
+                    nodeInfo?.type === "facebook_action_get_page_insights" ||
+                    nodeInfo?.type === "facebook_action_comment_on_post" ||
+                    nodeInfo?.type === "microsoft-outlook_action_get_contacts" ||
+                    nodeInfo?.type === "microsoft-outlook_action_get_calendar_events") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Preview Results</div>
@@ -7563,10 +10011,25 @@ export default function ConfigurationModal({
                         </div>
                       )}
 
+                      {!previewData && !previewError && (
+                        <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded border flex flex-col items-center justify-center">
+                          <div className="mb-2">
+                            <Database className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                          <p>No data yet. Configure your settings and use "Load Preview" to see sample results.</p>
+                        </div>
+                      )}
+
                       {previewData && (
                         <div className="space-y-2">
                           {nodeInfo?.type === "discord_action_fetch_messages" && (
                             <DiscordMessagesPreview messages={previewData.messages || []} />
+                          )}
+                          {nodeInfo?.type === "discord_action_list_channels" && (
+                            <DiscordChannelsPreview channels={previewData.channels || []} />
+                          )}
+                          {nodeInfo?.type === "discord_action_fetch_guild_members" && (
+                            <DiscordMembersPreview config={config} onClose={() => setPreviewData(null)} />
                           )}
                           {nodeInfo?.type === "notion_action_search_pages" && (
                             <NotionRecordsPreview 
@@ -7574,10 +10037,92 @@ export default function ConfigurationModal({
                               columns={["title", "url", "object", "last_edited_time"]} 
                             />
                           )}
+                          {nodeInfo?.type === "facebook_action_get_page_insights" && (
+                            <FacebookInsightsPreview insights={previewData.insights || []} />
+                          )}
+                          {nodeInfo?.type === "facebook_action_comment_on_post" && (
+                            <FacebookCommentPreview preview={previewData.preview} />
+                          )}
+                          {nodeInfo?.type === "microsoft-outlook_action_get_contacts" && (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                                <div className="divide-y">
+                                  {previewData.contacts?.map((contact: any, index: number) => (
+                                    <div key={contact.id || index} className="p-4 hover:bg-muted/30">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="font-medium text-sm truncate flex-1">
+                                          {contact.displayName || contact.givenName + ' ' + contact.surname}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {contact.emailAddresses?.[0]?.address && (
+                                            <span className="text-blue-600">Email</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {contact.emailAddresses?.[0]?.address && (
+                                        <div className="text-sm text-muted-foreground mb-1">
+                                          Email: {contact.emailAddresses[0].address}
+                                        </div>
+                                      )}
+                                      {contact.businessPhones?.[0] && (
+                                        <div className="text-sm text-muted-foreground mb-1">
+                                          Phone: {contact.businessPhones[0]}
+                                        </div>
+                                      )}
+                                      {contact.jobTitle && (
+                                        <div className="text-sm text-muted-foreground mb-2">
+                                          {contact.jobTitle}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {nodeInfo?.type === "microsoft-outlook_action_get_calendar_events" && (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                                <div className="divide-y">
+                                  {previewData.events?.map((event: any, index: number) => (
+                                    <div key={event.id || index} className="p-4 hover:bg-muted/30">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="font-medium text-sm truncate flex-1">
+                                          {event.subject}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {event.isAllDay && (
+                                            <span className="text-green-600">All Day</span>
+                                          )}
+                                          {event.isCancelled && (
+                                            <span className="text-red-600">Cancelled</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm text-muted-foreground mb-1">
+                                        {new Date(event.start?.dateTime || event.start?.date).toLocaleString()}
+                                      </div>
+                                      {event.location?.displayName && (
+                                        <div className="text-sm text-muted-foreground mb-2">
+                                          📍 {event.location.displayName}
+                                        </div>
+                                      )}
+                                      {event.bodyPreview && (
+                                        <div className="text-sm text-muted-foreground line-clamp-2">
+                                          {event.bodyPreview}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
+                  
                   
                   {/* Gmail Message Preview */}
                   {nodeInfo?.type === "gmail_action_search_email" && (
@@ -7598,7 +10143,7 @@ export default function ConfigurationModal({
                           ) : (
                             <>
                               <Eye className="w-4 h-4 mr-2" />
-                              Load Sample
+                              Load Preview
                             </>
                           )}
                         </Button>
@@ -7615,7 +10160,7 @@ export default function ConfigurationModal({
                           <div className="mb-2">
                             <Mail className="w-8 h-8 text-muted-foreground/50" />
                           </div>
-                          <p>No data yet. Run your workflow or use "Load Sample" to preview results.</p>
+                          <p>No data yet. Configure your search and use "Load Preview" to see sample results.</p>
                         </div>
                       )}
 
@@ -7631,15 +10176,112 @@ export default function ConfigurationModal({
                       )}
                     </div>
                   )}
+
+                  {/* Outlook Search Email Preview */}
+                  {(nodeInfo?.type === "microsoft-outlook_action_search_email" || 
+                    nodeInfo?.type === "microsoft-outlook_action_fetch_emails") && (
+                    <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Sample Messages</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreview}
+                          disabled={previewLoading}
+                        >
+                          {previewLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Load Preview
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {previewError && (
+                        <div className="text-sm text-red-600 bg-red-50 p-3 rounded border">
+                          {previewError}
+                        </div>
+                      )}
+
+                      {!previewData && !previewError && (
+                        <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded border flex flex-col items-center justify-center">
+                          <div className="mb-2">
+                            <Mail className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                          <p>No data yet. Configure your search and use "Load Preview" to see sample results.</p>
+                        </div>
+                      )}
+
+                      {previewData && (
+                        <div className="w-full border rounded-lg overflow-hidden">
+                          <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                            <div className="divide-y">
+                              {previewData.map((email: any, index: number) => (
+                                <div key={email.id || index} className="p-4 hover:bg-muted/30">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="font-medium text-sm truncate flex-1">
+                                      {email.subject}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {email.hasAttachments && (
+                                        <Paperclip className="w-3 h-3" />
+                                      )}
+                                      {email.isRead ? (
+                                        <span className="text-green-600">Read</span>
+                                      ) : (
+                                        <span className="text-blue-600">Unread</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mb-1">
+                                    From: {email.from}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mb-2">
+                                    {new Date(email.receivedDateTime).toLocaleString()}
+                                  </div>
+                                  {email.snippet && (
+                                    <div className="text-sm text-muted-foreground line-clamp-2">
+                                      {email.snippet}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
 
               {/* Dialog Footer */}
-              <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 bg-background sticky bottom-0 left-0 right-0">
+              <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
                 <div className="flex items-center justify-between w-full">
-                  <Button variant="outline" onClick={() => onClose(false)}>
-                    Cancel
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => onClose(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={async () => {
+                        if (confirm('Clear all saved preferences for this action type? This will reset to default values.')) {
+                          await configPreferences.clearPreferences()
+                          setConfig(initialData)
+                          console.log('🗑️ Cleared saved preferences for', nodeInfo?.type)
+                        }
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Reset to Defaults
+                    </Button>
+                  </div>
                   <Button 
                     onClick={handleSave}
                     disabled={loadingDynamic}
@@ -7674,28 +10316,32 @@ export default function ConfigurationModal({
           
           {/* Loading Overlay with double loading prevention */}
           {(() => {
-            // Debug loading states (reduced frequency)
-            // console.log('🔍 ConfigurationModal Loading states:', {
-            //   loadingDynamic,
-            //   hasShownLoading,
-            //   retryCount,
-            //   nodeInfoType: nodeInfo?.type,
-            //   integrationName
-            // })
+            // Debug loading states
+            console.log('🔍 ConfigurationModal Loading states:', {
+              loadingDynamic,
+              hasShownLoading,
+              retryCount,
+              nodeInfoType: nodeInfo?.type,
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              loadingDiscordMembers,
+              integrationName
+            })
 
             // Use a more robust loading condition that prevents double loading
             const shouldShowLoading = () => {
-              // Debug current loading state (reduced frequency)
-              // console.log('🔍 shouldShowLoading check:', {
-              //   loadingDynamic,
-              //   hasShownLoading,
-              //   activeTasks: Array.from(activeLoadingTasksRef.current),
-              //   nodeInfoType: nodeInfo?.type,
-              //   isDiscordAction: nodeInfo?.type === "discord_action_send_message",
-              //   checkingBot,
-              //   hasGuildId: !!config.guildId,
-              //   hasChannels: !!dynamicOptions.discord_channels
-              // })
+                          // Debug current loading state
+            console.log('🔍 shouldShowLoading check:', {
+              loadingDynamic,
+              hasShownLoading,
+              activeTasks: Array.from(activeLoadingTasksRef.current),
+              nodeInfoType: nodeInfo?.type,
+              isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              checkingBot,
+              hasGuildId: !!config.guildId,
+              hasChannels: !!dynamicOptions.discord_channels,
+              loadingDiscordMembers
+            })
               
               // If we're not in a loading state, don't show loading
               if (!loadingDynamic) {
@@ -7707,28 +10353,24 @@ export default function ConfigurationModal({
                 return true
               }
               
-              // For Discord actions, be more specific about when to show loading
-              if (nodeInfo?.type === "discord_action_send_message") {
-                // Only show loading if we have active loading tasks
-                const hasActiveTasks = activeLoadingTasksRef.current.size > 0
-                
-                // If we have guilds loaded and no active tasks, don't show loading
-                const hasGuilds = dynamicOptions.guildId && dynamicOptions.guildId.length > 0
-                
-                if (hasGuilds && !hasActiveTasks) {
-                  // Force clear loading state if we have guilds but no active tasks
-                  if (loadingDynamic) {
-                    setTimeout(() => {
-                      setLoadingDynamic(false)
-                      setHasShownLoading(false)
-                      loadingStateRef.current = false
-                    }, 0)
-                  }
-                  return false
-                }
-                
-                return hasActiveTasks
-              }
+                          // For Discord actions, be more specific about when to show loading
+            if (nodeInfo?.type === "discord_action_send_message") {
+              // Show loading if we have any active loading tasks OR if we don't have all required data
+              const hasActiveTasks = activeLoadingTasksRef.current.size > 0
+              const hasGuilds = dynamicOptions.guildId && dynamicOptions.guildId.length > 0
+              const hasAllChannels = dynamicOptions.allDiscordChannels && dynamicOptions.allDiscordChannels.length > 0
+              
+              // Show loading if we have active tasks OR if we don't have all required data
+              return hasActiveTasks || !hasGuilds || !hasAllChannels
+            }
+            
+            // For Discord kick member and ban member actions, show loading when members are being loaded
+            if (nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member") {
+              // Show loading if we have a guild selected and members are being loaded
+              const hasGuildSelected = !!config.guildId
+              const isMembersLoading = loadingDiscordMembers
+              return hasGuildSelected && isMembersLoading
+            }
               
               // For other integrations, show loading if we're in a loading state
               return loadingDynamic
@@ -7737,30 +10379,38 @@ export default function ConfigurationModal({
             const isLoading = shouldShowLoading()
             
             if (isLoading) {
-              console.log('🔄 ConfigurationModal Showing loading screen due to:', {
-                loadingDynamic,
-                hasShownLoading,
-                nodeInfoType: nodeInfo?.type,
-                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
-                hasGuildId: !!config.guildId,
-                hasChannels: !!dynamicOptions.discord_channels,
-                checkingBot
-              })
-              
-              return (
+                          console.log('🔄 ConfigurationModal Showing loading screen due to:', {
+              loadingDynamic,
+              hasShownLoading,
+              nodeInfoType: nodeInfo?.type,
+              isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              hasGuildId: !!config.guildId,
+              hasChannels: !!dynamicOptions.discord_channels,
+              loadingDiscordMembers,
+              checkingBot
+            })
+
+  return (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                   <ConfigurationLoadingScreen 
                     integrationName={nodeInfo.title || nodeInfo.type || integrationName}
                   />
+                  {/* Show specific loading message for Discord member actions */}
+                  {(nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member") && loadingDiscordMembers && (
+                    <div className="mt-4 text-sm text-muted-foreground animate-pulse text-left w-full">
+                      Loading members...
+                    </div>
+                  )}
                   {retryCount > 0 && (
                     <div className="mt-4 text-sm text-muted-foreground animate-pulse">
                       Retrying... (attempt {retryCount + 1})
                     </div>
                   )}
-                </div>
-              )
-            }
-            
+    </div>
+  )
+}
+
             return null
           })()}
         </DialogContent>
@@ -7795,3 +10445,291 @@ export default function ConfigurationModal({
     </TooltipProvider>
   )
 }
+
+// DateOnlyPicker component based on DateTimePicker but without time selection
+interface DateOnlyPickerProps {
+  value?: Date
+  onChange?: (date: Date | undefined) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+}
+
+// EnhancedLocationInput component for Outlook calendar events
+interface EnhancedLocationInputProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+  workflowData?: { nodes: any[], edges: any[] }
+  currentNodeId?: string
+  onVariableSelect?: (variable: string) => void
+}
+
+const EnhancedLocationInput = ({
+  value,
+  onChange,
+  placeholder = "Enter location or room number",
+  disabled,
+  className,
+  workflowData,
+  currentNodeId,
+  onVariableSelect
+}: EnhancedLocationInputProps) => {
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const suggestionsRef = React.useRef<HTMLDivElement>(null)
+
+  const searchPlaces = async (query: string) => {
+    if (query.length < 3) {
+      setSuggestions([])
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Use our server-side API endpoint for Google Places autocomplete
+      const response = await fetch(
+        `/api/google-maps/places-autocomplete?query=${encodeURIComponent(query)}`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.predictions && Array.isArray(data.predictions)) {
+        const suggestions = data.predictions.map((pred: any) => pred.description)
+        setSuggestions(suggestions)
+      } else {
+        setSuggestions([])
+      }
+    } catch (error) {
+      console.error('Error fetching place suggestions:', error)
+      setSuggestions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    onChange(newValue)
+    
+    if (newValue.length >= 3) {
+      searchPlaces(newValue)
+      setShowSuggestions(true)
+    } else {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleSuggestionClick = (suggestion: string) => {
+    onChange(suggestion)
+    setShowSuggestions(false)
+    setSuggestions([])
+    inputRef.current?.focus()
+  }
+
+  const handleInputFocus = () => {
+    if (suggestions.length > 0) {
+      setShowSuggestions(true)
+    }
+  }
+
+  const handleInputBlur = () => {
+    // Delay hiding suggestions to allow for clicks
+    setTimeout(() => {
+      setShowSuggestions(false)
+    }, 200)
+  }
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative w-full">
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
+          <Input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            placeholder={placeholder}
+            disabled={Boolean(disabled)}
+            className={cn("w-full", className)}
+          />
+          {isLoading && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        {onVariableSelect && (
+          <VariablePicker
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableSelect={onVariableSelect}
+            fieldType="text"
+            trigger={
+              <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                <span className="text-sm font-mono">{`{}`}</span>
+              </Button>
+            }
+          />
+        )}
+      </div>
+      
+      {showSuggestions && suggestions.length > 0 && (
+        <div
+          ref={suggestionsRef}
+          className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
+        >
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              className="w-full px-3 py-2 text-left hover:bg-muted focus:bg-muted focus:outline-none text-sm"
+              onClick={() => handleSuggestionClick(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const DateOnlyPicker = ({
+  value,
+  onChange,
+  placeholder = "Pick a date",
+  disabled,
+  className
+}: DateOnlyPickerProps) => {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [currentMonth, setCurrentMonth] = React.useState(value ? new Date(value) : new Date())
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(value)
+
+  // Update state when value prop changes
+  React.useEffect(() => {
+    if (value) {
+      setSelectedDate(value)
+      setCurrentMonth(value)
+    } else {
+      setSelectedDate(undefined)
+    }
+  }, [value])
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date)
+    onChange?.(date)
+    setIsOpen(false)
+  }
+
+  const displayValue = value ? format(value, "PPP") : undefined
+
+  // Generate calendar days - always show 6 weeks (42 days) for consistent size
+  const monthStart = startOfMonth(currentMonth)
+  const calendarStart = startOfWeek(monthStart)
+  const calendarEnd = addWeeks(calendarStart, 5) // 6 weeks total
+  
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !value && "text-muted-foreground",
+            className
+          )}
+          disabled={disabled}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {displayValue || <span>{placeholder}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-4" align="start">
+        <div className="space-y-4">
+          {/* Calendar Header */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="font-medium">
+              {format(currentMonth, "MMMM yyyy")}
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Calendar Grid - Fixed height container */}
+          <div className="grid grid-cols-7 gap-1" style={{ height: '240px' }}>
+            {/* Day headers */}
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+              <div key={day} className="text-center text-xs font-medium text-muted-foreground p-1">
+                {day}
+              </div>
+            ))}
+            
+            {/* Calendar days */}
+            {days.map((day) => {
+              const isCurrentMonth = isSameMonth(day, currentMonth)
+              const isSelected = selectedDate && isSameDay(day, selectedDate)
+              const isToday = isSameDay(day, new Date())
+              
+              return (
+                <Button
+                  key={day.toISOString()}
+                  variant={isSelected ? "default" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-8 w-8 p-0 text-xs",
+                    !isCurrentMonth && "text-muted-foreground/50",
+                    isToday && !isSelected && "bg-muted font-semibold",
+                    isSelected && "bg-primary text-primary-foreground"
+                  )}
+                  onClick={() => handleDateSelect(day)}
+                >
+                  {format(day, "d")}
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+export default ConfigurationModal
+
