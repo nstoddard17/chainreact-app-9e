@@ -18,19 +18,55 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const resolvedParams = await params
 
-    const { data, error } = await supabase
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(resolvedParams.id)) {
+      return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
+    }
+
+    // First try to get the workflow by owner
+    let { data, error } = await supabase
       .from("workflows")
       .select("*")
       .eq("id", resolvedParams.id)
       .eq("user_id", user.id)
       .single()
 
+    // If not found as owner, check if user has shared access
+    if (error && (error.code === 'PGRST116' || error.message.includes('No rows'))) {
+      const { data: sharedData, error: sharedError } = await supabase
+        .from("workflows")
+        .select(`
+          *,
+          workflow_shares!inner(
+            permission,
+            shared_with
+          )
+        `)
+        .eq("id", resolvedParams.id)
+        .eq("workflow_shares.shared_with", user.id)
+        .single()
+
+      data = sharedData
+      error = sharedError
+    }
+
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      // Check if it's a "not found" error vs actual server error
+      if (error.code === 'PGRST116' || error.message.includes('No rows')) {
+        return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
+      }
+      console.error('Workflow fetch error:', error)
+      return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
+    console.error('Workflow API error:', error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

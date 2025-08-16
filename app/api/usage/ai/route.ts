@@ -3,7 +3,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

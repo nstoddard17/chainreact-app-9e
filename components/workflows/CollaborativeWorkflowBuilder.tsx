@@ -662,10 +662,38 @@ const useWorkflowBuilderState = () => {
               }))
             });
           } else {
-            console.error('Failed to load workflow:', response.statusText);
+            console.error('Failed to load workflow:', response.status, response.statusText);
+            
+            // Handle specific error cases
+            if (response.status === 404) {
+              toast({
+                title: "Workflow Not Found",
+                description: "The workflow you're trying to access doesn't exist or you don't have permission to view it.",
+                variant: "destructive",
+              });
+              router.push('/workflows');
+            } else if (response.status === 401) {
+              toast({
+                title: "Authentication Required",
+                description: "Please log in to access this workflow.",
+                variant: "destructive",
+              });
+              router.push('/auth/login');
+            } else if (response.status === 500) {
+              toast({
+                title: "Server Error",
+                description: "There was an error loading the workflow. Please try again.",
+                variant: "destructive",
+              });
+            }
           }
         } catch (error) {
           console.error('Error loading fresh workflow:', error);
+          toast({
+            title: "Connection Error",
+            description: "Unable to connect to the server. Please check your internet connection and try again.",
+            variant: "destructive",
+          });
         }
       };
       
