@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') // Check if this is an email confirmation
 
   if (code) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
     )
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (error) {
+      console.error('Auth callback error:', error)
+      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`)
+    }
 
     if (!error && data.user) {
       // For Google OAuth users, check if they need username setup
