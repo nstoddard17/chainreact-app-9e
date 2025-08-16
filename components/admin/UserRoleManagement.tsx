@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Search, Users, Crown, Loader2, Circle, RefreshCw, Wifi, WifiOff } from "lucide-react"
+import { Search, Users, Crown, Loader2, Circle, RefreshCw, Wifi, WifiOff, Plus, Edit, Trash2, UserPlus, Eye, EyeOff, AlertTriangle } from "lucide-react"
 import { type UserRole, getRoleInfo, ROLES } from "@/lib/utils/roles"
 import {
   Dialog,
@@ -47,6 +47,39 @@ export default function UserRoleManagement() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  
+  // New user creation state
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  
+  // Form states
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    username: '',
+    role: 'free' as UserRole,
+    send_welcome_email: true
+  })
+  
+  const [editUserForm, setEditUserForm] = useState({
+    email: '',
+    full_name: '',
+    username: '',
+    role: 'free' as UserRole,
+    password: '',
+    email_confirm: true
+  })
+  
+  const [deleteOptions, setDeleteOptions] = useState({
+    deleteData: false
+  })
+  
+  const [showPassword, setShowPassword] = useState(false)
 
   // Check if current user is admin
   const isAdmin = profile?.role === 'admin'
@@ -137,6 +170,123 @@ export default function UserRoleManagement() {
     }
   }
 
+  const handleCreateUser = async () => {
+    try {
+      setCreating(true)
+      
+      const response = await fetch('/api/admin/users/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUserForm)
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create user')
+      }
+
+      // Add new user to local state
+      setUsers([...users, data.user])
+      
+      // Reset form
+      setNewUserForm({
+        email: '',
+        password: '',
+        full_name: '',
+        username: '',
+        role: 'free',
+        send_welcome_email: true
+      })
+      
+      setShowCreateDialog(false)
+    } catch (error) {
+      console.error('Error creating user:', error)
+      // You might want to show a toast notification here
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleEditUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      setEditing(true)
+      
+      const response = await fetch('/api/admin/users/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          ...editUserForm
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update user')
+      }
+
+      // Update local state
+      setUsers(users.map(user => 
+        user.id === selectedUser.id 
+          ? { ...user, ...data.user }
+          : user
+      ))
+
+      setShowEditDialog(false)
+      setSelectedUser(null)
+    } catch (error) {
+      console.error('Error updating user:', error)
+      // You might want to show a toast notification here
+    } finally {
+      setEditing(false)
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      setDeleting(true)
+      
+      const response = await fetch('/api/admin/users/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          deleteData: deleteOptions.deleteData
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete user')
+      }
+
+      // Remove user from local state
+      setUsers(users.filter(user => user.id !== selectedUser.id))
+
+      setShowDeleteDialog(false)
+      setSelectedUser(null)
+      setDeleteOptions({ deleteData: false })
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      // You might want to show a toast notification here
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const filteredUsers = users.filter(user => {
     // Search term filter
     const matchesSearch = 
@@ -198,6 +348,15 @@ export default function UserRoleManagement() {
             {/* Controls Row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
+                <Button
+                  onClick={() => setShowCreateDialog(true)}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create User</span>
+                </Button>
+                
                 <Button
                   onClick={handleRefresh}
                   disabled={loading}
@@ -375,17 +534,48 @@ export default function UserRoleManagement() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <RoleBadge role={(user.role as UserRole) || 'free'} />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedUser(user)
-                          setNewRole((user.role as UserRole) || 'free')
-                          setShowUpdateDialog(true)
-                        }}
-                      >
-                        Update Role
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setEditUserForm({
+                              email: user.email,
+                              full_name: user.full_name || '',
+                              username: user.username || '',
+                              role: (user.role as UserRole) || 'free',
+                              password: '',
+                              email_confirm: true
+                            })
+                            setShowEditDialog(true)
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setNewRole((user.role as UserRole) || 'free')
+                            setShowUpdateDialog(true)
+                          }}
+                        >
+                          Update Role
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setShowDeleteDialog(true)
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -395,6 +585,7 @@ export default function UserRoleManagement() {
         </CardContent>
       </Card>
 
+      {/* Update Role Dialog */}
       <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
         <DialogContent>
           <DialogHeader>
@@ -430,6 +621,259 @@ export default function UserRoleManagement() {
             <Button onClick={handleUpdateRole} disabled={updating}>
               {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Update Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  placeholder="Enter password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input
+                id="full_name"
+                value={newUserForm.full_name}
+                onChange={(e) => setNewUserForm({ ...newUserForm, full_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={newUserForm.username}
+                onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
+                placeholder="johndoe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new_role">Role</Label>
+              <Select value={newUserForm.role} onValueChange={(value: UserRole) => setNewUserForm({ ...newUserForm, role: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ROLES).map(([role, info]) => (
+                    <SelectItem key={role} value={role}>
+                      <div className="flex items-center space-x-2">
+                        <RoleBadge role={role as UserRole} size="sm" />
+                        <span>{info.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="send_welcome_email"
+                checked={newUserForm.send_welcome_email}
+                onCheckedChange={(checked) => setNewUserForm({ ...newUserForm, send_welcome_email: checked })}
+              />
+              <Label htmlFor="send_welcome_email">Send welcome email</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creating || !newUserForm.email || !newUserForm.password}>
+              {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information for {selectedUser?.full_name || selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit_email">Email</Label>
+              <Input
+                id="edit_email"
+                type="email"
+                value={editUserForm.email}
+                onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_full_name">Full Name</Label>
+              <Input
+                id="edit_full_name"
+                value={editUserForm.full_name}
+                onChange={(e) => setEditUserForm({ ...editUserForm, full_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_username">Username</Label>
+              <Input
+                id="edit_username"
+                value={editUserForm.username}
+                onChange={(e) => setEditUserForm({ ...editUserForm, username: e.target.value })}
+                placeholder="johndoe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_role">Role</Label>
+              <Select value={editUserForm.role} onValueChange={(value: UserRole) => setEditUserForm({ ...editUserForm, role: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ROLES).map(([role, info]) => (
+                    <SelectItem key={role} value={role}>
+                      <div className="flex items-center space-x-2">
+                        <RoleBadge role={role as UserRole} size="sm" />
+                        <span>{info.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_password">New Password (optional)</Label>
+              <div className="relative">
+                <Input
+                  id="edit_password"
+                  type={showPassword ? "text" : "password"}
+                  value={editUserForm.password}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+                  placeholder="Leave blank to keep current password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="edit_email_confirm"
+                checked={editUserForm.email_confirm}
+                onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, email_confirm: checked })}
+              />
+              <Label htmlFor="edit_email_confirm">Email confirmed</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditUser} disabled={editing}>
+              {editing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Update User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedUser?.full_name || selectedUser?.email}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold mb-1">Warning: This action cannot be undone</p>
+                  <p>Deleting a user will:</p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Remove the user's account permanently</li>
+                    <li>Delete all their workflows and data (if selected)</li>
+                    <li>Remove them from all organizations</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="delete_data"
+                checked={deleteOptions.deleteData}
+                onCheckedChange={(checked) => setDeleteOptions({ ...deleteOptions, deleteData: checked })}
+              />
+              <Label htmlFor="delete_data" className="text-sm">
+                Also delete all user data (workflows, integrations, etc.)
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {deleteOptions.deleteData 
+                ? "This will permanently delete the user and ALL their data."
+                : "This will disable the user account but preserve their data."
+              }
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteUser} 
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {deleteOptions.deleteData ? "Delete User & Data" : "Disable User"}
             </Button>
           </DialogFooter>
         </DialogContent>
