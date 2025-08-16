@@ -18,13 +18,13 @@ export default function EmailConfirmPage() {
   useEffect(() => {
     // Check if this came from email link
     const urlParams = new URLSearchParams(window.location.search)
-    const isFromEmail = urlParams.get('from') === 'email'
     const token = urlParams.get('token')
-    setFromEmail(isFromEmail)
+    const redirectUrl = urlParams.get('redirect')
+    setFromEmail(!!token)
 
     const handleEmailConfirmation = async () => {
       try {
-        if (isFromEmail && token) {
+        if (token) {
           // This is from an email click - confirm the user manually
           try {
             const decodedToken = Buffer.from(token, 'base64').toString()
@@ -47,28 +47,14 @@ export default function EmailConfirmPage() {
               throw new Error('Failed to confirm email')
             }
 
-            // Signal the waiting tab that confirmation is complete
-            const confirmationData = {
-              userId: userId,
-              timestamp: Date.now(),
-              confirmed: true
-            }
-            
-            localStorage.setItem('emailConfirmed', JSON.stringify(confirmationData))
-
-            // Storage events don't fire on the same window that sets the item
-            // We need to manually trigger other windows to check
-            // Try using BroadcastChannel for more reliable cross-tab communication
-            try {
-              const channel = new BroadcastChannel('emailConfirmation')
-              channel.postMessage(confirmationData)
-              channel.close()
-            } catch (error) {
-              console.warn('BroadcastChannel not supported, using localStorage polling')
-            }
-
             setProcessing(false)
-            // Just show the close tab message - don't redirect
+            
+            // Redirect back to waiting page with confirmation
+            if (redirectUrl) {
+              window.location.replace(redirectUrl)
+            } else {
+              window.location.replace('/auth/waiting-confirmation?confirmed=true')
+            }
             return
           } catch (confirmError) {
             console.error('Manual confirmation failed:', confirmError)

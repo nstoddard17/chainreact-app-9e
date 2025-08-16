@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
     // Create a simple confirmation token (we'll verify this manually)
     const confirmationToken = Buffer.from(`${userId}:${Date.now()}`).toString('base64')
     
-    // Store the token temporarily (you could also use a database table for this)
-    const confirmationUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?token=${confirmationToken}&from=email`
+    // Simple approach: redirect back to waiting page with confirmation parameter
+    const confirmationUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?token=${confirmationToken}&redirect=/auth/waiting-confirmation?confirmed=true`
 
     // Send custom welcome email with confirmation link via Resend
     const result = await sendWelcomeEmail(

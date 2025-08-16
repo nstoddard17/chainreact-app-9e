@@ -17,8 +17,19 @@ export default function WaitingConfirmationPage() {
   const { user, initialize } = useAuthStore()
 
   useEffect(() => {
-    // Clean up any old confirmation data first
-    localStorage.removeItem('emailConfirmed')
+    // Check if we came back from email confirmation
+    const urlParams = new URLSearchParams(window.location.search)
+    const isConfirmed = urlParams.get('confirmed') === 'true'
+    
+    if (isConfirmed) {
+      console.log('Email confirmed via redirect!')
+      localStorage.removeItem('pendingSignup')
+      
+      // If user opened link in new browser/incognito or after closing original tab,
+      // they might not be authenticated yet. Let them continue to setup.
+      router.push('/setup-username')
+      return
+    }
     
     // Get email from pending signup or current user
     const pendingSignup = localStorage.getItem('pendingSignup')
@@ -30,106 +41,28 @@ export default function WaitingConfirmationPage() {
     }
 
     let pollInterval: NodeJS.Timeout
-    let broadcastChannel: BroadcastChannel | null = null
-
-    // Handle confirmation from any source
-    const handleConfirmation = (confirmData: any, source: string) => {
-      if (!confirmData || !confirmData.confirmed) return
-      
-      // Validate that this confirmation is recent (within last 5 minutes)
-      const now = Date.now()
-      const confirmTime = confirmData.timestamp || 0
-      const timeDiff = now - confirmTime
-      const fiveMinutes = 5 * 60 * 1000
-      
-      if (timeDiff > fiveMinutes) {
-        console.log(`Ignoring old confirmation from ${source} (${Math.round(timeDiff/1000)}s old)`)
-        return
-      }
-      
-      // Get current pending signup to validate userId if available
-      const pendingSignup = localStorage.getItem('pendingSignup')
-      if (pendingSignup && confirmData.userId) {
-        try {
-          const pendingData = JSON.parse(pendingSignup)
-          if (pendingData.userId && pendingData.userId !== confirmData.userId) {
-            console.log(`Ignoring confirmation for different user from ${source}`)
-            return
-          }
-        } catch (error) {
-          console.warn('Error parsing pending signup data:', error)
-        }
-      }
-      
-      console.log(`Email confirmed via ${source}!`)
-      setIsPolling(false)
-      localStorage.removeItem('pendingSignup')
-      localStorage.removeItem('emailConfirmed') // Clean up
-      router.push('/setup-username')
-    }
-
-    // Listen for confirmation from other tabs via storage events
-    const handleStorageEvent = (event: StorageEvent) => {
-      if (event.key === 'emailConfirmed' && event.newValue) {
-        try {
-          const confirmData = JSON.parse(event.newValue)
-          handleConfirmation(confirmData, 'storage event')
-        } catch (error) {
-          console.error('Error parsing confirmation data:', error)
-        }
-      }
-    }
-
-    // Listen for confirmation via BroadcastChannel (more reliable)
-    try {
-      broadcastChannel = new BroadcastChannel('emailConfirmation')
-      broadcastChannel.onmessage = (event) => {
-        handleConfirmation(event.data, 'broadcast channel')
-      }
-    } catch (error) {
-      console.warn('BroadcastChannel not supported, using storage events only')
-    }
-
-    // Listen for storage events (when another tab confirms)
-    window.addEventListener('storage', handleStorageEvent)
 
     if (isPolling) {
-      // Still poll as backup, but less frequently
+      // Simple polling for Supabase auth state as fallback
       pollInterval = setInterval(async () => {
         try {
-          // Check localStorage first
-          const emailConfirmed = localStorage.getItem('emailConfirmed')
-          if (emailConfirmed) {
-            try {
-              const confirmData = JSON.parse(emailConfirmed)
-              if (confirmData.confirmed) {
-                handleConfirmation(confirmData, 'localStorage polling')
-                return
-              }
-            } catch (error) {
-              console.error('Error parsing localStorage confirmation data:', error)
-            }
-          }
-
-          // Fallback: check Supabase auth state (less frequently)
           console.log('Polling for confirmation...')
           const { data: { user: currentUser }, error } = await supabase.auth.getUser()
           
           if (currentUser && currentUser.email_confirmed_at) {
-            handleConfirmation({ confirmed: true, userId: currentUser.id }, 'Supabase polling')
+            console.log('Email confirmed via Supabase polling!')
+            setIsPolling(false)
+            localStorage.removeItem('pendingSignup')
+            router.push('/setup-username')
           }
         } catch (error) {
           console.error('Error checking auth status:', error)
         }
-      }, 5000) // Reduced frequency to 5 seconds
+      }, 5000)
     }
 
     return () => {
       if (pollInterval) clearInterval(pollInterval)
-      window.removeEventListener('storage', handleStorageEvent)
-      if (broadcastChannel) {
-        broadcastChannel.close()
-      }
     }
   }, [isPolling, user, router, initialize])
 
