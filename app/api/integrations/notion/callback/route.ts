@@ -88,15 +88,118 @@ export async function GET(request: NextRequest) {
       
       // Check for specific error types and provide better error messages
       let errorMessage = 'Failed to retrieve access token';
+      let isPermissionError = false;
+      
       try {
         const errorData = JSON.parse(errorText);
         if (errorData.error === 'invalid_grant' && errorData.error_description?.includes('permission')) {
           errorMessage = 'You don\'t have permission to install this integration. Please ask a workspace owner to install it or request to be upgraded as a member.';
+          isPermissionError = true;
         } else if (errorData.error_description) {
           errorMessage = errorData.error_description;
         }
       } catch (e) {
         // If we can't parse the error, use the default message
+      }
+      
+      // For permission errors, return a custom response with better status code
+      if (isPermissionError) {
+        const script = \`
+          <script>
+            try {
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-info',
+                  provider: 'notion',
+                  message: '\${errorMessage}',
+                  isPermissionError: true
+                }, '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            } catch (e) {
+              console.error('Error in popup communication:', e);
+              setTimeout(() => window.close(), 1000);
+            }
+          </script>
+        \`;
+        
+        const html = \`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Notion Connection Info</title>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center; 
+                  height: 100vh; 
+                  margin: 0;
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  color: #1a202c;
+                  overflow: hidden;
+                }
+                
+                .container { 
+                  text-align: center; 
+                  padding: 3rem 2rem;
+                  background: rgba(255, 255, 255, 0.95);
+                  border-radius: 20px;
+                  backdrop-filter: blur(20px);
+                  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                  border: 1px solid rgba(255, 255, 255, 0.2);
+                  max-width: 400px;
+                  width: 90%;
+                }
+                
+                .status-icon { 
+                  width: 80px;
+                  height: 80px;
+                  margin: 0 auto 1.5rem;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 2.5rem;
+                  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                  color: white;
+                  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.4);
+                }
+                
+                h1 { 
+                  margin: 0 0 1rem 0; 
+                  font-size: 1.75rem; 
+                  font-weight: 700;
+                  color: #1a202c;
+                  line-height: 1.2;
+                }
+                
+                .message { 
+                  margin: 1rem 0; 
+                  font-size: 1rem;
+                  color: #4a5568;
+                  line-height: 1.5;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="status-icon">ℹ️</div>
+                <h1>Notion Permission Required</h1>
+                <p class="message">\${errorMessage}</p>
+              </div>
+              \${script}
+            </body>
+          </html>
+        \`;
+        
+        return new Response(html, { 
+          status: 200, // Use 200 instead of 400 for permission issues
+          headers: { "Content-Type": "text/html" } 
+        });
       }
       
       return createPopupResponse('error', provider, errorMessage, baseUrl)

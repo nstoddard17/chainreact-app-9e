@@ -72,8 +72,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const metricsData = response.data?.data || response.data;
       set({ metrics: metricsData, loading: false })
     } catch (error) {
-      console.error("Error fetching metrics:", error)
-      // Provide default metrics on error
+      console.warn("Error fetching metrics (using defaults):", error)
+      // Silently provide default metrics on error - don't treat as error state
       set({
         metrics: {
           workflowsRun: 0,
@@ -82,7 +82,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
           aiCommands: 0,
         },
         loading: false,
-        error: "Failed to load metrics",
+        // Don't set error here - analytics failures shouldn't break the dashboard
       })
     }
   },
@@ -112,8 +112,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const chartData = response.data?.data || response.data
       set({ chartData: chartData, loading: false })
     } catch (error) {
-      console.error("Error fetching chart data:", error)
-      // Provide default chart data on error
+      console.warn("Error fetching chart data (using defaults):", error)
+      // Silently provide default chart data on error
       set({
         chartData: [
           { name: "Mon", workflows: 0, executions: 0 },
@@ -125,7 +125,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
           { name: "Sun", workflows: 0, executions: 0 },
         ],
         loading: false,
-        error: "Failed to load chart data",
+        // Don't set error here - analytics failures shouldn't break the dashboard
       })
     }
   },

@@ -36,7 +36,7 @@ export async function GET() {
         
         return {
             name: dayString,
-            completions: successfulExecutions.length,
+            workflows: successfulExecutions.length, // Changed from completions to workflows to match store
             executions: dayExecutions.length,
         };
     });

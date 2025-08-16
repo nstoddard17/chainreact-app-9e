@@ -540,6 +540,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 fetchIntegrations(true) // Force refresh from server
                 emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
               }, 1000) // Increased delay to 1 second
+            } else if (event.data && event.data.type === "oauth-info") {
+              console.log(`ℹ️ OAuth info for ${providerId}:`, event.data.message)
+              closedByMessage = true
+              clearTimeout(connectionTimeout)
+              window.removeEventListener("message", messageHandler)
+              // Reset global popup reference
+              currentOAuthPopup = null
+              setLoading(`connect-${providerId}`, false)
+              
+              // Don't set error for info messages (like permission issues)
+              // Just log the information without treating it as an error
+              console.log(`📋 ${provider.name} connection info: ${event.data.message}`)
             } else if (event.data && event.data.type === "oauth-error") {
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)
