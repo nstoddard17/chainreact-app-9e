@@ -443,8 +443,8 @@ export const useAuthStore = create<AuthState>()(
             profile: null, 
             loading: false, 
             error: null, 
-            initialized: false, // Reset initialization to prevent auto-login
-            hydrated: false 
+            initialized: true, // Keep initialized as true to prevent re-initialization
+            hydrated: true 
           })
           
           console.log("✅ Local state cleared")
@@ -522,7 +522,10 @@ export const useAuthStore = create<AuthState>()(
           // Force a hard redirect to ensure clean state
           console.log("🚀 Redirecting to homepage...")
           if (typeof window !== 'undefined') {
-            window.location.replace('/')
+            // Add a small delay to ensure Supabase signout completes
+            setTimeout(() => {
+              window.location.replace('/')
+            }, 100)
           }
         } catch (error: any) {
           console.error("Sign out error:", error)
