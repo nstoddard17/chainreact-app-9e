@@ -1,7 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
-import { Inter } from "next/font/google"
+import { Space_Grotesk } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
@@ -12,10 +12,11 @@ import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 
 // Optimize font loading with display: swap for better LCP
-const inter = Inter({ 
+const spaceGrotesk = Space_Grotesk({ 
   subsets: ["latin"],
   display: 'swap',
   preload: true,
+  variable: '--font-space-grotesk',
 })
 
 export const metadata: Metadata = {
@@ -52,7 +53,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#1e293b" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={spaceGrotesk.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
             <GlobalErrorHandler />

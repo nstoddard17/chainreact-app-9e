@@ -657,9 +657,7 @@ export const useAuthStore = create<AuthState>()(
             password,
             options: {
               data: metadata || {},
-              emailRedirectTo: `${baseUrl}/auth/confirm`,
-              // Disable Supabase's automatic confirmation email
-              captchaToken: undefined,
+              // Don't set emailRedirectTo to prevent Supabase from sending emails
             },
           })
 
