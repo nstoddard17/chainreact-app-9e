@@ -4,24 +4,31 @@ import AppLayout from "@/components/layout/AppLayout"
 import ProfileSettings from "@/components/settings/ProfileSettings"
 import { useEffect } from "react"
 import { useUserProfileStore, loadUserProfile, UserProfile } from "@/stores/userProfileStore"
+import { useAuthStore } from "@/stores/authStore"
+import { useRouter } from "next/navigation"
 import useCacheManager from "@/hooks/use-cache-manager"
 
-export default function ProfileContent({ serverProfile }: { serverProfile?: UserProfile }) {
+export default function ProfileContent() {
   // Setup cache manager to handle auth state changes
   useCacheManager()
   
-  // Get profile from store
+  // Get auth state and profile from stores
+  const { user, isAuthenticated } = useAuthStore()
   const { data: profile, loading, error } = useUserProfileStore()
+  const router = useRouter()
   
   useEffect(() => {
-    // If we have server-side data, hydrate the store
-    if (serverProfile) {
-      useUserProfileStore.getState().setData(serverProfile)
-    } else {
-      // Otherwise load from API
+    // Redirect to login if not authenticated
+    if (!isAuthenticated && !user) {
+      router.push('/auth/login')
+      return
+    }
+    
+    // Load profile from API when authenticated
+    if (user) {
       loadUserProfile()
     }
-  }, [serverProfile])
+  }, [user, isAuthenticated, router])
 
   // Handle loading state
   if (loading && !profile) {

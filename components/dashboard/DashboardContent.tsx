@@ -17,7 +17,7 @@ import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 export default function DashboardContent() {
   const searchParams = useSearchParams()
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
   const { getConnectedProviders, fetchIntegrations } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const connectedIntegrationsCount = getConnectedProviders().length
@@ -27,15 +27,39 @@ export default function DashboardContent() {
 
 
   useEffect(() => {
-    fetchMetrics()
-    fetchChartData()
-    fetchWorkflows()
-  }, [fetchMetrics, fetchChartData, fetchWorkflows])
+    // Only fetch data when user is available and authenticated
+    if (user) {
+      // Add a small delay to ensure authentication is fully established
+      const timeoutId = setTimeout(() => {
+        fetchMetrics().catch(error => {
+          console.warn('Failed to fetch metrics on dashboard load:', error)
+        })
+        fetchChartData().catch(error => {
+          console.warn('Failed to fetch chart data on dashboard load:', error)
+        })
+        fetchWorkflows().catch(error => {
+          console.warn('Failed to fetch workflows on dashboard load:', error)
+        })
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [user, fetchMetrics, fetchChartData, fetchWorkflows])
 
   const getFirstName = () => {
+    // First try username from profile
+    if (profile?.username) {
+      return profile.username
+    }
+    // Then try full name and extract first part
+    if (profile?.full_name) {
+      return profile.full_name.split(" ")[0]
+    }
+    // Fallback to user name if available
     if (user?.name) {
       return user.name.split(" ")[0]
     }
+    // Last resort: extract from email
     if (user?.email) {
       return user.email.split("@")[0]
     }

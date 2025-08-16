@@ -67,7 +67,7 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
             <Button variant="ghost" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <div className="hidden sm:flex items-center space-x-2">
-                <span>{profile?.username || profile?.full_name || user?.email}</span>
+                <span>{profile?.username || profile?.full_name || "User"}</span>
                 <RoleBadgeCompact role={userRole} />
               </div>
               <ChevronDown className="w-4 h-4" />
