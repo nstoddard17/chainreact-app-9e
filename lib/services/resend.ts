@@ -40,6 +40,14 @@ export async function sendWelcomeEmail(
       to: options.to,
       subject: options.subject,
       html: emailHtml,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High', 
+        'Importance': 'high',
+        'X-Mailer': 'ChainReact',
+        'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN',
+        'List-Unsubscribe': '<mailto:unsubscribe@chainreact.app>',
+      },
     })
 
     console.log('Welcome email sent successfully:', result.data?.id)
