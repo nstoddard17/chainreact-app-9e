@@ -5,25 +5,113 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle, Mail, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuthStore } from "@/stores/authStore"
+import { supabase } from "@/utils/supabaseClient"
 
 export default function EmailConfirmPage() {
   const [countdown, setCountdown] = useState(5)
+  const [processing, setProcessing] = useState(true)
   const router = useRouter()
+  const { initialize } = useAuthStore()
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          router.push('/dashboard')
-          return 0
+    const handleEmailConfirmation = async () => {
+      try {
+        // Get current user
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        if (error || !user) {
+          console.error('Error getting user:', error)
+          router.push('/auth/login')
+          return
         }
-        return prev - 1
-      })
-    }, 1000)
 
-    return () => clearInterval(timer)
-  }, [router])
+        // Initialize auth store
+        await initialize()
+
+        // Clear any pending signup data
+        localStorage.removeItem('pendingSignup')
+
+        // Create user profile if it doesn't exist
+        const { data: existingProfile } = await supabase
+          .from('user_profiles')
+          .select('id, username')
+          .eq('id', user.id)
+          .single()
+
+        if (!existingProfile) {
+          // Create profile for new user
+          const detectedProvider = user.app_metadata?.provider || 
+                                 user.app_metadata?.providers?.[0] || 
+                                 (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+          
+          // Extract name from user metadata
+          const fullName = user.user_metadata?.full_name || 
+                          user.user_metadata?.name || 
+                          user.email?.split('@')[0] || 'User'
+          
+          const nameParts = fullName.split(' ')
+          const firstName = nameParts[0] || ''
+          const lastName = nameParts.slice(1).join(' ') || ''
+
+          await supabase
+            .from('user_profiles')
+            .insert({
+              id: user.id,
+              full_name: fullName,
+              first_name: firstName,
+              last_name: lastName,
+              avatar_url: user.user_metadata?.avatar_url,
+              provider: detectedProvider,
+              role: 'free',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+        }
+
+        setProcessing(false)
+
+        // Check if user needs to set username
+        const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
+        
+        if (!hasUsername) {
+          // Start countdown to username setup
+          const timer = setInterval(() => {
+            setCountdown((prev) => {
+              if (prev <= 1) {
+                clearInterval(timer)
+                router.push('/setup-username')
+                return 0
+              }
+              return prev - 1
+            })
+          }, 1000)
+          
+          return () => clearInterval(timer)
+        } else {
+          // User already has username, go to dashboard
+          const timer = setInterval(() => {
+            setCountdown((prev) => {
+              if (prev <= 1) {
+                clearInterval(timer)
+                router.push('/dashboard')
+                return 0
+              }
+              return prev - 1
+            })
+          }, 1000)
+          
+          return () => clearInterval(timer)
+        }
+      } catch (error) {
+        console.error('Error handling email confirmation:', error)
+        setProcessing(false)
+        router.push('/auth/login')
+      }
+    }
+
+    handleEmailConfirmation()
+  }, [router, initialize])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
@@ -58,28 +146,37 @@ export default function EmailConfirmPage() {
               
               <p className="text-blue-200 mb-6 leading-relaxed">
                 Welcome to ChainReact! Your email has been verified and your account is now active. 
-                You can start creating powerful workflow automations right away.
+                {processing ? "We're setting up your profile..." : "Let's complete your profile setup."}
               </p>
 
-              <div className="space-y-4">
-                <Link href="/dashboard">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    Go to Dashboard
-                  </Button>
-                </Link>
+              {processing ? (
+                <div className="flex justify-center mb-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Link href="/setup-username">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Set Up Username
+                    </Button>
+                  </Link>
 
-                <Link href="/workflows">
-                  <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Start Building Workflows
-                  </Button>
-                </Link>
-              </div>
+                  <Link href="/dashboard">
+                    <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                      <Mail className="mr-2 h-4 w-4" />
+                      Skip for Now
+                    </Button>
+                  </Link>
+                </div>
+              )}
 
               <div className="mt-6 p-4 bg-blue-600/20 rounded-lg border border-blue-500/30">
                 <p className="text-sm text-blue-200">
-                  Redirecting to dashboard in <span className="font-semibold text-white">{countdown}</span> seconds...
+                  {processing 
+                    ? "Setting up your account..." 
+                    : `Redirecting to username setup in ${countdown} seconds...`
+                  }
                 </p>
               </div>
 
