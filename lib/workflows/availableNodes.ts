@@ -8584,4 +8584,97 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "userId", label: "Banned User", type: "select", dynamic: "discord_banned_users", required: true, dependsOn: "guildId", placeholder: "Select a banned user" }
     ]
   },
+  // Resend Email Actions
+  {
+    type: "resend_send_email",
+    title: "Send Email (Resend)",
+    description: "Send professional emails using the Resend service with high deliverability.",
+    icon: Mail,
+    category: "Communication",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      { 
+        name: "to", 
+        label: "To", 
+        type: "text", 
+        required: true, 
+        placeholder: "recipient@example.com or {{email_variable}}", 
+        description: "Email recipient(s). Use variables like {{email}} for dynamic content.",
+        hasVariablePicker: true
+      },
+      { 
+        name: "subject", 
+        label: "Subject", 
+        type: "text", 
+        required: true, 
+        placeholder: "Email subject or {{subject_variable}}", 
+        description: "Email subject line. Supports variable substitution.",
+        hasVariablePicker: true
+      },
+      { 
+        name: "html", 
+        label: "HTML Content", 
+        type: "textarea", 
+        required: false, 
+        placeholder: "<h1>Hello {{name}}</h1><p>Your message here...</p>", 
+        description: "HTML email content. Supports variable substitution.",
+        hasVariablePicker: true
+      },
+      { 
+        name: "text", 
+        label: "Text Content", 
+        type: "textarea", 
+        required: false, 
+        placeholder: "Hello {{name}}, your message here...", 
+        description: "Plain text email content. Supports variable substitution.",
+        hasVariablePicker: true
+      },
+      { 
+        name: "from", 
+        label: "From Address", 
+        type: "text", 
+        required: false, 
+        placeholder: "ChainReact <noreply@chainreact.app>", 
+        description: "Custom from address (optional). Must be verified domain."
+      },
+    ],
+    outputSchema: [
+      {
+        name: "emailId",
+        label: "Email ID",
+        type: "string",
+        description: "Unique identifier for the sent email",
+        example: "re_abc123def456"
+      },
+      {
+        name: "recipients",
+        label: "Recipients",
+        type: "array",
+        description: "List of email recipients",
+        example: ["user@example.com"]
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "string",
+        description: "Email subject that was sent",
+        example: "Welcome to ChainReact"
+      },
+      {
+        name: "sentAt",
+        label: "Sent At",
+        type: "string",
+        description: "Timestamp when email was sent",
+        example: "2024-01-15T10:30:00Z"
+      },
+    ],
+    testable: true,
+    testFunction: async (config: any) => ({
+      emailId: "re_test123",
+      recipients: [config.to || "test@example.com"],
+      subject: config.subject || "Test Email",
+      sentAt: new Date().toISOString(),
+    })
+  },
 ]

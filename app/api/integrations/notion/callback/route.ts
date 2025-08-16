@@ -104,14 +104,14 @@ export async function GET(request: NextRequest) {
       
       // For permission errors, return a custom response with better status code
       if (isPermissionError) {
-        const script = \`
+        const script = `
           <script>
             try {
               if (window.opener) {
                 window.opener.postMessage({
                   type: 'oauth-info',
                   provider: 'notion',
-                  message: '\${errorMessage}',
+                  message: '${errorMessage}',
                   isPermissionError: true
                 }, '*');
               }
@@ -121,9 +121,9 @@ export async function GET(request: NextRequest) {
               setTimeout(() => window.close(), 1000);
             }
           </script>
-        \`;
+        `;
         
-        const html = \`
+        const html = `
           <!DOCTYPE html>
           <html>
             <head>
@@ -189,12 +189,12 @@ export async function GET(request: NextRequest) {
               <div class="container">
                 <div class="status-icon">ℹ️</div>
                 <h1>Notion Permission Required</h1>
-                <p class="message">\${errorMessage}</p>
+                <p class="message">${errorMessage}</p>
               </div>
-              \${script}
+              ${script}
             </body>
           </html>
-        \`;
+        `;
         
         return new Response(html, { 
           status: 200, // Use 200 instead of 400 for permission issues
