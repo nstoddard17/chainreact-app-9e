@@ -14,14 +14,14 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
           🚀 Now in Public Beta
         </Badge>
         
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-8 leading-tight">
           Automate your workflow
-          <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent pb-2">
             effortlessly
           </span>
         </h1>
         
-        <p className="text-xl md:text-2xl text-blue-200 mb-8 max-w-4xl mx-auto leading-relaxed">
+        <p className="text-xl md:text-2xl text-blue-200 mb-10 max-w-4xl mx-auto leading-relaxed">
           Connect your favorite apps and automate repetitive tasks with our powerful visual workflow builder. 
           No coding required.
         </p>
@@ -68,9 +68,9 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
         )}
 
         {/* Social Proof */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-blue-200">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-blue-200 mt-4">
           <div className="flex items-center">
-            <div className="flex -space-x-2 mr-3">
+            <div className="flex space-x-0.5 mr-3">
               {[...Array(5)].map((_, i) => (
                 <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
               ))}
