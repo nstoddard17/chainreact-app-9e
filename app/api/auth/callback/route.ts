@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
+  const type = searchParams.get('type') // Check if this is an email confirmation
 
   if (code) {
     const cookieStore = cookies()
@@ -30,7 +31,14 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // For Google OAuth users, check if they need username setup
+      // Always redirect email confirmations to the close-tab page
+      // We'll differentiate between Google OAuth and email confirmations server-side
+      if (data.user.email_confirmed_at) {
+        // User just confirmed email - show close tab page
+        return NextResponse.redirect(`${origin}/auth/confirm?from=email`)
+      }
+      
+      // For OAuth (Google) - check if they need username setup
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('username')
