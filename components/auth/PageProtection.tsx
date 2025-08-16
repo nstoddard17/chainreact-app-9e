@@ -21,8 +21,14 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
   const userRole = (profile?.role || 'free') as UserRole
 
   useEffect(() => {
+    // Don't redirect if we're in the middle of a sign-out process
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      return
+    }
+
     // If user is not authenticated, redirect to login
-    if (!user) {
+    if (!user && initialized) {
+      // Only redirect if auth is fully initialized to avoid race conditions
       router.push('/auth/login')
       return
     }

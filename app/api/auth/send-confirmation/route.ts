@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       type: 'signup',
       email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm?from=email`,
       },
     })
 

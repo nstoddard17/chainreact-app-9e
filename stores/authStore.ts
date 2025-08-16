@@ -435,6 +435,8 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
+          console.log("🔐 Starting sign out process...")
+          
           // Clear local state immediately and mark as signed out
           set({ 
             user: null, 
@@ -444,6 +446,8 @@ export const useAuthStore = create<AuthState>()(
             initialized: false, // Reset initialization to prevent auto-login
             hydrated: false 
           })
+          
+          console.log("✅ Local state cleared")
 
           // Clear localStorage immediately to prevent rehydration
           if (typeof window !== 'undefined') {
@@ -460,9 +464,12 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Sign out from Supabase and wait for completion
+          console.log("🔄 Signing out from Supabase...")
           const { error: signOutError } = await supabase.auth.signOut()
           if (signOutError) {
-            console.error("Supabase sign out error:", signOutError)
+            console.error("❌ Supabase sign out error:", signOutError)
+          } else {
+            console.log("✅ Supabase sign out successful")
           }
 
           // Clear all stores after successful sign out
@@ -513,6 +520,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Force a hard redirect to ensure clean state
+          console.log("🚀 Redirecting to homepage...")
           if (typeof window !== 'undefined') {
             window.location.replace('/')
           }
@@ -650,6 +658,8 @@ export const useAuthStore = create<AuthState>()(
             options: {
               data: metadata || {},
               emailRedirectTo: `${baseUrl}/auth/confirm`,
+              // Disable Supabase's automatic confirmation email
+              captchaToken: undefined,
             },
           })
 
