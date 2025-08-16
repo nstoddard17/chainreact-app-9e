@@ -17,6 +17,9 @@ export default function WaitingConfirmationPage() {
   const { user, initialize } = useAuthStore()
 
   useEffect(() => {
+    // Clean up any old confirmation data first
+    localStorage.removeItem('emailConfirmed')
+    
     // Get email from pending signup or current user
     const pendingSignup = localStorage.getItem('pendingSignup')
     if (pendingSignup) {
@@ -31,13 +34,38 @@ export default function WaitingConfirmationPage() {
 
     // Handle confirmation from any source
     const handleConfirmation = (confirmData: any, source: string) => {
-      if (confirmData && confirmData.confirmed) {
-        console.log(`Email confirmed via ${source}!`)
-        setIsPolling(false)
-        localStorage.removeItem('pendingSignup')
-        localStorage.removeItem('emailConfirmed') // Clean up
-        router.push('/setup-username')
+      if (!confirmData || !confirmData.confirmed) return
+      
+      // Validate that this confirmation is recent (within last 5 minutes)
+      const now = Date.now()
+      const confirmTime = confirmData.timestamp || 0
+      const timeDiff = now - confirmTime
+      const fiveMinutes = 5 * 60 * 1000
+      
+      if (timeDiff > fiveMinutes) {
+        console.log(`Ignoring old confirmation from ${source} (${Math.round(timeDiff/1000)}s old)`)
+        return
       }
+      
+      // Get current pending signup to validate userId if available
+      const pendingSignup = localStorage.getItem('pendingSignup')
+      if (pendingSignup && confirmData.userId) {
+        try {
+          const pendingData = JSON.parse(pendingSignup)
+          if (pendingData.userId && pendingData.userId !== confirmData.userId) {
+            console.log(`Ignoring confirmation for different user from ${source}`)
+            return
+          }
+        } catch (error) {
+          console.warn('Error parsing pending signup data:', error)
+        }
+      }
+      
+      console.log(`Email confirmed via ${source}!`)
+      setIsPolling(false)
+      localStorage.removeItem('pendingSignup')
+      localStorage.removeItem('emailConfirmed') // Clean up
+      router.push('/setup-username')
     }
 
     // Listen for confirmation from other tabs via storage events
