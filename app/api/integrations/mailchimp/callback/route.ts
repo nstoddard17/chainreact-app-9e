@@ -1,69 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '*');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -74,21 +13,21 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`Error with Mailchimp OAuth: ${error}`)
-    return createPopupResponse("error", "mailchimp", `OAuth Error: ${error}`, baseUrl)
+    return createPopupResponse("error", "Mailchimp", `OAuth Error: ${error}`, baseUrl)
   }
 
   if (!code) {
-    return createPopupResponse("error", "mailchimp", "No code provided for Mailchimp OAuth.", baseUrl)
+    return createPopupResponse("error", "Mailchimp", "No code provided for Mailchimp OAuth.", baseUrl)
   }
 
   if (!state) {
-    return createPopupResponse("error", "mailchimp", "No state provided for Mailchimp OAuth.", baseUrl)
+    return createPopupResponse("error", "Mailchimp", "No state provided for Mailchimp OAuth.", baseUrl)
   }
 
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse("error", "mailchimp", "Missing userId in Mailchimp state.", baseUrl)
+      return createPopupResponse("error", "Mailchimp", "Missing userId in Mailchimp state.", baseUrl)
     }
 
     const response = await fetch("https://login.mailchimp.com/oauth2/token", {
@@ -110,7 +49,7 @@ export async function GET(request: NextRequest) {
       console.error("Failed to exchange Mailchimp code for token:", errorData)
       return createPopupResponse(
         "error",
-        "mailchimp",
+        "Mailchimp",
         "Failed to get Mailchimp access token.",
         baseUrl,
       )
@@ -146,31 +85,16 @@ export async function GET(request: NextRequest) {
       console.error("Error saving Mailchimp integration to DB:", dbError)
       return createPopupResponse(
         "error",
-        "mailchimp",
+        "Mailchimp",
         `Database Error: ${dbError.message}`,
         baseUrl,
       )
     }
 
-    // Return a minimal response that immediately closes the popup
-    const script = `
-      <script>
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'oauth-success',
-            provider: 'mailchimp',
-            message: 'Connected successfully'
-          }, '*');
-        }
-        window.close();
-      </script>
-    `
-    return new Response(`<html><head><title>Success</title></head><body>${script}</body></html>`, {
-      headers: { "Content-Type": "text/html" }
-    })
+    return createPopupResponse("success", "Mailchimp", "Mailchimp account connected successfully.", baseUrl)
   } catch (error) {
     console.error("Error during Mailchimp OAuth callback:", error)
     const message = error instanceof Error ? error.message : "An unexpected error occurred"
-    return createPopupResponse("error", "mailchimp", message, baseUrl)
+    return createPopupResponse("error", "Mailchimp", message, baseUrl)
   }
 }
