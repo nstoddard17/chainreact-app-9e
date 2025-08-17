@@ -4,7 +4,7 @@ import SmartAIAgent, {
   ExtractionContext, 
   ExtractionResult 
 } from './smartAIAgent';
-import { supabase } from '../supabase-client';
+import { createAdminClient } from '../supabase/admin';
 import { logAIUsage } from './aiUsageLogger';
 
 export interface WorkflowNode {
@@ -240,6 +240,7 @@ class WorkflowSmartAI {
     }
 
     try {
+      const supabase = createAdminClient();
       const { data, error } = await supabase
         .from('ai_preferences')
         .select('*')
@@ -623,6 +624,7 @@ class WorkflowSmartAI {
 
     // Check database connectivity
     try {
+      const supabase = createAdminClient();
       const { error } = await supabase.from('ai_preferences').select('count').limit(1);
       health.database = !error;
       health.details.database = { connected: !error };

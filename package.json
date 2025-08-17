@@ -96,6 +96,7 @@
     "isomorphic-fetch": "^3.0.0",
     "knex": "latest",
     "kysely": "latest",
+    "lru-cache": "^11.1.0",
     "lucia": "latest",
     "lucide-react": "^0.454.0",
     "mysql2": "latest",

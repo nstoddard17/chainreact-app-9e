@@ -1,4 +1,4 @@
-import { supabase } from '../supabase-client';
+import { createAdminClient } from '../supabase/admin';
 
 export interface AIUsageLogEntry {
   userId: string;
@@ -37,6 +37,7 @@ export interface AIUsageSummary {
 
 export async function logAIUsage(entry: AIUsageLogEntry): Promise<void> {
   try {
+    const supabase = createAdminClient();
     const { error } = await supabase
       .from('ai_usage_logs')
       .insert({
@@ -78,6 +79,7 @@ export async function getAIUsageSummary(
   endDate: Date
 ): Promise<AIUsageSummary> {
   try {
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('ai_usage_logs')
       .select('*')
@@ -148,6 +150,7 @@ export async function getUserAIBudget(userId: string): Promise<{
   resetDate: Date;
 } | null> {
   try {
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('ai_user_budgets')
       .select('*')
@@ -170,7 +173,8 @@ export async function getUserAIBudget(userId: string): Promise<{
       const nextResetDate = new Date(resetDate);
       nextResetDate.setMonth(nextResetDate.getMonth() + 1);
       
-      await supabase
+      const supabaseClient = createAdminClient();
+      await supabaseClient
         .from('ai_user_budgets')
         .update({
           current_usage: 0,
@@ -230,6 +234,7 @@ export async function checkAIBudgetLimit(userId: string, estimatedCost: number):
 async function updateUserUsageTotals(userId: string, tokensUsed: number, cost: number): Promise<void> {
   try {
     // Get current budget record
+    const supabase = createAdminClient();
     const { data: existingBudget, error: fetchError } = await supabase
       .from('ai_user_budgets')
       .select('*')
@@ -245,7 +250,8 @@ async function updateUserUsageTotals(userId: string, tokensUsed: number, cost: n
       const currentDate = new Date();
       const resetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
       
-      await supabase
+      const supabaseUpdate = createAdminClient();
+      await supabaseUpdate
         .from('ai_user_budgets')
         .insert({
           user_id: userId,

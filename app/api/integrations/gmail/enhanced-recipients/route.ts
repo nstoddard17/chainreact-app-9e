@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { getDecryptedAccessToken } from "@/lib/security/encryption"
+import { getDecryptedAccessToken } from "@/lib/integrations/getDecryptedAccessToken"
 
 export async function POST(req: Request) {
   console.log("🔄 Enhanced Gmail recipients API called")
