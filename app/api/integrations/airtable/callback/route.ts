@@ -145,23 +145,27 @@ export async function GET(request: NextRequest) {
       console.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
     }
 
-    // Kick off base sync in background (best-effort)
-    try {
-      await fetch(`${baseUrl}/api/integrations/airtable/sync-bases`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-      await fetch(`${baseUrl}/api/integrations/airtable/register-webhooks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      })
-    } catch (e) {
-      console.warn('Failed to start Airtable base sync', e)
-    }
+    // Return success response immediately
+    const successResponse = createPopupResponse("success", "airtable", "Airtable account connected successfully.", baseUrl)
 
-    return createPopupResponse("success", "airtable", "Airtable account connected successfully.", baseUrl)
+    // Kick off base sync in background (best-effort) - DON'T await these calls
+    setImmediate(() => {
+      Promise.all([
+        fetch(`${baseUrl}/api/integrations/airtable/sync-bases`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        }).catch(e => console.warn('Failed to sync Airtable bases', e)),
+        
+        fetch(`${baseUrl}/api/integrations/airtable/register-webhooks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        }).catch(e => console.warn('Failed to register Airtable webhooks', e))
+      ]).catch(e => console.warn('Background Airtable setup failed', e))
+    })
+
+    return successResponse
   } catch (e: any) {
     console.error("Airtable callback error:", e)
     return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)

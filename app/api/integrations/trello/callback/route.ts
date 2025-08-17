@@ -40,15 +40,20 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error
 
-    // Register webhooks for user boards
+    // Return success response immediately
+    const successResponse = NextResponse.json({ success: true })
+
+    // Register webhooks for user boards in background (best-effort) - DON'T await this call
     const base = getBaseUrl()
-    await fetch(`${base}/api/integrations/trello/register-webhooks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
+    setImmediate(() => {
+      fetch(`${base}/api/integrations/trello/register-webhooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      }).catch(e => console.warn('Failed to register Trello webhooks', e))
     })
 
-    return NextResponse.json({ success: true })
+    return successResponse
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Trello callback error' }, { status: 500 })
   }
