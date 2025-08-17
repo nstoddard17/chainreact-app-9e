@@ -23,10 +23,16 @@ export async function sendGmail(
     const cc = config.cc
     const bcc = config.bcc
     const subject = config.subject
-    const body = config.body
+    const signature = config.signature
+    let body = config.body
     const attachmentIds = config.attachments as string[] | undefined
 
-    console.log("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, attachmentIds: attachmentIds?.length || 0 })
+    // Append signature to body if provided
+    if (signature) {
+      body = body + '\n\n' + signature
+    }
+
+    console.log("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, hasSignature: !!signature, attachmentIds: attachmentIds?.length || 0 })
 
     if (!to || !subject || !body) {
       const missingFields = []

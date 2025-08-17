@@ -160,6 +160,12 @@ const useWorkflowBuilderState = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
 
+  // Memoize node types to prevent unnecessary re-renders
+  const nodeTypes = useMemo(() => ({
+    custom: CustomNode,
+    addAction: AddActionNode,
+  }), [])
+
   const [isSaving, setIsSaving] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [activeExecutionNodeId, setActiveExecutionNodeId] = useState<string | null>(null)
@@ -192,25 +198,10 @@ const useWorkflowBuilderState = () => {
   
   const availableIntegrations = useMemo(() => {
     const integrations = getIntegrationsFromNodes()
-    console.log('🔍 getIntegrationsFromNodes returned:', {
-      total: integrations.length,
-      integrations: integrations.map(int => ({ 
-        id: int.id, 
-        name: int.name, 
-        triggersCount: int.triggers.length,
-        actionsCount: int.actions.length,
-        category: int.category
-      }))
-    });
+    // Integrations loaded successfully
     
-    // Debug: Check if AI Agent integration has actions
+    // AI Agent integration validation
     const aiIntegration = integrations.find(int => int.id === 'ai')
-    if (aiIntegration) {
-      console.log('AI Integration found:', aiIntegration)
-      console.log('AI Integration actions:', aiIntegration.actions)
-    } else {
-      console.log('AI Integration not found in availableIntegrations')
-    }
     
     // Debug: Check some integrations that should have triggers
     const gmailIntegration = integrations.find(int => int.id === 'gmail')
@@ -615,8 +606,7 @@ const useWorkflowBuilderState = () => {
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
   // Debug onNodesChange to see if it's being called
-  const debugOnNodesChange = useCallback((changes: any) => {
-    console.log('🔄 onNodesChange called with:', changes)
+  const optimizedOnNodesChange = useCallback((changes: any) => {
     onNodesChange(changes)
   }, [onNodesChange])
 
@@ -640,11 +630,12 @@ const useWorkflowBuilderState = () => {
   //   console.log('🔍 sourceAddNode changed:', sourceAddNode)
   // }, [sourceAddNode])
 
-  useEffect(() => {
-    if (!workflowsData.length && !workflowsCacheLoading) {
-      loadWorkflows()
-    }
-  }, [workflowsData.length, workflowsCacheLoading])
+  // Disable cache-based workflow loading to prevent conflicts
+  // useEffect(() => {
+  //   if (!workflowsData.length && !workflowsCacheLoading) {
+  //     loadWorkflows()
+  //   }
+  // }, [workflowsData.length, workflowsCacheLoading])
 
   useEffect(() => {
     // Only fetch integrations once when component mounts
@@ -2112,7 +2103,7 @@ const useWorkflowBuilderState = () => {
     setNodes,
     setEdges,
     onNodesChange,
-    debugOnNodesChange,
+    optimizedOnNodesChange,
     onEdgesChange,
     onConnect,
     workflowName,
@@ -2199,7 +2190,7 @@ function WorkflowBuilderContent() {
   const { setCurrentWorkflow } = useWorkflowStore()
   
   const {
-    nodes, edges, setNodes, setEdges, onNodesChange, debugOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
@@ -2404,7 +2395,7 @@ function WorkflowBuilderContent() {
           <ReactFlow 
           nodes={nodes} 
           edges={edges} 
-          onNodesChange={debugOnNodesChange} 
+          onNodesChange={optimizedOnNodesChange} 
           onEdgesChange={onEdgesChange} 
           onConnect={onConnect} 
           onNodeDrag={(event, node) => {

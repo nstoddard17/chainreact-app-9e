@@ -31,7 +31,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Send and manage emails through Gmail",
     category: "communication",
     capabilities: ["Send Emails", "Read Emails", "Manage Labels", "Search", "Access Contacts"],
-    scopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.settings.basic", "https://www.googleapis.com/auth/contacts.readonly"],
+    scopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.settings.basic", "https://www.googleapis.com/auth/gmail.settings.sharing", "https://www.googleapis.com/auth/contacts.readonly"],
     isAvailable: false,
     requiresClientId: "GOOGLE_CLIENT_ID",
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",

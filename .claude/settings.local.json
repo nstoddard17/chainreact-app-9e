@@ -16,7 +16,10 @@
       "Bash(curl:*)",
       "Bash(npx ts-node:*)",
       "Bash(node:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(cp:*)",
+      "Bash(mkdir:*)",
+      "Bash(tar:*)"
     ],
     "defaultMode": "acceptEdits"
   }

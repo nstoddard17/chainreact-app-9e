@@ -2402,15 +2402,33 @@ function ConfigurationModal({
         try {
           data = await loadIntegrationSpecificData(
             field.dynamic as string,
+            integration.id,
             { guildId: dependentValue }
           )
           console.log('🔄 Discord roles: Fetch completed, data:', data)
         } finally {
           setLoadingDiscordRoles(false)
         }
+      } else if (field.dynamic === "airtable_tables" && field.dependsOn === "baseId") {
+        console.log('🔄 Airtable tables: Starting fetch for baseId:', dependentValue)
+        data = await loadIntegrationSpecificData(
+          field.dynamic as string,
+          integration.id,
+          { baseId: dependentValue }
+        )
+        console.log('🔄 Airtable tables: Fetch completed, data:', data)
+      } else if (field.dynamic === "airtable_records" && field.dependsOn === "tableName") {
+        console.log('🔄 Airtable records: Starting fetch for tableName:', dependentValue)
+        data = await loadIntegrationSpecificData(
+          field.dynamic as string,
+          integration.id,
+          { baseId: config.baseId, tableName: dependentValue }
+        )
+        console.log('🔄 Airtable records: Fetch completed, data:', data)
       } else {
         data = await loadIntegrationSpecificData(
           field.dynamic as string,
+          integration.id,
           { [field.dependsOn]: dependentValue }
         )
       }
@@ -2919,9 +2937,35 @@ function ConfigurationModal({
       configSchemaLength: nodeInfo?.configSchema?.length || 0
     })
     
+    // Special debug for Gmail
+    if (nodeInfo?.type === "gmail_action_send_email") {
+      console.log("🔍 GMAIL fetchDynamicData:", {
+        nodeType: nodeInfo.type,
+        providerId: nodeInfo.providerId,
+        configSchema: nodeInfo.configSchema?.map(field => ({ 
+          name: field.name, 
+          dynamic: field.dynamic, 
+          dependsOn: field.dependsOn 
+        }))
+      });
+    }
+    
     // Special debug for Trello
     if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
       console.log("🔍 TRELLO fetchDynamicData:", {
+        nodeType: nodeInfo.type,
+        providerId: nodeInfo.providerId,
+        configSchema: nodeInfo.configSchema?.map(field => ({ 
+          name: field.name, 
+          dynamic: field.dynamic, 
+          dependsOn: field.dependsOn 
+        }))
+      });
+    }
+    
+    // Special debug for Airtable
+    if (nodeInfo?.type === "airtable_action_create_record") {
+      console.log("🔍 AIRTABLE fetchDynamicData:", {
         nodeType: nodeInfo.type,
         providerId: nodeInfo.providerId,
         configSchema: nodeInfo.configSchema?.map(field => ({ 
@@ -2945,6 +2989,17 @@ function ConfigurationModal({
       provider: integration.provider, 
       status: integration.status 
     } : null)
+    
+    // Special debug for Airtable integration
+    if (nodeInfo.providerId === "airtable") {
+      console.log('🔍 AIRTABLE INTEGRATION DEBUG:', {
+        providerId: nodeInfo.providerId,
+        integrationFound: !!integration,
+        integrationId: integration?.id,
+        integrationStatus: integration?.status,
+        allIntegrations: integrationData?.map(i => ({ id: i.id, provider: i.provider, status: i.status }))
+      })
+    }
     
     if (!integration) {
       console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
@@ -2985,12 +3040,24 @@ function ConfigurationModal({
 
     // Add signature fetches for email providers
     const signatureFetches: Array<{ name: string, dynamic: string }> = []
+    console.log('🔍 [MODAL] Checking signature fetches:', { 
+      providerId: nodeInfo?.providerId, 
+      nodeType: nodeInfo?.type,
+      hasOutlookSigs: !!dynamicOptions['outlook_signatures'],
+      hasGmailSigs: !!dynamicOptions['gmail_signatures'],
+      dynamicOptionsKeys: Object.keys(dynamicOptions)
+    })
+    
     if (nodeInfo?.providerId === 'microsoft-outlook' && !dynamicOptions['outlook_signatures']) {
       signatureFetches.push({ name: 'outlook_signatures', dynamic: 'outlook_signatures' })
+      console.log('🔍 [MODAL] Added Outlook signature fetch')
     }
     if (nodeInfo?.providerId === 'gmail' && !dynamicOptions['gmail_signatures']) {
       signatureFetches.push({ name: 'gmail_signatures', dynamic: 'gmail_signatures' })
+      console.log('🔍 [MODAL] Added Gmail signature fetch')
     }
+    
+    console.log('🔍 [MODAL] Total signature fetches:', signatureFetches.length, signatureFetches)
 
     // Check cache first and only fetch missing data
     const cachedData: Record<string, any> = {}
@@ -3101,10 +3168,16 @@ function ConfigurationModal({
           })
       }),
       ...signaturesNotCached.map(sig => {
-        console.log(`🔍 Fetching signature data for: ${sig.dynamic}`)
+        console.log(`🔍 [MODAL] Fetching signature data for: ${sig.dynamic}`)
         return loadIntegrationSpecificData(sig.dynamic)
-          .then(data => ({ field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }))
-          .catch(error => ({ field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }))
+          .then(data => {
+            console.log(`✅ [MODAL] Signature data received for ${sig.dynamic}:`, data)
+            return { field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }
+          })
+          .catch(error => {
+            console.error(`❌ [MODAL] Signature fetch failed for ${sig.dynamic}:`, error)
+            return { field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }
+          })
       })
     ]
 
@@ -6910,7 +6983,7 @@ function ConfigurationModal({
                           className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
                           onChange={(e) => {
                             const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
-                            if (editor && e.target.value) {
+                            if (editor && e.target.value && e.target.value !== 'none') {
                               const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
                               const signatures = dynamicOptions[signatureKey] || []
                               const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
@@ -6924,7 +6997,7 @@ function ConfigurationModal({
                           }}
                           title="Insert Signature - Add a signature to the email"
                         >
-                          <option value="">Signature</option>
+                          <option value="">Select Signature</option>
                           {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any, sigIndex: number) => (
                             <option key={`signature-${sigIndex}-${signature.value}`} value={signature.value}>
                               {signature.label}
@@ -6932,6 +7005,33 @@ function ConfigurationModal({
                           ))}
                         </select>
                       </div>
+                  )}
+
+                  {/* Signature Status Messages */}
+                  {(field.name === 'content' || field.name === 'body') && nodeInfo?.providerId === 'gmail' && (
+                    <div className="mt-2">
+                      {(() => {
+                        const signatures = dynamicOptions['gmail_signatures'] || []
+                        const signaturesWithContent = signatures.filter(sig => sig.hasSignature && sig.value !== 'none')
+                        
+                        if (signatures.length === 0) {
+                          return (
+                            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                              <AlertCircle className="w-4 h-4" />
+                              <span>Unable to load Gmail signatures. Please reconnect your Gmail account.</span>
+                            </div>
+                          )
+                        } else if (signaturesWithContent.length === 0) {
+                          return (
+                            <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+                              <HelpCircle className="w-4 h-4" />
+                              <span>No Gmail signatures found. You can add one in your Gmail settings.</span>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
                   )}
                 </div>
 

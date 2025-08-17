@@ -83,7 +83,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "gmail_signatures" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -840,6 +840,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
       { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail" },
       { 
+        name: "signature", 
+        label: "Signature", 
+        type: "select", 
+        required: false,
+        dynamic: "gmail_signatures",
+        placeholder: "Select a signature...",
+        description: "Choose a signature from your Gmail account"
+      },
+      { 
         name: "attachments", 
         label: "Attachments", 
         type: "file", 
@@ -857,6 +866,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       bcc: "Comma-separated list of BCC recipients.",
       subject: "The subject line of the email.",
       body: "The email content, which can be plain text or HTML.",
+      signature: "Email signature to append to the message.",
       attachments: "Files to be included as attachments.",
     },
   },

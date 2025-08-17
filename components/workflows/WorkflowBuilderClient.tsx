@@ -1,6 +1,6 @@
 "use client"
 
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, memo } from "react"
 import { ReactFlowProvider } from "@xyflow/react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -33,7 +33,7 @@ const WorkflowBuilderSkeleton = () => (
   </div>
 )
 
-export default function WorkflowBuilderClient() {
+const WorkflowBuilderClient = memo(function WorkflowBuilderClient() {
   return (
     <ReactFlowProvider>
       <Suspense fallback={<WorkflowBuilderSkeleton />}>
@@ -41,4 +41,6 @@ export default function WorkflowBuilderClient() {
       </Suspense>
     </ReactFlowProvider>
   )
-}
+})
+
+export default WorkflowBuilderClient

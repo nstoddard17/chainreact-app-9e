@@ -1,0 +1,114 @@
+{
+  "name": "@chainreact/smart-ai-agent",
+  "version": "1.0.0",
+  "description": "A comprehensive Smart AI Agent system for field extraction and data processing",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./smartAIAgent": {
+      "types": "./dist/smartAIAgent.d.ts",
+      "import": "./dist/smartAIAgent.js",
+      "require": "./dist/smartAIAgent.js"
+    },
+    "./fieldClassifier": {
+      "types": "./dist/fieldClassifier.d.ts",
+      "import": "./dist/fieldClassifier.js",
+      "require": "./dist/fieldClassifier.js"
+    },
+    "./promptGenerator": {
+      "types": "./dist/promptGenerator.d.ts",
+      "import": "./dist/promptGenerator.js",
+      "require": "./dist/promptGenerator.js"
+    },
+    "./safetyValidator": {
+      "types": "./dist/safetyValidator.d.ts",
+      "import": "./dist/safetyValidator.js",
+      "require": "./dist/safetyValidator.js"
+    },
+    "./fallbackHandler": {
+      "types": "./dist/fallbackHandler.d.ts",
+      "import": "./dist/fallbackHandler.js",
+      "require": "./dist/fallbackHandler.js"
+    },
+    "./tokenBudgetManager": {
+      "types": "./dist/tokenBudgetManager.d.ts",
+      "import": "./dist/tokenBudgetManager.js",
+      "require": "./dist/tokenBudgetManager.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:ci": "npm run build && npm run test",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run clean && npm run lint && npm run build && npm run test",
+    "publish:local": "npm pack",
+    "install:local": "npm install ./chainreact-smart-ai-agent-1.0.0.tgz"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "keywords": [
+    "ai",
+    "extraction",
+    "nlp",
+    "data-processing",
+    "field-extraction",
+    "smart-agent"
+  ],
+  "author": "ChainReact AI Team",
+  "license": "MIT",
+  "bin": {
+    "smart-ai": "dist/cli.js"
+  },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "node-fetch": "^3.3.2",
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.12",
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/inquirer": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "@vitest/ui": "^1.1.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainreact/smart-ai-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chainreact/smart-ai-agent/issues"
+  },
+  "homepage": "https://github.com/chainreact/smart-ai-agent#readme"
+}
