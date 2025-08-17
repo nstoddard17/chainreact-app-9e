@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     console.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
-      "airtable",
+      "Airtable",
       errorDescription || "An unknown error occurred.",
       baseUrl,
     )
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   if (!code || !state) {
     return createPopupResponse(
       "error",
-      "airtable",
+      "Airtable",
       "Authorization code or state parameter is missing.",
       baseUrl,
     )
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return success response immediately
-    const successResponse = createPopupResponse("success", "airtable", "Airtable account connected successfully.", baseUrl)
+    const successResponse = createPopupResponse("success", "Airtable", "Airtable account connected successfully.", baseUrl)
 
     // Kick off base sync in background (best-effort) - DON'T await these calls
     setImmediate(() => {
@@ -168,6 +168,6 @@ export async function GET(request: NextRequest) {
     return successResponse
   } catch (e: any) {
     console.error("Airtable callback error:", e)
-    return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
+    return createPopupResponse("error", "Airtable", e.message || "An unexpected error occurred.", baseUrl)
   }
 }

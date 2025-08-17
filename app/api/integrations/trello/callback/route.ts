@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 
 // Note: Trello auth flow in this app uses return_url to a client page
 // (/integrations/trello-auth) where token is in the URL fragment.
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
 
     return successResponse
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Trello callback error' }, { status: 500 })
+    console.error("Trello callback error:", e)
+    const baseUrl = getBaseUrl()
+    return createPopupResponse("error", "Trello", e.message || "An unexpected error occurred.", baseUrl)
   }
 }

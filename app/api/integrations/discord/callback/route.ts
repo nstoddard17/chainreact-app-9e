@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,138 +13,18 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '*');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
 
 function createBotCallbackResponse(
   type: "success" | "error",
   guildId: string | null,
   baseUrl: string,
 ) {
-  const title = type === "success" ? "Discord Bot Connection Successful" : "Discord Bot Connection Failed"
-  const header = type === "success" ? "Bot Connected!" : "Error Connecting Bot"
-  const status = type === "success" ? 200 : 500
   const message = type === "success" 
     ? `The bot has been successfully added to your Discord server${guildId ? ` (ID: ${guildId})` : ''}.`
     : "There was an error adding the bot to your Discord server."
   
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'discord-bot-callback',
-          status: '${type}',
-          data: {
-            guildId: '${guildId || ''}',
-            success: ${type === "success"}
-          },
-          timestamp: Date.now()
-        }, '*');
-      }
-      setTimeout(() => window.close(), 2000);
-    </script>
-  `
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+  // Use the shared createPopupResponse for consistency
+  return createPopupResponse(type, "Discord Bot", message, baseUrl)
 }
 
 export async function GET(request: NextRequest) {
@@ -160,7 +41,7 @@ export async function GET(request: NextRequest) {
     console.error(`Discord OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
-      "discord",
+      "Discord",
       errorDescription || "An unknown error occurred.",
       baseUrl,
     )
@@ -170,7 +51,7 @@ export async function GET(request: NextRequest) {
     console.error("Missing code in Discord callback")
     return createPopupResponse(
       "error",
-      "discord",
+      "Discord",
       "Authorization code is missing.",
       baseUrl,
     )
@@ -226,7 +107,7 @@ export async function GET(request: NextRequest) {
         console.error("Missing state in Discord user OAuth callback")
         return createPopupResponse(
           "error",
-          "discord",
+          "Discord",
           "State parameter is missing for user OAuth.",
           baseUrl,
         )
@@ -237,7 +118,7 @@ export async function GET(request: NextRequest) {
 
       if (!userId) {
         console.error("Missing userId in Discord state")
-        return createPopupResponse("error", "discord", "User ID is missing from state", baseUrl)
+        return createPopupResponse("error", "Discord", "User ID is missing from state", baseUrl)
       }
 
       const expiresIn = tokenData.expires_in // Typically in seconds
@@ -280,7 +161,7 @@ export async function GET(request: NextRequest) {
 
       return createPopupResponse(
         "success",
-        "discord",
+        "Discord",
         "Discord account connected successfully.",
         baseUrl,
       )
@@ -289,7 +170,7 @@ export async function GET(request: NextRequest) {
     console.error("Discord callback error:", e)
     return createPopupResponse(
       "error",
-      "discord",
+      "Discord",
       e.message || "An unexpected error occurred.",
       baseUrl,
     )
