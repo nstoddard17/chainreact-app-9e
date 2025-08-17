@@ -1,6 +1,4 @@
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
-import { resolveValue } from '../core/resolveValue'
-import { ActionResult } from '../core/executeWait'
+import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
 /**
  * Moves a record from one table to another in Airtable

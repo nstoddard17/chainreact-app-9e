@@ -55,7 +55,7 @@ export function decrypt(encryptedText: string, key: string = ENCRYPTION_KEY): st
       // If the text doesn't contain a colon, it might be unencrypted
       // Return it as-is instead of throwing an error
       if (!encryptedText.includes(":")) {
-        console.log("Text appears to be unencrypted, returning as-is");
+        // Text appears to be unencrypted, return as-is
         return encryptedText;
       }
       throw new Error("Invalid encrypted text format");

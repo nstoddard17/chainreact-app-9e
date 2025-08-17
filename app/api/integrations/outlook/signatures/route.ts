@@ -1,39 +1,62 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getDecryptedAccessToken } from '@/lib/integrations/getDecryptedAccessToken'
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = session.user.id
+    console.log('🔍 [OUTLOOK-SIGNATURES] API called')
+    
     const searchParams = request.nextUrl.searchParams
     const requestedUserId = searchParams.get('userId')
 
-    // Verify the user is requesting their own data
-    if (requestedUserId && requestedUserId !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!requestedUserId) {
+      console.log('❌ [OUTLOOK-SIGNATURES] No userId provided')
+      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 })
     }
 
+    console.log('🔍 [OUTLOOK-SIGNATURES] Requested userId:', requestedUserId)
+    
+    // Use admin client to verify user exists
+    const supabase = createAdminClient()
+    const { data: userData, error: userError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', requestedUserId)
+      .single()
+
+    if (userError || !userData) {
+      console.log('❌ [OUTLOOK-SIGNATURES] User not found:', userError)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const userId = requestedUserId
+
     // Get Outlook access token
-    const credentials = await getDecryptedAccessToken(userId, 'microsoft-outlook')
-    if (!credentials || !credentials.accessToken) {
+    let accessToken
+    try {
+      accessToken = await getDecryptedAccessToken(userId, 'microsoft-outlook')
+    } catch (error) {
+      console.log('🔍 [OUTLOOK-SIGNATURES] Outlook integration not found for user:', userId)
       return NextResponse.json({ 
-        error: 'Outlook integration not found or access token missing',
-        signatures: []
+        error: 'Outlook integration not connected',
+        signatures: [],
+        needsConnection: true
+      }, { status: 200 })
+    }
+    
+    if (!accessToken) {
+      console.log('🔍 [OUTLOOK-SIGNATURES] Outlook access token missing for user:', userId)
+      return NextResponse.json({ 
+        error: 'Outlook access token missing',
+        signatures: [],
+        needsConnection: true
       }, { status: 200 })
     }
 
     // Get Outlook/Microsoft Graph profile
     const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: {
-        'Authorization': `Bearer ${credentials.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     })
 
@@ -50,7 +73,7 @@ export async function GET(request: NextRequest) {
     // Get Outlook mail settings
     const settingsResponse = await fetch('https://graph.microsoft.com/v1.0/me/outlook/masterCategories', {
       headers: {
-        'Authorization': `Bearer ${credentials.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     })
 
@@ -60,7 +83,7 @@ export async function GET(request: NextRequest) {
     try {
       const mailboxResponse = await fetch('https://graph.microsoft.com/v1.0/me/mailboxSettings', {
         headers: {
-          'Authorization': `Bearer ${credentials.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       })
 

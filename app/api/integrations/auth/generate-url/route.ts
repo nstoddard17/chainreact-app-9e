@@ -18,7 +18,12 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      console.log('🔐 [GENERATE-URL] Authentication failed:', userError?.message || 'No user found')
+      return NextResponse.json({ 
+        error: "Unauthorized", 
+        message: "Valid authentication required to generate OAuth URLs",
+        details: userError?.message || "No authenticated user session found"
+      }, { status: 401 })
     }
 
     const { provider, reconnect = false, integrationId, forceFresh = false } = await request.json()
@@ -305,7 +310,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 
   switch (service) {
     case "gmail":
-      scopes += " https://www.googleapis.com/auth/gmail.modify"
+      scopes += " https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic"
       break
     case "google":
       scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"

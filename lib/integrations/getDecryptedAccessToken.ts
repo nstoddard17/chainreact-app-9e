@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabaseClient"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { refreshIntegrationToken } from "./refreshToken"
 
@@ -10,9 +10,7 @@ export async function getDecryptedAccessToken(
   userId: string, 
   provider: string
 ): Promise<string> {
-  const supabase = createClient()
-  
-  console.log(`🔍 getDecryptedAccessToken: Looking for integration with userId=${userId}, provider=${provider}`);
+  const supabase = createAdminClient()
   
   // Get the integration record from the database
   const { data, error } = await supabase
@@ -23,10 +21,7 @@ export async function getDecryptedAccessToken(
     .eq("status", "connected")
     .single()
   
-  console.log(`🔍 getDecryptedAccessToken: Query result:`, { data, error });
-  
   if (error || !data) {
-    console.log(`🔍 getDecryptedAccessToken: No integration found for userId=${userId}, provider=${provider}`);
     throw new Error(`Integration not found: ${provider}`)
   }
 
@@ -71,7 +66,7 @@ export async function getIntegrationCredentials(
     }
     
     // For API-key based integrations, you might have different fields
-    const supabase = createClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase
       .from("integrations")
       .select("metadata")

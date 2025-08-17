@@ -163,6 +163,103 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// GET method to support query parameters
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const integrationId = searchParams.get('integrationId');
+    const dataType = searchParams.get('type') || searchParams.get('dataType');
+    const userId = searchParams.get('userId');
+    const baseId = searchParams.get('baseId');
+    const tableName = searchParams.get('tableName');
+
+    console.log('🔍 [SERVER] GET fetch-user-data API called:', { integrationId, dataType, userId, baseId, tableName });
+
+    if (!dataType) {
+      console.log('❌ [SERVER] Missing dataType parameter');
+      return Response.json({ error: 'Missing dataType parameter' }, { status: 400 });
+    }
+
+    // If userId is provided but no integrationId, try to find the integration
+    if (userId && !integrationId) {
+      const supabase = createAdminClient();
+      
+      // Determine provider from dataType
+      let provider = '';
+      if (dataType.startsWith('airtable_')) provider = 'airtable';
+      else if (dataType.startsWith('gmail_')) provider = 'gmail';
+      else if (dataType.startsWith('slack_')) provider = 'slack';
+      else if (dataType.startsWith('notion_')) provider = 'notion';
+      else if (dataType.startsWith('discord_')) provider = 'discord';
+      else if (dataType.startsWith('hubspot_')) provider = 'hubspot';
+      else {
+        return Response.json({ error: 'Cannot determine provider from dataType' }, { status: 400 });
+      }
+
+      const { data: integration, error } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('provider', provider)
+        .eq('status', 'connected')
+        .single();
+
+      if (error || !integration) {
+        console.log(`❌ [SERVER] ${provider} integration not found for user ${userId}`);
+        return Response.json({ 
+          error: `${provider} integration not found`,
+          data: []
+        }, { status: 404 });
+      }
+
+      // Create options object
+      const options: any = {};
+      if (baseId) options.baseId = baseId;
+      if (tableName) options.tableName = tableName;
+
+      // Call the POST method with the found integration
+      const mockRequest = {
+        json: async () => ({
+          integrationId: integration.id,
+          dataType,
+          options
+        })
+      } as NextRequest;
+
+      return POST(mockRequest);
+    }
+
+    // If integrationId is provided, build the request body
+    if (integrationId) {
+      const options: any = {};
+      if (baseId) options.baseId = baseId;
+      if (tableName) options.tableName = tableName;
+
+      // Call the POST method
+      const mockRequest = {
+        json: async () => ({
+          integrationId,
+          dataType,
+          options
+        })
+      } as NextRequest;
+
+      return POST(mockRequest);
+    }
+
+    return Response.json({ error: 'Missing integrationId or userId parameter' }, { status: 400 });
+
+  } catch (error: any) {
+    console.error('Error in GET fetch-user-data route:', error);
+    return Response.json({ 
+      error: { 
+        message: error.message || 'Internal server error' 
+      },
+      data: []
+    }, { status: 500 });
+  }
+}
+
 // Helper function to validate and refresh token if needed
 async function validateAndRefreshToken(integration: any): Promise<{
   success: boolean

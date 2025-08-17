@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Check if username already exists
     const { data, error } = await supabase

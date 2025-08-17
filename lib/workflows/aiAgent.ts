@@ -398,8 +398,8 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     // 3. Gather context from filtered input (previous node)
     const context: any = {
       goal: input?.message?.content 
-        ? `Respond to this Discord message: "${input.message.content}"` 
-        : `Process and analyze the data from node ${inputNodeId}`,
+        ? `Generate a professional email response to this Discord message: "${input.message.content}"` 
+        : `Generate a professional email response based on the data from node ${inputNodeId}`,
       input: Object.keys(filteredInput).length > 0 ? filteredInput : input, // Use original input if filtered is empty
       availableData: Object.keys(filteredInput).length > 0 ? filteredInput : input,
       nodeOutputs: filteredInput,
@@ -417,7 +417,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     )
 
     // 5. Build the AI prompt
-    const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt)
+    const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt, workflowContext)
 
     // 6. Execute single step AI processing
     const steps: AIAgentStep[] = []
@@ -456,21 +456,80 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     try {
       // Check if the AI response is JSON
       if (finalOutput.trim().startsWith('{') && finalOutput.trim().endsWith('}')) {
-        dynamicOutputs = JSON.parse(finalOutput)
+        const parsed = JSON.parse(finalOutput)
+        
+        // If it's wrapped in a "response" object, extract the content
+        if (parsed.response && typeof parsed.response === 'object') {
+          console.log("🔄 Unwrapping nested response object")
+          
+          // For Discord messages, extract the content
+          if (parsed.response.content) {
+            dynamicOutputs.discord_message = parsed.response.content
+            // Also set email fields if this might be for email
+            dynamicOutputs.email_body = parsed.response.content
+            dynamicOutputs.email_subject = "Re: Your Message"
+          }
+        } else {
+          // Direct JSON structure as expected
+          dynamicOutputs = parsed
+          
+          // Convert discord_message to email format if needed
+          if (parsed.discord_message && !parsed.email_body) {
+            console.log("🔄 Converting discord_message to email format")
+            dynamicOutputs.email_body = parsed.discord_message
+            dynamicOutputs.email_subject = "Re: Your Message"
+          }
+        }
+        
         console.log("🎯 Parsed dynamic AI outputs:", dynamicOutputs)
       }
+      
+      // Final fallback: if we have any message-like content but no email_body, create one
+      if (!dynamicOutputs.email_body) {
+        if (dynamicOutputs.discord_message) {
+          dynamicOutputs.email_body = dynamicOutputs.discord_message
+          dynamicOutputs.email_subject = "Re: Your Message"
+          console.log("🔄 Final fallback: Using discord_message as email_body")
+        } else if (dynamicOutputs.slack_message) {
+          dynamicOutputs.email_body = dynamicOutputs.slack_message  
+          dynamicOutputs.email_subject = "Re: Your Message"
+          console.log("🔄 Final fallback: Using slack_message as email_body")
+        }
+      }
+      
     } catch (error) {
-      console.log("📝 Using legacy text parsing for AI output")
+      console.log("📝 JSON parsing failed, using raw output")
+      // If JSON parsing fails, try to extract content as plain text
+      if (finalOutput.includes('"content":') || finalOutput.includes('"discord_message":') || finalOutput.includes('"email_body":')) {
+        try {
+          // Try to extract discord_message content
+          let contentMatch = finalOutput.match(/"discord_message":\s*"([^"]+)"/);
+          if (contentMatch) {
+            const message = contentMatch[1];
+            dynamicOutputs.discord_message = message;
+            dynamicOutputs.email_body = message;
+            dynamicOutputs.email_subject = "Re: Your Message";
+            console.log("🔄 Extracted discord_message content:", message);
+          } else {
+            // Try other content patterns
+            contentMatch = finalOutput.match(/"content":\s*"([^"]+)"/);
+            if (contentMatch) {
+              const message = contentMatch[1];
+              dynamicOutputs.discord_message = message;
+              dynamicOutputs.email_body = message;
+              dynamicOutputs.email_subject = "Re: Your Message";
+              console.log("🔄 Extracted content from malformed JSON:", message);
+            }
+          }
+        } catch (e) {
+          console.log("📝 Content extraction also failed");
+        }
+      }
     }
-    
-    // Generate legacy subject/body fields for backward compatibility
-    const { subject, body } = parseAIResponseForEmail(finalOutput, context.goal)
     
     const result = {
       success: true,
       output: finalOutput, // Complete AI response for "AI Agent Output" variable
-      subject: subject,    // Legacy "Email Subject" variable
-      body: body,          // Legacy "Email Body" variable
       ...dynamicOutputs,   // Dynamic outputs from JSON (email_subject, email_body, etc.)
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
@@ -599,44 +658,82 @@ function buildAIPrompt(
   goal: string, 
   context: any, 
   memory: MemoryContext, 
-  systemPrompt?: string
+  systemPrompt?: string,
+  workflowContext?: any
 ): string {
   const basePrompt = systemPrompt || `You are an AI Agent in a workflow automation platform. Generate context-specific outputs based on the target action type.
 
-RESPONSE FORMAT: Return a JSON object with action-specific fields:
+CRITICAL: You MUST return ONLY valid JSON with NO additional text, explanations, or formatting.
 
-For EMAIL actions, generate:
+RESPONSE FORMAT - Choose based on context:
+
+For EMAIL actions, return:
 {
-  "email_subject": "Professional subject line",
-  "email_body": "Clean email content without signatures or placeholders"
+  "email_subject": "Re: Your Message",
+  "email_body": "Hi there,\n\nThank you for reaching out. I understand your concern and I'm here to help.\n\nBest regards"
 }
 
-For SLACK actions, generate:
+For SLACK actions, return:
 {
-  "slack_message": "Concise, engaging message text"
+  "slack_message": "Thanks for the update! Let me know if you need any help with this."
 }
 
-For DISCORD actions, generate:
+For DISCORD actions, return:
 {
-  "discord_message": "Appropriate Discord response"
+  "discord_message": "Hey! I can help with that. What specific issue are you facing?"
 }
 
-For NOTION actions, generate:
+For NOTION actions, return:
 {
-  "notion_title": "Descriptive page title",
-  "notion_content": "Structured page content"
+  "notion_title": "Meeting Notes - August 16, 2025",
+  "notion_content": "## Discussion Points\n\n- Topic 1\n- Topic 2"
 }
 
-REQUIREMENTS:
-- Return ONLY valid JSON, no explanation
-- Use professional, helpful tone
-- No signatures, placeholders, or boilerplate
-- Content should be complete and actionable
-- Match the integration's expected format`
+STRICT REQUIREMENTS:
+- Return ONLY valid JSON object, nothing else
+- No "Subject:" prefixes or email headers
+- No signatures like "Best regards" or "[Your Name]"
+- No explanatory text outside the JSON
+- Content should be direct and actionable
+- Professional but conversational tone`
+
+  // Determine what type of action this is based on the goal/context and workflow context
+  let actionType = 'general'
+  
+  // Check goal content
+  if (goal.includes('email') || goal.includes('gmail') || goal.includes('outlook')) {
+    actionType = 'email'
+  } else if (goal.includes('Discord') || goal.includes('discord')) {
+    actionType = 'discord'  
+  } else if (goal.includes('Slack') || goal.includes('slack')) {
+    actionType = 'slack'
+  } else if (goal.includes('Notion') || goal.includes('notion')) {
+    actionType = 'notion'
+  }
+  
+  // Also check workflow context if available
+  if (workflowContext && workflowContext.nodes) {
+    const hasEmailNodes = workflowContext.nodes.some((node: any) => 
+      node.data?.type?.includes('gmail') || 
+      node.data?.type?.includes('outlook') || 
+      node.data?.type?.includes('email')
+    )
+    const hasDiscordNodes = workflowContext.nodes.some((node: any) => 
+      node.data?.type?.includes('discord')
+    )
+    const hasSlackNodes = workflowContext.nodes.some((node: any) => 
+      node.data?.type?.includes('slack')
+    )
+    
+    if (hasEmailNodes && actionType === 'general') actionType = 'email'
+    if (hasDiscordNodes && actionType === 'general') actionType = 'discord'
+    if (hasSlackNodes && actionType === 'general') actionType = 'slack'
+  }
 
   const contextSection = `
 ## Current Context
 Goal: ${goal}
+Action Type: ${actionType}
 
 ## Available Input Data
 ${JSON.stringify(context.input, null, 2)}
@@ -648,7 +745,10 @@ ${memory.external.length > 0 ?
 }
 
 ## Instructions
-Please process the input data according to the goal and system prompt. Return your analysis or response based on the available information.
+Based on the action type "${actionType}", generate the appropriate JSON response format. 
+If this is for an EMAIL action, return email_subject and email_body fields.
+If this is for DISCORD, return discord_message.
+Process the input data and return ONLY the JSON object with no additional text.
 `
 
   return basePrompt + contextSection
@@ -710,7 +810,7 @@ async function getAIDecision(
         },
         {
           role: 'user',
-          content: `${contextInfo}Please analyze this data and provide a helpful response based on the context and any instructions in the system prompt.`
+          content: `${contextInfo}Generate a JSON response in the exact format specified in the system prompt. For email actions, use "email_subject" and "email_body" fields. For Discord, use "discord_message". Return ONLY the JSON object, no explanations or extra text.`
         }
       ],
       max_tokens: 1000,
@@ -720,44 +820,9 @@ async function getAIDecision(
     const aiResponse = completion.choices[0]?.message?.content?.trim()
     console.log("✅ OpenAI API response:", aiResponse)
 
-    // Parse subject and body from AI response
-    let subject = "Re: Your Message"
-    let body = aiResponse || "No response generated"
-    
-    if (aiResponse) {
-      // Check if this is a subject-only request
-      const isSubjectRequest = context.goal?.toLowerCase().includes('subject') || 
-                              context.goal?.toLowerCase().includes('subject line')
-      
-      if (isSubjectRequest) {
-        // For subject requests, the entire response is the subject
-        subject = aiResponse.trim()
-        body = aiResponse.trim()
-      } else {
-        // For regular requests, check if structured format is used
-        const subjectMatch = aiResponse.match(/SUBJECT:\s*(.+?)(?:\n|$)/i)
-        const bodyMatch = aiResponse.match(/BODY:\s*([\s\S]+?)$/i)
-        
-        if (subjectMatch && bodyMatch) {
-          subject = subjectMatch[1].trim()
-          body = bodyMatch[1].trim()
-        } else {
-          // Default: treat whole response as body content
-          body = aiResponse.trim()
-          // Generate a generic subject if none provided
-          subject = generateSubjectFromBody(body)
-        }
-      }
-    }
-    
-    console.log("📧 Parsed subject:", subject)
-    console.log("📧 Parsed body:", body)
-
     return {
       action: "analyze_and_respond",
       output: aiResponse || "No response generated",
-      subject: subject,
-      body: body,
       reasoning: `Generated response using OpenAI GPT-4o-mini based on ${inputKeys.length} input fields.`
     }
   } catch (error: any) {
