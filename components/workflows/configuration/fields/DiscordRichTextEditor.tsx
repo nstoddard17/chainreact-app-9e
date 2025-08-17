@@ -337,9 +337,9 @@ export function DiscordRichTextEditor({
   }, [value, useEmbed, embed])
 
   return (
-    <div className={cn("border border-gray-200 rounded-lg overflow-hidden bg-white", className)}>
+    <div className={cn("border border-slate-700 rounded-lg overflow-hidden bg-slate-900", className)}>
       {/* Toolbar */}
-      <div className="border-b border-gray-200 p-2 bg-gray-50">
+      <div className="border-b border-slate-700 p-2 bg-slate-800">
         <div className="flex items-center gap-1 flex-wrap">
           {/* Discord Markdown Formatting */}
           <div className="flex items-center gap-1">
@@ -349,7 +349,7 @@ export function DiscordRichTextEditor({
               size="sm"
               onClick={() => insertMarkdown('**bold**')}
               title="Bold"
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white"
             >
               <Bold className="h-4 w-4" />
             </Button>
@@ -359,7 +359,7 @@ export function DiscordRichTextEditor({
               size="sm"
               onClick={() => insertMarkdown('*italic*')}
               title="Italic"
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white"
             >
               <Italic className="h-4 w-4" />
             </Button>
@@ -369,7 +369,7 @@ export function DiscordRichTextEditor({
               size="sm"
               onClick={() => insertMarkdown('`code`')}
               title="Inline Code"
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white"
             >
               <Code className="h-4 w-4" />
             </Button>
@@ -379,7 +379,7 @@ export function DiscordRichTextEditor({
               size="sm"
               onClick={() => insertMarkdown('||spoiler||')}
               title="Spoiler"
-              className="h-8 w-8 p-0 hover:bg-gray-100"
+              className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white"
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -392,32 +392,32 @@ export function DiscordRichTextEditor({
             <>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1">
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
                     <AtSign className="h-4 w-4" />
                     Users
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0">
-                  <div className="p-3 border-b">
-                    <h4 className="text-sm font-medium">Mention Users</h4>
-                    <p className="text-xs text-gray-500 mt-1">Add user mentions to your message</p>
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                  <div className="p-3 border-b border-slate-700">
+                    <h4 className="text-sm font-medium text-slate-200">Mention Users</h4>
+                    <p className="text-xs text-slate-400 mt-1">Add user mentions to your message</p>
                   </div>
                   <ScrollArea className="h-48">
                     <div className="p-2">
                       {isLoadingDiscordData ? (
-                        <div className="text-center py-8 text-gray-500">Loading users...</div>
+                        <div className="text-center py-8 text-slate-400">Loading users...</div>
                       ) : availableMembers.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No users found</div>
+                        <div className="text-center py-8 text-slate-400">No users found</div>
                       ) : (
                         availableMembers.map(member => (
                           <div
                             key={member.id}
-                            className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-50 cursor-pointer"
+                            className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
                             onClick={() => insertMention('user', member.id, member.name)}
                           >
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm">{member.name}</span>
+                            <User className="h-4 w-4 text-slate-400" />
+                            <span className="text-sm text-slate-200">{member.name}</span>
                           </div>
                         ))
                       )}
@@ -428,28 +428,28 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1">
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
                     <Shield className="h-4 w-4" />
                     Roles
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0">
-                  <div className="p-3 border-b">
-                    <h4 className="text-sm font-medium">Mention Roles</h4>
-                    <p className="text-xs text-gray-500 mt-1">Add role mentions to your message</p>
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                  <div className="p-3 border-b border-slate-700">
+                    <h4 className="text-sm font-medium text-slate-200">Mention Roles</h4>
+                    <p className="text-xs text-slate-400 mt-1">Add role mentions to your message</p>
                   </div>
                   <ScrollArea className="h-48">
                     <div className="p-2">
                       {isLoadingDiscordData ? (
                         <div className="text-center py-8 text-gray-500">Loading roles...</div>
                       ) : availableRoles.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No roles found</div>
+                        <div className="text-center py-8 text-slate-400">No roles found</div>
                       ) : (
                         availableRoles.map(role => (
                           <div
                             key={role.id}
-                            className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-50 cursor-pointer"
+                            className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
                             onClick={() => insertMention('role', role.id, role.name)}
                           >
                             <div 
@@ -467,16 +467,16 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1">
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
                     <Hash className="h-4 w-4" />
                     Channels
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0">
-                  <div className="p-3 border-b">
-                    <h4 className="text-sm font-medium">Mention Channels</h4>
-                    <p className="text-xs text-gray-500 mt-1">Add channel mentions to your message</p>
+                <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                  <div className="p-3 border-b border-slate-700">
+                    <h4 className="text-sm font-medium text-slate-200">Mention Channels</h4>
+                    <p className="text-xs text-slate-400 mt-1">Add channel mentions to your message</p>
                   </div>
                   <ScrollArea className="h-48">
                     <div className="p-2">
@@ -506,16 +506,16 @@ export function DiscordRichTextEditor({
           {workflowData && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1">
+                <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
                   <Variable className="h-4 w-4" />
                   Variables
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 p-0">
-                <div className="p-3 border-b">
-                  <h4 className="text-sm font-medium">Workflow Variables</h4>
-                  <p className="text-xs text-gray-500 mt-1">Insert dynamic content from previous steps</p>
+              <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
+                <div className="p-3 border-b border-slate-700">
+                  <h4 className="text-sm font-medium text-slate-200">Workflow Variables</h4>
+                  <p className="text-xs text-slate-400 mt-1">Insert dynamic content from previous steps</p>
                 </div>
                 <ScrollArea className="h-48">
                   <div className="p-2">
@@ -564,7 +564,7 @@ export function DiscordRichTextEditor({
             variant="ghost"
             size="sm"
             onClick={togglePreview}
-            className="h-8 gap-1"
+            className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
           >
             {isPreviewMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             {isPreviewMode ? 'Edit' : 'Preview'}

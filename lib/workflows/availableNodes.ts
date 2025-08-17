@@ -572,6 +572,94 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     producesOutput: true
   },
   {
+    type: "smart_ai_agent",
+    title: "Smart AI Agent",
+    description: "Automatically analyzes downstream actions and fills all fields intelligently based on context",
+    icon: Zap,
+    category: "AI & Automation",
+    providerId: "ai",
+    isTrigger: false,
+    testable: true,
+    configSchema: [
+      {
+        name: "targetAction",
+        label: "Target Action to Fill",
+        type: "select",
+        required: true,
+        dynamic: true,
+        placeholder: "Select which action should be automatically filled...",
+        description: "The Smart AI Agent will analyze this action's schema and fill all compatible fields"
+      },
+      {
+        name: "tone",
+        label: "Tone & Style",
+        type: "select",
+        defaultValue: "professional",
+        options: [
+          { value: "professional", label: "Professional" },
+          { value: "casual", label: "Casual" },
+          { value: "friendly", label: "Friendly" },
+          { value: "formal", label: "Formal" },
+          { value: "conversational", label: "Conversational" }
+        ],
+        description: "How should the AI generate content?"
+      },
+      {
+        name: "length",
+        label: "Content Length",
+        type: "select",
+        defaultValue: "concise",
+        options: [
+          { value: "concise", label: "Concise & Brief" },
+          { value: "detailed", label: "Detailed" },
+          { value: "comprehensive", label: "Comprehensive" }
+        ],
+        description: "How much detail should be included in generated content?"
+      },
+      {
+        name: "includeEmojis",
+        label: "Include Emojis",
+        type: "boolean",
+        defaultValue: false,
+        description: "Add relevant emojis to make content more engaging (for casual platforms)"
+      },
+      {
+        name: "customInstructions",
+        label: "Custom Instructions",
+        type: "textarea",
+        placeholder: "Any specific instructions for content generation...",
+        description: "Additional context or requirements for the AI agent"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "generatedFields",
+        label: "Generated Fields",
+        type: "object",
+        description: "All fields that were automatically generated for the target action"
+      },
+      {
+        name: "fieldsCount",
+        label: "Fields Generated Count",
+        type: "number",
+        description: "Number of fields that were successfully generated"
+      },
+      {
+        name: "targetActionType",
+        label: "Target Action Type",
+        type: "string",
+        description: "The type of action that was analyzed and filled"
+      },
+      {
+        name: "analysisContext",
+        label: "Analysis Context",
+        type: "object",
+        description: "Context data that was used for generation"
+      }
+    ],
+    producesOutput: true
+  },
+  {
     type: "conditional",
     title: "Conditional Logic",
     description: "Branch workflow based on conditions",
@@ -776,7 +864,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Google Calendar
   {
     type: "google_calendar_trigger_new_event",
-    title: "New Event (Google Calendar)",
+    title: "New Event",
     description: "Triggers when a new event is created",
     isTrigger: true,
     providerId: "google-calendar",
@@ -830,7 +918,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_calendar_action_create_event",
-    title: "Create Event (Google Calendar)",
+    title: "Create Event",
     description: "Create a new calendar event with comprehensive features",
     isTrigger: false,
     providerId: "google-calendar",
@@ -1054,7 +1142,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Google Drive
   {
     type: "google-drive:new_file_in_folder",
-    title: "New File in Folder (Google Drive)",
+    title: "New File in Folder",
     description: "Triggers when a new file is added to a folder",
     isTrigger: true,
     providerId: "google-drive",
@@ -1152,7 +1240,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_drive_action_upload_file",
-    title: "Upload File from URL (Google Drive)",
+    title: "Upload File from URL",
     description: "Upload a file from a URL to Google Drive",
     icon: Upload,
     providerId: "google-drive",
@@ -1175,7 +1263,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Google Sheets
   {
     type: "google_sheets_trigger_new_row",
-    title: "New Row (Google Sheets)",
+    title: "New Row",
     description: "Triggers when a new row is added to a sheet",
     icon: FileSpreadsheet,
     providerId: "google-sheets",
@@ -1305,7 +1393,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google-sheets_action_create_row",
-    title: "Create Row (Google Sheets)",
+    title: "Create Row",
     description: "Add a new row to a Google Sheets spreadsheet",
     icon: FileSpreadsheet,
     providerId: "google-sheets",
@@ -2187,7 +2275,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "slack_action_send_message",
-    title: "Send Message (Slack)",
+    title: "Send Message",
     description: "Send a message to a channel",
     icon: MessageSquare,
     providerId: "slack",
@@ -2281,7 +2369,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "slack_action_create_channel",
-    title: "Create Channel (Slack)",
+    title: "Create Channel",
     description: "Create a new Slack channel with advanced options",
     icon: Hash,
     providerId: "slack",
@@ -2687,7 +2775,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Stripe
   {
     type: "stripe_trigger_new_payment",
-    title: "New Payment (Stripe)",
+    title: "New Payment",
     description: "Triggers on a new successful payment",
     icon: ShoppingCart,
     providerId: "stripe",
@@ -2696,7 +2784,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "stripe_action_create_customer",
-    title: "Create Customer (Stripe)",
+    title: "Create Customer",
     description: "Create a new customer",
     icon: Users,
     providerId: "stripe",
@@ -3461,7 +3549,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Airtable
   {
     type: "airtable_trigger_new_record",
-    title: "New Record (Airtable)",
+    title: "New Record",
     description: "Triggers when a new record is created in a base",
     icon: Database,
     providerId: "airtable",
@@ -3483,7 +3571,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "airtable_trigger_record_updated",
-    title: "Record Updated (Airtable)",
+    title: "Record Updated",
     description: "Triggers when an existing record is updated",
     icon: Database,
     providerId: "airtable",
@@ -3506,7 +3594,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "airtable_trigger_record_deleted",
-    title: "Record Deleted (Airtable)",
+    title: "Record Deleted",
     description: "Triggers when a record is deleted",
     icon: Database,
     providerId: "airtable",
@@ -3527,7 +3615,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "airtable_action_create_record",
-    title: "Create Record (Airtable)",
+    title: "Create Record",
     description: "Create a new record in a table",
     icon: Plus,
     providerId: "airtable",
@@ -3600,7 +3688,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "airtable_action_create_record_simple",
-    title: "Create Record (Airtable) - Simple",
+    title: "Create Record - Simple",
     description: "Create a new record in an Airtable table with JSON fields",
     icon: Plus,
     providerId: "airtable",
@@ -4098,7 +4186,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "onedrive_action_upload_file",
-    title: "Upload File (OneDrive)",
+    title: "Upload File",
     description: "Upload a file to OneDrive",
     icon: Upload,
     providerId: "onedrive",
@@ -4145,7 +4233,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "onedrive_action_upload_file_from_url",
-    title: "Upload File from URL (OneDrive)",
+    title: "Upload File from URL",
     description: "Upload a file from a URL to OneDrive",
     icon: Upload,
     providerId: "onedrive",
@@ -4909,7 +4997,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Dropbox
   {
     type: "dropbox_trigger_new_file",
-    title: "New File (Dropbox)",
+    title: "New File",
     description: "Triggers when a new file is added to a folder",
     icon: Upload,
     providerId: "dropbox",
@@ -4918,7 +5006,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "dropbox_action_upload_file",
-    title: "Upload File (Dropbox)",
+    title: "Upload File",
     description: "Upload a file to Dropbox",
     icon: Upload,
     providerId: "dropbox",
@@ -4965,7 +5053,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "dropbox_action_upload_file_from_url",
-    title: "Upload File from URL (Dropbox)",
+    title: "Upload File from URL",
     description: "Upload a file from a URL to Dropbox",
     icon: Upload,
     providerId: "dropbox",
@@ -5028,7 +5116,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube_action_update_video",
-    title: "Update Video Details (YouTube)",
+    title: "Update Video Details",
     description: "Update the title, description, privacy, or tags of a video",
     icon: Edit,
     providerId: "youtube",
@@ -5045,7 +5133,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube_action_delete_video",
-    title: "Delete Video (YouTube)",
+    title: "Delete Video",
     description: "Delete a video from your YouTube channel",
     icon: Edit,
     providerId: "youtube",
@@ -5058,7 +5146,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube_action_get_video_analytics",
-    title: "Get Video Analytics (YouTube)",
+    title: "Get Video Analytics",
     description: "Fetch analytics for a selected video",
     icon: BarChart,
     providerId: "youtube",
@@ -5071,7 +5159,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube_action_add_to_playlist",
-    title: "Add Video to Playlist (YouTube)",
+    title: "Add Video to Playlist",
     description: "Add a video to a playlist",
     icon: Plus,
     providerId: "youtube",
@@ -5085,7 +5173,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube_action_list_playlists",
-    title: "List My Playlists (YouTube)",
+    title: "List My Playlists",
     description: "List all playlists from your YouTube account",
     icon: Video,
     providerId: "youtube",
@@ -5098,7 +5186,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Shopify
   {
     type: "shopify_trigger_new_order",
-    title: "New Order (Shopify)",
+    title: "New Order",
     description: "Triggers when a new order is placed",
     icon: ShoppingCart,
     providerId: "shopify",
@@ -5108,7 +5196,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "shopify_action_create_product",
-    title: "Create Product (Shopify)",
+    title: "Create Product",
     description: "Create a new product",
     icon: Plus,
     providerId: "shopify",
@@ -5791,7 +5879,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Teams / Slack / Discord Triggers and Actions
   {
     type: "slack_trigger_slash_command",
-    title: "Slash Command (Slack)",
+    title: "Slash Command",
     description: "Triggers when a slash command is used",
     icon: MessageSquare,
     providerId: "slack",
@@ -5852,7 +5940,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "slack_action_post_interactive",
-    title: "Post Interactive Blocks (Slack)",
+    title: "Post Interactive Blocks",
     description: "Post interactive blocks and buttons",
     icon: MessageSquare,
     providerId: "slack",
@@ -5868,7 +5956,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
 
   {
     type: "discord_trigger_slash_command",
-    title: "Slash Command (Discord)",
+    title: "Slash Command",
     description: "Triggers when a slash command is used",
     icon: MessageSquare,
     providerId: "discord",
@@ -5939,7 +6027,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // ManyChat Triggers and Actions
   {
     type: "manychat_trigger_new_subscriber",
-    title: "New Subscriber (ManyChat)",
+    title: "New Subscriber",
     description: "Triggers when a new subscriber is added",
     icon: Users,
     providerId: "manychat",
@@ -5950,7 +6038,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "manychat_action_send_message",
-    title: "Send Message (ManyChat)",
+    title: "Send Message",
     description: "Send a message to a subscriber",
     icon: Send,
     providerId: "manychat",
@@ -5959,7 +6047,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "manychat_action_tag_subscriber",
-    title: "Tag Subscriber (ManyChat)",
+    title: "Tag Subscriber",
     description: "Add a tag to a subscriber",
     icon: Edit,
     providerId: "manychat",
@@ -5970,7 +6058,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // beehiiv Triggers and Actions
   {
     type: "beehiiv_trigger_new_subscriber",
-    title: "New Subscriber (beehiiv)",
+    title: "New Subscriber",
     description: "Triggers when a new subscriber is added",
     icon: Users,
     providerId: "beehiiv",
@@ -5981,7 +6069,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "beehiiv_action_add_subscriber",
-    title: "Add Subscriber (beehiiv)",
+    title: "Add Subscriber",
     description: "Add a new subscriber",
     icon: Plus,
     providerId: "beehiiv",
@@ -5990,7 +6078,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "beehiiv_action_send_newsletter",
-    title: "Send Newsletter (beehiiv)",
+    title: "Send Newsletter",
     description: "Send a newsletter to your subscribers",
     icon: Send,
     providerId: "beehiiv",
@@ -6001,7 +6089,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Google Docs Actions
   {
     type: "google_docs_action_create_document",
-    title: "Create Document (Google Docs)",
+    title: "Create Document",
     description: "Create a new Google Document with customizable content and properties",
     icon: PenSquare,
     providerId: "google-docs",
@@ -6068,7 +6156,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_docs_action_update_document",
-    title: "Update Document (Google Docs)",
+    title: "Update Document",
     description: "Update content in an existing Google Document",
     icon: Edit,
     providerId: "google-docs",
@@ -6136,7 +6224,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_docs_action_share_document",
-    title: "Share Document (Google Docs)",
+    title: "Share Document",
     description: "Share a Google Document with specific users or make it public",
     icon: Share,
     providerId: "google-docs",
@@ -6195,7 +6283,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_docs_action_export_document",
-    title: "Export Document (Google Docs)",
+    title: "Export Document",
     description: "Export a Google Doc to various formats (PDF, DOCX, etc.)",
     icon: Download,
     providerId: "google-docs",
@@ -6335,7 +6423,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // GitHub Actions
   {
     type: "github_action_create_repository",
-    title: "Create Repository (GitHub)",
+    title: "Create Repository",
     description: "Create a new GitHub repository",
     icon: GitBranch,
     providerId: "github",
@@ -6358,7 +6446,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "github_action_create_pull_request",
-    title: "Create Pull Request (GitHub)",
+    title: "Create Pull Request",
     description: "Create a new pull request",
     icon: GitPullRequest,
     providerId: "github",
@@ -6376,7 +6464,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "github_action_create_gist",
-    title: "Create Gist (GitHub)",
+    title: "Create Gist",
     description: "Create a new GitHub Gist",
     icon: FileText,
     providerId: "github",
@@ -6393,7 +6481,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "github_action_add_comment",
-    title: "Add Comment (GitHub)",
+    title: "Add Comment",
     description: "Add a comment to an issue or pull request",
     icon: MessageSquare,
     providerId: "github",
@@ -6411,7 +6499,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // GitLab Actions
   {
     type: "gitlab_action_create_project",
-    title: "Create Project (GitLab)",
+    title: "Create Project",
     description: "Create a new GitLab project",
     icon: GitBranch,
     providerId: "gitlab",
@@ -6432,7 +6520,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "gitlab_action_create_merge_request",
-    title: "Create Merge Request (GitLab)",
+    title: "Create Merge Request",
     description: "Create a new merge request",
     icon: GitPullRequest,
     providerId: "gitlab",
@@ -6450,7 +6538,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "gitlab_action_create_issue",
-    title: "Create Issue (GitLab)",
+    title: "Create Issue",
     description: "Create a new issue in a GitLab project",
     icon: AlertCircle,
     providerId: "gitlab",
@@ -6557,7 +6645,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Instagram Actions
   {
     type: "instagram_action_create_story",
-    title: "Create Story (Instagram)",
+    title: "Create Story",
     description: "Create a new Instagram story",
     icon: Camera,
     providerId: "instagram",
@@ -6572,7 +6660,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "instagram_action_get_media_insights",
-    title: "Get Media Insights (Instagram)",
+    title: "Get Media Insights",
     description: "Get analytics for Instagram media",
     icon: BarChart,
     providerId: "instagram",
@@ -6593,7 +6681,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // LinkedIn Actions
   {
     type: "linkedin_action_share_post",
-    title: "Share Post (LinkedIn)",
+    title: "Share Post",
     description: "Share a post on LinkedIn",
     icon: Share,
     providerId: "linkedin",
@@ -6610,7 +6698,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "linkedin_action_create_company_post",
-    title: "Create Company Post (LinkedIn)",
+    title: "Create Company Post",
     description: "Create a post on a LinkedIn company page",
     icon: Building,
     providerId: "linkedin",
@@ -6630,7 +6718,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // TikTok Actions
   {
     type: "tiktok_action_get_user_info",
-    title: "Get User Info (TikTok)",
+    title: "Get User Info",
     description: "Get information about a TikTok user",
     icon: User,
     providerId: "tiktok",
@@ -6643,7 +6731,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "tiktok_action_get_video_list",
-    title: "Get Video List (TikTok)",
+    title: "Get Video List",
     description: "Get a list of videos from a TikTok user",
     icon: Video,
     providerId: "tiktok",
@@ -6828,7 +6916,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Trello Actions
   {
     type: "trello_action_create_board",
-    title: "Create Board (Trello)",
+    title: "Create Board",
     description: "Create a new Trello board",
     icon: Layout,
     providerId: "trello",
@@ -6847,7 +6935,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "trello_action_create_list",
-    title: "Create List (Trello)",
+    title: "Create List",
     description: "Create a new list on a Trello board",
     icon: List,
     providerId: "trello",
@@ -6861,7 +6949,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "trello_action_move_card",
-    title: "Move Card (Trello)",
+    title: "Move Card",
     description: "Move a card to a different list",
     icon: Move,
     providerId: "trello",
@@ -7011,7 +7099,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Airtable Actions
   {
     type: "airtable_action_update_record",
-    title: "Update Record (Airtable)",
+    title: "Update Record",
     description: "Update an existing record in Airtable",
     icon: Edit,
     providerId: "airtable",
@@ -7073,7 +7161,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "airtable_action_list_records",
-    title: "List Records (Airtable)",
+    title: "List Records",
     description: "List records from an Airtable table",
     icon: List,
     providerId: "airtable",
@@ -7123,7 +7211,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Shopify Actions
   {
     type: "shopify_action_create_order",
-    title: "Create Order (Shopify)",
+    title: "Create Order",
     description: "Create a new order in Shopify",
     icon: ShoppingCart,
     providerId: "shopify",
@@ -7146,7 +7234,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "shopify_action_update_product",
-    title: "Update Product (Shopify)",
+    title: "Update Product",
     description: "Update an existing product in Shopify",
     icon: Edit,
     providerId: "shopify",
@@ -7166,7 +7254,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "shopify_action_create_customer",
-    title: "Create Customer (Shopify)",
+    title: "Create Customer",
     description: "Create a new customer in Shopify",
     icon: UserPlus,
     providerId: "shopify",
@@ -7185,7 +7273,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Stripe Actions
   {
     type: "stripe_action_create_payment_intent",
-    title: "Create Payment Intent (Stripe)",
+    title: "Create Payment Intent",
     description: "Create a new payment intent in Stripe",
     icon: CreditCard,
     providerId: "stripe",
@@ -7205,7 +7293,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "stripe_action_create_invoice",
-    title: "Create Invoice (Stripe)",
+    title: "Create Invoice",
     description: "Create a new invoice in Stripe",
     icon: FileText,
     providerId: "stripe",
@@ -7220,7 +7308,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "stripe_action_create_subscription",
-    title: "Create Subscription (Stripe)",
+    title: "Create Subscription",
     description: "Create a new subscription in Stripe",
     icon: Repeat,
     providerId: "stripe",
@@ -7237,7 +7325,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // PayPal Actions
   {
     type: "paypal_action_create_order",
-    title: "Create Order (PayPal)",
+    title: "Create Order",
     description: "Create a new PayPal order",
     icon: ShoppingCart,
     providerId: "paypal",
@@ -7260,7 +7348,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "paypal_action_create_payout",
-    title: "Create Payout (PayPal)",
+    title: "Create Payout",
     description: "Create a payout to a PayPal account",
     icon: Send,
     providerId: "paypal",
@@ -7282,7 +7370,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Box Actions
   {
     type: "box_action_upload_file",
-    title: "Upload File (Box)",
+    title: "Upload File",
     description: "Upload a file to Box",
     icon: Upload,
     providerId: "box",
@@ -7329,7 +7417,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "box_action_create_folder",
-    title: "Create Folder (Box)",
+    title: "Create Folder",
     description: "Create a new folder in Box",
     icon: FolderPlus,
     providerId: "box",
@@ -7343,7 +7431,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "box_action_share_file",
-    title: "Share File (Box)",
+    title: "Share File",
     description: "Share a file from Box",
     icon: Share,
     providerId: "box",
@@ -7741,7 +7829,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // TikTok Triggers
   {
     type: "tiktok_trigger_new_video",
-    title: "New Video (TikTok)",
+    title: "New Video",
     description: "Triggers when a new video is uploaded to TikTok",
     icon: Video,
     providerId: "tiktok",
@@ -7753,7 +7841,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "tiktok_trigger_new_comment",
-    title: "New Comment (TikTok)",
+    title: "New Comment",
     description: "Triggers when a new comment is posted on a TikTok video",
     icon: MessageSquare,
     providerId: "tiktok",
@@ -7767,7 +7855,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // TikTok Actions
   {
     type: "tiktok_action_upload_video",
-    title: "Upload Video (TikTok)",
+    title: "Upload Video",
     description: "Upload a new video to TikTok",
     icon: Upload,
     providerId: "tiktok",
@@ -7785,7 +7873,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "tiktok_action_get_video_analytics",
-    title: "Get Video Analytics (TikTok)",
+    title: "Get Video Analytics",
     description: "Get analytics data for a TikTok video",
     icon: BarChart,
     providerId: "tiktok",
@@ -7806,7 +7894,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // YouTube Studio Triggers
   {
     type: "youtube-studio_trigger_new_comment",
-    title: "New Comment (YouTube Studio)",
+    title: "New Comment",
     description: "Triggers when a new comment is posted on your YouTube video",
     icon: MessageSquare,
     providerId: "youtube-studio",
@@ -7818,7 +7906,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube-studio_trigger_channel_analytics",
-    title: "Channel Analytics Update (YouTube Studio)",
+    title: "Channel Analytics Update",
     description: "Triggers when channel analytics reach certain thresholds",
     icon: BarChart,
     providerId: "youtube-studio",
@@ -7837,7 +7925,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // YouTube Studio Actions
   {
     type: "youtube-studio_action_moderate_comment",
-    title: "Moderate Comment (YouTube Studio)",
+    title: "Moderate Comment",
     description: "Moderate a comment on your YouTube video",
     icon: Shield,
     providerId: "youtube-studio",
@@ -7855,7 +7943,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "youtube-studio_action_get_channel_analytics",
-    title: "Get Channel Analytics (YouTube Studio)",
+    title: "Get Channel Analytics",
     description: "Get detailed analytics for your YouTube channel",
     icon: BarChart,
     providerId: "youtube-studio",
@@ -7877,7 +7965,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Blackbaud Triggers
   {
     type: "blackbaud_trigger_new_donor",
-    title: "New Donor (Blackbaud)",
+    title: "New Donor",
     description: "Triggers when a new donor is added to the system",
     icon: UserPlus,
     providerId: "blackbaud",
@@ -7893,7 +7981,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "blackbaud_trigger_new_donation",
-    title: "New Donation (Blackbaud)",
+    title: "New Donation",
     description: "Triggers when a new donation is received",
     icon: DollarSign,
     providerId: "blackbaud",
@@ -7909,7 +7997,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Blackbaud Actions
   {
     type: "blackbaud_action_create_constituent",
-    title: "Create Constituent (Blackbaud)",
+    title: "Create Constituent",
     description: "Create a new constituent in Blackbaud",
     icon: UserPlus,
     providerId: "blackbaud",
@@ -7926,7 +8014,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "blackbaud_action_create_donation",
-    title: "Create Donation (Blackbaud)",
+    title: "Create Donation",
     description: "Create a new donation record in Blackbaud",
     icon: DollarSign,
     providerId: "blackbaud",
@@ -7945,7 +8033,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Gumroad Triggers
   {
     type: "gumroad_trigger_new_sale",
-    title: "New Sale (Gumroad)",
+    title: "New Sale",
     description: "Triggers when a new sale is made on Gumroad",
     icon: ShoppingCart,
     providerId: "gumroad",
@@ -7959,7 +8047,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "gumroad_trigger_new_subscriber",
-    title: "New Subscriber (Gumroad)",
+    title: "New Subscriber",
     description: "Triggers when someone subscribes to your Gumroad product",
     icon: UserPlus,
     providerId: "gumroad",
@@ -7974,7 +8062,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Gumroad Actions
   {
     type: "gumroad_action_create_product",
-    title: "Create Product (Gumroad)",
+    title: "Create Product",
     description: "Create a new product on Gumroad",
     icon: Package,
     providerId: "gumroad",
@@ -7998,7 +8086,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "gumroad_action_get_sales_analytics",
-    title: "Get Sales Analytics (Gumroad)",
+    title: "Get Sales Analytics",
     description: "Get sales analytics data from Gumroad",
     icon: BarChart,
     providerId: "gumroad",
@@ -8476,7 +8564,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Resend Email Actions
   {
     type: "resend_send_email",
-    title: "Send Email (Resend)",
+    title: "Send Email",
     description: "Send professional emails using the Resend service with high deliverability.",
     icon: Mail,
     category: "Communication",

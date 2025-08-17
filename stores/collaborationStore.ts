@@ -85,6 +85,14 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
   pollingInterval: null,
 
   joinCollaboration: async (workflowId: string) => {
+    const { collaborationSession, loading } = get()
+    
+    // Prevent multiple join calls for the same workflow
+    if (loading || (collaborationSession && collaborationSession.workflow_id === workflowId)) {
+      console.log('🔄 Already joining or joined workflow:', workflowId)
+      return
+    }
+
     set({ loading: true, error: null })
 
     try {
@@ -305,6 +313,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     // Clean up any existing polling
     const { pollingInterval } = get()
     if (pollingInterval) {
+      console.log('🧹 Cleaning up existing polling interval')
       clearInterval(pollingInterval)
     }
 
@@ -315,7 +324,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     // Start polling for collaborator updates with reduced frequency
     const intervalId = setInterval(() => {
         get().pollCollaboratorUpdates(workflowId);
-    }, 10000); // Poll every 10 seconds instead of 5
+    }, 30000); // Poll every 30 seconds to reduce load
 
     set({ pollingInterval: intervalId })
   },

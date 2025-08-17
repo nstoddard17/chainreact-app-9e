@@ -19,7 +19,7 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   gmail: {
-    required: ["https://www.googleapis.com/auth/gmail.modify"],
+    required: ["https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.settings.basic"],
     optional: ["https://www.googleapis.com/auth/gmail.readonly"],
   },
   "google-sheets": {

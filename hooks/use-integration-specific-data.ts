@@ -473,6 +473,66 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            }
   }, [user, integrationId, providerId])
 
+  // Airtable-specific data loading
+  const loadAirtableData = useCallback(async (dataType: string, options: any = {}) => {
+    if (!user || !integrationId || providerId !== 'airtable') {
+      console.warn('Cannot load Airtable data: missing user, integrationId, or wrong provider')
+      return null
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await apiClient.post('/api/integrations/fetch-user-data', {
+        integrationId,
+        dataType,
+        options
+      })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load Airtable data')
+      }
+
+      return response.data
+    } catch (err: any) {
+      // Check if it's an authentication error
+      if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
+        console.log("🔐 Authentication error detected, attempting session refresh...")
+        const refreshSuccess = await handleAuthFailure(err)
+        
+        if (refreshSuccess) {
+          // Retry the request after successful refresh
+          try {
+            const retryResponse = await apiClient.post('/api/integrations/fetch-user-data', {
+              integrationId,
+              dataType,
+              options
+            })
+
+            if (!retryResponse.success) {
+              throw new Error(retryResponse.error || 'Failed to load Airtable data after refresh')
+            }
+
+            return retryResponse.data
+          } catch (retryErr: any) {
+            const errorMessage = retryErr.message || 'Failed to load Airtable data after refresh'
+            setError(errorMessage)
+            console.error('Airtable data loading retry error:', retryErr)
+            return null
+          }
+        }
+      }
+      
+      const errorMessage = err.message || 'Failed to load Airtable data'
+      setError(errorMessage)
+      console.error('Airtable data loading error:', err)
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [user, integrationId, providerId])
+
   // Notion database properties loading
   const loadNotionDatabaseProperties = useCallback(async (databaseId: string) => {
     if (!user || !integrationId || providerId !== 'notion') {
@@ -555,11 +615,13 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
         return loadGmailData(dataType, options)
       case 'hubspot':
         return loadHubSpotData(dataType, options)
+      case 'airtable':
+        return loadAirtableData(dataType, options)
       default:
         console.warn(`No specific data loader for provider: ${providerId}`)
         return null
     }
-  }, [providerId, loadDiscordData, loadNotionData, loadSlackData, loadTrelloData, loadGoogleSheetsData, loadGmailData, loadHubSpotData])
+  }, [providerId, loadDiscordData, loadNotionData, loadSlackData, loadTrelloData, loadGoogleSheetsData, loadGmailData, loadHubSpotData, loadAirtableData])
 
   return {
     loading,
@@ -572,6 +634,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     loadTrelloData,
     loadGoogleSheetsData,
     loadGmailData,
-    loadHubSpotData
+    loadHubSpotData,
+    loadAirtableData
   }
 } 

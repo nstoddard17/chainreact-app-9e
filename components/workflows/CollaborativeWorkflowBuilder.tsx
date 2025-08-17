@@ -192,6 +192,17 @@ const useWorkflowBuilderState = () => {
   
   const availableIntegrations = useMemo(() => {
     const integrations = getIntegrationsFromNodes()
+    console.log('🔍 getIntegrationsFromNodes returned:', {
+      total: integrations.length,
+      integrations: integrations.map(int => ({ 
+        id: int.id, 
+        name: int.name, 
+        triggersCount: int.triggers.length,
+        actionsCount: int.actions.length,
+        category: int.category
+      }))
+    });
+    
     // Debug: Check if AI Agent integration has actions
     const aiIntegration = integrations.find(int => int.id === 'ai')
     if (aiIntegration) {
@@ -200,6 +211,18 @@ const useWorkflowBuilderState = () => {
     } else {
       console.log('AI Integration not found in availableIntegrations')
     }
+    
+    // Debug: Check some integrations that should have triggers
+    const gmailIntegration = integrations.find(int => int.id === 'gmail')
+    if (gmailIntegration) {
+      console.log('Gmail Integration found:', { 
+        id: gmailIntegration.id, 
+        name: gmailIntegration.name, 
+        triggersCount: gmailIntegration.triggers.length,
+        triggers: gmailIntegration.triggers.map(t => ({ type: t.type, title: t.title }))
+      })
+    }
+    
     return integrations
   }, [])
 
@@ -610,7 +633,7 @@ const useWorkflowBuilderState = () => {
       setIsExecuting(false)
       isSavingRef.current = false
     }
-  }, [workflowId, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow])
+  }, [workflowId]) // Remove function dependencies since Zustand functions are stable
 
   // Debug sourceAddNode changes (trimmed for performance)
   // useEffect(() => {
@@ -1631,7 +1654,6 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         if (showConnectedOnly) {
           const isConnected = isIntegrationConnected(int.id);
-          // console.log('🔍 Filtering integration:', { id: int.id, name: int.name, isConnected });
           return isConnected;
         }
         return true;
