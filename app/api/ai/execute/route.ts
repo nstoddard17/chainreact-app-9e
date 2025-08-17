@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase-client';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { runWithSmartAI } from '@/lib/ai/workflowSmartAI';
 import type { WorkflowNode, WorkflowContext } from '@/lib/ai/workflowSmartAI';
 import { z } from 'zod';
@@ -99,6 +99,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const token = authHeader.substring(7);
     
     // Verify token with Supabase
+    const supabase = createAdminClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user || user.id !== context.userId) {
