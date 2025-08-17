@@ -86,7 +86,7 @@ export function createPopupResponse(
             // Try postMessage if opener is available
             if (window.opener) {
               console.log('Sending message to parent window:', JSON.stringify(responseData));
-              console.log('Target origin:', '${baseUrl}');
+              console.log('Target origin: ${baseUrl}');
               
               window.opener.postMessage(responseData, '*');
               console.log('Message sent successfully to parent window');

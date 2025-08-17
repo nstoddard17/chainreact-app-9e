@@ -609,12 +609,24 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           // Use localStorage to check for OAuth responses (COOP-safe)
           const storageCheckPrefix = `oauth_response_${providerId}`;
+          console.log(`🔍 Starting localStorage polling for ${providerId} with prefix: ${storageCheckPrefix}`);
           const storageCheckTimer = setInterval(() => {
             // Skip if popup was manually closed
             if (popupClosedManually) return
             
             try {
               // Check localStorage for any keys that match our prefix
+              const allKeys = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) allKeys.push(key);
+              }
+              // Log all keys occasionally for debugging
+              if (Math.random() < 0.01) { // 1% chance to avoid spam
+                console.log(`🔍 All localStorage keys:`, allKeys);
+                console.log(`🔍 Looking for keys starting with: ${storageCheckPrefix}`);
+              }
+              
               for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key && key.startsWith(storageCheckPrefix)) {
@@ -679,7 +691,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             } catch (error) {
               console.error(`Error checking localStorage for ${providerId}:`, error);
             }
-          }, 500)
+          }, 100) // Check every 100ms for faster response
           
           // Add timeout for initial connection (5 minutes, same as reconnection)
           connectionTimeout = setTimeout(() => {
