@@ -13,21 +13,21 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`Error with Mailchimp OAuth: ${error}`)
-    return createPopupResponse("error", "Mailchimp", `OAuth Error: ${error}`, baseUrl)
+    return createPopupResponse("error", "mailchimp", `OAuth Error: ${error}`, baseUrl)
   }
 
   if (!code) {
-    return createPopupResponse("error", "Mailchimp", "No code provided for Mailchimp OAuth.", baseUrl)
+    return createPopupResponse("error", "mailchimp", "No code provided for Mailchimp OAuth.", baseUrl)
   }
 
   if (!state) {
-    return createPopupResponse("error", "Mailchimp", "No state provided for Mailchimp OAuth.", baseUrl)
+    return createPopupResponse("error", "mailchimp", "No state provided for Mailchimp OAuth.", baseUrl)
   }
 
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse("error", "Mailchimp", "Missing userId in Mailchimp state.", baseUrl)
+      return createPopupResponse("error", "mailchimp", "Missing userId in Mailchimp state.", baseUrl)
     }
 
     const response = await fetch("https://login.mailchimp.com/oauth2/token", {
@@ -91,10 +91,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return createPopupResponse("success", "Mailchimp", "Mailchimp account connected successfully.", baseUrl)
+    return createPopupResponse("success", "mailchimp", "Mailchimp account connected successfully.", baseUrl)
   } catch (error) {
     console.error("Error during Mailchimp OAuth callback:", error)
     const message = error instanceof Error ? error.message : "An unexpected error occurred"
-    return createPopupResponse("error", "Mailchimp", message, baseUrl)
+    return createPopupResponse("error", "mailchimp", message, baseUrl)
   }
 }

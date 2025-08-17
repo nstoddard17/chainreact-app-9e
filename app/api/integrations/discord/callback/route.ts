@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     console.error(`Discord OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
-      "Discord",
+      "discord",
       errorDescription || "An unknown error occurred.",
       baseUrl,
     )
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     console.error("Missing code in Discord callback")
     return createPopupResponse(
       "error",
-      "Discord",
+      "discord",
       "Authorization code is missing.",
       baseUrl,
     )
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         console.error("Missing state in Discord user OAuth callback")
         return createPopupResponse(
           "error",
-          "Discord",
+          "discord",
           "State parameter is missing for user OAuth.",
           baseUrl,
         )
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
       if (!userId) {
         console.error("Missing userId in Discord state")
-        return createPopupResponse("error", "Discord", "User ID is missing from state", baseUrl)
+        return createPopupResponse("error", "discord", "User ID is missing from state", baseUrl)
       }
 
       const expiresIn = tokenData.expires_in // Typically in seconds
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
 
       return createPopupResponse(
         "success",
-        "Discord",
+        "discord",
         "Discord account connected successfully.",
         baseUrl,
       )
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
     console.error("Discord callback error:", e)
     return createPopupResponse(
       "error",
-      "Discord",
+      "discord",
       e.message || "An unexpected error occurred.",
       baseUrl,
     )
