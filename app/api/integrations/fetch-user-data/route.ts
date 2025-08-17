@@ -6943,60 +6943,92 @@ const dataFetchers: DataFetcher = {
 
   "gmail_signatures": async (integration: any) => {
     try {
-      // Fetch user's Gmail settings which includes signatures
-      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs", {
+      console.log('🔍 [FETCH-USER-DATA] Gmail signatures fetcher called')
+      console.log('🔍 [FETCH-USER-DATA] Integration details:', {
+        id: integration.id,
+        user_id: integration.user_id,
+        provider: integration.provider,
+        status: integration.status,
+        hasAccessToken: !!integration.access_token
+      })
+      
+      // Use the dedicated Gmail signatures API endpoint
+      const baseUrl = getBaseUrl()
+      const apiUrl = `${baseUrl}/api/integrations/gmail/signatures?userId=${integration.user_id}`
+      console.log('🔍 [FETCH-USER-DATA] Calling Gmail signatures API:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
           "Content-Type": "application/json",
         },
       })
 
+      console.log('🔍 [FETCH-USER-DATA] Gmail signatures API response status:', response.status)
+
       if (!response.ok) {
+        console.error(`❌ [FETCH-USER-DATA] Gmail signatures API error: ${response.status}`)
         const errorData = await response.json().catch(() => ({}))
-        if (response.status === 401) {
-          console.warn("Gmail authentication expired, returning default signatures")
-          return [
-            { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
-            { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
-            { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
-          ]
+        console.log('🔍 [FETCH-USER-DATA] Error response data:', errorData)
+        
+        // If Gmail integration not connected, return empty array
+        if (errorData.needsConnection) {
+          console.warn("⚠️ [FETCH-USER-DATA] Gmail integration not connected, returning empty signatures")
+          return []
         }
-        console.error(`Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
-        return []
+        
+        // For other errors, return just the "None" option
+        console.warn("⚠️ [FETCH-USER-DATA] Gmail signatures API failed, returning None option")
+        return [{ value: 'none', label: 'None (no signature)', content: '' }]
       }
 
       const data = await response.json()
+      console.log('✅ [FETCH-USER-DATA] Gmail signatures API response data:', JSON.stringify(data, null, 2))
+      
       const signatures = []
-
-      // Add default signatures
-      signatures.push(
-        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
-        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
-        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
-      )
-
-      // If user has custom signatures, add them
-      if (data.sendAs && data.sendAs.length > 0) {
-        data.sendAs.forEach((sendAs: any) => {
-          if (sendAs.signature) {
-            signatures.push({
-              value: `custom_${sendAs.sendAsEmail}`,
-              label: `Custom Signature (${sendAs.sendAsEmail})`,
-              content: sendAs.signature
-            })
-          }
+      
+      // Add "None" option as the first item
+      signatures.push({
+        value: 'none',
+        label: 'None (no signature)',
+        content: ''
+      })
+      
+      if (data.signatures && data.signatures.length > 0) {
+        console.log(`✅ [FETCH-USER-DATA] Found ${data.signatures.length} Gmail signature identities`)
+        
+        // Transform the signatures from the API into the format expected by the UI
+        // Only include signatures that actually have content, but show all for transparency
+        data.signatures.forEach((signature: any) => {
+          signatures.push({
+            value: signature.id,
+            label: signature.name + (signature.hasSignature ? '' : ' (no signature set)'),
+            content: signature.content || '',
+            hasSignature: signature.hasSignature,
+            isDefault: signature.isDefault
+          })
         })
+        
+        console.log('✅ [FETCH-USER-DATA] Transformed signatures:', signatures.map(sig => ({ 
+          value: sig.value, 
+          label: sig.label, 
+          hasSignature: sig.hasSignature || false
+        })))
+        
+        return signatures
       }
 
+      // If no signature identities found, just return the "None" option
+      console.log('⚠️ [FETCH-USER-DATA] No Gmail signature identities found')
       return signatures
+      
     } catch (error: any) {
-      console.error("Error fetching Gmail signatures:", error)
-      // Return default signatures as fallback
-      return [
-        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
-        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
-        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
-      ]
+      console.error("❌ [FETCH-USER-DATA] Error fetching Gmail signatures:", error)
+      console.error("❌ [FETCH-USER-DATA] Error details:", {
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      })
+      // Return "None" option on error
+      return [{ value: 'none', label: 'None (no signature)', content: '' }]
     }
   },
 

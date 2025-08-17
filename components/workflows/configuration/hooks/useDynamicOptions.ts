@@ -28,10 +28,8 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData } = useIntegrationStore();
   
-  // Refs for tracking loading state and request cache
-  const activeLoadingTasks = useRef<Set<string>>(new Set());
-  const requestCache = useRef<Map<string, Promise<any>>>(new Map());
-  const fetchingDependentData = useRef<Set<string>>(new Set());
+  // Simple loading prevention
+  const loadingFields = useRef<Set<string>>(new Set());
   
   // Cache key generator
   const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
@@ -50,30 +48,22 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   // Load options for a dynamic field
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
     if (!nodeType || !providerId) return;
-
-    console.log(`🔍 [DYNAMIC] loadOptions called for ${fieldName} in ${nodeType}/${providerId}`, { dependsOn, dependsOnValue });
     
-    // Special debug for Gmail enhanced recipients
-    if (fieldName === 'to' || fieldName === 'cc' || fieldName === 'bcc') {
-      console.log(`📧 [GMAIL] Loading Gmail enhanced recipients for field: ${fieldName}`);
+    // Prevent duplicate calls for the same field
+    if (loadingFields.current.has(fieldName)) {
+      return;
     }
-
+    
+    loadingFields.current.add(fieldName);
     setLoading(true);
 
     try {
-      // Special handling for Discord guilds – load once from cache (no forced refresh)
+      // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
         try {
-          // First try cached/stale-aware load
-          let guilds = await loadDiscordGuildsOnce(false);
-          
-          // If nothing returned, attempt a single forced refresh
-          if (!guilds || guilds.length === 0) {
-            guilds = await loadDiscordGuildsOnce(true);
-          }
+          const guilds = await loadDiscordGuildsOnce(false);
           
           if (!guilds || guilds.length === 0) {
-            console.warn('⚠️ No Discord guilds found or guilds array is empty');
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
@@ -85,22 +75,19 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
             value: guild.id,
             label: guild.name,
           }));
-          // Set options immediately
-          setDynamicOptions(prev => {
-            const updatedOptions = {
-              ...prev,
-              [fieldName]: formattedOptions
-            };
-            return updatedOptions;
-          });
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: formattedOptions
+          }));
         } catch (error) {
-          console.error('❌ Error loading Discord guilds:', error);
-          // Set empty options
+          console.error('Error loading Discord guilds:', error);
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
           }));
         } finally {
+          loadingFields.current.delete(fieldName);
           setLoading(false);
         }
         return;
@@ -116,7 +103,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 
       // Determine data to load based on field name
       const resourceType = getResourceTypeForField(fieldName, nodeType);
-      console.log(`🔍 [DYNAMIC] Resource type for ${fieldName}: ${resourceType}`);
       
       if (!resourceType) {
         console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
@@ -143,6 +129,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
         [fieldName]: []
       }));
     } finally {
+      loadingFields.current.delete(fieldName);
       setLoading(false);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
@@ -150,9 +137,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   // Clear all options when node type changes
   useEffect(() => {
     setDynamicOptions({});
-    fetchingDependentData.current.clear();
-    activeLoadingTasks.current.clear();
-    requestCache.current.clear();
+    loadingFields.current.clear();
     setLoading(false);
   }, [nodeType, providerId]);
   
@@ -272,28 +257,16 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
       }));
       
     case "channelId":
-      // Ensure we have proper data for Discord channels
-      const formattedChannels = data.map((item: any) => ({
+      return data.map((item: any) => ({
         value: item.id || item.value,
         label: item.name || item.label || item.id,
       }));
       
-      // Log the formatted channel data
-      console.log('📋 Formatted channel data:', formattedChannels);
-      
-      return formattedChannels;
-      
     case "authorFilter":
-      // Ensure we have proper data for Discord members/users
-      const formattedData = data.map((item: any) => ({
+      return data.map((item: any) => ({
         value: item.id || item.value,
         label: item.username || item.name || item.label || item.id,
       }));
-      
-      // Log the formatted author filter data
-      console.log('📋 Formatted author filter data:', formattedData);
-      
-      return formattedData;
       
     case "messageId":
       return data.map((item: any) => ({

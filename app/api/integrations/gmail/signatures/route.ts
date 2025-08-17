@@ -4,8 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 [GMAIL SIGNATURES] API endpoint called')
     const searchParams = request.nextUrl.searchParams
     const requestedUserId = searchParams.get('userId')
+
+    console.log('🔍 [GMAIL SIGNATURES] Request params:', { requestedUserId })
 
     if (!requestedUserId) {
       console.log('❌ [SIGNATURES] No userId provided')
@@ -28,11 +31,13 @@ export async function GET(request: NextRequest) {
     const userId = requestedUserId
 
     // Get Gmail access token
+    console.log('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
     let accessToken
     try {
       accessToken = await getDecryptedAccessToken(userId, 'gmail')
+      console.log('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
-      console.log('🔍 [SIGNATURES] Gmail integration not found')
+      console.log('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
       return NextResponse.json({ 
         error: 'Gmail integration not connected',
         signatures: [],
@@ -41,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (!accessToken) {
-      console.log('🔍 [SIGNATURES] Gmail access token missing')
+      console.log('❌ [GMAIL SIGNATURES] Gmail access token missing')
       return NextResponse.json({ 
         error: 'Gmail access token missing',
         signatures: [],
@@ -49,112 +54,131 @@ export async function GET(request: NextRequest) {
       }, { status: 200 })
     }
 
-    // Get Gmail profile to extract signature
-    const profileResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!profileResponse.ok) {
-      console.error('Failed to fetch Gmail profile:', await profileResponse.text())
-      return NextResponse.json({ 
-        error: 'Failed to fetch Gmail profile',
-        signatures: []
-      }, { status: 200 })
-    }
-
-    const profile = await profileResponse.json()
-
-    // Try multiple Gmail API endpoints to find signatures
-    const signatures = []
-    
-    // 1. Try the sendAs settings endpoint (current approach)
-    console.log('🔍 [SIGNATURES] Trying Gmail sendAs settings API...')
+    // Fetch Gmail sendAs settings to get signatures
+    console.log('🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...')
     const settingsResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
     })
 
-    if (settingsResponse.ok) {
-      const settingsData = await settingsResponse.json()
-      console.log(`🔍 [SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
-      
-      if (settingsData.sendAs && Array.isArray(settingsData.sendAs)) {
-        settingsData.sendAs.forEach((sendAsSettings: any, index: number) => {
-          
-          // Always add the sendAs identity, even if no signature is set
-          signatures.push({
-            id: `gmail-signature-${index}`,
-            name: sendAsSettings.displayName || sendAsSettings.sendAsEmail || 'Default Signature',
-            content: sendAsSettings.signature || `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-              <p>Best regards,<br>
-              <strong>${sendAsSettings.displayName || sendAsSettings.sendAsEmail?.split('@')[0] || 'User'}</strong><br>
-              <a href="mailto:${sendAsSettings.sendAsEmail}" style="color: #1a73e8;">${sendAsSettings.sendAsEmail}</a></p>
-            </div>`,
-            isDefault: sendAsSettings.isDefault || index === 0,
-            email: sendAsSettings.sendAsEmail,
-            displayName: sendAsSettings.displayName || sendAsSettings.sendAsEmail?.split('@')[0] || 'User',
-            hasCustomSignature: !!sendAsSettings.signature
-          })
+    if (!settingsResponse.ok) {
+      const errorText = await settingsResponse.text()
+      console.error('❌ [GMAIL SIGNATURES] Gmail sendAs API failed:', settingsResponse.status, errorText)
+      console.error('❌ [GMAIL SIGNATURES] Headers sent:', Object.fromEntries(settingsResponse.headers.entries()))
+      return NextResponse.json({ 
+        error: 'Failed to fetch Gmail signatures',
+        signatures: [],
+        needsReconnection: settingsResponse.status === 401
+      }, { status: 200 })
+    }
+
+    const settingsData = await settingsResponse.json()
+    console.log(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
+    console.log(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
+    
+    const signatures = []
+    
+    if (settingsData.sendAs && Array.isArray(settingsData.sendAs)) {
+      settingsData.sendAs.forEach((sendAsSettings: any, index: number) => {
+        console.log(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
+          sendAsEmail: sendAsSettings.sendAsEmail,
+          displayName: sendAsSettings.displayName,
+          hasSignature: !!sendAsSettings.signature,
+          signaturePreview: sendAsSettings.signature?.substring(0, 100) + (sendAsSettings.signature?.length > 100 ? '...' : ''),
+          isDefault: sendAsSettings.isDefault
         })
-      } else {
-        console.log('🔍 [SIGNATURES] No sendAs array found in response')
+        
+        // Create a signature entry for each sendAs identity
+        // Include displayName and sendAsEmail for the UI label
+        signatures.push({
+          id: `gmail-signature-${index}`,
+          name: sendAsSettings.displayName 
+            ? `${sendAsSettings.displayName} <${sendAsSettings.sendAsEmail}>`
+            : sendAsSettings.sendAsEmail,
+          content: sendAsSettings.signature || '',
+          isDefault: sendAsSettings.isDefault || index === 0,
+          email: sendAsSettings.sendAsEmail,
+          displayName: sendAsSettings.displayName || '',
+          hasSignature: !!sendAsSettings.signature
+        })
+        
+        if (sendAsSettings.signature) {
+          console.log(`✅ [GMAIL SIGNATURES] Found signature for: ${sendAsSettings.displayName || sendAsSettings.sendAsEmail}`)
+        } else {
+          console.log(`⚠️ [GMAIL SIGNATURES] No signature set for: ${sendAsSettings.sendAsEmail}`)
+        }
+      })
+    } else {
+      console.log('⚠️ [GMAIL SIGNATURES] No sendAs array found in response')
+    }
+
+    // Log final signature count
+    const signaturesWithSignatures = signatures.filter(sig => sig.hasSignature)
+    if (signaturesWithSignatures.length === 0) {
+      console.log('⚠️ [GMAIL SIGNATURES] No Gmail signatures found for user')
+      console.log('💡 [GMAIL SIGNATURES] This is a known Gmail API limitation - signatures set in web interface may not be exposed via API')
+      console.log('💡 [GMAIL SIGNATURES] Attempting to sync signatures by refreshing sendAs settings...')
+      
+      // Try to refresh the sendAs settings by making a PATCH request
+      if (settingsData.sendAs && settingsData.sendAs.length > 0) {
+        for (const sendAs of settingsData.sendAs) {
+          try {
+            console.log(`🔄 [GMAIL SIGNATURES] Attempting to refresh sendAs for: ${sendAs.sendAsEmail}`)
+            
+            const patchResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(sendAs.sendAsEmail)}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                sendAsEmail: sendAs.sendAsEmail,
+                displayName: sendAs.displayName || '',
+                signature: sendAs.signature || '' // This might trigger a sync
+              })
+            })
+            
+            if (patchResponse.ok) {
+              const patchData = await patchResponse.json()
+              console.log(`✅ [GMAIL SIGNATURES] SendAs refresh successful:`, patchData)
+              
+              if (patchData.signature && patchData.signature.trim() !== '') {
+                console.log(`🎉 [GMAIL SIGNATURES] Found signature after refresh: ${patchData.signature.substring(0, 100)}...`)
+                
+                // Update the signature in our response
+                const existingIndex = signatures.findIndex(sig => sig.email === sendAs.sendAsEmail)
+                if (existingIndex >= 0) {
+                  signatures[existingIndex].content = patchData.signature
+                  signatures[existingIndex].hasSignature = true
+                }
+              }
+            } else {
+              const errorText = await patchResponse.text()
+              console.log(`⚠️ [GMAIL SIGNATURES] SendAs refresh failed for ${sendAs.sendAsEmail}:`, patchResponse.status, errorText)
+            }
+          } catch (error) {
+            console.error(`❌ [GMAIL SIGNATURES] Error refreshing sendAs for ${sendAs.sendAsEmail}:`, error)
+          }
+        }
       }
     } else {
-      const errorText = await settingsResponse.text()
-      console.error('🔍 [SIGNATURES] Gmail sendAs API failed:', settingsResponse.status, errorText)
+      console.log(`✅ [GMAIL SIGNATURES] Found ${signaturesWithSignatures.length} signature(s) out of ${signatures.length} sendAs identities`)
     }
 
-    // Note: The sendAs endpoint is the primary way to get Gmail signatures
-    // Other Gmail settings endpoints either don't exist or don't contain signature data
+    console.log(`✅ [GMAIL SIGNATURES] Returning ${signatures.length} signature(s):`, 
+      signatures.map(sig => ({ id: sig.id, name: sig.name, hasSignature: sig.hasSignature })))
 
-    // If no signatures found in sendAs settings, create a basic signature from profile
-    if (signatures.length === 0) {
-      console.log('🔍 [SIGNATURES] No Gmail signatures found, creating fallback signature')
-      
-      if (profile.emailAddress) {
-        // Try to get the user's name from profile or other sources
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('full_name, display_name')
-          .eq('id', userId)
-          .single()
-
-        const displayName = userProfile?.display_name || 
-                           userProfile?.full_name || 
-                           profile.emailAddress.split('@')[0]
-
-        console.log(`🔍 [SIGNATURES] Created fallback signature for ${displayName}`)
-
-        signatures.push({
-          id: 'gmail-signature-default',
-          name: 'Default Signature',
-          content: `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-            <p>Best regards,<br>
-            <strong>${displayName}</strong><br>
-            <a href="mailto:${profile.emailAddress}" style="color: #1a73e8;">${profile.emailAddress}</a></p>
-          </div>`,
-          isDefault: true,
-          email: profile.emailAddress,
-          displayName: displayName
-        })
-      } else {
-        console.log('🔍 [SIGNATURES] No email address found in profile')
-      }
-    }
-
-    console.log(`🔍 [SIGNATURES] Returning ${signatures.length} signature(s)`)
-
-    return NextResponse.json({
+    const response = {
       signatures,
-      profile: {
-        emailAddress: profile.emailAddress,
-        messagesTotal: profile.messagesTotal,
-        threadsTotal: profile.threadsTotal
-      }
-    })
+      hasSignatures: signaturesWithSignatures.length > 0,
+      totalIdentities: signatures.length,
+      signaturesCount: signaturesWithSignatures.length
+    }
+
+    console.log(`✅ [GMAIL SIGNATURES] Final response:`, JSON.stringify(response, null, 2))
+
+    return NextResponse.json(response)
 
   } catch (error) {
     console.error('Error fetching Gmail signatures:', error)

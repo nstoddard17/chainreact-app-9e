@@ -73,17 +73,12 @@ export default function WorkflowBuilder() {
 
   // Track unsaved changes
   const checkForUnsavedChanges = useCallback(() => {
-    console.log('🔍 checkForUnsavedChanges called')
     if (!currentWorkflow) {
-      console.log('🔍 No currentWorkflow, returning false')
       return false
     }
     
     const currentNodes = nodes.filter((n: Node) => n.type === 'custom')
     const currentEdges = edges
-    
-    console.log('🔍 Current nodes:', currentNodes.map(n => ({ id: n.id, position: n.position })))
-    console.log('🔍 Saved nodes:', (currentWorkflow.nodes || []).map(n => ({ id: n.id, position: n.position })))
     
     // Compare nodes
     const savedNodes = currentWorkflow.nodes || []
@@ -91,7 +86,6 @@ export default function WorkflowBuilder() {
       currentNodes.some((node, index) => {
         const savedNode = savedNodes[index]
         if (!savedNode) {
-          console.log('🔍 No saved node found for index:', index, 'node:', node.id)
           return true
         }
         
@@ -100,23 +94,7 @@ export default function WorkflowBuilder() {
         const typeChanged = node.data.type !== savedNode.data.type
         const idChanged = node.id !== savedNode.id
         
-        if (positionChanged) {
-          console.log('🔍 Position changed for node:', node.id, {
-            old: savedNode.position,
-            new: node.position,
-            oldX: savedNode.position.x,
-            oldY: savedNode.position.y,
-            newX: node.position.x,
-            newY: node.position.y
-          })
-        }
-        
-        const hasChange = idChanged || typeChanged || configChanged || positionChanged
-        if (hasChange) {
-          console.log('🔍 Node has changes:', node.id, { idChanged, typeChanged, configChanged, positionChanged })
-        }
-        
-        return hasChange
+        return idChanged || typeChanged || configChanged || positionChanged
       })
     
     // Compare edges
@@ -131,27 +109,14 @@ export default function WorkflowBuilder() {
       })
     
     const hasChanges = nodesChanged || edgesChanged
-    console.log('🔍 Unsaved changes check:', { 
-      nodesChanged, 
-      edgesChanged, 
-      hasChanges, 
-      currentNodesLength: currentNodes.length, 
-      savedNodesLength: savedNodes.length,
-      currentEdgesLength: currentEdges.length,
-      savedEdgesLength: savedEdges.length
-    })
     setHasUnsavedChanges(hasChanges)
     return hasChanges
   }, [currentWorkflow, nodes, edges])
 
   // Check for unsaved changes whenever nodes or edges change
   useEffect(() => {
-    console.log('🔄 useEffect triggered for unsaved changes check')
     if (currentWorkflow) {
-      console.log('🔄 Calling checkForUnsavedChanges')
       checkForUnsavedChanges()
-    } else {
-      console.log('🔄 No currentWorkflow, skipping check')
     }
   }, [currentWorkflow, nodes, edges, checkForUnsavedChanges])
 
@@ -272,13 +237,6 @@ export default function WorkflowBuilder() {
     const handleSave = async (silent = false) => {
     if (!currentWorkflow) return
 
-    console.log('💾 handleSave called, hasUnsavedChanges before save:', hasUnsavedChanges)
-    console.log('💾 Current nodes positions:', nodes.map(n => ({ 
-      id: n.id, 
-      position: n.position,
-      x: n.position.x,
-      y: n.position.y
-    })))
     setSaving(true)
     try {
       const oldStatus = currentWorkflow.status
@@ -286,7 +244,6 @@ export default function WorkflowBuilder() {
       // Create the updated workflow with current nodes and edges
       // Ensure nodes are in the correct format for storage and positions are preserved
       const nodesForStorage = nodes.map(node => {
-        console.log(`💾 Saving node ${node.id} at position:`, node.position);
         return {
           id: node.id,
           type: node.type,
@@ -304,24 +261,14 @@ export default function WorkflowBuilder() {
         connections: edges as any,
       }
       
-      console.log('💾 Updated workflow nodes:', updatedWorkflow.nodes.map((n: any) => ({ id: n.id, position: n.position })))
-      
-      console.log('💾 Updating currentWorkflow with new nodes/edges')
       // Update the current workflow in the store
       setCurrentWorkflow(updatedWorkflow)
       
-      console.log('💾 Calling saveWorkflow()')
       // Save to database
       await saveWorkflow()
       
-      console.log('💾 Save completed, clearing hasUnsavedChanges')
       // Clear unsaved changes after successful save
       setHasUnsavedChanges(false)
-      
-      // Small delay to prevent the effect from immediately re-checking
-      setTimeout(() => {
-        console.log('✅ Save completed, unsaved changes cleared')
-      }, 100)
       
       // Check if status changed and show notification
       if (!silent && currentWorkflow.status !== oldStatus) {
@@ -533,20 +480,16 @@ export default function WorkflowBuilder() {
                 );
               }}
               onNodeDragStop={(event, node) => {
-                console.log('🔄 Node drag stopped:', node.id, node.position);
-                // Final position update with force refresh
-                setNodes((nds) => {
-                  const updatedNodes = nds.map((n) => 
+                // Final position update
+                setNodes((nds) => 
+                  nds.map((n) => 
                     n.id === node.id 
                       ? { ...n, position: { x: node.position.x, y: node.position.y } } 
                       : n
-                  );
-                  console.log('🔄 Updated nodes after drag:', updatedNodes.map(n => ({ id: n.id, position: n.position })));
-                  return updatedNodes;
-                });
-                // Trigger unsaved changes check with longer delay
+                  )
+                );
+                // Trigger unsaved changes check
                 setTimeout(() => {
-                  console.log('🔄 Triggering unsaved changes check after drag');
                   checkForUnsavedChanges();
                 }, 50);
               }}

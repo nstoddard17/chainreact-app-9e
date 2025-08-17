@@ -134,50 +134,19 @@ export default function ConfigurationForm({
       }
     });
 
-    // Load dynamic options for fields, but only on initial mount
-    if (loadOptions && !hasInitialized) {
+    // Initialize form values only once
+    if (!hasInitialized) {
       setHasInitialized(true);
-      
-      nodeInfo.configSchema.forEach(field => {
-        if (field.dynamic) {
-          // For Discord integrations, load guilds for the guildId field
-          if (nodeInfo.providerId === 'discord' && field.name === 'guildId') {
-            loadOptions(field.name);
-          }
-          // For Gmail integrations, load enhanced recipients for email fields
-          else if (nodeInfo.providerId === 'gmail' && (field.name === 'to' || field.name === 'cc' || field.name === 'bcc')) {
-            console.log(`📧 [FORM] Loading Gmail enhanced recipients for field: ${field.name}`);
-            loadOptions(field.name);
-          }
-          // Skip loading other fields initially to avoid rate limits
-          // They'll be loaded when needed (on dropdown open, etc.)
-        }
-      });
     }
     
-    // For Discord integrations, check bot status only on initial load if a guild is selected
-    if (
-      !hasInitialized &&
-      nodeInfo.providerId === 'discord' && 
-      values.guildId && 
-      discordIntegration
-    ) {
-      // Set a default positive bot status to avoid unnecessary API calls
+    // Set default Discord bot status for better UX (only once)
+    if (nodeInfo.providerId === 'discord' && !botStatus && hasInitialized) {
       setBotStatus({
         isInGuild: true,
         hasPermissions: true
       });
-      
-      // If we have a guild ID, also load dependent data
-      if (values.guildId) {
-        // Load channels for the selected guild
-        loadOptions('channelId', 'guildId', values.guildId);
-        
-        // Load author filter options
-        loadOptions('authorFilter', 'guildId', values.guildId);
-      }
     }
-  }, [nodeInfo, setValue, loadOptions, discordIntegration, checkBotStatus, values, hasInitialized, currentNodeId, getWorkflowId]);
+  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized]);
 
   /**
    * Handle Discord connection
@@ -375,7 +344,8 @@ export default function ConfigurationForm({
   }
 
   // Show loading screen when needed
-  if (isLoading || loadingDynamic) {
+  // Simple loading state
+  if (isLoading) {
     return <ConfigurationLoadingScreen />;
   }
 
