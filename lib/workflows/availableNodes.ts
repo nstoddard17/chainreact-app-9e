@@ -840,15 +840,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
       { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail" },
       { 
-        name: "signature", 
-        label: "Signature", 
-        type: "select", 
-        required: false,
-        dynamic: "gmail_signatures",
-        placeholder: "Select a signature...",
-        description: "Choose a signature from your Gmail account"
-      },
-      { 
         name: "attachments", 
         label: "Attachments", 
         type: "file", 
