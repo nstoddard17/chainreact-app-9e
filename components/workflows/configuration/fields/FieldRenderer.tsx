@@ -189,9 +189,6 @@ export function FieldRenderer({
             onChange={onChange}
             placeholder={field.placeholder || "Compose your email..."}
             error={error}
-            workflowData={workflowData}
-            currentNodeId={currentNodeId}
-            onVariableInsert={onChange}
             integrationProvider={field.provider || 'gmail'}
             userId={user?.id}
             className={cn(

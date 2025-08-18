@@ -439,10 +439,11 @@ export default function ConfigurationForm({
       }
       
       handleSubmit(onSubmit)();
-    }}>
-      {/* Show tabs only if we have advanced fields */}
-      {advancedFields.length > 0 ? (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+    }} className="h-full flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Show tabs only if we have advanced fields */}
+        {advancedFields.length > 0 ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1">
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-100 p-1 rounded-lg">
             <TabsTrigger 
               value="basic" 
@@ -470,8 +471,10 @@ export default function ConfigurationForm({
             </TabsTrigger>
           </TabsList>
           
-          <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
-            <TabsContent value="basic" className="space-y-3 mt-0 px-2 pb-6">
+          <div className="flex-1 min-h-0">
+            <TabsContent value="basic" className="h-full">
+              <ScrollArea className="h-full pr-4">
+                <div className="space-y-3 px-2 pb-6">
               {basicFields.map((field, index) => (
                 <FieldRenderer
                   key={`basic-${field.name}-${field.type}-${index}`}
@@ -492,9 +495,13 @@ export default function ConfigurationForm({
                   }}
                 />
               ))}
+                </div>
+              </ScrollArea>
             </TabsContent>
             
-            <TabsContent value="advanced" className="space-y-3 mt-0 px-2 pb-6">
+            <TabsContent value="advanced" className="h-full">
+              <ScrollArea className="h-full pr-4">
+                <div className="space-y-3 px-2 pb-6">
               {advancedFields.map((field, index) => (
                 <FieldRenderer
                   key={`advanced-${field.name}-${field.type}-${index}`}
@@ -515,12 +522,14 @@ export default function ConfigurationForm({
                   }}
                 />
               ))}
+                </div>
+              </ScrollArea>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
       ) : (
         // Simple view without tabs if no advanced fields
-        <ScrollArea className="h-[calc(80vh-220px)] pr-4 overflow-visible">
+        <ScrollArea className="flex-1 pr-4">
           <div className="space-y-3 px-2 pb-6">
             {basicFields.map((field, index) => (
               <FieldRenderer
@@ -545,10 +554,11 @@ export default function ConfigurationForm({
           </div>
         </ScrollArea>
       )}
+      </div>
 
       {/* Discord Bot Status - Show only for Discord actions */}
       {nodeInfo?.providerId === 'discord' && (
-        <div className="mt-6 px-6">
+        <div className="px-6 py-3 border-t border-slate-100 flex-shrink-0">
           {!discordIntegration ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
@@ -588,7 +598,7 @@ export default function ConfigurationForm({
       )}
 
       {/* Form buttons */}
-      <div className="flex justify-between items-center mt-8 h-[80px] px-6 border-t border-slate-200 bg-white">
+      <div className="flex justify-between items-center h-[70px] px-6 border-t border-slate-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
           {Object.keys(errors).length > 0 && (
             <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">

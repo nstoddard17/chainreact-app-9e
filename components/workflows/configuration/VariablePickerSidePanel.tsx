@@ -217,9 +217,21 @@ export function VariablePickerSidePanel({
       // Filter outputs to show only relevant ones for this node type
       const relevantOutputs = getRelevantOutputs(node.data?.type || '', allOutputs)
       
+      // Determine node type and provider info
+      const nodeType = node.data?.isTrigger ? 'Trigger' : 'Action'
+      const provider = node.data?.providerId ? 
+        node.data.providerId.charAt(0).toUpperCase() + node.data.providerId.slice(1) : 
+        ''
+      const title = node.data?.title || node.data?.type || node.type || 'Unknown Node'
+      
+      // Format display name: "Trigger: Gmail: New Email" or "Action: Slack: Send Message"
+      const displayTitle = provider ? 
+        `${nodeType}: ${provider}: ${title}` : 
+        `${nodeType}: ${title}`
+
       return {
         id: node.id,
-        title: node.data?.title || node.data?.type || node.type || 'Unknown Node',
+        title: displayTitle,
         type: node.data?.type,
         outputs: Array.isArray(relevantOutputs) ? relevantOutputs : [],
         isTrigger: node.data?.isTrigger || false
