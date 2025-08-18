@@ -32,7 +32,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Variable,
   Mail,
   User,
   Calendar,
@@ -46,9 +45,6 @@ interface EmailRichTextEditorProps {
   placeholder?: string
   className?: string
   error?: string
-  workflowData?: { nodes: any[], edges: any[] }
-  currentNodeId?: string
-  onVariableInsert?: (variable: string) => void
   integrationProvider?: string // 'gmail', 'outlook', etc.
   userId?: string
 }
@@ -607,9 +603,6 @@ export function EmailRichTextEditor({
   placeholder = "Compose your email...",
   className = "",
   error,
-  workflowData,
-  currentNodeId,
-  onVariableInsert,
   integrationProvider = 'gmail',
   userId
 }: EmailRichTextEditorProps) {
@@ -722,7 +715,28 @@ export function EmailRichTextEditor({
   const insertSignature = (signatureId: string) => {
     const signature = signatures.find(sig => sig.id === signatureId)
     if (signature) {
-      const newContent = value + '\n\n' + signature.content
+      // Get the actual content from the editor to check for duplicates
+      const currentContent = editorRef.current?.innerHTML || value || ''
+      const signatureText = signature.content.replace(/<[^>]*>/g, '').trim() // Strip HTML for comparison
+      const currentText = currentContent.replace(/<[^>]*>/g, '').trim()
+      
+      // Only check for duplicates if there's meaningful content and the signature text is substantial
+      if (currentText.length > 10 && signatureText.length > 10) {
+        // Use a more specific check - look for exact signature match rather than substring
+        const normalizedCurrent = currentText.replace(/\s+/g, ' ').trim()
+        const normalizedSignature = signatureText.replace(/\s+/g, ' ').trim()
+        
+        if (normalizedCurrent.includes(normalizedSignature)) {
+          toast({
+            title: "Signature already present",
+            description: "This signature is already in your email.",
+            variant: "default"
+          })
+          return
+        }
+      }
+      
+      const newContent = currentContent + '\n\n' + signature.content
       onChange(newContent)
       if (editorRef.current) {
         editorRef.current.innerHTML = newContent
@@ -734,32 +748,6 @@ export function EmailRichTextEditor({
     }
   }
 
-  const insertVariable = (variable: string) => {
-    if (editorRef.current) {
-      const selection = window.getSelection()
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0)
-        const variableSpan = document.createElement('span')
-        variableSpan.className = 'inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium mx-1'
-        variableSpan.textContent = variable
-        variableSpan.setAttribute('data-variable', variable)
-        
-        range.deleteContents()
-        range.insertNode(variableSpan)
-        range.setStartAfter(variableSpan)
-        range.collapse(true)
-        selection.removeAllRanges()
-        selection.addRange(range)
-        
-        // Update content
-        onChange(editorRef.current.innerHTML)
-      }
-    }
-    
-    if (onVariableInsert) {
-      onVariableInsert(variable)
-    }
-  }
 
   const handleContentChange = () => {
     if (editorRef.current) {
@@ -771,42 +759,6 @@ export function EmailRichTextEditor({
     setIsPreviewMode(!isPreviewMode)
   }
 
-  const getVariablesFromWorkflow = () => {
-    if (!workflowData || !currentNodeId) return []
-    
-    const variables: Array<{name: string, label: string, node: string, nodeType: string, provider: string}> = []
-    
-    // Get previous nodes
-    workflowData.nodes
-      .filter(node => node.id !== currentNodeId)
-      .forEach(node => {
-        if (node.data?.outputSchema) {
-          // Determine node type and provider info
-          const nodeType = node.data?.isTrigger ? 'Trigger' : 'Action'
-          const provider = node.data?.providerId ? 
-            node.data.providerId.charAt(0).toUpperCase() + node.data.providerId.slice(1) : 
-            ''
-          const title = node.data?.title || node.data?.type || 'Unknown'
-          
-          // Format display name: "Trigger: Gmail: New Email" or "Action: Slack: Send Message"
-          const nodeDisplayName = provider ? 
-            `${nodeType}: ${provider}: ${title}` : 
-            `${nodeType}: ${title}`
-          
-          node.data.outputSchema.forEach((output: any) => {
-            variables.push({
-              name: `{{${node.id}.${output.name}}}`,
-              label: output.label || output.name,
-              node: nodeDisplayName,
-              nodeType,
-              provider
-            })
-          })
-        }
-      })
-    
-    return variables
-  }
 
   const formatToolbarButton = (
     icon: React.ReactNode,
@@ -917,7 +869,7 @@ export function EmailRichTextEditor({
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
+            <PopoverContent className="w-96 p-0 bg-background border-border max-h-[400px] overflow-hidden" align="start" side="bottom" sideOffset={4}>
               <div className="p-3 border-b border-border">
                 <h4 className="text-sm font-medium text-foreground">Email Templates</h4>
                 <p className="text-xs text-muted-foreground mt-1">Choose a template to get started</p>
@@ -938,7 +890,7 @@ export function EmailRichTextEditor({
                   </Select>
                 </div>
               </div>
-              <ScrollArea className="h-64 w-full" type="scroll">
+              <ScrollArea className="max-h-64 w-full" type="scroll" scrollHideDelay={600}>
                 <div className="p-2">
                   {EMAIL_TEMPLATES
                     .filter(template => selectedTemplateCategory === 'all' || template.category === selectedTemplateCategory)
@@ -979,7 +931,7 @@ export function EmailRichTextEditor({
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
+            <PopoverContent className="w-96 p-0 bg-background border-border max-h-80 overflow-hidden" align="start" side="bottom" sideOffset={4}>
               <div className="p-3 border-b border-border">
                 <h4 className="text-sm font-medium text-foreground">Email Signatures</h4>
                 <p className="text-xs text-muted-foreground mt-1">Add your signature to the email</p>
@@ -995,7 +947,7 @@ export function EmailRichTextEditor({
                   </Label>
                 </div>
               </div>
-              <ScrollArea className="h-48 w-full">
+              <ScrollArea className="max-h-48 w-full" type="scroll" scrollHideDelay={600}>
                 <div className="p-2">
                   {isLoadingSignatures ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -1023,9 +975,16 @@ export function EmailRichTextEditor({
                           )}
                         </div>
                         <div 
-                          className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                          className="text-xs text-muted-foreground mt-1 break-words overflow-hidden [&_*]:text-foreground [&_*]:!text-foreground"
+                          style={{ 
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            maxHeight: '4.5rem',
+                            color: 'var(--foreground)'
+                          }}
                           dangerouslySetInnerHTML={{ 
-                            __html: signature.content.substring(0, 100) + '...' 
+                            __html: signature.content.substring(0, 200) + '...' 
                           }}
                         />
                       </div>
@@ -1036,45 +995,6 @@ export function EmailRichTextEditor({
             </PopoverContent>
           </Popover>
           
-          {/* Variables */}
-          {workflowData && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground">
-                  <Variable className="h-4 w-4" />
-                  Variables
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
-                <div className="p-3 border-b border-border">
-                  <h4 className="text-sm font-medium text-foreground">Workflow Variables</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Insert dynamic content from previous steps</p>
-                </div>
-                <ScrollArea className="h-48 w-full" type="scroll">
-                  <div className="p-2">
-                    {getVariablesFromWorkflow().map((variable, index) => (
-                      <div
-                        key={index}
-                        className="p-3 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border"
-                        onClick={() => insertVariable(variable.name)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-medium text-foreground">{variable.label}</h5>
-                          <Badge variant="secondary" className="text-xs">
-                            {variable.node}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 font-mono">
-                          {variable.name}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-          )}
           
           <div className="flex-1" />
           
@@ -1093,9 +1013,9 @@ export function EmailRichTextEditor({
       </div>
       
       {/* Editor Content */}
-      <div className="relative">
+      <div className="relative h-[300px] overflow-hidden">
         {isPreviewMode ? (
-          <div className="p-4 min-h-[200px] bg-background">
+          <div className="h-full overflow-y-auto p-4 bg-background">
             <div 
               className="prose prose-sm max-w-none dark:prose-invert prose-slate"
               dangerouslySetInnerHTML={{ __html: value || '<p class="text-muted-foreground">No content to preview</p>' }}
@@ -1107,8 +1027,13 @@ export function EmailRichTextEditor({
             contentEditable
             onInput={handleContentChange}
             onBlur={handleContentChange}
-            className="p-4 min-h-[200px] focus:outline-none bg-background text-foreground"
-            style={{ fontSize }}
+            className="h-full overflow-y-auto p-4 focus:outline-none resize-none"
+            style={{ 
+              fontSize,
+              color: '#000000',
+              backgroundColor: '#ffffff',
+              caretColor: '#000000'
+            }}
             data-placeholder={placeholder}
             suppressContentEditableWarning
             {...(!isEditorInitialized && { dangerouslySetInnerHTML: { __html: value || '' } })}
@@ -1116,7 +1041,7 @@ export function EmailRichTextEditor({
         )}
         
         {!isPreviewMode && !value && (
-          <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
+          <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none z-10">
             {placeholder}
           </div>
         )}
