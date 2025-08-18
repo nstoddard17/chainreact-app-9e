@@ -1139,6 +1139,7 @@ function ConfigurationModal({
       loading: configPreferences.loading,
       preferencesCount: Object.keys(configPreferences.preferences).length
     },
+    currentNodeId,
     dataLoading,
     dataError
   });
@@ -3490,19 +3491,96 @@ function ConfigurationModal({
 
   const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
 
+  // Specific useEffect for Airtable bases loading
   useEffect(() => {
+    console.log('🔍 Airtable bases check:', {
+      isOpen,
+      nodeType: nodeInfo?.type,
+      providerId: nodeInfo?.providerId,
+      hasAirtableBasesField: (nodeInfo?.configSchema || []).some(field => field.dynamic === 'airtable_bases'),
+      hasBasesData: !!dynamicOptions['airtable_bases']?.length,
+      integration: !!integration
+    })
+    
+    if (isOpen && 
+        nodeInfo?.providerId === 'airtable' && 
+        (nodeInfo?.configSchema || []).some(field => field.dynamic === 'airtable_bases') &&
+        !dynamicOptions['airtable_bases']?.length &&
+        integration) {
+      
+      console.log('✅ Loading Airtable bases directly')
+      const loadAirtableBases = async () => {
+        try {
+          const basesData = await loadIntegrationSpecificData('airtable_bases')
+          console.log('🔍 Airtable bases loaded:', basesData)
+          if (basesData && Array.isArray(basesData)) {
+            setDynamicOptions(prev => ({
+              ...prev,
+              'airtable_bases': basesData
+            }))
+          }
+        } catch (error) {
+          console.error('❌ Failed to load Airtable bases:', error)
+        }
+      }
+      
+      loadAirtableBases()
+    }
+  }, [isOpen, nodeInfo?.type, nodeInfo?.providerId, nodeInfo?.configSchema, dynamicOptions, integration, loadIntegrationSpecificData])
+
+  useEffect(() => {
+    console.log('🔍 useEffect triggered:', { 
+      isOpen, 
+      providerId: nodeInfo?.providerId, 
+      currentNodeId,
+      nodeType: nodeInfo?.type 
+    })
+    
     // Only fetch if modal is open and nodeInfo is present
     if (isOpen && nodeInfo?.providerId) {
-      // Only fetch if nodeId or providerId changed
-      if (
+      // Check if there are dynamic fields without dependencies that need to be loaded
+      const hasDynamicFieldsWithoutDeps = (nodeInfo.configSchema || []).some(field => 
+        field.dynamic && 
+        !field.dependsOn && 
+        field.dynamic !== 'notion_pages' && 
+        field.dynamic !== 'notion_databases'
+      )
+      
+      // Check if we need to fetch data
+      const shouldFetch = 
+        // Provider changed
+        lastFetchedRef.current.providerId !== nodeInfo.providerId ||
+        // Node ID changed
         lastFetchedRef.current.nodeId !== currentNodeId ||
-        lastFetchedRef.current.providerId !== nodeInfo.providerId
-      ) {
+        // Modal opened with dynamic fields but no cached data for this provider
+        (hasDynamicFieldsWithoutDeps && !integrationData[nodeInfo.providerId]) ||
+        // Specific check for airtable_bases field when no bases data cached
+        (nodeInfo.providerId === 'airtable' && 
+         (nodeInfo.configSchema || []).some(field => field.dynamic === 'airtable_bases') &&
+         !dynamicOptions['airtable_bases']?.length)
+      
+      console.log('🔍 Dynamic data fetch decision:', {
+        isOpen,
+        providerId: nodeInfo.providerId,
+        currentNodeId,
+        lastNodeId: lastFetchedRef.current.nodeId,
+        lastProviderId: lastFetchedRef.current.providerId,
+        hasDynamicFieldsWithoutDeps,
+        hasProviderCache: !!integrationData[nodeInfo.providerId],
+        hasAirtableBasesField: (nodeInfo.configSchema || []).some(field => field.dynamic === 'airtable_bases'),
+        hasAirtableBasesData: !!dynamicOptions['airtable_bases']?.length,
+        shouldFetch
+      })
+      
+      if (shouldFetch) {
+        console.log('✅ Calling fetchDynamicData for', nodeInfo.providerId)
         fetchDynamicData()
         lastFetchedRef.current = {
           nodeId: currentNodeId,
           providerId: nodeInfo.providerId,
         }
+      } else {
+        console.log('⏸️ Skipping fetchDynamicData - conditions not met')
       }
     } else if (!isOpen) {
       // Reset all flags and clear cache when modal closes
@@ -3512,7 +3590,7 @@ function ConfigurationModal({
       hasHandledInitialDiscordGuild.current = false
       lastFetchedRef.current = {}
     }
-  }, [isOpen, currentNodeId, nodeInfo?.providerId, fetchDynamicData])
+  }, [isOpen, currentNodeId, nodeInfo?.providerId, nodeInfo?.configSchema, fetchDynamicData])
 
   // Initialize Discord bot when Discord nodes are opened
   useEffect(() => {

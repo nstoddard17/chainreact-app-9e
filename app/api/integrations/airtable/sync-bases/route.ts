@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { decrypt } from "@/lib/security/encryption"
+import { safeDecrypt } from "@/lib/security/encryption"
 import { listAirtableBases } from "@/lib/integrations/airtable/api"
 
 const supabase = createClient(
@@ -26,11 +26,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Airtable integration not found" }, { status: 404 })
     }
 
-    const encryptionKey = process.env.ENCRYPTION_KEY
-    if (!encryptionKey) {
-      return NextResponse.json({ error: "Encryption key not configured" }, { status: 500 })
-    }
-    const accessToken = decrypt(integ.access_token, encryptionKey)
+    // Use safeDecrypt which handles both encrypted and unencrypted tokens
+    const accessToken = safeDecrypt(integ.access_token)
 
     const bases = await listAirtableBases(accessToken)
 
