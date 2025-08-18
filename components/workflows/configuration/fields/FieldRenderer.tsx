@@ -387,6 +387,17 @@ export function FieldRenderer({
               </div>
             );
           }
+          // For Airtable tables field, always show dropdown even if no data
+          if (field.name === 'tableName') {
+            // Don't return early, let it render the empty dropdown below
+          } else {
+            // For other dynamic fields, show appropriate message
+            return (
+              <div className="text-sm text-slate-500">
+                <p>No {field.label || field.name} found.</p>
+              </div>
+            );
+          }
         }
         
         // Check if this is a multiple selection field
@@ -481,7 +492,9 @@ export function FieldRenderer({
                     );
                   })
               ) : (
-                <div className="p-2 text-sm text-slate-500 text-center">No options available</div>
+                <div className="p-2 text-sm text-slate-500 text-center">
+                  {field.name === 'tableName' ? 'Select a base first to load tables' : 'No options available'}
+                </div>
               )}
             </SelectContent>
           </Select>

@@ -67,6 +67,7 @@ export default function ConfigurationForm({
   const {
     dynamicOptions,
     loading: loadingDynamic,
+    isInitialLoading,
     loadOptions
   } = useDynamicOptions({ nodeType: nodeInfo?.type, providerId: nodeInfo?.providerId });
 
@@ -244,6 +245,25 @@ export default function ConfigurationForm({
             });
           }
         }
+
+        // Handle baseId changes for Airtable
+        if (fieldName === 'baseId' && nodeInfo.providerId === 'airtable') {
+          console.log('🔍 Airtable baseId changed to:', value);
+          
+          // Clear dependent fields when baseId changes
+          if (nodeInfo.configSchema) {
+            nodeInfo.configSchema.forEach(field => {
+              if (field.dependsOn === 'baseId') {
+                console.log('🔍 Clearing dependent field:', field.name);
+                setValue(field.name, '');
+                if (value) {
+                  console.log('🔍 Loading options for:', field.name, 'with baseId:', value);
+                  loadOptions(field.name, 'baseId', value);
+                }
+              }
+            });
+          }
+        }
       }
       
       // Don't auto-save configuration changes - let user save manually when they click Save or Listen
@@ -300,6 +320,11 @@ export default function ConfigurationForm({
         if (field.dependsOn === 'guildId') {
           return values.guildId && values.guildId !== '';
         }
+
+        // Show other fields that depend on baseId only if baseId is selected (for Airtable)
+        if (field.dependsOn === 'baseId') {
+          return values.baseId && values.baseId !== '';
+        }
         
         // Show fields that don't have dependencies
         if (!field.dependsOn) return true;
@@ -344,9 +369,13 @@ export default function ConfigurationForm({
   }
 
   // Show loading screen when needed
-  // Simple loading state
-  if (isLoading) {
-    return <ConfigurationLoadingScreen />;
+  // Show loading for Airtable during initial data loading
+  if (isLoading || (nodeInfo?.providerId === 'airtable' && isInitialLoading)) {
+    return (
+      <ConfigurationLoadingScreen 
+        integrationName={nodeInfo?.providerId === 'airtable' ? 'Airtable' : integrationName || 'Integration'}
+      />
+    );
   }
 
   // Handle Discord integrations specially
