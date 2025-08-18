@@ -2441,7 +2441,7 @@ function WorkflowBuilderContent() {
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="sm:max-w-[900px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
           <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -2490,8 +2490,8 @@ function WorkflowBuilderContent() {
             </div>
           </div>
 
-          <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-2/5 border-r border-border h-[70vh]" style={{ scrollbarGutter: 'stable' }}>
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
               {filteredIntegrations.length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -2541,7 +2541,7 @@ function WorkflowBuilderContent() {
               )}
               </div>
             </ScrollArea>
-            <div className="w-3/5 h-[70vh]">
+            <div className="w-3/5 flex-1">
               <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
                 {selectedIntegration ? (
@@ -2604,8 +2604,7 @@ function WorkflowBuilderContent() {
             </div>
           </div>
           
-          <DialogFooter className="p-4 border-t border-border bg-muted/20 flex justify-between items-center">
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <DialogFooter className="p-4 flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               {selectedIntegration && (
                 <>
@@ -2615,6 +2614,7 @@ function WorkflowBuilderContent() {
               )}
             </div>
             <div className="flex space-x-2">
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
               <Button 
                 disabled={!selectedTrigger || !selectedIntegration}
                 onClick={() => {
@@ -2631,7 +2631,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="sm:max-w-[900px] max-h-[95vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" style={{ paddingRight: '2rem' }}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
           <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -2684,8 +2684,8 @@ function WorkflowBuilderContent() {
             </div>
           </div>
 
-          <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-2/5 border-r border-border h-[70vh]" style={{ scrollbarGutter: 'stable' }}>
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
               {availableIntegrations.filter(int => {
                 if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
@@ -2793,8 +2793,8 @@ function WorkflowBuilderContent() {
               )}
               </div>
             </ScrollArea>
-            <div className="w-3/5 h-full">
-              <ScrollArea className="flex-1" style={{ scrollbarGutter: 'stable' }}>
+            <div className="w-3/5 flex-1">
+              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -2868,8 +2868,7 @@ function WorkflowBuilderContent() {
             </div>
           </div>
 
-          <div className="p-4 border-t border-border bg-muted/20 flex justify-between items-center">
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <div className="p-4 flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               {selectedIntegration && (
                 <>
@@ -2879,6 +2878,7 @@ function WorkflowBuilderContent() {
               )}
             </div>
             <div className="flex space-x-2">
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
               <Button 
                 disabled={!selectedAction || !selectedIntegration || selectedAction?.comingSoon}
                 onClick={() => {
