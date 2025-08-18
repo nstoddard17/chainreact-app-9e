@@ -13,7 +13,7 @@ import { resolveValue } from "@/lib/integrations/resolveValue"
 export const ACTION_METADATA = {
   key: "gmail_action_add_label",
   name: "Apply Gmail Labels",
-  description: "Add one or more labels to existing Gmail messages",
+  description: "Add one or more labels to incoming Gmail messages from a specific email address",
   icon: "tag"
 };
 
@@ -37,7 +37,7 @@ export interface ActionResult {
 }
 
 /**
- * Adds one or more labels to an email via the Gmail API
+ * Adds one or more labels to incoming emails from a specific email address via the Gmail API
  * 
  * @param params - Standard action parameters
  * @returns Action result with success/failure and any outputs
@@ -56,104 +56,148 @@ export async function addGmailLabels(params: ActionParams): Promise<ActionResult
     
     // 3. Extract required parameters
     const { 
-      messageId, 
-      labelIds = [],
-      labelNames = []
+      email, 
+      labelIds = []
     } = resolvedConfig
     
-    // 4. Handle multiple emails - convert to array if single email
-    const emailIds = Array.isArray(messageId) ? messageId : [messageId]
-    
-    // 5. Validate required parameters
-    if (!messageId || emailIds.length === 0) {
+    // 4. Validate required parameters
+    if (!email) {
       return {
         success: false,
-        error: "Missing required parameter: messageId"
+        error: "Missing required parameter: email address"
       }
     }
     
-    if (labelIds.length === 0 && labelNames.length === 0) {
+    if (labelIds.length === 0) {
       return {
         success: false,
-        error: "You must specify at least one label ID or label name"
+        error: "You must specify at least one label"
       }
     }
     
-    // 6. If label names are provided, get or create those labels
-    let allLabelIds = [...labelIds]
+    // 5. Get the incoming email data from the trigger input
+    const incomingEmailData = input
+    const messageId = incomingEmailData?.messageId || incomingEmailData?.id
+    const fromEmail = incomingEmailData?.from || incomingEmailData?.sender
     
-    if (labelNames.length > 0) {
-      const labelIdsFromNames = await getOrCreateLabels(credentials.accessToken, labelNames)
-      allLabelIds = [...allLabelIds, ...labelIdsFromNames]
+    // 6. Check if we have the necessary data from the trigger
+    if (!messageId) {
+      return {
+        success: false,
+        error: "No incoming email message ID found. This action should be used with a Gmail trigger."
+      }
     }
     
-    // 7. Process each email and add labels
-    const results = []
-    const errors = []
+    if (!fromEmail) {
+      return {
+        success: false,
+        error: "No sender email found in the incoming message data."
+      }
+    }
     
-    for (const emailId of emailIds) {
-      try {
-        const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${emailId}/modify`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${credentials.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            addLabelIds: allLabelIds,
-            removeLabelIds: []
-          })
+    // 7. Check if the incoming email is from the specified email address
+    const normalizedFrom = fromEmail.toLowerCase().trim()
+    const normalizedTarget = email.toLowerCase().trim()
+    
+    // Extract email from "Name <email@domain.com>" format if needed
+    const extractEmail = (emailStr: string) => {
+      const match = emailStr.match(/<([^>]+)>/)
+      return match ? match[1] : emailStr
+    }
+    
+    const extractedFrom = extractEmail(normalizedFrom)
+    const extractedTarget = extractEmail(normalizedTarget)
+    
+    if (extractedFrom !== extractedTarget) {
+      return {
+        success: false,
+        message: `Email from ${fromEmail} does not match target address ${email}. No labels applied.`
+      }
+    }
+    
+    // 8. Process label IDs - some might be names that need to be created
+    // Get existing labels to check which ones are IDs vs names
+    const labelsResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+      headers: {
+        'Authorization': `Bearer ${credentials.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!labelsResponse.ok) {
+      return {
+        success: false,
+        error: `Failed to fetch existing labels: ${await labelsResponse.text()}`
+      }
+    }
+    
+    const labelsData = await labelsResponse.json()
+    const existingLabels = labelsData.labels || []
+    const existingLabelIds = existingLabels.map((label: any) => label.id)
+    
+    // Separate actual label IDs from label names that need to be created
+    const actualLabelIds: string[] = []
+    const labelNamesToCreate: string[] = []
+    
+    for (const labelId of labelIds) {
+      if (existingLabelIds.includes(labelId)) {
+        // This is an existing label ID
+        actualLabelIds.push(labelId)
+      } else {
+        // This might be a label name that needs to be created
+        labelNamesToCreate.push(labelId)
+      }
+    }
+    
+    // Create new labels if needed
+    let newLabelIds: string[] = []
+    if (labelNamesToCreate.length > 0) {
+      newLabelIds = await getOrCreateLabels(credentials.accessToken, labelNamesToCreate)
+    }
+    
+    const allLabelIds = [...actualLabelIds, ...newLabelIds]
+    
+    // 9. Apply labels to the incoming email message
+    try {
+      const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${credentials.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          addLabelIds: allLabelIds,
+          removeLabelIds: []
         })
-        
-        if (!response.ok) {
-          const errorText = await response.text()
-          errors.push(`Failed to add labels to email ${emailId}: ${errorText}`)
-        } else {
-          const data = await response.json()
-          results.push({
-            messageId: data.id,
-            threadId: data.threadId,
-            labelIds: data.labelIds
-          })
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        return {
+          success: false,
+          error: `Failed to add labels to incoming email: ${errorText}`
         }
-      } catch (error: any) {
-        errors.push(`Error processing email ${emailId}: ${error.message}`)
       }
-    }
-    
-    // 8. Return results
-    if (errors.length > 0 && results.length === 0) {
-      return {
-        success: false,
-        error: `Failed to add labels to any emails: ${errors.join('; ')}`
-      }
-    }
-    
-    const successMessage = results.length === 1 
-      ? `Successfully added ${allLabelIds.length} label(s) to 1 email`
-      : `Successfully added ${allLabelIds.length} label(s) to ${results.length} emails`
-    
-    if (errors.length > 0) {
+      
+      const data = await response.json()
+      
       return {
         success: true,
         output: {
-          messageIds: results.map(r => r.messageId),
-          threadIds: results.map(r => r.threadId),
-          labelIds: allLabelIds,
-          errors: errors
+          messageId: data.id,
+          threadId: data.threadId,
+          labelIds: data.labelIds,
+          appliedLabels: allLabelIds,
+          fromEmail: fromEmail
         },
-        message: `${successMessage} (${errors.length} errors occurred)`
+        message: `Successfully added ${allLabelIds.length} label(s) to incoming email from ${fromEmail}`
       }
-    }
-    
-    return {
-      success: true,
-      output: {
-        messageIds: results.map(r => r.messageId),
-        threadIds: results.map(r => r.threadId),
-        labelIds: allLabelIds
-      },
-      message: successMessage
+      
+    } catch (error: any) {
+      return {
+        success: false,
+        error: `Error applying labels to incoming email: ${error.message}`
+      }
     }
     
   } catch (error: any) {
