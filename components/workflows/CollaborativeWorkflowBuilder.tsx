@@ -283,9 +283,19 @@ const useWorkflowBuilderState = () => {
     // Use the integration store to check if this integration is connected
     const connectedProviders = getConnectedProviders();
     const isConnected = connectedProviders.includes(integrationId);
-    // console.log('🔍 Integration connection check:', { integrationId, connectedProviders, isConnected });
+    
+    // Enhanced logging to debug connection issues
+    if (!isConnected && integrationId !== 'logic' && integrationId !== 'ai') {
+      console.log('🔍 Integration connection debug:', { 
+        integrationId, 
+        connectedProviders, 
+        isConnected,
+        allIntegrations: integrations?.map(i => ({ provider: i.provider, status: i.status })) || []
+      });
+    }
+    
     return isConnected;
-  }, [integrations])
+  }, [integrations, getConnectedProviders])
 
 
 
