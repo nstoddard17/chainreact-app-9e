@@ -24,6 +24,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   // State
   const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>({});
   const [loading, setLoading] = useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
   
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData } = useIntegrationStore();
@@ -140,10 +141,44 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     loadingFields.current.clear();
     setLoading(false);
   }, [nodeType, providerId]);
+
+  // Preload independent fields when modal opens
+  useEffect(() => {
+    if (!nodeType || !providerId) return;
+
+    // Set initial loading state for Airtable
+    if (providerId === 'airtable') {
+      setIsInitialLoading(true);
+    }
+
+    // Preload fields that don't depend on other fields
+    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
+    
+    let loadingPromises: Promise<void>[] = [];
+    
+    independentFields.forEach(fieldName => {
+      // Check if this field exists for this node type
+      const resourceType = getResourceTypeForField(fieldName, nodeType);
+      if (resourceType) {
+        console.log(`🔄 Preloading ${fieldName} (${resourceType}) for ${nodeType}`);
+        const promise = loadOptions(fieldName);
+        loadingPromises.push(promise);
+      }
+    });
+    
+    // Wait for all preloading to complete for Airtable
+    if (providerId === 'airtable' && loadingPromises.length > 0) {
+      Promise.all(loadingPromises).finally(() => {
+        console.log('🔄 Airtable preloading completed');
+        setIsInitialLoading(false);
+      });
+    }
+  }, [nodeType, providerId, loadOptions]);
   
   return {
     dynamicOptions,
     loading,
+    isInitialLoading,
     loadOptions,
     resetOptions
   };
@@ -194,6 +229,19 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     trello_action_create_card: {
       boardId: "trello_boards",
       listId: "trello_lists",
+    },
+    // Airtable fields
+    airtable_action_create_record: {
+      baseId: "airtable_bases",
+      tableName: "airtable_tables",
+    },
+    airtable_action_update_record: {
+      baseId: "airtable_bases",
+      tableName: "airtable_tables",
+    },
+    airtable_action_list_records: {
+      baseId: "airtable_bases",
+      tableName: "airtable_tables",
     },
     // Default case for unmapped fields
     default: {
@@ -292,6 +340,21 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
         label: item.title || item.name || item.id,
         fields: item.fields || item.properties,
         isExisting: true,
+      }));
+      
+    case "baseId":
+      return data.map((item: any) => ({
+        value: item.value || item.id,
+        label: item.label || item.name || item.id,
+        description: item.description || item.permissionLevel,
+      }));
+      
+    case "tableName":
+      return data.map((item: any) => ({
+        value: item.value || item.name || item.id,
+        label: item.label || item.name || item.id,
+        fields: item.fields,
+        description: item.description
       }));
       
     // Default format for other fields
