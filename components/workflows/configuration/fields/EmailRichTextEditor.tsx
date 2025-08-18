@@ -774,18 +774,32 @@ export function EmailRichTextEditor({
   const getVariablesFromWorkflow = () => {
     if (!workflowData || !currentNodeId) return []
     
-    const variables: Array<{name: string, label: string, node: string}> = []
+    const variables: Array<{name: string, label: string, node: string, nodeType: string, provider: string}> = []
     
     // Get previous nodes
     workflowData.nodes
       .filter(node => node.id !== currentNodeId)
       .forEach(node => {
         if (node.data?.outputSchema) {
+          // Determine node type and provider info
+          const nodeType = node.data?.isTrigger ? 'Trigger' : 'Action'
+          const provider = node.data?.providerId ? 
+            node.data.providerId.charAt(0).toUpperCase() + node.data.providerId.slice(1) : 
+            ''
+          const title = node.data?.title || node.data?.type || 'Unknown'
+          
+          // Format display name: "Trigger: Gmail: New Email" or "Action: Slack: Send Message"
+          const nodeDisplayName = provider ? 
+            `${nodeType}: ${provider}: ${title}` : 
+            `${nodeType}: ${title}`
+          
           node.data.outputSchema.forEach((output: any) => {
             variables.push({
               name: `{{${node.id}.${output.name}}}`,
               label: output.label || output.name,
-              node: node.data?.title || node.data?.type || 'Unknown'
+              node: nodeDisplayName,
+              nodeType,
+              provider
             })
           })
         }
@@ -806,16 +820,16 @@ export function EmailRichTextEditor({
       size="sm"
       onClick={() => execCommand(command, value)}
       title={title}
-      className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white"
+      className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
     >
       {icon}
     </Button>
   )
 
   return (
-    <div className={cn("border border-slate-700 rounded-lg overflow-hidden bg-slate-900", className)}>
+    <div className={cn("border border-border rounded-lg overflow-hidden bg-background", className)}>
       {/* Toolbar */}
-      <div className="border-b border-slate-700 p-2 bg-slate-800">
+      <div className="border-b border-border p-2 bg-muted/50">
         <div className="flex items-center gap-1 flex-wrap">
           {/* Text Formatting */}
           <div className="flex items-center gap-1">
@@ -848,7 +862,7 @@ export function EmailRichTextEditor({
             setFontSize(value)
             execCommand('fontSize', value)
           }}>
-            <SelectTrigger className="w-20 h-8 bg-slate-800 border-slate-700 text-slate-300">
+            <SelectTrigger className="w-20 h-8 bg-background border-border text-foreground">
               <Type className="h-4 w-4" />
             </SelectTrigger>
             <SelectContent>
@@ -863,16 +877,16 @@ export function EmailRichTextEditor({
           {/* Text Color */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-700 text-slate-300 hover:text-white">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground">
                 <Palette className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-2 bg-slate-800 border-slate-700">
+            <PopoverContent className="w-48 p-2 bg-background border-border">
               <div className="grid grid-cols-4 gap-1">
                 {TEXT_COLORS.map(color => (
                   <button
                     key={color}
-                    className="w-8 h-8 rounded border border-slate-600 hover:scale-110 transition-transform"
+                    className="w-8 h-8 rounded border border-border hover:scale-110 transition-transform"
                     style={{ backgroundColor: color }}
                     onClick={() => {
                       setTextColor(color)
@@ -897,24 +911,24 @@ export function EmailRichTextEditor({
           {/* Templates */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+              <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground">
                 <Mail className="h-4 w-4" />
                 Templates
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-0 bg-slate-800 border-slate-700">
-              <div className="p-3 border-b border-slate-700">
-                <h4 className="text-sm font-medium text-slate-200">Email Templates</h4>
-                <p className="text-xs text-slate-400 mt-1">Choose a template to get started</p>
+            <PopoverContent className="w-96 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
+              <div className="p-3 border-b border-border">
+                <h4 className="text-sm font-medium text-foreground">Email Templates</h4>
+                <p className="text-xs text-muted-foreground mt-1">Choose a template to get started</p>
                 
                 {/* Category Filter */}
                 <div className="mt-3">
                   <Select value={selectedTemplateCategory} onValueChange={setSelectedTemplateCategory}>
-                    <SelectTrigger className="h-8 text-xs bg-slate-700 border-slate-600">
+                    <SelectTrigger className="h-8 text-xs bg-background border-border">
                       <SelectValue placeholder="Filter by category" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectContent className="bg-background border-border">
                       <SelectItem value="all" className="text-xs">All Categories</SelectItem>
                       <SelectItem value="business" className="text-xs">Business</SelectItem>
                       <SelectItem value="personal" className="text-xs">Personal</SelectItem>
@@ -924,30 +938,30 @@ export function EmailRichTextEditor({
                   </Select>
                 </div>
               </div>
-              <ScrollArea className="h-64" type="always">
+              <ScrollArea className="h-64 w-full" type="scroll">
                 <div className="p-2">
                   {EMAIL_TEMPLATES
                     .filter(template => selectedTemplateCategory === 'all' || template.category === selectedTemplateCategory)
                     .map(template => (
                       <div
                         key={template.id}
-                        className="p-3 rounded-md hover:bg-slate-700 cursor-pointer border border-transparent hover:border-slate-600"
+                        className="p-3 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border"
                         onClick={() => insertTemplate(template.id)}
                       >
                         <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-medium text-slate-200">{template.name}</h5>
+                          <h5 className="text-sm font-medium text-foreground">{template.name}</h5>
                           <Badge variant="secondary" className="text-xs">
                             {template.category}
                           </Badge>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                           {template.content.replace(/<[^>]*>/g, '').substring(0, 80)}...
                         </p>
                       </div>
                     ))}
                   {EMAIL_TEMPLATES.filter(template => selectedTemplateCategory === 'all' || template.category === selectedTemplateCategory).length === 0 && (
-                    <div className="text-center py-8 text-slate-400">
-                      <Mail className="h-8 w-8 mx-auto mb-2 text-slate-500" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Mail className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm">No templates in this category</p>
                     </div>
                   )}
@@ -959,16 +973,16 @@ export function EmailRichTextEditor({
           {/* Signatures */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+              <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground">
                 <FileSignature className="h-4 w-4" />
                 Signature
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
-              <div className="p-3 border-b border-slate-700">
-                <h4 className="text-sm font-medium text-slate-200">Email Signatures</h4>
-                <p className="text-xs text-slate-400 mt-1">Add your signature to the email</p>
+            <PopoverContent className="w-80 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
+              <div className="p-3 border-b border-border">
+                <h4 className="text-sm font-medium text-foreground">Email Signatures</h4>
+                <p className="text-xs text-muted-foreground mt-1">Add your signature to the email</p>
                 
                 <div className="flex items-center space-x-2 mt-3">
                   <Switch
@@ -976,20 +990,20 @@ export function EmailRichTextEditor({
                     checked={autoIncludeSignature}
                     onCheckedChange={setAutoIncludeSignature}
                   />
-                  <Label htmlFor="auto-signature" className="text-xs text-slate-300">
+                  <Label htmlFor="auto-signature" className="text-xs text-foreground">
                     Auto-include signature
                   </Label>
                 </div>
               </div>
-              <ScrollArea className="h-48">
+              <ScrollArea className="h-48 w-full">
                 <div className="p-2">
                   {isLoadingSignatures ? (
-                    <div className="text-center py-8 text-slate-400">
+                    <div className="text-center py-8 text-muted-foreground">
                       Loading signatures...
                     </div>
                   ) : signatures.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400">
-                      <FileSignature className="h-8 w-8 mx-auto mb-2 text-slate-500" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileSignature className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm">No signatures found</p>
                       <p className="text-xs">Create signatures in your {integrationProvider} account</p>
                     </div>
@@ -997,11 +1011,11 @@ export function EmailRichTextEditor({
                     signatures.map(signature => (
                       <div
                         key={signature.id}
-                        className="p-3 rounded-md hover:bg-slate-700 cursor-pointer border border-transparent hover:border-slate-600"
+                        className="p-3 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border"
                         onClick={() => insertSignature(signature.id)}
                       >
                         <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-medium text-slate-200">{signature.name}</h5>
+                          <h5 className="text-sm font-medium text-foreground">{signature.name}</h5>
                           {signature.isDefault && (
                             <Badge variant="secondary" className="text-xs">
                               Default
@@ -1009,7 +1023,7 @@ export function EmailRichTextEditor({
                           )}
                         </div>
                         <div 
-                          className="text-xs text-slate-400 mt-1 line-clamp-2"
+                          className="text-xs text-muted-foreground mt-1 line-clamp-2"
                           dangerouslySetInnerHTML={{ 
                             __html: signature.content.substring(0, 100) + '...' 
                           }}
@@ -1026,32 +1040,32 @@ export function EmailRichTextEditor({
           {workflowData && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+                <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground">
                   <Variable className="h-4 w-4" />
                   Variables
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
-                <div className="p-3 border-b border-slate-700">
-                  <h4 className="text-sm font-medium text-slate-200">Workflow Variables</h4>
-                  <p className="text-xs text-slate-400 mt-1">Insert dynamic content from previous steps</p>
+              <PopoverContent className="w-80 p-0 bg-background border-border" align="start" side="bottom" sideOffset={4}>
+                <div className="p-3 border-b border-border">
+                  <h4 className="text-sm font-medium text-foreground">Workflow Variables</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Insert dynamic content from previous steps</p>
                 </div>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-48 w-full" type="scroll">
                   <div className="p-2">
                     {getVariablesFromWorkflow().map((variable, index) => (
                       <div
                         key={index}
-                        className="p-3 rounded-md hover:bg-slate-700 cursor-pointer border border-transparent hover:border-slate-600"
+                        className="p-3 rounded-md hover:bg-muted cursor-pointer border border-transparent hover:border-border"
                         onClick={() => insertVariable(variable.name)}
                       >
                         <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-medium text-slate-200">{variable.label}</h5>
+                          <h5 className="text-sm font-medium text-foreground">{variable.label}</h5>
                           <Badge variant="secondary" className="text-xs">
                             {variable.node}
                           </Badge>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 font-mono">
+                        <p className="text-xs text-muted-foreground mt-1 font-mono">
                           {variable.name}
                         </p>
                       </div>
@@ -1070,7 +1084,7 @@ export function EmailRichTextEditor({
             variant="ghost"
             size="sm"
             onClick={togglePreview}
-            className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+            className="h-8 gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
           >
             {isPreviewMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             {isPreviewMode ? 'Edit' : 'Preview'}
@@ -1081,10 +1095,10 @@ export function EmailRichTextEditor({
       {/* Editor Content */}
       <div className="relative">
         {isPreviewMode ? (
-          <div className="p-4 min-h-[200px] bg-slate-900">
+          <div className="p-4 min-h-[200px] bg-background">
             <div 
-              className="prose prose-sm max-w-none prose-invert"
-              dangerouslySetInnerHTML={{ __html: value || '<p class="text-slate-400">No content to preview</p>' }}
+              className="prose prose-sm max-w-none dark:prose-invert prose-slate"
+              dangerouslySetInnerHTML={{ __html: value || '<p class="text-muted-foreground">No content to preview</p>' }}
             />
           </div>
         ) : (
@@ -1093,7 +1107,7 @@ export function EmailRichTextEditor({
             contentEditable
             onInput={handleContentChange}
             onBlur={handleContentChange}
-            className="p-4 min-h-[200px] focus:outline-none bg-slate-900 text-slate-100"
+            className="p-4 min-h-[200px] focus:outline-none bg-background text-foreground"
             style={{ fontSize }}
             data-placeholder={placeholder}
             suppressContentEditableWarning
@@ -1102,7 +1116,7 @@ export function EmailRichTextEditor({
         )}
         
         {!isPreviewMode && !value && (
-          <div className="absolute top-4 left-4 text-slate-500 pointer-events-none">
+          <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
             {placeholder}
           </div>
         )}
@@ -1110,13 +1124,13 @@ export function EmailRichTextEditor({
       
       {/* Error Message */}
       {error && (
-        <div className="p-2 bg-red-900/20 border-t border-red-700">
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="p-2 bg-destructive/10 border-t border-destructive/50">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
       
       {/* Footer */}
-      <div className="border-t border-slate-700 p-2 bg-slate-800 text-xs text-slate-400">
+      <div className="border-t border-border p-2 bg-muted/50 text-xs text-muted-foreground">
         <div className="flex items-center justify-between">
           <span>
             {isPreviewMode ? 'Preview mode' : 'Rich text editor'}
