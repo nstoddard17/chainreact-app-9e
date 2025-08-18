@@ -5569,14 +5569,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
     configSchema: [
       { 
-        name: "messageId", 
-        label: "Email", 
+        name: "email", 
+        label: "From", 
         type: "email-autocomplete", 
         dynamic: "gmail-recent-recipients",
         required: true,
-        description: "Choose from recent recipients or type custom email addresses",
-        placeholder: "Enter email addresses...",
-        multiple: true
+        description: "Add labels to incoming emails from this email address",
+        placeholder: "Select sender email address..."
       },
       { 
         name: "labelIds", 
@@ -5584,18 +5583,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select", 
         dynamic: "gmail_labels",
         required: true,
-        placeholder: "Select or enter one or more labels",
-        description: "Choose from your Gmail labels or enter new ones (supports multiple selection)",
+        placeholder: "Select one or more labels or type to create new ones",
+        description: "Choose from your Gmail labels or type new label names to create them",
         multiple: true,
-        creatable: true // Allow custom label entry
-      },
-      { 
-        name: "labelNames", 
-        label: "New Labels", 
-        type: "text", 
-        required: false,
-        description: "New label names to create (automatically populated when typing new labels)",
-        hidden: true // This field is hidden and managed by the UI
+        creatable: true, // Allow custom label entry
+        createNewText: "Create new label:",
+        showManageButton: true // Show button to manage Gmail labels
       },
     ],
   },

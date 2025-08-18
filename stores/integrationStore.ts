@@ -138,6 +138,7 @@ export interface IntegrationStore {
     providerId: string,
     integrationId: string,
     params?: Record<string, any>,
+    forceRefresh?: boolean
   ) => Promise<any>
   clearAllData: () => void
   connectApiKeyIntegration: (providerId: string, apiKey: string) => Promise<void>
@@ -897,7 +898,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    loadIntegrationData: async (providerId, integrationId, params) => {
+    loadIntegrationData: async (providerId, integrationId, params, forceRefresh = false) => {
       const { setLoading, setError, integrationData } = get()
       
               // Generate cache key - include channelId for Discord messages and reactions
@@ -912,9 +913,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const isDiscordData = providerId.includes('discord')
         
         // Check if data is already cached (unless force refresh is requested or it's Discord data)
-        if (!params?.forceRefresh && !isDiscordData && integrationData[cacheKey]) {
+        if (!forceRefresh && !params?.forceRefresh && !isDiscordData && integrationData[cacheKey]) {
           console.log(`📋 Using cached data for ${cacheKey}`)
           return integrationData[cacheKey]
+        }
+        
+        if (forceRefresh) {
+          console.log(`🔄 Force refresh requested for ${cacheKey}, skipping cache`)
         }
         
         // For Discord data, log that we're fetching fresh data
@@ -1243,7 +1248,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "discord_guilds":
             // Use cached Discord guilds loader instead of direct API call
             try {
-              const cachedGuilds = await loadDiscordGuildsOnce(params?.forceRefresh)
+              const cachedGuilds = await loadDiscordGuildsOnce(forceRefresh || params?.forceRefresh)
               set((state) => ({
                 integrationData: {
                   ...state.integrationData,

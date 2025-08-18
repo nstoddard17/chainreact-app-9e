@@ -46,12 +46,19 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   }, []);
   
   // Load options for a dynamic field
-  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
+  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
     if (!nodeType || !providerId) return;
     
-    // Prevent duplicate calls for the same field
-    if (loadingFields.current.has(fieldName)) {
+    console.log('🔄 useDynamicOptions.loadOptions called:', { fieldName, nodeType, providerId })
+    
+    // Prevent duplicate calls for the same field (unless forcing refresh)
+    if (!forceRefresh && loadingFields.current.has(fieldName)) {
+      console.log('⚠️ Skipping duplicate call for:', fieldName)
       return;
+    }
+    
+    if (forceRefresh) {
+      console.log('🔄 Force refresh requested for:', fieldName)
     }
     
     loadingFields.current.add(fieldName);
@@ -111,10 +118,12 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       }
 
       // Load integration data
-      const result = await loadIntegrationData(resourceType, integration.id, { [dependsOn || '']: dependsOnValue });
+      const result = await loadIntegrationData(resourceType, integration.id, { [dependsOn || '']: dependsOnValue }, forceRefresh);
       
       // Format the results
       const formattedOptions = formatOptionsForField(fieldName, result);
+      
+      console.log('✅ useDynamicOptions loaded data for', fieldName, ':', formattedOptions.length, 'options')
       
       // Update dynamic options
       setDynamicOptions(prev => ({
@@ -170,6 +179,10 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       cc: "gmail-enhanced-recipients", 
       bcc: "gmail-enhanced-recipients",
       messageId: "gmail-recent-recipients",
+      labelIds: "gmail_labels",
+    },
+    gmail_action_add_label: {
+      email: "gmail-recent-recipients",
       labelIds: "gmail_labels",
     },
     // Discord fields
@@ -238,6 +251,7 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
     case "to":
     case "cc":
     case "bcc":
+    case "email":
     case "messageId":
       return data.map((item: any) => ({
         value: item.email || item.value || item.id || item,

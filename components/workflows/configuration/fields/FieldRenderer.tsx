@@ -21,6 +21,7 @@ import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
+import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -37,7 +38,7 @@ interface FieldProps {
   currentNodeId?: string;
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
-  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any) => Promise<void>;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
 }
 
 /**
@@ -315,6 +316,14 @@ export function FieldRenderer({
           }, 100);
         }
         
+        // Force load options for Gmail labels
+        if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'labelIds' && !loadingDynamic) {
+          console.log('🔍 No Gmail labels available, triggering load...');
+          setTimeout(() => {
+            onDynamicLoad(field.name);
+          }, 100);
+        }
+        
         // Show loading state or fallback message for dynamic fields
         if (field.dynamic && loadingDynamic && selectOptions.length === 0) {
           return (
@@ -378,6 +387,51 @@ export function FieldRenderer({
               </div>
             );
           }
+        }
+        
+        // Check if this is a multiple selection field
+        if ((field as any).multiple) {
+          return (
+            <div className="space-y-3">
+              <MultiCombobox
+                value={Array.isArray(value) ? value : (value ? [value] : [])}
+                onChange={(newValues) => {
+                  onChange(newValues);
+                }}
+                options={selectOptions}
+                placeholder={field.placeholder || "Select options..."}
+                emptyText="No options available"
+                searchPlaceholder="Search options..."
+                isLoading={loadingDynamic}
+                disabled={loadingDynamic}
+                creatable={(field as any).creatable || false}
+                onOpenChange={(open) => {
+                  // Trigger dynamic loading when opened
+                  if (open && field.dynamic && onDynamicLoad && !loadingDynamic && selectOptions.length === 0) {
+                    console.log('🔍 Multi-select dropdown opened, loading dynamic options for:', field.name);
+                    onDynamicLoad(field.name);
+                  }
+                }}
+                className={cn(
+                  "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+                  error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+                )}
+              />
+              {(field as any).showManageButton && (
+                <GmailLabelManager
+                  existingLabels={selectOptions}
+                  onLabelsChange={() => {
+                    // Force refresh the labels when they change (bypass cache)
+                    console.log('🔄 GmailLabelManager onLabelsChange called, force refreshing:', field.name)
+                    if (onDynamicLoad) {
+                      // Force refresh to bypass cache and get fresh data
+                      onDynamicLoad(field.name, undefined, undefined, true);
+                    }
+                  }}
+                />
+              )}
+            </div>
+          );
         }
         
         return (
