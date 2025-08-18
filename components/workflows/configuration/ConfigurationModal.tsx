@@ -23,7 +23,7 @@ const CustomDialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[95vw] md:max-w-[90vw] lg:max-w-[85vw] 2xl:max-w-[1400px] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-1/2 top-1/2 z-50 w-[95vw] h-[90vh] max-w-[95vw] md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[80vw] 2xl:max-w-[1400px] max-h-[90vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
         className
       )}
       {...props}
@@ -176,8 +176,8 @@ export function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <CustomDialogContent className="max-h-[95vh] h-[90vh] md:h-[85vh] lg:h-[80vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl p-0">
-        <div className="flex h-full">
+      <CustomDialogContent className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl">
+        <div className="flex h-full max-h-[90vh]">
           {/* Main Configuration Area */}
           <div className="flex-1 flex flex-col">
             <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6">
@@ -212,7 +212,7 @@ export function ConfigurationModal({
             </DialogHeader>
             
             {nodeInfo && (
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0">
                 <ConfigurationForm
                   nodeInfo={nodeInfo}
                   initialData={initialData}

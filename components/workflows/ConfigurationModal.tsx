@@ -2937,6 +2937,10 @@ function ConfigurationModal({
       hasConfigSchema: !!(nodeInfo?.configSchema),
       configSchemaLength: nodeInfo?.configSchema?.length || 0
     })
+
+    // Wrap entire function in try-catch to ensure loading state is always cleared
+    let taskId = `dynamic-data-${nodeInfo?.type || 'unknown'}`
+    try {
     
     // Special debug for Gmail
     if (nodeInfo?.type === "gmail_action_send_email") {
@@ -2977,14 +2981,14 @@ function ConfigurationModal({
       });
     }
     
-    if (!nodeInfo || !nodeInfo.providerId) {
-      fetchingDynamicData.current = false
-      return
-    }
+      if (!nodeInfo || !nodeInfo.providerId) {
+        fetchingDynamicData.current = false
+        return
+      }
 
-    fetchingDynamicData.current = true
+      fetchingDynamicData.current = true
 
-    const integration = getIntegrationByProvider(nodeInfo.providerId)
+      const integration = getIntegrationByProvider(nodeInfo.providerId)
     console.log('🔍 Integration found:', integration ? { 
       id: integration.id, 
       provider: integration.provider, 
@@ -3002,32 +3006,32 @@ function ConfigurationModal({
       })
     }
     
-    if (!integration) {
-      console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
-      fetchingDynamicData.current = false
-      return
-    }
+      if (!integration) {
+        console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
+        fetchingDynamicData.current = false
+        return
+      }
 
-    // Check if integration needs reconnection due to missing scopes
-    const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
-    if (scopeCheck.needsReconnection) {
-      console.warn(`Integration needs reconnection: ${scopeCheck.reason}`)
-      setErrors({ integrationError: `This integration needs to be reconnected to access the required permissions. Please reconnect your ${nodeInfo.providerId} integration.` })
-      fetchingDynamicData.current = false
-      return
-    }
+      // Check if integration needs reconnection due to missing scopes
+      const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
+      if (scopeCheck.needsReconnection) {
+        console.warn(`Integration needs reconnection: ${scopeCheck.reason}`)
+        setErrors({ integrationError: `This integration needs to be reconnected to access the required permissions. Please reconnect your ${nodeInfo.providerId} integration.` })
+        fetchingDynamicData.current = false
+        return
+      }
 
-    // Abort any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
+      // Abort any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
 
-    // Create new AbortController for this request
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+      // Create new AbortController for this request
+      const controller = new AbortController()
+      abortControllerRef.current = controller
 
-    const taskId = `dynamic-data-${nodeInfo?.type || 'unknown'}`
-    setLoadingDynamicDebounced(true, taskId)
+      taskId = `dynamic-data-${nodeInfo?.type || 'unknown'}`
+      setLoadingDynamicDebounced(true, taskId)
     let hasData = false
     const newOptions: Record<string, any[]> = {}
 
@@ -3182,7 +3186,14 @@ function ConfigurationModal({
       })
     ]
 
-    const fetchedResults = await Promise.all(fetchPromises)
+    let fetchedResults: any[] = []
+    try {
+      fetchedResults = await Promise.all(fetchPromises)
+    } catch (error) {
+      console.error('❌ Error in fetchDynamicData Promise.all:', error)
+      // Continue with empty results if Promise.all fails
+      fetchedResults = []
+    }
     
     // Combine cached and fetched results
     const allResults = [...Object.values(cachedData), ...fetchedResults]
@@ -3468,8 +3479,14 @@ function ConfigurationModal({
       setLoadingDynamicDebounced(false, taskId)
     }
     
-    // Reset the flag when function completes
-    fetchingDynamicData.current = false
+    } catch (error) {
+      console.error('❌ Unexpected error in fetchDynamicData:', error)
+      // Ensure loading state is cleared even on unexpected errors
+      setLoadingDynamicDebounced(false, taskId)
+    } finally {
+      // Reset the flag when function completes
+      fetchingDynamicData.current = false
+    }
   }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationSpecificData, integrationData, setLoadingDynamicDebounced])
 
   const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
@@ -4079,12 +4096,12 @@ function ConfigurationModal({
     return () => clearTimeout(retryTimeout)
   }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData, retryCount])
 
-  // Emergency fallback to clear stuck loading state for Discord actions
+  // Emergency fallback to clear stuck loading state for all actions
   useEffect(() => {
-    if (nodeInfo?.type === "discord_action_send_message" && loadingDynamic) {
+    if (loadingDynamic) {
       const emergencyTimeout = setTimeout(() => {
         if (loadingDynamic) {
-          console.log('🚨 Emergency clearing stuck loading state for Discord action')
+          console.log('🚨 Emergency clearing stuck loading state - timeout after 30 seconds')
           setLoadingDynamic(false)
           setHasShownLoading(false)
           activeLoadingTasksRef.current.clear()
@@ -4094,12 +4111,19 @@ function ConfigurationModal({
           }
           loadingStateRef.current = false
           loadingStartTimeRef.current = null
+          fetchingDynamicData.current = false
+          
+          // Clear any AbortController
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+          }
         }
-      }, 15000) // 15 seconds emergency timeout
+      }, 30000) // 30 seconds emergency timeout for all integrations
       
       return () => clearTimeout(emergencyTimeout)
     }
-  }, [nodeInfo?.type, loadingDynamic])
+  }, [loadingDynamic])
 
   // Auto-load sheet data when spreadsheet and sheet are selected
   useEffect(() => {

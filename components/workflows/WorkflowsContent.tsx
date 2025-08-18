@@ -414,7 +414,31 @@ export default function WorkflowsContent() {
                             }`}
                             title={
                               workflow.status === "draft" 
-                                ? `Draft: ${!workflow.nodes?.some(n => n.data?.isTrigger) ? 'Missing trigger' : !workflow.nodes?.some(n => !n.data?.isTrigger) ? 'Missing action' : !workflow.connections?.length ? 'Missing connections' : 'Ready to activate'}`
+                                ? (() => {
+                                    const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
+                                    const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger)
+                                    const hasConnections = workflow.connections?.length > 0
+                                    
+                                    // Debug logging for trigger detection
+                                    console.log('🔍 Workflow trigger detection:', {
+                                      workflowId: workflow.id,
+                                      nodes: workflow.nodes?.map(n => ({ 
+                                        id: n.id, 
+                                        type: n.type,
+                                        isTrigger: n.data?.isTrigger,
+                                        title: n.data?.title,
+                                        providerId: n.data?.providerId
+                                      })),
+                                      hasTrigger,
+                                      hasAction,
+                                      hasConnections
+                                    })
+                                    
+                                    if (!hasTrigger) return 'Missing trigger'
+                                    if (!hasAction) return 'Missing action'
+                                    if (!hasConnections) return 'Missing connections'
+                                    return 'Ready to activate'
+                                  })()
                                 : undefined
                             }
                           >
@@ -437,25 +461,31 @@ export default function WorkflowsContent() {
                           </div>
                           
                           {/* Only show issue badges if there are actual problems */}
-                          {workflow.status === "draft" && (
-                            <>
-                              {!workflow.nodes?.some(n => n.data?.isTrigger) && (
-                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                  ⚠️ Missing trigger
-                                </div>
-                              )}
-                              {workflow.nodes?.some(n => n.data?.isTrigger) && !workflow.nodes?.some(n => !n.data?.isTrigger) && (
-                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                  ⚠️ Missing action
-                                </div>
-                              )}
-                              {workflow.nodes?.length > 1 && !workflow.connections?.length && (
-                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                  ⚠️ Missing connections
-                                </div>
-                              )}
-                            </>
-                          )}
+                          {workflow.status === "draft" && (() => {
+                            const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
+                            const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
+                            const hasConnections = workflow.connections?.length > 0
+                            
+                            return (
+                              <>
+                                {!hasTrigger && (
+                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                    ⚠️ Missing trigger
+                                  </div>
+                                )}
+                                {hasTrigger && !hasAction && (
+                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                    ⚠️ Missing action
+                                  </div>
+                                )}
+                                {workflow.nodes?.length > 1 && !hasConnections && (
+                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                    ⚠️ Missing connections
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="text-xs text-slate-500">
