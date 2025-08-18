@@ -858,12 +858,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
-      // Return all integrations that exist (not just "connected" ones)
-      // This includes expired, needs_reauthorization, etc. since they can be reconnected
-      // Include OneNote if it has a valid connected status
+      // Return all integrations that exist and are usable (not just "connected" ones)
+      // This includes connected, expired, needs_reauthorization, etc. since they can be reconnected
+      // Only exclude explicitly disconnected or failed integrations
       const connectedProviders = integrations
-        .filter((i) => i.status !== "disconnected")
+        .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
         .map((i) => i.provider)
+      
+      // Debug logging for connection filter
+      console.log('🔍 getConnectedProviders debug:', {
+        allIntegrations: integrations.map(i => ({ provider: i.provider, status: i.status, disconnected_at: i.disconnected_at })),
+        connectedProviders
+      })
+      
       return connectedProviders
     },
 
