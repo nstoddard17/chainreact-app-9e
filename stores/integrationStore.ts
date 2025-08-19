@@ -866,12 +866,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
         .map((i) => i.provider)
       
-      // Debug logging for connection filter
-      console.log('🔍 getConnectedProviders debug:', {
-        allIntegrations: integrations.map(i => ({ provider: i.provider, status: i.status, disconnected_at: i.disconnected_at })),
-        connectedProviders
-      })
-      
       return connectedProviders
     },
 
@@ -914,17 +908,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         
         // Check if data is already cached (unless force refresh is requested or it's Discord data)
         if (!forceRefresh && !params?.forceRefresh && !isDiscordData && integrationData[cacheKey]) {
-          console.log(`📋 Using cached data for ${cacheKey}`)
           return integrationData[cacheKey]
-        }
-        
-        if (forceRefresh) {
-          console.log(`🔄 Force refresh requested for ${cacheKey}, skipping cache`)
-        }
-        
-        // For Discord data, log that we're fetching fresh data
-        if (isDiscordData) {
-          console.log(`🔄 Fetching fresh Discord data for ${cacheKey} (avoiding cache to prevent deleted messages)`)
         }
       
       setLoading(`data-${providerId}`, true)

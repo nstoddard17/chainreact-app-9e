@@ -50,16 +50,9 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
     if (!nodeType || !providerId) return;
     
-    console.log('🔄 useDynamicOptions.loadOptions called:', { fieldName, nodeType, providerId })
-    
     // Prevent duplicate calls for the same field (unless forcing refresh)
     if (!forceRefresh && loadingFields.current.has(fieldName)) {
-      console.log('⚠️ Skipping duplicate call for:', fieldName)
       return;
-    }
-    
-    if (forceRefresh) {
-      console.log('🔄 Force refresh requested for:', fieldName)
     }
     
     loadingFields.current.add(fieldName);
@@ -124,8 +117,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       // Format the results
       const formattedOptions = formatOptionsForField(fieldName, result);
       
-      console.log('✅ useDynamicOptions loaded data for', fieldName, ':', formattedOptions.length, 'options')
-      
       // Update dynamic options
       setDynamicOptions(prev => ({
         ...prev,
@@ -169,7 +160,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       // Check if this field exists for this node type
       const resourceType = getResourceTypeForField(fieldName, nodeType);
       if (resourceType) {
-        console.log(`🔄 Preloading ${fieldName} (${resourceType}) for ${nodeType}`);
         const promise = loadOptions(fieldName);
         loadingPromises.push(promise);
       }
@@ -178,7 +168,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     // Wait for all preloading to complete for Airtable
     if (providerId === 'airtable' && loadingPromises.length > 0) {
       Promise.all(loadingPromises).finally(() => {
-        console.log('🔄 Airtable preloading completed');
         setIsInitialLoading(false);
       });
     }
@@ -239,8 +228,34 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       workspaceId: "slack_workspaces",
     },
     // Trello fields
+    trello_trigger_new_card: {
+      boardId: "trello_boards",
+      listId: "trello_lists",
+    },
+    trello_trigger_card_updated: {
+      boardId: "trello_boards",
+      listId: "trello_lists",
+    },
+    trello_trigger_card_moved: {
+      boardId: "trello_boards",
+    },
+    trello_trigger_comment_added: {
+      boardId: "trello_boards",
+    },
+    trello_trigger_member_changed: {
+      boardId: "trello_boards",
+    },
     trello_action_create_card: {
       boardId: "trello_boards",
+      listId: "trello_lists",
+      template: "trello-card-templates",
+    },
+    trello_action_create_list: {
+      boardId: "trello_boards",
+    },
+    trello_action_move_card: {
+      boardId: "trello_boards",
+      cardId: "trello_cards",
       listId: "trello_lists",
     },
     // Airtable fields
@@ -258,9 +273,8 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     },
     // Default case for unmapped fields
     default: {
-      boardId: "boards",
       channelId: "channels",
-      folderId: "folders",
+      folderId: "folders", 
       fileId: "files",
       documentId: "documents",
       databaseId: "databases",

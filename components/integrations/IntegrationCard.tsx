@@ -298,7 +298,6 @@ export function IntegrationCard({
                     try {
                       const res = await fetch('/api/integrations/microsoft-onenote/debug');
                       const data = await res.json();
-                      console.log('OneNote Debug:', data);
                       alert(`OneNote status: ${data.exists ? data.integration.status : 'not found'}`);
                     } catch (err) {
                       console.error('Debug error:', err);

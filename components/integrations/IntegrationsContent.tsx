@@ -70,7 +70,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         
         // Only refresh if user was away for more than 5 minutes
         if (timeAway > fiveMinutes) {
-          console.log('User returned after extended absence - refreshing data');
           fetchIntegrations(true);
           fetchMetrics();
         }
@@ -93,12 +92,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [providers.length, initializeProviders])
 
   useEffect(() => {
-    console.log("🔍 IntegrationsContent useEffect", { user: !!user, loading, providersLength: providers.length })
     if (user && providers.length > 0) {
-      console.log("👤 User found and providers initialized, calling fetchIntegrations and fetchMetrics")
       // Add a small delay to ensure the store is properly initialized
       const timer = setTimeout(() => {
-        console.log("⏱️ Timeout elapsed, calling fetchIntegrations from useEffect")
         fetchIntegrations(true) // Force refresh
         fetchMetrics()
       }, 100)
@@ -171,7 +167,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationConnected = (event: Event) => {
       const customEvent = event as CustomEvent
-      console.log('🔄 Integration connected event received, refreshing metrics')
       fetchMetrics()
       toast({
         title: "Integration Connected",
@@ -182,7 +177,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationDisconnected = (event: Event) => {
       const customEvent = event as CustomEvent
-      console.log('🔄 Integration disconnected event received, refreshing metrics')
       fetchMetrics()
       toast({
         title: "Integration Disconnected",
@@ -193,7 +187,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationReconnected = (event: Event) => {
       const customEvent = event as CustomEvent
-      console.log('🔄 Integration reconnected event received, refreshing metrics')
       fetchMetrics()
       toast({
         title: "Integration Reconnected",
@@ -203,7 +196,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
 
     const handleIntegrationsUpdated = () => {
-      console.log('🔄 Integrations updated event received, refreshing metrics')
       fetchMetrics()
     }
 
@@ -223,7 +215,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [user, fetchMetrics, toast])
   
   const handleRefresh = () => {
-    console.log("🔄 Manual refresh requested by user")
     fetchIntegrations(true) // Force refresh
     fetchMetrics()
   }
@@ -330,12 +321,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               return
             }
             
-            console.log("📨 Received OAuth message:", event.data)
-            console.log("📨 Message origin:", event.origin)
-            console.log("📨 Current origin:", window.location.origin)
-            
             if (event.data.type === "oauth-success") {
-              console.log("✅ OAuth success message received, refreshing integrations")
               toast({
                 title: "Integration Connected",
                 description: `${event.data.provider || "Integration"} has been connected successfully.`,
@@ -441,13 +427,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
 
   const providersWithStatus = useMemo(() => {
-    console.log('🔍 ProvidersWithStatus debug:', {
-      providers: providers.length,
-      integrations: integrations.length,
-      firstFewProviders: providers.slice(0, 3).map(p => ({ id: p.id, name: p.name })),
-      firstFewIntegrations: integrations.slice(0, 3).map(i => ({ provider: i.provider, status: i.status }))
-    })
-
     const result = providers.map((provider) => {
       const integration = integrations.find((i) => i.provider === provider.id)
       const config = INTEGRATION_CONFIGS[provider.id] || {}
@@ -482,22 +461,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       }
     })
 
-    console.log('🔍 ProvidersWithStatus result:', {
-      total: result.length,
-      firstFew: result.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
-    })
-
     return result
   }, [providers, integrations])
 
   const filteredProviders = useMemo(() => {
-    console.log('🔍 Filtering debug:', {
-      providersWithStatus: providersWithStatus.length,
-      activeFilter,
-      searchQuery,
-      firstFewProviders: providersWithStatus.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
-    })
-
     const filtered = providersWithStatus
       .filter((p) => {
         // Exclude AI Agent, Logic, and Control integrations
@@ -511,23 +478,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         return true
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-    
-    console.log('🔍 After filtering:', {
-      filtered: filtered.length,
-      activeFilter,
-      firstFewFiltered: filtered.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
-    })
-
-    // Debug log to help diagnose the discrepancy
-    if (activeFilter === "expiring") {
-      console.log(`Expiring filter active: ${filtered.length} items shown, metrics reports ${metrics.expiring}`)
-      console.log("Expiring items:", filtered.map(p => ({
-        name: p.name,
-        expires_at: p.integration?.expires_at,
-        timeLeft: p.integration?.expires_at ? 
-          new Date(p.integration.expires_at).getTime() - new Date().getTime() : 'N/A'
-      })))
-    }
     
     return filtered
   }, [providersWithStatus, activeFilter, searchQuery, metrics.expiring])
@@ -592,7 +542,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 }}
                 onReconnect={() => {
                   if (p.integration) {
-                    console.log("🔄 Calling reconnectIntegration for:", p.integration.id)
                     reconnectIntegration(p.integration.id)
                   } else {
                     console.warn("⚠️ No integration found for reconnect")

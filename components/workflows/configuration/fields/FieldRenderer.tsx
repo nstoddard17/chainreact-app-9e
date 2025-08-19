@@ -81,24 +81,10 @@ export function FieldRenderer({
     (field.dynamic && dynamicOptions?.[field.name]) || 
     [];
 
-  // Debug logging for Discord guildId field
-  if (field.name === 'guildId' && field.dynamic) {
-    console.log('🔍 FieldRenderer for guildId:', {
-      fieldName: field.name,
-      fieldType: field.type,
-      isDynamic: field.dynamic,
-      fieldOptions: field.options,
-      dynamicOptions: JSON.stringify(dynamicOptions?.[field.name]),
-      finalFieldOptions: JSON.stringify(fieldOptions),
-      currentValue: value,
-      loadingDynamic
-    });
-  }
 
   // Effect to trigger dynamic loading for email autocomplete fields
   useEffect(() => {
     if (field.type === 'email-autocomplete' && field.dynamic && fieldOptions.length === 0 && onDynamicLoad && !loadingDynamic) {
-      console.log(`📧 [FIELD] Triggering dynamic load for ${field.name}`);
       onDynamicLoad(field.name);
     }
   }, [field.type, field.dynamic, field.name, fieldOptions.length, onDynamicLoad, loadingDynamic]);
@@ -156,7 +142,6 @@ export function FieldRenderer({
 
   // Handles select field changes
   const handleSelectChange = (newValue: string) => {
-    console.log('🔍 handleSelectChange called:', { fieldName: field.name, newValue, currentValue: value });
     // Ensure we're passing a properly formatted value
     onChange(newValue === "" ? null : newValue);
   };
@@ -219,12 +204,6 @@ export function FieldRenderer({
         );
 
       case "email-autocomplete":
-        console.log(`📧 [FIELD] Rendering email-autocomplete for ${field.name}`, {
-          fieldOptions: fieldOptions?.length || 0,
-          dynamicOptions: dynamicOptions?.[field.name]?.length || 0,
-          loadingDynamic
-        });
-        
         return (
           <EmailAutocomplete
             value={value || ""}
@@ -302,14 +281,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
         
-        // Debug Discord server selection specifically
-        if (field.name === 'guildId') {
-          console.log('🔍 Rendering Discord server dropdown with options:', JSON.stringify(selectOptions));
-        }
-        
         // Force load options if they're empty (especially for Discord servers)
         if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'guildId' && !loadingDynamic) {
-          console.log('🔍 No options available for guildId, triggering load...');
           // Use setTimeout to avoid potential render issues
           setTimeout(() => {
             onDynamicLoad(field.name);
@@ -318,7 +291,6 @@ export function FieldRenderer({
         
         // Force load options for Gmail labels
         if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'labelIds' && !loadingDynamic) {
-          console.log('🔍 No Gmail labels available, triggering load...');
           setTimeout(() => {
             onDynamicLoad(field.name);
           }, 100);
@@ -350,7 +322,6 @@ export function FieldRenderer({
                 size="sm"
                 className="mt-3"
                 onClick={() => {
-                  console.log('🔍 Manually triggering Discord guilds load');
                   if (onDynamicLoad) {
                     // Single call is enough, we've added rate limiting in useDynamicOptions
                     onDynamicLoad(field.name);
@@ -419,7 +390,6 @@ export function FieldRenderer({
                 onOpenChange={(open) => {
                   // Trigger dynamic loading when opened
                   if (open && field.dynamic && onDynamicLoad && !loadingDynamic && selectOptions.length === 0) {
-                    console.log('🔍 Multi-select dropdown opened, loading dynamic options for:', field.name);
                     onDynamicLoad(field.name);
                   }
                 }}
@@ -433,7 +403,6 @@ export function FieldRenderer({
                   existingLabels={selectOptions}
                   onLabelsChange={() => {
                     // Force refresh the labels when they change (bypass cache)
-                    console.log('🔄 GmailLabelManager onLabelsChange called, force refreshing:', field.name)
                     if (onDynamicLoad) {
                       // Force refresh to bypass cache and get fresh data
                       onDynamicLoad(field.name, undefined, undefined, true);
@@ -454,10 +423,8 @@ export function FieldRenderer({
               if (open && field.dynamic && onDynamicLoad && !loadingDynamic) {
                 // For Discord, only try to load if we have no options
                 if (field.name === 'guildId' && fieldOptions.length === 0) {
-                  console.log('🔍 Discord server dropdown opened with no options, loading data');
                   onDynamicLoad(field.name);
                 } else if (field.name !== 'guildId' && selectOptions.length === 0) {
-                  console.log('🔍 Dropdown opened, loading dynamic options for:', field.name);
                   onDynamicLoad(field.name);
                 }
               }
