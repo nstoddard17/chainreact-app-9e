@@ -34,13 +34,22 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set())
   const [creatingLabel, setCreatingLabel] = useState(false)
   const [deletingLabels, setDeletingLabels] = useState<Set<string>>(new Set())
+  const [lastLocalChange, setLastLocalChange] = useState<number>(0)
   
   const { toast } = useToast()
   const { getIntegrationByProvider } = useIntegrationStore()
 
   // Load Gmail labels from existing data when modal opens or existingLabels change
   useEffect(() => {
+    const timeSinceLastChange = Date.now() - lastLocalChange
+    
+    
     if (existingLabels.length > 0) {
+      // If we made recent local changes, don't overwrite to prevent race conditions
+      if (timeSinceLastChange < 3000) { // 3 second protection window
+        return
+      }
+      
       // Convert existing labels to our format
       const formattedLabels: GmailLabel[] = existingLabels.map((label: any) => {
         // Determine if it's a system label based on common system label names
@@ -54,9 +63,10 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         }
       })
       
+      
       setLabels(formattedLabels)
     }
-  }, [existingLabels])
+  }, [existingLabels, lastLocalChange])
 
 
   const createLabel = async () => {
@@ -99,7 +109,10 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         type: 'user'
       }
       
+      
       setLabels(prev => [...prev, newLabel])
+      
+      setLastLocalChange(Date.now())
       
       // Notify parent that labels changed - this will refresh the dropdown
       onLabelsChange?.()
@@ -178,7 +191,11 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         })
 
         // Remove the deleted labels directly from our local state (no API call needed)
+        const deletedNames = successful.map(id => labels.find(l => l.id === id)?.name || id)
+        
         setLabels(prev => prev.filter(label => !successful.includes(label.id)))
+        
+        setLastLocalChange(Date.now())
         
         // Notify parent that labels changed - this will refresh the dropdown
         onLabelsChange?.()
@@ -222,9 +239,15 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open)
-      // When modal is closed, ensure parent dropdown gets refreshed with latest data
-      if (!open) {
-        onLabelsChange?.()
+      if (open) {
+        // When modal opens, reset the protection window to allow fresh sync
+        setLastLocalChange(0)
+      } else {
+        // When modal is closed, ensure parent dropdown gets refreshed with latest data
+        // Add a small delay to ensure Gmail API has processed any recent changes
+        setTimeout(() => {
+          onLabelsChange?.()
+        }, 1000) // 1 second delay to allow Gmail API processing
       }
     }}>
       <DialogTrigger asChild>

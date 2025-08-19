@@ -41,7 +41,6 @@ async function getSecureUserAndSession() {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.id) {
     // Try to refresh the session
-    console.log("🔄 Attempting to refresh session...")
     const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
     
     if (refreshError || !session) {
@@ -54,8 +53,6 @@ async function getSecureUserAndSession() {
     if (refreshedUserError || !refreshedUser?.id) {
       throw new Error("Session refresh failed. Please log in again.")
     }
-    
-    console.log("✅ Session refreshed successfully")
     return { user: refreshedUser, session }
   }
 
@@ -63,14 +60,11 @@ async function getSecureUserAndSession() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) {
     // Try to refresh the session if no access token
-    console.log("🔄 No access token found, attempting to refresh session...")
     const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
     
     if (refreshError || !refreshedSession?.access_token) {
       throw new Error("Session expired. Please log in again.")
     }
-    
-    console.log("✅ Session refreshed successfully")
     return { user, session: refreshedSession }
   }
 
@@ -205,14 +199,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     initializeProviders: async () => {
       const { loading } = get()
-      console.log("🚀 initializeProviders called", { loading })
       if (loading) {
-        console.log("⏸️ Skipping initializeProviders - already loading")
         return
       }
 
       try {
-        console.log("🔄 Starting initializeProviders API call")
         set({ loading: true, error: null })
 
         // Use direct fetch instead of apiClient for this public endpoint
@@ -223,12 +214,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         const responseData = await fetchResponse.json()
-        console.log("📡 Direct API response received:", { 
-          success: responseData.success, 
-          dataType: typeof responseData.data,
-          hasDataIntegrations: !!responseData.data?.integrations,
-          integrationsCount: responseData.data?.integrations?.length || 0
-        })
 
         if (!responseData.success) {
           throw new Error(responseData.error || "Failed to fetch available integrations")
@@ -237,21 +222,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Parse the providers from the API response structure
         const providers = responseData.data?.integrations || []
 
-        console.log("🔧 InitializeProviders debug:", {
-          responseSuccess: responseData.success,
-          responseDataType: typeof responseData.data,
-          isArray: Array.isArray(responseData.data),
-          hasDataIntegrations: !!responseData.data?.integrations,
-          providersCount: providers.length,
-          firstProvider: providers[0]?.id
-        })
 
         set({
           providers,
           loading: false,
         })
 
-        console.log("✅ Providers initialized:", providers.length)
       } catch (error: any) {
         console.error("Failed to initialize providers:", error)
         set({
@@ -264,14 +240,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     fetchIntegrations: async (force = false) => {
       const { loading, currentUserId } = get()
-      console.log("🔄 fetchIntegrations called", { loading, force, currentUserId })
-      
       if (loading && !force) {
-        console.log("⏸️ Skipping fetch - already loading and not forced")
         return
       }
-
-      console.log("🚀 Starting fetchIntegrations")
       set({ loading: true, error: null })
 
       let timeoutId: NodeJS.Timeout | null = null
@@ -281,10 +252,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         // If currentUserId is not set, set it now
         if (!currentUserId) {
-          console.log(`🔄 Setting current user ID from session`)
           set({ currentUserId: user.id })
         } else if (user?.id !== currentUserId) {
-          console.log(`⚠️ User ID mismatch, clearing data`)
           set({
             integrations: [],
             loading: false,
@@ -296,7 +265,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Cancel any ongoing request
         if (currentAbortController) {
           try {
-            console.log("Aborting previous integrations request")
             currentAbortController.abort('New request started')
           } catch (error) {
             console.warn('Failed to abort previous request:', error)
@@ -338,19 +306,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         const integrations = Array.isArray(data.data) ? data.data : data.integrations || []
-        console.log("✅ fetchIntegrations completed", { count: integrations.length, integrations: integrations.map((i: any) => ({ provider: i.provider, status: i.status })) })
-        
-        // Check specifically for OneNote integration
-        const oneNoteIntegration = integrations.find((i: any) => i.provider === "microsoft-onenote")
-        if (oneNoteIntegration) {
-          console.log("🔍 OneNote integration found:", { 
-            id: oneNoteIntegration.id,
-            status: oneNoteIntegration.status,
-            updated_at: oneNoteIntegration.updated_at
-          })
-        } else {
-          console.log("⚠️ No OneNote integration found in response")
-        }
         
         set({
           integrations,
@@ -371,7 +326,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Silently ignore AbortError since it's an expected behavior
         // when multiple requests are made in quick succession
         if (error.name === "AbortError") {
-          console.log("Fetch integrations request was aborted:", error.message)
           // Don't update error state for aborted requests
           set({ loading: false })
           return
@@ -400,8 +354,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         return
       }
 
-      console.log(`🔗 Starting connection process for ${providerId}`)
-
       if (!provider.isAvailable) {
         throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
       }
@@ -410,7 +362,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        console.log(`🔗 Connecting to ${providerId}...`)
 
         // Enhanced error handling for authentication
         let user, session
@@ -425,7 +376,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           return
         }
 
-        console.log(`✅ User authenticated for ${providerId}:`, user.id)
 
         const response = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
@@ -456,22 +406,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
-          console.log(`🔍 About to open ${providerId} popup with URL:`, data.authUrl.substring(0, 100) + '...')
-          
           // Close any existing popup before opening a new one
           const hadExistingPopup = !!currentOAuthPopup
           closeExistingPopup()
           
-          if (hadExistingPopup) {
-            console.log(`🔄 Closed existing popup before opening ${providerId}`)
-          }
-          
           // Add timestamp to make popup name unique each time
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popupFeatures = "width=600,height=700,scrollbars=yes,resizable=yes"
-            
-          console.log(`🔍 Opening ${providerId} popup with name: ${popupName}`)
-          console.log(`🔍 Popup features: ${popupFeatures}`)
           
           // Check if document has focus (required for popup opening)
           if (!document.hasFocus()) {
@@ -480,14 +421,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           let popup = window.open(data.authUrl, popupName, popupFeatures)
           
-          console.log(`🔍 window.open returned:`, popup ? 'valid popup window' : 'null/undefined')
-          
           // Retry popup opening if it failed (sometimes helps with timing issues)
           if (!popup) {
             console.warn(`⚠️ First popup attempt failed for ${providerId}, retrying...`)
             await new Promise(resolve => setTimeout(resolve, 100)) // Brief delay
             popup = window.open(data.authUrl, popupName + '_retry', popupFeatures)
-            console.log(`🔍 Retry window.open returned:`, popup ? 'valid popup window' : 'null/undefined')
           }
           
           if (!popup) {
@@ -506,7 +444,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Update global popup reference
           currentOAuthPopup = popup
 
-          console.log(`✅ OAuth popup opened for ${providerId}`)
 
           let closedByMessage = false
           
@@ -516,11 +453,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const messageHandler = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return
 
-            console.log(`📨 Received OAuth message for ${providerId}:`, event.data)
-
             if (event.data && event.data.type === "oauth-success") {
-              console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
-              console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
               clearInterval(popupCheckTimer)
               clearInterval(storageCheckTimer)
@@ -537,14 +470,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setLoading(`connect-${providerId}`, false)
               
               // Force refresh integrations with a small delay to ensure the backend has time to update
-              console.log("⏱️ Setting timeout to refresh integrations after OAuth success")
               setTimeout(() => {
-                console.log("⏱️ Timeout elapsed, fetching integrations after OAuth success")
                 fetchIntegrations(true) // Force refresh from server
                 emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
               }, 1000) // Increased delay to 1 second
             } else if (event.data && event.data.type === "oauth-info") {
-              console.log(`ℹ️ OAuth info for ${providerId}:`, event.data.message)
               closedByMessage = true
               clearInterval(popupCheckTimer)
               clearInterval(storageCheckTimer)
@@ -555,8 +485,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setLoading(`connect-${providerId}`, false)
               
               // Don't set error for info messages (like permission issues)
-              // Just log the information without treating it as an error
-              console.log(`📋 ${provider.name} connection info: ${event.data.message}`)
             } else if (event.data && event.data.type === "oauth-error") {
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)
@@ -570,7 +498,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             } else if (event.data && event.data.type === "oauth-cancelled") {
-              console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
               clearInterval(popupCheckTimer)
               clearInterval(storageCheckTimer)
@@ -590,7 +517,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
             try {
               // Try to check if popup is closed (may fail due to COOP)
               if (popup && popup.closed && !closedByMessage) {
-                console.log(`🚫 Popup was manually closed for ${providerId}`)
                 popupClosedManually = true
                 clearInterval(popupCheckTimer)
                 clearInterval(storageCheckTimer)
@@ -600,7 +526,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 currentOAuthPopup = null
                 setLoading(`connect-${providerId}`, false)
                 // Don't set error for manual close - user intentionally cancelled
-                console.log(`User manually cancelled ${provider.name} connection`)
               }
             } catch (error) {
               // COOP policy may block popup.closed access - this is expected
@@ -610,23 +535,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           // Use localStorage to check for OAuth responses (COOP-safe)
           const storageCheckPrefix = `oauth_response_${providerId}`;
-          console.log(`🔍 Starting localStorage polling for ${providerId} with prefix: ${storageCheckPrefix}`);
           const storageCheckTimer = setInterval(() => {
             // Skip if popup was manually closed
             if (popupClosedManually) return
             
             try {
               // Check localStorage for any keys that match our prefix
-              const allKeys = [];
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key) allKeys.push(key);
-              }
-              // Log all keys occasionally for debugging
-              if (Math.random() < 0.01) { // 1% chance to avoid spam
-                console.log(`🔍 All localStorage keys:`, allKeys);
-                console.log(`🔍 Looking for keys starting with: ${storageCheckPrefix}`);
-              }
               
               for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -636,11 +550,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
                     const storedData = localStorage.getItem(key);
                     if (storedData) {
                       const responseData = JSON.parse(storedData);
-                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
                       
                       // Process the response
                       if (responseData.type === 'oauth-success') {
-                        console.log(`✅ OAuth successful for ${providerId} via localStorage`);
                         closedByMessage = true;
                         clearInterval(popupCheckTimer);
                         clearInterval(storageCheckTimer);
@@ -667,7 +579,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         currentOAuthPopup = null;
                         setLoading(`connect-${providerId}`, false);
                       } else if (responseData.type === 'oauth-cancelled') {
-                        console.log(`🚫 OAuth cancelled for ${providerId} via localStorage`);
                         closedByMessage = true;
                         clearInterval(popupCheckTimer);
                         clearInterval(storageCheckTimer);
@@ -697,7 +608,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Add timeout for initial connection (5 minutes, same as reconnection)
           connectionTimeout = setTimeout(() => {
             if (!closedByMessage && !popupClosedManually) {
-              console.log(`⏰ OAuth connection timed out for ${providerId}`)
               clearInterval(popupCheckTimer)
               clearInterval(storageCheckTimer)
               try {
@@ -881,7 +791,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Prefetch Discord guilds if user has Discord connected
           loadDiscordGuildsOnce().catch(error => {
             // Silently fail if Discord is not connected - this is expected
-            console.log('Discord guilds prefetch skipped:', error.message)
           })
         ])
       } catch (error) {
@@ -1323,7 +1232,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name
 
-        console.log(`🔍 Provider mapping result: providerId="${providerId}" -> provider="${provider}"`)
 
         const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
           ? { integrationId } 
@@ -1333,9 +1241,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               options: params || {}
             }
 
-        // console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}`)
-        // console.log(`🔍 Provider mapping debug: providerId="${providerId}", includes('_')=${providerId.includes('_')}, includes('-')=${providerId.includes('-')}`)
-        // console.log(`🔍 Request body:`, requestBody)
 
         // Use GET for specific endpoints that don't need POST data
         let response
@@ -1347,8 +1252,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
             ...params 
           })
         }
-        
-        // console.log(`🔍 Integration Store: API Response for ${providerId}:`, response)
         
         // Handle the structured response from apiClient
         if (!response.success) {
@@ -1406,17 +1309,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Remove all Discord-related cached data
       Object.keys(newIntegrationData).forEach(key => {
         if (key.includes('discord')) {
-          console.log(`🗑️ Clearing Discord cache for: ${key}`)
           delete newIntegrationData[key]
         }
       })
       
       set({ integrationData: newIntegrationData })
-      console.log('✅ Discord cache cleared')
     },
 
     reconnectIntegration: async (integrationId: string) => {
-      console.log("🔄 reconnectIntegration called with:", integrationId)
       const { setLoading, fetchIntegrations, integrations, setError } = get()
       const integration = integrations.find((i) => i.id === integrationId)
       
@@ -1424,8 +1324,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         console.error("❌ Integration not found for ID:", integrationId)
         return
       }
-
-      console.log("✅ Found integration:", integration.provider)
       setLoading(`reconnect-${integrationId}`, true)
       setError(null)
 
@@ -1434,18 +1332,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         // Ensure provider is valid and properly formatted
         const provider = integration.provider.trim().toLowerCase()
-        console.log(`🔍 Reconnecting provider: "${provider}" (ID: ${integrationId})`)
-        
-        // Extra validation for Google Calendar to prevent confusion with Microsoft Outlook
-        if (provider === 'google-calendar') {
-          console.log('⚠️ Special handling for Google Calendar reconnection')
-          console.log('🔵 Provider being reconnected:', provider)
-          console.log('🔵 Integration ID:', integrationId)
-          console.log('🔵 Integration provider:', integration.provider)
-        }
         
         // Generate OAuth URL for reconnection
-        console.log("🔄 Generating OAuth URL for reconnection...")
         const authResponse = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
           headers: {
@@ -1472,8 +1360,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           throw new Error("Failed to generate OAuth URL for reconnection")
         }
 
-        console.log("✅ OAuth URL generated, opening popup...")
-        console.log("🔗 Auth URL:", authData.authUrl)
         
         // Verify the URL is for the correct provider
         const urlProvider = provider.toLowerCase()
@@ -1526,11 +1412,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
               return
             }
             
-            console.log("📨 Received OAuth message:", event.data)
             messageReceived = true
             
             if (event.data.type === "oauth-success") {
-              console.log("✅ OAuth reconnection successful")
               try {
                 popup.close()
               } catch (e) {
@@ -1553,7 +1437,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               currentOAuthPopup = null
               reject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
-              console.log("🚫 OAuth reconnection cancelled")
               try {
                 popup.close()
               } catch (e) {
@@ -1574,7 +1457,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
             try {
               // Try to check if popup is closed (may fail due to COOP)
               if (popup && popup.closed && !messageReceived) {
-                console.log(`🚫 Reconnection popup was manually closed for ${integration.provider}`)
                 popupClosedManually = true
                 clearInterval(popupCloseCheckTimer)
                 clearInterval(checkPopupClosed)
@@ -1606,11 +1488,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
                     const storedData = localStorage.getItem(key);
                     if (storedData) {
                       const responseData = JSON.parse(storedData);
-                      console.log(`📦 Found OAuth response in localStorage: ${key}`, responseData);
                       
                       // Process the response
                       if (responseData.type === 'oauth-success') {
-                        console.log(`✅ OAuth reconnection successful via localStorage`);
                         messageReceived = true;
                         clearInterval(popupCloseCheckTimer);
                         clearInterval(checkPopupClosed);
@@ -1630,7 +1510,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
                         currentOAuthPopup = null;
                         reject(new Error(responseData.message || "OAuth reconnection failed"));
                       } else if (responseData.type === 'oauth-cancelled') {
-                        console.log(`🚫 OAuth reconnection cancelled via localStorage`);
                         messageReceived = true;
                         clearInterval(popupCloseCheckTimer);
                         clearInterval(checkPopupClosed);
@@ -1659,7 +1538,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Timeout after 5 minutes
           const timeout = setTimeout(() => {
             if (!messageReceived && !popupClosedManually) {
-              console.log("⏰ OAuth reconnection timed out")
               clearInterval(popupCloseCheckTimer)
               clearInterval(checkPopupClosed)
               try {
@@ -1702,11 +1580,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
               return
             }
             
-            console.log("📨 Received OAuth message:", event.data)
             messageReceived = true
             
             if (event.data.type === "oauth-success") {
-              console.log("✅ OAuth reconnection successful")
               try {
                 popup.close()
               } catch (e) {
@@ -1730,7 +1606,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               currentOAuthPopup = null
               wrappedReject(new Error(event.data.message || "OAuth reconnection failed"))
             } else if (event.data.type === "oauth-cancelled") {
-              console.log("🚫 OAuth reconnection cancelled")
               try {
                 popup.close()
               } catch (e) {
@@ -1751,7 +1626,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         setError(error.message)
         throw error
       } finally {
-        console.log("🏁 Reconnection process finished")
         setLoading(`reconnect-${integrationId}`, false)
       }
     },
@@ -1801,7 +1675,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
 
       const grantedScopes = integration.scopes || []
-      console.log(`🔍 Checking scopes for ${providerId}:`, grantedScopes)
       
       // Check for Google Docs specific scope requirements
       if (providerId === "google-docs") {
@@ -1951,7 +1824,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
       }
       
-      console.log(`✅ All required scopes present for ${providerId}`)
       return { needsReconnection: false, reason: "All required scopes present" }
     },
   })
