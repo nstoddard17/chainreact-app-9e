@@ -133,6 +133,17 @@ The `/learning` directory serves as the single source of truth for:
 ### Testing
 Tests should be written using Jest and React Testing Library when implementing new features. Check existing test patterns in the codebase before writing new tests.
 
+## Documentation Requirements
+
+When implementing significant features, fixes, or architectural changes, ALWAYS update the `/learning` directory with:
+- Implementation walkthroughs for complex fixes in `/learning/walkthroughs/`
+- Architecture documentation in `/learning/docs/`
+- Update changelog in `/learning/logs/CHANGELOG.md`
+- Update social media summary in `/learning/logs/socialMedia.md` (add new posts at the top with proper dates)
+- Component templates in `/learning/templates/` if creating reusable patterns
+
+This ensures knowledge is captured for future development work and team collaboration.
+
 ## Integration Development
 
 When adding new integrations:

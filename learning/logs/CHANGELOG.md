@@ -1,5 +1,33 @@
 # Learning Folder Changelog
 
+## [2025-08-19] – Gmail Label Management System with Cache Bypass
+
+- **Gmail Label Management Modal**: Implemented comprehensive in-app label creation and deletion
+- **Force Refresh Mechanism**: Added cache bypass system for real-time data synchronization  
+- **Local State Optimization**: Eliminated unnecessary API calls by updating local state directly
+- **Error Handling**: Robust error handling that prevents page refreshes
+- **UI Synchronization**: Ensured modal and dropdown stay perfectly synchronized
+
+### Key Features:
+- **In-App Label Management**: Create and delete Gmail labels without leaving the application
+- **Real-time Updates**: Immediate UI feedback with local state management
+- **Cache Bypass**: Force refresh mechanism ensures parent components get fresh data
+- **Optimistic Updates**: Update UI immediately using API response data
+- **Error Resilience**: Graceful handling of API failures and edge cases
+
+### Technical Implementation:
+- **Force Refresh Chain**: Added `forceRefresh` parameter through entire data loading pipeline
+- **Cache Management**: Enhanced integration store to bypass cache when needed
+- **Local State Sync**: Direct state manipulation for immediate user feedback
+- **Parent-Child Communication**: Proper notification system between modal and dropdown
+
+### Files Modified:
+- `components/workflows/configuration/fields/GmailLabelManager.tsx`
+- `components/workflows/configuration/fields/FieldRenderer.tsx`  
+- `components/workflows/configuration/hooks/useDynamicOptions.ts`
+- `stores/integrationStore.ts`
+- `app/api/gmail/labels/route.ts`
+
 ## [2024-12-19] – Enhanced Gmail Email Autocomplete with Contacts Integration
 
 - **Enhanced Gmail API Integration**: Added People API support to fetch actual Gmail contacts
