@@ -200,13 +200,17 @@ export default function WorkflowBuilder() {
   }, [setSelectedNode])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
+    if (event.preventDefault) {
+      event.preventDefault()
+    }
     event.dataTransfer.dropEffect = "move"
   }, [])
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
-      event.preventDefault()
+      if (event.preventDefault) {
+        event.preventDefault()
+      }
 
       const nodeType = event.dataTransfer.getData("application/reactflow")
       const nodeData = JSON.parse(event.dataTransfer.getData("application/nodedata"))

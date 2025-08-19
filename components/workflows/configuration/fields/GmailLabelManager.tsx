@@ -54,7 +54,6 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         }
       })
       
-      console.log('✅ Labels updated from parent:', formattedLabels)
       setLabels(formattedLabels)
     }
   }, [existingLabels])
@@ -100,11 +99,9 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         type: 'user'
       }
       
-      console.log('✅ Adding new label to local state:', newLabel.name)
       setLabels(prev => [...prev, newLabel])
       
       // Notify parent that labels changed - this will refresh the dropdown
-      console.log('🔄 Calling onLabelsChange after creating label:', data.name)
       onLabelsChange?.()
       
     } catch (error) {
@@ -123,22 +120,15 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
     if (selectedLabels.size === 0) return
 
     const labelsToDelete = Array.from(selectedLabels)
-    console.log('🗑️ Starting deletion process for labels:', labelsToDelete.map(id => labels.find(l => l.id === id)?.name || id))
-    
     setDeletingLabels(new Set(labelsToDelete))
     
     try {
       const integration = getIntegrationByProvider('gmail')
       if (!integration) throw new Error('No Gmail integration found')
 
-      console.log('🔑 Found Gmail integration:', integration.id)
-
       // Delete labels one by one
-      console.log('🗑️ Sending delete requests to Gmail API...')
       const results = await Promise.allSettled(
         labelsToDelete.map(async (labelId) => {
-          console.log(`🗑️ Deleting label ${labelId}...`)
-          
           const response = await fetch('/api/gmail/labels', {
             method: 'DELETE',
             headers: {
@@ -153,16 +143,14 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
           if (!response.ok) {
             // If it's a 404, the label might already be deleted - treat as success
             if (response.status === 404) {
-              console.log(`✅ Label ${labelId} already deleted or not found - treating as success`)
               return labelId
             }
             
             const errorData = await response.json()
-            console.error(`❌ Failed to delete label ${labelId}:`, errorData)
+            console.error(`Failed to delete label ${labelId}:`, errorData)
             throw new Error(errorData.error || `Failed to delete label ${labelId}`)
           }
 
-          console.log(`✅ Successfully deleted label ${labelId}`)
           return labelId
         })
       )
@@ -171,25 +159,17 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
       const successful: string[] = []
       const failed: string[] = []
 
-      console.log('📊 Processing deletion results...')
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           successful.push(labelsToDelete[index])
-          console.log(`✅ Deletion successful for: ${labelsToDelete[index]}`)
         } else {
           failed.push(labelsToDelete[index])
-          console.error(`❌ Deletion failed for ${labelsToDelete[index]}:`, result.reason)
+          console.error(`Deletion failed for ${labelsToDelete[index]}:`, result.reason)
         }
       })
 
-      console.log('📊 Deletion summary:', { successful: successful.length, failed: failed.length })
-
       // Remove successfully deleted labels from the list
       if (successful.length > 0) {
-        console.log('🔄 Updating local state - removing deleted labels from UI')
-        const successfulNames = successful.map(id => labels.find(l => l.id === id)?.name || id)
-        console.log('🗑️ Labels successfully deleted:', successfulNames)
-        
         setSelectedLabels(new Set())
         
         toast({
@@ -198,20 +178,9 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
         })
 
         // Remove the deleted labels directly from our local state (no API call needed)
-        console.log('✅ Removing deleted labels from local state:', successfulNames)
-        console.log('🔍 Current labels before deletion:', labels.map(l => l.name))
-        console.log('🔍 Successful label IDs to remove:', successful)
-        console.log('🔍 Labels state before update:', labels.length, 'labels')
-        
-        setLabels(prev => {
-          const filtered = prev.filter(label => !successful.includes(label.id))
-          console.log('🔍 Labels after filtering:', filtered.length, 'labels remain')
-          console.log('🔍 Remaining label names:', filtered.map(l => l.name))
-          return filtered
-        })
+        setLabels(prev => prev.filter(label => !successful.includes(label.id)))
         
         // Notify parent that labels changed - this will refresh the dropdown
-        console.log('🔄 Calling onLabelsChange after deleting labels:', successfulNames)
         onLabelsChange?.()
       }
 
@@ -255,7 +224,6 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
       setIsOpen(open)
       // When modal is closed, ensure parent dropdown gets refreshed with latest data
       if (!open) {
-        console.log('🔄 Modal closed, notifying parent to refresh dropdown')
         onLabelsChange?.()
       }
     }}>
@@ -290,7 +258,9 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
                 placeholder="Enter label name..."
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    e.preventDefault()
+                    if (e.preventDefault) {
+                      e.preventDefault()
+                    }
                     createLabel()
                   }
                 }}
@@ -381,7 +351,6 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
 
         <DialogFooter className="flex-shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => {
-            console.log('🔄 Close button clicked, refreshing parent dropdown')
             setIsOpen(false)
             onLabelsChange?.()
           }}>

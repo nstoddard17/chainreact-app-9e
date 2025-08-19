@@ -206,12 +206,6 @@ const useWorkflowBuilderState = () => {
     // Debug: Check some integrations that should have triggers
     const gmailIntegration = integrations.find(int => int.id === 'gmail')
     if (gmailIntegration) {
-      console.log('Gmail Integration found:', { 
-        id: gmailIntegration.id, 
-        name: gmailIntegration.name, 
-        triggersCount: gmailIntegration.triggers.length,
-        triggers: gmailIntegration.triggers.map(t => ({ type: t.type, title: t.title }))
-      })
     }
     
     return integrations
@@ -284,16 +278,6 @@ const useWorkflowBuilderState = () => {
     const connectedProviders = getConnectedProviders();
     const isConnected = connectedProviders.includes(integrationId);
     
-    // Enhanced logging to debug connection issues
-    if (!isConnected && integrationId !== 'logic' && integrationId !== 'ai') {
-      console.log('🔍 Integration connection debug:', { 
-        integrationId, 
-        connectedProviders, 
-        isConnected,
-        allIntegrations: integrations?.map(i => ({ provider: i.provider, status: i.status })) || []
-      });
-    }
-    
     return isConnected;
   }, [integrations, getConnectedProviders])
 
@@ -313,7 +297,6 @@ const useWorkflowBuilderState = () => {
     // Clear all configuration preferences when changing trigger
     const clearAllPreferences = async () => {
       try {
-        console.log(`🗑️ Clearing all preferences due to trigger change`)
         
         // Clear all preferences for this user
         const response = await fetch(`/api/user/config-preferences`, {
@@ -321,7 +304,6 @@ const useWorkflowBuilderState = () => {
         })
         
         if (response.ok) {
-          console.log(`✅ Successfully cleared all preferences`)
         } else {
           console.warn(`⚠️ Failed to clear all preferences:`, response.status)
         }
@@ -352,13 +334,11 @@ const useWorkflowBuilderState = () => {
   }, [getNodes])
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
-    console.log('🔍 handleAddActionClick called:', { nodeId, parentId })
     setSourceAddNode({ id: nodeId, parentId })
     setSelectedIntegration(null)
     setSelectedAction(null)
     setSearchQuery("")
     setShowActionDialog(true)
-    console.log('✅ Action dialog opened, sourceAddNode set')
   }, [])
 
   const handleActionDialogClose = useCallback((open: boolean) => {
@@ -443,7 +423,6 @@ const useWorkflowBuilderState = () => {
         const nodeId = nodeToRemove.id
         
         if (nodeType && providerId) {
-          console.log(`🗑️ Clearing preferences for deleted node: ${nodeType} (${providerId}) - Node ID: ${nodeId}`)
           
           // Since we can't easily identify which preferences belong to which node,
           // we'll clear ALL preferences for this node type and provider
@@ -453,7 +432,6 @@ const useWorkflowBuilderState = () => {
           })
           
           if (response.ok) {
-            console.log(`✅ Successfully cleared all preferences for ${nodeType} (${providerId})`)
           } else {
             console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
           }
@@ -472,7 +450,6 @@ const useWorkflowBuilderState = () => {
       // Clear all configuration preferences when resetting the workflow
       const clearAllPreferences = async () => {
         try {
-          console.log(`🗑️ Clearing all preferences due to workflow reset`)
           
           // Clear all preferences for this user
           const response = await fetch(`/api/user/config-preferences`, {
@@ -480,7 +457,6 @@ const useWorkflowBuilderState = () => {
           })
           
           if (response.ok) {
-            console.log(`✅ Successfully cleared all preferences`)
           } else {
             console.warn(`⚠️ Failed to clear all preferences:`, response.status)
           }
@@ -660,7 +636,6 @@ const useWorkflowBuilderState = () => {
 
   // Debug listeningMode state changes
   useEffect(() => {
-    console.log("🎧 listeningMode state changed to:", listeningMode)
   }, [listeningMode])
 
   useEffect(() => {
@@ -671,20 +646,10 @@ const useWorkflowBuilderState = () => {
       // Always fetch fresh data from the API instead of using cached data
       const loadFreshWorkflow = async () => {
         try {
-          console.log('🔄 Loading fresh workflow from API...');
           const response = await fetch(`/api/workflows/${workflowId}`);
           if (response.ok) {
             const freshWorkflow = await response.json();
             setCurrentWorkflow(freshWorkflow);
-            console.log('✅ Fresh workflow loaded:', {
-              id: freshWorkflow.id,
-              name: freshWorkflow.name,
-              nodesCount: freshWorkflow.nodes?.length || 0,
-              nodePositions: freshWorkflow.nodes?.map((n: WorkflowNode) => ({ 
-                id: n.id, 
-                position: n.position 
-              }))
-            });
           } else {
             console.error('Failed to load workflow:', response.status, response.statusText);
             
@@ -735,12 +700,6 @@ const useWorkflowBuilderState = () => {
     }
     
     if (currentWorkflow) {
-      console.log('🔍 Loading workflow from database:', JSON.stringify({
-        id: currentWorkflow.id,
-        name: currentWorkflow.name,
-        nodes: currentWorkflow.nodes,
-        connections: currentWorkflow.connections
-      }, null, 2))
       setWorkflowName(currentWorkflow.name)
       setWorkflowDescription(currentWorkflow.description || "")
       
@@ -749,35 +708,21 @@ const useWorkflowBuilderState = () => {
       const workflowNodeIds = (currentWorkflow.nodes || []).map(n => n.id).sort()
       const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
       
-      console.log('🔍 Load check - nodesChanged:', nodesChanged)
-      console.log('🔍 Load check - currentNodeIds:', currentNodeIds)
-      console.log('🔍 Load check - workflowNodeIds:', workflowNodeIds)
       
       // Check positions even if node IDs haven't changed
       let positionsChanged = false
       if (getNodes().length > 0) {
         const allNodes = getNodes()
-        console.log('🔍 Load check - allNodes from getNodes():', JSON.stringify(allNodes.map(n => ({ id: n.id, type: n.type, position: n.position })), null, 2))
         
         const currentPositions = allNodes.filter(n => n.type === 'custom').map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
         const savedPositions = (currentWorkflow.nodes || []).map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
         positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
         
-        console.log('🔍 Load check - positionsChanged:', positionsChanged)
-        console.log('🔍 Load check - currentPositions:', JSON.stringify(currentPositions, null, 2))
-        console.log('🔍 Load check - savedPositions:', JSON.stringify(savedPositions, null, 2))
       }
       
       // Always rebuild nodes on load to ensure positions are correct
       if (true) {
           // Log the nodes we're loading from the database to verify positions
-          console.log('🔄 Loading nodes from database with positions:', 
-            JSON.stringify(currentWorkflow.nodes?.map(n => ({ 
-              id: n.id, 
-              position: n.position,
-              type: n.data?.type
-            })), null, 2)
-          );
           
           const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
             // Get the component definition to ensure we have the correct title
@@ -789,7 +734,6 @@ const useWorkflowBuilderState = () => {
               y: typeof node.position.y === 'number' ? node.position.y : parseFloat(node.position.y as unknown as string)
             };
             
-            console.log(`Loading node ${node.id} with position:`, position);
             
             return {
               id: node.id, 
@@ -821,9 +765,6 @@ const useWorkflowBuilderState = () => {
             };
             
             // Debug node data being passed
-            if (node.id === 'trigger') {
-              console.log(`🎯 Creating trigger node with listeningMode: ${listeningMode}`)
-            }
           })
 
         let allNodes: Node[] = [...customNodes]
@@ -1030,7 +971,6 @@ const useWorkflowBuilderState = () => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Webhook registered successfully:', result);
         
         // Show success notification
         toast({
@@ -1061,13 +1001,6 @@ const useWorkflowBuilderState = () => {
   };
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
-    console.log('🔍 handleActionSelect called:', { 
-      integration: integration.id, 
-      action: action.type, 
-      actionProviderId: action.providerId,
-      actionKeys: Object.keys(action),
-      sourceAddNode 
-    })
     
     let effectiveSourceAddNode = sourceAddNode
     
@@ -1080,7 +1013,6 @@ const useWorkflowBuilderState = () => {
           id: lastAddActionNode.id, 
           parentId: lastAddActionNode.data.parentId as string
         }
-        console.log('🔍 Using fallback sourceAddNode:', effectiveSourceAddNode)
       }
     }
     
@@ -1105,11 +1037,6 @@ const useWorkflowBuilderState = () => {
         nodeComponent: action, 
         config: {} 
       };
-      console.log('🔍 Setting configuringNode:', {
-        nodeComponentType: configuringNodeData.nodeComponent.type,
-        nodeComponentProviderId: configuringNodeData.nodeComponent.providerId,
-        nodeComponentKeys: Object.keys(configuringNodeData.nodeComponent)
-      });
       setConfiguringNode(configuringNodeData);
       setShowActionDialog(false);
       // Clear sourceAddNode immediately to prevent dialog from reopening
@@ -1190,11 +1117,9 @@ const useWorkflowBuilderState = () => {
     
     // Prevent multiple simultaneous save operations
     if (isSaving) {
-      console.log("Save already in progress, skipping...")
       return
     }
     
-    console.log("Starting save process...")
     setIsSaving(true)
     isSavingRef.current = true
     
@@ -1215,11 +1140,6 @@ const useWorkflowBuilderState = () => {
       const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
       const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
 
-      console.log("React Flow nodes:", reactFlowNodes)
-      console.log("React Flow edges:", reactFlowEdges)
-      console.log("🔍 Save - Node positions:", reactFlowNodes.map(n => ({ id: n.id, position: n.position })))
-      console.log("🔗 All edges from getEdges():", getEdges())
-      console.log("🔗 Filtered edges count:", reactFlowEdges.length)
 
       // Map to database format without losing React Flow properties
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
@@ -1230,7 +1150,6 @@ const useWorkflowBuilderState = () => {
         };
         
         // Log each node position to verify
-        console.log(`Saving node ${n.id} position:`, position);
         
         return {
           id: n.id, 
@@ -1256,9 +1175,6 @@ const useWorkflowBuilderState = () => {
         targetHandle: e.targetHandle ?? undefined,
       }))
 
-      console.log("Mapped nodes:", mappedNodes)
-      console.log("Mapped connections:", mappedConnections)
-      console.log("🔍 Save - Mapped node positions:", mappedNodes.map(n => ({ id: n.id, position: n.position })))
 
       const updates: Partial<Workflow> = {
         name: workflowName, 
@@ -1268,12 +1184,9 @@ const useWorkflowBuilderState = () => {
         status: currentWorkflow.status,
       }
 
-      console.log("Saving updates:", updates)
-      console.log("🔍 Database update payload:", JSON.stringify(updates, null, 2))
 
       // Save to database with better error handling
       const result = await updateWorkflow(currentWorkflow!.id, updates)
-      console.log("🔍 Database update result:", result)
       
       // Update the current workflow state with the new data but keep React Flow intact
       const userId: string = typeof currentWorkflow!.user_id === "string" ? currentWorkflow!.user_id : (() => { throw new Error("user_id is missing from currentWorkflow"); })();
@@ -1290,8 +1203,6 @@ const useWorkflowBuilderState = () => {
       };
       setCurrentWorkflow(newWorkflow);
       
-      console.log("✅ Save completed successfully")
-      console.log("✅ Saved workflow with nodes:", JSON.stringify(mappedNodes.map(n => ({ id: n.id, position: n.position })), null, 2))
       
       // Note: Webhook registration happens only when "Listen" button is clicked, not on save
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
@@ -1301,16 +1212,13 @@ const useWorkflowBuilderState = () => {
       
       // Update the last save timestamp to prevent immediate change detection
       lastSaveTimeRef.current = Date.now();
-      console.log('⏱️ Updated last save time:', new Date(lastSaveTimeRef.current).toISOString());
       
       // Update the current workflow with the saved data to avoid loading screen
-      console.log("🔄 Updating current workflow with saved data...");
       
       // Update the current workflow with the saved data instead of clearing it
       setCurrentWorkflow(newWorkflow);
       
       // Force a rebuild of nodes after save to ensure positions are updated
-      console.log("🔄 Force rebuilding nodes after save...");
       setIsRebuildingAfterSave(true);
       
       setTimeout(() => {
@@ -1387,13 +1295,11 @@ const useWorkflowBuilderState = () => {
         
         setNodes(allNodes);
         setEdges(initialEdges);
-        console.log("✅ Nodes rebuilt after save with updated positions");
         
         // Ensure unsaved changes flag is cleared after rebuild completes and prevent detection
         setTimeout(() => {
           setHasUnsavedChanges(false);
           lastSaveTimeRef.current = Date.now(); // Refresh timestamp after rebuild
-          console.log('⏱️ Updated last save time after rebuild:', new Date(lastSaveTimeRef.current).toISOString());
           setIsRebuildingAfterSave(false);
         }, 200);
       }, 100);
@@ -1426,7 +1332,6 @@ const useWorkflowBuilderState = () => {
   const handleExecute = async () => { 
     // Toggle listening mode instead of executing
     if (isExecuting && !listeningMode) {
-      console.log("Operation in progress, skipping...")
       return
     }
     
@@ -1478,7 +1383,6 @@ const useWorkflowBuilderState = () => {
             filter: `workflow_id=eq.${currentWorkflow.id}`,
           },
           (payload) => {
-            console.log("🎯 Received execution event:", payload.new)
             const event = payload.new as any
             
             // Update node execution status
@@ -1499,7 +1403,6 @@ const useWorkflowBuilderState = () => {
               // Handle error state - add to error store
               if (event.event_type === 'node_error' && event.error_message) {
                 const nodeName = getNodes().find(n => n.id === event.node_id)?.data?.title || `Node ${event.node_id}`
-                console.log(`❌ Adding error for node ${event.node_id}:`, event.error_message)
                 addError({
                   workflowId: currentWorkflow.id,
                   nodeId: event.node_id,
@@ -1511,11 +1414,6 @@ const useWorkflowBuilderState = () => {
               }
               
               // Debug execution results update
-              console.log(`🔄 Updating execution results for ${event.node_id}:`, status)
-              console.log(`🎨 Current execution results state:`, Object.keys(executionResults).map(key => ({ 
-                nodeId: key, 
-                status: executionResults[key].status 
-              })))
               
               // Set active node if it's running
               if (event.event_type === 'node_started') {
@@ -1549,13 +1447,6 @@ const useWorkflowBuilderState = () => {
         
         if (providerId) {
           try {
-            console.log(`🔗 Registering webhook for ${providerId} trigger:`, {
-              nodeType: nodeData.type,
-              workflowId: currentWorkflow.id,
-              nodeId: triggerNode.id,
-              providerId: providerId,
-              config: nodeData.config
-            })
             
             // Register webhook with the provider
             const webhookResponse = await fetch('/api/workflows/webhook-registration', {
@@ -1570,18 +1461,13 @@ const useWorkflowBuilderState = () => {
               })
             })
             
-            console.log(`🔍 Webhook response status: ${webhookResponse.status}`)
             
             if (webhookResponse.ok) {
               const webhookResult = await webhookResponse.json()
               registeredWebhooks++
-              console.log(`✅ Successfully registered webhook for ${providerId}:`)
-              console.log(`📋 Full webhook response:`, JSON.stringify(webhookResult, null, 2))
-              console.log(`🌐 Discord webhook URL: ${webhookResult.webhookUrl}`)
               
               // Check for our special debug message
               if (webhookResult.message?.includes('🚨')) {
-                console.log(`🚨 SPECIAL MESSAGE DETECTED: ${webhookResult.message}`)
               }
             } else {
               const errorText = await webhookResponse.text()
@@ -1595,9 +1481,7 @@ const useWorkflowBuilderState = () => {
       }
       
       // Enable listening mode
-              console.log("🎧 Setting listening mode to TRUE")
-        setListeningMode(true)
-        console.log("🎧 Listening mode state updated, should trigger re-render")
+              setListeningMode(true)
       
       toast({
         title: "Listening Mode Enabled",
@@ -1686,10 +1570,6 @@ const useWorkflowBuilderState = () => {
         return integrationMatches || triggerMatches;
       });
     
-    console.log('🔍 filteredIntegrations result:', { 
-      resultCount: result.length,
-      integrations: result.map(int => ({ id: int.id, name: int.name }))
-    });
     
     return result;
   }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected, integrationsLoading]);
@@ -1751,7 +1631,6 @@ const useWorkflowBuilderState = () => {
   }, [hasUnsavedChanges])
 
   const handleResetLoadingStates = () => {
-    console.log("Manually resetting loading states...")
     setIsSaving(false)
     setIsExecuting(false)
     isSavingRef.current = false
@@ -1768,7 +1647,6 @@ const useWorkflowBuilderState = () => {
     
     // Skip check if we're in the middle of a save or rebuild operation
     if (isSaving || isRebuildingAfterSave) {
-      console.log('🔍 Skipping unsaved changes check - save/rebuild in progress');
       return false;
     }
     
@@ -1845,23 +1723,6 @@ const useWorkflowBuilderState = () => {
     
     // Debug logging to see what's causing the change detection
     if (hasChanges) {
-      console.log('🔍 Unsaved changes detected:', {
-        nodesChanged,
-        nodeCountDiffers,
-        nodePropertiesDiffer,
-        edgesChanged,
-        edgeCountDiffers,
-        edgePropertiesDiffer,
-        nameChanged,
-        currentNodesCount: currentNodes.length,
-        savedNodesCount: savedNodes.length,
-        currentEdgesCount: currentEdges.length,
-        savedEdgesCount: savedEdges.length,
-        currentPositions: sortedCurrentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
-        savedPositions: savedNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
-        isSaving,
-        isRebuildingAfterSave
-      });
     }
     
     // Only update the state if it's different from the current state to avoid unnecessary re-renders
@@ -1883,7 +1744,6 @@ const useWorkflowBuilderState = () => {
     const recentlySaved = timeSinceLastSave < 1000; // Within 1 second of save
     
     if (recentlySaved) {
-      console.log('🔍 Skipping unsaved changes check - recent save detected');
       return;
     }
     
@@ -1916,24 +1776,12 @@ const useWorkflowBuilderState = () => {
       const positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
       
       if (positionsChanged) {
-        console.log('🔍 Position comparison:', {
-          current: currentPositions,
-          saved: savedPositions,
-          changed: positionsChanged
-        })
       }
     }
   }, [nodes, currentWorkflow])
 
   // Debug current workflow and nodes
   useEffect(() => {
-    console.log('🔍 Current workflow debug:', {
-      hasCurrentWorkflow: !!currentWorkflow,
-      workflowId: currentWorkflow?.id,
-      workflowNodes: currentWorkflow?.nodes?.length || 0,
-      reactFlowNodes: nodes.length,
-      reactFlowCustomNodes: nodes.filter(n => n.type === 'custom').length
-    })
   }, [currentWorkflow, nodes])
 
   // Handle navigation with unsaved changes warning
@@ -1977,7 +1825,6 @@ const useWorkflowBuilderState = () => {
     if (!workflowId) return;
     
     try {
-      console.log('🔄 Force reloading workflow from database...');
       // Use the existing API endpoint instead of direct Supabase access
       const response = await fetch(`/api/workflows/${workflowId}`);
       
@@ -1991,9 +1838,6 @@ const useWorkflowBuilderState = () => {
         throw new Error('Workflow not found');
       }
       
-      console.log('✅ Workflow reloaded with positions:', 
-        data.nodes?.map((n: WorkflowNode) => ({ id: n.id, position: n.position }))
-      );
       
       // Update the current workflow with the fresh data
       setCurrentWorkflow(data);
@@ -2009,7 +1853,6 @@ const useWorkflowBuilderState = () => {
             y: typeof node.position.y === 'number' ? node.position.y : parseFloat(node.position.y as unknown as string)
           };
           
-          console.log(`Loading node ${node.id} with position:`, position);
           
           return {
             id: node.id, 
@@ -2100,7 +1943,6 @@ const useWorkflowBuilderState = () => {
         const connectedProviders = getConnectedProviders();
         const hasDiscordIntegration = connectedProviders.includes('discord');
         if (!hasDiscordIntegration) {
-          console.log('🔍 Discord nodes detected but no Discord integration found');
           // For now, just log the issue - we'll handle the UI later
         }
       }
@@ -2280,13 +2122,6 @@ function WorkflowBuilderContent() {
   if (isLoading) {
     // Only log loading screen reason once per loading cycle to prevent console spam
     if (!hasShownLoading) {
-      console.log('🔄 Showing loading screen due to:', {
-        workflowId,
-        hasCurrentWorkflow: !!currentWorkflow,
-        integrationsLoading,
-        workflowLoading,
-        workflowsLength: workflows.length
-      })
     }
     return <WorkflowLoadingScreen />
   }
@@ -2401,7 +2236,6 @@ function WorkflowBuilderContent() {
       ) : (
         // Regular ReactFlow when there are nodes
         <>
-          {console.log('🎯 Rendering ReactFlow with nodes:', nodes.length)}
           <ReactFlow 
           nodes={nodes} 
           edges={edges} 
@@ -2410,14 +2244,10 @@ function WorkflowBuilderContent() {
           onConnect={onConnect} 
           onNodeDrag={(event, node) => {
             // Track position changes during drag
-            console.log(`🔄 Node ${node.id} dragging to position:`, node.position)
-            console.log(`🔄 onNodeDrag event:`, event)
             setHasUnsavedChanges(true)
           }}
           onNodeDragStop={(event, node) => {
             // Update node position in state and mark as unsaved
-            console.log(`✅ Node ${node.id} drag stopped at position:`, node.position)
-            console.log(`✅ onNodeDragStop event:`, event)
             setNodes((nds: Node[]) => 
               nds.map((n: Node) => 
                 n.id === node.id 
@@ -2429,7 +2259,6 @@ function WorkflowBuilderContent() {
             
             // Force a small delay to ensure position is updated
             setTimeout(() => {
-              console.log(`💾 Position change detected for node ${node.id}, marking as unsaved`)
             }, 50)
           }}
           nodeTypes={nodeTypes} 
@@ -2892,11 +2721,6 @@ function WorkflowBuilderContent() {
               <Button 
                 disabled={!selectedAction || !selectedIntegration || selectedAction?.comingSoon}
                 onClick={() => {
-                  console.log('🔍 Continue button clicked:', { 
-                    selectedIntegration: selectedIntegration?.id, 
-                    selectedAction: selectedAction?.type,
-                    sourceAddNode 
-                  })
                   if (selectedIntegration && selectedAction && !selectedAction.comingSoon) {
                     handleActionSelect(selectedIntegration, selectedAction)
                   }
@@ -2952,10 +2776,8 @@ function WorkflowBuilderContent() {
                 
                 // Only reopen the action selection modal if it was NOT saved and it's a pending node
                 if (!wasSaved && isPendingNode && pendingNode?.type === 'action') {
-                  console.log('🔄 Reopening action selection modal for unsaved pending action');
                   setShowActionDialog(true);
                 } else if (!wasSaved && isPendingNode && pendingNode?.type === 'trigger') {
-                  console.log('🔄 Reopening trigger selection modal for unsaved pending trigger');
                   setShowTriggerDialog(true);
                 }
               }}
