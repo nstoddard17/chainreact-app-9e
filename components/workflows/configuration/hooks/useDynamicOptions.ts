@@ -50,12 +50,14 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
     if (!nodeType || !providerId) return;
     
+    // Create a cache key that includes dependencies
+    const cacheKey = `${fieldName}-${dependsOn || ''}-${dependsOnValue || ''}`;
+    
     // Prevent duplicate calls for the same field (unless forcing refresh)
-    if (!forceRefresh && loadingFields.current.has(fieldName)) {
+    if (!forceRefresh && (loadingFields.current.has(cacheKey) || dynamicOptions[fieldName])) {
       return;
     }
-    
-    loadingFields.current.add(fieldName);
+    loadingFields.current.add(cacheKey);
     setLoading(true);
 
     try {
@@ -88,7 +90,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
             [fieldName]: []
           }));
         } finally {
-          loadingFields.current.delete(fieldName);
+          loadingFields.current.delete(cacheKey);
           setLoading(false);
         }
         return;
@@ -130,7 +132,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
         [fieldName]: []
       }));
     } finally {
-      loadingFields.current.delete(fieldName);
+      loadingFields.current.delete(cacheKey);
       setLoading(false);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
@@ -171,7 +173,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
         setIsInitialLoading(false);
       });
     }
-  }, [nodeType, providerId, loadOptions]);
+  }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
   
   return {
     dynamicOptions,

@@ -1,7 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { executeAction } from "@/lib/workflows/executeNode"
+import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 
 export async function POST(request: Request) {

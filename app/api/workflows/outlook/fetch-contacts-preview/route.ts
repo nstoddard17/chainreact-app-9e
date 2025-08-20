@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         console.log('Attempting token refresh due to 401/403 error...')
         
         try {
-          const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+          const { LegacyTokenRefreshService: TokenRefreshService } = await import("@/src/infrastructure/workflows/legacy-compatibility")
           
           // Decrypt refresh token if needed
           let refreshToken = integration.refresh_token

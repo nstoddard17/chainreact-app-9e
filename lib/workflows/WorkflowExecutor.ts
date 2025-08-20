@@ -1,4 +1,4 @@
-import { TokenRefreshService } from "@/lib/integrations/tokenRefreshService"
+import { LegacyTokenRefreshService as TokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { TokenAuditLogger } from "../integrations/TokenAuditLogger"
 import { decrypt } from "@/lib/security/encryption"
