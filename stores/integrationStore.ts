@@ -2,74 +2,18 @@ import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { apiClient } from "@/lib/apiClient"
 import { loadDiscordGuildsOnce } from "./discordGuildsCacheStore"
-
-// Global variables for OAuth popup management
-let currentOAuthPopup: Window | null = null
-let windowHasLostFocus = false
+import { SessionManager } from "@/lib/auth/session"
+import { OAuthPopupManager } from "@/lib/oauth/popup-manager"
+import { IntegrationService, Provider } from "@/services/integration-service"
+import { ScopeValidator } from "@/lib/integrations/scope-validator"
+import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
 
-// Helper function to check if popup is still valid
-function isPopupValid(popup: Window | null): boolean {
-  // COOP policy blocks window.closed checks, so we rely on message events and localStorage
-  // Assume popup is valid if it exists
-  return !!popup
-}
+// Global cache for ongoing requests to prevent duplicate API calls
+const ongoingRequests = new Map<string, Promise<any>>()
 
-// Helper function to close existing popup and reset state
-function closeExistingPopup() {
-  if (currentOAuthPopup) {
-    try {
-      currentOAuthPopup.close()
-    } catch (e) {
-      console.warn("Failed to close existing popup:", e)
-    }
-    currentOAuthPopup = null
-  }
-  windowHasLostFocus = false
-}
-
-// Helper function to securely get user and session data
-async function getSecureUserAndSession() {
-  const supabase = getSupabaseClient()
-  if (!supabase) {
-    throw new Error("Supabase client not available")
-  }
-
-  // First, validate the user securely
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user?.id) {
-    // Try to refresh the session
-    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
-    
-    if (refreshError || !session) {
-      console.error("❌ Session refresh failed:", refreshError)
-      throw new Error("No authenticated user found. Please log in again.")
-    }
-    
-    // Try to get user again after refresh
-    const { data: { user: refreshedUser }, error: refreshedUserError } = await supabase.auth.getUser()
-    if (refreshedUserError || !refreshedUser?.id) {
-      throw new Error("Session refresh failed. Please log in again.")
-    }
-    return { user: refreshedUser, session }
-  }
-
-  // Then get the session for the access token
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) {
-    // Try to refresh the session if no access token
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-    
-    if (refreshError || !refreshedSession?.access_token) {
-      throw new Error("Session expired. Please log in again.")
-    }
-    return { user, session: refreshedSession }
-  }
-
-  return { user, session }
-}
 
 // This represents the structure of a connected integration
 export interface Integration {
@@ -90,16 +34,6 @@ export interface Integration {
   [key: string]: any
 }
 
-export interface Provider {
-  id: string
-  name: string
-  description: string
-  logoUrl?: string
-  capabilities: string[]
-  isAvailable: boolean
-  category?: string
-  authType?: "oauth" | "apiKey"
-}
 
 export interface IntegrationStore {
   integrations: Integration[]
@@ -123,7 +57,7 @@ export interface IntegrationStore {
   fetchIntegrations: (force?: boolean) => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
-  refreshAllTokens: () => Promise<void>
+  refreshAllTokens: () => Promise<{ refreshed: number; failed: number }>
   getIntegrationStatus: (providerId: string) => string
   getIntegrationByProvider: (providerId: string) => Integration | null
   getConnectedProviders: () => string[]
@@ -205,23 +139,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       try {
         set({ loading: true, error: null })
-
-        // Use direct fetch instead of apiClient for this public endpoint
-        const fetchResponse = await fetch("/api/integrations/available")
         
-        if (!fetchResponse.ok) {
-          throw new Error(`HTTP ${fetchResponse.status}: Failed to fetch available integrations`)
-        }
-
-        const responseData = await fetchResponse.json()
-
-        if (!responseData.success) {
-          throw new Error(responseData.error || "Failed to fetch available integrations")
-        }
-
-        // Parse the providers from the API response structure
-        const providers = responseData.data?.integrations || []
-
+        const providers = await IntegrationService.fetchProviders()
 
         set({
           providers,
@@ -243,12 +162,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
       if (loading && !force) {
         return
       }
-      set({ loading: true, error: null })
-
-      let timeoutId: NodeJS.Timeout | null = null
 
       try {
-        const { user, session } = await getSecureUserAndSession()
+        set({ loading: true, error: null })
+        
+        const { user } = await SessionManager.getSecureUserAndSession()
 
         // If currentUserId is not set, set it now
         if (!currentUserId) {
@@ -262,78 +180,17 @@ export const useIntegrationStore = create<IntegrationStore>()(
           return
         }
 
-        // Cancel any ongoing request
-        if (currentAbortController) {
-          try {
-            currentAbortController.abort('New request started')
-          } catch (error) {
-            console.warn('Failed to abort previous request:', error)
-          }
-        }
-
-        const controller = new AbortController()
-        currentAbortController = controller
-        
-        timeoutId = setTimeout(() => {
-          try {
-            controller.abort('Request timeout')
-          } catch (error) {
-            console.warn('AbortController already aborted:', error)
-          }
-        }, 15000)
-
-        const cacheBustingUrl = `/api/integrations?timestamp=${Date.now()}`
-
-        const response = await fetch(cacheBustingUrl, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          signal: controller.signal,
-          cache: 'no-store',
-        })
-
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-          timeoutId = null
-        }
-        currentAbortController = null
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch integrations`)
-        }
-
-        const data = await response.json()
-
-        const integrations = Array.isArray(data.data) ? data.data : data.integrations || []
+        const integrations = await IntegrationService.fetchIntegrations(force)
         
         set({
           integrations,
           loading: false,
-          debugInfo: data.debug || {},
           lastRefreshTime: new Date().toISOString(),
         })
       } catch (error: any) {
-        // Clean up timeout and abort controller in case of error
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-          timeoutId = null
-        }
-        if (currentAbortController) {
-          currentAbortController = null
-        }
-        
-        // Silently ignore AbortError since it's an expected behavior
-        // when multiple requests are made in quick succession
-        if (error.name === "AbortError") {
-          // Don't update error state for aborted requests
-          set({ loading: false })
-          return
-        }
-        
         console.error("Failed to fetch integrations:", error)
         set({
-          error: error.name === "AbortError" ? "Request timed out - please try again" : error.message,
+          error: error.message || "Failed to fetch integrations",
           loading: false,
           integrations: [],
         })
@@ -341,7 +198,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     connectIntegration: async (providerId: string) => {
-      const { setLoading, providers, setError, fetchIntegrations, integrations, loadingStates } = get()
+      const { setLoading, providers, setError, fetchIntegrations, loadingStates } = get()
       const provider = providers.find((p) => p.id === providerId)
 
       if (!provider) {
@@ -362,284 +219,34 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-
-        // Enhanced error handling for authentication
-        let user, session
-        try {
-          const authResult = await getSecureUserAndSession()
-          user = authResult.user
-          session = authResult.session
-        } catch (authError) {
-          console.error(`❌ Authentication error for ${providerId}:`, authError)
-          setError(`Authentication failed: ${authError instanceof Error ? authError.message : 'Unknown error'}`)
-          setLoading(`connect-${providerId}`, false)
-          return
-        }
-
-
-        const response = await fetch("/api/integrations/auth/generate-url", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+        const result = await OAuthConnectionFlow.startConnection({
+          providerId,
+          onSuccess: (data) => {
+            setLoading(`connect-${providerId}`, false)
+            setTimeout(() => {
+              fetchIntegrations(true) // Force refresh from server
+              emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+            }, 1000)
           },
-          body: JSON.stringify({
-            provider: providerId,
-            forceFresh: providerId === 'microsoft-onenote', // Force fresh OAuth for OneNote
-          }),
+          onError: (error) => {
+            setError(error)
+            setLoading(`connect-${providerId}`, false)
+          },
+          onCancel: () => {
+            setLoading(`connect-${providerId}`, false)
+            // User cancelled - don't set error
+          },
+          onInfo: (message) => {
+            setLoading(`connect-${providerId}`, false)
+            // Don't set error for info messages (like permission issues)
+          }
         })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          console.error(`❌ OAuth URL generation failed for ${providerId}:`, errorData)
-          
-          // Handle specific error cases
-          if (response.status === 401) {
-            throw new Error("Authentication expired. Please log in again.")
-          } else if (response.status === 403) {
-            throw new Error("Access denied. You may not have permission to connect this integration.")
-          } else {
-            throw new Error(errorData.error || `Failed to generate OAuth URL for ${provider.name}`)
-          }
-        }
-
-        const data = await response.json()
-
-        if (data.success && data.authUrl) {
-          // Close any existing popup before opening a new one
-          const hadExistingPopup = !!currentOAuthPopup
-          closeExistingPopup()
-          
-          // Add timestamp to make popup name unique each time
-          const popupName = `oauth_popup_${providerId}_${Date.now()}`
-          const popupFeatures = "width=600,height=700,scrollbars=yes,resizable=yes"
-          
-          // Check if document has focus (required for popup opening)
-          if (!document.hasFocus()) {
-            console.warn(`⚠️ Document doesn't have focus, popup might be blocked for ${providerId}`)
-          }
-          
-          let popup = window.open(data.authUrl, popupName, popupFeatures)
-          
-          // Retry popup opening if it failed (sometimes helps with timing issues)
-          if (!popup) {
-            console.warn(`⚠️ First popup attempt failed for ${providerId}, retrying...`)
-            await new Promise(resolve => setTimeout(resolve, 100)) // Brief delay
-            popup = window.open(data.authUrl, popupName + '_retry', popupFeatures)
-          }
-          
-          if (!popup) {
-            setLoading(`connect-${providerId}`, false)
-            console.error(`❌ Popup blocked or failed to open for ${providerId}`)
-            throw new Error("Popup blocked. Please allow popups for this site and ensure you clicked the button directly.")
-          }
-          
-          // Additional popup validation
-          if (popup.closed) {
-            setLoading(`connect-${providerId}`, false)
-            console.error(`❌ Popup was immediately closed for ${providerId}`)
-            throw new Error("Popup was immediately closed. Please check popup blocker settings.")
-          }
-
-          // Update global popup reference
-          currentOAuthPopup = popup
-
-
-          let closedByMessage = false
-          
-          // Declare timeout early so it can be referenced in messageHandler
-          let connectionTimeout: NodeJS.Timeout
-
-          const messageHandler = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin) return
-
-            if (event.data && event.data.type === "oauth-success") {
-              closedByMessage = true
-              clearInterval(popupCheckTimer)
-              clearInterval(storageCheckTimer)
-              clearTimeout(connectionTimeout)
-              window.removeEventListener("message", messageHandler)
-              try {
-                popup?.close()
-              } catch (error) {
-                // COOP policy may block popup operations
-                console.warn("Failed to close popup:", error)
-              }
-              // Reset global popup reference
-              currentOAuthPopup = null
-              setLoading(`connect-${providerId}`, false)
-              
-              // Force refresh integrations with a small delay to ensure the backend has time to update
-              setTimeout(() => {
-                fetchIntegrations(true) // Force refresh from server
-                emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-              }, 1000) // Increased delay to 1 second
-            } else if (event.data && event.data.type === "oauth-info") {
-              closedByMessage = true
-              clearInterval(popupCheckTimer)
-              clearInterval(storageCheckTimer)
-              clearTimeout(connectionTimeout)
-              window.removeEventListener("message", messageHandler)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              setLoading(`connect-${providerId}`, false)
-              
-              // Don't set error for info messages (like permission issues)
-            } else if (event.data && event.data.type === "oauth-error") {
-              console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
-              setError(event.data.message)
-              closedByMessage = true
-              clearInterval(popupCheckTimer)
-              clearInterval(storageCheckTimer)
-              clearTimeout(connectionTimeout)
-              popup?.close()
-              window.removeEventListener("message", messageHandler)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              setLoading(`connect-${providerId}`, false)
-            } else if (event.data && event.data.type === "oauth-cancelled") {
-              closedByMessage = true
-              clearInterval(popupCheckTimer)
-              clearInterval(storageCheckTimer)
-              clearTimeout(connectionTimeout)
-              window.removeEventListener("message", messageHandler)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              setLoading(`connect-${providerId}`, false)
-            }
-          }
-
-          window.addEventListener("message", messageHandler)
-
-          // Add popup close detection (manual close by user)
-          let popupClosedManually = false
-          const popupCheckTimer = setInterval(() => {
-            try {
-              // Try to check if popup is closed (may fail due to COOP)
-              if (popup && popup.closed && !closedByMessage) {
-                popupClosedManually = true
-                clearInterval(popupCheckTimer)
-                clearInterval(storageCheckTimer)
-                clearTimeout(connectionTimeout)
-                window.removeEventListener("message", messageHandler)
-                // Reset global popup reference
-                currentOAuthPopup = null
-                setLoading(`connect-${providerId}`, false)
-                // Don't set error for manual close - user intentionally cancelled
-              }
-            } catch (error) {
-              // COOP policy may block popup.closed access - this is expected
-              // We'll rely on other methods (localStorage, messages) in this case
-            }
-          }, 1000) // Check every second
-
-          // Use localStorage to check for OAuth responses (COOP-safe)
-          const storageCheckPrefix = `oauth_response_${providerId}`;
-          const storageCheckTimer = setInterval(() => {
-            // Skip if popup was manually closed
-            if (popupClosedManually) return
-            
-            try {
-              // Check localStorage for any keys that match our prefix
-              
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith(storageCheckPrefix)) {
-                  try {
-                    // Found a matching key, parse the response
-                    const storedData = localStorage.getItem(key);
-                    if (storedData) {
-                      const responseData = JSON.parse(storedData);
-                      
-                      // Process the response
-                      if (responseData.type === 'oauth-success') {
-                        closedByMessage = true;
-                        clearInterval(popupCheckTimer);
-                        clearInterval(storageCheckTimer);
-                        clearTimeout(connectionTimeout);
-                        window.removeEventListener("message", messageHandler);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        setLoading(`connect-${providerId}`, false);
-                        
-                        // Force refresh integrations
-                        setTimeout(() => {
-                          fetchIntegrations(true);
-                          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId });
-                        }, 1000);
-                      } else if (responseData.type === 'oauth-error') {
-                        console.error(`❌ OAuth error for ${providerId} via localStorage:`, responseData.message);
-                        setError(responseData.message);
-                        closedByMessage = true;
-                        clearInterval(popupCheckTimer);
-                        clearInterval(storageCheckTimer);
-                        clearTimeout(connectionTimeout);
-                        window.removeEventListener("message", messageHandler);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        setLoading(`connect-${providerId}`, false);
-                      } else if (responseData.type === 'oauth-cancelled') {
-                        closedByMessage = true;
-                        clearInterval(popupCheckTimer);
-                        clearInterval(storageCheckTimer);
-                        clearTimeout(connectionTimeout);
-                        window.removeEventListener("message", messageHandler);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        setLoading(`connect-${providerId}`, false);
-                      }
-                      
-                      // Clean up localStorage
-                      localStorage.removeItem(key);
-                    }
-                  } catch (parseError) {
-                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
-                  }
-                }
-              }
-              
-              // Note: We can't check popup.closed due to COOP policy
-              // We rely on message events and localStorage polling for communication
-            } catch (error) {
-              console.error(`Error checking localStorage for ${providerId}:`, error);
-            }
-          }, 100) // Check every 100ms for faster response
-          
-          // Add timeout for initial connection (5 minutes, same as reconnection)
-          connectionTimeout = setTimeout(() => {
-            if (!closedByMessage && !popupClosedManually) {
-              clearInterval(popupCheckTimer)
-              clearInterval(storageCheckTimer)
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup on timeout:", e)
-              }
-              window.removeEventListener("message", messageHandler)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              setLoading(`connect-${providerId}`, false)
-              setError(`Connection to ${provider.name} timed out. Please try again.`)
-            }
-          }, 5 * 60 * 1000) // 5 minutes
-          
-        } else {
-          throw new Error(data.error || "Failed to get auth URL")
+        if (!result.success) {
+          throw new Error(result.message || "Connection failed")
         }
       } catch (error: any) {
-        console.error(`Error connecting to ${providerId}:`, error.message)
-        
-        // Provide more specific error messages for common popup issues
-        if (error.message.includes('Popup blocked')) {
-          setError(`Popup blocked for ${provider.name}. Please allow popups for this site in your browser settings, then try again.`)
-        } else if (error.message.includes('popup was immediately closed')) {
-          setError(`Popup was blocked for ${provider.name}. Please check your browser's popup blocker settings.`)
-        } else if (error.message.includes('duplicate request')) {
-          setError(`Already connecting to ${provider.name}. Please wait for the current connection to complete.`)
-        } else {
-          setError(`Failed to connect to ${provider.name}: ${error.message}`)
-        }
-        
+        setError(`Failed to connect to ${provider.name}: ${error.message}`)
         setLoading(`connect-${providerId}`, false)
       }
     },
@@ -650,87 +257,35 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        const { user, session } = await getSecureUserAndSession()
-
-        const response = await fetch("/api/integrations/token-management", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            provider: providerId,
-            apiKey: apiKey,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to save API key")
-        }
+        await IntegrationService.connectApiKeyIntegration(providerId, apiKey)
         
-        // Log the integration connection via API
-        try {
-          const supabase = getSupabaseClient()
-          if (user && supabase) {
-            await fetch("/api/audit/log-integration-event", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({
-                integrationId: "api_key_connection",
-                provider: providerId,
-                eventType: "connect",
-                details: { method: "api_key" }
-              })
-            })
-          }
-        } catch (auditError) {
-          console.warn("Failed to log API key connection:", auditError)
-        }
-        
-        await fetchIntegrations(true)
-        emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+        setLoading(`connect-${providerId}`, false)
+        setTimeout(() => {
+          fetchIntegrations(true)
+          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+        }, 1000)
       } catch (error: any) {
-        console.error(`Failed to connect ${providerId}:`, error)
-        setError(error.message)
-      } finally {
+        console.error("Error connecting API key integration:", error)
+        setError(error.message || "Failed to connect integration")
         setLoading(`connect-${providerId}`, false)
       }
     },
 
     disconnectIntegration: async (integrationId: string) => {
-      const { setLoading, fetchIntegrations, integrations, setError } = get()
-      const integration = integrations.find((i) => i.id === integrationId)
-      if (!integration) return
-
+      const { setLoading, fetchIntegrations, setError } = get()
       setLoading(`disconnect-${integrationId}`, true)
       setError(null)
 
       try {
-        const { user, session } = await getSecureUserAndSession()
-
-        const response = await fetch(`/api/integrations/${integrationId}`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to disconnect integration")
-        }
-
-        await fetchIntegrations(true)
-        emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId, provider: integration.provider })
+        await IntegrationService.disconnectIntegration(integrationId)
+        
+        setLoading(`disconnect-${integrationId}`, false)
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 1000)
       } catch (error: any) {
-        console.error(`Failed to disconnect ${integration.provider}:`, error)
-        setError(error.message)
-      } finally {
+        console.error("Error disconnecting integration:", error)
+        setError(error.message || "Failed to disconnect integration")
         setLoading(`disconnect-${integrationId}`, false)
       }
     },
@@ -741,17 +296,95 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        const response = await fetch("/api/integrations/refresh-tokens", { method: "POST" })
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to refresh tokens")
-        }
-        set({ loading: false })
+        const stats = await IntegrationService.refreshTokens()
+        
+        setLoading("refresh-all", false)
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 1000)
+        
+        return stats
       } catch (error: any) {
         console.error("Error refreshing tokens:", error)
-        set({ loading: false, error: error.message })
+        setError(error.message || "Failed to refresh tokens")
+        setLoading("refresh-all", false)
+        return { refreshed: 0, failed: 0 }
       }
     },
+
+    loadIntegrationData: async (providerId, integrationId, params, forceRefresh = false) => {
+      try {
+        // Create a cache key for this specific request
+        const cacheKey = `${providerId}-${integrationId}-${JSON.stringify(params || {})}`
+        
+        // If not forcing refresh and we have an ongoing request, return that promise
+        if (!forceRefresh && ongoingRequests.has(cacheKey)) {
+          console.log(`🔄 [IntegrationStore] Using ongoing request for ${providerId}`)
+          return await ongoingRequests.get(cacheKey)!
+        }
+        
+        // Create new request
+        console.log(`🚀 [IntegrationStore] Starting new request for ${providerId}`)
+        const requestPromise = IntegrationService.loadIntegrationData(providerId, integrationId, params, forceRefresh)
+        
+        // Store the promise to prevent duplicate calls
+        ongoingRequests.set(cacheKey, requestPromise)
+        
+        try {
+          const result = await requestPromise
+          return result
+        } finally {
+          // Clean up the ongoing request when done
+          ongoingRequests.delete(cacheKey)
+        }
+      } catch (error: any) {
+        console.error("Error loading integration data:", error)
+        throw error
+      }
+    },
+
+    reconnectIntegration: async (integrationId: string) => {
+      const { setLoading, fetchIntegrations, integrations, setError } = get()
+      const integration = integrations.find((i) => i.id === integrationId)
+      
+      if (!integration) {
+        console.error("❌ Integration not found for ID:", integrationId)
+        return
+      }
+      
+      setLoading(`reconnect-${integrationId}`, true)
+      setError(null)
+
+      try {
+        const result = await OAuthConnectionFlow.startReconnection({
+          integrationId,
+          integration,
+          onSuccess: () => {
+            setLoading(`reconnect-${integrationId}`, false)
+            setTimeout(() => {
+              fetchIntegrations(true)
+              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
+            }, 1000)
+          },
+          onError: (error) => {
+            setError(error)
+            setLoading(`reconnect-${integrationId}`, false)
+          },
+          onCancel: () => {
+            setLoading(`reconnect-${integrationId}`, false)
+          }
+        })
+
+        if (!result.success) {
+          throw new Error(result.message || "Reconnection failed")
+        }
+      } catch (error: any) {
+        console.error(`❌ Failed to reconnect ${integration.provider}:`, error)
+        setError(error.message)
+        setLoading(`reconnect-${integrationId}`, false)
+      }
+    },
+
 
     getIntegrationStatus: (providerId: string) => {
       const { integrations } = get()
@@ -801,481 +434,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    loadIntegrationData: async (providerId, integrationId, params, forceRefresh = false) => {
-      const { setLoading, setError, integrationData } = get()
-      
-              // Generate cache key - include channelId for Discord messages and reactions
-        let cacheKey: string = providerId
-        if (providerId === "discord_messages" && params?.channelId) {
-          cacheKey = `${providerId}_${params.channelId}`
-        } else if (providerId === "discord_reactions" && params?.channelId && params?.messageId) {
-          cacheKey = `${providerId}_${params.channelId}_${params.messageId}`
-        }
-        
-        // For Discord data, always fetch fresh data to avoid showing deleted messages
-        const isDiscordData = providerId.includes('discord')
-        
-        // Check if data is already cached (unless force refresh is requested or it's Discord data)
-        if (!forceRefresh && !params?.forceRefresh && !isDiscordData && integrationData[cacheKey]) {
-          return integrationData[cacheKey]
-        }
-      
-      setLoading(`data-${providerId}`, true)
-
-      try {
-        let url = ""
-        let dataType = providerId // Default to providerId
-        
-        switch (providerId) {
-          case "gmail-enhanced-recipients":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail-enhanced-recipients"
-            break
-          case "gmail_messages":
-            url = "/api/integrations/gmail/messages"
-            break
-          case "gmail_labels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail_labels"
-            break
-          case "gmail-recent-recipients":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail-recent-recipients"
-            break
-          case "google-calendars":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-calendars"
-            break
-          case "google-calendar":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-calendar"
-            break
-          case "google-drive-folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-drive-folders"
-            break
-          case "google-drive-files":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-drive-files"
-            break
-          case "onedrive-folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "onedrive-folders"
-            break
-          case "dropbox-folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "dropbox-folders"
-            break
-          case "box-folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "box-folders"
-            break
-          case "google-sheets_spreadsheets":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_spreadsheets"
-            break
-          case "google-sheets_sheets":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_sheets"
-            break
-          case "google-sheets_sheet-preview":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_sheet-preview"
-            break
-          case "google-sheets_sheet-data":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_sheet-data"
-            break
-          case "google-docs_documents":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-docs_documents"
-            break
-          case "google-docs_templates":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-docs_templates"
-            break
-          case "google-docs_recent_documents":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-docs_recent_documents"
-            break
-          case "google-docs_shared_documents":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-docs_shared_documents"
-            break
-          case "google-docs_folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "google-docs_folders"
-            break
-          case "youtube_channels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "youtube_channels"
-            break
-          case "youtube_videos":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "youtube_videos"
-            break
-          case "youtube_playlists":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "youtube_playlists"
-            break
-          case "teams_chats":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "teams_chats"
-            break
-          case "teams_teams":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "teams_teams"
-            break
-          case "teams_channels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "teams_channels"
-            break
-          case "github_repositories":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "github_repositories"
-            break
-          case "gitlab_projects":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gitlab_projects"
-            break
-          case "notion_databases":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "notion_databases"
-            break
-          case "notion_pages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "notion_pages"
-            break
-          case "notion_workspaces":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "notion_workspaces"
-            break
-          case "notion_templates":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "notion_templates"
-            break
-          case "trello_boards":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello_boards"
-            break
-          case "trello_lists":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello_lists"
-            break
-          case "trello_cards":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello_cards"
-            break
-          case "hubspot_companies":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_companies"
-            break
-          case "hubspot_contacts":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_contacts"
-            break
-          case "hubspot_deals":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_deals"
-            break
-          case "hubspot_lists":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_lists"
-            break
-          case "hubspot_pipelines":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_pipelines"
-            break
-          case "hubspot_deal_stages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_deal_stages"
-            break
-          case "hubspot_job_titles":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_job_titles"
-            break
-          case "hubspot_departments":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_departments"
-            break
-          case "hubspot_industries":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_industries"
-            break
-          case "hubspot_contact_properties":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "hubspot_contact_properties"
-            break
-          case "hubspot_all_contact_properties":
-            url = "/api/integrations/hubspot/all-contact-properties"
-            dataType = "hubspot_all_contact_properties"
-            break
-          case "hubspot_all_company_properties":
-            url = "/api/integrations/hubspot/all-company-properties"
-            dataType = "hubspot_all_company_properties"
-            break
-          case "airtable_bases":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_bases"
-            break
-          case "airtable_workspaces":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_workspaces"
-            break
-          case "airtable_tables":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_tables"
-            break
-          case "airtable_records":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_records"
-            break
-          case "airtable_feedback_records":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_feedback_records"
-            break
-          case "airtable_task_records":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_task_records"
-            break
-          case "airtable_project_records":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "airtable_project_records"
-            break
-          case "gumroad_products":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gumroad_products"
-            break
-          case "blackbaud_constituents":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "blackbaud_constituents"
-            break
-          case "facebook_pages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "facebook_pages"
-            break
-          case "facebook_conversations":
-            url = "/api/integrations/facebook/conversations"
-            dataType = "facebook_conversations"
-            break
-          case "facebook_posts":
-            url = "/api/integrations/facebook/posts"
-            dataType = "facebook_posts"
-            break
-          case "onenote_notebooks":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "onenote_notebooks"
-            break
-          case "onenote_sections":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "onenote_sections"
-            break
-          case "onenote_pages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "onenote_pages"
-            break
-          case "outlook_folders":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_folders"
-            break
-          case "outlook_messages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_messages"
-            break
-          case "outlook_contacts":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_contacts"
-            break
-          case "outlook-enhanced-recipients":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook-enhanced-recipients"
-            break
-          case "outlook_calendars":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_calendars"
-            break
-          case "outlook_events":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_events"
-            break
-          case "outlook_signatures":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "outlook_signatures"
-            break
-          case "gmail_signatures":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail_signatures"
-            break
-          case "twitter_mentions":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "twitter_mentions"
-            break
-          case "slack-channels":
-            url = "/api/integrations/slack/load-data"
-            dataType = "slack-channels"
-            break
-          case "slack_workspaces":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "slack_workspaces"
-            break
-          case "slack_users":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "slack_users"
-            break
-          case "trello-boards":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello-boards"
-            break
-          case "trello-list-templates":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello-list-templates"
-            break
-          case "trello-card-templates":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "trello-card-templates"
-            break
-          case "discord_channels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_channels"
-            break
-          case "discord_guilds":
-            // Use cached Discord guilds loader instead of direct API call
-            try {
-              const cachedGuilds = await loadDiscordGuildsOnce(forceRefresh || params?.forceRefresh)
-              set((state) => ({
-                integrationData: {
-                  ...state.integrationData,
-                  [cacheKey]: cachedGuilds,
-                },
-              }))
-              setLoading(`data-${providerId}`, false)
-              return cachedGuilds
-            } catch (error: any) {
-              console.error(`Failed to load Discord guilds from cache:`, error)
-              setError(`Failed to load Discord guilds.`)
-              setLoading(`data-${providerId}`, false)
-              return null
-            }
-            break
-          case "discord_users":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_users"
-            break
-          case "discord_categories":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_categories"
-            break
-          case "discord_members":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_members"
-            break
-          case "discord_roles":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_roles"
-            break
-          case "discord_messages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_messages"
-            break
-          case "discord_reactions":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_reactions"
-            break
-          case "discord_banned_users":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_banned_users"
-            break
-          default:
-            throw new Error(`Loading data for ${providerId} is not supported.`)
-        }
-
-        const provider = providerId === 'onenote_notebooks' ? 'microsoft-onenote' :
-                       providerId === 'onenote_sections' ? 'microsoft-onenote' :
-                       providerId === 'onenote_pages' ? 'microsoft-onenote' :
-                       providerId === 'outlook_folders' ? 'microsoft-outlook' :
-                       providerId === 'outlook_messages' ? 'microsoft-outlook' :
-                       providerId === 'outlook_contacts' ? 'microsoft-outlook' :
-                       providerId === 'outlook-enhanced-recipients' ? 'microsoft-outlook' :
-                       providerId === 'outlook_calendars' ? 'microsoft-outlook' :
-                       providerId === 'outlook_events' ? 'microsoft-outlook' :
-                       providerId === 'outlook_signatures' ? 'microsoft-outlook' :
-                       providerId === 'gmail_signatures' ? 'gmail' :
-                       providerId === 'gmail-recent-recipients' ? 'gmail' :
-                       providerId === 'gmail-enhanced-recipients' ? 'gmail' :
-                       providerId === 'twitter_mentions' ? 'twitter' :
-                       providerId === 'google-calendars' ? 'google-calendar' :
-                       providerId === 'google-drive-folders' ? 'google-drive' :
-                       providerId === 'google-drive-files' ? 'google-drive' :
-                       providerId === 'onedrive-folders' ? 'onedrive' :
-                       providerId === 'dropbox-folders' ? 'dropbox' :
-                       providerId === 'box-folders' ? 'box' :
-                       providerId === 'google-sheets_spreadsheets' ? 'google-sheets' :
-                       providerId === 'google-sheets_sheets' ? 'google-sheets' :
-                       providerId === 'google-sheets_sheet-preview' ? 'google-sheets' :
-                       providerId === 'google-sheets_sheet-data' ? 'google-sheets' :
-                       providerId === 'google-docs_recent_documents' ? 'google-docs' :
-                       providerId === 'google-docs_shared_documents' ? 'google-docs' :
-                       providerId === 'google-docs_folders' ? 'google-docs' :
-                       providerId === 'slack_workspaces' ? 'slack' :
-                       providerId === 'slack_users' ? 'slack' :
-                       providerId === 'discord_channels' ? 'discord' :
-                       providerId === 'discord_guilds' ? 'discord' :
-                       providerId === 'discord_users' ? 'discord' :
-                       providerId === 'discord_messages' ? 'discord' :
-                       providerId === 'discord_reactions' ? 'discord' :
-                       providerId === 'discord_categories' ? 'discord' :
-                       providerId === 'discord_banned_users' ? 'discord' :
-                       providerId === 'facebook_pages' ? 'facebook' :
-                       providerId === 'facebook_conversations' ? 'facebook' :
-                       providerId === 'facebook_posts' ? 'facebook' :
-                       providerId.includes('_') ? providerId.split('_')[0] : 
-                       providerId.includes('-') ? providerId.split('-')[0] : 
-                       providerId // Extract base provider name
-
-
-        const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
-          ? { integrationId } 
-          : { 
-              integrationId,
-              dataType: params?.dataType || dataType, // Allow override via params
-              options: params || {}
-            }
-
-
-        // Use GET for specific endpoints that don't need POST data
-        let response
-        if (url.includes('/hubspot/all-contact-properties')) {
-          response = await apiClient.get(url)
-        } else {
-          response = await apiClient.post(url, { 
-            ...requestBody,
-            ...params 
-          })
-        }
-        
-        // Handle the structured response from apiClient
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to load integration data')
-        }
-        
-        const data = response.data
-
-        set((state) => ({
-          integrationData: {
-            ...state.integrationData,
-            [cacheKey]: data,
-          },
-        }))
-        setLoading(`data-${providerId}`, false)
-        return data
-      } catch (error: any) {
-        console.error(`Failed to load data for ${providerId}:`, error)
-        setError(`Failed to load data for ${providerId}.`)
-        setLoading(`data-${providerId}`, false)
-        return null
-      }
-    },
-
     clearAllData: () => {
       // Cancel any ongoing requests
       if (currentAbortController) {
@@ -1302,334 +460,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
       })
     },
 
-    clearDiscordCache: () => {
-      const { integrationData } = get()
-      const newIntegrationData = { ...integrationData }
-      
-      // Remove all Discord-related cached data
-      Object.keys(newIntegrationData).forEach(key => {
-        if (key.includes('discord')) {
-          delete newIntegrationData[key]
-        }
-      })
-      
-      set({ integrationData: newIntegrationData })
-    },
-
-    reconnectIntegration: async (integrationId: string) => {
-      const { setLoading, fetchIntegrations, integrations, setError } = get()
-      const integration = integrations.find((i) => i.id === integrationId)
-      
-      if (!integration) {
-        console.error("❌ Integration not found for ID:", integrationId)
-        return
-      }
-      setLoading(`reconnect-${integrationId}`, true)
-      setError(null)
-
-      try {
-        const { user, session } = await getSecureUserAndSession()
-
-        // Ensure provider is valid and properly formatted
-        const provider = integration.provider.trim().toLowerCase()
-        
-        // Generate OAuth URL for reconnection
-        const authResponse = await fetch("/api/integrations/auth/generate-url", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            provider: provider, // Use normalized provider name
-            reconnect: true,
-            integrationId: integrationId,
-            // Add timestamp to prevent caching
-            timestamp: Date.now()
-          }),
-        })
-
-        if (!authResponse.ok) {
-          const errorData = await authResponse.json().catch(() => ({}))
-          throw new Error(errorData.error || "Failed to generate OAuth URL")
-        }
-
-        const authData = await authResponse.json()
-        
-        if (!authData.success || !authData.authUrl) {
-          throw new Error("Failed to generate OAuth URL for reconnection")
-        }
-
-        
-        // Verify the URL is for the correct provider
-        const urlProvider = provider.toLowerCase()
-        const authUrl = authData.authUrl
-        
-        // Extra validation for Google Calendar to prevent Microsoft Outlook confusion
-        if (urlProvider === 'google-calendar' && !authUrl.includes('accounts.google.com')) {
-          throw new Error(`Invalid OAuth URL for Google Calendar: ${authUrl}`)
-        }
-        
-        // Open OAuth popup with unique name to prevent reuse of windows
-        const width = 600
-        const height = 700
-        const left = window.screen.width / 2 - width / 2
-        const top = window.screen.height / 2 - height / 2
-        const timestamp = Date.now()
-        const popupName = `oauth_reconnect_${urlProvider}_${timestamp}`
-        
-        // Clear any localStorage items with the same prefix to prevent confusion
-        const storagePrefix = `oauth_response_${urlProvider}`;
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith(storagePrefix)) {
-            localStorage.removeItem(key);
-          }
-        }
-        
-        // Close any existing popup before opening a new one
-        closeExistingPopup()
-        
-        const popup = window.open(
-          authUrl,
-          popupName,
-          `width=${width},height=${height},left=${left},top=${top}`,
-        )
-
-        if (!popup) {
-          throw new Error("Failed to open OAuth popup. Please allow popups and try again.")
-        }
-
-        // Update global popup reference
-        currentOAuthPopup = popup
-
-        // Wait for OAuth completion
-        await new Promise((resolve, reject) => {
-          let messageReceived = false
-          
-          const handleMessage = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin) {
-              return
-            }
-            
-            messageReceived = true
-            
-            if (event.data.type === "oauth-success") {
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", handleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              fetchIntegrations(true)
-              resolve(undefined)
-            } else if (event.data.type === "oauth-error") {
-              console.error("❌ OAuth reconnection failed:", event.data.message)
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", handleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              reject(new Error(event.data.message || "OAuth reconnection failed"))
-            } else if (event.data.type === "oauth-cancelled") {
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", handleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              reject(new Error("OAuth reconnection was cancelled"))
-            }
-          }
-
-          window.addEventListener("message", handleMessage)
-          
-          // Add manual popup close detection for reconnection
-          let popupClosedManually = false
-          const popupCloseCheckTimer = setInterval(() => {
-            try {
-              // Try to check if popup is closed (may fail due to COOP)
-              if (popup && popup.closed && !messageReceived) {
-                popupClosedManually = true
-                clearInterval(popupCloseCheckTimer)
-                clearInterval(checkPopupClosed)
-                window.removeEventListener("message", handleMessage)
-                // Reset global popup reference
-                currentOAuthPopup = null
-                // Don't reject - user intentionally cancelled
-                reject(new Error("User cancelled the reconnection"))
-              }
-            } catch (error) {
-              // COOP policy may block popup.closed access - this is expected
-              // We'll rely on other methods (localStorage, messages) in this case
-            }
-          }, 1000) // Check every second
-          
-          // Use localStorage to check for OAuth responses (COOP-safe)
-          const storageCheckPrefix = `oauth_response_${integration.provider}`;
-          const checkPopupClosed = setInterval(() => {
-            // Skip if popup was manually closed
-            if (popupClosedManually) return
-            
-            try {
-              // Check localStorage for any keys that match our prefix
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith(storageCheckPrefix)) {
-                  try {
-                    // Found a matching key, parse the response
-                    const storedData = localStorage.getItem(key);
-                    if (storedData) {
-                      const responseData = JSON.parse(storedData);
-                      
-                      // Process the response
-                      if (responseData.type === 'oauth-success') {
-                        messageReceived = true;
-                        clearInterval(popupCloseCheckTimer);
-                        clearInterval(checkPopupClosed);
-                        window.removeEventListener("message", handleMessage);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        fetchIntegrations(true);
-                        emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider });
-                        resolve(undefined);
-                      } else if (responseData.type === 'oauth-error') {
-                        console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message);
-                        messageReceived = true;
-                        clearInterval(popupCloseCheckTimer);
-                        clearInterval(checkPopupClosed);
-                        window.removeEventListener("message", handleMessage);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        reject(new Error(responseData.message || "OAuth reconnection failed"));
-                      } else if (responseData.type === 'oauth-cancelled') {
-                        messageReceived = true;
-                        clearInterval(popupCloseCheckTimer);
-                        clearInterval(checkPopupClosed);
-                        window.removeEventListener("message", handleMessage);
-                        // Reset global popup reference
-                        currentOAuthPopup = null;
-                        reject(new Error("OAuth reconnection was cancelled"));
-                      }
-                      
-                      // Clean up localStorage
-                      localStorage.removeItem(key);
-                    }
-                  } catch (parseError) {
-                    console.error(`Error parsing localStorage data for key ${key}:`, parseError);
-                  }
-                }
-              }
-              
-              // Note: We can't check popup.closed due to COOP policy
-              // We rely on message events and localStorage polling for communication
-            } catch (error) {
-              console.error(`Error checking localStorage for OAuth response:`, error);
-            }
-          }, 1000)
-          
-          // Timeout after 5 minutes
-          const timeout = setTimeout(() => {
-            if (!messageReceived && !popupClosedManually) {
-              clearInterval(popupCloseCheckTimer)
-              clearInterval(checkPopupClosed)
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup on timeout:", e)
-              }
-              window.removeEventListener("message", handleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              reject(new Error("OAuth reconnection timed out"))
-            }
-          }, 5 * 60 * 1000)
-          
-          // Clean up timeout and interval when message is received
-          const originalResolve = resolve
-          const originalReject = reject
-          
-          // Override resolve/reject to clean up timers
-          const wrappedResolve = (value: any) => {
-            clearTimeout(timeout)
-            clearInterval(popupCloseCheckTimer)
-            clearInterval(checkPopupClosed)
-            originalResolve(value)
-          }
-          
-          const wrappedReject = (error: any) => {
-            clearTimeout(timeout)
-            clearInterval(popupCloseCheckTimer)
-            clearInterval(checkPopupClosed)
-            originalReject(error)
-          }
-          
-          // Replace the resolve/reject in the message handler
-          const originalHandleMessage = handleMessage
-          window.removeEventListener("message", originalHandleMessage)
-          
-          const newHandleMessage = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin) {
-              return
-            }
-            
-            messageReceived = true
-            
-            if (event.data.type === "oauth-success") {
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", newHandleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              fetchIntegrations(true)
-              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
-              wrappedResolve(undefined)
-            } else if (event.data.type === "oauth-error") {
-              console.error("❌ OAuth reconnection failed:", event.data.message)
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", newHandleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              wrappedReject(new Error(event.data.message || "OAuth reconnection failed"))
-            } else if (event.data.type === "oauth-cancelled") {
-              try {
-                popup.close()
-              } catch (e) {
-                console.warn("Failed to close popup:", e)
-              }
-              window.removeEventListener("message", newHandleMessage)
-              // Reset global popup reference
-              currentOAuthPopup = null
-              wrappedReject(new Error("OAuth reconnection was cancelled"))
-            }
-          }
-          
-          window.addEventListener("message", newHandleMessage)
-        })
-
-      } catch (error: any) {
-        console.error(`❌ Failed to reconnect ${integration.provider}:`, error)
-        setError(error.message)
-        throw error
-      } finally {
-        setLoading(`reconnect-${integrationId}`, false)
-      }
-    },
-
     deleteIntegration: async (integrationId: string) => {
       const { setLoading, integrations, fetchIntegrations, setError } = get()
       const integration = integrations.find((i) => i.id === integrationId)
@@ -1639,30 +469,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        // ... implementation for deleting integration
+        await IntegrationService.disconnectIntegration(integrationId)
+        await fetchIntegrations(true)
       } catch (error: any) {
         setError(error.message)
       } finally {
         setLoading(`delete-${integration.provider}`, false)
       }
-    },
-
-    resetConnectionState: () => {
-      // Close any existing popup and reset state
-      closeExistingPopup()
-      
-      // Clear any loading states related to connections
-      const { loadingStates } = get()
-      const newLoadingStates = { ...loadingStates }
-      
-      // Find and clear any connect-* loading states
-      Object.keys(newLoadingStates).forEach(key => {
-        if (key.startsWith('connect-')) {
-          newLoadingStates[key] = false
-        }
-      })
-      
-      set({ loadingStates: newLoadingStates, error: null })
     },
 
     // Helper function to check if integration needs reconnection due to missing scopes

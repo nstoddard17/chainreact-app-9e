@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
+// import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
 
 // Optimize font loading with display: swap for better LCP
 const spaceGrotesk = Space_Grotesk({ 

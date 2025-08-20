@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
-import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
+import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
         console.log(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
 
         // Refresh the token
-        const refreshResult = await refreshTokenForProvider(
+        const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
           integration.provider,
           integration.refresh_token,
           integration,

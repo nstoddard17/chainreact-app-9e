@@ -297,7 +297,7 @@ async function validateAndRefreshToken(integration: any): Promise<{
             let refreshToken = integration.refresh_token;
             refreshToken = safeDecrypt(refreshToken, secret);
             
-            const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+            const { LegacyTokenRefreshService: TokenRefreshService } = await import("@/src/infrastructure/workflows/legacy-compatibility")
             const refreshResult = await TokenRefreshService.refreshTokenForProvider(
               integration.provider,
               refreshToken,

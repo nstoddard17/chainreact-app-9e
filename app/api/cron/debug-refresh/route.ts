@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refreshTokenForProvider, getTokensNeedingRefresh } from "@/lib/integrations/tokenRefreshService";
+import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility";
 import { db } from "@/lib/db";
 
 /**
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
       
-      const refreshResult = await refreshTokenForProvider(
+      const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
         integration.provider,
         integration.refresh_token,
         integration
