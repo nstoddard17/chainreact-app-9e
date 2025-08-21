@@ -20,7 +20,8 @@ export function getBaseUrl(): string {
   } else {
     // Server-side
     if (process.env.NODE_ENV === 'development') {
-      return 'http://localhost:3000'
+      const port = process.env.PORT || '3001'
+      return `http://localhost:${port}`
     }
   }
   
@@ -51,7 +52,8 @@ export function getApiBaseUrl(): string {
   } else {
     // Server-side
     if (process.env.NODE_ENV === 'development') {
-      return 'http://localhost:3000'
+      const port = process.env.PORT || '3001'
+      return `http://localhost:${port}`
     }
   }
   
@@ -93,7 +95,8 @@ export function getWebhookBaseUrl(): string {
   } else {
     // Server-side detection
     if (process.env.NODE_ENV === 'development') {
-      return 'http://localhost:3000'
+      const port = process.env.PORT || '3001'
+      return `http://localhost:${port}`
     }
   }
   

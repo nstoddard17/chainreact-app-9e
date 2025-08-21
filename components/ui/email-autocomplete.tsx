@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useMemo, ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { X, Mail, Users } from "lucide-react"
@@ -49,8 +50,21 @@ export function EmailAutocomplete({
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [selectedEmails, setSelectedEmails] = useState<string[]>([])
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+
+  // Calculate dropdown position
+  const updateDropdownPosition = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4, // Add small gap
+        left: rect.left + window.scrollX,
+        width: rect.width
+      })
+    }
+  }
 
   // Initialize selected emails from value prop
   useEffect(() => {
@@ -254,6 +268,9 @@ export function EmailAutocomplete({
   }
 
   const handleInputFocus = () => {
+    // Calculate position before opening
+    updateDropdownPosition()
+    
     // Always show suggestions dropdown on focus, even if input is empty
     setIsOpen(true)
     
@@ -292,13 +309,6 @@ export function EmailAutocomplete({
     }
   }, [selectedIndex])
   
-  // Log suggestions when they change for debugging
-  useEffect(() => {
-    console.log('📧 EmailAutocomplete suggestions updated:', suggestions?.length || 0, 'items')
-    if (suggestions && suggestions.length > 0) {
-      console.log('📧 Sample suggestions:', suggestions.slice(0, 3))
-    }
-  }, [suggestions])
 
   return (
     <div className={cn("relative", className)}>
@@ -380,9 +390,20 @@ export function EmailAutocomplete({
         </div>
       </div>
 
-      {/* Suggestions dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto">
+      {/* Suggestions dropdown using portal */}
+      {isOpen && typeof window !== 'undefined' && createPortal(
+        <div 
+          className="fixed z-[9999] bg-white border border-border rounded-md shadow-lg max-h-80 overflow-auto min-w-80"
+          style={{ 
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            minWidth: Math.max(dropdownPosition.width, 320), // Ensure minimum width of 320px
+            maxWidth: '500px', // Allow wider dropdown for better UX
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0'
+          }}
+          onMouseDown={(e) => e.preventDefault()} // Prevent input blur when clicking dropdown
+        >
           {isLoading ? (
             // Loading state in dropdown
             <div className="flex items-center justify-center py-8 space-x-3">
@@ -598,7 +619,8 @@ export function EmailAutocomplete({
               )}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

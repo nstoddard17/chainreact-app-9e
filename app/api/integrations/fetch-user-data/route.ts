@@ -68,12 +68,14 @@ export async function POST(req: NextRequest) {
     if (integration.provider === 'gmail' && (
       dataType === 'gmail_labels' ||
       dataType === 'gmail_recipients' ||
-      dataType === 'gmail_signatures'
+      dataType === 'gmail_signatures' ||
+      dataType === 'gmail-recent-recipients'
     )) {
       console.log(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
       
       try {
-        const gmailApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/gmail/data`, {
+        const baseUrl = req.nextUrl.origin
+        const gmailApiResponse = await fetch(`${baseUrl}/api/integrations/gmail/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -111,7 +113,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Slack request to dedicated API: ${dataType}`);
       
       try {
-        const slackApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/slack/data`, {
+        const baseUrl = req.nextUrl.origin
+        const slackApiResponse = await fetch(`${baseUrl}/api/integrations/slack/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -149,7 +152,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType}`);
       
       try {
-        const googleApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/google/data`, {
+        const baseUrl = req.nextUrl.origin
+        const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -191,7 +195,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Notion request to dedicated API: ${dataType}`);
       
       try {
-        const notionApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/notion/data`, {
+        const baseUrl = req.nextUrl.origin
+        const notionApiResponse = await fetch(`${baseUrl}/api/integrations/notion/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -236,7 +241,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Discord request to dedicated API: ${dataType}`);
       
       try {
-        const discordApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/discord/data`, {
+        const baseUrl = req.nextUrl.origin
+        const discordApiResponse = await fetch(`${baseUrl}/api/integrations/discord/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -273,7 +279,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Facebook request to dedicated API: ${dataType}`);
       
       try {
-        const facebookApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/facebook/data`, {
+        const baseUrl = req.nextUrl.origin
+        const facebookApiResponse = await fetch(`${baseUrl}/api/integrations/facebook/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -310,7 +317,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
       
       try {
-        const twitterApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/twitter/data`, {
+        const baseUrl = req.nextUrl.origin
+        const twitterApiResponse = await fetch(`${baseUrl}/api/integrations/twitter/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -349,7 +357,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing OneNote request to dedicated API: ${dataType}`);
       
       try {
-        const oneNoteApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/onenote/data`, {
+        const baseUrl = req.nextUrl.origin
+        const oneNoteApiResponse = await fetch(`${baseUrl}/api/integrations/onenote/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -394,7 +403,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Outlook request to dedicated API: ${dataType}`);
       
       try {
-        const outlookApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/outlook/data`, {
+        const baseUrl = req.nextUrl.origin
+        const outlookApiResponse = await fetch(`${baseUrl}/api/integrations/outlook/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -441,7 +451,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
       
       try {
-        const hubspotApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/hubspot/data`, {
+        const baseUrl = req.nextUrl.origin
+        const hubspotApiResponse = await fetch(`${baseUrl}/api/integrations/hubspot/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -486,7 +497,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
       
       try {
-        const airtableApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/airtable/data`, {
+        const baseUrl = req.nextUrl.origin
+        const airtableApiResponse = await fetch(`${baseUrl}/api/integrations/airtable/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -532,7 +544,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Trello request to dedicated API: ${dataType}`);
       
       try {
-        const trelloApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/trello/data`, {
+        const baseUrl = req.nextUrl.origin
+        const trelloApiResponse = await fetch(`${baseUrl}/api/integrations/trello/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -572,7 +585,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
       
       try {
-        const onedriveApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/onedrive/data`, {
+        const baseUrl = req.nextUrl.origin
+        const onedriveApiResponse = await fetch(`${baseUrl}/api/integrations/onedrive/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -612,7 +626,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Gumroad request to dedicated API: ${dataType}`);
       
       try {
-        const gumroadApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/gumroad/data`, {
+        const baseUrl = req.nextUrl.origin
+        const gumroadApiResponse = await fetch(`${baseUrl}/api/integrations/gumroad/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -652,7 +667,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Blackbaud request to dedicated API: ${dataType}`);
       
       try {
-        const blackbaudApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/blackbaud/data`, {
+        const baseUrl = req.nextUrl.origin
+        const blackbaudApiResponse = await fetch(`${baseUrl}/api/integrations/blackbaud/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -692,7 +708,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Dropbox request to dedicated API: ${dataType}`);
       
       try {
-        const dropboxApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/dropbox/data`, {
+        const baseUrl = req.nextUrl.origin
+        const dropboxApiResponse = await fetch(`${baseUrl}/api/integrations/dropbox/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -732,7 +749,8 @@ export async function POST(req: NextRequest) {
       console.log(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
       
       try {
-        const boxApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/box/data`, {
+        const baseUrl = req.nextUrl.origin
+        const boxApiResponse = await fetch(`${baseUrl}/api/integrations/box/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -82,6 +82,7 @@ export function FieldRenderer({
     [];
 
 
+
   // Lazy loading function for email autocomplete fields
   const handleEmailFieldFocus = () => {
     if (field.type === 'email-autocomplete' && field.dynamic && fieldOptions.length === 0 && onDynamicLoad && !loadingDynamic) {

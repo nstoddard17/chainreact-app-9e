@@ -2,6 +2,58 @@
 
 *Latest updates are added at the top with proper dates*
 
+## August 21, 2025 - Gmail Integration Fix: Dynamic Port Detection & API Routing
+
+### 🔧 What did you work on?
+**Fixed critical Gmail integration errors** preventing the "Apply Gmail Labels" action from loading recipient data. The issue involved missing data type support and incorrect internal API routing causing 500 errors and HTML responses instead of JSON.
+
+### 🚨 Problems you encountered?
+**Multi-layered API Routing Issues**:
+- `gmail-recent-recipients` data type not recognized, throwing "Unsupported data type" errors
+- Internal API calls hardcoded to `localhost:3000` while dev server ran on port 3001
+- 500 Internal Server Error responses returning HTML instead of JSON
+- Email field loading would crash and kick users out of all modals
+- Integration service couldn't route Gmail requests to the dedicated Gmail API
+
+### 💡 How did you solve them?
+**Dynamic Port Detection & Routing Fix**:
+- **Added missing Gmail routing**: Included `gmail-recent-recipients` in the Gmail API routing condition
+- **Implemented dynamic port detection**: Replaced hardcoded URLs with `req.nextUrl.origin` for server-side requests
+- **Fixed all internal API calls**: Updated 16+ internal fetch calls across all integrations to use dynamic URLs
+- **Verified Gmail handler exists**: Confirmed `gmail-recent-recipients` handler was properly implemented and registered
+- **End-to-end testing**: Validated complete flow from UI click to Gmail API response
+
+### 🚀 Anything new we are looking forward to for the app?
+- **Robust Gmail Integration**: Email fields now load recipients without errors
+- **Dynamic Development**: Server can run on any port without breaking internal APIs
+- **Better Error Handling**: Proper JSON responses instead of confusing HTML errors
+- **Scalable Architecture**: Fixed routing patterns apply to all 20+ integrations
+- **Improved Developer Experience**: No more port-dependent configurations
+
+### 🛠️ Software or tool advice that we learned?
+1. **Dynamic URL Construction**: Use `req.nextUrl.origin` for server-side API calls instead of hardcoded URLs
+2. **Port Flexibility**: Never hardcode localhost ports in development environments
+3. **Data Type Registration**: Ensure all integration data types are properly registered in routing conditions
+4. **Error Response Consistency**: Always return JSON from APIs, never HTML error pages
+5. **End-to-End Testing**: Test complete user flows, not just individual API endpoints
+6. **Routing Delegation**: Properly delegate requests to specialized APIs while maintaining backward compatibility
+
+### 🎯 Milestones hit
+- ✅ **Gmail Recipients Loading**: Fixed `gmail-recent-recipients` data type support
+- ✅ **Dynamic Port Detection**: Eliminated hardcoded localhost:3000 dependencies
+- ✅ **API Routing Fixed**: All internal API calls now use correct URLs
+- ✅ **Error Resolution**: No more HTML error responses from APIs
+- ✅ **User Experience**: Email fields load smoothly without modal crashes
+- ✅ **Cross-Integration Fix**: Solution applies to all 20+ integration APIs
+
+**Technical Details:**
+- Fixed routing in `app/api/integrations/fetch-user-data/route.ts`
+- Added `gmail-recent-recipients` to Gmail routing condition
+- Replaced 16+ hardcoded URLs with `req.nextUrl.origin`
+- Verified Gmail handler at `app/api/integrations/gmail/data/handlers/recent-recipients.ts`
+
+---
+
 ## August 21, 2025 - Complete Discord Integration Modularization
 
 ### 🔧 What did you work on?
