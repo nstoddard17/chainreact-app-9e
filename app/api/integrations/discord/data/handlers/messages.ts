@@ -1,0 +1,127 @@
+/**
+ * Discord Messages Handler
+ */
+
+import { DiscordIntegration, DiscordMessage, DiscordDataHandler } from '../types'
+import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
+
+export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (integration: DiscordIntegration, options: any = {}) => {
+  try {
+    console.log("🔍 Discord messages fetcher called with options:", options)
+    const { channelId } = options
+    
+    if (!channelId) {
+      console.error("❌ Channel ID is missing from options")
+      throw new Error("Channel ID is required to fetch Discord messages")
+    }
+
+    console.log("🔍 Fetching messages for channel:", channelId)
+
+    // Use bot token for server operations
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    if (!botToken) {
+      console.warn("Discord bot token not available - returning empty messages list")
+      return []
+    }
+
+    console.log("🔍 Bot token available, making Discord API call...")
+
+    try {
+      // Validate channel ID format
+      if (!channelId || typeof channelId !== 'string' || !/^\d+$/.test(channelId)) {
+        console.error(`❌ Invalid channel ID format: ${channelId}`)
+        throw new Error(`Invalid channel ID format: ${channelId}. Please select a valid Discord channel.`)
+      }
+
+      const data = await fetchDiscordWithRateLimit<any[]>(() => 
+        fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=50`, {
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+          },
+        })
+      )
+
+      return (data || [])
+        .filter((message: any) => message.type === 0 || message.type === undefined)
+        .map((message: any) => {
+          let messageName = ""
+          if (message.content && message.content.trim()) {
+            messageName = message.content.substring(0, 50) + (message.content.length > 50 ? "..." : "")
+          } else if (message.embeds && message.embeds.length > 0) {
+            const embed = message.embeds[0]
+            if (embed.title) {
+              messageName = `[Embed] ${embed.title}`
+            } else if (embed.description) {
+              messageName = `[Embed] ${embed.description.substring(0, 40)}...`
+            } else {
+              messageName = `[Embed] (no title)`
+            }
+          } else if (message.attachments && message.attachments.length > 0) {
+            const attachment = message.attachments[0]
+            messageName = `[File] ${attachment.filename}`
+          }
+          if (!messageName) {
+            const author = message.author?.username || "Unknown"
+            const time = message.timestamp ? new Date(message.timestamp).toLocaleString() : message.id
+            messageName = `Message by ${author} (${time})`
+          }
+          return {
+            id: message.id,
+            name: messageName,
+            value: message.id,
+            content: message.content,
+            author: {
+              id: message.author.id,
+              username: message.author.username,
+              discriminator: message.author.discriminator,
+              avatar: message.author.avatar,
+            },
+            timestamp: message.timestamp,
+            edited_timestamp: message.edited_timestamp,
+            tts: message.tts,
+            mention_everyone: message.mention_everyone,
+            mentions: message.mentions,
+            mention_roles: message.mention_roles,
+            attachments: message.attachments,
+            embeds: message.embeds,
+            reactions: message.reactions,
+            pinned: message.pinned,
+            type: message.type,
+          }
+        })
+    } catch (error: any) {
+      console.error("🔍 Discord API error:", error.message)
+      // Handle specific Discord API errors
+      if (error.message.includes("401")) {
+        throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+      }
+      if (error.message.includes("403")) {
+        throw new Error("You do not have permission to view messages in this channel. Please ensure you have the 'Read Message History' permission and try again.")
+      }
+      if (error.message.includes("404")) {
+        // Channel not found - return empty array instead of throwing error
+        console.log(`Channel ${channelId} not found - returning empty messages list`)
+        return []
+      }
+      if (error.message.includes("400")) {
+        // Invalid request - likely invalid channel ID or bot permissions
+        console.error(`Invalid Discord API request for channel ${channelId}:`, error.message)
+        throw new Error(`Invalid Discord channel or insufficient bot permissions. Please ensure the bot has access to this channel and try again.`)
+      }
+      throw error
+    }
+  } catch (error: any) {
+    console.error("Error fetching Discord messages:", error)
+    
+    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+      throw new Error('Discord authentication expired. Please reconnect your account.')
+    }
+    
+    if (error.message?.includes('rate limit')) {
+      throw new Error('Discord API rate limit exceeded. Please try again later.')
+    }
+    
+    throw new Error(`Failed to fetch Discord messages: ${error.message}`)
+  }
+}

@@ -28,6 +28,7 @@ interface EmailAutocompleteProps {
   isLoading?: boolean
   endAdornment?: ReactNode
   error?: string
+  onFocus?: () => void
 }
 
 export function EmailAutocomplete({
@@ -40,7 +41,8 @@ export function EmailAutocomplete({
   className,
   isLoading = false,
   endAdornment,
-  error
+  error,
+  onFocus
 }: EmailAutocompleteProps) {
 
   const [inputValue, setInputValue] = useState("")
@@ -335,6 +337,7 @@ export function EmailAutocomplete({
             onFocus={(e) => {
               e.target.removeAttribute('readonly')
               handleInputFocus()
+              onFocus?.()
             }}
             onBlur={handleInputBlur}
             onClick={() => {

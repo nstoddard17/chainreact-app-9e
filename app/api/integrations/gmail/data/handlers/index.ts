@@ -1,0 +1,48 @@
+/**
+ * Gmail Data Handlers Registry
+ */
+
+import { GmailDataHandler } from '../types'
+import { getGmailLabels } from './labels'
+import { getGmailRecentRecipients } from './recent-recipients'
+import { getGmailSignatures } from './signatures'
+
+/**
+ * Registry of all Gmail data handlers
+ */
+export const gmailHandlers: Record<string, GmailDataHandler> = {
+  // Labels
+  'gmail_labels': getGmailLabels,
+  
+  // Recipients and contacts
+  'gmail-recent-recipients': getGmailRecentRecipients,
+  'gmail-enhanced-recipients': getGmailRecentRecipients, // Use same handler for now
+  
+  // Signatures  
+  'gmail_signatures': getGmailSignatures,
+  
+  // Messages (placeholder - can be implemented later)
+  // 'gmail_messages': getGmailMessages,
+  // 'gmail_recent_senders': getGmailRecentSenders,
+}
+
+/**
+ * Get available Gmail data types
+ */
+export function getAvailableGmailDataTypes(): string[] {
+  return Object.keys(gmailHandlers)
+}
+
+/**
+ * Check if a data type is supported
+ */
+export function isGmailDataTypeSupported(dataType: string): boolean {
+  return dataType in gmailHandlers
+}
+
+/**
+ * Get handler for a specific data type
+ */
+export function getGmailHandler(dataType: string): GmailDataHandler | null {
+  return gmailHandlers[dataType] || null
+}

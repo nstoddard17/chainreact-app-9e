@@ -82,12 +82,12 @@ export function FieldRenderer({
     [];
 
 
-  // Effect to trigger dynamic loading for email autocomplete fields
-  useEffect(() => {
+  // Lazy loading function for email autocomplete fields
+  const handleEmailFieldFocus = () => {
     if (field.type === 'email-autocomplete' && field.dynamic && fieldOptions.length === 0 && onDynamicLoad && !loadingDynamic) {
       onDynamicLoad(field.name);
     }
-  }, [field.type, field.dynamic, field.name, fieldOptions.length, onDynamicLoad, loadingDynamic]);
+  };
 
   // Drag and drop functionality
   const { handleDragOver, handleDrop } = useDragDrop({
@@ -213,6 +213,7 @@ export function FieldRenderer({
             multiple={true}
             isLoading={loadingDynamic}
             disabled={loadingDynamic}
+            onFocus={handleEmailFieldFocus}
             className={cn(
               "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
               error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
