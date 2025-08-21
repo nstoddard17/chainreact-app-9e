@@ -2,8 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
-import { fetchAirtableWithRetry, delayBetweenRequests } from "@/lib/integrations/airtableRateLimiter"
-import { getTwitterMentionsForDropdown } from '@/lib/integrations/twitter'
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { EmailCacheService } from "@/lib/services/emailCacheService"
 
@@ -302,6 +300,43 @@ export async function POST(req: NextRequest) {
       } catch (error: any) {
         console.error(`❌ [SERVER] Facebook API routing error:`, error);
         return Response.json({ error: 'Failed to route Facebook request' }, { status: 500 });
+      }
+    }
+
+    // Route Twitter requests to dedicated Twitter data API
+    if (integration.provider === 'twitter' && (
+      dataType === 'twitter_mentions'
+    )) {
+      console.log(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
+      
+      try {
+        const twitterApiResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/twitter/data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrationId,
+            dataType,
+            options
+          })
+        });
+
+        if (!twitterApiResponse.ok) {
+          const error = await twitterApiResponse.json();
+          console.error(`❌ [SERVER] Twitter API error:`, error);
+          return Response.json(error, { status: twitterApiResponse.status });
+        }
+
+        const twitterResult = await twitterApiResponse.json();
+        console.log(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
+        
+        // Return the Twitter API response directly (it's already in the correct format)
+        return Response.json(twitterResult);
+        
+      } catch (error: any) {
+        console.error(`❌ [SERVER] Twitter API routing error:`, error);
+        return Response.json({ error: 'Failed to route Twitter request' }, { status: 500 });
       }
     }
 
@@ -777,10 +812,8 @@ function fallbackFetcher() {
   } as any
 }
 
-// Fix data fetchers with better error handling
-const dataFetchers: DataFetcher = {
-  twitter_mentions: getTwitterMentionsForDropdown,
-}
+// Legacy data fetchers - should be empty as all requests are routed to dedicated APIs
+const dataFetchers: DataFetcher = {}
 
 // Helper functions
 function getPageTitle(page: any): string {
