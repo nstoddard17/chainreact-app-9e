@@ -155,7 +155,8 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     }
 
     // Preload fields that don't depend on other fields
-    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
+    // Note: Exclude email fields (like 'email') since they should load on-demand only
+    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId', 'labelIds'];
     
     let loadingPromises: Promise<void>[] = [];
     

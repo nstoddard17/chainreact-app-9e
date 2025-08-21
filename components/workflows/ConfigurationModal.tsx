@@ -8470,8 +8470,15 @@ function ConfigurationModal({
                 <EmailAutocomplete
                   value={value}
                   onChange={handleChange}
+                  suggestions={dynamicOptions[field.name] || []}
                   placeholder={loadingDynamic ? "Loading..." : field.placeholder}
                   disabled={loadingDynamic}
+                  multiple={true}
+                  onFocus={() => {
+                    if (field.dynamic && (!dynamicOptions[field.name] || dynamicOptions[field.name].length === 0) && !loadingDynamic) {
+                      handleDynamicLoad(field.name);
+                    }
+                  }}
                   className={cn(
                     "flex-1", 
                     hasError && "border-red-500",

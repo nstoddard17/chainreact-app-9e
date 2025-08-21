@@ -58,44 +58,62 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
       
       console.log(`✅ [Gmail API] Got ${freshEmails.length} contacts from People API`)
 
-    } catch (peopleError) {
+    } catch (peopleError: any) {
       console.warn("⚠️ [Gmail API] People API failed, falling back to search:", peopleError)
+      if (peopleError.status === 403) {
+        console.warn('⚠️ [Gmail API] Missing contacts permission. User needs to reconnect Gmail integration to enable contact suggestions.')
+      }
     }
 
     // Strategy 2: Supplement with efficient search if needed
     if (freshEmails.length < 10) {
       try {
+        // First get message IDs
         const searchResponse = await makeGmailApiRequest(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:sent&maxResults=15&fields=messages(id,payload(headers))`,
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:sent&maxResults=5`,
           integration.access_token
         )
 
         const searchData = await searchResponse.json()
-        const messages = searchData.messages || []
+        const messageIds = (searchData.messages || []).map((msg: any) => msg.id)
+        
+        console.log(`🔍 [Gmail API] Search found ${messageIds.length} messages, fetching individual message headers`)
         
         const emailSet = new Set(freshEmails.map(r => r.email.toLowerCase()))
         
-        messages.forEach((message: any) => {
-          const headers = message.payload?.headers || []
-          headers.forEach((header: any) => {
-            if (['To', 'Cc'].includes(header.name) && header.value) {
-              const emailAddresses = extractEmailAddresses(header.value)
-              emailAddresses.forEach(({ email, name }) => {
-                if (email && !emailSet.has(email.toLowerCase()) && freshEmails.length < 20) {
-                  emailSet.add(email.toLowerCase())
-                  freshEmails.push({
-                    value: email,
-                    label: name ? `${name} <${email}>` : email,
-                    email,
-                    name,
-                    source: source,
-                    frequency: 0
-                  })
-                }
-              })
-            }
-          })
-        })
+        // Fetch individual messages to get headers
+        for (const messageId of messageIds.slice(0, 3)) { // Limit to 3 to avoid rate limits
+          try {
+            const messageResponse = await makeGmailApiRequest(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?fields=payload(headers)`,
+              integration.access_token
+            )
+            
+            const messageData = await messageResponse.json()
+            const headers = messageData.payload?.headers || []
+            
+            headers.forEach((header: any) => {
+              if (['To', 'Cc'].includes(header.name) && header.value) {
+                const emailAddresses = extractEmailAddresses(header.value)
+                emailAddresses.forEach(({ email, name }) => {
+                  if (email && !emailSet.has(email.toLowerCase()) && freshEmails.length < 20) {
+                    emailSet.add(email.toLowerCase())
+                    freshEmails.push({
+                      value: email,
+                      label: name ? `${name} <${email}>` : email,
+                      email,
+                      name,
+                      source: source,
+                      frequency: 0
+                    })
+                  }
+                })
+              }
+            })
+          } catch (messageError) {
+            console.warn(`⚠️ [Gmail API] Failed to fetch message ${messageId}:`, messageError)
+          }
+        }
 
         console.log(`✅ [Gmail API] Total fresh emails: ${freshEmails.length}`)
 
