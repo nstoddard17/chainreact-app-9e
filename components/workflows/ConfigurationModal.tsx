@@ -1328,7 +1328,7 @@ function ConfigurationModal({
     } finally {
       setLoadingMessageReactions(false);
     }
-  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationSpecificData]);
+  }, [dynamicOptions.messageId, getIntegrationByProvider]);
   
   // Global test store
   const { 
@@ -2607,7 +2607,7 @@ function ConfigurationModal({
     requestCache.current.set(requestKey, requestPromise)
     
     return requestPromise
-  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationSpecificData])
+  }, [config, nodeInfo?.providerId, getIntegrationByProvider])
 
   // Automatically check Discord bot status when a server is selected
   useEffect(() => {
@@ -3487,7 +3487,7 @@ function ConfigurationModal({
       // Reset the flag when function completes
       fetchingDynamicData.current = false
     }
-  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationSpecificData, integrationData, setLoadingDynamicDebounced])
+  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, integrationData, setLoadingDynamicDebounced])
 
   const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
 
@@ -3526,7 +3526,7 @@ function ConfigurationModal({
       
       loadAirtableBases()
     }
-  }, [isOpen, nodeInfo?.type, nodeInfo?.providerId, nodeInfo?.configSchema, dynamicOptions, integration, loadIntegrationSpecificData])
+  }, [isOpen, nodeInfo?.type, nodeInfo?.providerId, nodeInfo?.configSchema, dynamicOptions, integration])
 
   useEffect(() => {
     console.log('🔍 useEffect triggered:', { 
@@ -3590,7 +3590,7 @@ function ConfigurationModal({
       hasHandledInitialDiscordGuild.current = false
       lastFetchedRef.current = {}
     }
-  }, [isOpen, currentNodeId, nodeInfo?.providerId, nodeInfo?.configSchema, fetchDynamicData])
+  }, [isOpen, currentNodeId, nodeInfo?.providerId, nodeInfo?.configSchema])
 
   // Initialize Discord bot when Discord nodes are opened
   useEffect(() => {
@@ -4181,7 +4181,7 @@ function ConfigurationModal({
       }
     }
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
+  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
@@ -4250,7 +4250,7 @@ function ConfigurationModal({
     }
 
     fetchSheetPreview()
-  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationSpecificData])
+  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider])
 
   // Enhanced workflow segment testing
   const handleTestWorkflowSegment = async () => {

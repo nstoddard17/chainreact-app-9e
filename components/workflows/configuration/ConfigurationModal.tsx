@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
@@ -191,6 +191,9 @@ export function ConfigurationModal({
                       {getModalTitle()}
                       {getNodeTypeBadge(nodeInfo?.type || '')}
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                      Configure settings and parameters for this workflow node
+                    </DialogDescription>
                     {integrationName && (
                       <p className="text-sm text-slate-600 mt-1">
                         {integrationName} Integration

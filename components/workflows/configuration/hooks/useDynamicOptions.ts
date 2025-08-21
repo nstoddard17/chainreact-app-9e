@@ -116,8 +116,9 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       // Load integration data
       const result = await loadIntegrationData(resourceType, integration.id, { [dependsOn || '']: dependsOnValue }, forceRefresh);
       
-      // Format the results
-      const formattedOptions = formatOptionsForField(fieldName, result);
+      // Format the results - extract data array from response object if needed
+      const dataArray = result.data || result;
+      const formattedOptions = formatOptionsForField(fieldName, dataArray);
       
       // Update dynamic options
       setDynamicOptions(prev => ({
