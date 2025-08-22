@@ -25,6 +25,15 @@ import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 
+// Integration-specific field components
+import { GmailEmailField } from "./gmail/GmailEmailField";
+import { OutlookEmailField } from "./outlook/OutlookEmailField";
+import { DiscordServerField } from "./discord/DiscordServerField";
+
+// Shared field components
+import { GenericSelectField } from "./shared/GenericSelectField";
+import { GenericTextInput } from "./shared/GenericTextInput";
+
 /**
  * Props for the Field component
  */
@@ -83,25 +92,27 @@ export function FieldRenderer({
 
 
 
-  // Lazy loading function for email autocomplete fields
-  const handleEmailFieldFocus = () => {
-    if (field.type === 'email-autocomplete' && field.dynamic && fieldOptions.length === 0 && onDynamicLoad && !loadingDynamic) {
-      onDynamicLoad(field.name);
+  // Determine which integration this field belongs to
+  const getIntegrationProvider = (field: any) => {
+    // Check if field has explicit provider
+    if (field.provider) return field.provider;
+    
+    // Detect provider from dynamic data type
+    if (field.dynamic) {
+      if (field.dynamic.startsWith('gmail') || field.dynamic.includes('gmail')) return 'gmail';
+      if (field.dynamic.startsWith('outlook') || field.dynamic.includes('outlook')) return 'outlook';
+      if (field.dynamic.startsWith('discord') || field.dynamic.includes('discord')) return 'discord';
+      if (field.dynamic.startsWith('slack') || field.dynamic.includes('slack')) return 'slack';
     }
+    
+    // Detect from field name patterns
+    if (field.name === 'guildId' || field.name === 'channelId') return 'discord';
+    
+    return 'generic';
   };
+  
+  const integrationProvider = getIntegrationProvider(field);
 
-  // Drag and drop functionality
-  const { handleDragOver, handleDrop } = useDragDrop({
-    onVariableDrop: (variable: string) => {
-      // Insert variable at cursor position or append to current value
-      if (typeof value === 'string') {
-        const newValue = value + variable
-        onChange(newValue)
-      } else {
-        onChange(variable)
-      }
-    }
-  })
   
   /**
    * Renders the label with optional tooltip
@@ -109,7 +120,7 @@ export function FieldRenderer({
   const renderLabel = () => (
     <div className="flex items-center gap-2 mb-3">
       <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-slate-100 rounded-md text-slate-600">
+        <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
           {getFieldIcon(field.name, field.type)}
         </div>
         <Label 
@@ -136,17 +147,6 @@ export function FieldRenderer({
     </div>
   );
 
-  // Handles direct input changes for text fields
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    onChange(e.target.value);
-  };
-
-  // Handles select field changes
-  const handleSelectChange = (newValue: string) => {
-    // Ensure we're passing a properly formatted value
-    onChange(newValue === "" ? null : newValue);
-  };
-
   // Handles checkbox changes
   const handleCheckboxChange = (checked: boolean) => {
     onChange(checked);
@@ -155,11 +155,6 @@ export function FieldRenderer({
   // Handles date field changes
   const handleDateChange = (date: Date | undefined) => {
     onChange(date ? date.toISOString() : null);
-  };
-
-  // Helper to set up variable selection
-  const handleVariableSelect = (variable: string) => {
-    onChange(variable);
   };
 
   // Get user session for email signature integration
@@ -205,208 +200,104 @@ export function FieldRenderer({
         );
 
       case "email-autocomplete":
-        return (
-          <EmailAutocomplete
-            value={value || ""}
-            onChange={onChange}
-            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
-            suggestions={fieldOptions}
-            multiple={true}
-            isLoading={loadingDynamic}
-            disabled={loadingDynamic}
-            onFocus={handleEmailFieldFocus}
-            className={cn(
-              "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-          />
-        );
+        // Route to integration-specific email field
+        switch (integrationProvider) {
+          case 'gmail':
+            return (
+              <GmailEmailField
+                field={field}
+                value={value}
+                onChange={onChange}
+                error={error}
+                suggestions={fieldOptions}
+                isLoading={loadingDynamic}
+                onDynamicLoad={onDynamicLoad}
+              />
+            );
+          case 'outlook':
+            return (
+              <OutlookEmailField
+                field={field}
+                value={value}
+                onChange={onChange}
+                error={error}
+                suggestions={fieldOptions}
+                isLoading={loadingDynamic}
+                onDynamicLoad={onDynamicLoad}
+              />
+            );
+          default:
+            // Fallback to generic email autocomplete
+            return (
+              <EmailAutocomplete
+                value={value || ""}
+                onChange={onChange}
+                placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
+                suggestions={fieldOptions}
+                multiple={true}
+                isLoading={loadingDynamic}
+                disabled={loadingDynamic}
+                className={cn(
+                  error && "border-red-500"
+                )}
+              />
+            );
+        }
 
       case "text":
       case "email":
-        return (
-          <Input
-            id={field.name}
-            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
-            value={value || ""}
-            onChange={handleChange}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-            type={field.type === "email" ? "email" : "text"}
-          />
-        );
-
       case "number":
-        return (
-          <Input
-            id={field.name}
-            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
-            value={value || ""}
-            onChange={handleChange}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-            type="number"
-            min={(field as any).min}
-            max={(field as any).max}
-            step={(field as any).step || 1}
-          />
-        );
-
       case "textarea":
+      case "time":
+      case "file":
         return (
-          <Textarea
-            id={field.name}
-            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
-            value={value || ""}
-            onChange={handleChange}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className={cn(
-              "min-h-[80px] bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 resize-none",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-            rows={(field as any).rows || 3}
+          <GenericTextInput
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
           />
         );
 
       case "select":
-        // Handle both array options and object options
+        // Route to integration-specific select field or generic one
         const selectOptions = Array.isArray(field.options) 
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
-        
-        // Force load options if they're empty (especially for Discord servers)
-        if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'guildId' && !loadingDynamic) {
-          // Use setTimeout to avoid potential render issues
-          setTimeout(() => {
-            onDynamicLoad(field.name);
-          }, 100);
-        }
-        
-        // Force load options for Gmail labels
-        if (field.dynamic && selectOptions.length === 0 && onDynamicLoad && field.name === 'labelIds' && !loadingDynamic) {
-          setTimeout(() => {
-            onDynamicLoad(field.name);
-          }, 100);
-        }
-        
-        // Show loading state or fallback message for dynamic fields
-        if (field.dynamic && loadingDynamic && selectOptions.length === 0) {
+
+        // Special handling for Discord guild/server fields
+        if (field.name === 'guildId' && integrationProvider === 'discord') {
           return (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              Loading options...
-            </div>
+            <DiscordServerField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={selectOptions}
+              isLoading={loadingDynamic}
+              onDynamicLoad={onDynamicLoad}
+            />
           );
         }
-        
-        // Special case for Discord servers when no options are available
-        if (field.name === 'guildId' && selectOptions.length === 0 && !loadingDynamic) {
-          return (
-            <div className="text-sm text-slate-500">
-              <p>No Discord servers found. You may need to:</p>
-              <ul className="list-disc list-inside mt-1 ml-2">
-                <li>Reconnect your Discord account</li>
-                <li>Ensure the bot is added to your servers</li>
-                <li>Check server permissions</li>
-                <li>Check browser console for errors</li>
-              </ul>
-              <Button 
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => {
-                  if (onDynamicLoad) {
-                    // Single call is enough, we've added rate limiting in useDynamicOptions
-                    onDynamicLoad(field.name);
-                  }
-                }}
-              >
-                Retry Loading Servers
-              </Button>
-            </div>
-          );
-        }
-        
-        // Show fallback message for Gmail fields when no options are available
-        if (field.dynamic && selectOptions.length === 0 && !loadingDynamic) {
-          if (field.name === 'from' || field.name === 'to') {
-            return (
-              <div className="text-sm text-slate-500">
-                <p>No recent recipients found. You may need to:</p>
-                <ul className="list-disc list-inside mt-1 ml-2">
-                  <li>Reconnect your Gmail account</li>
-                  <li>Send some emails to populate recent recipients</li>
-                </ul>
-              </div>
-            );
-          }
-          if (field.name === 'labelIds') {
-            return (
-              <div className="text-sm text-slate-500">
-                <p>No Gmail labels found. You may need to:</p>
-                <ul className="list-disc list-inside mt-1 ml-2">
-                  <li>Reconnect your Gmail account</li>
-                  <li>Create some labels in Gmail</li>
-                </ul>
-              </div>
-            );
-          }
-          // For Airtable tables field, always show dropdown even if no data
-          if (field.name === 'tableName') {
-            // Don't return early, let it render the empty dropdown below
-          } else {
-            // For other dynamic fields, show appropriate message
-            return (
-              <div className="text-sm text-slate-500">
-                <p>No {field.label || field.name} found.</p>
-              </div>
-            );
-          }
-        }
-        
-        // Check if this is a multiple selection field
-        if ((field as any).multiple) {
+
+        // For Gmail labels, keep the existing logic with GmailLabelManager
+        if (field.name === 'labelIds' && integrationProvider === 'gmail') {
           return (
             <div className="space-y-3">
-              <MultiCombobox
-                value={Array.isArray(value) ? value : (value ? [value] : [])}
-                onChange={(newValues) => {
-                  onChange(newValues);
-                }}
+              <GenericSelectField
+                field={field}
+                value={value}
+                onChange={onChange}
+                error={error}
                 options={selectOptions}
-                placeholder={field.placeholder || "Select options..."}
-                emptyText="No options available"
-                searchPlaceholder="Search options..."
                 isLoading={loadingDynamic}
-                disabled={loadingDynamic}
-                creatable={(field as any).creatable || false}
-                onOpenChange={(open) => {
-                  // Trigger dynamic loading when opened
-                  if (open && field.dynamic && onDynamicLoad && !loadingDynamic && selectOptions.length === 0) {
-                    onDynamicLoad(field.name);
-                  }
-                }}
-                className={cn(
-                  "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-                  error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-                )}
+                onDynamicLoad={onDynamicLoad}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
                   existingLabels={selectOptions}
                   onLabelsChange={() => {
-                    // Force refresh the labels when they change (bypass cache)
                     if (onDynamicLoad) {
-                      // Force refresh to bypass cache and get fresh data
                       onDynamicLoad(field.name, undefined, undefined, true);
                     }
                   }}
@@ -415,58 +306,18 @@ export function FieldRenderer({
             </div>
           );
         }
-        
+
+        // Default to generic select field - this replaces all the complex logic below
         return (
-          <Select 
-            value={value || ""} 
-            onValueChange={handleSelectChange}
-            onOpenChange={(open) => {
-              // Only try to load options when dropdown opens and we're not already loading
-              if (open && field.dynamic && onDynamicLoad && !loadingDynamic) {
-                // For Discord, only try to load if we have no options
-                if (field.name === 'guildId' && fieldOptions.length === 0) {
-                  onDynamicLoad(field.name);
-                } else if (field.name !== 'guildId' && selectOptions.length === 0) {
-                  onDynamicLoad(field.name);
-                }
-              }
-            }}
-          >
-            <SelectTrigger 
-              className={cn(
-                "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-                error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-              )}
-              onClick={() => {
-                // Handle trigger click if needed
-              }}
-            >
-              <SelectValue placeholder={field.placeholder || "Select an option..."} />
-            </SelectTrigger>
-            <SelectContent>
-              {selectOptions.length > 0 ? (
-                selectOptions
-                  .filter((option: any) => option && (option.value || option.id)) // Ensure option is valid
-                  .map((option: any, index: number) => {
-                    const optionValue = option.value || option.id;
-                    const optionLabel = option.label || option.name || option.value || option.id;
-                    
-                    return (
-                      <SelectItem 
-                        key={`${optionValue}-${index}`} 
-                        value={optionValue}
-                      >
-                        {optionLabel}
-                      </SelectItem>
-                    );
-                  })
-              ) : (
-                <div className="p-2 text-sm text-slate-500 text-center">
-                  {field.name === 'tableName' ? 'Select a base first to load tables' : 'No options available'}
-                </div>
-              )}
-            </SelectContent>
-          </Select>
+          <GenericSelectField
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+            options={selectOptions}
+            isLoading={loadingDynamic}
+            onDynamicLoad={onDynamicLoad}
+          />
         );
 
       case "boolean":
@@ -491,60 +342,45 @@ export function FieldRenderer({
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
             className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+              error && "border-red-500"
             )}
           />
         );
 
       case "time":
         return (
-          <Input
-            id={field.name}
-            placeholder={field.placeholder || "Select time..."}
-            value={value || ""}
-            onChange={handleChange}
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-            type="time"
+          <GenericTextInput
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
           />
         );
 
       case "file":
         return (
-          <Input
-            id={field.name}
-            placeholder={field.placeholder || "Select file..."}
-            value={value || ""}
-            onChange={handleChange}
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-            type="file"
+          <GenericTextInput
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
           />
         );
 
       default:
         return (
-          <Input
-            id={field.name}
-            placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
-            value={value || ""}
-            onChange={handleChange}
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
+          <GenericTextInput
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
           />
         );
     }
   };
 
   return (
-    <Card className="border-slate-200 bg-white hover:border-slate-300 transition-all duration-200">
+    <Card className="transition-all duration-200">
       <CardContent className="p-4">
         {renderLabel()}
         {renderFieldByType()}

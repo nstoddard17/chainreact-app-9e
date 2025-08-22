@@ -1652,7 +1652,13 @@ const useWorkflowBuilderState = () => {
     
     // Get a reference to the current ReactFlow nodes and edges
     const currentNodes = getNodes().filter((n: Node) => n.type === 'custom')
-    const currentEdges = getEdges()
+    // Filter out UI-only edges (like the dashed "Add Action" edge) from change detection
+    const currentEdges = getEdges().filter((edge: Edge) => 
+      // Exclude edges that connect to addAction nodes (these are UI-only)
+      !edge.target.includes('addAction') && 
+      // Exclude dashed edges (these are typically UI helpers)
+      !(edge.style?.strokeDasharray)
+    )
     
     // If there are no nodes yet, don't mark as changed
     if (currentNodes.length === 0) {
@@ -1721,9 +1727,6 @@ const useWorkflowBuilderState = () => {
     
     const hasChanges = nodesChanged || edgesChanged || nameChanged
     
-    // Debug logging to see what's causing the change detection
-    if (hasChanges) {
-    }
     
     // Only update the state if it's different from the current state to avoid unnecessary re-renders
     if (hasChanges !== hasUnsavedChanges) {

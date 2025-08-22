@@ -64,12 +64,131 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Integration not found' }, { status: 404 });
     }
 
-    // Route Gmail requests to dedicated Gmail data API
+    // Handle Gmail recent recipients with original working method (no contacts permission needed)
+    if (integration.provider === 'gmail' && dataType === 'gmail-recent-recipients') {
+      console.log(`🔄 [SERVER] Using original Gmail recipients method`);
+      
+      try {
+        // Validate integration has access token
+        if (!integration.access_token) {
+          throw new Error("Gmail authentication required. Please reconnect your account.")
+        }
+
+        // Decrypt the access token
+        const { decrypt } = await import('@/lib/security/encryption')
+        const accessToken = decrypt(integration.access_token)
+
+        // Get recent sent messages (last 50) - original working approach
+        const messagesResponse = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=50`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        )
+
+        if (!messagesResponse.ok) {
+          if (messagesResponse.status === 401) {
+            throw new Error("Gmail authentication expired. Please reconnect your account.")
+          }
+          const errorText = await messagesResponse.text().catch(() => "Unknown error")
+          throw new Error(`Gmail API error: ${messagesResponse.status} - ${errorText}`)
+        }
+
+        const messagesData = await messagesResponse.json()
+        const messages = messagesData.messages || []
+
+        if (messages.length === 0) {
+          return Response.json({ data: [] })
+        }
+
+        // Get detailed information for each message
+        const messageDetails = await Promise.all(
+          messages.slice(0, 25).map(async (message: { id: string }) => {
+            try {
+              const response = await fetch(
+                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+
+              if (!response.ok) return null
+              
+              const data = await response.json()
+              return data.payload?.headers || []
+            } catch (error) {
+              console.warn(`Failed to fetch message ${message.id}:`, error)
+              return null
+            }
+          })
+        )
+
+        // Extract all recipient email addresses
+        const recipients = new Map<string, { email: string; name?: string; frequency: number }>()
+
+        messageDetails
+          .filter(headers => headers !== null)
+          .forEach(headers => {
+            headers.forEach((header: { name: string; value: string }) => {
+              if (['To', 'Cc', 'Bcc'].includes(header.name)) {
+                // Parse email addresses from the header value
+                const emailRegex = /(?:"?([^"<>]+?)"?\s*)?<([^<>]+)>|([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+                let match
+
+                while ((match = emailRegex.exec(header.value)) !== null) {
+                  const name = match[1]?.trim()
+                  const email = (match[2] || match[3])?.trim().toLowerCase()
+
+                  if (email && email.includes('@')) {
+                    const existing = recipients.get(email)
+                    if (existing) {
+                      existing.frequency += 1
+                    } else {
+                      recipients.set(email, {
+                        email,
+                        name: name || undefined,
+                        frequency: 1
+                      })
+                    }
+                  }
+                }
+              }
+            })
+          })
+
+        // Convert to array and sort by frequency
+        const recipientArray = Array.from(recipients.values())
+          .sort((a, b) => b.frequency - a.frequency)
+          .slice(0, 20)
+          .map(recipient => ({
+            value: recipient.email,
+            label: recipient.name ? `${recipient.name} <${recipient.email}>` : recipient.email,
+            email: recipient.email,
+            name: recipient.name
+          }))
+
+        console.log(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
+        return Response.json({ data: recipientArray })
+
+      } catch (error: any) {
+        console.error(`❌ [SERVER] Gmail recipients error:`, error)
+        return Response.json({ 
+          error: error.message || 'Failed to get Gmail recipients' 
+        }, { status: 500 })
+      }
+    }
+
+    // Route other Gmail requests to dedicated Gmail data API
     if (integration.provider === 'gmail' && (
       dataType === 'gmail_labels' ||
       dataType === 'gmail_recipients' ||
-      dataType === 'gmail_signatures' ||
-      dataType === 'gmail-recent-recipients'
+      dataType === 'gmail_signatures'
     )) {
       console.log(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
       

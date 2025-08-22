@@ -3,7 +3,7 @@
  */
 
 import { GmailIntegration, EmailRecipient, GmailDataHandler } from '../types'
-import { validateGmailIntegration, makeGmailApiRequest, extractEmailAddresses } from '../utils'
+import { validateGmailIntegration, makeGmailApiRequest, extractEmailAddresses, getGmailAccessToken } from '../utils'
 import { EmailCacheService } from '../../../../../../lib/services/emailCacheService'
 
 /**
@@ -13,6 +13,9 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
   try {
     validateGmailIntegration(integration)
     console.log("🚀 [Gmail API] Using efficient approach with smart caching")
+
+    // Get decrypted access token
+    const accessToken = getGmailAccessToken(integration)
 
     // Initialize email cache service
     const emailCache = new EmailCacheService(true) // Server-side
@@ -34,7 +37,7 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
     try {
       const peopleResponse = await makeGmailApiRequest(
         `https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses&pageSize=25&sortOrder=LAST_MODIFIED_DESCENDING`,
-        integration.access_token
+        accessToken
       )
 
       const peopleData = await peopleResponse.json()
@@ -71,7 +74,7 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
         // First get message IDs
         const searchResponse = await makeGmailApiRequest(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:sent&maxResults=5`,
-          integration.access_token
+          accessToken
         )
 
         const searchData = await searchResponse.json()
@@ -86,7 +89,7 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
           try {
             const messageResponse = await makeGmailApiRequest(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?fields=payload(headers)`,
-              integration.access_token
+              accessToken
             )
             
             const messageData = await messageResponse.json()
