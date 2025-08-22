@@ -167,8 +167,15 @@ export class OAuthPopupManager {
       try {
         if (popup && popup.closed && !closedByMessage) {
           popupClosedManually = true
-          cleanup()
-          onCancel() // User intentionally cancelled
+          
+          // Give localStorage check a chance to detect success first
+          setTimeout(() => {
+            if (!closedByMessage) {
+              console.log(`❌ [OAuth] Popup closed manually for ${provider}, treating as cancelled`)
+              cleanup()
+              onCancel() // User intentionally cancelled
+            }
+          }, 500) // Small delay to avoid race condition
         }
       } catch (error) {
         // COOP policy may block popup.closed access - this is expected
@@ -178,7 +185,7 @@ export class OAuthPopupManager {
     // Use localStorage to check for OAuth responses (COOP-safe)
     const storageCheckPrefix = `oauth_response_${provider}`
     const storageCheckTimer = setInterval(() => {
-      if (popupClosedManually) return
+      // Continue checking even if popup closed manually - success might still be detected
       
       try {
         const allKeys = Object.keys(localStorage)
@@ -190,6 +197,7 @@ export class OAuthPopupManager {
             
             if (responseData && responseData.type) {
               if (responseData.type === 'oauth-success') {
+                console.log(`✅ [OAuth] Success detected for ${provider} via localStorage`)
                 closedByMessage = true
                 cleanup()
                 localStorage.removeItem(key)
@@ -217,7 +225,7 @@ export class OAuthPopupManager {
       } catch (error) {
         console.error("Error checking localStorage for OAuth response:", error)
       }
-    }, 1000)
+    }, 500) // Check more frequently to catch success before popup close detection
 
     // Connection timeout (5 minutes)
     const connectionTimeout = setTimeout(() => {
