@@ -30,6 +30,7 @@ interface EmailAutocompleteProps {
   endAdornment?: ReactNode
   error?: string
   onFocus?: () => void
+  onDemandLoading?: boolean
 }
 
 export function EmailAutocomplete({
@@ -43,7 +44,8 @@ export function EmailAutocomplete({
   isLoading = false,
   endAdornment,
   error,
-  onFocus
+  onFocus,
+  onDemandLoading = true
 }: EmailAutocompleteProps) {
 
   const [inputValue, setInputValue] = useState("")
@@ -51,8 +53,10 @@ export function EmailAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [selectedEmails, setSelectedEmails] = useState<string[]>([])
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const [hasUserInteracted, setHasUserInteracted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Calculate dropdown position
   const updateDropdownPosition = () => {
@@ -76,6 +80,11 @@ export function EmailAutocomplete({
 
   // Filter suggestions based on input and exclude already selected emails
   const filteredSuggestions = useMemo(() => {
+    // If on-demand loading is enabled and user hasn't interacted yet, don't show suggestions
+    if (onDemandLoading && !hasUserInteracted) {
+      return []
+    }
+    
     const query = inputValue.toLowerCase()
     
     // First filter out already selected emails
@@ -141,7 +150,7 @@ export function EmailAutocomplete({
     })
     
     return filtered.slice(0, 50)
-  }, [inputValue, suggestions, selectedEmails, multiple])
+  }, [inputValue, suggestions, selectedEmails, multiple, onDemandLoading, hasUserInteracted])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -158,6 +167,12 @@ export function EmailAutocomplete({
   }
 
   const handleSuggestionSelect = (suggestion: EmailSuggestion) => {
+    // Cancel any pending blur timeout
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current)
+      blurTimeoutRef.current = null
+    }
+
     if (suggestion.isGroup && suggestion.members) {
       // Handle contact group selection - expand to individual emails
       const groupEmails = suggestion.members.map(member => member.email)
@@ -169,6 +184,10 @@ export function EmailAutocomplete({
         // Keep dropdown open for multiple selection
         setIsOpen(true)
         setSelectedIndex(-1)
+        // Keep focus on input for more selections
+        if (inputRef.current) {
+          inputRef.current.focus()
+        }
       } else {
         // For single mode, just use the first email from the group
         onChange(groupEmails[0] || suggestion.email)
@@ -186,6 +205,10 @@ export function EmailAutocomplete({
         // Keep dropdown open for multiple selection
         setIsOpen(true)
         setSelectedIndex(-1)
+        // Keep focus on input for more selections
+        if (inputRef.current) {
+          inputRef.current.focus()
+        }
       } else {
         onChange(suggestion.email)
         setInputValue(suggestion.email)
@@ -268,36 +291,24 @@ export function EmailAutocomplete({
   }
 
   const handleInputFocus = () => {
-    // Calculate position before opening
+    setHasUserInteracted(true)
     updateDropdownPosition()
-    
-    // Always show suggestions dropdown on focus, even if input is empty
     setIsOpen(true)
-    
-    // Reset selected index when opening dropdown
     setSelectedIndex(-1)
     
-    // Focus the input to ensure it's ready for typing
     if (inputRef.current) {
       inputRef.current.focus()
     }
   }
 
   const handleInputBlur = () => {
-    // Delay closing to allow for clicks on suggestions
-    setTimeout(() => {
+    // Small delay to allow suggestion clicks to complete
+    blurTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
       setSelectedIndex(-1)
-      
-      // Add current input as email if valid and in multiple mode
-      if (multiple && inputValue.trim() && isValidEmail(inputValue.trim())) {
-        const newEmails = [...selectedEmails, inputValue.trim()]
-        setSelectedEmails(newEmails)
-        onChange(newEmails.join(', '))
-        setInputValue("")
-      }
-    }, 200)
+    }, 150) // Just enough time for clicks to register
   }
+
 
   // Scroll selected item into view
   useEffect(() => {
@@ -308,6 +319,15 @@ export function EmailAutocomplete({
       }
     }
   }, [selectedIndex])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current)
+      }
+    }
+  }, [])
   
 
   return (
@@ -351,13 +371,17 @@ export function EmailAutocomplete({
             }}
             onBlur={handleInputBlur}
             onClick={() => {
-              // Ensure dropdown opens when clicking on the input
+              setHasUserInteracted(true)
               if (!isOpen) {
                 setIsOpen(true)
                 setSelectedIndex(-1)
               }
             }}
-            placeholder={isLoading ? "Loading suggestions..." : placeholder}
+            placeholder={
+              (isLoading && (!onDemandLoading || hasUserInteracted)) 
+                ? "Loading suggestions..." 
+                : placeholder
+            }
             disabled={disabled || isLoading}
             className="w-full pr-10" // Reduce right padding for flush button
             autoComplete="new-password"
@@ -374,7 +398,7 @@ export function EmailAutocomplete({
             aria-autocomplete="list"
             readOnly={false}
           />
-          {isLoading && (
+          {isLoading && (!onDemandLoading || hasUserInteracted) && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
               <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin"></div>
             </div>
@@ -393,18 +417,21 @@ export function EmailAutocomplete({
       {/* Suggestions dropdown using portal */}
       {isOpen && typeof window !== 'undefined' && createPortal(
         <div 
-          className="fixed z-[9999] bg-white border border-border rounded-md shadow-lg max-h-80 overflow-auto min-w-80"
+          className="fixed bg-popover border border-border rounded-md shadow-lg max-h-80 overflow-auto min-w-80 text-popover-foreground pointer-events-auto"
+          data-email-dropdown="true"
           style={{ 
             top: dropdownPosition.top,
             left: dropdownPosition.left,
             minWidth: Math.max(dropdownPosition.width, 320), // Ensure minimum width of 320px
             maxWidth: '500px', // Allow wider dropdown for better UX
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0'
+            zIndex: 999999, // Ensure very high z-index for clicking
           }}
-          onMouseDown={(e) => e.preventDefault()} // Prevent input blur when clicking dropdown
+          onWheel={(e) => {
+            // Allow mouse wheel scrolling to pass through
+            e.stopPropagation();
+          }}
         >
-          {isLoading ? (
+          {isLoading && (!onDemandLoading || hasUserInteracted) ? (
             // Loading state in dropdown
             <div className="flex items-center justify-center py-8 space-x-3">
               <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin"></div>
@@ -432,10 +459,7 @@ export function EmailAutocomplete({
                           "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
                           selectedIndex === actualIndex && "bg-accent text-accent-foreground"
                         )}
-                        onMouseDown={(e) => {
-                          e.preventDefault() // Prevent input blur
-                          handleSuggestionSelect(suggestion)
-                        }}
+                        onClick={() => handleSuggestionSelect(suggestion)}
                         onMouseEnter={() => setSelectedIndex(actualIndex)}
                       >
                         <Mail className="w-4 h-4 text-primary flex-shrink-0" />
@@ -475,10 +499,7 @@ export function EmailAutocomplete({
                           "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
                           selectedIndex === actualIndex && "bg-accent text-accent-foreground"
                         )}
-                        onMouseDown={(e) => {
-                          e.preventDefault() // Prevent input blur
-                          handleSuggestionSelect(suggestion)
-                        }}
+                        onClick={() => handleSuggestionSelect(suggestion)}
                         onMouseEnter={() => setSelectedIndex(actualIndex)}
                       >
                         <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -518,10 +539,7 @@ export function EmailAutocomplete({
                           "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
                           selectedIndex === actualIndex && "bg-accent text-accent-foreground"
                         )}
-                        onMouseDown={(e) => {
-                          e.preventDefault() // Prevent input blur
-                          handleSuggestionSelect(suggestion)
-                        }}
+                        onClick={() => handleSuggestionSelect(suggestion)}
                         onMouseEnter={() => setSelectedIndex(actualIndex)}
                       >
                         <Users className="w-4 h-4 text-primary flex-shrink-0" />
@@ -562,10 +580,7 @@ export function EmailAutocomplete({
                           "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
                           selectedIndex === actualIndex && "bg-accent text-accent-foreground"
                         )}
-                        onMouseDown={(e) => {
-                          e.preventDefault() // Prevent input blur
-                          handleSuggestionSelect(suggestion)
-                        }}
+                        onClick={() => handleSuggestionSelect(suggestion)}
                         onMouseEnter={() => setSelectedIndex(actualIndex)}
                       >
                         <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -598,8 +613,7 @@ export function EmailAutocomplete({
                     <button
                       type="button"
                       className="mt-2 text-sm text-primary hover:underline"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
+                      onClick={() => {
                         if (multiple) {
                           const newEmails = [...selectedEmails, inputValue.trim()]
                           setSelectedEmails(newEmails)

@@ -3,7 +3,7 @@
  */
 
 import { GmailIntegration, GmailLabel, GmailDataHandler } from '../types'
-import { validateGmailIntegration, makeGmailApiRequest } from '../utils'
+import { validateGmailIntegration, makeGmailApiRequest, getGmailAccessToken } from '../utils'
 
 /**
  * Fetch Gmail labels for the authenticated user
@@ -13,9 +13,12 @@ export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: 
     validateGmailIntegration(integration)
     console.log("📧 [Gmail Labels] Fetching with optimized caching")
 
+    // Get decrypted access token
+    const accessToken = getGmailAccessToken(integration)
+
     const response = await makeGmailApiRequest(
       "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()

@@ -2,6 +2,7 @@
  * Gmail Integration Utilities
  */
 
+import { decrypt } from '@/lib/security/encryption'
 import { GmailApiError } from './types'
 
 /**
@@ -65,6 +66,32 @@ export function createGmailApiError(message: string, status?: number, response?:
   }
   
   return error
+}
+
+/**
+ * Get decrypted access token for Gmail integration
+ */
+export function getGmailAccessToken(integration: any): string {
+  if (!integration) {
+    throw new Error('Gmail integration not found')
+  }
+  
+  if (!integration.access_token) {
+    throw new Error('Gmail authentication required. Please reconnect your account.')
+  }
+  
+  if (integration.provider !== 'gmail') {
+    throw new Error('Invalid integration provider. Expected Gmail.')
+  }
+  
+  try {
+    // Decrypt the access token
+    const decryptedToken = decrypt(integration.access_token)
+    return decryptedToken
+  } catch (error: any) {
+    console.error('Failed to decrypt Gmail access token:', error.message)
+    throw new Error('Gmail token decryption failed. Please reconnect your account.')
+  }
 }
 
 /**

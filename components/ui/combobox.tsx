@@ -49,6 +49,7 @@ interface MultiComboboxProps {
   emptyPlaceholder?: string;
   disabled?: boolean;
   creatable?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export interface HierarchicalComboboxOption {
@@ -256,6 +257,7 @@ export function MultiCombobox({
   emptyPlaceholder,
   disabled,
   creatable = false,
+  onOpenChange,
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
@@ -303,8 +305,13 @@ export function MultiCombobox({
     }
   }
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    onOpenChange?.(newOpen);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -313,22 +320,48 @@ export function MultiCombobox({
           className="w-full justify-between min-h-10"
           disabled={disabled}
         >
-          <div className="flex flex-wrap gap-1 flex-1">
+          <div className="flex gap-1 flex-1 overflow-hidden">
             {selectedOptions.length > 0 ? (
-              selectedOptions.map((option, index) => (
-                <Badge
-                  key={`selected-${index}-${option.value || 'undefined'}`}
-                  variant="secondary"
-                  className="mr-1"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemove(option.value)
-                  }}
-                >
-                  {option.label}
-                  <X className="ml-1 h-3 w-3" />
-                </Badge>
-              ))
+              <>
+                {selectedOptions.length <= 3 ? (
+                  // Show all items if 3 or fewer
+                  selectedOptions.map((option, index) => (
+                    <Badge
+                      key={`selected-${index}-${option.value || 'undefined'}`}
+                      variant="secondary"
+                      className="flex-shrink-0 max-w-32 truncate"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemove(option.value)
+                      }}
+                    >
+                      <span className="truncate">{option.value}</span>
+                      <X className="ml-1 h-3 w-3 flex-shrink-0" />
+                    </Badge>
+                  ))
+                ) : (
+                  // Show first 2 items and "... +N more"
+                  <>
+                    {selectedOptions.slice(0, 2).map((option, index) => (
+                      <Badge
+                        key={`selected-${index}-${option.value || 'undefined'}`}
+                        variant="secondary"
+                        className="flex-shrink-0 max-w-32 truncate"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemove(option.value)
+                        }}
+                      >
+                        <span className="truncate">{option.value}</span>
+                        <X className="ml-1 h-3 w-3 flex-shrink-0" />
+                      </Badge>
+                    ))}
+                    <span className="text-muted-foreground text-sm flex-shrink-0">
+                      ... +{selectedOptions.length - 2} more
+                    </span>
+                  </>
+                )}
+              </>
             ) : (
               <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
             )}
