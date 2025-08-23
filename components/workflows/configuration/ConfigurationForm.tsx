@@ -214,104 +214,149 @@ export default function ConfigurationForm({
       return;
     }
     
+    // Track if we detected a success page for auto-close timing
+    let successPageDetectedAt = null;
+    
     // Monitor the popup for completion
     const checkPopup = setInterval(async () => {
       try {
         // Try to access popup URL to detect Discord success page
+        let successDetected = false;
+        
         try {
           if (popup.location && popup.location.href) {
-            console.log('🔍 Popup URL:', popup.location.href);
+            const url = popup.location.href;
+            console.log('🔍 Popup URL:', url);
             
-            // Check if we're on Discord's OAuth success page
-            if (popup.location.href.includes('discord.com') && 
-                (popup.location.href.includes('authorized') || 
-                 popup.location.href.includes('success') ||
-                 popup.location.search.includes('guild_id'))) {
+            // Enhanced success detection patterns
+            if (url.includes('discord.com')) {
+              // Check for exact success patterns
+              const isAuthorized = url.includes('/oauth2/authorized') || url.includes('oauth2/authorized');
+              const hasSuccess = url.toLowerCase().includes('success');
+              const hasPermissions = url.includes('permissions=');
+              const hasGuildId = url.includes('guild_id');
+              const hasCode = url.includes('code=');
               
-              console.log('🔍 Discord OAuth appears successful, closing popup...');
-              popup.close();
-              return; // Let the closed handler take over
+              console.log('🔍 Discord URL analysis:', {
+                url,
+                isAuthorized,
+                hasSuccess,
+                hasPermissions,
+                hasGuildId,
+                hasCode
+              });
+              
+              if (isAuthorized || hasSuccess || hasPermissions || hasGuildId || hasCode) {
+                console.log('✅ Discord OAuth success detected, auto-closing popup...');
+                successDetected = true;
+                popup.close();
+                return; // Let the closed handler take over
+              }
             }
           }
         } catch (crossOriginError) {
-          // Expected for cross-origin, ignore
+          // Cross-origin restriction - try alternative detection methods
+          console.log('🔍 Cross-origin blocked, trying alternative detection methods...');
+          
+          try {
+            // Check if popup title changed (sometimes accessible even with CORS)
+            if (popup.document && popup.document.title) {
+              const title = popup.document.title.toLowerCase();
+              console.log('🔍 Popup title:', title);
+              if (title.includes('success') || title.includes('authorized') || title.includes('complete') || title.includes('discord')) {
+                console.log('✅ Discord OAuth success detected via title, auto-closing popup...');
+                successDetected = true;
+                popup.close();
+                return;
+              }
+            }
+          } catch (titleError) {
+            console.log('🔍 Title check also blocked by CORS');
+          }
+          
+          try {
+            // Try to detect if popup content contains success indicators
+            if (popup.document && popup.document.body) {
+              const bodyText = popup.document.body.innerText.toLowerCase();
+              console.log('🔍 Popup body text (first 200 chars):', bodyText.substring(0, 200));
+              if (bodyText.includes('success') || bodyText.includes('authorized') || bodyText.includes('you may now close')) {
+                console.log('✅ Discord OAuth success detected via content, auto-closing popup...');
+                successDetected = true;
+                popup.close();
+                return;
+              }
+            }
+          } catch (contentError) {
+            console.log('🔍 Content check also blocked by CORS');
+          }
         }
-
+        
+        // Fallback: Auto-close after detecting success page for a few seconds
+        try {
+          if (popup.location && popup.location.href && popup.location.href.includes('oauth2/authorized')) {
+            if (!successPageDetectedAt) {
+              successPageDetectedAt = Date.now();
+              console.log('🔍 Success page detected, will auto-close in 3 seconds if still open...');
+            } else if (Date.now() - successPageDetectedAt > 3000) {
+              // Auto-close after 3 seconds on success page
+              console.log('✅ Auto-closing popup after 3 seconds on success page');
+              popup.close();
+              return;
+            }
+          }
+        } catch (e) {
+          // Ignore cross-origin errors
+        }
+        
         // Check if popup is closed (user finished or cancelled)
         if (popup.closed) {
-          console.log('🔍 Discord OAuth popup closed, checking bot status...');
+          console.log('🔍 Discord OAuth popup closed');
           clearInterval(checkPopup);
           setIsBotConnectionInProgress(false);
           
           if (guildId) {
-            // Wait longer for Discord to process the bot addition
+            console.log('🔍 Popup closed for guild:', guildId, '- starting immediate bot status check...');
+            
+            // Immediately show loading state by clearing bot status
+            setBotStatus(null);
+            
+            // Start checking immediately with shorter initial delay
             setTimeout(async () => {
               try {
-                console.log('🔍 Checking if bot was added to server...');
-                // Check if bot is now in the server
-                const botInServer = await checkBotInServer(guildId);
+                console.log('🔍 First bot status check after popup close...');
+                await checkBotStatus(guildId);
+                console.log('🔍 Initial bot status check completed');
                 
-                console.log('🔍 Bot status check result:', botInServer);
-                
-                if (botInServer) {
-                  console.log('✅ Bot successfully added to server, refreshing channels...');
-                  
-                  // Clear error states
-                  setChannelLoadingError(null);
-                  setIsLoadingChannels(true);
-                  
-                  // Reload channels for this server
-                  try {
-                    await loadOptions('channelId', 'guildId', guildId, true); // Force refresh
-                    setIsLoadingChannels(false);
-                    console.log('✅ Channels refreshed successfully after bot connection');
-                  } catch (error) {
-                    console.error('Failed to refresh channels after bot connection:', error);
-                    setIsLoadingChannels(false);
-                    setChannelLoadingError('Failed to load channels. Please try selecting the server again.');
-                  }
-                } else {
-                  console.log('🔍 Bot still not detected in server. Checking again in 5 seconds...');
-                  
-                  // Try one more time after a longer delay
-                  setTimeout(async () => {
-                    try {
-                      const botInServerRetry = await checkBotInServer(guildId);
-                      console.log('🔍 Second bot status check result:', botInServerRetry);
-                      
-                      if (botInServerRetry) {
-                        console.log('✅ Bot detected on retry, refreshing channels...');
-                        setChannelLoadingError(null);
-                        setIsLoadingChannels(true);
-                        
-                        try {
-                          await loadOptions('channelId', 'guildId', guildId, true);
-                          setIsLoadingChannels(false);
-                          console.log('✅ Channels refreshed successfully after bot connection (retry)');
-                        } catch (error) {
-                          console.error('Failed to refresh channels on retry:', error);
-                          setIsLoadingChannels(false);
-                          setChannelLoadingError('Failed to load channels. Please try selecting the server again.');
-                        }
-                      } else {
-                        console.log('🔍 Bot still not detected after retry. User may have cancelled or there was an error.');
+                // Quick retry if still not detected (Discord can be slow)
+                setTimeout(async () => {
+                  // Only retry if we haven't detected the bot yet
+                  if (!botStatus?.isInGuild) {
+                    console.log('🔍 Bot still not detected, trying second check...');
+                    await checkBotStatus(guildId);
+                    console.log('🔍 Second bot status check completed');
+                    
+                    // Final retry with longer delay
+                    setTimeout(async () => {
+                      if (!botStatus?.isInGuild) {
+                        console.log('🔍 Bot still not detected, trying final check...');
+                        await checkBotStatus(guildId);
+                        console.log('🔍 Final bot status check completed');
                       }
-                    } catch (error) {
-                      console.error('Error on bot status retry check:', error);
-                    }
-                  }, 5000);
-                }
+                    }, 8000); // 8 second final retry
+                  }
+                }, 3000); // 3 second quick retry
               } catch (error) {
                 console.error('Error checking bot status after OAuth:', error);
               }
-            }, 3000); // Wait 3 seconds for Discord to process
+            }, 1000); // Only wait 1 second initially for faster feedback
+          } else {
+            console.log('🔍 No guildId available for bot status check');
           }
         }
       } catch (error) {
-        // Ignore cross-origin errors when checking popup status
-        console.log('🔍 Popup check error (expected for cross-origin):', error.message);
+        console.error('Error in popup monitoring:', error);
       }
-    }, 1000); // Check every second
+    }, 300); // Check more frequently (every 300ms) for better responsiveness
     
     // Safety cleanup after 5 minutes
     setTimeout(() => {
@@ -408,6 +453,319 @@ export default function ConfigurationForm({
       console.error('Failed to connect Discord:', error);
     }
   }, [connectIntegration]);
+
+  /**
+   * Progressive field disclosure for Discord actions
+   */
+  const renderDiscordProgressiveConfig = () => {
+    const guildField = nodeInfo?.configSchema?.find(field => field.name === 'guildId');
+    const channelField = nodeInfo?.configSchema?.find(field => field.name === 'channelId');
+    
+    // Step 1: Show connection prompt if Discord is not connected
+    if (!discordIntegration) {
+      return (
+        <div className="space-y-4 p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-blue-800">Connect Discord</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Connect your Discord account to configure this action and access your servers.
+            </p>
+            <Button
+              variant="default"
+              className="mt-3 text-sm bg-[#5865F2] hover:bg-[#4752C4] text-white"
+              onClick={handleConnectDiscord}
+              disabled={loadingDynamic}
+            >
+              {loadingDynamic ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Connecting...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
+                  </svg>
+                  Connect Discord
+                </div>
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 2: Show only server field initially
+    if (guildField && !values.guildId) {
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+        </div>
+      );
+    }
+
+    // Step 3: Server selected - check bot connection status
+    if (values.guildId && (!botStatus || isBotStatusChecking)) {
+      // Bot status checking or not started yet
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+          
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
+              <span className="text-sm text-gray-700">Checking bot connection status...</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 4: Bot not connected - show connect button
+    if (values.guildId && botStatus && !botStatus.isInGuild) {
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+          
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-orange-800">Bot Connection Required</h3>
+            <p className="text-sm text-orange-700 mt-1">
+              The Discord bot needs to be added to this server to use Discord actions. Click the button below to add the bot.
+            </p>
+            
+            <Button
+              type="button"
+              variant="default"
+              className="mt-3 text-sm bg-orange-600 hover:bg-orange-700 text-white"
+              onClick={() => handleInviteBot(values.guildId)}
+              disabled={isBotConnectionInProgress}
+            >
+              {isBotConnectionInProgress ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Connecting Bot...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
+                  </svg>
+                  Connect Bot to Server
+                </div>
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 4.5: Bot connected but lacks permissions - show reconnect button
+    if (values.guildId && botStatus?.isInGuild && !botStatus.hasPermissions) {
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-yellow-800">Bot Needs Additional Permissions</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              The Discord bot is connected to this server but needs additional permissions to view channels. Click the button below to update bot permissions.
+            </p>
+            
+            <Button
+              type="button"
+              variant="default"
+              className="mt-3 text-sm bg-yellow-600 hover:bg-yellow-700 text-white"
+              onClick={() => handleInviteBot(values.guildId)}
+              disabled={isBotConnectionInProgress}
+            >
+              {isBotConnectionInProgress ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Updating Permissions...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                  </svg>
+                  Update Bot Permissions
+                </div>
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 5: Bot connected with permissions, show server and channel fields
+    if (values.guildId && botStatus?.isInGuild && botStatus?.hasPermissions && channelField && !values.channelId) {
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+          
+          {/* Success message */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
+              <span className="text-sm text-green-800">Bot connected to server</span>
+            </div>
+          </div>
+          
+          <FieldRenderer
+            field={channelField}
+            value={values.channelId || ""}
+            onChange={(value) => handleFieldChange('channelId', value)}
+            error={errors.channelId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={isLoadingChannels || loadingFields.has('channelId')}
+            onDynamicLoad={loadOptions}
+          />
+          
+          {channelLoadingError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-700">
+                Failed to load channels. Please try reconnecting the bot or contact support.
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Step 6: Channel selected, show all remaining fields
+    if (values.guildId && values.channelId) {
+      // Get all fields except guildId and channelId (already shown)
+      const remainingFields = nodeInfo?.configSchema?.filter(field => 
+        field.name !== 'guildId' && field.name !== 'channelId'
+      ) || [];
+      
+      return (
+        <div className="space-y-6 p-4">
+          <FieldRenderer
+            field={guildField}
+            value={values.guildId || ""}
+            onChange={(value) => handleFieldChange('guildId', value)}
+            error={errors.guildId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            onDynamicLoad={loadOptions}
+          />
+          
+          <FieldRenderer
+            field={channelField}
+            value={values.channelId || ""}
+            onChange={(value) => handleFieldChange('channelId', value)}
+            error={errors.channelId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={isLoadingChannels || loadingFields.has('channelId')}
+            onDynamicLoad={loadOptions}
+          />
+          
+          {/* Success indicators */}
+          <div className="space-y-2">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
+                <span className="text-sm text-green-800">Bot connected to server</span>
+              </div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
+                <span className="text-sm text-green-800">Channel selected</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Render remaining fields */}
+          {remainingFields.map((field, index) => (
+            <FieldRenderer
+              key={`discord-field-${field.name}-${index}`}
+              field={field}
+              value={values[field.name]}
+              onChange={(value) => handleFieldChange(field.name, value)}
+              error={errors[field.name]}
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has(field.name)}
+              nodeInfo={nodeInfo}
+              allValues={values}
+              onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
+                if (dependsOn && values[dependsOn]) {
+                  await loadOptions(fieldName, dependsOn, values[dependsOn]);
+                } else {
+                  await loadOptions(fieldName);
+                }
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback - shouldn't reach here but show basic fields if we do
+    return (
+      <div className="space-y-6 p-4">
+        {nodeInfo?.configSchema?.map((field, index) => (
+          <FieldRenderer
+            key={`fallback-field-${field.name}-${index}`}
+            field={field}
+            value={values[field.name]}
+            onChange={(value) => handleFieldChange(field.name, value)}
+            error={errors[field.name]}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingFields.has(field.name)}
+            nodeInfo={nodeInfo}
+            allValues={values}
+            onDynamicLoad={loadOptions}
+          />
+        )) || []}
+      </div>
+    );
+  };
 
   /**
    * Load Airtable records for the selected table
@@ -577,52 +935,20 @@ export default function ConfigurationForm({
         } 
         // For Discord actions, check bot status first then load channels
         else if (nodeInfo?.type?.startsWith('discord_action_')) {
-          // Clear channel-related states when server changes
+          // Always clear all Discord-related states when server field changes
           setValue('channelId', '');
           setChannelBotStatus(null);
           setChannelLoadingError(null);
+          setBotStatus(null); // Clear previous bot status immediately
           
-          if (value && discordIntegration) {
-            console.log('🔍 Checking bot status first for Discord action with guildId:', value);
+          if (value && value.trim() !== '' && discordIntegration) {
+            console.log('🔍 Server selected, checking bot status for Discord action with guildId:', value);
             
-            // Set loading state for checking bot status
-            setIsLoadingChannels(true);
-            
-            // Check if bot is in server first
-            checkBotInServer(value)
-              .then((botInServer) => {
-                if (botInServer) {
-                  console.log('🔍 Bot is in server, loading channels for guild:', value);
-                  // Bot is in server, load channels
-                  return loadOptions('channelId', 'guildId', value);
-                } else {
-                  console.log('🔍 Bot not in server for guild:', value);
-                  // Bot not in server, set error to show connect button
-                  throw new Error('Bot not added to server');
-                }
-              })
-              .then(() => {
-                console.log('🔍 Successfully loaded channels for guild:', value);
-                setIsLoadingChannels(false);
-                setChannelLoadingError(null);
-                setBotStatus({
-                  isInGuild: true,
-                  hasPermissions: true
-                });
-              })
-              .catch((error) => {
-                console.error('🔍 Bot status check or channel loading failed for guild:', value, error);
-                setIsLoadingChannels(false);
-                setChannelLoadingError(error.message || 'Bot not added to server');
-                setBotStatus({
-                  isInGuild: false,
-                  hasPermissions: false
-                });
-              });
+            // Start bot status check which will trigger loading state in progressive disclosure UI
+            checkBotStatus(value);
           } else {
-            setBotStatus(null);
-            setIsLoadingChannels(false);
-            setChannelLoadingError(null);
+            console.log('🔍 Server cleared or Discord not connected, keeping bot status null');
+            // Keep botStatus as null - this will show just the server field in progressive disclosure
           }
         }
       }
@@ -1731,239 +2057,9 @@ export default function ConfigurationForm({
     );
   }
 
-  // Handle Discord integrations specially
+  // Handle Discord integrations specially - Progressive field disclosure
   if (nodeInfo?.providerId === 'discord' && nodeInfo?.type?.startsWith('discord_action_')) {
-    // Show connection prompt if Discord is not connected
-    if (!discordIntegration) {
-      return (
-        <div className="space-y-4 p-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-800">Connect Discord</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              Connect your Discord account to configure this action and access your servers.
-            </p>
-            <Button
-              variant="default"
-              className="mt-3 text-sm bg-[#5865F2] hover:bg-[#4752C4] text-white"
-              onClick={handleConnectDiscord}
-              disabled={loadingDynamic}
-            >
-              {loadingDynamic ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Connecting...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
-                  </svg>
-                  Connect Discord
-                </div>
-              )}
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    
-    // Check if we have a guildId field for server selection
-    const guildField = nodeInfo.configSchema?.find(field => field.name === 'guildId');
-    
-    if (guildField && !values.guildId) {
-      // Show just the server selection field initially
-      return (
-        <div className="space-y-6">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-        </div>
-      );
-    }
-    
-    // Handle channel loading and selection for Discord send message action
-    const channelField = nodeInfo.configSchema?.find(field => field.name === 'channelId');
-    if (guildField && channelField && values.guildId && !values.channelId) {
-      
-      // Show loading state when channels are being loaded
-      if (isLoadingChannels) {
-        return (
-          <div className="space-y-6">
-            <FieldRenderer
-              field={guildField}
-              value={values.guildId || ""}
-              onChange={(value) => handleFieldChange('guildId', value)}
-              error={errors.guildId}
-              dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
-            />
-            
-            {/* Channel loading state */}
-            <div className="flex items-center gap-2 text-sm text-slate-500 p-4 bg-slate-50 rounded-lg border">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              Loading Discord channels...
-            </div>
-          </div>
-        );
-      }
-      
-      // Show error state with connect bot button if channels failed to load
-      if (channelLoadingError) {
-        return (
-          <div className="space-y-6">
-            <FieldRenderer
-              field={guildField}
-              value={values.guildId || ""}
-              onChange={(value) => handleFieldChange('guildId', value)}
-              error={errors.guildId}
-              dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
-            />
-            
-            {/* Channel loading error with bot connection prompt */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-orange-800">Unable to Load Channels</h3>
-              <p className="text-sm text-orange-700 mt-1">
-                The Discord bot may not be added to this server yet. Add the bot to access channels.
-              </p>
-              
-              {/* Show different content based on Discord bot configuration */}
-              {isDiscordBotConfigured === false ? (
-                <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
-                  <p className="text-sm text-red-700">
-                    Discord bot is not configured. Please contact the administrator to set up the Discord integration.
-                  </p>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="default"
-                  className="mt-3 text-sm bg-orange-600 hover:bg-orange-700 text-white"
-                  onClick={() => handleInviteBot(values.guildId)}
-                  disabled={isBotConnectionInProgress}
-                >
-                  {isBotConnectionInProgress ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                      Connecting Bot...
-                    </div>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                      </svg>
-                      Add Bot to Server
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        );
-      }
-      
-      // Show server and channel selection when channels are loaded
-      return (
-        <div className="space-y-6">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          <FieldRenderer
-            field={channelField}
-            value={values.channelId || ""}
-            onChange={(value) => handleFieldChange('channelId', value)}
-            error={errors.channelId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-        </div>
-      );
-    }
-    
-    // Show bot invite prompt if channel is selected but bot can't access it
-    if (values.guildId && values.channelId && channelBotStatus && !channelBotStatus.isInChannel) {
-      return (
-        <div className="space-y-6">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          <FieldRenderer
-            field={channelField}
-            value={values.channelId || ""}
-            onChange={(value) => handleFieldChange('channelId', value)}
-            error={errors.channelId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          {/* Bot invite prompt */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-orange-800">Bot Not Available in Channel</h3>
-            <p className="text-sm text-orange-700 mt-1">
-              The Discord bot needs to be added to this server to send messages to the selected channel.
-            </p>
-            
-            {isDiscordBotConfigured === false ? (
-              <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
-                <p className="text-sm text-red-700">
-                  Discord bot is not configured. Please contact the administrator to set up the Discord integration.
-                </p>
-              </div>
-            ) : channelBotStatus.userCanInviteBot ? (
-              <Button
-                type="button"
-                variant="default"
-                className="mt-3 text-sm bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={() => handleInviteBot(values.guildId)}
-                disabled={isBotConnectionInProgress}
-              >
-                {isBotConnectionInProgress ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                    Connecting Bot...
-                  </div>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                    </svg>
-                    Add Bot to Server
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
-                <p className="text-sm text-red-700">
-                  You don't have permission to add bots to this server. Please ask a server administrator to add the bot.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
+    return renderDiscordProgressiveConfig();
   }
 
   return (
