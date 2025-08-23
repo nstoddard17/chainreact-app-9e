@@ -100,6 +100,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       const integration = getIntegrationByProvider(providerId);
       if (!integration) {
         console.warn(`No integration found for provider: ${providerId}`);
+        loadingFields.current.delete(cacheKey);
         setLoading(false);
         return;
       }
@@ -109,6 +110,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       
       if (!resourceType) {
         console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
+        loadingFields.current.delete(cacheKey);
         setLoading(false);
         return;
       }
@@ -203,15 +205,20 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       to: "gmail-recent-recipients",
     },
     gmail_action_send_email: {
-      to: "gmail-enhanced-recipients",
-      cc: "gmail-enhanced-recipients", 
-      bcc: "gmail-enhanced-recipients",
+      to: "gmail-recent-recipients",
+      cc: "gmail-recent-recipients", 
+      bcc: "gmail-recent-recipients",
       messageId: "gmail-recent-recipients",
       labelIds: "gmail_labels",
     },
     gmail_action_add_label: {
       email: "gmail-recent-recipients",
       labelIds: "gmail_labels",
+    },
+    gmail_action_search_email: {
+      labels: "gmail_labels",
+      labelFilters: "gmail_labels",
+      emailAddress: "gmail-recent-recipients",
     },
     // Discord fields
     discord_trigger_new_message: {
@@ -274,6 +281,28 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     airtable_action_list_records: {
       baseId: "airtable_bases",
       tableName: "airtable_tables",
+    },
+    // Microsoft Outlook fields
+    "microsoft-outlook_action_send_email": {
+      to: "outlook-enhanced-recipients",
+      cc: "outlook-enhanced-recipients", 
+      bcc: "outlook-enhanced-recipients",
+    },
+    "microsoft-outlook_action_forward_email": {
+      to: "outlook-enhanced-recipients",
+      cc: "outlook-enhanced-recipients", 
+      bcc: "outlook-enhanced-recipients",
+      messageId: "outlook_messages",
+    },
+    "microsoft-outlook_action_create_meeting": {
+      attendees: "outlook-enhanced-recipients",
+    },
+    "microsoft-outlook_action_create_calendar_event": {
+      attendees: "outlook-enhanced-recipients",
+    },
+    "microsoft-teams_action_add_team_member": {
+      userEmail: "outlook-enhanced-recipients",
+      teamId: "teams_teams",
     },
     // Default case for unmapped fields
     default: {

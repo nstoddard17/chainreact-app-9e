@@ -3,6 +3,7 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 
@@ -95,9 +96,14 @@ export function GenericTextInput({
 
     case "file":
       return (
-        <Input
-          {...commonProps}
-          type="file"
+        <FileUpload
+          value={value}
+          onChange={onChange}
+          accept={field.accept || "*/*"}
+          maxSize={field.maxSize || 25 * 1024 * 1024} // 25MB default
+          maxFiles={field.multiple ? 10 : 1}
+          placeholder={field.placeholder || "Choose files to attach..."}
+          disabled={field.disabled}
         />
       );
 

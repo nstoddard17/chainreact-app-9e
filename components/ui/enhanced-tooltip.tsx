@@ -43,9 +43,14 @@ export function EnhancedTooltip({
         <Tooltip delayDuration={delayDuration} disableHoverableContent={true} open={disabled ? false : undefined}>
           <TooltipTrigger asChild>
             <Button 
+              type="button"
               variant="ghost" 
               size="sm" 
               className={cn("h-6 w-6 p-0", buttonClassName)}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
               onMouseEnter={(e) => {
                 // Prevent any auto-focus or auto-hover behavior
                 e.currentTarget.blur()

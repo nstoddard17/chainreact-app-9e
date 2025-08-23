@@ -827,16 +827,28 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       }
     ],
     configSchema: [
-      {
-        name: "to",
-        label: "To",
-        type: "email-autocomplete",
+      { 
+        name: "to", 
+        label: "To", 
+        type: "email-autocomplete", 
+        dynamic: "gmail-recent-recipients",
         required: true,
-        dynamic: "gmail-enhanced-recipients",
-        placeholder: "Enter recipient email addresses...",
+        placeholder: "Select recipient email address..."
       },
-      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "Enter CC email addresses...", dynamic: "gmail-enhanced-recipients" },
-      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "Enter BCC email addresses...", dynamic: "gmail-enhanced-recipients" },
+      { 
+        name: "cc", 
+        label: "CC", 
+        type: "email-autocomplete", 
+        dynamic: "gmail-recent-recipients",
+        placeholder: "Select CC email address..."
+      },
+      { 
+        name: "bcc", 
+        label: "BCC", 
+        type: "email-autocomplete", 
+        dynamic: "gmail-recent-recipients",
+        placeholder: "Select BCC email address..."
+      },
       { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
       { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail" },
       { 
@@ -5653,8 +5665,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "DRAFT", label: "Drafts" },
           { value: "SPAM", label: "Spam" },
           { value: "TRASH", label: "Trash" }
-        ],
-        uiTab: "basic"
+        ]
       },
       { 
         name: "query", 
@@ -5662,8 +5673,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "e.g., from:bob@example.com has:attachment",
-        description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc.",
-        uiTab: "basic"
+        description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc."
       },
       { 
         name: "maxResults", 
@@ -5674,24 +5684,21 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "Maximum number of messages to retrieve (between 1-15)",
         defaultValue: 10,
         min: 1,
-        max: 15,
-        uiTab: "basic"
+        max: 15
       },
       {
         name: "startDate",
         label: "Start Date",
         type: "date",
         required: false,
-        description: "Only fetch emails after this date",
-        uiTab: "basic"
+        description: "Only fetch emails after this date"
       },
       {
         name: "endDate",
         label: "End Date",
         type: "date",
         required: false,
-        description: "Only fetch emails before this date",
-        uiTab: "basic"
+        description: "Only fetch emails before this date"
       },
       
       // Advanced Tab Fields
@@ -5708,7 +5715,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "raw", label: "Raw (RFC 2822 format)" }
         ],
         defaultValue: "full",
-        uiTab: "advanced"
+        advanced: true
       },
       {
         name: "includeSpamTrash",
@@ -5717,7 +5724,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         description: "Include messages from spam and trash folders",
         defaultValue: false,
-        uiTab: "advanced"
+        advanced: true
       },
       { 
         name: "labelFilters", 
@@ -5728,7 +5735,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         multiple: true,
         placeholder: "Filter by specific labels",
         description: "Only fetch emails with these specific labels",
-        uiTab: "advanced"
+        advanced: true
       },
       {
         name: "threadId",
@@ -5737,7 +5744,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         description: "Fetch all messages from a specific conversation thread",
         placeholder: "Enter thread ID",
-        uiTab: "advanced"
+        advanced: true
       },
       {
         name: "fieldsMask",
@@ -5755,7 +5762,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "custom", label: "Custom Fields Mask" }
         ],
         defaultValue: "messages",
-        uiTab: "advanced"
+        advanced: true
       },
       {
         name: "customFieldsMask",
@@ -5765,7 +5772,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "Enter custom fields mask (only used when Fields Mask is set to 'Custom')",
         placeholder: "e.g., messages(id,threadId,snippet,payload)",
         dependsOn: "fieldsMask",
-        uiTab: "advanced"
+        advanced: true
       },
       
       // Legacy fields - keeping for backward compatibility but hidden from UI
