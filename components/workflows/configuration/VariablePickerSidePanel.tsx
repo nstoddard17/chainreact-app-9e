@@ -578,23 +578,27 @@ export function VariablePickerSidePanel({
                 >
                   {/* Node Header */}
                   <CollapsibleTrigger asChild>
-                    <div className={`flex items-center justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 flex items-center justify-center">
+                    <div className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}>
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <div className="w-4 h-4 flex items-center justify-center mt-0.5 flex-shrink-0">
                           {isExpanded ? (
                             <ChevronDown className="h-3 w-3 text-slate-500" />
                           ) : (
                             <ChevronRight className="h-3 w-3 text-slate-500" />
                           )}
                         </div>
-                        <span className="text-sm font-medium text-slate-900 truncate">{node.title}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-slate-900 break-words whitespace-normal leading-tight block">{node.title}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-1 flex-shrink-0 ml-2">
                         {hasOutputs && (
                           <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-700 border-slate-200">
                             {node.outputs.length}
                           </Badge>
                         )}
                         {isNodeTested && (
-                          <div className="w-2 h-2 rounded-full bg-green-500" title="Test data available"></div>
+                          <div className="w-2 h-2 rounded-full bg-green-500 mt-1" title="Test data available"></div>
                         )}
                       </div>
                     </div>
@@ -611,7 +615,7 @@ export function VariablePickerSidePanel({
                         return (
                           <div
                             key={`${node.id}-${output.name}`}
-                            className={`flex items-center justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
+                            className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
                             onDragStart={(e) => {
                               e.stopPropagation() // Prevent collapsible from closing
@@ -626,20 +630,20 @@ export function VariablePickerSidePanel({
                               handleVariableSelect(variableRef, node.id, output.name)
                             }}
                           >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-700 border-blue-200 ${hasValue ? 'border-green-300' : ''}`}>
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0 ${hasValue ? 'border-green-300' : ''}`}>
                                 {output.type || 'string'}
                               </Badge>
-                              <span className="text-sm text-slate-700 truncate">{output.label || output.name}</span>
+                              <span className="text-sm text-slate-700 break-words whitespace-normal leading-tight">{output.label || output.name}</span>
                             </div>
                             
-                            <div className="flex items-center">
+                            <div className="flex items-start flex-shrink-0">
                               {/* Show variable value if available */}
                               {hasValue && (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Badge className="mr-2 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
+                                      <Badge className="mr-2 mt-0.5 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
                                         {formatVariableValue(variableValue)}
                                       </Badge>
                                     </TooltipTrigger>
@@ -658,7 +662,7 @@ export function VariablePickerSidePanel({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 hover:bg-blue-100"
+                                className="h-6 w-6 p-0 mt-0.5 hover:bg-blue-100"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   copyToClipboard(variableRef)

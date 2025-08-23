@@ -176,7 +176,7 @@ export function formatChannelName(channel: any): string {
 }
 
 /**
- * Simplified Discord token validation (without complex refresh logic)
+ * Discord token validation with proper decryption
  */
 export async function validateDiscordToken(integration: any): Promise<{ success: boolean, token?: string, error?: string }> {
   try {
@@ -187,13 +187,23 @@ export async function validateDiscordToken(integration: any): Promise<{ success:
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper encryption/decryption and refresh logic if needed
+    // Decrypt the access token
+    const { decrypt } = await import('@/lib/security/encryption')
+    const decryptedToken = decrypt(integration.access_token)
+    
+    if (!decryptedToken) {
+      return {
+        success: false,
+        error: "Failed to decrypt access token"
+      }
+    }
+
     return {
       success: true,
-      token: integration.access_token
+      token: decryptedToken
     }
   } catch (error: any) {
+    console.error('Discord token validation error:', error)
     return {
       success: false,
       error: error.message || "Token validation failed"

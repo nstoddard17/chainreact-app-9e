@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface DiscordServerFieldProps {
+interface DiscordChannelFieldProps {
   field: any;
   value: any;
   onChange: (value: any) => void;
@@ -16,10 +16,10 @@ interface DiscordServerFieldProps {
 }
 
 /**
- * Discord-specific server/guild selector field
- * Handles Discord guilds with bot status checking
+ * Discord-specific channel selector field
+ * Handles Discord channels without adding bot status text
  */
-export function DiscordServerField({
+export function DiscordChannelField({
   field,
   value,
   onChange,
@@ -27,27 +27,23 @@ export function DiscordServerField({
   options,
   isLoading,
   onDynamicLoad,
-}: DiscordServerFieldProps) {
+}: DiscordChannelFieldProps) {
 
   // Discord-specific loading behavior
-  const handleServerFieldOpen = (open: boolean) => {
+  const handleChannelFieldOpen = (open: boolean) => {
     if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
       onDynamicLoad(field.name);
     }
   };
 
   // Discord-specific option processing
-  const processDiscordServers = (servers: any[]) => {
-    return servers
-      .filter(server => server && (server.value || server.id))
+  const processDiscordChannels = (channels: any[]) => {
+    return channels
+      .filter(channel => channel && (channel.value || channel.id))
       .sort((a, b) => {
-        // Prioritize servers where bot has permissions
-        if (a.botInGuild && !b.botInGuild) return -1;
-        if (b.botInGuild && !a.botInGuild) return 1;
-        
-        // Then by member count (larger servers first)
-        if (a.memberCount && b.memberCount) {
-          return b.memberCount - a.memberCount;
+        // Sort by position first
+        if (a.position !== undefined && b.position !== undefined) {
+          return a.position - b.position;
         }
         
         // Default to alphabetical
@@ -63,12 +59,12 @@ export function DiscordServerField({
       return 'Discord permission required. Please reconnect your Discord account.';
     }
     if (error.includes('bot')) {
-      return 'Discord bot not found in servers. Please add the bot to your servers.';
+      return 'Discord bot not found in server. Please add the bot to your server.';
     }
     return error;
   };
 
-  const processedOptions = processDiscordServers(options);
+  const processedOptions = processDiscordChannels(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
   // Show loading state for dynamic fields
@@ -76,20 +72,20 @@ export function DiscordServerField({
     return (
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-        Loading Discord servers...
+        Loading Discord channels...
       </div>
     );
   }
 
-  // Special case when no Discord servers are available
+  // Special case when no Discord channels are available
   if (processedOptions.length === 0 && !isLoading) {
     return (
       <div className="text-sm text-slate-500">
-        <p>No Discord servers found. You may need to:</p>
+        <p>No Discord channels found. You may need to:</p>
         <ul className="list-disc list-inside mt-1 ml-2">
-          <li>Reconnect your Discord account</li>
-          <li>Ensure the bot is added to your servers</li>
-          <li>Check server permissions</li>
+          <li>Select a Discord server first</li>
+          <li>Ensure the bot is added to the selected server</li>
+          <li>Check channel permissions</li>
         </ul>
         <Button 
           variant="outline"
@@ -101,7 +97,7 @@ export function DiscordServerField({
             }
           }}
         >
-          Retry Loading Servers
+          Retry Loading Channels
         </Button>
       </div>
     );
@@ -111,7 +107,7 @@ export function DiscordServerField({
     <Select 
       value={value || ""} 
       onValueChange={onChange}
-      onOpenChange={handleServerFieldOpen}
+      onOpenChange={handleChannelFieldOpen}
     >
       <SelectTrigger 
         className={cn(
@@ -119,23 +115,24 @@ export function DiscordServerField({
           error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
         )}
       >
-        <SelectValue placeholder={field.placeholder || "Select Discord server..."} />
+        <SelectValue placeholder={field.placeholder || "Select Discord channel..."} />
       </SelectTrigger>
       <SelectContent>
         {processedOptions.map((option: any, index: number) => {
           const optionValue = option.value || option.id;
           const optionLabel = option.label || option.name || option.value || option.id;
-          const hasBot = option.botInGuild;
+          
+          // Format channel name with # prefix for text channels
+          const formattedLabel = option.type === 0 ? `#${optionLabel}` : optionLabel;
           
           return (
             <SelectItem 
               key={`${optionValue}-${index}`} 
               value={optionValue}
-              className={cn(
-                !hasBot && "opacity-60"
-              )}
             >
-              <span>{optionLabel}</span>
+              <div className="flex items-center gap-2">
+                <span>{formattedLabel}</span>
+              </div>
             </SelectItem>
           );
         })}

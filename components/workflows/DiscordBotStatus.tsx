@@ -18,9 +18,33 @@ interface BotStatus {
   error?: string
 }
 
+interface DiscordConfig {
+  configured: boolean
+  clientId?: string
+  error?: string
+}
+
 export default function DiscordBotStatus({ guildId, className = '' }: DiscordBotStatusProps) {
   const [status, setStatus] = useState<BotStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [discordConfig, setDiscordConfig] = useState<DiscordConfig | null>(null)
+  const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false)
+
+  // Load Discord configuration
+  useEffect(() => {
+    const loadDiscordConfig = async () => {
+      try {
+        const response = await fetch('/api/discord/config')
+        const config = await response.json()
+        setDiscordConfig(config)
+      } catch (error) {
+        console.error('Error loading Discord config:', error)
+        setDiscordConfig({ configured: false, error: 'Failed to load Discord configuration' })
+      }
+    }
+
+    loadDiscordConfig()
+  }, [])
 
   useEffect(() => {
     const checkBotStatus = async () => {
@@ -54,12 +78,88 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
   }, [guildId])
 
   const handleAddBot = () => {
-    // Open Discord bot invite URL
-    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+    if (!discordConfig?.configured || !discordConfig?.clientId || !guildId) {
+      console.error('Discord not configured or missing guild ID')
+      return
+    }
+
+    setIsBotConnectionInProgress(true)
+
     const permissions = '8' // Administrator permissions
-    const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`
+    let inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordConfig.clientId}&permissions=${permissions}&scope=bot%20applications.commands`
     
-    window.open(inviteUrl, '_blank')
+    // Add guild_id parameter to pre-select the server
+    inviteUrl += `&guild_id=${guildId}`
+
+    // Open popup
+    const popup = window.open(
+      inviteUrl,
+      'discord-bot-auth',
+      'width=500,height=700,scrollbars=yes,resizable=yes'
+    )
+
+    if (!popup) {
+      console.error('Failed to open popup')
+      setIsBotConnectionInProgress(false)
+      return
+    }
+
+    // Monitor popup for completion
+    const checkClosed = setInterval(async () => {
+      try {
+        if (popup.closed) {
+          clearInterval(checkClosed)
+          setIsBotConnectionInProgress(false)
+          
+          // Wait a moment then check bot status
+          setTimeout(async () => {
+            try {
+              const response = await fetch(`/api/discord/bot-status?guildId=${guildId}`)
+              const botStatus = await response.json()
+              setStatus(botStatus)
+            } catch (error) {
+              console.error('Error checking bot status after popup:', error)
+            }
+          }, 2000)
+          
+          return
+        }
+
+        // Try to detect successful authorization by checking URL
+        try {
+          if (popup.location && popup.location.href.includes('discord.com/oauth2/authorized')) {
+            console.log('🎉 Bot authorization detected!')
+            popup.close()
+            clearInterval(checkClosed)
+            setIsBotConnectionInProgress(false)
+            
+            // Check bot status after successful auth
+            setTimeout(async () => {
+              try {
+                const response = await fetch(`/api/discord/bot-status?guildId=${guildId}`)
+                const botStatus = await response.json()
+                setStatus(botStatus)
+              } catch (error) {
+                console.error('Error checking bot status after auth:', error)
+              }
+            }, 2000)
+          }
+        } catch (e) {
+          // Cross-origin error is expected, continue monitoring
+        }
+      } catch (error) {
+        console.error('Error monitoring popup:', error)
+      }
+    }, 1000)
+
+    // Cleanup timeout after 5 minutes
+    setTimeout(() => {
+      clearInterval(checkClosed)
+      if (!popup.closed) {
+        popup.close()
+      }
+      setIsBotConnectionInProgress(false)
+    }, 5 * 60 * 1000)
   }
 
   if (isLoading) {
@@ -107,15 +207,33 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
               {status.error || 'The bot needs to be added to this Discord server'}
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={handleAddBot}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            <Bot className="h-3 w-3 mr-1" />
-            Add Bot
-            <ExternalLink className="h-3 w-3 ml-1" />
-          </Button>
+          {discordConfig?.configured === false ? (
+            <div className="bg-red-50 border border-red-200 rounded p-2">
+              <p className="text-xs text-red-700">
+                Discord bot not configured. Contact administrator.
+              </p>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleAddBot}
+              disabled={isBotConnectionInProgress || !discordConfig?.configured}
+              className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+            >
+              {isBotConnectionInProgress ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Connecting...
+                </div>
+              ) : (
+                <>
+                  <Bot className="h-3 w-3 mr-1" />
+                  Add Bot
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </AlertDescription>
     </Alert>

@@ -64,9 +64,19 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
         try {
-          const guilds = await loadDiscordGuildsOnce(false);
+          const guilds = await loadDiscordGuildsOnce(forceRefresh || false);
           
           if (!guilds || guilds.length === 0) {
+            // Check if we have a Discord integration - if not, this is expected
+            const { getIntegrationByProvider } = await import('@/stores/integrationStore');
+            const discordIntegration = getIntegrationByProvider('discord');
+            
+            if (!discordIntegration) {
+              console.log('🔍 No Discord integration found - empty guild list expected');
+            } else {
+              console.warn('⚠️ Discord integration exists but no guilds returned - may need reconnection');
+            }
+            
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
@@ -83,8 +93,20 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
             ...prev,
             [fieldName]: formattedOptions
           }));
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error loading Discord guilds:', error);
+          
+          // If this is an authentication error, we might need to refresh integration state
+          if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+            console.log('🔄 Discord authentication error detected, refreshing integration state');
+            try {
+              const { useIntegrationStore } = await import('@/stores/integrationStore');
+              useIntegrationStore.getState().fetchIntegrations(true);
+            } catch (refreshError) {
+              console.warn('Failed to refresh integration state:', refreshError);
+            }
+          }
+          
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
@@ -122,6 +144,12 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       const dataArray = result.data || result;
       const formattedOptions = formatOptionsForField(fieldName, dataArray);
       
+      // Special handling for Discord channels - if empty and we have a guildId, it likely means bot is not in server
+      if (fieldName === 'channelId' && resourceType === 'discord_channels' && 
+          formattedOptions.length === 0 && dependsOnValue) {
+        throw new Error('Bot not added to server - no channels available');
+      }
+      
       // Update dynamic options
       setDynamicOptions(prev => ({
         ...prev,
@@ -158,7 +186,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 
     // Preload fields that don't depend on other fields
     // Note: Exclude email fields (like 'email') since they should load on-demand only
-    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId', 'labelIds'];
+    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
     
     let loadingPromises: Promise<void>[] = [];
     

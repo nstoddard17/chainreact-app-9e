@@ -23,7 +23,7 @@ const CustomDialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[95vw] h-[90vh] max-w-[95vw] md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[80vw] 2xl:max-w-[1400px] max-h-[90vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
+        "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
         className
       )}
       {...props}
@@ -177,10 +177,10 @@ export function ConfigurationModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <CustomDialogContent className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl">
-        <div className="flex h-full max-h-[90vh]">
-          {/* Main Configuration Area */}
-          <div className="flex-1 flex flex-col">
-            <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6">
+        <div className="flex h-full max-h-[95vh]">
+          {/* Main Configuration Area - Fixed width to prevent Variables panel from being pushed off */}
+          <div className="flex flex-col" style={{ width: workflowData && !nodeInfo?.isTrigger ? 'calc(100% - 320px)' : '100%' }}>
+            <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
@@ -191,9 +191,6 @@ export function ConfigurationModal({
                       {getModalTitle()}
                       {getNodeTypeBadge(nodeInfo?.type || '')}
                     </DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Configure settings and parameters for this workflow node
-                    </DialogDescription>
                     {integrationName && (
                       <p className="text-sm text-slate-600 mt-1">
                         {integrationName} Integration
@@ -215,7 +212,7 @@ export function ConfigurationModal({
             </DialogHeader>
             
             {nodeInfo && (
-              <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <ConfigurationForm
                   nodeInfo={nodeInfo}
                   initialData={initialData}
@@ -229,13 +226,15 @@ export function ConfigurationModal({
             )}
           </div>
 
-          {/* Variable Picker Side Panel - Show for action nodes only */}
+          {/* Variable Picker Side Panel - Fixed position, always visible */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <VariablePickerSidePanel
-              workflowData={workflowData}
-              currentNodeId={currentNodeId}
-              currentNodeType={nodeInfo?.type}
-            />
+            <div className="w-80 flex-shrink-0">
+              <VariablePickerSidePanel
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                currentNodeType={nodeInfo?.type}
+              />
+            </div>
           )}
         </div>
       </CustomDialogContent>

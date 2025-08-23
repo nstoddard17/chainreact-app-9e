@@ -31,11 +31,13 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
       return []
     }
 
+    let data: any[] = []
+    
     try {
       // Add a delay before fetching channels to avoid rate limits
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      const data = await fetchDiscordWithRateLimit<any[]>(() => 
+      data = await fetchDiscordWithRateLimit<any[]>(() => 
         fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
           headers: {
             Authorization: `Bot ${botToken}`,
@@ -43,6 +45,30 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           },
         })
       )
+    } catch (fetchError: any) {
+      // Handle fetchDiscordWithRateLimit errors specifically
+      console.log(`Discord API fetch error for guild ${guildId}:`, fetchError.message)
+      
+      if (fetchError.status === 401) {
+        throw new Error("Discord bot authentication failed. Please check bot configuration.")
+      }
+      if (fetchError.status === 403) {
+        // Bot doesn't have permission or isn't in the server - return empty array
+        console.log(`Bot missing permissions or not in server ${guildId} - returning empty channels list`)
+        return []
+      }
+      if (fetchError.status === 404) {
+        // Bot is not in the server - return empty array
+        console.log(`Bot is not a member of server ${guildId} - returning empty channels list`)
+        return []
+      }
+      
+      // For other API errors, return empty array so UI can show bot connection prompt
+      console.error(`Discord API error for guild ${guildId}:`, fetchError.message)
+      return []
+    }
+    
+    try {
 
       let filteredData = (data || [])
         .filter((channel: any) => {
@@ -109,20 +135,10 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
         nsfw: channel.nsfw,
         permission_overwrites: channel.permission_overwrites,
       }))
-    } catch (error: any) {
-      // Handle specific Discord API errors
-      if (error.message.includes("401")) {
-        throw new Error("Discord bot authentication failed. Please check bot configuration.")
-      }
-      if (error.message.includes("403")) {
-        throw new Error("Bot does not have permission to view channels in this server. Please ensure the bot has the 'View Channels' permission and try again.")
-      }
-      if (error.message.includes("404")) {
-        // Bot is not in the server - return empty array instead of throwing error
-        console.log(`Bot is not a member of server ${guildId} - returning empty channels list`)
-        return []
-      }
-      throw error
+    } catch (processingError: any) {
+      // Handle errors in data processing (filtering, sorting, etc.)
+      console.error('Error processing channel data:', processingError)
+      return []
     }
   } catch (error: any) {
     console.error("Error fetching Discord channels:", error)
