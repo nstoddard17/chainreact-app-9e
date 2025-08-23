@@ -29,6 +29,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { GmailEmailField } from "./gmail/GmailEmailField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
 import { DiscordServerField } from "./discord/DiscordServerField";
+import { DiscordChannelField } from "./discord/DiscordChannelField";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -269,6 +270,21 @@ export function FieldRenderer({
         if (field.name === 'guildId' && integrationProvider === 'discord') {
           return (
             <DiscordServerField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={selectOptions}
+              isLoading={loadingDynamic}
+              onDynamicLoad={onDynamicLoad}
+            />
+          );
+        }
+
+        // Special handling for Discord channel fields
+        if (field.name === 'channelId' && integrationProvider === 'discord') {
+          return (
+            <DiscordChannelField
               field={field}
               value={value}
               onChange={onChange}

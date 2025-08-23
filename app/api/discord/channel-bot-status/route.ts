@@ -1,0 +1,179 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { validateDiscordToken, makeDiscordApiRequest } from '../integrations/discord/data/utils'
+
+interface ChannelBotStatus {
+  isInChannel: boolean
+  canSendMessages: boolean
+  hasPermissions: boolean
+  userCanInviteBot: boolean
+  error?: string
+}
+
+/**
+ * Check if bot has access to a specific Discord channel
+ */
+async function checkChannelBotStatus(
+  channelId: string, 
+  guildId: string,
+  integration: any
+): Promise<ChannelBotStatus> {
+  try {
+    // Validate and decrypt Discord token
+    const { success, token, error } = await validateDiscordToken(integration)
+    if (!success || !token) {
+      return {
+        isInChannel: false,
+        canSendMessages: false,
+        hasPermissions: false,
+        userCanInviteBot: false,
+        error: error || "Token validation failed"
+      }
+    }
+
+    // Get bot client ID from environment
+    const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+    if (!botClientId) {
+      return {
+        isInChannel: false,
+        canSendMessages: false,
+        hasPermissions: false,
+        userCanInviteBot: false,
+        error: "Discord bot not configured"
+      }
+    }
+
+    // Check if the bot is in the guild by trying to get guild member info
+    let botInGuild = false
+    let botHasChannelPerms = false
+    
+    try {
+      const guildMemberResponse = await makeDiscordApiRequest(
+        `https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`,
+        token
+      )
+      
+      if (guildMemberResponse.ok) {
+        botInGuild = true
+        
+        // Check bot's permissions in the specific channel
+        try {
+          const channelResponse = await makeDiscordApiRequest(
+            `https://discord.com/api/v10/channels/${channelId}`,
+            token
+          )
+          
+          if (channelResponse.ok) {
+            // Try to get channel permissions for the bot
+            const permissionsResponse = await makeDiscordApiRequest(
+              `https://discord.com/api/v10/channels/${channelId}/permissions/${botClientId}`,
+              token
+            )
+            
+            // If we can access the channel and get permissions, bot has access
+            botHasChannelPerms = channelResponse.ok
+          }
+        } catch (channelError) {
+          console.log('Bot cannot access channel:', channelError)
+          botHasChannelPerms = false
+        }
+      }
+    } catch (guildError) {
+      console.log('Bot not in guild:', guildError)
+      botInGuild = false
+    }
+
+    // Check if the user has permissions to invite the bot
+    let userCanInvite = false
+    try {
+      const userGuildResponse = await makeDiscordApiRequest(
+        `https://discord.com/api/v10/users/@me/guilds`,
+        token
+      )
+      
+      if (userGuildResponse.ok) {
+        const guilds = await userGuildResponse.json()
+        const userGuild = guilds.find((g: any) => g.id === guildId)
+        
+        if (userGuild) {
+          // Check if user has MANAGE_GUILD permission (0x00000020)
+          const permissions = parseInt(userGuild.permissions)
+          userCanInvite = (permissions & 0x00000020) !== 0 || userGuild.owner
+        }
+      }
+    } catch (userError) {
+      console.log('Error checking user permissions:', userError)
+    }
+
+    return {
+      isInChannel: botInGuild && botHasChannelPerms,
+      canSendMessages: botInGuild && botHasChannelPerms,
+      hasPermissions: botInGuild && botHasChannelPerms,
+      userCanInviteBot: userCanInvite
+    }
+  } catch (error) {
+    console.error('Error checking channel bot status:', error)
+    return {
+      isInChannel: false,
+      canSendMessages: false,
+      hasPermissions: false,
+      userCanInviteBot: false,
+      error: 'Failed to check bot status'
+    }
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const channelId = searchParams.get('channelId')
+    const guildId = searchParams.get('guildId')
+
+    if (!channelId || !guildId) {
+      return NextResponse.json(
+        { error: 'Channel ID and Guild ID are required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify user is authenticated
+    const supabase = await createSupabaseServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get Discord integration
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("provider", "discord")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      return NextResponse.json(
+        { error: 'Discord integration not connected' },
+        { status: 400 }
+      )
+    }
+
+    // Check channel bot status
+    const status = await checkChannelBotStatus(channelId, guildId, integration)
+    
+    console.log(`🤖 Channel bot status for ${channelId}:`, status)
+
+    return NextResponse.json(status)
+  } catch (error) {
+    console.error('Error in channel bot status API:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

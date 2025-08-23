@@ -66,13 +66,12 @@ This document summarizes all the new integration action nodes and the AI Agent n
 
 ### 6. Airtable Integration Actions
 
-#### `airtable_action_create_record_simple`
+#### `airtable_action_create_record`
 - **File**: `integrations/airtable/createRecord.ts`
-- **Description**: Create a new record in an Airtable table with JSON fields
+- **Description**: Create a new record in an Airtable table with dynamic fields
 - **Key Features**:
   - Dynamic base and table selection
-  - JSON-based field configuration
-  - Typecast support for automatic type conversion
+  - Dynamic field configuration based on table schema
   - Returns record ID and creation metadata
 
 ## 🤖 AI Agent Node

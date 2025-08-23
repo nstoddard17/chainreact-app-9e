@@ -159,7 +159,6 @@ AVAILABLE ACTIONS:
 - notion_action_search_pages: Search for pages in Notion
 - notion_action_update_page: Update a page in Notion
 - airtable_action_create_record: Create a new record in Airtable
-- airtable_action_create_record_simple: Create a simple record in Airtable
 - airtable_action_list_records: List records from Airtable
 - airtable_action_update_record: Update a record in Airtable
 - github_action_create_issue: Create a new issue in GitHub

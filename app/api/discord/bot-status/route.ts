@@ -5,11 +5,102 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
  * Verify that the Discord bot is actually a member of the specified guild
  */
 async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; hasPermissions: boolean; error?: string }> {
-  // Since we know the bot is working (it can find accessible channels),
-  // we'll just return a positive result directly without any checks
-  return {
-    isInGuild: true,
-    hasPermissions: true
+  try {
+    const botToken = process.env.DISCORD_BOT_TOKEN;
+    const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+    
+    if (!botToken || !botClientId) {
+      return {
+        isInGuild: false,
+        hasPermissions: false,
+        error: "Discord bot not configured"
+      };
+    }
+
+    console.log('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
+    
+    // First, try to fetch channels (more reliable than member check)
+    try {
+      console.log('🔍 Trying to fetch guild channels...');
+      const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('🔍 Channels API response status:', channelsResponse.status);
+      
+      if (channelsResponse.ok) {
+        const channels = await channelsResponse.json();
+        console.log('🔍 Successfully fetched channels:', channels.length, 'channels found');
+        
+        // Bot can access channels, so it's in the guild with proper permissions
+        return {
+          isInGuild: true,
+          hasPermissions: true
+        };
+      } else if (channelsResponse.status === 403) {
+        console.log('🔍 Bot in guild but lacks channel permissions');
+        return {
+          isInGuild: true,
+          hasPermissions: false,
+          error: "Bot in guild but missing channel permissions"
+        };
+      }
+    } catch (channelsError) {
+      console.log('🔍 Channels check failed, trying member check...', channelsError.message);
+    }
+    
+    // Fallback to member check
+    console.log('🔍 Trying to check bot membership...');
+    const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    console.log('🔍 Member API response status:', memberResponse.status);
+
+    if (memberResponse.ok) {
+      console.log('🔍 Bot is a member of the guild');
+      // Bot is in the guild
+      return {
+        isInGuild: true,
+        hasPermissions: true
+      };
+    } else if (memberResponse.status === 404) {
+      console.log('🔍 Bot is not a member of the guild');
+      // Bot is not in the guild
+      return {
+        isInGuild: false,
+        hasPermissions: false,
+        error: "Bot not added to this server"
+      };
+    } else if (memberResponse.status === 403) {
+      console.log('🔍 Bot lacks permissions to check membership');
+      // Bot doesn't have permission to check
+      return {
+        isInGuild: false,
+        hasPermissions: false,
+        error: "Bot missing permissions"
+      };
+    } else {
+      console.log('🔍 Unknown error checking bot status');
+      return {
+        isInGuild: false,
+        hasPermissions: false,
+        error: `Discord API error: ${memberResponse.status}`
+      };
+    }
+  } catch (error: any) {
+    console.error('Error verifying bot in guild:', error);
+    return {
+      isInGuild: false,
+      hasPermissions: false,
+      error: error.message || "Failed to verify bot status"
+    };
   }
 }
 
@@ -52,13 +143,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Always return a positive bot status result
-    const botStatus = {
-      isInGuild: true,
-      hasPermissions: true
-    }
+    // Check if bot is actually in the guild
+    const botStatus = await verifyBotInGuild(guildId);
     
-    console.log("✅ Always returning positive bot status for guild:", guildId);
+    console.log("🔍 Bot status check result for guild:", guildId, botStatus);
 
     return NextResponse.json(botStatus)
   } catch (error) {
