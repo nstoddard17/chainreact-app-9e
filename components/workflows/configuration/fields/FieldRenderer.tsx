@@ -99,10 +99,10 @@ export function FieldRenderer({
     
     // Detect provider from dynamic data type
     if (field.dynamic) {
-      if (field.dynamic.startsWith('gmail') || field.dynamic.includes('gmail')) return 'gmail';
-      if (field.dynamic.startsWith('outlook') || field.dynamic.includes('outlook')) return 'outlook';
-      if (field.dynamic.startsWith('discord') || field.dynamic.includes('discord')) return 'discord';
-      if (field.dynamic.startsWith('slack') || field.dynamic.includes('slack')) return 'slack';
+      if (field.dynamic.includes('gmail')) return 'gmail';
+      if (field.dynamic.includes('outlook')) return 'outlook';
+      if (field.dynamic.includes('discord')) return 'discord';
+      if (field.dynamic.includes('slack')) return 'slack';
     }
     
     // Detect from field name patterns

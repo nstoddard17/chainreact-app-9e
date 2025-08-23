@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
+
 interface EmailRichTextEditorProps {
   value: string
   onChange: (value: string) => void
@@ -715,25 +716,33 @@ export function EmailRichTextEditor({
   const insertSignature = (signatureId: string) => {
     const signature = signatures.find(sig => sig.id === signatureId)
     if (signature) {
-      // Get the actual content from the editor to check for duplicates
+      // Get current content
       const currentContent = editorRef.current?.innerHTML || value || ''
-      const signatureText = signature.content.replace(/<[^>]*>/g, '').trim() // Strip HTML for comparison
-      const currentText = currentContent.replace(/<[^>]*>/g, '').trim()
       
-      // Only check for duplicates if there's meaningful content and the signature text is substantial
-      if (currentText.length > 10 && signatureText.length > 10) {
-        // Use a more specific check - look for exact signature match rather than substring
-        const normalizedCurrent = currentText.replace(/\s+/g, ' ').trim()
-        const normalizedSignature = signatureText.replace(/\s+/g, ' ').trim()
-        
-        if (normalizedCurrent.includes(normalizedSignature)) {
-          toast({
-            title: "Signature already present",
-            description: "This signature is already in your email.",
-            variant: "default"
-          })
-          return
-        }
+      // Normalize both contents for comparison
+      const normalizeContent = (content: string) => {
+        return content
+          .replace(/<[^>]*>/g, '') // Remove all HTML tags
+          .replace(/&nbsp;/g, ' ') // Replace &nbsp; with regular spaces
+          .replace(/&amp;/g, '&') // Replace &amp; with &
+          .replace(/&lt;/g, '<') // Replace &lt; with <
+          .replace(/&gt;/g, '>') // Replace &gt; with >
+          .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+          .trim() // Remove leading/trailing whitespace
+          .toLowerCase() // Case insensitive comparison
+      }
+      
+      const normalizedCurrent = normalizeContent(currentContent)
+      const normalizedSignature = normalizeContent(signature.content)
+      
+      // Only check if signature has meaningful content (more than just whitespace)
+      if (normalizedSignature.length > 5 && normalizedCurrent.includes(normalizedSignature)) {
+        toast({
+          title: "Signature already present",
+          description: "This signature is already in your email.",
+          variant: "default"
+        })
+        return
       }
       
       const newContent = currentContent + '\n\n' + signature.content

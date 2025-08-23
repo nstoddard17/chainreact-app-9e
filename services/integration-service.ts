@@ -237,8 +237,14 @@ export class IntegrationService {
         throw new Error("Integration not found or data not available.")
       }
       
-      const errorData = await response.json()
-      throw new Error(errorData.error || `Failed to load ${providerId} data`)
+      try {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to load ${providerId} data`)
+      } catch (jsonError) {
+        // If we can't parse the error response as JSON, get the text instead
+        const errorText = await response.text().catch(() => 'Unknown error')
+        throw new Error(`Failed to load ${providerId} data: ${response.status} ${errorText}`)
+      }
     }
 
     const data = await response.json()

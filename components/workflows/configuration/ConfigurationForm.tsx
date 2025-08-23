@@ -472,8 +472,8 @@ export default function ConfigurationForm({
           </TabsList>
           
           <div className="flex-1 min-h-0">
-            <TabsContent value="basic" className="h-full">
-              <ScrollArea className="h-full pr-4">
+            <TabsContent value="basic" className="h-full mt-0">
+              <ScrollArea className="h-[calc(90vh-220px)] pr-4">
                 <div className="space-y-3 px-2 pb-6">
               {basicFields.map((field, index) => (
                 <FieldRenderer
@@ -499,8 +499,8 @@ export default function ConfigurationForm({
               </ScrollArea>
             </TabsContent>
             
-            <TabsContent value="advanced" className="h-full">
-              <ScrollArea className="h-full pr-4">
+            <TabsContent value="advanced" className="h-full mt-0">
+              <ScrollArea className="h-[calc(90vh-220px)] pr-4">
                 <div className="space-y-3 px-2 pb-6">
               {advancedFields.map((field, index) => (
                 <FieldRenderer
@@ -529,7 +529,7 @@ export default function ConfigurationForm({
         </Tabs>
       ) : (
         // Simple view without tabs if no advanced fields
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
           <div className="space-y-3 px-2 pb-6">
             {basicFields.map((field, index) => (
               <FieldRenderer
