@@ -11,7 +11,6 @@ import { validateGmailIntegration, makeGmailApiRequest, getGmailAccessToken } fr
 export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: GmailIntegration) => {
   try {
     validateGmailIntegration(integration)
-    console.log("📧 [Gmail Labels] Fetching with optimized caching")
 
     // Get decrypted access token
     const accessToken = getGmailAccessToken(integration)
@@ -20,6 +19,11 @@ export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: 
       "https://gmail.googleapis.com/gmail/v1/users/me/labels",
       accessToken
     )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Gmail API error: ${response.status} - ${errorText}`)
+    }
 
     const data = await response.json()
     const labels = (data.labels || [])
@@ -36,11 +40,10 @@ export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: 
         messages_unread: label.messagesUnread,
       }))
 
-    console.log(`✅ [Gmail Labels] Retrieved ${labels.length} labels`)
     return labels
 
   } catch (error: any) {
     console.error("❌ [Gmail Labels] Error fetching labels:", error)
-    throw error
+    throw new Error(`Failed to fetch Gmail labels: ${error.message}`)
   }
 }
