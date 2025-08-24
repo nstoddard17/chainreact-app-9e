@@ -116,6 +116,14 @@ export interface GoogleDocument {
   mime_type?: string
 }
 
+export interface GoogleContact {
+  id: string
+  name?: string
+  email: string
+  value: string
+  label: string
+}
+
 export interface GoogleApiError extends Error {
   status?: number
   code?: string

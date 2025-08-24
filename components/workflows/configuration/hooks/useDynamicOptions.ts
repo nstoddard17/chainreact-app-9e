@@ -297,6 +297,11 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       cardId: "trello_cards",
       listId: "trello_lists",
     },
+    // Google Calendar fields
+    google_calendar_action_create_event: {
+      calendarId: "google-calendars",
+      attendees: "gmail-recent-recipients",
+    },
     // Airtable fields
     airtable_action_create_record: {
       baseId: "airtable_bases",
@@ -341,6 +346,7 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       databaseId: "databases",
       from: "gmail-recent-recipients",
       to: "gmail-recent-recipients",
+      attendees: "gmail-recent-recipients",
       labelIds: "gmail_labels",
     }
   };
@@ -375,6 +381,7 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
     case "cc":
     case "bcc":
     case "email":
+    case "attendees":
     case "messageId":
       return data.map((item: any) => ({
         value: item.email || item.value || item.id || item,

@@ -257,6 +257,8 @@ export function FieldRenderer({
             value={value}
             onChange={onChange}
             error={error}
+            dynamicOptions={fieldOptions}
+            onDynamicLoad={onDynamicLoad}
           />
         );
 
@@ -365,6 +367,7 @@ export function FieldRenderer({
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
             className={cn(
+              "w-auto max-w-[200px]",
               error && "border-red-500"
             )}
           />

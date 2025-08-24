@@ -7,155 +7,96 @@ import { validateGmailIntegration, makeGmailApiRequest, extractEmailAddresses, g
 import { EmailCacheService } from '../../../../../../lib/services/emailCacheService'
 
 /**
- * Fetch Gmail recent recipients using efficient People API + smart caching
+ * Fetch Gmail recent recipients using the proven working method (no contacts permission needed)
  */
 export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async (integration: GmailIntegration) => {
   try {
     validateGmailIntegration(integration)
-    console.log("🚀 [Gmail API] Using efficient approach with smart caching")
+    console.log("🚀 [Gmail API] Using proven working method (no contacts permission needed)")
 
     // Get decrypted access token
     const accessToken = getGmailAccessToken(integration)
 
-    // Initialize email cache service
-    const emailCache = new EmailCacheService(true) // Server-side
-    const source = "gmail-recent-recipients"
+    // Get recent sent messages (last 50) - original working approach
+    const messagesResponse = await makeGmailApiRequest(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=50`,
+      accessToken
+    )
 
-    // Step 1: Get cached email suggestions (fast)
-    let cachedEmails: any[] = []
-    try {
-      cachedEmails = await emailCache.getFrequentEmails(source, 30)
-      console.log(`📧 [Cache] Found ${cachedEmails.length} cached emails`)
-    } catch (cacheError) {
-      console.warn("⚠️ [Cache] Failed to get cached emails:", cacheError)
+    const messagesData = await messagesResponse.json()
+    const messages = messagesData.messages || []
+
+    if (messages.length === 0) {
+      console.log('📧 [Gmail API] No sent messages found')
+      return []
     }
 
-    // Step 2: Fetch fresh data efficiently
-    let freshEmails: any[] = []
-    
-    // Strategy 1: Try Gmail People API first (most efficient)
-    try {
-      const peopleResponse = await makeGmailApiRequest(
-        `https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses&pageSize=25&sortOrder=LAST_MODIFIED_DESCENDING`,
-        accessToken
-      )
+    console.log(`📧 [Gmail API] Found ${messages.length} sent messages, processing first 25`)
 
-      const peopleData = await peopleResponse.json()
-      const connections = peopleData.connections || []
-      
-      freshEmails = connections
-        .filter((person: any) => person.emailAddresses?.length > 0)
-        .slice(0, 20)
-        .map((person: any) => {
-          const primaryEmail = person.emailAddresses[0]
-          const name = person.names?.[0]?.displayName || person.names?.[0]?.givenName
-          return {
-            value: primaryEmail.value,
-            label: name ? `${name} <${primaryEmail.value}>` : primaryEmail.value,
-            email: primaryEmail.value,
-            name: name,
-            source: source,
-            frequency: 0 // Will be updated from cache
+    // Get detailed information for each message
+    const messageDetails = await Promise.all(
+      messages.slice(0, 25).map(async (message: { id: string }) => {
+        try {
+          const response = await makeGmailApiRequest(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
+            accessToken
+          )
+
+          const data = await response.json()
+          return data.payload?.headers || []
+        } catch (error) {
+          console.warn(`Failed to fetch message ${message.id}:`, error)
+          return null
+        }
+      })
+    )
+
+    // Extract all recipient email addresses
+    const recipients = new Map<string, { email: string; name?: string; frequency: number }>()
+
+    messageDetails
+      .filter(headers => headers !== null)
+      .forEach(headers => {
+        headers.forEach((header: { name: string; value: string }) => {
+          if (['To', 'Cc', 'Bcc'].includes(header.name)) {
+            // Parse email addresses from the header value
+            const emailRegex = /(?:"?([^"<>]+?)"?\s*)?<([^<>]+)>|([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+            let match
+
+            while ((match = emailRegex.exec(header.value)) !== null) {
+              const name = match[1]?.trim()
+              const email = (match[2] || match[3])?.trim().toLowerCase()
+
+              if (email && email.includes('@')) {
+                const existing = recipients.get(email)
+                if (existing) {
+                  existing.frequency += 1
+                } else {
+                  recipients.set(email, {
+                    email,
+                    name: name || undefined,
+                    frequency: 1
+                  })
+                }
+              }
+            }
           }
         })
-      
-      console.log(`✅ [Gmail API] Got ${freshEmails.length} contacts from People API`)
-
-    } catch (peopleError: any) {
-      console.warn("⚠️ [Gmail API] People API failed, falling back to search:", peopleError)
-      if (peopleError.status === 403) {
-        console.warn('⚠️ [Gmail API] Missing contacts permission. User needs to reconnect Gmail integration to enable contact suggestions.')
-      }
-    }
-
-    // Strategy 2: Supplement with efficient search if needed
-    if (freshEmails.length < 10) {
-      try {
-        // First get message IDs
-        const searchResponse = await makeGmailApiRequest(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:sent&maxResults=5`,
-          accessToken
-        )
-
-        const searchData = await searchResponse.json()
-        const messageIds = (searchData.messages || []).map((msg: any) => msg.id)
-        
-        console.log(`🔍 [Gmail API] Search found ${messageIds.length} messages, fetching individual message headers`)
-        
-        const emailSet = new Set(freshEmails.map(r => r.email.toLowerCase()))
-        
-        // Fetch individual messages to get headers
-        for (const messageId of messageIds.slice(0, 3)) { // Limit to 3 to avoid rate limits
-          try {
-            const messageResponse = await makeGmailApiRequest(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?fields=payload(headers)`,
-              accessToken
-            )
-            
-            const messageData = await messageResponse.json()
-            const headers = messageData.payload?.headers || []
-            
-            headers.forEach((header: any) => {
-              if (['To', 'Cc'].includes(header.name) && header.value) {
-                const emailAddresses = extractEmailAddresses(header.value)
-                emailAddresses.forEach(({ email, name }) => {
-                  if (email && !emailSet.has(email.toLowerCase()) && freshEmails.length < 20) {
-                    emailSet.add(email.toLowerCase())
-                    freshEmails.push({
-                      value: email,
-                      label: name ? `${name} <${email}>` : email,
-                      email,
-                      name,
-                      source: source,
-                      frequency: 0
-                    })
-                  }
-                })
-              }
-            })
-          } catch (messageError) {
-            console.warn(`⚠️ [Gmail API] Failed to fetch message ${messageId}:`, messageError)
-          }
-        }
-
-        console.log(`✅ [Gmail API] Total fresh emails: ${freshEmails.length}`)
-
-      } catch (searchError) {
-        console.warn("⚠️ [Gmail API] Search fallback failed:", searchError)
-      }
-    }
-
-    // Step 3: Merge cached and fresh data intelligently
-    let mergedResults: any[] = []
-    try {
-      mergedResults = await emailCache.getMergedEmailSuggestions(freshEmails, source, 25)
-      console.log(`✅ [Cache] Merged to ${mergedResults.length} total suggestions`)
-    } catch (mergeError) {
-      console.warn("⚠️ [Cache] Failed to merge suggestions, using fresh data:", mergeError)
-      mergedResults = freshEmails.slice(0, 25)
-    }
-
-    // Step 4: Track usage for fresh emails (background task)
-    if (freshEmails.length > 0) {
-      // Don't await this - run in background
-      emailCache.trackMultipleEmails(
-        freshEmails.map(email => ({
-          email: email.email,
-          name: email.name,
-          source: source,
-          integrationId: integration.id,
-          metadata: { 
-            fetchedAt: new Date().toISOString(),
-            apiSource: email.name ? 'people_api' : 'search_api'
-          }
-        }))
-      ).catch(error => {
-        console.warn("⚠️ [Cache] Failed to track emails in background:", error)
       })
-    }
 
-    console.log(`✅ [Gmail API] Returning ${mergedResults.length} optimized recipients`)
-    return mergedResults
+    // Convert to array and sort by frequency
+    const recipientArray = Array.from(recipients.values())
+      .sort((a, b) => b.frequency - a.frequency)
+      .slice(0, 20)
+      .map(recipient => ({
+        value: recipient.email,
+        label: recipient.name ? `${recipient.name} <${recipient.email}>` : recipient.email,
+        email: recipient.email,
+        name: recipient.name
+      }))
+
+    console.log(`✅ [Gmail API] Found ${recipientArray.length} recipients`)
+    return recipientArray
 
   } catch (error: any) {
     console.error("❌ [Gmail API] Failed to get recent recipients:", error)
