@@ -368,8 +368,10 @@ export default function ConfigurationForm({
     
   }, [discordClientId, isDiscordBotConfigured, checkBotInServer, loadOptions]);
 
-  // Check Discord configuration on mount
+  // Check Discord configuration on mount only for Discord nodes
   useEffect(() => {
+    if (nodeInfo?.providerId !== 'discord') return;
+    
     const fetchDiscordConfig = async () => {
       try {
         const response = await fetch('/api/discord/config');
@@ -392,7 +394,7 @@ export default function ConfigurationForm({
     };
 
     fetchDiscordConfig();
-  }, []);
+  }, [nodeInfo?.providerId]);
 
   // Load initial values when component mounts or nodeInfo changes
   useEffect(() => {

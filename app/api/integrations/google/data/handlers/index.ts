@@ -6,9 +6,11 @@ import { GoogleDataHandler } from '../types'
 import { getGoogleCalendars } from './calendars'
 import { getGoogleSheetsSpreadsheets, getGoogleSheetsSheets, getGoogleSheetsSheetPreview, getGoogleSheetsSheetData } from './sheets'
 import { getGoogleDriveFolders, getGoogleDriveFiles } from './drive'
+import { getGoogleContacts } from './contacts'
 
 export const googleHandlers: Record<string, GoogleDataHandler> = {
   'google-calendars': getGoogleCalendars,
+  'google-contacts': getGoogleContacts,
   'google-sheets_spreadsheets': getGoogleSheetsSpreadsheets,
   'google-sheets_sheets': getGoogleSheetsSheets,
   'google-sheets_sheet-preview': getGoogleSheetsSheetPreview,
@@ -19,6 +21,7 @@ export const googleHandlers: Record<string, GoogleDataHandler> = {
 
 export {
   getGoogleCalendars,
+  getGoogleContacts,
   getGoogleSheetsSpreadsheets,
   getGoogleSheetsSheets,
   getGoogleSheetsSheetPreview,

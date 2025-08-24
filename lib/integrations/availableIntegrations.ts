@@ -46,7 +46,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Manage events and schedules in Google Calendar",
     category: "productivity",
     capabilities: ["Create Events", "Read Events", "Update Events", "Delete Events"],
-    scopes: ["https://www.googleapis.com/auth/calendar"],
+    scopes: ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/contacts.readonly"],
     isAvailable: false,
     requiresClientId: "GOOGLE_CLIENT_ID",
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
