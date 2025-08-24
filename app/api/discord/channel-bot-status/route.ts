@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
-import { validateDiscordToken, makeDiscordApiRequest } from '../integrations/discord/data/utils'
+import { validateDiscordToken, makeDiscordApiRequest } from '../../integrations/discord/data/utils'
 
 interface ChannelBotStatus {
   isInChannel: boolean
@@ -44,34 +44,45 @@ async function checkChannelBotStatus(
     }
 
     // Check if the bot is in the guild by trying to get guild member info
+    // Use bot token for bot-related checks (not user token)
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    if (!botToken) {
+      return {
+        isInChannel: false,
+        canSendMessages: false,
+        hasPermissions: false,
+        userCanInviteBot: false,
+        error: "Discord bot not configured"
+      }
+    }
+
     let botInGuild = false
     let botHasChannelPerms = false
     
     try {
-      const guildMemberResponse = await makeDiscordApiRequest(
-        `https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`,
-        token
-      )
+      // Use bot token to check if bot is in guild
+      const guildMemberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
       
       if (guildMemberResponse.ok) {
         botInGuild = true
         
-        // Check bot's permissions in the specific channel
+        // Check bot's permissions in the specific channel using bot token
         try {
-          const channelResponse = await makeDiscordApiRequest(
-            `https://discord.com/api/v10/channels/${channelId}`,
-            token
-          )
+          const channelResponse = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+            headers: {
+              'Authorization': `Bot ${botToken}`,
+              'Content-Type': 'application/json',
+            },
+          })
           
           if (channelResponse.ok) {
-            // Try to get channel permissions for the bot
-            const permissionsResponse = await makeDiscordApiRequest(
-              `https://discord.com/api/v10/channels/${channelId}/permissions/${botClientId}`,
-              token
-            )
-            
-            // If we can access the channel and get permissions, bot has access
-            botHasChannelPerms = channelResponse.ok
+            // If bot can access the channel, it has the necessary permissions
+            botHasChannelPerms = true
           }
         } catch (channelError) {
           console.log('Bot cannot access channel:', channelError)
@@ -83,13 +94,15 @@ async function checkChannelBotStatus(
       botInGuild = false
     }
 
-    // Check if the user has permissions to invite the bot
+    // Check if the user has permissions to invite the bot using user token
     let userCanInvite = false
     try {
-      const userGuildResponse = await makeDiscordApiRequest(
-        `https://discord.com/api/v10/users/@me/guilds`,
-        token
-      )
+      const userGuildResponse = await fetch(`https://discord.com/api/v10/users/@me/guilds`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
       
       if (userGuildResponse.ok) {
         const guilds = await userGuildResponse.json()

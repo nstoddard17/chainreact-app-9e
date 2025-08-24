@@ -50,6 +50,12 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
     if (!nodeType || !providerId) return;
     
+    // Auto-detect dependencies for certain fields
+    if (fieldName === 'messageId' && !dependsOn) {
+      dependsOn = 'channelId';
+      // Note: dependsOnValue will be handled below by looking at current form values
+    }
+    
     // Create a cache key that includes dependencies
     const cacheKey = `${fieldName}-${dependsOn || ''}-${dependsOnValue || ''}`;
     
@@ -137,8 +143,9 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
         return;
       }
 
-      // Load integration data
-      const result = await loadIntegrationData(resourceType, integration.id, { [dependsOn || '']: dependsOnValue }, forceRefresh);
+      // Load integration data with proper options
+      const options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
+      const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
       
       // Format the results - extract data array from response object if needed
       const dataArray = result.data || result;
@@ -186,6 +193,7 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
 
     // Preload fields that don't depend on other fields
     // Note: Exclude email fields (like 'email') since they should load on-demand only
+    // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
     const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
     
     let loadingPromises: Promise<void>[] = [];
@@ -261,6 +269,28 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     discord_action_add_reaction: {
       channelId: "discord_channels",
       messageId: "discord_messages",
+    },
+    discord_action_edit_message: {
+      channelId: "discord_channels",
+      guildId: "discord_guilds",
+      messageId: "discord_messages",
+    },
+    discord_action_delete_message: {
+      channelId: "discord_channels",
+      guildId: "discord_guilds",
+      messageId: "discord_messages",
+    },
+    discord_action_create_channel: {
+      guildId: "discord_guilds",
+    },
+    discord_action_create_category: {
+      guildId: "discord_guilds",
+    },
+    discord_action_fetch_members: {
+      guildId: "discord_guilds",
+    },
+    discord_action_send_dm: {
+      guildId: "discord_guilds",
     },
     // Slack fields
     slack_action_create_channel: {
@@ -382,7 +412,6 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
     case "bcc":
     case "email":
     case "attendees":
-    case "messageId":
       return data.map((item: any) => ({
         value: item.email || item.value || item.id || item,
         label: item.label || (item.name ? `${item.name} <${item.email || item.value}>` : item.email || item.value || item.id || item),
@@ -415,7 +444,11 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
     case "messageId":
       return data.map((item: any) => ({
         value: item.id,
-        label: truncateMessage(item.content || "Message") || `Message ${item.id}`,
+        label: item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`,
+        content: item.content,
+        author: item.author,
+        timestamp: item.timestamp,
+        type: item.type
       }));
       
     case "boardId":

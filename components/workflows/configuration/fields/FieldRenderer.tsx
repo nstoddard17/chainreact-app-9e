@@ -30,6 +30,7 @@ import { GmailEmailField } from "./gmail/GmailEmailField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
 import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
+import { DiscordGenericField } from "./discord/DiscordGenericField";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -287,6 +288,21 @@ export function FieldRenderer({
         if (field.name === 'channelId' && integrationProvider === 'discord') {
           return (
             <DiscordChannelField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={selectOptions}
+              isLoading={loadingDynamic}
+              onDynamicLoad={onDynamicLoad}
+            />
+          );
+        }
+        
+        // Special handling for all other Discord dynamic fields
+        if (field.dynamic && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
+          return (
+            <DiscordGenericField
               field={field}
               value={value}
               onChange={onChange}
