@@ -3699,75 +3699,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       }
     ]
   },
-  {
-    type: "airtable_action_create_record_simple",
-    title: "Create Record - Simple",
-    description: "Create a new record in an Airtable table with JSON fields",
-    icon: Plus,
-    providerId: "airtable",
-    requiredScopes: ["data.records:write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "baseId",
-        label: "Base",
-        type: "select",
-        dynamic: "airtable_bases",
-        required: true,
-        placeholder: "Select a base"
-      },
-      {
-        name: "tableName",
-        label: "Table",
-        type: "select",
-        dynamic: "airtable_tables",
-        required: true,
-        placeholder: "Select a table",
-        dependsOn: "baseId"
-      },
-      {
-        name: "fields",
-        label: "Fields (JSON)",
-        type: "textarea",
-        required: true,
-        placeholder: '{"Name": "John Doe", "Email": "john@example.com", "Status": "Active"}'
-      },
-      {
-        name: "typecast",
-        label: "Typecast",
-        type: "boolean",
-        defaultValue: false,
-        description: "Automatically convert field values to appropriate types"
-      }
-    ],
-    outputSchema: [
-      {
-        name: "recordId",
-        label: "Record ID",
-        type: "string",
-        description: "The unique ID of the created record"
-      },
-      {
-        name: "createdTime",
-        label: "Created Time",
-        type: "string",
-        description: "When the record was created"
-      },
-      {
-        name: "fields",
-        label: "Record Fields",
-        type: "object",
-        description: "The fields and values of the created record"
-      },
-      {
-        name: "commentCount",
-        label: "Comment Count",
-        type: "number",
-        description: "Number of comments on the record"
-      }
-    ]
-  },
 
   // Discord
   {
@@ -3922,63 +3853,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         provider: "discord",
         required: true,
         placeholder: "Enter your Discord message with formatting, mentions, and emojis"
-      },
-      {
-        name: "embedTitle",
-        label: "Embed Title",
-        type: "text",
-        required: false,
-        placeholder: "Optional embed title"
-      },
-      {
-        name: "embedDescription",
-        label: "Embed Description",
-        type: "textarea",
-        required: false,
-        placeholder: "Optional embed description"
-      },
-      {
-        name: "embedColor",
-        label: "Embed Color",
-        type: "text",
-        required: false,
-        placeholder: "Hex color code (e.g., #FF5733)"
-      },
-      {
-        name: "embedFields",
-        label: "Embed Fields",
-        type: "textarea",
-        required: false,
-        placeholder: "JSON array of field objects: [{\"name\": \"Field Name\", \"value\": \"Field Value\", \"inline\": true}]"
-      },
-      {
-        name: "embedImage",
-        label: "Embed Image URL",
-        type: "text",
-        required: false,
-        placeholder: "URL to image for embed"
-      },
-      {
-        name: "embedThumbnail",
-        label: "Embed Thumbnail URL",
-        type: "text",
-        required: false,
-        placeholder: "URL to thumbnail image for embed"
-      },
-      {
-        name: "embedFooter",
-        label: "Embed Footer",
-        type: "text",
-        required: false,
-        placeholder: "Footer text for embed"
-      },
-      {
-        name: "embedTimestamp",
-        label: "Embed Timestamp",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Include current timestamp in embed"
       }
     ]
   },
