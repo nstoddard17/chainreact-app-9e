@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -336,9 +336,16 @@ export function FieldRenderer({
         );
 
       case "date":
+        // Safely parse date value
+        const dateValue = useMemo(() => {
+          if (!value) return undefined;
+          const date = new Date(value);
+          return isNaN(date.getTime()) ? undefined : date;
+        }, [value]);
+        
         return (
           <DatePicker
-            value={value ? new Date(value) : undefined}
+            value={dateValue}
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
             className={cn(
