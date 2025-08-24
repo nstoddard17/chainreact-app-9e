@@ -7989,7 +7989,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "content", label: "New Content", type: "textarea", required: true, placeholder: "Enter new message content" }
+      { name: "content", label: "New Content", type: "discord-rich-text", provider: "discord", required: true, placeholder: "Enter new message content with formatting, mentions, and emojis" }
     ]
   },
   {

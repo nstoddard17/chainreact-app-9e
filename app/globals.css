@@ -467,4 +467,132 @@ body {
   .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
   }
+
+  /* Fix dropdown styling - dark background with white text for all select dropdowns */
+  [data-radix-select-content] {
+    background: hsl(0 0% 10%) !important;
+    color: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    max-height: min(200px, calc(100vh - 100px)) !important;
+    overflow-y: auto !important;
+    z-index: 50 !important;
+    width: var(--radix-select-trigger-width) !important;
+    min-width: var(--radix-select-trigger-width) !important;
+  }
+
+  /* Ultra aggressive white text selectors for all dropdown items */
+  [data-radix-select-content] [data-radix-select-item],
+  [data-radix-select-content] [role="option"],
+  [data-radix-select-viewport] [data-radix-select-item],
+  [data-radix-select-viewport] [role="option"] {
+    color: white !important;
+    --tw-text-opacity: 1 !important;
+  }
+
+  /* Target Radix SelectItem primitives directly */
+  [data-radix-select-item],
+  [data-radix-select-item-text] {
+    color: white !important;
+  }
+
+  /* Target the SelectItem text content with all possible selectors */
+  [data-radix-select-content] [data-radix-select-item] [data-radix-select-item-text],
+  [data-radix-select-content] [role="option"] [data-radix-select-item-text],
+  [data-radix-select-viewport] [data-radix-select-item-text] {
+    color: white !important;
+  }
+
+  /* Target all nested elements */
+  [data-radix-select-content] [data-radix-select-item] *,
+  [data-radix-select-content] [role="option"] *,
+  [data-radix-select-viewport] [data-radix-select-item] *,
+  [data-radix-select-viewport] [role="option"] *,
+  [data-radix-select-content] *,
+  [data-radix-select-viewport] * {
+    color: white !important;
+  }
+
+  /* Override Tailwind classes */
+  [data-radix-select-content] .text-popover-foreground,
+  [data-radix-select-content] .text-muted-foreground,
+  [data-radix-select-content] .text-foreground,
+  [data-radix-select-viewport] .text-popover-foreground,
+  [data-radix-select-viewport] .text-muted-foreground,
+  [data-radix-select-viewport] .text-foreground {
+    color: white !important;
+  }
+
+  /* Force inheritance */
+  [data-radix-select-content],
+  [data-radix-select-viewport] {
+    color: white !important;
+  }
+
+  /* Ensure consistency in dark mode */
+  .dark [data-radix-select-content] {
+    background: hsl(0 0% 10%) !important;
+    color: white !important;
+  }
+
+  .dark [data-radix-select-content] [data-radix-select-item] {
+    color: white !important;
+  }
+
+  /* Better text truncation for dropdown items (default) */
+  [data-radix-select-content] [data-radix-select-item] {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Override for message fields - allow text wrapping within field width */
+  [data-radix-select-content] [data-radix-select-item].whitespace-pre-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    text-overflow: initial !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-words !important;
+    height: auto !important;
+    min-height: 2.5rem !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Ensure message content displays properly with wrapping */
+  [data-radix-select-content] [data-radix-select-item] .whitespace-pre-wrap {
+    max-width: 100% !important;
+    display: block !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-words !important;
+  }
+
+  /* Ensure default truncation for non-message fields */
+  [data-radix-select-content] [data-radix-select-item] .truncate {
+    max-width: 100% !important;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Combobox styles for message fields */
+  [data-radix-popover-content] [cmdk-item] {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-words !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 8px 12px !important;
+  }
+
+  /* Make combobox dropdowns use field width */
+  [data-radix-popover-content] {
+    width: var(--radix-popover-trigger-width) !important;
+    min-width: var(--radix-popover-trigger-width) !important;
+  }
 }

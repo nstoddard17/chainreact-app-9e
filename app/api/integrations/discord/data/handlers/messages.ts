@@ -7,12 +7,11 @@ import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
 export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
-    console.log("🔍 Discord messages fetcher called with options:", options)
     const { channelId } = options
     
     if (!channelId) {
-      console.error("❌ Channel ID is missing from options")
-      throw new Error("Channel ID is required to fetch Discord messages")
+      // Instead of throwing an error, return empty array for messageId fields that don't have channelId yet
+      return []
     }
 
     console.log("🔍 Fetching messages for channel:", channelId)
@@ -91,25 +90,31 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
           }
         })
     } catch (error: any) {
-      console.error("🔍 Discord API error:", error.message)
-      // Handle specific Discord API errors
-      if (error.message.includes("401")) {
+      console.error("🔍 Discord API error:", error.message, "Status:", error.status)
+      // Handle specific Discord API errors by status code
+      if (error.status === 401 || error.message.includes("401")) {
         throw new Error("Discord authentication failed. Please reconnect your Discord account.")
       }
-      if (error.message.includes("403")) {
+      if (error.status === 403 || error.message.includes("403")) {
         throw new Error("You do not have permission to view messages in this channel. Please ensure you have the 'Read Message History' permission and try again.")
       }
-      if (error.message.includes("404")) {
+      if (error.status === 404 || error.message.includes("404")) {
         // Channel not found - return empty array instead of throwing error
         console.log(`Channel ${channelId} not found - returning empty messages list`)
         return []
       }
-      if (error.message.includes("400")) {
+      if (error.status === 400 || error.message.includes("400")) {
         // Invalid request - likely invalid channel ID or bot permissions
         console.error(`Invalid Discord API request for channel ${channelId}:`, error.message)
         throw new Error(`Invalid Discord channel or insufficient bot permissions. Please ensure the bot has access to this channel and try again.`)
       }
-      throw error
+      if (error.status === 429 || error.message.includes("rate limit")) {
+        throw new Error("Discord API rate limit exceeded. Please try again later.")
+      }
+      
+      // For unexpected errors, provide better context
+      console.error(`Unexpected error fetching messages for channel ${channelId}:`, error)
+      throw new Error(`Failed to fetch Discord messages: ${error.message}`)
     }
   } catch (error: any) {
     console.error("Error fetching Discord messages:", error)
