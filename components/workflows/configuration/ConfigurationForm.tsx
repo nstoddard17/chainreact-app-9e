@@ -969,6 +969,34 @@ export default function ConfigurationForm({
       }
     }
     
+    // Handle spreadsheetId changes for Google Sheets
+    if (fieldName === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
+      console.log('🔍 Google Sheets spreadsheetId changed to:', value);
+      
+      // Clear dependent fields when spreadsheetId changes
+      if (nodeInfo.configSchema) {
+        nodeInfo.configSchema.forEach(field => {
+          if (field.dependsOn === 'spreadsheetId') {
+            console.log('🔍 Clearing dependent field:', field.name);
+            setValue(field.name, '');
+            if (value) {
+              console.log('🔍 Loading options for:', field.name, 'with spreadsheetId:', value);
+              // Set loading state for this field
+              setLoadingFields(prev => new Set(prev).add(field.name));
+              loadOptions(field.name, 'spreadsheetId', value, true).finally(() => {
+                // Clear loading state when done
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(field.name);
+                  return newSet;
+                });
+              });
+            }
+          }
+        });
+      }
+    }
+    
     // Handle baseId changes for Airtable
     if (fieldName === 'baseId' && nodeInfo?.providerId === 'airtable') {
       console.log('🔍 Airtable baseId changed to:', value);

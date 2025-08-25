@@ -312,7 +312,11 @@ export async function POST(req: NextRequest) {
       dataType === 'google-drive-folders' ||
       dataType === 'google-drive-files' ||
       dataType === 'google-calendars' ||
-      dataType === 'google-contacts'
+      dataType === 'google-contacts' ||
+      dataType === 'google-sheets_spreadsheets' ||
+      dataType === 'google-sheets_sheets' ||
+      dataType === 'google-sheets_columns' ||
+      dataType === 'google-sheets_enhanced-preview'
     )) {
       console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType}`);
       

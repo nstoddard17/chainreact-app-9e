@@ -1374,8 +1374,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         dynamic: "google-sheets_spreadsheets",
         required: true,
-        placeholder: "Select a spreadsheet from your Google Sheets account",
-        description: "Choose from your connected Google Sheets spreadsheets"
+        placeholder: "Select a spreadsheet"
       },
       {
         name: "sheetName",
@@ -1383,8 +1382,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         dynamic: "google-sheets_sheets",
         required: true,
-        placeholder: "Select a sheet from the spreadsheet",
-        description: "Choose from the sheets/tabs in the selected spreadsheet",
+        placeholder: "Select a sheet",
         dependsOn: "spreadsheetId"
       },
       {
@@ -1392,16 +1390,187 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Action",
         type: "select",
         required: true,
-        dependsOn: "sheetName",
+        showIf: (values: any) => values.sheetName,
         options: [
           { value: "add", label: "Add new row" },
           { value: "update", label: "Update existing row" },
           { value: "delete", label: "Delete row" }
-        ],
-        description: "What operation to perform on the sheet"
+        ]
       },
 
+      // === ADD ROW FIELDS ===
+      {
+        name: "rowPosition",
+        label: "Row Position",
+        type: "select",
+        required: true,
+        showIf: (values: any) => values.action === "add",
+        options: [
+          { value: "end", label: "Add at end of sheet" },
+          { value: "specific", label: "Insert at specific row" }
+        ],
+        description: "Choose where to add the new row",
+        helpText: "Add at end will append the row to the bottom of your data. Insert at specific row will add it at the row number you specify."
+      },
+      {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        required: true,
+        showIf: (values: any) => values.action === "add" && values.rowPosition === "specific",
+        placeholder: "Enter row number (e.g. 5)",
+        min: 1,
+        description: "The row number where the new data will be inserted",
+        helpText: "Row 1 is typically headers. Row 2 is the first data row. Existing rows will be shifted down."
+      },
+      {
+        name: "columnMapping",
+        label: "What Data to Add",
+        type: "google_sheets_column_mapper",
+        required: true,
+        showIf: (values: any) => values.action === "add",
+        dependsOn: "sheetName",
+        description: "Choose which data goes into which columns",
+        helpText: "Select a column from your spreadsheet, then choose what data from your workflow should go there. For example, put the 'Email' from your trigger into the 'Email Address' column."
+      },
 
+      // === UPDATE ROW FIELDS ===
+      {
+        name: "findRowBy",
+        label: "Find Row By",
+        type: "select",
+        required: true,
+        showIf: (values: any) => values.action === "update",
+        options: [
+          { value: "row_number", label: "Row number" },
+          { value: "column_value", label: "Column value" },
+          { value: "conditions", label: "Multiple conditions" }
+        ],
+        description: "How to identify which row to update",
+        helpText: "Row number: Update a specific row (e.g. row 5). Column value: Find row where a column contains a specific value. Multiple conditions: Use complex rules to find the right row."
+      },
+      {
+        name: "updateRowNumber",
+        label: "Row Number",
+        type: "number",
+        required: true,
+        showIf: (values: any) => values.action === "update" && values.findRowBy === "row_number",
+        placeholder: "Enter row number (e.g. 5)",
+        min: 2,
+        description: "The specific row number to update",
+        helpText: "Row 1 is typically headers. Row 2 is the first data row. Enter the row number you want to update."
+      },
+      {
+        name: "searchColumn",
+        label: "Search Column",
+        type: "select",
+        dynamic: "google-sheets_columns",
+        required: true,
+        showIf: (values: any) => values.action === "update" && values.findRowBy === "column_value",
+        dependsOn: "sheetName",
+        description: "Which column to search in",
+        helpText: "Choose the column that contains the value you want to search for. For example, if you want to find a row with a specific email, choose the Email column."
+      },
+      {
+        name: "searchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        showIf: (values: any) => values.action === "update" && values.findRowBy === "column_value",
+        placeholder: "Value to search for",
+        description: "The value to look for in the search column",
+        helpText: "Enter the exact value you want to find. For example, 'john@example.com' if searching in an email column."
+      },
+      {
+        name: "conditions",
+        label: "Conditions",
+        type: "google_sheets_condition_builder",
+        required: true,
+        showIf: (values: any) => values.action === "update" && values.findRowBy === "conditions",
+        dependsOn: "sheetName",
+        description: "Set up rules to find the right row",
+        helpText: "Create multiple conditions to find rows. For example, 'Status equals Active AND Date is after 2024-01-01'."
+      },
+      {
+        name: "updateMapping",
+        label: "What Data to Update",
+        type: "google_sheets_column_mapper",
+        required: true,
+        showIf: (values: any) => values.action === "update",
+        dependsOn: "sheetName",
+        description: "Choose which columns to update with new data",
+        helpText: "Select the columns you want to change and what new data should go in them. Only these columns will be updated - everything else stays the same."
+      },
+
+      // === DELETE ROW FIELDS ===
+      {
+        name: "deleteRowBy",
+        label: "Find Row By",
+        type: "select",
+        required: true,
+        showIf: (values: any) => values.action === "delete",
+        options: [
+          { value: "row_number", label: "Row number" },
+          { value: "column_value", label: "Column value" },
+          { value: "conditions", label: "Multiple conditions" }
+        ],
+        description: "How to identify which row to delete",
+        helpText: "Row number: Delete a specific row (e.g. row 5). Column value: Find and delete row where a column contains a specific value. Multiple conditions: Use complex rules to find the right row."
+      },
+      {
+        name: "deleteRowNumber",
+        label: "Row Number",
+        type: "number",
+        required: true,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "row_number",
+        placeholder: "Enter row number (e.g. 5)",
+        min: 2,
+        description: "The specific row number to delete",
+        helpText: "Row 1 is typically headers. Row 2 is the first data row. Be careful - this will permanently delete the row!"
+      },
+      {
+        name: "deleteSearchColumn",
+        label: "Search Column",
+        type: "select",
+        dynamic: "google-sheets_columns",
+        required: true,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value",
+        dependsOn: "sheetName",
+        description: "Which column to search in",
+        helpText: "Choose the column that contains the value you want to search for. For example, if you want to delete a row with a specific email, choose the Email column."
+      },
+      {
+        name: "deleteSearchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value",
+        placeholder: "Value to search for",
+        description: "The value to look for in the search column",
+        helpText: "Enter the exact value you want to find. For example, 'john@example.com' if searching in an email column. The row containing this value will be deleted."
+      },
+      {
+        name: "deleteConditions",
+        label: "Conditions",
+        type: "google_sheets_condition_builder",
+        required: true,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "conditions",
+        dependsOn: "sheetName",
+        description: "Set up rules to find the right row",
+        helpText: "Create multiple conditions to find rows to delete. For example, 'Status equals Inactive AND Last Login is before 2024-01-01'. Be careful - matching rows will be permanently deleted!"
+      },
+
+      // === DATA PREVIEW ===
+      {
+        name: "dataPreview",
+        label: "Sheet Preview",
+        type: "google_sheets_data_preview",
+        required: false,
+        showIf: (values: any) => values.sheetName,
+        dependsOn: "sheetName",
+        description: "Preview of your spreadsheet data",
+        helpText: "This shows you the first few rows of your sheet to help you understand the column structure and data types."
+      }
     ],
   },
   {
@@ -5488,40 +5657,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
     producesOutput: true,
-    testable: true,
-    testFunction: (config: any) => {
-      // Always return 1 sample email regardless of maxResults setting
-      return {
-        success: true,
-        output: {
-          emails: [
-            {
-              id: "sample_email_" + Date.now(),
-              threadId: "sample_thread_123",
-              subject: "Sample Email Subject",
-              from: "sample@example.com",
-              to: "user@example.com",
-              date: new Date().toISOString(),
-              snippet: "This is a sample email snippet for testing purposes...",
-              body: config.format === "metadata" ? undefined : "This is the body content of the sample email for testing purposes.",
-              attachments: config.fieldsMask?.includes('payload(parts)') ? [
-                {
-                  filename: "sample-attachment.pdf",
-                  mimeType: "application/pdf",
-                  size: 1024000,
-                  attachmentId: "sample_attachment_123"
-                }
-              ] : undefined,
-              labelIds: ["INBOX"]
-            }
-          ],
-          count: 1,
-          query: config.query || "sample query",
-          totalResults: 1
-        },
-        message: "Sample email data generated for testing"
-      }
-    },
     configSchema: [
       // Basic Tab Fields
       { 
