@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,33 +28,63 @@ export function DiscordServerField({
   isLoading,
   onDynamicLoad,
 }: DiscordServerFieldProps) {
+  
+  // Track whether we've already attempted to load servers to prevent reloading
+  const hasAttemptedLoad = useRef(false);
+  const previousValue = useRef(value);
 
-  // Discord-specific loading behavior
+  // Reset load attempt flag if field is intentionally cleared
+  useEffect(() => {
+    if (previousValue.current && !value) {
+      // Field was cleared, allow loading again
+      hasAttemptedLoad.current = false;
+    }
+    previousValue.current = value;
+  }, [value]);
+
+  // Auto-load Discord servers on mount if no data exists
+  useEffect(() => {
+    if (field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+      console.log('🔍 Auto-loading Discord servers on mount for field:', field.name);
+      hasAttemptedLoad.current = true;
+      onDynamicLoad(field.name);
+    }
+  }, [field.dynamic, field.name, onDynamicLoad, isLoading, options.length, value]);
+
+  // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
+    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+      console.log('🔍 Loading Discord servers on dropdown open for field:', field.name);
+      hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
   };
 
   // Discord-specific option processing
   const processDiscordServers = (servers: any[]) => {
-    return servers
+    // Remove duplicates and filter valid servers
+    const uniqueServers = servers
       .filter(server => server && (server.value || server.id))
-      .sort((a, b) => {
-        // Prioritize servers where bot has permissions
-        if (a.botInGuild && !b.botInGuild) return -1;
-        if (b.botInGuild && !a.botInGuild) return 1;
-        
-        // Then by member count (larger servers first)
-        if (a.memberCount && b.memberCount) {
-          return b.memberCount - a.memberCount;
+      .reduce((acc: any[], server: any) => {
+        const serverId = server.value || server.id;
+        // Check if we already have this server ID
+        if (!acc.some(existingServer => (existingServer.value || existingServer.id) === serverId)) {
+          acc.push(server);
         }
-        
-        // Default to alphabetical
-        const aName = a.label || a.name || a.value || a.id;
-        const bName = b.label || b.name || b.value || b.id;
-        return aName.localeCompare(bName);
-      });
+        return acc;
+      }, []);
+
+    return uniqueServers.sort((a, b) => {
+      // Sort by member count (larger servers first)
+      if (a.approximate_member_count && b.approximate_member_count) {
+        return b.approximate_member_count - a.approximate_member_count;
+      }
+      
+      // Default to alphabetical
+      const aName = a.label || a.name || a.value || a.id;
+      const bName = b.label || b.name || b.value || b.id;
+      return aName.localeCompare(bName);
+    });
   };
 
   // Discord-specific error handling
@@ -71,13 +101,22 @@ export function DiscordServerField({
   const processedOptions = processDiscordServers(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
-  // Show loading state for dynamic fields
-  if (field.dynamic && isLoading && processedOptions.length === 0) {
+  // Always show loading state when isLoading is true (even if we have cached data)
+  if (field.dynamic && isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-        Loading Discord servers...
-      </div>
+      <Select disabled>
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+            <span>Loading Discord servers...</span>
+          </div>
+        </SelectTrigger>
+      </Select>
     );
   }
 
@@ -121,19 +160,23 @@ export function DiscordServerField({
       >
         <SelectValue placeholder={field.placeholder || "Select Discord server..."} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent 
+        className="bg-slate-900 text-white max-h-[200px]"
+        position="popper" 
+        sideOffset={4}
+        style={{ 
+          backgroundColor: 'hsl(0 0% 10%)',
+          color: 'white' 
+        }}
+      >
         {processedOptions.map((option: any, index: number) => {
           const optionValue = option.value || option.id;
           const optionLabel = option.label || option.name || option.value || option.id;
-          const hasBot = option.botInGuild;
           
           return (
             <SelectItem 
               key={`${optionValue}-${index}`} 
               value={optionValue}
-              className={cn(
-                !hasBot && "opacity-60"
-              )}
             >
               <span>{optionLabel}</span>
             </SelectItem>

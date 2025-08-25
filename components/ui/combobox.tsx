@@ -102,12 +102,23 @@ export function Combobox({
     }
     
     const searchLower = inputValue.toLowerCase()
-    return localOptions.filter(option => {
+    console.log('🔍 Combobox filtering:', { inputValue, searchLower, totalOptions: localOptions.length })
+    
+    const filtered = localOptions.filter(option => {
       // Use searchValue if available, otherwise fall back to value and label
-      const searchText = option.searchValue || 
-        `${option.value} ${typeof option.label === 'string' ? option.label : ''}`.toLowerCase()
-      return searchText.includes(searchLower)
+      const searchText = (option.searchValue || 
+        `${option.value} ${typeof option.label === 'string' ? option.label : ''}`).toLowerCase()
+      const matches = searchText.includes(searchLower)
+      
+      if (matches) {
+        console.log('🎯 Match found:', { searchText: searchText.substring(0, 50), searchLower })
+      }
+      
+      return matches
     })
+    
+    console.log('🔍 Filtered results:', filtered.length)
+    return filtered
   }, [localOptions, inputValue])
 
   React.useEffect(() => {
@@ -179,7 +190,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}

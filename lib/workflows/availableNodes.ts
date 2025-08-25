@@ -8124,7 +8124,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "content", label: "New Content", type: "textarea", required: true, placeholder: "Enter new message content" }
+      { name: "content", label: "New Content", type: "discord-rich-text", provider: "discord", required: true, placeholder: "Enter new message content with formatting, mentions, and emojis" }
     ]
   },
   {
@@ -8152,8 +8152,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 },
       { name: "filterType", label: "Filter Type", type: "select", required: false, options: [
         { value: "none", label: "No Filter" },
@@ -8272,7 +8272,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" }
+      { name: "emoji", label: "Reaction to Remove", type: "hidden", required: true }
     ]
   },
 
@@ -8287,7 +8287,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
       { name: "name", label: "Channel Name", type: "text", required: true, uiTab: "basic" },
       { name: "type", label: "Channel Type", type: "select", options: [
         { value: "0", label: "Text Channel" },
@@ -8297,7 +8297,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "15", label: "Forum Channel" },
         { value: "16", label: "Media Channel" }
       ], required: true, defaultValue: "0", uiTab: "basic" },
-      { name: "parentId", label: "Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "basic", description: "Category to place this channel in", dependsOn: "guildId" },
+      { name: "parentId", label: "Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "basic", description: "Category to place this channel in", dependsOn: "guildId", placeholder: "Select a category (optional)" },
       
       // Advanced Settings Tab
       { name: "topic", label: "Topic", type: "text", required: false, uiTab: "advanced", description: "Channel description (text channels only)" },
@@ -8346,8 +8346,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic", placeholder: "Select a channel" },
       { name: "name", label: "New Name", type: "text", required: false, uiTab: "basic" },
       
       // Advanced Settings Tab
@@ -8398,8 +8398,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic", placeholder: "Select a channel" },
       
       // Advanced Settings Tab
       { name: "channelTypes", label: "Channel Types", type: "multi-select", required: false, uiTab: "advanced", description: "Filter by channel types", options: [
@@ -8411,7 +8411,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "15", label: "Forum Channels" }
       ]},
       { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter channels by name (case-insensitive)", placeholder: "e.g., general, admin, support" },
-      { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId" }
+      { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId", placeholder: "Select a category (optional)" }
     ]
   },
   {
@@ -8424,7 +8424,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
       { name: "name", label: "Category Name", type: "text", required: true, uiTab: "basic" },
       { name: "private", label: "Private Category", type: "boolean", required: false, uiTab: "basic", description: "Make this category private (only visible to specific roles)", defaultValue: false },
       
@@ -8444,8 +8444,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
-      { name: "categoryId", label: "Category", type: "select", dynamic: "discord_categories", required: true, dependsOn: "guildId", uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
+      { name: "categoryId", label: "Category", type: "select", dynamic: "discord_categories", required: true, dependsOn: "guildId", uiTab: "basic", placeholder: "Select a category" },
       { name: "moveChannels", label: "Move Channels to General", type: "boolean", required: false, uiTab: "basic", description: "Move channels from this category to the general area before deleting", defaultValue: true },
       
       // Advanced Settings Tab
@@ -8470,12 +8470,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
       { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of members (max 1000)", uiTab: "basic" },
       
       // Advanced Settings Tab
       { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter members by username or nickname (case-insensitive)", placeholder: "e.g., admin, moderator, john" },
-      { name: "roleFilter", label: "Role Filter", type: "select", dynamic: "discord_roles", required: false, uiTab: "advanced", description: "Only show members with this role", dependsOn: "guildId" },
+      { name: "roleFilter", label: "Role Filter", type: "select", dynamic: "discord_roles", required: false, uiTab: "advanced", description: "Only show members with this role", dependsOn: "guildId", placeholder: "Select a role (optional)" },
       { name: "sortBy", label: "Sort By", type: "select", required: false, uiTab: "advanced", description: "How to sort the members", options: [
         { value: "joined", label: "Join Date (newest first)" },
         { value: "joined_old", label: "Join Date (oldest first)" },

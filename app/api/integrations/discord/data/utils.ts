@@ -76,6 +76,16 @@ export async function fetchDiscordWithRateLimit<T>(
         return await response.json()
       }
       
+      // Log detailed error information
+      const errorText = await response.text().catch(() => 'Could not read response text')
+      console.error(`❌ Discord API Error (attempt ${attempt}/${maxRetries}):`, {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: errorText
+      })
+      
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after')
         const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : defaultWaitTime
@@ -88,7 +98,7 @@ export async function fetchDiscordWithRateLimit<T>(
       }
       
       throw createDiscordApiError(
-        `Discord API error: ${response.status} - ${response.statusText}`,
+        `Discord API error: ${response.status} - ${response.statusText} - ${errorText}`,
         response.status,
         response
       )

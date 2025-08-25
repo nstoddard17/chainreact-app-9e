@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
+import { DiscordReactionRemover } from "./fields/discord/DiscordReactionRemover";
+import { DiscordReactionSelector } from "./fields/discord/DiscordReactionSelector";
 import { useFormState } from "./hooks/useFormState";
 import { useDynamicOptions } from "./hooks/useDynamicOptions";
 import { NodeComponent } from "@/lib/workflows/availableNodes";
@@ -18,6 +20,7 @@ import { cn } from "@/lib/utils";
 import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { loadNodeConfig, saveNodeConfig } from '@/lib/workflows/configPersistence';
+import { useWorkflowStore } from '@/stores/workflowStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**
@@ -59,6 +62,7 @@ export default function ConfigurationForm({
   const [isDiscordBotConfigured, setIsDiscordBotConfigured] = useState<boolean | null>(null);
   const [discordClientId, setDiscordClientId] = useState<string | null>(null);
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
+  const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
   
   // Function to get the current workflow ID from the URL
   const getWorkflowId = useCallback(() => {
@@ -85,16 +89,43 @@ export default function ConfigurationForm({
     handleSubmit
   } = useFormState(initialData || {}, nodeInfo);
 
+  // Handle field loading state changes from the hook
+  const handleLoadingChange = useCallback((fieldName: string, isLoading: boolean) => {
+    if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+      console.log(`🔍 [ConfigurationForm] Loading state change for ${fieldName}:`, { fieldName, isLoading });
+    }
+    
+    setLoadingFields(prev => {
+      const newSet = new Set(prev);
+      if (isLoading) {
+        newSet.add(fieldName);
+      } else {
+        newSet.delete(fieldName);
+      }
+      
+      if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+        console.log(`🔍 [ConfigurationForm] Updated loadingFields for ${fieldName}:`, Array.from(newSet));
+      }
+      
+      return newSet;
+    });
+  }, []);
+
   // Dynamic options management
   const {
     dynamicOptions,
     loading: loadingDynamic,
     isInitialLoading,
     loadOptions
-  } = useDynamicOptions({ nodeType: nodeInfo?.type, providerId: nodeInfo?.providerId });
+  } = useDynamicOptions({ 
+    nodeType: nodeInfo?.type, 
+    providerId: nodeInfo?.providerId,
+    onLoadingChange: handleLoadingChange
+  });
 
   // Discord integration check
   const { getIntegrationByProvider, connectIntegration, getConnectedProviders, loadIntegrationData } = useIntegrationStore();
+  const { updateNode, saveWorkflow, currentWorkflow } = useWorkflowStore();
   const discordIntegration = getIntegrationByProvider('discord');
   const needsDiscordConnection = nodeInfo?.providerId === 'discord' && !discordIntegration;
 
@@ -104,13 +135,31 @@ export default function ConfigurationForm({
     
     try {
       setIsBotStatusChecking(true);
+      // Clear any previous channel loading errors when checking bot status
+      setChannelLoadingError(null);
       const response = await fetch(`/api/discord/bot-status?guildId=${guildId}`);
       const data = await response.json();
       
-      setBotStatus({
+      const newBotStatus = {
         isInGuild: data.isInGuild,
         hasPermissions: data.hasPermissions
-      });
+      };
+      
+      setBotStatus(newBotStatus);
+      
+      // If bot is now connected with permissions, automatically load channels
+      if (newBotStatus.isInGuild && newBotStatus.hasPermissions) {
+        console.log('🔍 Bot connected with permissions, loading channels for guild:', guildId);
+        // Let the useDynamicOptions hook handle all loading state management
+        loadOptions('channelId', 'guildId', guildId)
+          .then(() => {
+            console.log('✅ Channels loaded successfully after bot connection');
+          })
+          .catch((channelError) => {
+            console.error('Failed to load channels after bot connection:', channelError);
+            setChannelLoadingError('Failed to load channels after bot connection');
+          });
+      }
     } catch (error) {
       console.error("Error checking Discord bot status:", error);
       setBotStatus({
@@ -120,7 +169,72 @@ export default function ConfigurationForm({
     } finally {
       setIsBotStatusChecking(false);
     }
-  }, [discordIntegration]);
+  }, [discordIntegration, loadOptions]);
+
+  // Function to load Discord reactions for a specific message
+  const loadReactionsForMessage = useCallback(async (channelId: string, messageId: string) => {
+    if (!channelId || !messageId || !discordIntegration) {
+      console.warn('Missing required parameters for loading reactions:', { channelId, messageId, hasIntegration: !!discordIntegration });
+      return;
+    }
+
+    try {
+      console.log('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
+      
+      // Set loading state manually for selectedEmoji field
+      setLoadingFields(prev => new Set(prev).add('selectedEmoji'));
+      
+      // Load reactions using the integration service directly
+      const reactionsData = await loadIntegrationData('discord_reactions', discordIntegration.id, {
+        channelId,
+        messageId
+      });
+      
+      // Format the reactions data
+      const formattedReactions = (reactionsData.data || reactionsData || []).map((reaction: any) => ({
+        value: reaction.value || reaction.id || reaction.emoji,
+        label: reaction.name || `${reaction.emoji} (${reaction.count || 0} reactions)`,
+        emoji: reaction.emoji,
+        count: reaction.count || 0,
+        ...reaction
+      }));
+      
+      // Update selected emoji reactions state
+      setSelectedEmojiReactions(formattedReactions);
+      
+      console.log('✅ Loaded', formattedReactions.length, 'reactions for message');
+    } catch (error: any) {
+      console.error('Failed to load reactions:', error);
+      setSelectedEmojiReactions([]);
+    } finally {
+      // Clear loading state
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete('selectedEmoji');
+        return newSet;
+      });
+    }
+  }, [discordIntegration, loadIntegrationData]);
+
+  // Unified dynamic load handler that handles special cases
+  const handleDynamicLoad = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
+    console.log('🔍 handleDynamicLoad called:', { fieldName, dependsOn, dependsOnValue });
+    
+    // No special emoji field handling needed since it was removed
+    
+    // Special handling for messageId field - it always depends on channelId
+    if (fieldName === 'messageId' && values.channelId) {
+      await loadOptions(fieldName, 'channelId', values.channelId);
+      return;
+    }
+    
+    // Default handling
+    if (dependsOn && values[dependsOn]) {
+      await loadOptions(fieldName, dependsOn, values[dependsOn]);
+    } else {
+      await loadOptions(fieldName);
+    }
+  }, [values, nodeInfo?.providerId, loadReactionsForMessage, loadOptions]);
 
   // Function to check Discord bot status in specific channel
   const checkChannelBotStatus = useCallback(async (channelId: string, guildId: string) => {
@@ -400,27 +514,22 @@ export default function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    // Try to load saved configuration
-    if (currentNodeId && nodeInfo?.type) {
-      const workflowId = getWorkflowId();
-      if (workflowId) {
-        const savedNodeData = loadNodeConfig(workflowId, currentNodeId, nodeInfo.type);
-        if (savedNodeData) {
-          console.log('📋 Loaded saved configuration for Discord trigger node:', currentNodeId);
-          
-          // Apply saved configuration to form values
-          const savedConfig = savedNodeData.config || {};
-          Object.entries(savedConfig).forEach(([key, value]) => {
-            if (value !== undefined) {
-              setValue(key, value);
-            }
-          });
-          
-          // If we have saved dynamic options, restore them
-          if (savedNodeData.dynamicOptions) {
-            console.log('📋 Found saved dynamic options for Discord trigger');
+    // Load configuration from the current workflow node
+    if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+      const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
+      if (currentNode?.data?.config) {
+        console.log('📋 Loading configuration from workflow node:', currentNodeId, currentNode.data.config);
+        
+        // Apply saved configuration to form values
+        Object.entries(currentNode.data.config).forEach(([key, value]) => {
+          if (value !== undefined) {
+            setValue(key, value);
           }
-        }
+        });
+        
+        console.log('✅ Configuration loaded from database');
+      } else {
+        console.log('📋 No saved configuration found for node:', currentNodeId);
       }
     }
 
@@ -443,7 +552,7 @@ export default function ConfigurationForm({
         hasPermissions: true
       });
     }
-  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized]);
+  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized, currentWorkflow, currentNodeId]);
 
   /**
    * Handle Discord connection
@@ -466,51 +575,100 @@ export default function ConfigurationForm({
     // Step 1: Show connection prompt if Discord is not connected
     if (!discordIntegration) {
       return (
-        <div className="space-y-4 p-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-800">Connect Discord</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              Connect your Discord account to configure this action and access your servers.
-            </p>
-            <Button
-              variant="default"
-              className="mt-3 text-sm bg-[#5865F2] hover:bg-[#4752C4] text-white"
-              onClick={handleConnectDiscord}
-              disabled={loadingDynamic}
-            >
-              {loadingDynamic ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Connecting...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
-                  </svg>
-                  Connect Discord
-                </div>
-              )}
-            </Button>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-4 p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-800">Connect Discord</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Connect your Discord account to configure this action and access your servers.
+              </p>
+              <Button
+                variant="default"
+                className="mt-3 text-sm bg-[#5865F2] hover:bg-[#4752C4] text-white"
+                onClick={handleConnectDiscord}
+                disabled={loadingDynamic}
+              >
+                {loadingDynamic ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Connecting...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
+                    </svg>
+                    Connect Discord
+                  </div>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       );
     }
 
     // Step 2: Show only server field initially
     if (guildField && !values.guildId) {
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-        </div>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+          </div>
+        </ScrollArea>
+      );
+    }
+
+    // For actions without channel field (like create category, fetch members), show remaining fields after server selection
+    if (!channelField && values.guildId && botStatus?.isInGuild && botStatus?.hasPermissions) {
+      // Get all fields except guildId (already shown)
+      const remainingFields = nodeInfo?.configSchema?.filter(field => 
+        field.name !== 'guildId' && 
+        !shouldHideField(field, values)
+      ) || [];
+
+      return (
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+
+            {/* Show remaining fields */}
+            {remainingFields.map((field: any) => (
+              <FieldRenderer
+                key={field.name}
+                field={field}
+                value={values[field.name]}
+                onChange={(value) => handleFieldChange(field.name, value)}
+                error={errors[field.name]}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                dynamicOptions={dynamicOptions}
+                loadingDynamic={loadingFields.has(field.name)}
+                nodeInfo={nodeInfo}
+                onDynamicLoad={handleDynamicLoad}
+              />
+            ))}
+          </div>
+        </ScrollArea>
       );
     }
 
@@ -518,231 +676,347 @@ export default function ConfigurationForm({
     if (values.guildId && (!botStatus || isBotStatusChecking)) {
       // Bot status checking or not started yet
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
-              <span className="text-sm text-gray-700">Checking bot connection status...</span>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
+                <span className="text-sm text-gray-700">Checking bot connection status...</span>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
       );
     }
 
-    // Step 4: Bot not connected - show connect button
-    if (values.guildId && botStatus && !botStatus.isInGuild) {
+    // For actions without channel field, handle bot status checking states
+    if (!channelField && values.guildId && (!botStatus || isBotStatusChecking)) {
+      // Bot status checking or not started yet for non-channel actions
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-orange-800">Bot Connection Required</h3>
-            <p className="text-sm text-orange-700 mt-1">
-              The Discord bot needs to be added to this server to use Discord actions. Click the button below to add the bot.
-            </p>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
             
-            <Button
-              type="button"
-              variant="default"
-              className="mt-3 text-sm bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={() => handleInviteBot(values.guildId)}
-              disabled={isBotConnectionInProgress}
-            >
-              {isBotConnectionInProgress ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Connecting Bot...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
-                  </svg>
-                  Connect Bot to Server
-                </div>
-              )}
-            </Button>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
+                <span className="text-sm text-gray-700">Checking bot connection status...</span>
+              </div>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
+      );
+    }
+
+    if (!channelField && values.guildId && botStatus && !botStatus.isInGuild) {
+      return (
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-orange-800">Bot Connection Required</h3>
+              <p className="text-sm text-orange-700 mt-1">
+                The Discord bot needs to be added to this server to use Discord actions. Click the button below to add the bot.
+              </p>
+              
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="mt-3 bg-[#5865F2] hover:bg-[#4752C4] text-white"
+                onClick={() => handleAddBotToServer(values.guildId)}
+                disabled={isBotConnectionInProgress}
+              >
+                {isBotConnectionInProgress ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Adding Bot...
+                  </div>
+                ) : (
+                  'Add Bot to Server'
+                )}
+              </Button>
+            </div>
+          </div>
+        </ScrollArea>
+      );
+    }
+
+    if (!channelField && values.guildId && botStatus?.isInGuild && !botStatus.hasPermissions) {
+      return (
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-yellow-800">Bot Needs Additional Permissions</h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                The Discord bot is connected to this server but needs additional permissions. Click the button below to update bot permissions.
+              </p>
+              
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="mt-3 bg-[#5865F2] hover:bg-[#4752C4] text-white"
+                onClick={() => handleAddBotToServer(values.guildId)}
+                disabled={isBotConnectionInProgress}
+              >
+                {isBotConnectionInProgress ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Updating Permissions...
+                  </div>
+                ) : (
+                  'Update Bot Permissions'
+                )}
+              </Button>
+            </div>
+          </div>
+        </ScrollArea>
+      );
+    }
+
+    // Step 4: Bot not connected - show connect button (for channel-based actions)
+    if (channelField && values.guildId && botStatus && !botStatus.isInGuild) {
+      return (
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-orange-800">Bot Connection Required</h3>
+              <p className="text-sm text-orange-700 mt-1">
+                The Discord bot needs to be added to this server to use Discord actions. Click the button below to add the bot.
+              </p>
+              
+              <Button
+                type="button"
+                variant="default"
+                className="mt-3 text-sm bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => handleInviteBot(values.guildId)}
+                disabled={isBotConnectionInProgress}
+              >
+                {isBotConnectionInProgress ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Connecting Bot...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"/>
+                    </svg>
+                    Connect Bot to Server
+                  </div>
+                )}
+              </Button>
+            </div>
+          </div>
+        </ScrollArea>
       );
     }
 
     // Step 4.5: Bot connected but lacks permissions - show reconnect button
     if (values.guildId && botStatus?.isInGuild && !botStatus.hasPermissions) {
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-yellow-800">Bot Needs Additional Permissions</h3>
-            <p className="text-sm text-yellow-700 mt-1">
-              The Discord bot is connected to this server but needs additional permissions to view channels. Click the button below to update bot permissions.
-            </p>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
             
-            <Button
-              type="button"
-              variant="default"
-              className="mt-3 text-sm bg-yellow-600 hover:bg-yellow-700 text-white"
-              onClick={() => handleInviteBot(values.guildId)}
-              disabled={isBotConnectionInProgress}
-            >
-              {isBotConnectionInProgress ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Updating Permissions...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-                  </svg>
-                  Update Bot Permissions
-                </div>
-              )}
-            </Button>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-yellow-800">Bot Needs Additional Permissions</h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                The Discord bot is connected to this server but needs additional permissions to view channels. Click the button below to update bot permissions.
+              </p>
+              
+              <Button
+                type="button"
+                variant="default"
+                className="mt-3 text-sm bg-yellow-600 hover:bg-yellow-700 text-white"
+                onClick={() => handleInviteBot(values.guildId)}
+                disabled={isBotConnectionInProgress}
+              >
+                {isBotConnectionInProgress ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Updating Permissions...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                    </svg>
+                    Update Bot Permissions
+                  </div>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       );
     }
 
     // Step 5: Bot connected with permissions, show server and channel fields
     if (values.guildId && botStatus?.isInGuild && botStatus?.hasPermissions && channelField && !values.channelId) {
+      // Check if channels are currently loading
+      const channelsLoading = loadingFields.has('channelId');
+      const hasChannelOptions = dynamicOptions.channelId && dynamicOptions.channelId.length > 0;
+      
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          {/* Success message */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-              <span className="text-sm text-green-800">Bot connected to server</span>
-            </div>
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
+            <FieldRenderer
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            
+            
+            {/* Always show channel field - it will handle its own loading state */}
+            <FieldRenderer
+              field={channelField}
+              value={values.channelId || ""}
+              onChange={(value) => handleFieldChange('channelId', value)}
+              error={errors.channelId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('channelId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
           </div>
-          
-          <FieldRenderer
-            field={channelField}
-            value={values.channelId || ""}
-            onChange={(value) => handleFieldChange('channelId', value)}
-            error={errors.channelId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={isLoadingChannels || loadingFields.has('channelId')}
-            onDynamicLoad={loadOptions}
-          />
-          
-          {channelLoadingError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-700">
-                Failed to load channels. Please try reconnecting the bot or contact support.
-              </p>
-            </div>
-          )}
-        </div>
+        </ScrollArea>
       );
     }
 
     // Step 6: Channel selected, show all remaining fields
     if (values.guildId && values.channelId) {
       // Get all fields except guildId and channelId (already shown)
+      // For remove reaction actions, also exclude emoji field as it will be handled by DiscordReactionSelector
       const remainingFields = nodeInfo?.configSchema?.filter(field => 
-        field.name !== 'guildId' && field.name !== 'channelId'
+        field.name !== 'guildId' && 
+        field.name !== 'channelId' && 
+        !(nodeInfo?.type === 'discord_action_remove_reaction' && field.name === 'emoji')
       ) || [];
       
       return (
-        <div className="space-y-6 p-4">
-          <FieldRenderer
-            field={guildField}
-            value={values.guildId || ""}
-            onChange={(value) => handleFieldChange('guildId', value)}
-            error={errors.guildId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingDynamic}
-            onDynamicLoad={loadOptions}
-          />
-          
-          <FieldRenderer
-            field={channelField}
-            value={values.channelId || ""}
-            onChange={(value) => handleFieldChange('channelId', value)}
-            error={errors.channelId}
-            dynamicOptions={dynamicOptions}
-            loadingDynamic={isLoadingChannels || loadingFields.has('channelId')}
-            onDynamicLoad={loadOptions}
-          />
-          
-          {/* Success indicators */}
-          <div className="space-y-2">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                <span className="text-sm text-green-800">Bot connected to server</span>
-              </div>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                <span className="text-sm text-green-800">Channel selected</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Render remaining fields */}
-          {remainingFields.map((field, index) => (
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-6 p-4">
             <FieldRenderer
-              key={`discord-field-${field.name}-${index}`}
-              field={field}
-              value={values[field.name]}
-              onChange={(value) => handleFieldChange(field.name, value)}
-              error={errors[field.name]}
-              workflowData={workflowData}
-              currentNodeId={currentNodeId}
+              field={guildField}
+              value={values.guildId || ""}
+              onChange={(value) => handleFieldChange('guildId', value)}
+              error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingFields.has(field.name)}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
               nodeInfo={nodeInfo}
-              allValues={values}
-              onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                if (dependsOn && values[dependsOn]) {
-                  await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                } else {
-                  await loadOptions(fieldName);
-                }
-              }}
             />
-          ))}
-        </div>
+            
+            <FieldRenderer
+              field={channelField}
+              value={values.channelId || ""}
+              onChange={(value) => handleFieldChange('channelId', value)}
+              error={errors.channelId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('channelId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
+            
+            
+            {/* Render remaining fields */}
+            {remainingFields.map((field, index) => (
+              <React.Fragment key={`discord-field-${field.name}-${index}`}>
+                <FieldRenderer
+                  field={field}
+                  value={values[field.name]}
+                  onChange={(value) => handleFieldChange(field.name, value)}
+                  error={errors[field.name]}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  dynamicOptions={dynamicOptions}
+                  loadingDynamic={loadingFields.has(field.name)}
+                  nodeInfo={nodeInfo}
+                  onDynamicLoad={handleDynamicLoad}
+                />
+                
+                {/* Show Discord Reaction Selector after messageId field for remove reaction actions */}
+                {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
+                  <DiscordReactionSelector
+                    channelId={values.channelId}
+                    messageId={values.messageId}
+                    selectedEmoji={values.emoji}
+                    onSelect={(emojiValue) => handleFieldChange('emoji', emojiValue)}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </ScrollArea>
       );
     }
 
@@ -927,11 +1201,11 @@ export default function ConfigurationForm({
             
             // Load dependent options once per selection (non-blocking)
             loadOptions('channelId', 'guildId', value);
-            loadOptions('authorFilter', 'guildId', value);
+            loadOptions('filterAuthor', 'guildId', value);
           } else {
             console.log('🔍 Clearing dependent fields as guildId is empty');
             setValue('channelId', '');
-            setValue('authorFilter', '');
+            setValue('filterAuthor', '');
             setValue('contentFilter', '');
           }
         } 
@@ -941,10 +1215,15 @@ export default function ConfigurationForm({
           setValue('channelId', '');
           setChannelBotStatus(null);
           setChannelLoadingError(null);
-          setBotStatus(null); // Clear previous bot status immediately
+          setIsBotStatusChecking(true); // Start checking immediately without clearing bot status
           
           if (value && value.trim() !== '' && discordIntegration) {
             console.log('🔍 Server selected, checking bot status for Discord action with guildId:', value);
+            
+            // Load dependent options for Discord actions
+            console.log('🔍 Loading dependent fields for Discord action with guildId:', value);
+            loadOptions('channelId', 'guildId', value);
+            loadOptions('filterAuthor', 'guildId', value);
             
             // Start bot status check which will trigger loading state in progressive disclosure UI
             checkBotStatus(value);
@@ -964,7 +1243,32 @@ export default function ConfigurationForm({
         
         if (value && values.guildId) {
           console.log('🔍 Checking bot status for channel:', value, 'in guild:', values.guildId);
+          
+          // Load messages for this channel if the action needs them
+          const nodeFields = nodeInfo.configSchema || [];
+          const hasMessageField = nodeFields.some(field => field.name === 'messageId');
+          if (hasMessageField) {
+            console.log('🔍 Loading messages for Discord action with channelId:', value);
+            loadOptions('messageId', 'channelId', value);
+          }
+          
           checkChannelBotStatus(value, values.guildId);
+        }
+      }
+      
+      // Handle messageId changes for Discord actions - clear emoji field and trigger reaction loading
+      if (fieldName === 'messageId' && nodeInfo?.type?.startsWith('discord_action_')) {
+        console.log('🔍 Handling Discord messageId change:', { fieldName, value });
+        
+        // Clear the emoji field when message changes for remove reaction actions
+        if (nodeInfo?.type === 'discord_action_remove_reaction') {
+          setValue('emoji', '');
+          console.log('🔍 Cleared emoji field for new message selection');
+        }
+        
+        if (value && values.channelId && nodeInfo?.type === 'discord_action_remove_reaction') {
+          console.log('🔍 Message selected for remove reaction action:', value, 'in channel:', values.channelId);
+          // Reaction loading will be handled by the DiscordReactionSelector component
         }
       }
     }
@@ -1265,9 +1569,14 @@ export default function ConfigurationForm({
           return !!values.guildId;
         }
         
-        // Show content filter and author filter if channelId is selected
-        if (field.name === 'contentFilter' || field.name === 'authorFilter') {
+        // Show content filter if channelId is selected
+        if (field.name === 'contentFilter') {
           return !!values.channelId;
+        }
+        
+        // Show author filter if guildId is selected (members are guild-wide)
+        if (field.name === 'filterAuthor') {
+          return !!values.guildId;
         }
         
         return true;
@@ -1281,11 +1590,11 @@ export default function ConfigurationForm({
         // Always show guildId (server field)
         if (field.name === 'guildId') return true;
         
-        // Show channelId and message fields only if:
+        // Show channelId field only if:
         // 1. A server is selected
         // 2. Discord integration is connected
         // 3. Bot is in the guild and has permissions
-        if (field.name === 'channelId' || field.name === 'message') {
+        if (field.name === 'channelId') {
           const hasServerSelected = values.guildId && values.guildId !== '';
           const hasDiscordConnected = !!discordIntegration;
           const hasBotAccess = botStatus?.isInGuild && botStatus?.hasPermissions;
@@ -1293,6 +1602,13 @@ export default function ConfigurationForm({
           return hasServerSelected && hasDiscordConnected && hasBotAccess;
         }
         
+        // Show messageId field only if channelId is selected
+        if (field.name === 'messageId' && field.dependsOn === 'channelId') {
+          return values.channelId && values.channelId !== '';
+        }
+
+        // No special handling needed since emoji field was removed
+
         // Show other fields that depend on guildId only if guildId is selected
         if (field.dependsOn === 'guildId') {
           return values.guildId && values.guildId !== '';
@@ -1390,15 +1706,26 @@ export default function ConfigurationForm({
               dynamicOptions={dynamicOptions}
               loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.name !== 'baseId')}
               nodeInfo={nodeInfo}
-              allValues={values}
-              onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                if (dependsOn && values[dependsOn]) {
-                  await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                } else {
-                  await loadOptions(fieldName);
-                }
-              }}
+              onDynamicLoad={handleDynamicLoad}
             />
+            
+            {/* Show reaction remover component after messageId field for remove reaction actions */}
+            {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
+              <DiscordReactionRemover
+                messageId={values.messageId}
+                channelId={values.channelId}
+                onReactionSelect={(emoji) => {
+                  // Store the selected emoji in a temporary field for the action execution
+                  setValue('selectedEmoji', emoji);
+                }}
+                selectedReaction={values.selectedEmoji}
+                dynamicOptions={{...dynamicOptions, selectedEmoji: selectedEmojiReactions}}
+                onLoadReactions={() => {
+                  loadReactionsForMessage(values.channelId, values.messageId);
+                }}
+                isLoading={loadingFields.has('selectedEmoji')}
+              />
+            )}
             
             {/* Show preview button for list records right after table field */}
             {isListRecord && field.name === 'tableName' && values.tableName && values.baseId && (
@@ -2047,16 +2374,10 @@ export default function ConfigurationForm({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingDynamic}
+                  loadingDynamic={loadingFields.has('guildId')}
                   nodeInfo={nodeInfo}
                   allValues={values}
-                  onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                    if (dependsOn && values[dependsOn]) {
-                      await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                    } else {
-                      await loadOptions(fieldName);
-                    }
-                  }}
+                  onDynamicLoad={handleDynamicLoad}
                 />
               );
             })}
@@ -2089,20 +2410,107 @@ export default function ConfigurationForm({
 
   // Handle Discord integrations specially - Progressive field disclosure
   if (nodeInfo?.providerId === 'discord' && nodeInfo?.type?.startsWith('discord_action_')) {
-    return renderDiscordProgressiveConfig();
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        
+        // Save configuration to database via workflow store
+        if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+          console.log('📋 Saving configuration for Discord action node:', currentNodeId, values);
+          
+          // Update the node's config in the workflow store
+          updateNode(currentNodeId, {
+            data: {
+              ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+              config: values
+            }
+          });
+          
+          // Save the workflow to the database
+          try {
+            await saveWorkflow();
+            console.log('✅ Configuration saved to database');
+          } catch (error) {
+            console.error('❌ Failed to save configuration to database:', error);
+          }
+        }
+        
+        handleSubmit(onSubmit)();
+      }} className="h-full flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
+          {renderDiscordProgressiveConfig()}
+        </div>
+        
+        {/* Form buttons */}
+        <div className="flex justify-between items-center h-[70px] px-6 border-t border-slate-200 bg-white flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {Object.keys(errors).length > 0 && (
+              <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                {Object.keys(errors).length} error{Object.keys(errors).length > 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+          </div>
+          
+          <div className="flex gap-3">
+            {nodeInfo?.testable && (
+              <Button
+                type="button"
+                onClick={handleTest}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+                disabled={isTestLoading}
+              >
+                {isTestLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Test Configuration
+              </Button>
+            )}
+            <Button
+              type="submit"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Save className="h-4 w-4" />
+              Save Configuration
+            </Button>
+          </div>
+        </div>
+      </form>
+    );
   }
 
   return (
-    <form onSubmit={(e) => {
+    <form onSubmit={async (e) => {
       e.preventDefault();
       
-      // Save configuration to persistent storage if we have a valid node ID
-      if (currentNodeId && nodeInfo?.type) {
-        const workflowId = getWorkflowId();
-        if (workflowId) {
-          console.log('📋 Saving configuration for Discord trigger node:', currentNodeId);
-          // Save both config and dynamicOptions
-          saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, values, dynamicOptions);
+      // Save configuration to database via workflow store
+      if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+        console.log('📋 Saving configuration for Discord trigger node:', currentNodeId, values);
+        
+        // Update the node's config in the workflow store
+        updateNode(currentNodeId, {
+          data: {
+            ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+            config: values
+          }
+        });
+        
+        // Save the workflow to the database
+        try {
+          await saveWorkflow();
+          console.log('✅ Configuration saved to database');
+        } catch (error) {
+          console.error('❌ Failed to save configuration to database:', error);
         }
       }
       
@@ -2146,6 +2554,7 @@ export default function ConfigurationForm({
                   {renderFieldsWithTable(basicFields, false)}
                   {/* Render dynamic fields for basic tab */}
                   {dynamicFields.length > 0 && renderFieldsWithTable(dynamicFields, true)}
+                  
                 </div>
               </ScrollArea>
             </TabsContent>
