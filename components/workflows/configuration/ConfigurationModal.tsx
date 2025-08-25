@@ -150,7 +150,7 @@ export function ConfigurationModal({
   const getModalTitle = () => {
     if (!nodeInfo) return "Configure Node";
     
-    let title = (nodeInfo as any).label || nodeInfo.type || "Configure Node";
+    let title = (nodeInfo as any).label || (nodeInfo as any).title || nodeInfo.type || "Configure Node";
     
     // Clean up title if needed
     if (title.includes("_action_")) {

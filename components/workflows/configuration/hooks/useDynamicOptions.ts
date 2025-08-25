@@ -138,7 +138,15 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
       }
 
       // Load integration data
-      const result = await loadIntegrationData(resourceType, integration.id, { [dependsOn || '']: dependsOnValue }, forceRefresh);
+      const options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
+      
+      // For Google Sheets sheets, don't call API without spreadsheetId
+      if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
+        console.log('🔍 [useDynamicOptions] Skipping sheets load - no spreadsheet selected');
+        return;
+      }
+      
+      const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
       
       // Format the results - extract data array from response object if needed
       const dataArray = result.data || result;
@@ -302,6 +310,11 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       calendarId: "google-calendars",
       attendees: "gmail-recent-recipients",
     },
+    // Google Sheets fields
+    google_sheets_unified_action: {
+      spreadsheetId: "google-sheets_spreadsheets",
+      sheetName: "google-sheets_sheets",
+    },
     // Airtable fields
     airtable_action_create_record: {
       baseId: "airtable_bases",
@@ -451,6 +464,12 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
         label: item.label || item.name || item.id,
         fields: item.fields,
         description: item.description
+      }));
+      
+    case "sheetName":
+      return data.map((item: any) => ({
+        value: item.value || item.name || item.id,
+        label: item.name || item.label || item.value || item.id,
       }));
       
     // Default format for other fields

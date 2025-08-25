@@ -3,7 +3,29 @@
  */
 
 import { GoogleIntegration, GoogleSpreadsheet, GoogleSheet, GoogleSheetPreview, GoogleSheetData, GoogleDataHandler } from '../types'
-import { validateGoogleIntegration, makeGoogleApiRequest } from '../utils'
+
+// Enhanced types for new functionality
+interface GoogleSheetColumn {
+  id: string
+  name: string
+  value: string
+  letter: string
+  index: number
+  dataType: string
+  hasData: boolean
+  sampleValues: string[]
+}
+
+interface GoogleSheetEnhancedPreview {
+  headers: GoogleSheetColumn[]
+  sampleData: any[][]
+  totalRows: number
+  totalColumns: number
+  hasHeaders: boolean
+  dataTypes: Record<string, string>
+  columnStats: Record<string, any>
+}
+import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
 /**
  * Fetch Google Sheets spreadsheets for the authenticated user
@@ -13,9 +35,10 @@ export const getGoogleSheetsSpreadsheets: GoogleDataHandler<GoogleSpreadsheet> =
     validateGoogleIntegration(integration)
     console.log("📊 [Google Sheets] Fetching spreadsheets")
 
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&pageSize=100&fields=files(id,name,createdTime,modifiedTime,webViewLink,owners,shared)",
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
@@ -55,9 +78,10 @@ export const getGoogleSheetsSheets: GoogleDataHandler<GoogleSheet> = async (inte
 
     console.log(`📊 [Google Sheets] Fetching sheets for spreadsheet: ${spreadsheetId}`)
 
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title,sheetType,gridProperties))`,
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
@@ -95,9 +119,10 @@ export const getGoogleSheetsSheetPreview: GoogleDataHandler<GoogleSheetPreview> 
     console.log(`📊 [Google Sheets] Fetching sheet preview for: ${spreadsheetId}/${sheetName}`)
 
     // Get the first 10 rows to show structure and sample data
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:10?majorDimension=ROWS`,
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
@@ -142,9 +167,10 @@ export const getGoogleSheetsSheetData: GoogleDataHandler<GoogleSheetData> = asyn
     console.log(`📊 [Google Sheets] Fetching sheet data for: ${spreadsheetId}/${sheetName}`)
 
     // Get all rows from the sheet (limit to first 1000 rows for performance)
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1000?majorDimension=ROWS`,
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
@@ -179,6 +205,209 @@ export const getGoogleSheetsSheetData: GoogleDataHandler<GoogleSheetData> = asyn
 
   } catch (error: any) {
     console.error("❌ [Google Sheets] Error fetching sheet data:", error)
+    throw error
+  }
+}
+
+/**
+ * Fetch column information for a specific Google Spreadsheet sheet
+ */
+export const getGoogleSheetsColumns: GoogleDataHandler<GoogleSheetColumn> = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    
+    const { spreadsheetId, sheetName } = options || {}
+    if (!spreadsheetId || !sheetName) {
+      throw new Error("Spreadsheet ID and sheet name are required to fetch columns")
+    }
+
+    console.log(`📊 [Google Sheets] Fetching columns for: ${spreadsheetId}/${sheetName}`)
+
+    const accessToken = getGoogleAccessToken(integration)
+    
+    // Get sheet metadata and sample data to determine columns
+    const [metadataResponse, dataResponse] = await Promise.all([
+      makeGoogleApiRequest(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?includeGridData=true&ranges=${encodeURIComponent(sheetName)}!1:10`,
+        accessToken
+      ),
+      makeGoogleApiRequest(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:10?majorDimension=ROWS`,
+        accessToken
+      )
+    ])
+
+    const metadata = await metadataResponse.json()
+    const data = await dataResponse.json()
+    
+    const sheet = metadata.sheets?.[0]
+    const rows = data.values || []
+    const headers = rows.length > 0 ? rows[0] : []
+    const sampleRows = rows.slice(1, 6) // Get 5 sample rows for analysis
+
+    // Generate column information
+    const columns: GoogleSheetColumn[] = []
+    const maxColumns = Math.max(headers.length, sheet?.data?.[0]?.rowData?.[0]?.values?.length || 0, 26)
+
+    for (let i = 0; i < maxColumns; i++) {
+      const letter = String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : '')
+      const headerValue = headers[i] || `Column ${letter}`
+      const sampleValues = sampleRows.map(row => row[i]).filter(Boolean).slice(0, 3)
+      
+      // Analyze data type from sample values
+      let dataType = 'text'
+      if (sampleValues.length > 0) {
+        const numericCount = sampleValues.filter(val => !isNaN(val) && !isNaN(parseFloat(val))).length
+        const dateCount = sampleValues.filter(val => !isNaN(Date.parse(val))).length
+        
+        if (numericCount / sampleValues.length > 0.5) {
+          dataType = 'number'
+        } else if (dateCount / sampleValues.length > 0.5) {
+          dataType = 'date'
+        }
+      }
+
+      columns.push({
+        id: letter,
+        name: headerValue,
+        value: letter,
+        letter: letter,
+        index: i,
+        dataType: dataType,
+        hasData: sampleValues.length > 0,
+        sampleValues: sampleValues
+      })
+    }
+
+    console.log(`✅ [Google Sheets] Retrieved ${columns.length} columns`)
+    return columns
+
+  } catch (error: any) {
+    console.error("❌ [Google Sheets] Error fetching columns:", error)
+    throw error
+  }
+}
+
+/**
+ * Fetch enhanced preview with detailed analysis for a specific Google Spreadsheet sheet
+ */
+export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhancedPreview> = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    
+    const { spreadsheetId, sheetName, previewRows = 10 } = options || {}
+    if (!spreadsheetId || !sheetName) {
+      throw new Error("Spreadsheet ID and sheet name are required for enhanced preview")
+    }
+
+    console.log(`📊 [Google Sheets] Fetching enhanced preview for: ${spreadsheetId}/${sheetName}`)
+
+    const accessToken = getGoogleAccessToken(integration)
+
+    // Get more comprehensive data for analysis
+    const response = await makeGoogleApiRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:${Math.min(previewRows + 1, 100)}?majorDimension=ROWS`,
+      accessToken
+    )
+
+    const data = await response.json()
+    const rows = data.values || []
+    
+    if (rows.length === 0) {
+      const emptyPreview: GoogleSheetEnhancedPreview = {
+        headers: [],
+        sampleData: [],
+        totalRows: 0,
+        totalColumns: 0,
+        hasHeaders: false,
+        dataTypes: {},
+        columnStats: {}
+      }
+      return [emptyPreview]
+    }
+
+    const headers = rows[0] || []
+    const dataRows = rows.slice(1)
+    const maxColumns = Math.max(...rows.map(row => row.length))
+
+    // Analyze each column
+    const columnAnalysis: GoogleSheetColumn[] = []
+    const dataTypes: Record<string, string> = {}
+    const columnStats: Record<string, any> = {}
+
+    for (let colIndex = 0; colIndex < maxColumns; colIndex++) {
+      const letter = String.fromCharCode(65 + (colIndex % 26)) + (colIndex >= 26 ? Math.floor(colIndex / 26) : '')
+      const headerValue = headers[colIndex] || `Column ${letter}`
+      const columnData = dataRows.map(row => row[colIndex]).filter(val => val !== undefined && val !== null && val !== '')
+      
+      // Data type analysis
+      let dataType = 'text'
+      let numericValues = 0
+      let dateValues = 0
+      let totalValues = columnData.length
+
+      if (totalValues > 0) {
+        columnData.forEach(value => {
+          if (!isNaN(value) && !isNaN(parseFloat(value))) numericValues++
+          if (!isNaN(Date.parse(value))) dateValues++
+        })
+
+        if (numericValues / totalValues > 0.7) {
+          dataType = 'number'
+        } else if (dateValues / totalValues > 0.7) {
+          dataType = 'date'
+        } else if (columnData.some(val => typeof val === 'boolean' || val === 'true' || val === 'false')) {
+          dataType = 'boolean'
+        }
+      }
+
+      // Column statistics
+      const stats: any = {
+        totalValues: totalValues,
+        emptyValues: dataRows.length - totalValues,
+        uniqueValues: new Set(columnData).size,
+        sampleValues: columnData.slice(0, 5)
+      }
+
+      if (dataType === 'number') {
+        const numbers = columnData.map(val => parseFloat(val)).filter(num => !isNaN(num))
+        if (numbers.length > 0) {
+          stats.min = Math.min(...numbers)
+          stats.max = Math.max(...numbers)
+          stats.average = numbers.reduce((a, b) => a + b, 0) / numbers.length
+        }
+      }
+
+      columnAnalysis.push({
+        id: letter,
+        name: headerValue,
+        value: letter,
+        letter: letter,
+        index: colIndex,
+        dataType: dataType,
+        hasData: totalValues > 0,
+        sampleValues: columnData.slice(0, 3)
+      })
+
+      dataTypes[letter] = dataType
+      columnStats[letter] = stats
+    }
+
+    const enhancedPreview: GoogleSheetEnhancedPreview = {
+      headers: columnAnalysis,
+      sampleData: dataRows.slice(0, Math.min(previewRows, 10)),
+      totalRows: dataRows.length,
+      totalColumns: maxColumns,
+      hasHeaders: headers.length > 0 && headers.some(h => h && h.trim() !== ''),
+      dataTypes: dataTypes,
+      columnStats: columnStats
+    }
+
+    console.log(`✅ [Google Sheets] Enhanced preview completed for ${maxColumns} columns, ${dataRows.length} rows`)
+    return [enhancedPreview]
+
+  } catch (error: any) {
+    console.error("❌ [Google Sheets] Error fetching enhanced preview:", error)
     throw error
   }
 }

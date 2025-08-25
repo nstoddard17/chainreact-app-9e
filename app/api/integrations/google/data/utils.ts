@@ -3,6 +3,7 @@
  */
 
 import { GoogleApiError } from './types'
+import { decrypt } from '@/lib/security/encryption'
 
 /**
  * Create Google API error with proper context
@@ -23,6 +24,21 @@ export function createGoogleApiError(message: string, status?: number, response?
   }
   
   return error
+}
+
+/**
+ * Get decrypted Google access token from integration
+ */
+export function getGoogleAccessToken(integration: any): string {
+  if (!integration?.access_token) {
+    throw new Error('Google authentication required. Please reconnect your account.')
+  }
+  
+  try {
+    return decrypt(integration.access_token)
+  } catch (error) {
+    throw new Error('Failed to decrypt Google access token. Please reconnect your account.')
+  }
 }
 
 /**
