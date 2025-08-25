@@ -6,7 +6,7 @@ import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/available
 export interface ConfigurationModalProps {
   isOpen: boolean;
   onClose: (wasSaved?: boolean) => void;
-  onSave: (config: Record<string, any>) => void;
+  onSave: (config: Record<string, any>) => void | Promise<void>;
   nodeInfo: NodeComponent | null;
   integrationName: string;
   initialData?: Record<string, any>;
