@@ -581,19 +581,45 @@ const useWorkflowBuilderState = () => {
     // Save the workflow after node deletion
     setTimeout(async () => {
       try {
-        // Call handleSave directly - it will be available when this timeout executes
-        const currentNodes = getNodes()
-        const currentEdges = getEdges()
-        
         if (currentWorkflow?.id) {
-          const workflowData = {
-            nodes: currentNodes,
-            edges: currentEdges
-          }
+          // Get current nodes and edges from React Flow (same as handleSave)
+          const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+          const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+
+          // Map to database format (same as handleSave)
+          const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
+            const position = {
+              x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
+              y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
+            };
+            
+            return {
+              id: n.id, 
+              type: 'custom', 
+              position: position,
+              data: { 
+                label: n.data.label as string, 
+                type: n.data.type as string, 
+                config: n.data.config || {},
+                providerId: n.data.providerId as string | undefined,
+                isTrigger: n.data.isTrigger as boolean | undefined,
+                title: n.data.title as string | undefined,
+                description: n.data.description as string | undefined
+              },
+            };
+          })
           
+          const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+            id: e.id, 
+            source: e.source, 
+            target: e.target, 
+            sourceHandle: e.sourceHandle ?? undefined, 
+            targetHandle: e.targetHandle ?? undefined,
+          }))
+
           await updateWorkflow(currentWorkflow.id, { 
-            nodes: workflowData.nodes, 
-            edges: workflowData.edges 
+            nodes: mappedNodes, 
+            connections: mappedConnections 
           })
           console.log('✅ [WorkflowBuilder] Workflow saved after node deletion')
         }
