@@ -136,8 +136,10 @@ export function ConfigurationModal({
   }
 
   // Handle form submission
-  const handleSubmit = async (config: Record<string, any>) => {
+  const handleSubmit = async (configData: Record<string, any>) => {
     try {
+      // Extract config from the data structure passed by ConfigurationForm
+      const config = configData.config || configData;
       await onSave(config);
       onClose(true);
     } catch (error) {
