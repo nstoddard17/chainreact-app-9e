@@ -1102,19 +1102,64 @@ const useWorkflowBuilderState = () => {
     if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
       // Add trigger to workflow with configuration
       addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
+      
+      // Auto-save the workflow to database after adding the new trigger
+      try {
+        await handleSave();
+        console.log('✅ [WorkflowBuilder] New trigger saved to database automatically');
+      } catch (error) {
+        console.error('❌ [WorkflowBuilder] Failed to save new trigger to database:', error);
+        toast({ 
+          title: "Save Warning", 
+          description: "Trigger added but failed to save to database. Please save manually.", 
+          variant: "destructive" 
+        });
+      }
+      
       setPendingNode(null);
       setConfiguringNode(null);
       toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." });
     } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
       // Add action to workflow with configuration
       addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
+      
+      // Auto-save the workflow to database after adding the new action
+      try {
+        await handleSave();
+        console.log('✅ [WorkflowBuilder] New action saved to database automatically');
+      } catch (error) {
+        console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
+        toast({ 
+          title: "Save Warning", 
+          description: "Action added but failed to save to database. Please save manually.", 
+          variant: "destructive" 
+        });
+      }
+      
       setPendingNode(null);
       setConfiguringNode(null);
       toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." });
     } else {
-      // Existing nodes are now handled directly in ConfigurationForm
-      // This callback just closes the modal for existing nodes
-      console.log('✅ [WorkflowBuilder] Configuration saved for existing node, closing modal');
+      // Handle existing node configuration updates - update local state AND save to database
+      console.log('✅ [WorkflowBuilder] Updating existing node configuration in local state');
+      setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)));
+      
+      // Also save to database immediately
+      setTimeout(async () => {
+        try {
+          console.log('🔄 [WorkflowBuilder] Saving updated node configuration to database...');
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] Existing node configuration saved to database successfully');
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save existing node configuration to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Configuration updated but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 50); // Small delay to ensure React state update is applied
+      
       setConfiguringNode(null);
     }
   }

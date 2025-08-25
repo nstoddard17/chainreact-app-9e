@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
-import { loadNodeConfig, saveNodeConfig } from '@/lib/workflows/configPersistence';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -2485,25 +2484,8 @@ export default function ConfigurationForm({
               onSubmit(dataWithConfig);
             }
           } else if (currentNodeId && currentWorkflow) {
-            // For existing nodes, update their config in the workflow store and persist
-            const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
-            if (currentNode) {
-              console.log('🔄 [ConfigForm] Existing node detected, updating in workflow store');
-              
-              updateNode(currentNodeId, { 
-                data: { 
-                  ...currentNode.data, 
-                  config: values 
-                } 
-              });
-              
-              // Persist the updated workflow to Supabase
-              await saveWorkflow();
-              
-              console.log('✅ [ConfigForm] Existing node configuration saved to database successfully');
-            }
-            
-            // Call the original onSubmit to close the modal
+            // For existing nodes, just call onSubmit - let handleSaveConfiguration handle both local state and database
+            console.log('🔄 [ConfigForm] Existing node detected, delegating to handleSaveConfiguration');
             const dataWithConfig = {
               config: values
             };
@@ -2592,25 +2574,8 @@ export default function ConfigurationForm({
             onSubmit(dataWithConfig);
           }
         } else if (currentNodeId && currentWorkflow) {
-          // For existing nodes, update their config in the workflow store and persist
-          const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
-          if (currentNode) {
-            console.log('🔄 [ConfigForm] Existing node detected, updating in workflow store');
-            
-            updateNode(currentNodeId, { 
-              data: { 
-                ...currentNode.data, 
-                config: values 
-              } 
-            });
-            
-            // Persist the updated workflow to Supabase
-            await saveWorkflow();
-            
-            console.log('✅ [ConfigForm] Existing node configuration saved to database successfully');
-          }
-          
-          // Call the original onSubmit to close the modal
+          // For existing nodes, just call onSubmit - let handleSaveConfiguration handle both local state and database
+          console.log('🔄 [ConfigForm] Existing node detected, delegating to handleSaveConfiguration');
           const dataWithConfig = {
             config: values
           };
