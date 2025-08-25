@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
@@ -14,6 +14,7 @@ interface DiscordGenericFieldProps {
   options: any[];
   isLoading?: boolean;
   onDynamicLoad?: (fieldName: string) => void;
+  nodeInfo?: any; // To access node type for context-aware filtering
 }
 
 /**
@@ -28,20 +29,53 @@ export function DiscordGenericField({
   options,
   isLoading,
   onDynamicLoad,
+  nodeInfo,
 }: DiscordGenericFieldProps) {
 
-  // Auto-load Discord data on mount if no data exists
+  // Track whether we've already attempted to load data to prevent reloading
+  const hasAttemptedLoad = useRef(false);
+  const previousValue = useRef(value);
+
+  // Reset load attempt flag if field is intentionally cleared
   useEffect(() => {
-    if (field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
-      console.log('🔍 Auto-loading Discord data on mount for field:', field.name, field.dynamic);
+    if (previousValue.current && !value) {
+      // Field was cleared, allow loading again
+      hasAttemptedLoad.current = false;
+    }
+    previousValue.current = value;
+  }, [value]);
+
+  // Auto-load Discord data on mount if no data exists (but not for dependent fields)
+  useEffect(() => {
+    // Don't auto-load dependent fields - they should be loaded by the form when dependencies change
+    const isDependentField = ['filterAuthor', 'channelId', 'messageId'].includes(field.name);
+    
+    if (field.name === 'messageId') {
+      console.log('🔍 [DiscordGenericField] messageId field detected:', {
+        isDependentField,
+        fieldDynamic: field.dynamic,
+        hasOnDynamicLoad: !!onDynamicLoad,
+        isLoading,
+        optionsLength: options.length,
+        hasValue: !!value,
+        hasAttemptedLoadCurrent: hasAttemptedLoad.current
+      });
+    }
+    
+    if (field.name === 'filterAuthor') {
+      console.log('🔍 [DiscordGenericField] filterAuthor - skipping auto-load, waiting for form to trigger based on guildId');
+    }
+    
+    if (!isDependentField && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+      hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
-  }, [field.dynamic, field.name, onDynamicLoad, isLoading, options.length]);
+  }, [field.dynamic, field.name, onDynamicLoad, isLoading, options.length, value]);
 
   // Generic loading behavior for dropdown open
   const handleFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
-      console.log('🔍 Loading Discord data on dropdown open for field:', field.name);
+    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+      hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
   };
@@ -49,7 +83,7 @@ export function DiscordGenericField({
   // Generic option processing
   const processOptions = (opts: any[]) => {
     // Remove duplicates and filter valid options
-    const uniqueOptions = opts
+    let uniqueOptions = opts
       .filter(opt => opt && (opt.value || opt.id))
       .reduce((acc: any[], option: any) => {
         const optionId = option.value || option.id;
@@ -59,6 +93,35 @@ export function DiscordGenericField({
         }
         return acc;
       }, []);
+
+    // Special filtering for messageId in remove reaction actions - only show messages with reactions
+    if (field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
+      console.log('🔍 [DiscordGenericField] Processing messages for remove reaction action');
+      console.log('🔍 [DiscordGenericField] Total messages before filtering:', uniqueOptions.length);
+      
+      if (uniqueOptions.length > 0) {
+        const firstMessage = uniqueOptions[0];
+        console.log('🔍 [DiscordGenericField] First message detailed breakdown:', {
+          id: firstMessage.id,
+          value: firstMessage.value,
+          label: firstMessage.label,
+          reactions: firstMessage.reactions,
+          reactionsType: typeof firstMessage.reactions,
+          reactionsIsArray: Array.isArray(firstMessage.reactions),
+          allProperties: Object.keys(firstMessage)
+        });
+      }
+      
+      // Filter to only show messages that have reactions
+      const messagesWithReactions = uniqueOptions.filter(message => {
+        const hasReactions = message.reactions && Array.isArray(message.reactions) && message.reactions.length > 0;
+        console.log(`🔍 [DiscordGenericField] Message ${message.id}: ${hasReactions ? 'HAS reactions' : 'no reactions'} (${message.reactions?.length || 0})`);
+        return hasReactions;
+      });
+
+      console.log(`🔍 [DiscordGenericField] Filtered ${uniqueOptions.length} messages down to ${messagesWithReactions.length} messages with reactions`);
+      uniqueOptions = messagesWithReactions;
+    }
     
     // If these are Discord guilds (have member count), sort them
     if (uniqueOptions.length > 0 && uniqueOptions.some(opt => opt.hasOwnProperty('approximate_member_count'))) {
@@ -97,6 +160,8 @@ export function DiscordGenericField({
         optionLabel = fallbackLabel;
         searchValue = `${option.author?.username || 'Unknown'} ${fallbackLabel}`;
       }
+      
+      // No special formatting for remove reaction actions
     }
     
     return {
@@ -109,27 +174,51 @@ export function DiscordGenericField({
   // Always show loading state when isLoading is true (even if we have cached data)
   if (field.dynamic && isLoading) {
     return (
-      <div className="space-y-2">
-        <Select disabled>
-          <SelectTrigger 
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-          >
-            <SelectValue placeholder="Loading options..." />
-          </SelectTrigger>
-        </Select>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-          <span>Loading options...</span>
-        </div>
-      </div>
+      <Select disabled>
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+            <span>
+              {field.name === 'messageId' ? 'Loading Discord messages...' : 
+               field.name === 'filterAuthor' ? 'Loading server members...' : 
+               'Loading options...'}
+            </span>
+          </div>
+        </SelectTrigger>
+      </Select>
     );
   }
 
   // Special case when no options are available
   if (processedOptions.length === 0 && !isLoading) {
+    // Special message for remove reaction actions when no messages with reactions are found
+    if (field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
+      return (
+        <div className="text-sm text-slate-500">
+          <p>No messages with reactions found in this channel.</p>
+          <p className="mt-1 text-xs">Only messages that have reactions can be selected for reaction removal.</p>
+          <Button 
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => {
+              if (onDynamicLoad) {
+                onDynamicLoad(field.name);
+              }
+            }}
+          >
+            Retry Loading
+          </Button>
+        </div>
+      );
+    }
+    
+    // Generic message for other fields
     return (
       <div className="text-sm text-slate-500">
         <p>No options found. You may need to:</p>
@@ -156,7 +245,6 @@ export function DiscordGenericField({
 
   // Use Combobox for message fields to enable search, Select for others
   if (field.name === 'messageId') {
-    console.log('🔍 Message combobox options:', comboboxOptions.slice(0, 3)); // Debug first 3 options
     return (
       <Combobox
         options={comboboxOptions}

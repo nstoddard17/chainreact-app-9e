@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
+import { DiscordReactionRemover } from "./fields/discord/DiscordReactionRemover";
+import { DiscordReactionSelector } from "./fields/discord/DiscordReactionSelector";
 import { useFormState } from "./hooks/useFormState";
 import { useDynamicOptions } from "./hooks/useDynamicOptions";
 import { NodeComponent } from "@/lib/workflows/availableNodes";
@@ -18,6 +20,7 @@ import { cn } from "@/lib/utils";
 import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { loadNodeConfig, saveNodeConfig } from '@/lib/workflows/configPersistence';
+import { useWorkflowStore } from '@/stores/workflowStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**
@@ -59,6 +62,7 @@ export default function ConfigurationForm({
   const [isDiscordBotConfigured, setIsDiscordBotConfigured] = useState<boolean | null>(null);
   const [discordClientId, setDiscordClientId] = useState<string | null>(null);
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
+  const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
   
   // Function to get the current workflow ID from the URL
   const getWorkflowId = useCallback(() => {
@@ -85,16 +89,43 @@ export default function ConfigurationForm({
     handleSubmit
   } = useFormState(initialData || {}, nodeInfo);
 
+  // Handle field loading state changes from the hook
+  const handleLoadingChange = useCallback((fieldName: string, isLoading: boolean) => {
+    if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+      console.log(`🔍 [ConfigurationForm] Loading state change for ${fieldName}:`, { fieldName, isLoading });
+    }
+    
+    setLoadingFields(prev => {
+      const newSet = new Set(prev);
+      if (isLoading) {
+        newSet.add(fieldName);
+      } else {
+        newSet.delete(fieldName);
+      }
+      
+      if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+        console.log(`🔍 [ConfigurationForm] Updated loadingFields for ${fieldName}:`, Array.from(newSet));
+      }
+      
+      return newSet;
+    });
+  }, []);
+
   // Dynamic options management
   const {
     dynamicOptions,
     loading: loadingDynamic,
     isInitialLoading,
     loadOptions
-  } = useDynamicOptions({ nodeType: nodeInfo?.type, providerId: nodeInfo?.providerId });
+  } = useDynamicOptions({ 
+    nodeType: nodeInfo?.type, 
+    providerId: nodeInfo?.providerId,
+    onLoadingChange: handleLoadingChange
+  });
 
   // Discord integration check
   const { getIntegrationByProvider, connectIntegration, getConnectedProviders, loadIntegrationData } = useIntegrationStore();
+  const { updateNode, saveWorkflow, currentWorkflow } = useWorkflowStore();
   const discordIntegration = getIntegrationByProvider('discord');
   const needsDiscordConnection = nodeInfo?.providerId === 'discord' && !discordIntegration;
 
@@ -119,9 +150,7 @@ export default function ConfigurationForm({
       // If bot is now connected with permissions, automatically load channels
       if (newBotStatus.isInGuild && newBotStatus.hasPermissions) {
         console.log('🔍 Bot connected with permissions, loading channels for guild:', guildId);
-        // Set loading state for channelId before loading
-        setLoadingFields(prev => new Set(prev).add('channelId'));
-        // Don't await channel loading to avoid blocking the bot status check completion
+        // Let the useDynamicOptions hook handle all loading state management
         loadOptions('channelId', 'guildId', guildId)
           .then(() => {
             console.log('✅ Channels loaded successfully after bot connection');
@@ -129,14 +158,6 @@ export default function ConfigurationForm({
           .catch((channelError) => {
             console.error('Failed to load channels after bot connection:', channelError);
             setChannelLoadingError('Failed to load channels after bot connection');
-          })
-          .finally(() => {
-            // Clear loading state when done
-            setLoadingFields(prev => {
-              const newSet = new Set(prev);
-              newSet.delete('channelId');
-              return newSet;
-            });
           });
       }
     } catch (error) {
@@ -149,6 +170,71 @@ export default function ConfigurationForm({
       setIsBotStatusChecking(false);
     }
   }, [discordIntegration, loadOptions]);
+
+  // Function to load Discord reactions for a specific message
+  const loadReactionsForMessage = useCallback(async (channelId: string, messageId: string) => {
+    if (!channelId || !messageId || !discordIntegration) {
+      console.warn('Missing required parameters for loading reactions:', { channelId, messageId, hasIntegration: !!discordIntegration });
+      return;
+    }
+
+    try {
+      console.log('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
+      
+      // Set loading state manually for selectedEmoji field
+      setLoadingFields(prev => new Set(prev).add('selectedEmoji'));
+      
+      // Load reactions using the integration service directly
+      const reactionsData = await loadIntegrationData('discord_reactions', discordIntegration.id, {
+        channelId,
+        messageId
+      });
+      
+      // Format the reactions data
+      const formattedReactions = (reactionsData.data || reactionsData || []).map((reaction: any) => ({
+        value: reaction.value || reaction.id || reaction.emoji,
+        label: reaction.name || `${reaction.emoji} (${reaction.count || 0} reactions)`,
+        emoji: reaction.emoji,
+        count: reaction.count || 0,
+        ...reaction
+      }));
+      
+      // Update selected emoji reactions state
+      setSelectedEmojiReactions(formattedReactions);
+      
+      console.log('✅ Loaded', formattedReactions.length, 'reactions for message');
+    } catch (error: any) {
+      console.error('Failed to load reactions:', error);
+      setSelectedEmojiReactions([]);
+    } finally {
+      // Clear loading state
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete('selectedEmoji');
+        return newSet;
+      });
+    }
+  }, [discordIntegration, loadIntegrationData]);
+
+  // Unified dynamic load handler that handles special cases
+  const handleDynamicLoad = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
+    console.log('🔍 handleDynamicLoad called:', { fieldName, dependsOn, dependsOnValue });
+    
+    // No special emoji field handling needed since it was removed
+    
+    // Special handling for messageId field - it always depends on channelId
+    if (fieldName === 'messageId' && values.channelId) {
+      await loadOptions(fieldName, 'channelId', values.channelId);
+      return;
+    }
+    
+    // Default handling
+    if (dependsOn && values[dependsOn]) {
+      await loadOptions(fieldName, dependsOn, values[dependsOn]);
+    } else {
+      await loadOptions(fieldName);
+    }
+  }, [values, nodeInfo?.providerId, loadReactionsForMessage, loadOptions]);
 
   // Function to check Discord bot status in specific channel
   const checkChannelBotStatus = useCallback(async (channelId: string, guildId: string) => {
@@ -428,27 +514,22 @@ export default function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    // Try to load saved configuration
-    if (currentNodeId && nodeInfo?.type) {
-      const workflowId = getWorkflowId();
-      if (workflowId) {
-        const savedNodeData = loadNodeConfig(workflowId, currentNodeId, nodeInfo.type);
-        if (savedNodeData) {
-          console.log('📋 Loaded saved configuration for Discord trigger node:', currentNodeId);
-          
-          // Apply saved configuration to form values
-          const savedConfig = savedNodeData.config || {};
-          Object.entries(savedConfig).forEach(([key, value]) => {
-            if (value !== undefined) {
-              setValue(key, value);
-            }
-          });
-          
-          // If we have saved dynamic options, restore them
-          if (savedNodeData.dynamicOptions) {
-            console.log('📋 Found saved dynamic options for Discord trigger');
+    // Load configuration from the current workflow node
+    if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+      const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
+      if (currentNode?.data?.config) {
+        console.log('📋 Loading configuration from workflow node:', currentNodeId, currentNode.data.config);
+        
+        // Apply saved configuration to form values
+        Object.entries(currentNode.data.config).forEach(([key, value]) => {
+          if (value !== undefined) {
+            setValue(key, value);
           }
-        }
+        });
+        
+        console.log('✅ Configuration loaded from database');
+      } else {
+        console.log('📋 No saved configuration found for node:', currentNodeId);
       }
     }
 
@@ -471,7 +552,7 @@ export default function ConfigurationForm({
         hasPermissions: true
       });
     }
-  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized]);
+  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized, currentWorkflow, currentNodeId]);
 
   /**
    * Handle Discord connection
@@ -538,8 +619,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
           </div>
         </ScrollArea>
@@ -563,17 +645,11 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
-            {/* Success message */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                <span className="text-sm text-green-800">Bot connected to server</span>
-              </div>
-            </div>
 
             {/* Show remaining fields */}
             {remainingFields.map((field: any) => (
@@ -588,17 +664,7 @@ export default function ConfigurationForm({
                 dynamicOptions={dynamicOptions}
                 loadingDynamic={loadingFields.has(field.name)}
                 nodeInfo={nodeInfo}
-                allValues={values}
-                onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                  // Special handling for messageId field - it always depends on channelId
-                  if (fieldName === 'messageId' && values.channelId) {
-                    await loadOptions(fieldName, 'channelId', values.channelId);
-                  } else if (dependsOn && values[dependsOn]) {
-                    await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                  } else {
-                    await loadOptions(fieldName);
-                  }
-                }}
+                onDynamicLoad={handleDynamicLoad}
               />
             ))}
           </div>
@@ -618,8 +684,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -645,8 +712,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -670,8 +738,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -713,8 +782,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -757,8 +827,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -805,8 +876,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -857,40 +929,24 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
-            {/* Success message */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                <span className="text-sm text-green-800">Bot connected to server</span>
-              </div>
-            </div>
             
-            {/* Show loading state if channels are loading */}
-            {channelsLoading && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent"></div>
-                  <span className="text-sm text-gray-700">Loading channels...</span>
-                </div>
-              </div>
-            )}
             
-            {/* Show channel field when channels are loaded or if not currently loading */}
-            {(!channelsLoading || hasChannelOptions) && (
-              <FieldRenderer
-                field={channelField}
-                value={values.channelId || ""}
-                onChange={(value) => handleFieldChange('channelId', value)}
-                error={errors.channelId}
-                dynamicOptions={dynamicOptions}
-                loadingDynamic={channelsLoading}
-                onDynamicLoad={loadOptions}
-              />
-            )}
+            {/* Always show channel field - it will handle its own loading state */}
+            <FieldRenderer
+              field={channelField}
+              value={values.channelId || ""}
+              onChange={(value) => handleFieldChange('channelId', value)}
+              error={errors.channelId}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingFields.has('channelId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
+            />
           </div>
         </ScrollArea>
       );
@@ -899,8 +955,11 @@ export default function ConfigurationForm({
     // Step 6: Channel selected, show all remaining fields
     if (values.guildId && values.channelId) {
       // Get all fields except guildId and channelId (already shown)
+      // For remove reaction actions, also exclude emoji field as it will be handled by DiscordReactionSelector
       const remainingFields = nodeInfo?.configSchema?.filter(field => 
-        field.name !== 'guildId' && field.name !== 'channelId'
+        field.name !== 'guildId' && 
+        field.name !== 'channelId' && 
+        !(nodeInfo?.type === 'discord_action_remove_reaction' && field.name === 'emoji')
       ) || [];
       
       return (
@@ -912,8 +971,9 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('guildId', value)}
               error={errors.guildId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('guildId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
             <FieldRenderer
@@ -922,51 +982,38 @@ export default function ConfigurationForm({
               onChange={(value) => handleFieldChange('channelId', value)}
               error={errors.channelId}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={isLoadingChannels || loadingFields.has('channelId')}
-              onDynamicLoad={loadOptions}
+              loadingDynamic={loadingFields.has('channelId')}
+              onDynamicLoad={handleDynamicLoad}
+              nodeInfo={nodeInfo}
             />
             
-            {/* Success indicators */}
-            <div className="space-y-2">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                  <span className="text-sm text-green-800">Bot connected to server</span>
-                </div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-green-500 flex-shrink-0"></div>
-                  <span className="text-sm text-green-800">Channel selected</span>
-                </div>
-              </div>
-            </div>
             
             {/* Render remaining fields */}
             {remainingFields.map((field, index) => (
-              <FieldRenderer
-                key={`discord-field-${field.name}-${index}`}
-                field={field}
-                value={values[field.name]}
-                onChange={(value) => handleFieldChange(field.name, value)}
-                error={errors[field.name]}
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                dynamicOptions={dynamicOptions}
-                loadingDynamic={loadingFields.has(field.name)}
-                nodeInfo={nodeInfo}
-                allValues={values}
-                onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                  // Special handling for messageId field - it always depends on channelId
-                  if (fieldName === 'messageId' && values.channelId) {
-                    await loadOptions(fieldName, 'channelId', values.channelId);
-                  } else if (dependsOn && values[dependsOn]) {
-                    await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                  } else {
-                    await loadOptions(fieldName);
-                  }
-                }}
-              />
+              <React.Fragment key={`discord-field-${field.name}-${index}`}>
+                <FieldRenderer
+                  field={field}
+                  value={values[field.name]}
+                  onChange={(value) => handleFieldChange(field.name, value)}
+                  error={errors[field.name]}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  dynamicOptions={dynamicOptions}
+                  loadingDynamic={loadingFields.has(field.name)}
+                  nodeInfo={nodeInfo}
+                  onDynamicLoad={handleDynamicLoad}
+                />
+                
+                {/* Show Discord Reaction Selector after messageId field for remove reaction actions */}
+                {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
+                  <DiscordReactionSelector
+                    channelId={values.channelId}
+                    messageId={values.messageId}
+                    selectedEmoji={values.emoji}
+                    onSelect={(emojiValue) => handleFieldChange('emoji', emojiValue)}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </ScrollArea>
@@ -1154,11 +1201,11 @@ export default function ConfigurationForm({
             
             // Load dependent options once per selection (non-blocking)
             loadOptions('channelId', 'guildId', value);
-            loadOptions('authorFilter', 'guildId', value);
+            loadOptions('filterAuthor', 'guildId', value);
           } else {
             console.log('🔍 Clearing dependent fields as guildId is empty');
             setValue('channelId', '');
-            setValue('authorFilter', '');
+            setValue('filterAuthor', '');
             setValue('contentFilter', '');
           }
         } 
@@ -1172,6 +1219,11 @@ export default function ConfigurationForm({
           
           if (value && value.trim() !== '' && discordIntegration) {
             console.log('🔍 Server selected, checking bot status for Discord action with guildId:', value);
+            
+            // Load dependent options for Discord actions
+            console.log('🔍 Loading dependent fields for Discord action with guildId:', value);
+            loadOptions('channelId', 'guildId', value);
+            loadOptions('filterAuthor', 'guildId', value);
             
             // Start bot status check which will trigger loading state in progressive disclosure UI
             checkBotStatus(value);
@@ -1191,7 +1243,32 @@ export default function ConfigurationForm({
         
         if (value && values.guildId) {
           console.log('🔍 Checking bot status for channel:', value, 'in guild:', values.guildId);
+          
+          // Load messages for this channel if the action needs them
+          const nodeFields = nodeInfo.configSchema || [];
+          const hasMessageField = nodeFields.some(field => field.name === 'messageId');
+          if (hasMessageField) {
+            console.log('🔍 Loading messages for Discord action with channelId:', value);
+            loadOptions('messageId', 'channelId', value);
+          }
+          
           checkChannelBotStatus(value, values.guildId);
+        }
+      }
+      
+      // Handle messageId changes for Discord actions - clear emoji field and trigger reaction loading
+      if (fieldName === 'messageId' && nodeInfo?.type?.startsWith('discord_action_')) {
+        console.log('🔍 Handling Discord messageId change:', { fieldName, value });
+        
+        // Clear the emoji field when message changes for remove reaction actions
+        if (nodeInfo?.type === 'discord_action_remove_reaction') {
+          setValue('emoji', '');
+          console.log('🔍 Cleared emoji field for new message selection');
+        }
+        
+        if (value && values.channelId && nodeInfo?.type === 'discord_action_remove_reaction') {
+          console.log('🔍 Message selected for remove reaction action:', value, 'in channel:', values.channelId);
+          // Reaction loading will be handled by the DiscordReactionSelector component
         }
       }
     }
@@ -1464,9 +1541,14 @@ export default function ConfigurationForm({
           return !!values.guildId;
         }
         
-        // Show content filter and author filter if channelId is selected
-        if (field.name === 'contentFilter' || field.name === 'authorFilter') {
+        // Show content filter if channelId is selected
+        if (field.name === 'contentFilter') {
           return !!values.channelId;
+        }
+        
+        // Show author filter if guildId is selected (members are guild-wide)
+        if (field.name === 'filterAuthor') {
+          return !!values.guildId;
         }
         
         return true;
@@ -1480,11 +1562,11 @@ export default function ConfigurationForm({
         // Always show guildId (server field)
         if (field.name === 'guildId') return true;
         
-        // Show channelId and message fields only if:
+        // Show channelId field only if:
         // 1. A server is selected
         // 2. Discord integration is connected
         // 3. Bot is in the guild and has permissions
-        if (field.name === 'channelId' || field.name === 'message') {
+        if (field.name === 'channelId') {
           const hasServerSelected = values.guildId && values.guildId !== '';
           const hasDiscordConnected = !!discordIntegration;
           const hasBotAccess = botStatus?.isInGuild && botStatus?.hasPermissions;
@@ -1492,6 +1574,13 @@ export default function ConfigurationForm({
           return hasServerSelected && hasDiscordConnected && hasBotAccess;
         }
         
+        // Show messageId field only if channelId is selected
+        if (field.name === 'messageId' && field.dependsOn === 'channelId') {
+          return values.channelId && values.channelId !== '';
+        }
+
+        // No special handling needed since emoji field was removed
+
         // Show other fields that depend on guildId only if guildId is selected
         if (field.dependsOn === 'guildId') {
           return values.guildId && values.guildId !== '';
@@ -1589,15 +1678,26 @@ export default function ConfigurationForm({
               dynamicOptions={dynamicOptions}
               loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.name !== 'baseId')}
               nodeInfo={nodeInfo}
-              allValues={values}
-              onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                if (dependsOn && values[dependsOn]) {
-                  await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                } else {
-                  await loadOptions(fieldName);
-                }
-              }}
+              onDynamicLoad={handleDynamicLoad}
             />
+            
+            {/* Show reaction remover component after messageId field for remove reaction actions */}
+            {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
+              <DiscordReactionRemover
+                messageId={values.messageId}
+                channelId={values.channelId}
+                onReactionSelect={(emoji) => {
+                  // Store the selected emoji in a temporary field for the action execution
+                  setValue('selectedEmoji', emoji);
+                }}
+                selectedReaction={values.selectedEmoji}
+                dynamicOptions={{...dynamicOptions, selectedEmoji: selectedEmojiReactions}}
+                onLoadReactions={() => {
+                  loadReactionsForMessage(values.channelId, values.messageId);
+                }}
+                isLoading={loadingFields.has('selectedEmoji')}
+              />
+            )}
             
             {/* Show preview button for list records right after table field */}
             {isListRecord && field.name === 'tableName' && values.tableName && values.baseId && (
@@ -2246,16 +2346,10 @@ export default function ConfigurationForm({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingDynamic}
+                  loadingDynamic={loadingFields.has('guildId')}
                   nodeInfo={nodeInfo}
                   allValues={values}
-                  onDynamicLoad={async (fieldName, dependsOn, dependsOnValue) => {
-                    if (dependsOn && values[dependsOn]) {
-                      await loadOptions(fieldName, dependsOn, values[dependsOn]);
-                    } else {
-                      await loadOptions(fieldName);
-                    }
-                  }}
+                  onDynamicLoad={handleDynamicLoad}
                 />
               );
             })}
@@ -2289,16 +2383,27 @@ export default function ConfigurationForm({
   // Handle Discord integrations specially - Progressive field disclosure
   if (nodeInfo?.providerId === 'discord' && nodeInfo?.type?.startsWith('discord_action_')) {
     return (
-      <form onSubmit={(e) => {
+      <form onSubmit={async (e) => {
         e.preventDefault();
         
-        // Save configuration to persistent storage if we have a valid node ID
-        if (currentNodeId && nodeInfo?.type) {
-          const workflowId = getWorkflowId();
-          if (workflowId) {
-            console.log('📋 Saving configuration for Discord action node:', currentNodeId);
-            // Save both config and dynamicOptions
-            saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, values, dynamicOptions);
+        // Save configuration to database via workflow store
+        if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+          console.log('📋 Saving configuration for Discord action node:', currentNodeId, values);
+          
+          // Update the node's config in the workflow store
+          updateNode(currentNodeId, {
+            data: {
+              ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+              config: values
+            }
+          });
+          
+          // Save the workflow to the database
+          try {
+            await saveWorkflow();
+            console.log('✅ Configuration saved to database');
+          } catch (error) {
+            console.error('❌ Failed to save configuration to database:', error);
           }
         }
         
@@ -2357,16 +2462,27 @@ export default function ConfigurationForm({
   }
 
   return (
-    <form onSubmit={(e) => {
+    <form onSubmit={async (e) => {
       e.preventDefault();
       
-      // Save configuration to persistent storage if we have a valid node ID
-      if (currentNodeId && nodeInfo?.type) {
-        const workflowId = getWorkflowId();
-        if (workflowId) {
-          console.log('📋 Saving configuration for Discord trigger node:', currentNodeId);
-          // Save both config and dynamicOptions
-          saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, values, dynamicOptions);
+      // Save configuration to database via workflow store
+      if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+        console.log('📋 Saving configuration for Discord trigger node:', currentNodeId, values);
+        
+        // Update the node's config in the workflow store
+        updateNode(currentNodeId, {
+          data: {
+            ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+            config: values
+          }
+        });
+        
+        // Save the workflow to the database
+        try {
+          await saveWorkflow();
+          console.log('✅ Configuration saved to database');
+        } catch (error) {
+          console.error('❌ Failed to save configuration to database:', error);
         }
       }
       
@@ -2410,6 +2526,7 @@ export default function ConfigurationForm({
                   {renderFieldsWithTable(basicFields, false)}
                   {/* Render dynamic fields for basic tab */}
                   {dynamicFields.length > 0 && renderFieldsWithTable(dynamicFields, true)}
+                  
                 </div>
               </ScrollArea>
             </TabsContent>

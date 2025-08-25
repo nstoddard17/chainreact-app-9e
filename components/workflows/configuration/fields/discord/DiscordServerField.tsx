@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,19 +28,34 @@ export function DiscordServerField({
   isLoading,
   onDynamicLoad,
 }: DiscordServerFieldProps) {
+  
+  // Track whether we've already attempted to load servers to prevent reloading
+  const hasAttemptedLoad = useRef(false);
+  const previousValue = useRef(value);
+
+  // Reset load attempt flag if field is intentionally cleared
+  useEffect(() => {
+    if (previousValue.current && !value) {
+      // Field was cleared, allow loading again
+      hasAttemptedLoad.current = false;
+    }
+    previousValue.current = value;
+  }, [value]);
 
   // Auto-load Discord servers on mount if no data exists
   useEffect(() => {
-    if (field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value) {
+    if (field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
       console.log('🔍 Auto-loading Discord servers on mount for field:', field.name);
+      hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
   }, [field.dynamic, field.name, onDynamicLoad, isLoading, options.length, value]);
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value) {
+    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
       console.log('🔍 Loading Discord servers on dropdown open for field:', field.name);
+      hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
   };

@@ -8,6 +8,7 @@ import { DynamicOptionsState } from '../utils/types';
 interface UseDynamicOptionsProps {
   nodeType?: string;
   providerId?: string;
+  onLoadingChange?: (fieldName: string, isLoading: boolean) => void;
 }
 
 interface DynamicOption {
@@ -20,7 +21,10 @@ interface DynamicOption {
 /**
  * Custom hook for managing dynamic field options
  */
-export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsProps) => {
+export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: UseDynamicOptionsProps) => {
+  // Store callback in ref to avoid dependency issues
+  const onLoadingChangeRef = useRef(onLoadingChange);
+  onLoadingChangeRef.current = onLoadingChange;
   // State
   const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>({});
   const [loading, setLoading] = useState<boolean>(false);
@@ -48,6 +52,11 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
   
   // Load options for a dynamic field
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
+    // Add specific logging for troubleshooting
+    if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+      console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, timestamp: new Date().toISOString() });
+    }
+    
     if (!nodeType || !providerId) return;
     
     // Auto-detect dependencies for certain fields
@@ -57,14 +66,51 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     }
     
     // Create a cache key that includes dependencies
-    const cacheKey = `${fieldName}-${dependsOn || ''}-${dependsOnValue || ''}`;
+    const cacheKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
     
     // Prevent duplicate calls for the same field (unless forcing refresh)
-    if (!forceRefresh && (loadingFields.current.has(cacheKey) || dynamicOptions[fieldName])) {
+    if (!forceRefresh && loadingFields.current.has(cacheKey)) {
+      // Only log for Discord fields to avoid spam
+      if (fieldName === 'filterAuthor' || (fieldName === 'guildId' && providerId === 'discord')) {
+        console.log('🚫 [loadOptions] Skipping Discord field - already loading:', { 
+          fieldName, 
+          cacheKey, 
+          isLoading: loadingFields.current.has(cacheKey)
+        });
+      }
+      return;
+    }
+    
+    // For filterAuthor, only skip if we have data for the specific guild
+    if (!forceRefresh && fieldName === 'filterAuthor' && dependsOn === 'guildId' && dependsOnValue) {
+      const guildSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
+      if (guildSpecificData && guildSpecificData.length > 0) {
+        console.log('🚫 [loadOptions] Skipping filterAuthor - already have data for this guild:', { 
+          fieldName, 
+          guildId: dependsOnValue,
+          dataCount: guildSpecificData.length
+        });
+        return;
+      }
+    }
+    
+    // For other fields, use simple data check
+    if (!forceRefresh && fieldName !== 'filterAuthor' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+      console.log('🚫 [loadOptions] Skipping field - already has data:', { 
+        fieldName, 
+        dataCount: dynamicOptions[fieldName].length
+      });
       return;
     }
     loadingFields.current.add(cacheKey);
     setLoading(true);
+    
+    // Enhanced logging for channelId loading state
+    if (fieldName === 'channelId') {
+      console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
+    }
+    
+    onLoadingChangeRef.current?.(fieldName, true);
 
     try {
       // Special handling for Discord guilds
@@ -74,7 +120,6 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
           
           if (!guilds || guilds.length === 0) {
             // Check if we have a Discord integration - if not, this is expected
-            const { getIntegrationByProvider } = await import('@/stores/integrationStore');
             const discordIntegration = getIntegrationByProvider('discord');
             
             if (!discordIntegration) {
@@ -157,10 +202,17 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
         throw new Error('Bot not added to server - no channels available');
       }
       
-      // Update dynamic options
+      // Update dynamic options - store both general and dependency-specific data
+      const updateObject: any = { [fieldName]: formattedOptions };
+      
+      // For dependent fields, also store with dependency-specific key for better caching
+      if (dependsOn && dependsOnValue) {
+        updateObject[`${fieldName}_${dependsOnValue}`] = formattedOptions;
+      }
+      
       setDynamicOptions(prev => ({
         ...prev,
-        [fieldName]: formattedOptions
+        ...updateObject
       }));
       
     } catch (error) {
@@ -172,6 +224,13 @@ export const useDynamicOptions = ({ nodeType, providerId }: UseDynamicOptionsPro
     } finally {
       loadingFields.current.delete(cacheKey);
       setLoading(false);
+      
+      // Enhanced logging for channelId loading state
+      if (fieldName === 'channelId') {
+        console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
+      }
+      
+      onLoadingChangeRef.current?.(fieldName, false);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
   
@@ -260,7 +319,7 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     discord_trigger_new_message: {
       channelId: "discord_channels",
       guildId: "discord_guilds",
-      authorFilter: "discord_users",
+      filterAuthor: "discord_members",
     },
     discord_action_send_message: {
       channelId: "discord_channels",
@@ -286,11 +345,55 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     discord_action_create_category: {
       guildId: "discord_guilds",
     },
-    discord_action_fetch_members: {
+    discord_action_fetch_messages: {
+      channelId: "discord_channels",
       guildId: "discord_guilds",
+      filterAuthor: "discord_members",
     },
-    discord_action_send_dm: {
+    discord_action_remove_reaction: {
+      channelId: "discord_channels", 
       guildId: "discord_guilds",
+      messageId: "discord_messages",
+    },
+    discord_action_update_channel: {
+      channelId: "discord_channels",
+      guildId: "discord_guilds",
+      parentId: "discord_categories",
+    },
+    discord_action_delete_channel: {
+      channelId: "discord_channels",
+      guildId: "discord_guilds",
+      parentCategory: "discord_categories",
+    },
+    discord_action_delete_category: {
+      guildId: "discord_guilds",
+      categoryId: "discord_categories",
+    },
+    discord_action_fetch_guild_members: {
+      guildId: "discord_guilds",
+      roleFilter: "discord_roles",
+    },
+    discord_action_assign_role: {
+      guildId: "discord_guilds",
+      userId: "discord_members",
+      roleId: "discord_roles",
+    },
+    discord_action_remove_role: {
+      guildId: "discord_guilds",
+      userId: "discord_members",
+      roleId: "discord_roles",
+    },
+    discord_action_kick_member: {
+      guildId: "discord_guilds",
+      userId: "discord_members",
+    },
+    discord_action_ban_member: {
+      guildId: "discord_guilds",
+      userId: "discord_members",
+    },
+    discord_action_unban_member: {
+      guildId: "discord_guilds",
+      userId: "discord_banned_users",
     },
     // Slack fields
     slack_action_create_channel: {
@@ -435,21 +538,31 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
         label: item.name || item.label || item.id,
       }));
       
-    case "authorFilter":
+    case "filterAuthor":
       return data.map((item: any) => ({
         value: item.id || item.value,
         label: item.username || item.name || item.label || item.id,
       }));
       
     case "messageId":
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`,
-        content: item.content,
-        author: item.author,
-        timestamp: item.timestamp,
-        type: item.type
-      }));
+      return data.map((item: any) => {
+        const baseLabel = item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`;
+        const reactions = item.reactions || [];
+        const hasReactions = reactions.length > 0;
+        const reactionCount = hasReactions ? reactions.reduce((total: number, reaction: any) => total + reaction.count, 0) : 0;
+        const label = hasReactions ? `${baseLabel} [${reactionCount} reactions]` : baseLabel;
+        
+        return {
+          id: item.id,
+          value: item.id,
+          label,
+          content: item.content,
+          author: item.author,
+          timestamp: item.timestamp,
+          type: item.type,
+          reactions: reactions
+        };
+      });
       
     case "boardId":
       return data.map((item: any) => ({
