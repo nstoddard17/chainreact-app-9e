@@ -30,6 +30,7 @@ import { GmailEmailField } from "./gmail/GmailEmailField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
 import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
+import { DiscordGenericField } from "./discord/DiscordGenericField";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -49,6 +50,7 @@ interface FieldProps {
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[] }[]>;
   loadingDynamic?: boolean;
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
+  nodeInfo?: any; // Node information for context-aware field behavior
 }
 
 /**
@@ -85,6 +87,7 @@ export function FieldRenderer({
   dynamicOptions,
   loadingDynamic,
   onDynamicLoad,
+  nodeInfo,
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -294,6 +297,22 @@ export function FieldRenderer({
               options={selectOptions}
               isLoading={loadingDynamic}
               onDynamicLoad={onDynamicLoad}
+            />
+          );
+        }
+        
+        // Special handling for all other Discord dynamic fields
+        if (field.dynamic && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
+          return (
+            <DiscordGenericField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              options={selectOptions}
+              isLoading={loadingDynamic}
+              onDynamicLoad={onDynamicLoad}
+              nodeInfo={nodeInfo}
             />
           );
         }

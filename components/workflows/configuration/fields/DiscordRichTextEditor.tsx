@@ -502,46 +502,6 @@ export function DiscordRichTextEditor({
             </>
           )}
           
-          {/* Variables */}
-          {workflowData && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
-                  <Variable className="h-4 w-4" />
-                  Variables
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0 bg-slate-800 border-slate-700">
-                <div className="p-3 border-b border-slate-700">
-                  <h4 className="text-sm font-medium text-slate-200">Workflow Variables</h4>
-                  <p className="text-xs text-slate-400 mt-1">Insert dynamic content from previous steps</p>
-                </div>
-                <ScrollArea className="h-48">
-                  <div className="p-2">
-                    {getVariablesFromWorkflow().map((variable, index) => (
-                      <div
-                        key={index}
-                        className="p-3 rounded-md hover:bg-gray-50 cursor-pointer"
-                        onClick={() => insertVariable(variable.name)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-medium">{variable.label}</h5>
-                          <Badge variant="secondary" className="text-xs">
-                            {variable.node}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 font-mono">
-                          {variable.name}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-          )}
-          
           <Separator orientation="vertical" className="h-6" />
           
           {/* Embed Toggle */}
@@ -639,11 +599,17 @@ export function DiscordRichTextEditor({
             
             {useEmbed && (
               <div className="space-y-4 border-t pt-4">
-                <h4 className="text-sm font-medium">Rich Embed Configuration</h4>
+                <div>
+                  <h4 className="text-sm font-medium">Rich Embed Configuration</h4>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Rich embeds create structured, visually appealing message blocks with titles, descriptions, colored borders, and organized fields.
+                  </p>
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="embed-title" className="text-sm">Title</Label>
+                    <p className="text-xs text-slate-500 mb-2">Large heading text shown at the top of the embed</p>
                     <Input
                       id="embed-title"
                       placeholder="Embed title..."
@@ -653,6 +619,7 @@ export function DiscordRichTextEditor({
                   </div>
                   <div>
                     <Label htmlFor="embed-color" className="text-sm">Color</Label>
+                    <p className="text-xs text-slate-500 mb-2">Color of the vertical border on the left side</p>
                     <Select value={embed.color} onValueChange={(value) => updateEmbed('color', value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -676,6 +643,7 @@ export function DiscordRichTextEditor({
                 
                 <div>
                   <Label htmlFor="embed-description" className="text-sm">Description</Label>
+                  <p className="text-xs text-slate-500 mb-2">Main text content shown below the title</p>
                   <Textarea
                     id="embed-description"
                     placeholder="Embed description..."
@@ -687,7 +655,10 @@ export function DiscordRichTextEditor({
                 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm">Fields</Label>
+                    <div>
+                      <Label className="text-sm">Fields</Label>
+                      <p className="text-xs text-slate-500">Add structured name-value pairs. Toggle 'inline' to display multiple fields side-by-side</p>
+                    </div>
                     <Button
                       type="button"
                       variant="outline"
@@ -735,6 +706,7 @@ export function DiscordRichTextEditor({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="embed-footer" className="text-sm">Footer Text</Label>
+                    <p className="text-xs text-slate-500 mb-2">Small text shown at the bottom of the embed</p>
                     <Input
                       id="embed-footer"
                       placeholder="Footer text..."
@@ -742,15 +714,18 @@ export function DiscordRichTextEditor({
                       onChange={(e) => updateEmbed('footer', e.target.value)}
                     />
                   </div>
-                  <div className="flex items-center space-x-2 mt-6">
-                    <Switch
-                      id="embed-timestamp"
-                      checked={embed.timestamp || false}
-                      onCheckedChange={(checked) => updateEmbed('timestamp', checked)}
-                    />
-                    <Label htmlFor="embed-timestamp" className="text-sm">
-                      Add timestamp
-                    </Label>
+                  <div className="flex flex-col space-y-2 mt-2">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="embed-timestamp"
+                        checked={embed.timestamp || false}
+                        onCheckedChange={(checked) => updateEmbed('timestamp', checked)}
+                      />
+                      <Label htmlFor="embed-timestamp" className="text-sm">
+                        Add timestamp
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500">Show current date and time next to footer</p>
                   </div>
                 </div>
               </div>

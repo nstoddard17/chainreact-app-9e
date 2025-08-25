@@ -68,12 +68,21 @@ export function DiscordChannelField({
   const processedError = error ? handleDiscordError(error) : undefined;
 
   // Show loading state for dynamic fields
-  if (field.dynamic && isLoading && processedOptions.length === 0) {
+  if (field.dynamic && isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-        Loading Discord channels...
-      </div>
+      <Select disabled>
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+            processedError && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+            <span>Loading Discord channels...</span>
+          </div>
+        </SelectTrigger>
+      </Select>
     );
   }
 
