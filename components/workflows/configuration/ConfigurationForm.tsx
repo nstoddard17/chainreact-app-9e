@@ -514,11 +514,57 @@ export default function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    // Load configuration from the current workflow node
-    if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+    console.log('🔍 [ConfigForm] Debug - Loading config for node:', {
+      currentNodeId,
+      nodeType: nodeInfo?.type,
+      hasInitialData: !!initialData,
+      initialDataKeys: initialData ? Object.keys(initialData) : [],
+      initialDataValues: initialData
+    });
+    
+    // Prioritize initialData (passed from WorkflowBuilder) over currentWorkflow lookup
+    if (initialData && Object.keys(initialData).length > 0) {
+      console.log('📋 Loading configuration from initialData:', initialData);
+      
+      // Apply saved configuration to form values
+      Object.entries(initialData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          setValue(key, value);
+        }
+      });
+      
+      console.log('✅ Configuration loaded from initialData');
+      
+      // Load dependent options for Discord remove reaction actions
+      if (nodeInfo?.type === 'discord_action_remove_reaction') {
+        // Use setTimeout to ensure the form values have been set before loading dependent options
+        setTimeout(async () => {
+          try {
+            const config = initialData as Record<string, any>;
+            
+            // Load channels if we have a guildId
+            if (config.guildId) {
+              console.log('🔄 Loading channels for saved guildId:', config.guildId);
+              await loadOptions('channelId', 'guildId', config.guildId);
+            }
+            
+            // Load messages if we have both guildId and channelId
+            if (config.guildId && config.channelId) {
+              console.log('🔄 Loading messages for saved channelId:', config.channelId);
+              await loadOptions('messageId', 'channelId', config.channelId);
+            }
+          } catch (error) {
+            console.error('Failed to load dependent options for saved config:', error);
+          }
+        }, 100);
+      }
+    } else if (currentNodeId && nodeInfo?.type && currentWorkflow) {
+      // Fallback to workflow node lookup if no initialData is provided
       const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
+      console.log('🔍 [ConfigForm] Fallback - Loading from workflow node:', currentNode?.data?.config);
+      
       if (currentNode?.data?.config) {
-        console.log('📋 Loading configuration from workflow node:', currentNodeId, currentNode.data.config);
+        console.log('📋 Loading configuration from workflow node (fallback):', currentNodeId, currentNode.data.config);
         
         // Apply saved configuration to form values
         Object.entries(currentNode.data.config).forEach(([key, value]) => {
@@ -527,10 +573,17 @@ export default function ConfigurationForm({
           }
         });
         
-        console.log('✅ Configuration loaded from database');
+        console.log('✅ Configuration loaded from database (fallback)');
       } else {
         console.log('📋 No saved configuration found for node:', currentNodeId);
       }
+    } else {
+      console.log('🔍 [ConfigForm] No configuration data available:', {
+        hasInitialData: !!initialData,
+        hasCurrentNodeId: !!currentNodeId,
+        hasNodeType: !!nodeInfo?.type,
+        hasCurrentWorkflow: !!currentWorkflow
+      });
     }
 
     // Initialize form values from config schema for any missing values
@@ -552,7 +605,7 @@ export default function ConfigurationForm({
         hasPermissions: true
       });
     }
-  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized, currentWorkflow, currentNodeId]);
+  }, [nodeInfo?.configSchema, nodeInfo?.providerId, hasInitialized, currentWorkflow, currentNodeId, initialData, loadOptions]);
 
   /**
    * Handle Discord connection
@@ -2414,28 +2467,56 @@ export default function ConfigurationForm({
       <form onSubmit={async (e) => {
         e.preventDefault();
         
-        // Save configuration to database via workflow store
-        if (currentNodeId && nodeInfo?.type && currentWorkflow) {
-          console.log('📋 Saving configuration for Discord action node:', currentNodeId, values);
+        // Handle saving configuration for both existing and new/pending nodes
+        try {
+          console.log('🔄 [ConfigForm] Saving configuration:', { currentNodeId, values });
           
-          // Update the node's config in the workflow store
-          updateNode(currentNodeId, {
-            data: {
-              ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+          // Check if this is a new/pending node (hasn't been added to workflow yet)
+          const isPendingNode = currentNodeId === 'pending-action' || currentNodeId === 'pending-trigger';
+          
+          if (isPendingNode) {
+            // For new/pending nodes, use the original flow to add them to the workflow
+            console.log('🔄 [ConfigForm] Pending node detected, using original save flow');
+            const dataWithConfig = {
               config: values
+            };
+            
+            if (onSubmit) {
+              onSubmit(dataWithConfig);
             }
-          });
-          
-          // Save the workflow to the database
-          try {
-            await saveWorkflow();
-            console.log('✅ Configuration saved to database');
-          } catch (error) {
-            console.error('❌ Failed to save configuration to database:', error);
+          } else if (currentNodeId && currentWorkflow) {
+            // For existing nodes, update their config in the workflow store and persist
+            const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
+            if (currentNode) {
+              console.log('🔄 [ConfigForm] Existing node detected, updating in workflow store');
+              
+              updateNode(currentNodeId, { 
+                data: { 
+                  ...currentNode.data, 
+                  config: values 
+                } 
+              });
+              
+              // Persist the updated workflow to Supabase
+              await saveWorkflow();
+              
+              console.log('✅ [ConfigForm] Existing node configuration saved to database successfully');
+            }
+            
+            // Call the original onSubmit to close the modal
+            const dataWithConfig = {
+              config: values
+            };
+            
+            if (onSubmit) {
+              onSubmit(dataWithConfig);
+            }
           }
+        } catch (error) {
+          console.error('❌ [ConfigForm] Failed to save configuration:', error);
+          // Don't close modal on error - let user retry
+          return;
         }
-        
-        handleSubmit(onSubmit)();
       }} className="h-full flex flex-col">
         <div className="flex-1 flex flex-col min-h-0">
           {renderDiscordProgressiveConfig()}
@@ -2493,28 +2574,56 @@ export default function ConfigurationForm({
     <form onSubmit={async (e) => {
       e.preventDefault();
       
-      // Save configuration to database via workflow store
-      if (currentNodeId && nodeInfo?.type && currentWorkflow) {
-        console.log('📋 Saving configuration for Discord trigger node:', currentNodeId, values);
+      // Handle saving configuration for both existing and new/pending nodes
+      try {
+        console.log('🔄 [ConfigForm] Saving configuration:', { currentNodeId, values });
         
-        // Update the node's config in the workflow store
-        updateNode(currentNodeId, {
-          data: {
-            ...currentWorkflow.nodes.find(n => n.id === currentNodeId)?.data,
+        // Check if this is a new/pending node (hasn't been added to workflow yet)
+        const isPendingNode = currentNodeId === 'pending-action' || currentNodeId === 'pending-trigger';
+        
+        if (isPendingNode) {
+          // For new/pending nodes, use the original flow to add them to the workflow
+          console.log('🔄 [ConfigForm] Pending node detected, using original save flow');
+          const dataWithConfig = {
             config: values
+          };
+          
+          if (onSubmit) {
+            onSubmit(dataWithConfig);
           }
-        });
-        
-        // Save the workflow to the database
-        try {
-          await saveWorkflow();
-          console.log('✅ Configuration saved to database');
-        } catch (error) {
-          console.error('❌ Failed to save configuration to database:', error);
+        } else if (currentNodeId && currentWorkflow) {
+          // For existing nodes, update their config in the workflow store and persist
+          const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
+          if (currentNode) {
+            console.log('🔄 [ConfigForm] Existing node detected, updating in workflow store');
+            
+            updateNode(currentNodeId, { 
+              data: { 
+                ...currentNode.data, 
+                config: values 
+              } 
+            });
+            
+            // Persist the updated workflow to Supabase
+            await saveWorkflow();
+            
+            console.log('✅ [ConfigForm] Existing node configuration saved to database successfully');
+          }
+          
+          // Call the original onSubmit to close the modal
+          const dataWithConfig = {
+            config: values
+          };
+          
+          if (onSubmit) {
+            onSubmit(dataWithConfig);
+          }
         }
+      } catch (error) {
+        console.error('❌ [ConfigForm] Failed to save configuration:', error);
+        // Don't close modal on error - let user retry
+        return;
       }
-      
-      handleSubmit(onSubmit)();
     }} className="h-full flex flex-col">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Show tabs only if we have advanced fields */}

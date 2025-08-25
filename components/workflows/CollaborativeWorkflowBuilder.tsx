@@ -329,6 +329,13 @@ const useWorkflowBuilderState = () => {
     const providerId = nodeToConfigure.data.providerId as keyof typeof INTEGRATION_CONFIGS
     const integration = INTEGRATION_CONFIGS[providerId]
     if (integration && nodeComponent) {
+      console.log('🔍 [WorkflowBuilder] Setting up configuration for node:');
+      console.log('  - Node ID:', nodeId);
+      console.log('  - Node Data:', nodeToConfigure.data);
+      console.log('  - Saved Config:', nodeToConfigure.data.config);
+      console.log('  - Has Config:', !!nodeToConfigure.data.config);
+      console.log('  - Config Keys:', nodeToConfigure.data.config ? Object.keys(nodeToConfigure.data.config) : []);
+      
       setConfiguringNode({ id: nodeId, integration, nodeComponent, config: nodeToConfigure.data.config || {} })
     }
   }, [getNodes])
@@ -1091,7 +1098,7 @@ const useWorkflowBuilderState = () => {
     setTimeout(() => fitView({ padding: 0.5 }), 100)
   }
 
-  const handleSaveConfiguration = (context: { id: string }, newConfig: Record<string, any>) => {
+  const handleSaveConfiguration = async (context: { id: string }, newConfig: Record<string, any>) => {
     if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
       // Add trigger to workflow with configuration
       addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
@@ -1105,10 +1112,10 @@ const useWorkflowBuilderState = () => {
       setConfiguringNode(null);
       toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." });
     } else {
-      // Handle existing node configuration updates
-      setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)))
-      toast({ title: "Configuration Saved", description: "Your node configuration has been updated." })
-      setConfiguringNode(null)
+      // Existing nodes are now handled directly in ConfigurationForm
+      // This callback just closes the modal for existing nodes
+      console.log('✅ [WorkflowBuilder] Configuration saved for existing node, closing modal');
+      setConfiguringNode(null);
     }
   }
 
@@ -2747,7 +2754,7 @@ function WorkflowBuilderContent() {
                 setPendingNode(null);
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
-              onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+              onSave={async (config) => await handleSaveConfiguration(configuringNode, config)}
               onUpdateConnections={(sourceNodeId, targetNodeId) => {
                 // Create or update the edge between the selected input node and the AI Agent
                 const newEdge = {
@@ -2784,7 +2791,7 @@ function WorkflowBuilderContent() {
                   setShowTriggerDialog(true);
                 }
               }}
-              onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+              onSave={async (config) => await handleSaveConfiguration(configuringNode, config)}
               nodeInfo={configuringNode.nodeComponent}
               integrationName={configuringNode.integration.name}
               initialData={configuringNode.config}

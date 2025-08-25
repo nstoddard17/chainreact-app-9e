@@ -136,9 +136,14 @@ export function ConfigurationModal({
   }
 
   // Handle form submission
-  const handleSubmit = (config: Record<string, any>) => {
-    onSave(config);
-    onClose(true);
+  const handleSubmit = async (config: Record<string, any>) => {
+    try {
+      await onSave(config);
+      onClose(true);
+    } catch (error) {
+      console.error('Failed to save configuration:', error);
+      // Don't close the modal if save failed - let the user see the error and retry
+    }
   };
 
   // Handle close
