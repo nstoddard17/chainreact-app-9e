@@ -2484,8 +2484,15 @@ export default function ConfigurationForm({
               onSubmit(dataWithConfig);
             }
           } else if (currentNodeId && currentWorkflow) {
-            // For existing nodes, just call onSubmit - let handleSaveConfiguration handle both local state and database
-            console.log('🔄 [ConfigForm] Existing node detected, delegating to handleSaveConfiguration');
+            // For existing nodes, update node config and save workflow before calling onSubmit
+            console.log('🔄 [ConfigForm] Existing node detected, updating node config and saving workflow');
+            
+            // Update the node's config in the workflow store
+            updateNode(currentNodeId, { config: values });
+            
+            // Save the workflow to Supabase with updated config
+            await saveWorkflow();
+            
             const dataWithConfig = {
               config: values
             };
@@ -2574,8 +2581,15 @@ export default function ConfigurationForm({
             onSubmit(dataWithConfig);
           }
         } else if (currentNodeId && currentWorkflow) {
-          // For existing nodes, just call onSubmit - let handleSaveConfiguration handle both local state and database
-          console.log('🔄 [ConfigForm] Existing node detected, delegating to handleSaveConfiguration');
+          // For existing nodes, update node config and save workflow before calling onSubmit
+          console.log('🔄 [ConfigForm] Existing node detected, updating node config and saving workflow');
+          
+          // Update the node's config in the workflow store
+          updateNode(currentNodeId, { config: values });
+          
+          // Save the workflow to Supabase with updated config
+          await saveWorkflow();
+          
           const dataWithConfig = {
             config: values
           };
