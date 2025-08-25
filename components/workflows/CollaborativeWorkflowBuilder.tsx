@@ -137,7 +137,7 @@ const useWorkflowBuilderState = () => {
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
 
-  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, loading: workflowLoading } = useWorkflowStore()
+  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
   const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
@@ -514,6 +514,9 @@ const useWorkflowBuilderState = () => {
     setNodes(cleanedNodes)
     setEdges(updatedEdges)
     
+    // Remove the node from the workflow store
+    removeNode(nodeId)
+    
     // Now rebuild the add action button logic
     setTimeout(() => {
       const currentNodes = getNodes()
@@ -574,7 +577,31 @@ const useWorkflowBuilderState = () => {
       // Fit view to show the updated workflow
       setTimeout(() => fitView({ padding: 0.5 }), 100)
     }, 50)
-  }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick])
+    
+    // Save the workflow after node deletion
+    setTimeout(async () => {
+      try {
+        // Call handleSave directly - it will be available when this timeout executes
+        const currentNodes = getNodes()
+        const currentEdges = getEdges()
+        
+        if (currentWorkflow?.id) {
+          const workflowData = {
+            nodes: currentNodes,
+            edges: currentEdges
+          }
+          
+          await updateWorkflow(currentWorkflow.id, { 
+            nodes: workflowData.nodes, 
+            edges: workflowData.edges 
+          })
+          console.log('✅ [WorkflowBuilder] Workflow saved after node deletion')
+        }
+      } catch (error) {
+        console.error('❌ [WorkflowBuilder] Failed to save workflow after node deletion:', error)
+      }
+    }, 100) // Delay slightly more to ensure all state updates are complete
+  }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick, removeNode, currentWorkflow, updateWorkflow])
 
   const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
     const nodeToDelete = getNodes().find((n) => n.id === nodeId)
@@ -858,8 +885,9 @@ const useWorkflowBuilderState = () => {
   }
 
   const addTriggerToWorkflow = (integration: IntegrationInfo, trigger: NodeComponent, config: Record<string, any>) => {
+    const triggerId = `trigger-${Date.now()}`;
     const triggerNode: Node = {
-      id: "trigger",
+      id: triggerId,
       type: "custom",
       position: { x: 400, y: 100 },
       data: {
@@ -1104,17 +1132,20 @@ const useWorkflowBuilderState = () => {
       addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
       
       // Auto-save the workflow to database after adding the new trigger
-      try {
-        await handleSave();
-        console.log('✅ [WorkflowBuilder] New trigger saved to database automatically');
-      } catch (error) {
-        console.error('❌ [WorkflowBuilder] Failed to save new trigger to database:', error);
-        toast({ 
-          title: "Save Warning", 
-          description: "Trigger added but failed to save to database. Please save manually.", 
-          variant: "destructive" 
-        });
-      }
+      // Wait for React state updates to flush before saving
+      setTimeout(async () => {
+        try {
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] New trigger saved to database automatically');
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save new trigger to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Trigger added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 0);
       
       setPendingNode(null);
       setConfiguringNode(null);
@@ -1124,17 +1155,20 @@ const useWorkflowBuilderState = () => {
       addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
       
       // Auto-save the workflow to database after adding the new action
-      try {
-        await handleSave();
-        console.log('✅ [WorkflowBuilder] New action saved to database automatically');
-      } catch (error) {
-        console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
-        toast({ 
-          title: "Save Warning", 
-          description: "Action added but failed to save to database. Please save manually.", 
-          variant: "destructive" 
-        });
-      }
+      // Wait for React state updates to flush before saving
+      setTimeout(async () => {
+        try {
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] New action saved to database automatically');
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Action added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 0);
       
       setPendingNode(null);
       setConfiguringNode(null);
