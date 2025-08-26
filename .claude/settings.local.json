@@ -19,7 +19,8 @@
       "Bash(rm:*)",
       "Bash(cp:*)",
       "Bash(mkdir:*)",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(rg:*)"
     ],
     "defaultMode": "acceptEdits"
   }

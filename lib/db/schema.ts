@@ -1,160 +1,39 @@
-// Required named exports
-export const users = {
-  tableName: "users",
-  columns: {
-    id: "id",
-    email: "email",
-    name: "name",
-    image: "image",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
+// Import current database types
+import type { Database } from "../../types/database.types"
+
+// Type helpers for easier table access
+type Tables = Database['public']['Tables']
+type TableName = keyof Tables
+
+// Helper function to get table schema
+export function getTableSchema<T extends TableName>(tableName: T) {
+  return {
+    tableName,
+    Row: {} as Tables[T]['Row'],
+    Insert: {} as Tables[T]['Insert'], 
+    Update: {} as Tables[T]['Update']
+  }
 }
 
-export const trelloIntegrationTable = {
-  tableName: "trello_integrations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    token: "token",
-    token_secret: "token_secret",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
+// Core table schemas for commonly used tables
+export const users = getTableSchema('user_profiles')
+export const integrations = getTableSchema('integrations')
+export const workflows = getTableSchema('workflows')
+export const workflow_executions = getTableSchema('workflow_executions')
+export const workflow_nodes = getTableSchema('workflow_nodes')
+export const organizations = getTableSchema('organizations')
+export const teams = getTableSchema('teams')
+export const templates = getTableSchema('templates')
 
-export const onedrive_auth_state = {
-  tableName: "onedrive_auth_state",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    state: "state",
-    code_verifier: "code_verifier",
-    created_at: "created_at",
-    expires_at: "expires_at",
-  },
-}
-
-export const accounts = {
-  tableName: "accounts",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    provider: "provider",
-    provider_account_id: "provider_account_id",
-    access_token: "access_token",
-    refresh_token: "refresh_token",
-    expires_at: "expires_at",
-    token_type: "token_type",
-    scope: "scope",
-    id_token: "id_token",
-    session_state: "session_state",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
+// Legacy compatibility - keep existing exports that code may still reference
+export const accounts = getTableSchema('integrations') // Map legacy accounts to integrations
 export const sessions = {
-  tableName: "sessions",
+  tableName: "sessions" as const,
   columns: {
     id: "id",
-    user_id: "user_id",
+    user_id: "user_id", 
     session_token: "session_token",
     expires: "expires",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
-export const dropboxIntegration = {
-  tableName: "dropbox_integrations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    access_token: "access_token",
-    refresh_token: "refresh_token",
-    account_id: "account_id",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
-export const linkedinProfiles = {
-  tableName: "linkedin_profiles",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    linkedin_id: "linkedin_id",
-    access_token: "access_token",
-    refresh_token: "refresh_token",
-    profile_data: "profile_data",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
-export const teamsInstallations = {
-  tableName: "teams_installations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    team_id: "team_id",
-    access_token: "access_token",
-    refresh_token: "refresh_token",
-    installation_data: "installation_data",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
-export const trelloIntegration = {
-  tableName: "trello_integrations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    token: "token",
-    token_secret: "token_secret",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
-export const someSchema = {
-  tableName: "some_table",
-  columns: {
-    id: "id",
-    name: "name",
-    created_at: "created_at",
-  },
-}
-
-export const someTable = {
-  tableName: "some_table",
-  columns: {
-    id: "id",
-    name: "name",
-    created_at: "created_at",
-  },
-}
-
-export const integrations = {
-  tableName: "integrations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    provider: "provider",
-    provider_account_id: "provider_account_id",
-    access_token: "access_token",
-    refresh_token: "refresh_token",
-    expires_at: "expires_at",
-    token_type: "token_type",
-    scope: "scope",
-    granted_scopes: "granted_scopes",
-    missing_scopes: "missing_scopes",
-    scope_validation_status: "scope_validation_status",
-    last_scope_check: "last_scope_check",
-    metadata: "metadata",
-    is_active: "is_active",
     created_at: "created_at",
     updated_at: "updated_at",
   },
@@ -163,107 +42,24 @@ export const integrations = {
 // Add missing integrationTable export (alias for integrations)
 export const integrationTable = integrations
 
-// Type definitions
-export interface User {
-  id: string
-  email: string
-  name?: string
-  image?: string
-  created_at: string
-  updated_at: string
-}
+// Re-export database types for easier access
+export type User = Database['public']['Tables']['user_profiles']['Row']
+export type Integration = Database['public']['Tables']['integrations']['Row']
+export type Workflow = Database['public']['Tables']['workflows']['Row']
+export type WorkflowExecution = Database['public']['Tables']['workflow_executions']['Row']
+export type WorkflowNode = Database['public']['Tables']['workflow_nodes']['Row']
+export type Organization = Database['public']['Tables']['organizations']['Row']
+export type Team = Database['public']['Tables']['teams']['Row']
+export type Template = Database['public']['Tables']['templates']['Row']
 
-export interface OAuthAccount {
-  id: string
-  user_id: string
-  provider: string
-  provider_account_id: string
-  access_token?: string
-  refresh_token?: string
-  expires_at?: number
-  token_type?: string
-  scope?: string
-  id_token?: string
-  session_state?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface Account {
-  id: string
-  user_id: string
-  provider: string
-  provider_account_id: string
-  access_token?: string
-  refresh_token?: string
-  expires_at?: number
-  token_type?: string
-  scope?: string
-  id_token?: string
-  session_state?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface Session {
+// Legacy type aliases for backwards compatibility
+export type OAuthAccount = Integration
+export type Account = Integration
+export type Session = {
   id: string
   user_id: string
   session_token: string
   expires: string
-  created_at: string
-  updated_at: string
-}
-
-export interface Integration {
-  id: string
-  user_id: string
-  provider: string
-  provider_account_id: string
-  access_token?: string
-  refresh_token?: string
-  expires_at?: number
-  token_type?: string
-  scope?: string
-  granted_scopes?: string[]
-  missing_scopes?: string[]
-  scope_validation_status?: "valid" | "invalid" | "partial"
-  last_scope_check?: string
-  metadata?: Record<string, any>
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface Workflow {
-  id: string
-  user_id: string
-  name: string
-  description?: string
-  nodes: any[]
-  edges: any[]
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface WorkflowExecution {
-  id: string
-  workflow_id: string
-  status: "pending" | "running" | "completed" | "failed"
-  started_at: string
-  completed_at?: string
-  error_message?: string
-  execution_data?: Record<string, any>
-}
-
-export interface Template {
-  id: string
-  name: string
-  description: string
-  category: string
-  workflow_data: any
-  is_public: boolean
-  created_by: string
   created_at: string
   updated_at: string
 }
