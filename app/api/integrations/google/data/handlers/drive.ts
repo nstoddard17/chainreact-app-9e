@@ -3,19 +3,28 @@
  */
 
 import { GoogleIntegration, GoogleDriveFolder, GoogleDriveFile, GoogleDataHandler } from '../types'
-import { validateGoogleIntegration, makeGoogleApiRequest } from '../utils'
+import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
 /**
  * Fetch Google Drive folders for the authenticated user
  */
 export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async (integration: GoogleIntegration) => {
   try {
+    console.log("📁 [Google Drive] Starting to fetch folders", {
+      integrationId: integration.id,
+      provider: integration.provider,
+      status: integration.status,
+      hasAccessToken: !!integration.access_token
+    })
+    
     validateGoogleIntegration(integration)
-    console.log("📁 [Google Drive] Fetching folders")
+    console.log("📁 [Google Drive] Integration validated")
 
+    const accessToken = getGoogleAccessToken(integration)
+    console.log("📁 [Google Drive] Access token decrypted successfully")
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,webViewLink,owners,shared)&orderBy=name",
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
@@ -64,9 +73,10 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
       query += " and mimeType != 'application/vnd.google-apps.folder'"
     }
 
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,mimeType,size,webViewLink,thumbnailLink,owners,shared)&orderBy=name`,
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()

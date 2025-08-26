@@ -189,6 +189,13 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
       // Determine data to load based on field name
       const resourceType = getResourceTypeForField(fieldName, nodeType);
       
+      console.log(`🔍 [useDynamicOptions] Mapping debug:`, {
+        fieldName,
+        nodeType,
+        resourceType,
+        integration: integration.provider
+      });
+      
       if (!resourceType) {
         // Only warn for fields that are expected to have dynamic options but don't
         const expectedDynamicFields = ['guildId', 'channelId', 'roleId', 'userId', 'boardId', 'baseId', 'tableId', 'workspaceId'];
@@ -315,6 +322,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
  * Helper function to determine resource type based on field name and node type
  */
 function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
+  console.log(`🔍 [getResourceTypeForField] Called with:`, { fieldName, nodeType });
+  
   // Map field names to resource types
   const fieldToResourceMap: Record<string, Record<string, string>> = {
     // Gmail fields
@@ -468,6 +477,34 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       spreadsheetId: "google-sheets_spreadsheets",
       sheetName: "google-sheets_sheets",
     },
+    // Google Drive fields
+    "google-drive:new_file_in_folder": {
+      folderId: "google-drive-folders",
+    },
+    "google-drive:new_folder_in_folder": {
+      folderId: "google-drive-folders",
+      parentFolderId: "google-drive-folders",
+    },
+    "google-drive:upload_file": {
+      folderId: "google-drive-folders",
+    },
+    "google-drive:create_folder": {
+      parentFolderId: "google-drive-folders",
+    },
+    "google-drive:create_file": {
+      folderId: "google-drive-folders",
+    },
+    "google-drive:file_updated": {
+      folderId: "google-drive-folders",
+    },
+    google_drive_action_upload_file: {
+      folderId: "google-drive-folders",
+    },
+    // Google Docs fields
+    google_docs_action_create_document: {
+      folderId: "google-drive-folders",
+      templateId: "google-docs_templates",
+    },
     // Airtable fields
     airtable_action_create_record: {
       baseId: "airtable_bases",
@@ -519,16 +556,23 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
   
   // First check node-specific mapping
   const nodeMapping = fieldToResourceMap[nodeType];
+  console.log(`🔍 [getResourceTypeForField] Node mapping for '${nodeType}':`, nodeMapping);
+  
   if (nodeMapping && nodeMapping[fieldName]) {
-    return nodeMapping[fieldName];
+    const result = nodeMapping[fieldName];
+    console.log(`🔍 [getResourceTypeForField] Found node-specific mapping: '${fieldName}' -> '${result}'`);
+    return result;
   }
   
   // Fall back to default mapping
   if (fieldToResourceMap.default[fieldName]) {
-    return fieldToResourceMap.default[fieldName];
+    const result = fieldToResourceMap.default[fieldName];
+    console.log(`🔍 [getResourceTypeForField] Using default mapping: '${fieldName}' -> '${result}'`);
+    return result;
   }
   
   // If no mapping found
+  console.log(`🔍 [getResourceTypeForField] No mapping found for '${fieldName}' in node '${nodeType}'`);
   return null;
 }
 
