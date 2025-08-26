@@ -297,6 +297,7 @@ export function FieldRenderer({
               options={selectOptions}
               isLoading={loadingDynamic}
               onDynamicLoad={onDynamicLoad}
+              dynamicOptions={dynamicOptions}
             />
           );
         }

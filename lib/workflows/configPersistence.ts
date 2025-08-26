@@ -1,66 +1,102 @@
 "use client"
 
 import { WorkflowNode } from "@/stores/workflowStore"
+import { createClient } from "@/utils/supabase/client"
 
 /**
  * Configuration persistence utility for workflow node configurations
  * Allows saving and retrieving node configuration data between sessions
+ * Now uses Supabase for persistent storage instead of localStorage
  */
 
-// Keys for local storage
-const WORKFLOW_CONFIG_PREFIX = "chainreact-workflow-config-"
-const WORKFLOW_CONFIG_INDEX = "chainreact-workflow-config-index"
 
 /**
- * Generate a unique key for a node configuration
- * @param workflowId The ID of the workflow
- * @param nodeId The ID of the node
- * @param nodeType The type of the node
- * @returns A unique storage key
- */
-export const getConfigKey = (workflowId: string, nodeId: string, nodeType: string): string => {
-  return `${WORKFLOW_CONFIG_PREFIX}${workflowId}-${nodeId}-${nodeType}`
-}
-
-/**
- * Save node configuration to local storage
+ * Save node configuration to localStorage
  * @param workflowId The ID of the workflow
  * @param nodeId The ID of the node
  * @param nodeType The type of the node
  * @param config The configuration data to save
  * @param dynamicOptions Optional dynamic options to save alongside configuration
  */
-export const saveNodeConfig = (
+export const saveNodeConfig = async (
   workflowId: string,
   nodeId: string,
   nodeType: string,
   config: Record<string, any>,
   dynamicOptions?: Record<string, any[]>
-): void => {
+): Promise<void> => {
   if (typeof window === "undefined") return
 
+  console.log(`🔄 [ConfigPersistence] Saving config for node ${nodeId} in workflow ${workflowId}`);
+
   try {
-    // Generate a unique key for this node configuration
-    const key = getConfigKey(workflowId, nodeId, nodeType)
+    const supabase = createClient()
     
-    // Prepare the data to save
-    const dataToSave = {
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.error(`❌ [ConfigPersistence] User not authenticated, cannot save config for node ${nodeId}`);
+      throw new Error('User not authenticated');
+    }
+
+    // Get the current workflow
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('nodes')
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.error(`❌ [ConfigPersistence] Workflow not found for node ${nodeId}:`, workflowError);
+      throw new Error('Workflow not found');
+    }
+
+    // Update the specific node's data with saved configuration
+    const nodes = workflow.nodes || []
+    const nodeIndex = nodes.findIndex((n: any) => n.id === nodeId)
+    
+    if (nodeIndex === -1) {
+      console.error(`❌ [ConfigPersistence] Node ${nodeId} not found in workflow ${workflowId}`);
+      throw new Error('Node not found in workflow');
+    }
+
+    // Prepare the saved config data
+    const savedConfigData = {
       config,
       dynamicOptions,
       timestamp: Date.now()
     }
-    
-    // Save the configuration data
-    localStorage.setItem(key, JSON.stringify(dataToSave))
-    
-    // Update the index of saved configurations
-    updateConfigIndex(workflowId, nodeId, nodeType)
-    
-    console.log(`✅ Saved configuration for node ${nodeId} in workflow ${workflowId}`)
+
+    // Update the node's data
+    nodes[nodeIndex] = {
+      ...nodes[nodeIndex],
+      data: {
+        ...nodes[nodeIndex].data,
+        savedConfig: savedConfigData
+      }
+    }
+
+    // Save back to Supabase
+    const { error: updateError } = await supabase
+      .from('workflows')
+      .update({ nodes })
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+
+    if (updateError) {
+      console.error(`❌ [ConfigPersistence] Failed to update workflow for node ${nodeId}:`, updateError);
+      throw updateError;
+    }
+
+    console.log(`✅ [ConfigPersistence] Successfully saved configuration for node ${nodeId} to Supabase`);
   } catch (error) {
-    console.error("Failed to save node configuration:", error)
+    console.error(`❌ [ConfigPersistence] Failed to save configuration for node ${nodeId}:`, error);
+    throw error;
   }
 }
+
 
 /**
  * Interface for the saved node configuration data
@@ -72,197 +108,277 @@ export interface SavedNodeConfig {
 }
 
 /**
- * Clear node configuration from local storage
+ * Clear node configuration from Supabase
  * @param workflowId The ID of the workflow
  * @param nodeId The ID of the node
  * @param nodeType The type of the node
  */
-export const clearNodeConfig = (
+export const clearNodeConfig = async (
   workflowId: string,
   nodeId: string,
   nodeType: string
-): void => {
+): Promise<void> => {
   if (typeof window === "undefined") return
 
+  console.log(`🗑️ [ConfigPersistence] Clearing saved configuration for node ${nodeId}`);
+
   try {
-    const key = getConfigKey(workflowId, nodeId, nodeType)
-    window.localStorage.removeItem(key)
-    console.log(`🗑️ Cleared saved configuration for node: ${nodeId}`)
+    const supabase = createClient()
+    
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.error(`❌ [ConfigPersistence] User not authenticated, cannot clear config for node ${nodeId}`);
+      return;
+    }
+
+    // Get the current workflow
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('nodes')
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.log(`🔍 [ConfigPersistence] Workflow not found when clearing config for node ${nodeId}`);
+      return;
+    }
+
+    // Update the specific node's data to remove saved configuration
+    const nodes = workflow.nodes || []
+    const nodeIndex = nodes.findIndex((n: any) => n.id === nodeId)
+    
+    if (nodeIndex === -1) {
+      console.log(`🔍 [ConfigPersistence] Node ${nodeId} not found when clearing config`);
+      return;
+    }
+
+    // Remove the savedConfig from the node's data
+    if (nodes[nodeIndex].data && nodes[nodeIndex].data.savedConfig) {
+      const { savedConfig, ...restData } = nodes[nodeIndex].data;
+      nodes[nodeIndex] = {
+        ...nodes[nodeIndex],
+        data: restData
+      };
+
+      // Save back to Supabase
+      const { error: updateError } = await supabase
+        .from('workflows')
+        .update({ nodes })
+        .eq('id', workflowId)
+        .eq('user_id', user.id)
+
+      if (updateError) {
+        console.error(`❌ [ConfigPersistence] Failed to clear config for node ${nodeId}:`, updateError);
+        return;
+      }
+
+      console.log(`✅ [ConfigPersistence] Successfully cleared configuration for node ${nodeId}`);
+    } else {
+      console.log(`🔍 [ConfigPersistence] No saved configuration found to clear for node ${nodeId}`);
+    }
   } catch (error) {
-    console.error("Failed to clear node configuration:", error)
+    console.error(`❌ [ConfigPersistence] Failed to clear configuration for node ${nodeId}:`, error);
   }
 }
 
 /**
- * Load node configuration from local storage
+ * Load node configuration from Supabase (with localStorage fallback)
  * @param workflowId The ID of the workflow
  * @param nodeId The ID of the node
  * @param nodeType The type of the node
  * @returns The saved configuration data, or null if not found
  */
-export const loadNodeConfig = (
+export const loadNodeConfig = async (
   workflowId: string,
   nodeId: string,
   nodeType: string
-): SavedNodeConfig | null => {
+): Promise<SavedNodeConfig | null> => {
   if (typeof window === "undefined") return null
 
+  console.log(`🔍 [ConfigPersistence] Loading config for node ${nodeId} in workflow ${workflowId}`);
+
   try {
-    // Generate the key for this node configuration
-    const key = getConfigKey(workflowId, nodeId, nodeType)
+    const supabase = createClient()
     
-    // Get the saved configuration data
-    const savedData = localStorage.getItem(key)
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     
-    if (!savedData) return null
+    if (userError || !user) {
+      console.log(`🔍 [ConfigPersistence] User not authenticated, cannot load config for node ${nodeId}`);
+      return null;
+    }
+
+    // Get the workflow with nodes
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('nodes')
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.log(`🔍 [ConfigPersistence] Workflow not found for node ${nodeId}:`, workflowError);
+      return null;
+    }
+
+    // Find the specific node
+    const nodes = workflow.nodes || []
+    const node = nodes.find((n: any) => n.id === nodeId)
     
-    // Parse the saved data
-    const parsedData = JSON.parse(savedData)
-    
-    // Handle legacy format (direct config object without wrapper)
-    if (!parsedData.config && !parsedData.timestamp) {
-      // Convert to new format
-      const legacyConfig: SavedNodeConfig = {
-        config: parsedData,
-        timestamp: Date.now()
-      }
-      console.log(`✅ Loaded legacy configuration for node ${nodeId} in workflow ${workflowId}`)
-      return legacyConfig
+    if (node && node.data && node.data.savedConfig) {
+      console.log(`✅ [ConfigPersistence] Successfully loaded configuration from Supabase for node ${nodeId}`);
+      return node.data.savedConfig as SavedNodeConfig
     }
     
-    console.log(`✅ Loaded saved configuration for node ${nodeId} in workflow ${workflowId}`)
-    return parsedData as SavedNodeConfig
+    console.log(`🔍 [ConfigPersistence] No saved configuration found for node ${nodeId}`);
+    return null
   } catch (error) {
-    console.error("Failed to load node configuration:", error)
+    console.error(`❌ [ConfigPersistence] Failed to load configuration for node ${nodeId}:`, error)
     return null
   }
 }
 
-/**
- * Update the index of saved configurations
- * @param workflowId The ID of the workflow
- * @param nodeId The ID of the node
- * @param nodeType The type of the node
- */
-const updateConfigIndex = (workflowId: string, nodeId: string, nodeType: string): void => {
-  try {
-    // Get the current index
-    const indexJson = localStorage.getItem(WORKFLOW_CONFIG_INDEX) || "{}"
-    const index = JSON.parse(indexJson)
-    
-    // Add this configuration to the index
-    if (!index[workflowId]) {
-      index[workflowId] = {}
-    }
-    
-    index[workflowId][nodeId] = {
-      nodeType,
-      timestamp: Date.now()
-    }
-    
-    // Save the updated index
-    localStorage.setItem(WORKFLOW_CONFIG_INDEX, JSON.stringify(index))
-  } catch (error) {
-    console.error("Failed to update configuration index:", error)
-  }
-}
+
+
+
 
 /**
- * Clear saved configurations for a workflow
+ * Clear all saved configurations for a workflow from Supabase
  * @param workflowId The ID of the workflow
  */
-export const clearWorkflowConfigs = (workflowId: string): void => {
+export const clearWorkflowConfigs = async (workflowId: string): Promise<void> => {
   if (typeof window === "undefined") return
 
+  console.log(`🗑️ [ConfigPersistence] Clearing all configurations for workflow ${workflowId}`);
+
   try {
-    // Get the index
-    const indexJson = localStorage.getItem(WORKFLOW_CONFIG_INDEX) || "{}"
-    const index = JSON.parse(indexJson)
+    const supabase = createClient()
     
-    // If this workflow has saved configurations
-    if (index[workflowId]) {
-      // Delete each saved configuration
-      Object.entries(index[workflowId]).forEach(([nodeId, info]: [string, any]) => {
-        const key = getConfigKey(workflowId, nodeId, info.nodeType)
-        localStorage.removeItem(key)
-      })
-      
-      // Remove this workflow from the index
-      delete index[workflowId]
-      localStorage.setItem(WORKFLOW_CONFIG_INDEX, JSON.stringify(index))
-      
-      console.log(`✅ Cleared all saved configurations for workflow ${workflowId}`)
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.error(`❌ [ConfigPersistence] User not authenticated, cannot clear workflow configs`);
+      return;
     }
+
+    // Get the current workflow
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('nodes')
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.log(`🔍 [ConfigPersistence] Workflow not found when clearing all configs`);
+      return;
+    }
+
+    // Remove savedConfig from all nodes
+    const nodes = workflow.nodes || []
+    const cleanedNodes = nodes.map((node: any) => {
+      if (node.data && node.data.savedConfig) {
+        const { savedConfig, ...restData } = node.data;
+        return {
+          ...node,
+          data: restData
+        };
+      }
+      return node;
+    });
+
+    // Save back to Supabase
+    const { error: updateError } = await supabase
+      .from('workflows')
+      .update({ nodes: cleanedNodes })
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+
+    if (updateError) {
+      console.error(`❌ [ConfigPersistence] Failed to clear workflow configurations:`, updateError);
+      return;
+    }
+
+    console.log(`✅ [ConfigPersistence] Successfully cleared all configurations for workflow ${workflowId}`);
   } catch (error) {
-    console.error("Failed to clear workflow configurations:", error)
+    console.error(`❌ [ConfigPersistence] Failed to clear workflow configurations:`, error);
   }
 }
 
 /**
- * Get all saved configurations for a workflow
+ * Get all saved configurations for a workflow from Supabase
  * @param workflowId The ID of the workflow
  * @returns An object mapping node IDs to their saved configurations
  */
-export const getAllWorkflowConfigs = (workflowId: string): Record<string, SavedNodeConfig> => {
+export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<string, SavedNodeConfig>> => {
   if (typeof window === "undefined") return {}
 
+  console.log(`🔍 [ConfigPersistence] Getting all configurations for workflow ${workflowId}`);
+
   try {
-    // Get the index
-    const indexJson = localStorage.getItem(WORKFLOW_CONFIG_INDEX) || "{}"
-    const index = JSON.parse(indexJson)
+    const supabase = createClient()
     
-    // If this workflow has saved configurations
-    if (index[workflowId]) {
-      const configs: Record<string, SavedNodeConfig> = {}
-      
-      // Load each saved configuration
-      Object.entries(index[workflowId]).forEach(([nodeId, info]: [string, any]) => {
-        const key = getConfigKey(workflowId, nodeId, info.nodeType)
-        const savedData = localStorage.getItem(key)
-        
-        if (savedData) {
-          const parsedData = JSON.parse(savedData)
-          
-          // Handle legacy format
-          if (!parsedData.config && !parsedData.timestamp) {
-            configs[nodeId] = {
-              config: parsedData,
-              timestamp: info.timestamp || Date.now()
-            }
-          } else {
-            configs[nodeId] = parsedData
-          }
-        }
-      })
-      
-      return configs
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      console.log(`🔍 [ConfigPersistence] User not authenticated, cannot get workflow configs`);
+      return {};
     }
+
+    // Get the workflow with nodes
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('nodes')
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.log(`🔍 [ConfigPersistence] Workflow not found when getting all configs`);
+      return {};
+    }
+
+    // Extract saved configurations from all nodes
+    const configs: Record<string, SavedNodeConfig> = {}
+    const nodes = workflow.nodes || []
     
-    return {}
+    nodes.forEach((node: any) => {
+      if (node.id && node.data && node.data.savedConfig) {
+        configs[node.id] = node.data.savedConfig;
+      }
+    });
+    
+    console.log(`✅ [ConfigPersistence] Found ${Object.keys(configs).length} saved configurations for workflow ${workflowId}`);
+    return configs;
   } catch (error) {
-    console.error("Failed to get all workflow configurations:", error)
-    return {}
+    console.error(`❌ [ConfigPersistence] Failed to get workflow configurations:`, error);
+    return {};
   }
 }
 
 /**
- * Check if a node has a saved configuration
+ * Check if a node has a saved configuration in Supabase
  * @param workflowId The ID of the workflow
  * @param nodeId The ID of the node
  * @returns True if the node has a saved configuration, false otherwise
  */
-export const hasNodeConfig = (workflowId: string, nodeId: string): boolean => {
+export const hasNodeConfig = async (workflowId: string, nodeId: string): Promise<boolean> => {
   if (typeof window === "undefined") return false
 
+  console.log(`🔍 [ConfigPersistence] Checking if node ${nodeId} has saved config`);
+
   try {
-    // Get the index
-    const indexJson = localStorage.getItem(WORKFLOW_CONFIG_INDEX) || "{}"
-    const index = JSON.parse(indexJson)
-    
-    // Check if this node has a saved configuration
-    return !!(index[workflowId] && index[workflowId][nodeId])
+    const savedConfig = await loadNodeConfig(workflowId, nodeId, '');
+    const hasConfig = !!savedConfig;
+    console.log(`🔍 [ConfigPersistence] Node ${nodeId} has saved config: ${hasConfig}`);
+    return hasConfig;
   } catch (error) {
-    console.error("Failed to check for node configuration:", error)
-    return false
+    console.error(`❌ [ConfigPersistence] Failed to check for node configuration:`, error);
+    return false;
   }
 }

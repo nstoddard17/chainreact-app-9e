@@ -17,11 +17,8 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
     } = options
     
     if (!guildId) {
-      console.warn("No guildId provided for discord_channels, returning default channels")
-      return [
-        { id: "default1", name: "general", value: "default1", type: 0, position: 0, parent_id: null },
-        { id: "default2", name: "announcements", value: "default2", type: 0, position: 1, parent_id: null }
-      ]
+      console.warn("No guildId provided for discord_channels, returning empty channels list")
+      return []
     }
 
     // Use bot token for channel listing (bot must be in the guild)

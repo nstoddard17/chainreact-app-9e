@@ -13,6 +13,7 @@ interface DiscordChannelFieldProps {
   options: any[];
   isLoading?: boolean;
   onDynamicLoad?: (fieldName: string) => void;
+  dynamicOptions?: Record<string, any[]>;
 }
 
 /**
@@ -27,6 +28,7 @@ export function DiscordChannelField({
   options,
   isLoading,
   onDynamicLoad,
+  dynamicOptions,
 }: DiscordChannelFieldProps) {
 
   // Discord-specific loading behavior
@@ -64,7 +66,32 @@ export function DiscordChannelField({
     return error;
   };
 
-  const processedOptions = processDiscordChannels(options);
+  // Process options and add fallback for saved value when no options loaded
+  let processedOptions = processDiscordChannels(options);
+  
+  // If we have a saved value but no options loaded, create a temporary option
+  if (value && processedOptions.length === 0 && !isLoading) {
+    // Try to find the channel name from saved dynamicOptions
+    let channelName = value; // Default to ID
+    
+    if (dynamicOptions && dynamicOptions.channelId) {
+      const savedChannel = dynamicOptions.channelId.find((ch: any) => 
+        (ch.value || ch.id) === value
+      );
+      if (savedChannel) {
+        channelName = savedChannel.name || savedChannel.label || value;
+      }
+    }
+    
+    processedOptions = [{
+      id: value,
+      value: value,
+      name: channelName,
+      label: channelName,
+      type: 0, // Assume text channel
+      isFallback: true // Mark as fallback option
+    }];
+  }
   const processedError = error ? handleDiscordError(error) : undefined;
 
   // Show loading state for dynamic fields
@@ -87,7 +114,8 @@ export function DiscordChannelField({
   }
 
   // Special case when no Discord channels are available
-  if (processedOptions.length === 0 && !isLoading) {
+  // Don't show retry button if we have a saved value (it will load properly)
+  if (processedOptions.length === 0 && !isLoading && !value) {
     return (
       <div className="text-sm text-slate-500">
         <p>No Discord channels found. You may need to:</p>
@@ -114,7 +142,7 @@ export function DiscordChannelField({
 
   return (
     <Select 
-      value={value || ""} 
+      value={value ?? ""} 
       onValueChange={onChange}
       onOpenChange={handleChannelFieldOpen}
     >
@@ -138,9 +166,13 @@ export function DiscordChannelField({
             <SelectItem 
               key={`${optionValue}-${index}`} 
               value={optionValue}
+              className={option.isFallback ? "text-slate-600" : ""}
             >
               <div className="flex items-center gap-2">
                 <span>{formattedLabel}</span>
+                {option.isFallback && (
+                  <span className="text-xs text-slate-400 italic">(saved)</span>
+                )}
               </div>
             </SelectItem>
           );
