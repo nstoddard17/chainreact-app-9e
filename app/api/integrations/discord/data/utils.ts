@@ -49,7 +49,15 @@ export function validateDiscordIntegration(integration: any): void {
  * Global rate limiting state for Discord API
  */
 let lastDiscordRequest = 0
-const MIN_REQUEST_INTERVAL = 2000 // 2 seconds between requests
+const MIN_REQUEST_INTERVAL = 6000 // 6 seconds between requests (more conservative)
+
+// Track request counts per bucket
+const requestCounts = new Map<string, { count: number, resetTime: number }>()
+const MAX_REQUESTS_PER_BUCKET = 8 // Conservative limit (Discord allows 10)
+
+// Simple cache for Discord API responses to reduce duplicate requests
+const discordCache = new Map<string, { data: any, timestamp: number }>()
+const CACHE_TTL = 30000 // 30 seconds cache
 
 /**
  * Rate-limited Discord API request handler
@@ -57,7 +65,7 @@ const MIN_REQUEST_INTERVAL = 2000 // 2 seconds between requests
 export async function fetchDiscordWithRateLimit<T>(
   fetchFn: () => Promise<Response>,
   maxRetries: number = 3,
-  defaultWaitTime: number = 10000
+  defaultWaitTime: number = 15000
 ): Promise<T> {
   const now = Date.now()
   const timeSinceLastRequest = now - lastDiscordRequest
@@ -88,8 +96,27 @@ export async function fetchDiscordWithRateLimit<T>(
       
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after')
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : defaultWaitTime
+        const retryAfterMs = response.headers.get('x-ratelimit-reset-after')
+        
+        // Use the most accurate retry time available
+        let waitTime = defaultWaitTime
+        if (retryAfterMs) {
+          waitTime = Math.ceil(parseFloat(retryAfterMs) * 1000) + 1000 // Add 1 second buffer
+        } else if (retryAfter) {
+          waitTime = parseInt(retryAfter) * 1000 + 1000 // Add 1 second buffer
+        }
+        
+        // Cap the wait time at 60 seconds to prevent excessive delays
+        waitTime = Math.min(waitTime, 60000)
+        
         console.log(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms`)
+        console.log(`📊 Rate limit details:`, {
+          bucket: response.headers.get('x-ratelimit-bucket'),
+          limit: response.headers.get('x-ratelimit-limit'),
+          remaining: response.headers.get('x-ratelimit-remaining'),
+          resetAfter: response.headers.get('x-ratelimit-reset-after'),
+          scope: response.headers.get('x-ratelimit-scope')
+        })
         
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, waitTime))
@@ -106,8 +133,12 @@ export async function fetchDiscordWithRateLimit<T>(
       if (attempt === maxRetries) {
         throw error
       }
-      console.log(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying...`)
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+      
+      // Exponential backoff for general errors
+      const backoffTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Max 10 seconds
+      console.log(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffTime}ms...`)
+      console.error(`   Error:`, error.message)
+      await new Promise(resolve => setTimeout(resolve, backoffTime))
     }
   }
   
@@ -115,9 +146,64 @@ export async function fetchDiscordWithRateLimit<T>(
 }
 
 /**
- * Make authenticated request to Discord API with rate limiting
+ * Make authenticated request to Discord API with rate limiting and caching
  */
-export async function makeDiscordApiRequest(
+export async function makeDiscordApiRequest<T = any>(
+  url: string, 
+  accessToken: string, 
+  options: RequestInit = {},
+  useCache: boolean = true
+): Promise<T> {
+  // Check cache for GET requests
+  if (useCache && (!options.method || options.method === 'GET')) {
+    const cacheKey = `${url}:${accessToken.slice(-8)}` // Use last 8 chars of token as part of key
+    const cached = discordCache.get(cacheKey)
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`📦 Using cached Discord data for ${url}`)
+      return cached.data
+    }
+  }
+
+  // Determine if this is a bot token or user token
+  const authHeader = accessToken.startsWith('Bot ') ? accessToken : `Bearer ${accessToken}`
+
+  const response = await fetchDiscordWithRateLimit(() => 
+    fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+  )
+  
+  const data = await response.json()
+  
+  // Cache successful GET requests
+  if (useCache && (!options.method || options.method === 'GET')) {
+    const cacheKey = `${url}:${accessToken.slice(-8)}`
+    discordCache.set(cacheKey, { data, timestamp: Date.now() })
+    
+    // Clean up old cache entries periodically
+    if (discordCache.size > 100) {
+      const now = Date.now()
+      for (const [key, value] of discordCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+          discordCache.delete(key)
+        }
+      }
+    }
+  }
+  
+  return data
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+export async function makeDiscordApiRequestLegacy(
   url: string, 
   accessToken: string, 
   options: RequestInit = {}

@@ -28,6 +28,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
     // First, try to fetch channels (more reliable than member check)
     try {
       console.log('🔍 Trying to fetch guild channels...');
+      
       const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
         headers: {
           'Authorization': `Bot ${botToken}`,
@@ -51,12 +52,13 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         console.log('🔍 403 error - could be bot not in guild or missing permissions, checking membership...');
         // Don't assume bot is in guild on 403 - need to check membership first
       }
-    } catch (channelsError) {
-      console.log('🔍 Channels check failed, trying member check...', channelsError.message);
+    } catch (outerError) {
+      console.log('🔍 Outer channels check failed, trying member check...');
     }
     
     // Fallback to member check
     console.log('🔍 Trying to check bot membership...');
+    
     const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
       headers: {
         'Authorization': `Bot ${botToken}`,

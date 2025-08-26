@@ -148,7 +148,7 @@ export function DiscordServerField({
 
   return (
     <Select 
-      value={value || ""} 
+      value={value ?? ""} 
       onValueChange={onChange}
       onOpenChange={handleServerFieldOpen}
     >

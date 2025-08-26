@@ -51,7 +51,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
   }, []);
   
   // Load options for a dynamic field
-  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
+  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => {
     // Add specific logging for troubleshooting
     if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
       console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, timestamp: new Date().toISOString() });
@@ -102,15 +102,23 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
       });
       return;
     }
-    loadingFields.current.add(cacheKey);
-    setLoading(true);
-    
-    // Enhanced logging for channelId loading state
-    if (fieldName === 'channelId') {
-      console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
+    // Only set loading states if not in silent mode
+    if (!silent) {
+      loadingFields.current.add(cacheKey);
+      setLoading(true);
+      
+      // Enhanced logging for channelId loading state
+      if (fieldName === 'channelId') {
+        console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
+      }
+      
+      onLoadingChangeRef.current?.(fieldName, true);
+    } else {
+      // Silent mode - just log that we're loading silently
+      if (fieldName === 'channelId') {
+        console.log('🔕 [loadOptions] Loading channelId silently:', { cacheKey, timestamp: new Date().toISOString() });
+      }
     }
-    
-    onLoadingChangeRef.current?.(fieldName, true);
 
     try {
       // Special handling for Discord guilds
@@ -182,7 +190,13 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
       const resourceType = getResourceTypeForField(fieldName, nodeType);
       
       if (!resourceType) {
-        console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
+        // Only warn for fields that are expected to have dynamic options but don't
+        const expectedDynamicFields = ['guildId', 'channelId', 'roleId', 'userId', 'boardId', 'baseId', 'tableId', 'workspaceId'];
+        if (expectedDynamicFields.includes(fieldName)) {
+          console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
+        } else {
+          console.log(`🔍 [useDynamicOptions] Field ${fieldName} does not require dynamic loading for node: ${nodeType}`);
+        }
         loadingFields.current.delete(cacheKey);
         setLoading(false);
         return;
@@ -231,12 +245,20 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
       loadingFields.current.delete(cacheKey);
       setLoading(false);
       
-      // Enhanced logging for channelId loading state
-      if (fieldName === 'channelId') {
-        console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
+      // Only clear loading states if not in silent mode
+      if (!silent) {
+        // Enhanced logging for channelId loading state
+        if (fieldName === 'channelId') {
+          console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
+        }
+        
+        onLoadingChangeRef.current?.(fieldName, false);
+      } else {
+        // Silent mode - just log completion
+        if (fieldName === 'channelId') {
+          console.log('🔕 [loadOptions] Completed channelId loading silently:', { cacheKey, timestamp: new Date().toISOString() });
+        }
       }
-      
-      onLoadingChangeRef.current?.(fieldName, false);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
   

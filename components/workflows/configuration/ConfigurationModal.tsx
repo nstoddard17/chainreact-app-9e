@@ -198,11 +198,9 @@ export function ConfigurationModal({
                       {getModalTitle()}
                       {getNodeTypeBadge(nodeInfo?.type || '')}
                     </DialogTitle>
-                    {integrationName && (
-                      <p className="text-sm text-slate-600 mt-1">
-                        {integrationName} Integration
-                      </p>
-                    )}
+                    <DialogDescription className="text-sm text-slate-600 mt-1">
+                      {integrationName ? `Configure your ${integrationName} integration settings` : 'Configure your workflow node settings'}
+                    </DialogDescription>
                   </div>
                 </div>
                 <Button

@@ -248,7 +248,7 @@ export function DiscordGenericField({
     return (
       <Combobox
         options={comboboxOptions}
-        value={value || ""}
+        value={value ?? ""}
         onChange={onChange}
         placeholder={field.placeholder || "Select a message..."}
         searchPlaceholder="Search messages..."
@@ -259,7 +259,7 @@ export function DiscordGenericField({
 
   return (
     <Select 
-      value={value || ""} 
+      value={value ?? ""} 
       onValueChange={onChange}
       onOpenChange={handleFieldOpen}
     >

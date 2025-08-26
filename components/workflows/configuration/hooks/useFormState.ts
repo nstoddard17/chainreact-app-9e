@@ -163,7 +163,10 @@ export const useFormState = (
 
   // Reset form when initialValues change
   useEffect(() => {
-    resetForm(initialValues);
+    // Only reset if we have actual initial values, not empty objects
+    if (initialValues && Object.keys(initialValues).length > 0) {
+      resetForm(initialValues);
+    }
   }, [initialValues, resetForm]);
 
   return {

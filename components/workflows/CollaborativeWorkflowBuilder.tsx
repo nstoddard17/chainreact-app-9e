@@ -50,6 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
+import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from "@/lib/workflows/configPersistence"
 import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
 import { Card } from "@/components/ui/card"
 import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
@@ -320,7 +321,7 @@ const useWorkflowBuilderState = () => {
     setShowTriggerDialog(true);
   }, [getNodes, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
 
-  const handleConfigureNode = useCallback((nodeId: string) => {
+  const handleConfigureNode = useCallback(async (nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
     if (!nodeToConfigure) return
     const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === nodeToConfigure.data.type)
@@ -336,7 +337,38 @@ const useWorkflowBuilderState = () => {
       console.log('  - Has Config:', !!nodeToConfigure.data.config);
       console.log('  - Config Keys:', nodeToConfigure.data.config ? Object.keys(nodeToConfigure.data.config) : []);
       
-      setConfiguringNode({ id: nodeId, integration, nodeComponent, config: nodeToConfigure.data.config || {} })
+      // Try to load configuration from our persistence system first
+      let config = nodeToConfigure.data.config || {}
+      
+      if (typeof window !== "undefined") {
+        try {
+          // Extract workflow ID from URL
+          const pathParts = window.location.pathname.split('/')
+          const builderIndex = pathParts.indexOf('builder')
+          const workflowId = builderIndex !== -1 && pathParts.length > builderIndex + 1 ? pathParts[builderIndex + 1] : null
+          
+          if (workflowId) {
+            console.log('🔍 [WorkflowBuilder] Attempting to load from persistence system:', {
+              workflowId,
+              nodeId,
+              nodeType: nodeToConfigure.data.type
+            });
+            
+            const savedNodeData = loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type)
+            if (savedNodeData && savedNodeData.config) {
+              console.log('✅ [WorkflowBuilder] Loaded configuration from persistence system:', savedNodeData.config);
+              config = savedNodeData.config
+            } else {
+              console.log('📋 [WorkflowBuilder] No saved configuration found in persistence system, using workflow store config');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load from persistence system:', error);
+          // Fall back to workflow store config
+        }
+      }
+      
+      setConfiguringNode({ id: nodeId, integration, nodeComponent, config })
     }
   }, [getNodes])
 
@@ -429,6 +461,23 @@ const useWorkflowBuilderState = () => {
         const providerId = nodeToRemove.data.providerId
         const nodeId = nodeToRemove.id
         
+        // Clear our enhanced config persistence data
+        if (currentWorkflow?.id && nodeId && nodeType) {
+          try {
+            console.log('🔄 [WorkflowBuilder] Clearing saved node config:', {
+              workflowId: currentWorkflow.id,
+              nodeId: nodeId,
+              nodeType: nodeType
+            });
+            
+            await clearNodeConfig(currentWorkflow.id, nodeId, nodeType)
+            
+            console.log('✅ [WorkflowBuilder] Node configuration cleared from persistence layer');
+          } catch (configError) {
+            console.error('❌ [WorkflowBuilder] Failed to clear node configuration from persistence layer:', configError);
+          }
+        }
+        
         if (nodeType && providerId) {
           
           // Since we can't easily identify which preferences belong to which node,
@@ -439,6 +488,7 @@ const useWorkflowBuilderState = () => {
           })
           
           if (response.ok) {
+            console.log('✅ [WorkflowBuilder] Node preferences cleared');
           } else {
             console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
           }
@@ -1108,9 +1158,9 @@ const useWorkflowBuilderState = () => {
     }
   }
 
-  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string }) => {
+  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string }): string | null => {
     const parentNode = getNodes().find((n) => n.id === sourceNodeInfo.parentId)
-    if (!parentNode) return
+    if (!parentNode) return null
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
@@ -1150,6 +1200,8 @@ const useWorkflowBuilderState = () => {
     ])
     setShowActionDialog(false); setSelectedIntegration(null); setSourceAddNode(null)
     setTimeout(() => fitView({ padding: 0.5 }), 100)
+    
+    return newNodeId // Return the new node ID so we can save its config to persistence
   }
 
   const handleSaveConfiguration = async (context: { id: string }, newConfig: Record<string, any>) => {
@@ -1178,7 +1230,7 @@ const useWorkflowBuilderState = () => {
       toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." });
     } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
       // Add action to workflow with configuration
-      addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
+      const newNodeId = addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
       
       // Auto-save the workflow to database after adding the new action
       // Wait for React state updates to flush before saving
@@ -1186,6 +1238,23 @@ const useWorkflowBuilderState = () => {
         try {
           await handleSave();
           console.log('✅ [WorkflowBuilder] New action saved to database automatically');
+          
+          // Now save node configuration to persistence system after workflow is in database
+          if (newNodeId && currentWorkflow?.id) {
+            try {
+              const nodeType = pendingNode.nodeComponent.type || 'unknown';
+              console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence after database save:', {
+                workflowId: currentWorkflow.id,
+                nodeId: newNodeId,
+                nodeType: nodeType
+              });
+              
+              await saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig);
+              console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully');
+            } catch (persistenceError) {
+              console.error('❌ [WorkflowBuilder] Failed to save new node configuration to persistence layer:', persistenceError);
+            }
+          }
         } catch (error) {
           console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
           toast({ 
@@ -1204,10 +1273,33 @@ const useWorkflowBuilderState = () => {
       console.log('✅ [WorkflowBuilder] Updating existing node configuration in local state');
       setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)));
       
-      // Also save to database immediately
+      // Save individual node configuration to persistent storage using our configPersistence system
+      if (currentWorkflow?.id && context.id) {
+        try {
+          // Determine node type from the node data
+          const currentNode = nodes.find(node => node.id === context.id)
+          const nodeType = currentNode?.data?.type || 'unknown'
+          
+          console.log('🔄 [WorkflowBuilder] Saving node configuration to persistence layer:', {
+            workflowId: currentWorkflow.id,
+            nodeId: context.id,
+            nodeType: nodeType
+          });
+          
+          // Save to our enhanced persistence system (Supabase + localStorage fallback)
+          await saveNodeConfig(currentWorkflow.id, context.id, nodeType, newConfig)
+          
+          console.log('✅ [WorkflowBuilder] Node configuration saved to persistence layer successfully');
+        } catch (persistenceError) {
+          console.error('❌ [WorkflowBuilder] Failed to save node configuration to persistence layer:', persistenceError);
+          // Don't show error toast here since we'll try the workflow save below
+        }
+      }
+      
+      // Also save to database immediately (as a backup and for workflow structure)
       setTimeout(async () => {
         try {
-          console.log('🔄 [WorkflowBuilder] Saving updated node configuration to database...');
+          console.log('🔄 [WorkflowBuilder] Saving updated workflow to database...');
           await handleSave();
           console.log('✅ [WorkflowBuilder] Existing node configuration saved to database successfully');
         } catch (error) {

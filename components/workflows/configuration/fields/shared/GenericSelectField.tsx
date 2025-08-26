@@ -78,7 +78,7 @@ export function GenericSelectField({
   // Single selection
   return (
     <Select 
-      value={value || ""} 
+      value={value ?? ""} 
       onValueChange={onChange}
       onOpenChange={handleFieldOpen}
     >

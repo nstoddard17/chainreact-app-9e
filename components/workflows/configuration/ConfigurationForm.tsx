@@ -21,6 +21,7 @@ import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence";
 
 /**
  * Component to render the configuration form based on node schema
@@ -62,17 +63,7 @@ export default function ConfigurationForm({
   const [discordClientId, setDiscordClientId] = useState<string | null>(null);
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
   const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
-  
-  // Function to get the current workflow ID from the URL
-  const getWorkflowId = useCallback(() => {
-    if (typeof window === "undefined") return "";
-    const pathParts = window.location.pathname.split('/');
-    const builderIndex = pathParts.indexOf('builder');
-    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
-      return pathParts[builderIndex + 1];
-    }
-    return "";
-  }, []);
+  const [isLoadingInitialConfig, setIsLoadingInitialConfig] = useState(false);
   
   // Form state management
   const {
@@ -127,6 +118,11 @@ export default function ConfigurationForm({
   const { updateNode, saveWorkflow, currentWorkflow } = useWorkflowStore();
   const discordIntegration = getIntegrationByProvider('discord');
   const needsDiscordConnection = nodeInfo?.providerId === 'discord' && !discordIntegration;
+
+  // Function to get the current workflow ID from the workflow store
+  const getWorkflowId = useCallback(() => {
+    return currentWorkflow?.id || "";
+  }, [currentWorkflow?.id]);
 
   // Function to check Discord bot status in server
   const checkBotStatus = useCallback(async (guildId: string) => {
@@ -521,69 +517,125 @@ export default function ConfigurationForm({
       initialDataValues: initialData
     });
     
-    // Prioritize initialData (passed from WorkflowBuilder) over currentWorkflow lookup
-    if (initialData && Object.keys(initialData).length > 0) {
-      console.log('📋 Loading configuration from initialData:', initialData);
+    // Async function to load configuration
+    const loadConfiguration = async () => {
+      console.log('🔄 [ConfigForm] Starting loadConfiguration function');
+      setIsLoadingInitialConfig(true); // Prevent field change handlers during load
       
-      // Apply saved configuration to form values
-      Object.entries(initialData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          setValue(key, value);
-        }
+      let configLoaded = false;
+      let configToUse = {};
+      
+      console.log('🔍 [ConfigForm] Checking conditions for persistence loading:', {
+        hasCurrentNodeId: !!currentNodeId,
+        hasNodeInfoType: !!nodeInfo?.type,
+        currentNodeId,
+        nodeType: nodeInfo?.type
       });
       
-      console.log('✅ Configuration loaded from initialData');
+      // First, try to load from persistence system (Supabase)
+      if (currentNodeId && nodeInfo?.type) {
+        const workflowId = getWorkflowId();
+        console.log('🔍 [ConfigForm] Got workflowId:', workflowId);
+        
+        if (workflowId) {
+          console.log('🔍 [ConfigForm] Calling loadNodeConfig with:', {
+            workflowId,
+            nodeId: currentNodeId,
+            nodeType: nodeInfo.type
+          });
+          
+          try {
+            // Try persistence system (async)
+            const savedNodeData = await loadNodeConfig(workflowId, currentNodeId, nodeInfo.type);
+            console.log('🔍 [ConfigForm] loadNodeConfig returned:', savedNodeData);
+            
+            if (savedNodeData) {
+              console.log('📋 [ConfigForm] Loading configuration from persistence system:', savedNodeData);
+              configLoaded = true;
+              configToUse = savedNodeData.config || {};
+              
+              // Apply saved configuration to form values
+              Object.entries(configToUse).forEach(([key, value]) => {
+                if (value !== undefined) {
+                  setValue(key, value);
+                }
+              });
+              
+              console.log('✅ [ConfigForm] Configuration loaded from persistence system');
+              
+              // If we have saved dynamic options, restore them
+              if (savedNodeData.dynamicOptions) {
+                console.log('📋 [ConfigForm] Found saved dynamic options for node');
+              }
+            } else {
+              console.log('🔍 [ConfigForm] No saved configuration found in persistence system');
+            }
+          } catch (error) {
+            console.error('❌ [ConfigForm] Error loading from persistence system:', error);
+          }
+        } else {
+          console.log('⚠️ [ConfigForm] No workflowId available');
+        }
+      } else {
+        console.log('⚠️ [ConfigForm] Missing required data for persistence loading');
+      }
       
-      // Load dependent options for Discord remove reaction actions
-      if (nodeInfo?.type === 'discord_action_remove_reaction') {
+      // Fallback to initialData if no saved configuration was found
+      if (!configLoaded && initialData && Object.keys(initialData).length > 0) {
+        console.log('📋 Loading configuration from initialData (fallback):', initialData);
+        configLoaded = true;
+        configToUse = initialData;
+        
+        // Apply initialData to form values
+        Object.entries(initialData).forEach(([key, value]) => {
+          if (value !== undefined) {
+            setValue(key, value);
+          }
+        });
+        
+        console.log('✅ Configuration loaded from initialData (fallback)');
+      }
+      
+      // If no configuration was loaded at all, log it
+      if (!configLoaded) {
+        console.log('⚠️ No configuration loaded - neither from persistence nor initialData');
+      }
+      
+      // Load dependent options for Discord actions if we loaded any config (silently in background)
+      if (configLoaded && nodeInfo?.providerId === 'discord') {
         // Use setTimeout to ensure the form values have been set before loading dependent options
         setTimeout(async () => {
           try {
-            const config = initialData as Record<string, any>;
+            const config = configToUse as Record<string, any>;
             
-            // Load channels if we have a guildId
+            // Load channels silently if we have a guildId
             if (config.guildId) {
-              console.log('🔄 Loading channels for saved guildId:', config.guildId);
-              await loadOptions('channelId', 'guildId', config.guildId);
+              console.log('🔄 Loading channels silently for saved guildId:', config.guildId);
+              await loadOptions('channelId', 'guildId', config.guildId, false, true); // silent=true
             }
             
-            // Load messages if we have both guildId and channelId
+            // Load messages silently if we have both guildId and channelId
             if (config.guildId && config.channelId) {
-              console.log('🔄 Loading messages for saved channelId:', config.channelId);
-              await loadOptions('messageId', 'channelId', config.channelId);
+              console.log('🔄 Loading messages silently for saved channelId:', config.channelId);
+              await loadOptions('messageId', 'channelId', config.channelId, false, true); // silent=true
             }
           } catch (error) {
             console.error('Failed to load dependent options for saved config:', error);
           }
         }, 100);
       }
-    } else if (currentNodeId && nodeInfo?.type && currentWorkflow) {
-      // Fallback to workflow node lookup if no initialData is provided
-      const currentNode = currentWorkflow.nodes.find(n => n.id === currentNodeId);
-      console.log('🔍 [ConfigForm] Fallback - Loading from workflow node:', currentNode?.data?.config);
       
-      if (currentNode?.data?.config) {
-        console.log('📋 Loading configuration from workflow node (fallback):', currentNodeId, currentNode.data.config);
-        
-        // Apply saved configuration to form values
-        Object.entries(currentNode.data.config).forEach(([key, value]) => {
-          if (value !== undefined) {
-            setValue(key, value);
-          }
-        });
-        
-        console.log('✅ Configuration loaded from database (fallback)');
-      } else {
-        console.log('📋 No saved configuration found for node:', currentNodeId);
-      }
-    } else {
-      console.log('🔍 [ConfigForm] No configuration data available:', {
-        hasInitialData: !!initialData,
-        hasCurrentNodeId: !!currentNodeId,
-        hasNodeType: !!nodeInfo?.type,
-        hasCurrentWorkflow: !!currentWorkflow
-      });
-    }
+      // Clear the loading flag after everything is done
+      setTimeout(() => {
+        setIsLoadingInitialConfig(false);
+        console.log('🔕 [ConfigForm] Initial configuration loading completed');
+      }, 200); // Small delay to ensure all setValue calls are processed
+    };
+    
+    // Execute the async loading function with error handling
+    loadConfiguration().catch(error => {
+      console.error('❌ [ConfigForm] Error in loadConfiguration:', error);
+    });
 
     // Initialize form values from config schema for any missing values
     nodeInfo.configSchema.forEach(field => {
@@ -1234,11 +1286,17 @@ export default function ConfigurationForm({
    * Handle field value changes
    */
   const handleFieldChange = useCallback((fieldName: string, value: any) => {
-    console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values });
+    console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig });
     console.log('🔍 Node info:', { type: nodeInfo?.type, providerId: nodeInfo?.providerId });
     
     // Update the form value
     setValue(fieldName, value);
+    
+    // Skip Discord logic if we're currently loading initial configuration
+    if (isLoadingInitialConfig) {
+      console.log('🔕 Skipping Discord logic - loading initial configuration');
+      return;
+    }
     
     // Special handling for Discord trigger fields
     if (nodeInfo?.providerId === 'discord') {
@@ -1436,7 +1494,7 @@ export default function ConfigurationForm({
     }
     
     // Don't auto-save configuration changes - let user save manually when they click Save or Listen
-  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, checkChannelBotStatus, checkBotInServer, currentNodeId, getWorkflowId, dynamicOptions, setShowPreviewData, setPreviewData, setSelectedRecord, setAirtableRecords, setLoadingRecords, loadAirtableRecords]);
+  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, checkChannelBotStatus, checkBotInServer, currentNodeId, getWorkflowId, dynamicOptions, setShowPreviewData, setPreviewData, setSelectedRecord, setAirtableRecords, setLoadingRecords, loadAirtableRecords, isLoadingInitialConfig]);
   
   /**
    * Handle record selection from the Airtable records table
@@ -2560,49 +2618,67 @@ export default function ConfigurationForm({
   }
 
   return (
-    <form onSubmit={async (e) => {
+    <form onSubmit={(e) => {
       e.preventDefault();
       
-      // Handle saving configuration for both existing and new/pending nodes
-      try {
-        console.log('🔄 [ConfigForm] Saving configuration:', { currentNodeId, values });
+      // Special handling for Airtable create/update record - restructure dynamic fields
+      let submissionValues = { ...values };
+      if (nodeInfo?.providerId === 'airtable' && (nodeInfo?.type === 'airtable_action_create_record' || nodeInfo?.type === 'airtable_action_update_record')) {
+
+        // Extract Airtable field values and structure them properly
+        const airtableFields: Record<string, any> = {};
+        const cleanedValues: Record<string, any> = {};
         
-        // Check if this is a new/pending node (hasn't been added to workflow yet)
-        const isPendingNode = currentNodeId === 'pending-action' || currentNodeId === 'pending-trigger';
+        Object.entries(values).forEach(([key, value]) => {
+          if (key.startsWith('airtable_field_')) {
+            // Extract the field name from the dynamic field
+            const fieldId = key.replace('airtable_field_', '');
+            
+            // Find the actual field definition to get the field name
+            const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
+              table.value === values.tableName
+            );
+            const fieldDef = selectedTable?.fields?.find((f: any) => f.id === fieldId);
+            
+            if (fieldDef && value !== undefined && value !== null && value !== '') {
+              airtableFields[fieldDef.name] = value;
+            }
+          } else {
+            // Keep non-Airtable fields as-is
+            cleanedValues[key] = value;
+          }
+        });
         
-        if (isPendingNode) {
-          // For new/pending nodes, use the original flow to add them to the workflow
-          console.log('🔄 [ConfigForm] Pending node detected, using original save flow');
-          const dataWithConfig = {
-            config: values
-          };
-          
-          if (onSubmit) {
-            onSubmit(dataWithConfig);
-          }
-        } else if (currentNodeId && currentWorkflow) {
-          // For existing nodes, update node config and save workflow before calling onSubmit
-          console.log('🔄 [ConfigForm] Existing node detected, updating node config and saving workflow');
-          
-          // Update the node's config in the workflow store
-          updateNode(currentNodeId, { config: values });
-          
-          // Save the workflow to Supabase with updated config
-          await saveWorkflow();
-          
-          const dataWithConfig = {
-            config: values
-          };
-          
-          if (onSubmit) {
-            onSubmit(dataWithConfig);
-          }
+        // Add the structured fields object if we have any fields
+        if (Object.keys(airtableFields).length > 0) {
+          cleanedValues.fields = airtableFields;
         }
-      } catch (error) {
-        console.error('❌ [ConfigForm] Failed to save configuration:', error);
-        // Don't close modal on error - let user retry
-        return;
+        
+        // For update record, add the recordId from the selected record
+        if (nodeInfo?.type === 'airtable_action_update_record' && selectedRecord) {
+          cleanedValues.recordId = selectedRecord.value;
+        }
+        
+        submissionValues = cleanedValues;
+        console.log(`🔍 Airtable ${nodeInfo.type} submission structured:`, {
+          original: values,
+          structured: submissionValues,
+          airtableFields
+        });
       }
+      
+      // Save configuration to persistent storage if we have a valid node ID
+      if (currentNodeId && nodeInfo?.type) {
+        const workflowId = getWorkflowId();
+        if (workflowId) {
+          console.log('📋 Saving configuration for node:', currentNodeId);
+          // Save both config and dynamicOptions
+          saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, submissionValues, dynamicOptions);
+        }
+      }
+      
+      // Submit with the properly structured values
+      onSubmit(submissionValues);
     }} className="h-full flex flex-col">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Show tabs only if we have advanced fields */}
