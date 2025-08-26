@@ -3,7 +3,7 @@
  */
 
 import { GoogleIntegration, GoogleCalendar, GoogleDataHandler } from '../types'
-import { validateGoogleIntegration, makeGoogleApiRequest } from '../utils'
+import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
 /**
  * Fetch Google Calendar calendars for the authenticated user
@@ -13,9 +13,10 @@ export const getGoogleCalendars: GoogleDataHandler<GoogleCalendar> = async (inte
     validateGoogleIntegration(integration)
     console.log("📅 [Google Calendar] Fetching calendars")
 
+    const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-      integration.access_token
+      accessToken
     )
 
     const data = await response.json()
