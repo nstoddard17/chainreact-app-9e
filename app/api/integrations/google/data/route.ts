@@ -14,10 +14,22 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {
   try {
-    const { integrationId, dataType, options = {} } = await req.json()
+    const requestBody = await req.json()
+    const { integrationId, dataType, options = {} } = requestBody
+
+    console.log(`🔍 [Google Data API] Request received:`, {
+      integrationId,
+      dataType,
+      options,
+      fullRequestBody: requestBody
+    })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
+      console.error(`❌ [Google Data API] Missing required parameters:`, {
+        integrationId,
+        dataType
+      })
       return NextResponse.json({
         error: 'Missing required parameters: integrationId and dataType'
       }, { status: 400 })

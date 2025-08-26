@@ -15,11 +15,13 @@ interface DataFetcher {
 
 // Add comprehensive error handling and fix API calls
 export async function POST(req: NextRequest) {
+  console.log('🚀 [SERVER] fetch-user-data API route called')
+  
   try {
     const body = await req.json();
     const { integrationId, dataType, options = {} } = body;
 
-    console.log('🔍 [SERVER] fetch-user-data API called:', { integrationId, dataType, options });
+    console.log('🔍 [SERVER] fetch-user-data request parsed:', { integrationId, dataType, options });
 
     if (!integrationId || !dataType) {
       console.log('❌ [SERVER] Missing required parameters');
@@ -318,36 +320,72 @@ export async function POST(req: NextRequest) {
       dataType === 'google-sheets_columns' ||
       dataType === 'google-sheets_enhanced-preview'
     )) {
-      console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType}`);
+      console.log(`🔄 [SERVER] Routing Google request to dedicated API:`, {
+        dataType,
+        integrationId,
+        provider: integration.provider,
+        status: integration.status,
+        options
+      });
       
       try {
         const baseUrl = req.nextUrl.origin
+        const requestPayload = {
+          integrationId,
+          dataType,
+          options
+        }
+        
+        console.log(`🚀 [SERVER] Making Google API request:`, requestPayload);
+        
         const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            integrationId,
-            dataType,
-            options
-          })
+          body: JSON.stringify(requestPayload)
+        });
+
+        console.log(`📡 [SERVER] Google API response:`, {
+          status: googleApiResponse.status,
+          statusText: googleApiResponse.statusText,
+          ok: googleApiResponse.ok,
+          headers: Object.fromEntries(googleApiResponse.headers.entries())
         });
 
         if (!googleApiResponse.ok) {
-          const error = await googleApiResponse.json();
-          console.error(`❌ [SERVER] Google API error:`, error);
+          let error;
+          try {
+            error = await googleApiResponse.json();
+          } catch (parseError) {
+            const errorText = await googleApiResponse.text().catch(() => 'Unknown error');
+            error = { error: `Failed to parse error response: ${errorText}` };
+          }
+          console.error(`❌ [SERVER] Google API error:`, {
+            status: googleApiResponse.status,
+            error,
+            requestPayload
+          });
           return Response.json(error, { status: googleApiResponse.status });
         }
 
         const googleResult = await googleApiResponse.json();
-        console.log(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
+        console.log(`✅ [SERVER] Google API completed for ${dataType}:`, {
+          resultLength: googleResult.data?.length || 'unknown',
+          success: googleResult.success,
+          hasData: !!googleResult.data
+        });
 
         // Return the Google API response directly (it's already in the correct format)
         return Response.json(googleResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Google API routing error:`, error);
+        console.error(`❌ [SERVER] Google API routing error:`, {
+          error: error.message,
+          stack: error.stack,
+          dataType,
+          integrationId
+        });
         return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
       }
     }
@@ -988,8 +1026,15 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: error.message || 'Internal server error' }, { status: 500 });
     }
   } catch (error: any) {
-    console.error('❌ [SERVER] Unexpected error in fetch-user-data:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('❌ [SERVER] Unexpected error in fetch-user-data:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return Response.json({ 
+      error: error.message || 'Internal server error',
+      type: 'server_error'
+    }, { status: 500 });
   }
 }
 
