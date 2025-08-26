@@ -324,7 +324,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         
         // Create new request
-        console.log(`🚀 [IntegrationStore] Starting new request for ${providerId}`)
+        console.log(`🚀 [IntegrationStore] Starting new request:`, {
+          providerId,
+          integrationId, 
+          params,
+          forceRefresh,
+          message: `Calling IntegrationService.loadIntegrationData with providerId: ${providerId}`
+        })
         const requestPromise = IntegrationService.loadIntegrationData(providerId, integrationId, params, forceRefresh)
         
         // Store the promise to prevent duplicate calls

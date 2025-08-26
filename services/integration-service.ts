@@ -219,6 +219,15 @@ export class IntegrationService {
       forceRefresh,
     }
 
+    console.log(`🔍 [Integration Service] Loading data:`, {
+      providerId,
+      integrationId,
+      params,
+      forceRefresh,
+      requestBody,
+      message: `About to make API call with dataType: ${providerId}`
+    })
+
 
     const response = await fetch(url, {
       method: "POST",
@@ -230,22 +239,47 @@ export class IntegrationService {
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
+      const status = response.status
+      const statusText = response.statusText
+      
+      console.error(`❌ [Integration Service] HTTP error: ${status} ${statusText}`, {
+        status,
+        statusText,
+        providerId,
+        integrationId,
+        requestBody,
+        url
+      })
+
+      if (status === 401) {
         throw new Error("Authentication expired. Please log in again.")
-      } else if (response.status === 403) {
+      } else if (status === 403) {
         throw new Error("Access denied for this integration.")
-      } else if (response.status === 404) {
+      } else if (status === 404) {
         throw new Error("Integration not found or data not available.")
       }
       
+      // Try to read the error response
+      let errorMessage = `Failed to load ${providerId} data: ${status} ${statusText}`
+      
       try {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to load ${providerId} data`)
-      } catch (jsonError) {
-        // If we can't parse the error response as JSON, get the text instead
-        const errorText = await response.text().catch(() => 'Unknown error')
-        throw new Error(`Failed to load ${providerId} data: ${response.status} ${errorText}`)
+        const errorText = await response.text()
+        console.error(`❌ [Integration Service] Error response:`, errorText)
+        
+        if (errorText) {
+          try {
+            const errorData = JSON.parse(errorText)
+            errorMessage = errorData.error || errorData.message || errorMessage
+          } catch {
+            // Not JSON, use the text as is
+            errorMessage = errorText.length > 200 ? errorText.substring(0, 200) + '...' : errorText
+          }
+        }
+      } catch (readError) {
+        console.error(`❌ [Integration Service] Could not read error response:`, readError)
       }
+      
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
