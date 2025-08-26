@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "./types/database.types"
 
 // Use existing environment variables
 const supabaseUrl = process.env.SUPABASE_URL
@@ -8,8 +9,8 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error("Missing required Supabase environment variables")
 }
 
-// Export the db client as a named export
-export const db = createClient(supabaseUrl, supabaseServiceKey, {
+// Export the db client as a named export with proper typing
+export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
