@@ -15,13 +15,11 @@ export async function createAirtableRecord(
 
     const baseId = resolveValue(config.baseId, input)
     const tableName = resolveValue(config.tableName, input)
-    const status = resolveValue(config.status, input)
     const fields = config.fields || {}
 
     console.log("Resolved create record values:", { 
       baseId, 
       tableName, 
-      status,
       fields: Object.keys(fields)
     })
 
@@ -42,13 +40,6 @@ export async function createAirtableRecord(
         resolvedFields[fieldName] = resolveValue(fieldValue, input)
       }
     }
-    
-    // Add status field if provided
-    if (status) {
-      resolvedFields.Status = status
-    }
-    
-
 
     console.log("Resolved field values:", resolvedFields)
 
@@ -82,8 +73,7 @@ export async function createAirtableRecord(
         fields: result.fields,
         createdTime: result.createdTime,
         tableName: tableName,
-        baseId: baseId,
-        status: status,
+        baseId: baseId
       },
       message: `Successfully created record in ${tableName}`
     }
