@@ -37,7 +37,8 @@ export const getAirtableTables: AirtableDataHandler<AirtableTable> = async (inte
     
     const tables = await parseAirtableApiResponse<AirtableTable>(response)
     
-    console.log(`✅ Airtable tables fetched successfully: ${tables.length} tables`)
+    console.log(`✅ Airtable tables fetched successfully: ${tables.length} tables from base "${baseId}"`)
+    console.log(`🔍 Available tables:`, tables.map(t => ({ id: t.id, name: t.name })))
     return tables
     
   } catch (error: any) {

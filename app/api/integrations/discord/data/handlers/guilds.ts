@@ -29,29 +29,22 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
     try {
       console.log('🔍 Trying to fetch guild channels...');
       
-      const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const channels = await fetchDiscordWithRateLimit<any[]>(() =>
+        fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+          headers: {
+            'Authorization': `Bot ${botToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      );
       
-      channelsStatus = channelsResponse.status;
-      console.log('🔍 Channels API response status:', channelsStatus);
+      console.log('🔍 Successfully fetched channels:', channels.length, 'channels found');
       
-      if (channelsResponse.ok) {
-        const channels = await channelsResponse.json();
-        console.log('🔍 Successfully fetched channels:', channels.length, 'channels found');
-        
-        // Bot can access channels, so it's in the guild with proper permissions
-        return {
-          isInGuild: true,
-          hasPermissions: true
-        };
-      } else if (channelsResponse.status === 403) {
-        console.log('🔍 403 error - could be bot not in guild or missing permissions, checking membership...');
-        // Don't assume bot is in guild on 403 - need to check membership first
-      }
+      // Bot can access channels, so it's in the guild with proper permissions
+      return {
+        isInGuild: true,
+        hasPermissions: true
+      };
     } catch (outerError) {
       console.log('🔍 Outer channels check failed, trying member check...');
     }
@@ -59,55 +52,48 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
     // Fallback to member check
     console.log('🔍 Trying to check bot membership...');
     
-    const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
-      headers: {
-        'Authorization': `Bot ${botToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    console.log('🔍 Member API response status:', memberResponse.status);
-
-    if (memberResponse.ok) {
+    try {
+      const memberData = await fetchDiscordWithRateLimit<any>(() =>
+        fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
+          headers: {
+            'Authorization': `Bot ${botToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      );
+      
       console.log('🔍 Bot is a member of the guild');
-      // Bot is in the guild - now check if we had a 403 on channels earlier
-      if (channelsStatus === 403) {
-        console.log('🔍 Bot is in guild but lacks channel view permissions');
+      // Bot is in the guild and we have member data
+      return {
+        isInGuild: true,
+        hasPermissions: true
+      };
+    } catch (memberError: any) {
+      console.log('🔍 Member check failed:', memberError.message);
+      
+      // Parse error to determine the issue
+      if (memberError.status === 404) {
+        console.log('🔍 Bot is not a member of the guild');
         return {
-          isInGuild: true,
+          isInGuild: false,
           hasPermissions: false,
-          error: "Bot in guild but missing channel permissions"
+          error: "Bot not added to this server"
+        };
+      } else if (memberError.status === 403) {
+        console.log('🔍 Bot lacks permissions to check membership - probably not in guild');
+        return {
+          isInGuild: false,
+          hasPermissions: false,
+          error: "Bot not in server or missing permissions"
         };
       } else {
-        // Bot is in guild and should have permissions (channels check would have succeeded if it had proper perms)
+        console.log('🔍 Unknown error checking bot status');
         return {
-          isInGuild: true,
-          hasPermissions: true
+          isInGuild: false,
+          hasPermissions: false,
+          error: `Discord API error: ${memberError.status || 'unknown'}`
         };
       }
-    } else if (memberResponse.status === 404) {
-      console.log('🔍 Bot is not a member of the guild');
-      // Bot is not in the guild
-      return {
-        isInGuild: false,
-        hasPermissions: false,
-        error: "Bot not added to this server"
-      };
-    } else if (memberResponse.status === 403) {
-      console.log('🔍 Bot lacks permissions to check membership - probably not in guild');
-      // Bot doesn't have permission to check membership, likely not in guild
-      return {
-        isInGuild: false,
-        hasPermissions: false,
-        error: "Bot not in server or missing permissions"
-      };
-    } else {
-      console.log('🔍 Unknown error checking bot status');
-      return {
-        isInGuild: false,
-        hasPermissions: false,
-        error: `Discord API error: ${memberResponse.status}`
-      };
     }
   } catch (error: any) {
     console.error('Error verifying bot in guild:', error);
@@ -167,19 +153,24 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
       }));
     }
 
-    // Make bot status checking non-blocking with timeout
+    // Make bot status checking less aggressive to avoid rate limits
     try {
-      // Set a reasonable timeout for bot status checking (10 seconds total)
+      console.log(`🔍 [Discord Guilds] Checking bot status for ${Math.min(guilds.length, 3)} guilds (rate limit protection)`);
+      
+      // Only check bot status for the first few guilds to avoid rate limits
+      const guildsToCheck = guilds.slice(0, 3); // Only check first 3 guilds
+      const remainingGuilds = guilds.slice(3);
+      
       const botStatusPromise = Promise.allSettled(
-        guilds.map(async (guild, index) => {
-          // Add a small delay between requests to avoid rate limiting
+        guildsToCheck.map(async (guild, index) => {
+          // Spread out requests more to avoid rate limits
           if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Reduced delay
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between requests
           }
           
-          // Set timeout for individual bot checks (2 seconds each)
+          // Set timeout for individual bot checks (5 seconds each)
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Bot check timeout')), 2000)
+            setTimeout(() => reject(new Error('Bot check timeout')), 5000)
           );
           
           const botCheckPromise = verifyBotInGuild(guild.id);
@@ -192,9 +183,9 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
               hasPermissions: botStatus.hasPermissions,
               botError: botStatus.error
             };
-          } catch (error) {
+          } catch (error: any) {
             // If bot check fails or times out, return guild without bot status
-            console.warn(`🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`, error.message);
+            console.warn(`🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`, error?.message || 'Unknown error');
             return {
               ...guild,
               botInGuild: undefined, // undefined means we couldn't check
@@ -205,41 +196,57 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
         })
       );
 
-      // Set overall timeout for all bot checks (10 seconds)
+      // Set overall timeout for bot checks (15 seconds for fewer guilds)
       const overallTimeout = new Promise((resolve) => 
         setTimeout(() => {
           console.warn(`🔍 [Discord Guilds] Bot status checking timed out, returning guilds without full bot status`);
-          resolve(guilds.map(guild => ({
+          resolve([...guildsToCheck.map(guild => ({
             ...guild,
             botInGuild: undefined,
             hasPermissions: false,
             botError: "Bot status check timed out"
-          })));
-        }, 10000)
+          })), ...remainingGuilds.map(guild => ({
+            ...guild,
+            botInGuild: undefined,
+            hasPermissions: false,
+            botError: "Bot status not checked (rate limit protection)"
+          }))]);
+        }, 15000)
       );
 
-      const guildsWithBotStatus = await Promise.race([botStatusPromise, overallTimeout]);
+      const checkedGuildsResult = await Promise.race([botStatusPromise, overallTimeout]);
 
-      // If we got the actual results, process them
+      // Process the results and combine with unchecked guilds
       let processedGuilds;
-      if (Array.isArray(guildsWithBotStatus) && guildsWithBotStatus[0]?.status) {
+      if (Array.isArray(checkedGuildsResult) && checkedGuildsResult[0]?.status) {
         // This is from Promise.allSettled
-        processedGuilds = guildsWithBotStatus.map((result, index) => {
+        const checkedGuilds = checkedGuildsResult.map((result, index) => {
           if (result.status === 'fulfilled') {
             return result.value;
           } else {
-            console.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guilds[index]?.name}:`, result.reason);
+            console.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`, result.reason);
             return {
-              ...guilds[index],
+              ...guildsToCheck[index],
               botInGuild: undefined,
               hasPermissions: false,
               botError: "Failed to check bot status"
             };
           }
         });
+        
+        // Add remaining guilds that weren't checked
+        processedGuilds = [
+          ...checkedGuilds,
+          ...remainingGuilds.map(guild => ({
+            ...guild,
+            botInGuild: undefined,
+            hasPermissions: false,
+            botError: "Bot status not checked (rate limit protection)"
+          }))
+        ];
       } else {
         // This is from the timeout fallback
-        processedGuilds = guildsWithBotStatus;
+        processedGuilds = checkedGuildsResult;
       }
 
       console.log(`🔍 [Discord Guilds] Bot status check complete:`, {

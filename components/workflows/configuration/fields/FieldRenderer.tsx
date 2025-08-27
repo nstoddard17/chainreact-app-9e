@@ -13,7 +13,6 @@ import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, 
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
-import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
 import { Card, CardContent } from "@/components/ui/card";
@@ -297,7 +296,6 @@ export function FieldRenderer({
               options={selectOptions}
               isLoading={loadingDynamic}
               onDynamicLoad={onDynamicLoad}
-              dynamicOptions={dynamicOptions}
             />
           );
         }
@@ -374,23 +372,75 @@ export function FieldRenderer({
         );
 
       case "date":
-        // Safely parse date value
+        // Safely parse date value for HTML date input
         const dateValue = useMemo(() => {
-          if (!value) return undefined;
+          if (!value) return '';
           const date = new Date(value);
-          return isNaN(date.getTime()) ? undefined : date;
+          return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
         }, [value]);
         
+        const handleDateChange = (dateString: string) => {
+          onChange(dateString ? new Date(dateString).toISOString() : null);
+        };
+        
         return (
-          <DatePicker
+          <input
+            type="date"
             value={dateValue}
-            onChange={handleDateChange}
+            onChange={(e) => handleDateChange(e.target.value)}
             placeholder={field.placeholder || "Select date..."}
             className={cn(
-              "w-auto max-w-[200px]",
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-auto max-w-[200px]",
               error && "border-red-500"
             )}
           />
+        );
+
+      case "daterange":
+        // Handle date range value with standard HTML date inputs
+        const dateRangeValue = useMemo(() => {
+          if (!value) return { from: '', to: '' };
+          if (typeof value === 'object' && value.from && value.to) {
+            return {
+              from: new Date(value.from).toISOString().split('T')[0],
+              to: new Date(value.to).toISOString().split('T')[0]
+            };
+          }
+          return { from: '', to: '' };
+        }, [value]);
+
+        const handleDateRangeChange = (field: 'from' | 'to', dateString: string) => {
+          const newRange = { ...dateRangeValue, [field]: dateString };
+          onChange({
+            from: newRange.from ? new Date(newRange.from).toISOString() : null,
+            to: newRange.to ? new Date(newRange.to).toISOString() : null
+          });
+        };
+
+        return (
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateRangeValue.from}
+              onChange={(e) => handleDateRangeChange('from', e.target.value)}
+              placeholder="From date..."
+              className={cn(
+                "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-[140px]",
+                error && "border-red-500"
+              )}
+            />
+            <span className="text-slate-500">to</span>
+            <input
+              type="date"
+              value={dateRangeValue.to}
+              onChange={(e) => handleDateRangeChange('to', e.target.value)}
+              placeholder="To date..."
+              className={cn(
+                "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-[140px]",
+                error && "border-red-500"
+              )}
+            />
+          </div>
         );
 
       case "time":

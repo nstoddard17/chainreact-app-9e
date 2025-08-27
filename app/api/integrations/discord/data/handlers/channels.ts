@@ -31,9 +31,7 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
     let data: any[] = []
     
     try {
-      // Add a delay before fetching channels to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      // Use improved rate limiting (no manual delays needed)
       data = await fetchDiscordWithRateLimit<any[]>(() => 
         fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
           headers: {

@@ -44,7 +44,13 @@ export function GenericSelectField({
   const processedOptions = processOptions(options);
 
   // Show loading state for dynamic fields
-  if (field.dynamic && isLoading && processedOptions.length === 0) {
+  // For Airtable filterValue field, always show loading when isLoading is true
+  // For other fields, only show loading when there are no options
+  const shouldShowLoading = field.dynamic && isLoading && (
+    field.name === 'filterValue' || processedOptions.length === 0
+  );
+  
+  if (shouldShowLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>

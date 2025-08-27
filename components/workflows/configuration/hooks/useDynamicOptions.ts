@@ -3,12 +3,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore'
+import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore'
 import { DynamicOptionsState } from '../utils/types';
 
 interface UseDynamicOptionsProps {
   nodeType?: string;
   providerId?: string;
   onLoadingChange?: (fieldName: string, isLoading: boolean) => void;
+  getFormValues?: () => Record<string, any>;
 }
 
 interface DynamicOption {
@@ -21,7 +23,7 @@ interface DynamicOption {
 /**
  * Custom hook for managing dynamic field options
  */
-export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: UseDynamicOptionsProps) => {
+export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFormValues }: UseDynamicOptionsProps) => {
   // Store callback in ref to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   onLoadingChangeRef.current = onLoadingChange;
@@ -33,8 +35,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData } = useIntegrationStore();
   
-  // Simple loading prevention
+  // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());
+  const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
   
   // Cache key generator
   const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
@@ -50,11 +53,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
     }));
   }, []);
   
-  // Load options for a dynamic field
-  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => {
+  // Load options for a dynamic field with request deduplication
+  const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
     // Add specific logging for troubleshooting
     if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
-      console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, timestamp: new Date().toISOString() });
+      console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, silent, timestamp: new Date().toISOString() });
     }
     
     if (!nodeType || !providerId) return;
@@ -67,6 +70,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
     
     // Create a cache key that includes dependencies
     const cacheKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
+    
+    // Check if there's already an active request for this exact field/dependency combination
+    const activeRequestKey = cacheKey;
+    if (!forceRefresh && activeRequests.current.has(activeRequestKey)) {
+      console.log('🔄 [loadOptions] Waiting for existing request:', { fieldName, cacheKey });
+      try {
+        await activeRequests.current.get(activeRequestKey);
+        return; // Data should now be available
+      } catch (error) {
+        console.error('🔄 [loadOptions] Existing request failed:', error);
+        // Continue with new request
+      }
+    }
     
     // Prevent duplicate calls for the same field (unless forcing refresh)
     if (!forceRefresh && loadingFields.current.has(cacheKey)) {
@@ -102,25 +118,30 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
       });
       return;
     }
-    // Only set loading states if not in silent mode
-    if (!silent) {
-      loadingFields.current.add(cacheKey);
-      setLoading(true);
-      
-      // Enhanced logging for channelId loading state
-      if (fieldName === 'channelId') {
-        console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
+    // Determine data to load based on field name (moved outside try block for error handling)
+    const resourceType = getResourceTypeForField(fieldName, nodeType);
+    
+    // Create and store the loading promise to prevent duplicate requests
+    const loadingPromise = (async () => {
+      // Only set loading states if not in silent mode
+      if (!silent) {
+        loadingFields.current.add(cacheKey);
+        setLoading(true);
+        
+        // Enhanced logging for channelId loading state
+        if (fieldName === 'channelId') {
+          console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
+        }
+        
+        onLoadingChangeRef.current?.(fieldName, true);
+      } else {
+        // Silent mode - just log that we're loading silently
+        if (fieldName === 'channelId') {
+          console.log('🔕 [loadOptions] Loading channelId silently:', { cacheKey, timestamp: new Date().toISOString() });
+        }
       }
-      
-      onLoadingChangeRef.current?.(fieldName, true);
-    } else {
-      // Silent mode - just log that we're loading silently
-      if (fieldName === 'channelId') {
-        console.log('🔕 [loadOptions] Loading channelId silently:', { cacheKey, timestamp: new Date().toISOString() });
-      }
-    }
 
-    try {
+      try {
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
         try {
@@ -177,6 +198,79 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
         return;
       }
 
+      // Special handling for Discord channels using cache store
+      if (fieldName === 'channelId' && providerId === 'discord') {
+        if (!dependsOnValue) {
+          console.log('🔍 Discord channels require guildId - no guild selected');
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+          return;
+        }
+
+        console.log('🔍 [loadOptions] Loading Discord channels from cache for guild:', dependsOnValue);
+        
+        try {
+          const channels = await loadDiscordChannelsOnce(dependsOnValue, forceRefresh || false);
+          
+          if (!channels || channels.length === 0) {
+            console.warn('⚠️ No Discord channels found for guild:', dependsOnValue);
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            return;
+          }
+          
+          const formattedOptions = channels
+            .filter(channel => channel && (channel.id))
+            .sort((a, b) => {
+              // Sort by position first
+              if (a.position !== undefined && b.position !== undefined) {
+                return a.position - b.position;
+              }
+              
+              // Default to alphabetical
+              const aName = a.name || a.id;
+              const bName = b.name || b.id;
+              return aName.localeCompare(bName);
+            })
+            .map(channel => ({
+              value: channel.id,
+              label: channel.name,
+              type: channel.type,
+              position: channel.position,
+            }));
+          
+          console.log('✅ [loadOptions] Loaded', formattedOptions.length, 'Discord channels for guild', dependsOnValue);
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: formattedOptions
+          }));
+        } catch (error: any) {
+          console.error('❌ [loadOptions] Error loading Discord channels for guild', dependsOnValue, ':', error);
+          
+          // If this is an authentication error, we might need to refresh integration state
+          if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+            console.log('🔄 Discord authentication error detected, refreshing integration state');
+            try {
+              const { useIntegrationStore } = await import('@/stores/integrationStore');
+              useIntegrationStore.getState().fetchIntegrations(true);
+            } catch (refreshError) {
+              console.warn('Failed to refresh integration state:', refreshError);
+            }
+          }
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+        }
+        return;
+      }
+
       // Get integration for other providers
       const integration = getIntegrationByProvider(providerId);
       if (!integration) {
@@ -186,9 +280,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
         return;
       }
 
-      // Determine data to load based on field name
-      const resourceType = getResourceTypeForField(fieldName, nodeType);
-      
       console.log(`🔍 [useDynamicOptions] Mapping debug:`, {
         fieldName,
         nodeType,
@@ -217,7 +308,204 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
         console.log('🔍 [useDynamicOptions] Skipping sheets load - no spreadsheet selected');
         return;
       }
+      
+      // For Airtable fields, use records approach instead of schema API
+      if (fieldName === 'filterField' && resourceType === 'airtable_fields') {
+        if (!dependsOnValue) {
+          console.log('🔍 [useDynamicOptions] Skipping airtable fields load - no table selected');
+          return;
+        }
+        // Get baseId from extraOptions first (passed explicitly), then form values
+        let baseId = extraOptions?.baseId;
+        if (!baseId) {
+          const formValues = getFormValues?.() || {};
+          baseId = formValues.baseId;
+        }
+        if (!baseId) {
+          console.log('🔍 [useDynamicOptions] Skipping airtable fields load - no baseId available');
+          return;
+        }
+        
+        console.log('🔍 [useDynamicOptions] Loading airtable fields from records with:', { baseId, tableName: dependsOnValue });
+        
+        // Use the same approach as preview records to get field names
+        try {
+          const recordsResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              dataType: 'airtable_records',
+              options: {
+                baseId,
+                tableName: dependsOnValue,
+                maxRecords: 5 // Just need a few records to get field names
+              }
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+
+          if (!recordsResponse.ok) {
+            const errorData = await recordsResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to load records: ${recordsResponse.status}`);
+          }
+
+          const recordsResult = await recordsResponse.json();
+          const records = recordsResult.data || [];
+          
+          console.log('🔍 [useDynamicOptions] Records loaded for field extraction:', records.length);
+          
+          // Extract field names from the first record
+          const fieldNames = records.length > 0 ? Object.keys(records[0]?.fields || {}) : [];
+          
+          console.log('🔍 [useDynamicOptions] Extracted field names:', fieldNames);
+          
+          // Format as field options
+          const fieldOptions = fieldNames.map(name => ({
+            value: name,
+            label: name,
+            type: 'text', // We don't have type info from records, so default to text
+            id: name
+          }));
+          
+          console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: fieldOptions.length });
+          
+          const formattedOptions = formatOptionsForField(fieldName, fieldOptions);
+          const updateObject = { [fieldName]: formattedOptions };
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            ...updateObject
+          }));
+          
+          return; // Skip the normal loadIntegrationData call
+        } catch (error: any) {
+          console.error('❌ [useDynamicOptions] Failed to load fields from records:', error);
+          throw error; // Re-throw to be caught by the outer catch block
+        }
+      }
+      
+      // For Airtable field values, use records approach to get unique field values
+      if (fieldName === 'filterValue' && resourceType === 'airtable_field_values') {
+        if (!dependsOnValue) {
+          console.log('🔍 [useDynamicOptions] Skipping airtable field values load - no field selected');
+          return;
+        }
+        
+        // Get baseId and tableName from extraOptions first (passed explicitly), then form values
+        let baseId = extraOptions?.baseId;
+        let tableName = extraOptions?.tableName;
+        
+        if (!baseId || !tableName) {
+          const formValues = getFormValues?.() || {};
+          baseId = baseId || formValues.baseId;
+          tableName = tableName || formValues.tableName;
+        }
+        
+        if (!baseId || !tableName) {
+          console.log('🔍 [useDynamicOptions] Skipping airtable field values load - missing baseId or tableName', {
+            hasBaseId: !!baseId,
+            hasTableName: !!tableName,
+            extraOptions,
+            formValues: getFormValues?.()
+          });
+          return;
+        }
+        
+        console.log('🔍 [useDynamicOptions] Loading airtable field values from records with:', { 
+          baseId, 
+          tableName, 
+          filterField: dependsOnValue 
+        });
+        
+        // Use the same approach as preview records to get field values
+        try {
+          const recordsResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              dataType: 'airtable_records',
+              options: {
+                baseId,
+                tableName,
+                maxRecords: 100 // Get more records to capture more unique values
+              }
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+
+          if (!recordsResponse.ok) {
+            const errorData = await recordsResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to load records for field values: ${recordsResponse.status}`);
+          }
+
+          const recordsResult = await recordsResponse.json();
+          const records = recordsResult.data || [];
+          
+          console.log('🔍 [useDynamicOptions] Records loaded for field values extraction:', records.length);
+          
+          // Extract unique values from the selected field
+          const fieldValues = new Set<string>();
+          
+          records.forEach(record => {
+            const value = record.fields?.[dependsOnValue];
+            if (value != null) {
+              // Handle different field types
+              if (Array.isArray(value)) {
+                // Multi-select or linked records - add each item
+                value.forEach(item => {
+                  if (typeof item === 'string') {
+                    fieldValues.add(item);
+                  } else if (typeof item === 'object' && item.name) {
+                    fieldValues.add(item.name); // For linked records
+                  } else {
+                    fieldValues.add(String(item));
+                  }
+                });
+              } else if (typeof value === 'object' && value.name) {
+                // Single linked record
+                fieldValues.add(value.name);
+              } else {
+                // Simple field types (text, number, etc.)
+                fieldValues.add(String(value));
+              }
+            }
+          });
+          
+          console.log('🔍 [useDynamicOptions] Extracted unique field values:', Array.from(fieldValues));
+          
+          // Format as field value options
+          const valueOptions = Array.from(fieldValues)
+            .sort() // Sort alphabetically
+            .map(value => ({
+              value: value,
+              label: value
+            }));
+          
+          console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: valueOptions.length });
+          
+          const formattedOptions = formatOptionsForField(fieldName, valueOptions);
+          const updateObject = { [fieldName]: formattedOptions };
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            ...updateObject
+          }));
+          
+          return; // Skip the normal loadIntegrationData call
+        } catch (error: any) {
+          console.error('❌ [useDynamicOptions] Failed to load field values from records:', error);
+          throw error; // Re-throw to be caught by the outer catch block
+        }
+      }
+      console.log('🚀 [useDynamicOptions] Calling loadIntegrationData...');
       const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
+      console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: result?.data?.length || 'unknown', result });
       
       // Format the results - extract data array from response object if needed
       const dataArray = result.data || result;
@@ -242,30 +530,48 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
         ...updateObject
       }));
       
-    } catch (error) {
-      console.error(`Failed to load options for ${fieldName}:`, error);
+    } catch (error: any) {
+      console.error(`❌ [useDynamicOptions] Failed to load options for ${fieldName}:`, {
+        fieldName,
+        resourceType,
+        integrationId: integration?.id,
+        options,
+        error: error.message,
+        stack: error.stack
+      });
       setDynamicOptions(prev => ({
         ...prev,
         [fieldName]: []
       }));
-    } finally {
-      loadingFields.current.delete(cacheKey);
-      setLoading(false);
-      
-      // Only clear loading states if not in silent mode
-      if (!silent) {
-        // Enhanced logging for channelId loading state
-        if (fieldName === 'channelId') {
-          console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
-        }
+      } finally {
+        loadingFields.current.delete(cacheKey);
+        setLoading(false);
         
-        onLoadingChangeRef.current?.(fieldName, false);
-      } else {
-        // Silent mode - just log completion
-        if (fieldName === 'channelId') {
-          console.log('🔕 [loadOptions] Completed channelId loading silently:', { cacheKey, timestamp: new Date().toISOString() });
+        // Only clear loading states if not in silent mode
+        if (!silent) {
+          // Enhanced logging for channelId loading state
+          if (fieldName === 'channelId') {
+            console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
+          }
+          
+          onLoadingChangeRef.current?.(fieldName, false);
+        } else {
+          // Silent mode - just log completion
+          if (fieldName === 'channelId') {
+            console.log('🔕 [loadOptions] Completed channelId loading silently:', { cacheKey, timestamp: new Date().toISOString() });
+          }
         }
       }
+    })();
+    
+    // Store the promise to prevent duplicate requests
+    activeRequests.current.set(activeRequestKey, loadingPromise);
+    
+    try {
+      await loadingPromise;
+    } finally {
+      // Clean up the request tracking
+      activeRequests.current.delete(activeRequestKey);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
   
@@ -273,6 +579,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange }: Use
   useEffect(() => {
     setDynamicOptions({});
     loadingFields.current.clear();
+    activeRequests.current.clear();
     setLoading(false);
   }, [nodeType, providerId]);
 
@@ -517,6 +824,8 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     airtable_action_list_records: {
       baseId: "airtable_bases",
       tableName: "airtable_tables",
+      filterField: "airtable_fields",
+      filterValue: "airtable_field_values"
     },
     // Microsoft Outlook fields
     "microsoft-outlook_action_send_email": {
@@ -680,6 +989,21 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
       return data.map((item: any) => ({
         value: item.value || item.name || item.id,
         label: item.name || item.label || item.value || item.id,
+      }));
+      
+    case "filterField":
+      return data.map((item: any) => ({
+        value: item.value || item.name,
+        label: item.label || item.name,
+        type: item.type,
+        id: item.id
+      }));
+      
+    case "filterValue":
+      return data.map((item: any) => ({
+        value: item.value,
+        label: item.label + (item.count ? ` (${item.count})` : ''),
+        count: item.count
       }));
       
     // Default format for other fields

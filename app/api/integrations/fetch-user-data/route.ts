@@ -699,7 +699,10 @@ export async function POST(req: NextRequest) {
       dataType === 'airtable_user_records' ||
       dataType === 'airtable_feedback_records' ||
       dataType === 'airtable_task_records' ||
-      dataType === 'airtable_project_records'
+      dataType === 'airtable_project_records' ||
+      dataType === 'airtable_fields' ||
+      dataType === 'airtable_field_values' ||
+      dataType === 'airtable_records'
     )) {
       console.log(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
       
