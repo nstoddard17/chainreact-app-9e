@@ -128,14 +128,26 @@ export function Combobox({
     }
   }, [open])
   
-  // Fix selectedOption logic
-  const selectedOption = localOptions.find((option) => option.value === value);
+  // Fix selectedOption logic - check if value exists in options or is a custom value
+  const selectedOption = localOptions.find((option) => option.value === value) || 
+    (value && creatable ? { value, label: value } : null);
 
   const handleSelect = (currentValue: string) => {
-    const newValue = currentValue === value ? "" : currentValue
-    onChange(newValue)
+    // Allow clearing when empty string is passed
+    if (currentValue === "") {
+      onChange("")
+    } else {
+      const newValue = currentValue === value ? "" : currentValue
+      onChange(newValue)
+    }
     setInputValue("")
     setOpen(false)
+  }
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onChange("")
+    setInputValue("")
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,8 +197,18 @@ export function Combobox({
           className="w-full justify-between"
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : value || placeholder || "Select option..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <span className="flex-1 text-left truncate">
+            {selectedOption ? selectedOption.label : value || placeholder || "Select option..."}
+          </span>
+          <div className="flex items-center gap-1">
+            {value && !disabled && (
+              <X 
+                className="h-4 w-4 opacity-50 hover:opacity-100 transition-opacity" 
+                onClick={handleClear}
+              />
+            )}
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
@@ -208,6 +230,18 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
+              {/* Add clear option at the top if there's a value */}
+              {value && (
+                <CommandItem
+                  key="clear-selection"
+                  value="__clear__"
+                  onSelect={() => handleSelect("")}
+                  className="border-b mb-1"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  <span className="text-muted-foreground">Clear selection</span>
+                </CommandItem>
+              )}
               {filteredOptions.map((option, index) => (
                 <CommandItem
                   key={`${index}-${option.value || 'undefined'}`}
@@ -289,6 +323,11 @@ export function MultiCombobox({
 
   const handleRemove = (valueToRemove: string) => {
     onChange(value.filter((v) => v !== valueToRemove))
+  }
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onChange([])
   }
 
   const handleCommandInputChange = (search: string) => {
@@ -377,7 +416,16 @@ export function MultiCombobox({
               <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center gap-1">
+            {selectedOptions.length > 0 && !disabled && (
+              <X 
+                className="h-4 w-4 opacity-50 hover:opacity-100 transition-opacity" 
+                onClick={handleClearAll}
+                title="Clear all"
+              />
+            )}
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">

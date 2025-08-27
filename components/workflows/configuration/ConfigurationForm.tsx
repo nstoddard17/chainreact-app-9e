@@ -3,8 +3,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye } from "lucide-react";
+import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye, Database } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
+import { AIFieldWrapper } from "./fields/AIFieldWrapper";
 import { DiscordReactionRemover } from "./fields/discord/DiscordReactionRemover";
 import { DiscordReactionSelector } from "./fields/discord/DiscordReactionSelector";
 import { useFormState } from "./hooks/useFormState";
@@ -143,6 +144,7 @@ export default function ConfigurationForm({
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [airtableRecords, setAirtableRecords] = useState<any[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const [aiFields, setAiFields] = useState<Set<string>>(new Set());
   const [showPreviewData, setShowPreviewData] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -207,7 +209,8 @@ export default function ConfigurationForm({
     dynamicOptions,
     loading: loadingDynamic,
     isInitialLoading,
-    loadOptions
+    loadOptions,
+    resetOptions
   } = useDynamicOptions({ 
     nodeType: nodeInfo?.type, 
     providerId: nodeInfo?.providerId,
@@ -1937,6 +1940,9 @@ export default function ConfigurationForm({
       // Clear tableName when baseId changes
       setValue('tableName', '');
       
+      // Reset cached table options to ensure fresh load
+      resetOptions('tableName');
+      
       // Clear preview data when base changes for list records
       if (nodeInfo.type === 'airtable_action_list_records') {
         setShowPreviewData(false);
@@ -2519,23 +2525,57 @@ export default function ConfigurationForm({
     
     return (
       <>
-        {/* Render base fields first */}
-        {!isDynamic && fields.map((field, index) => {
+        {/* Render fields - base fields or dynamic fields based on isDynamic flag */}
+        {fields.map((field, index) => {
           const fieldKey = `${isDynamic ? 'dynamic' : 'basic'}-field-${(field as any).uniqueId || field.name}-${field.type}-${index}-${nodeInfo?.type || 'unknown'}`;
+          const shouldUseAIWrapper = isUpdateRecord && (field.name === 'recordId' || isDynamic);
+          
+          // Skip rendering if it's a dynamic section but we shouldn't show dynamic fields
+          if (isDynamic && !showDynamicFields) return null;
+          
           return (
           <React.Fragment key={fieldKey}>
-            <FieldRenderer
-              field={field}
-              value={values[field.name]}
-              onChange={(value) => handleFieldChange(field.name, value)}
-              error={errors[field.name]}
-              workflowData={workflowData}
-              currentNodeId={currentNodeId}
-              dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.name !== 'baseId')}
-              nodeInfo={nodeInfo}
-              onDynamicLoad={handleDynamicLoad}
-            />
+            {shouldUseAIWrapper ? (
+              <AIFieldWrapper
+                field={field}
+                value={values[field.name]}
+                onChange={(value) => handleFieldChange(field.name, value)}
+                error={errors[field.name]}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                dynamicOptions={dynamicOptions}
+                loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.name !== 'baseId')}
+                nodeInfo={nodeInfo}
+                onDynamicLoad={handleDynamicLoad}
+                isAIEnabled={aiFields.has(field.name)}
+                onAIToggle={(fieldName, enabled) => {
+                  setAiFields(prev => {
+                    const newSet = new Set(prev);
+                    if (enabled) {
+                      newSet.add(fieldName);
+                    } else {
+                      newSet.delete(fieldName);
+                    }
+                    return newSet;
+                  });
+                }}
+                isReadOnly={field.name === 'recordId'}
+                isNonEditable={field.computed || field.autoNumber || field.formula}
+              />
+            ) : (
+              <FieldRenderer
+                field={field}
+                value={values[field.name]}
+                onChange={(value) => handleFieldChange(field.name, value)}
+                error={errors[field.name]}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                dynamicOptions={dynamicOptions}
+                loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.name !== 'baseId')}
+                nodeInfo={nodeInfo}
+                onDynamicLoad={handleDynamicLoad}
+              />
+            )}
             
             {/* Show reaction remover component after messageId field for remove reaction actions */}
             {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
@@ -3439,6 +3479,173 @@ export default function ConfigurationForm({
               <ScrollArea className="h-[calc(90vh-220px)] pr-4">
                 <div className="space-y-3 px-2 pb-6">
                   {renderFieldsWithTable(basicFields, false)}
+                  
+                  {/* Records table for Airtable update record - placed after base fields */}
+                  {nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record' && values.tableName && values.baseId && (
+                    <div className="mt-6 space-y-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-sm text-slate-600 mb-3">
+                          Select a record from the table below to update. The fields will be populated with the current values.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              if (showPreviewData) {
+                                setShowPreviewData(false);
+                                setPreviewData([]);
+                              } else {
+                                loadPreviewData(values.baseId, values.tableName);
+                              }
+                            }}
+                            disabled={loadingPreview}
+                            className="flex items-center gap-2"
+                          >
+                            {loadingPreview ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                            {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Records' : 'Show Records'}
+                          </Button>
+                          {showPreviewData && previewData.length > 0 && (
+                            <div className="text-sm text-slate-600">
+                              {selectedRecord ? (
+                                <span className="font-medium text-blue-600">
+                                  Selected: {selectedRecord.label || selectedRecord.value}
+                                </span>
+                              ) : (
+                                <span>Click a record to select it</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Records Table for Selection */}
+                      {showPreviewData && (
+                        <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+                          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="text-sm font-medium text-slate-900">
+                                  Select Record: {values.tableName}
+                                </h3>
+                                <p className="text-xs text-slate-600">
+                                  {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Click to select
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setShowPreviewData(false);
+                                  setPreviewData([]);
+                                }}
+                                className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            {previewData.length > 0 ? (
+                              <>
+                                <style jsx>{`
+                                  .update-record-table-container {
+                                    overflow: auto !important;
+                                    max-height: 300px;
+                                  }
+                                  .update-record-table-container::-webkit-scrollbar {
+                                    width: 8px !important;
+                                    height: 8px !important;
+                                  }
+                                  .update-record-table-container::-webkit-scrollbar-track {
+                                    background: #f1f5f9 !important;
+                                    border-radius: 4px !important;
+                                  }
+                                  .update-record-table-container::-webkit-scrollbar-thumb {
+                                    background: #94a3b8 !important;
+                                    border-radius: 4px !important;
+                                  }
+                                  .update-record-table-container::-webkit-scrollbar-thumb:hover {
+                                    background: #64748b !important;
+                                  }
+                                  .selectable-row {
+                                    cursor: pointer;
+                                    transition: all 0.15s ease;
+                                  }
+                                  .selectable-row:hover {
+                                    background-color: #f1f5f9;
+                                  }
+                                  .selectable-row.selected {
+                                    background-color: #dbeafe;
+                                    border-left: 3px solid #2563eb;
+                                  }
+                                `}</style>
+                                <div className="update-record-table-container">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-slate-50/50 sticky top-0 z-10">
+                                      <tr className="h-10">
+                                        <th className="text-left px-3 py-2 font-medium text-slate-700">ID</th>
+                                        {previewData.length > 0 && Object.keys(previewData[0].fields || {}).slice(0, 3).map(fieldName => (
+                                          <th key={fieldName} className="text-left px-3 py-2 font-medium text-slate-700">
+                                            {fieldName}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {previewData.map((record: any) => (
+                                        <tr 
+                                          key={record.id}
+                                          className={`selectable-row ${selectedRecord?.value === record.id ? 'selected' : ''}`}
+                                          onClick={() => {
+                                            const newRecord = {
+                                              value: record.id,
+                                              label: record.fields?.[Object.keys(record.fields)[0]] || record.id,
+                                              fields: record.fields
+                                            };
+                                            setSelectedRecord(newRecord);
+                                            setValue('recordId', record.id);
+                                            // Populate field values
+                                            Object.entries(record.fields || {}).forEach(([fieldName, fieldValue]) => {
+                                              const dynamicFieldName = `airtable_field_${fieldName.toLowerCase().replace(/\s+/g, '_')}`;
+                                              if (!aiFields.has(dynamicFieldName)) {
+                                                setValue(dynamicFieldName, fieldValue);
+                                              }
+                                            });
+                                          }}
+                                        >
+                                          <td className="px-3 py-2 font-mono text-xs">{record.id}</td>
+                                          {Object.entries(record.fields || {}).slice(0, 3).map(([fieldName, fieldValue]: [string, any]) => (
+                                            <td key={fieldName} className="px-3 py-2">
+                                              {Array.isArray(fieldValue) 
+                                                ? `[${fieldValue.length} items]`
+                                                : String(fieldValue || '').substring(0, 50)}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="p-8 text-center text-slate-500">
+                                <Database className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                                <p className="text-sm">No records found in this table</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Render dynamic fields for basic tab */}
                   {dynamicFields.length > 0 && renderFieldsWithTable(dynamicFields, true)}
                   

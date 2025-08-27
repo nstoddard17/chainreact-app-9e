@@ -164,6 +164,89 @@ New workflow nodes should:
 5. Handle errors gracefully
 6. Provide clear user feedback
 
+### AI-Powered Field Values
+
+Fields in workflow configuration modals can be set to use AI-generated values. When a field is set to AI mode:
+
+1. **AI Placeholder Format**: The field value is stored as `{{AI_FIELD:fieldName}}` 
+   - Example: `{{AI_FIELD:subject}}` for an email subject field
+   - This placeholder signals the workflow engine to generate the value using AI at runtime
+
+2. **UI Behavior**:
+   - Each editable field shows an AI button (robot icon) that toggles AI mode
+   - When AI mode is active, the field displays "Defined automatically by AI"
+   - Users can cancel AI mode with the X button to return to manual input
+   - The recordId field and non-editable fields (computed, auto-number, formula) do not support AI mode
+
+3. **Future Integration**:
+   - AI agent nodes will generate values for these placeholders during workflow execution
+   - The generated values will automatically slot into the appropriate fields
+   - This allows for dynamic, context-aware field population based on workflow data
+
+### Field Dependency Loading Pattern
+
+When implementing dependent fields that show "Loading options..." when their parent field changes (e.g., table field updates when base field changes), follow this exact pattern:
+
+#### Steps to Implement:
+
+1. **Ensure resetOptions is available** in `components/workflows/configuration/ConfigurationForm.tsx`:
+   ```typescript
+   const {
+     dynamicOptions,
+     loading: loadingDynamic,
+     isInitialLoading,
+     loadOptions,
+     resetOptions  // Must be included
+   } = useDynamicOptions({...})
+   ```
+
+2. **In the parent field's change handler**, follow this exact sequence:
+   ```typescript
+   // Example: baseId change affecting tableName field
+   if (fieldName === 'baseId' && nodeInfo?.providerId === 'airtable') {
+     // 1. FIRST: Set loading state immediately
+     setLoadingFields(prev => {
+       const newSet = new Set(prev);
+       newSet.add('tableName');  // The dependent field
+       return newSet;
+     });
+     
+     // 2. Clear the dependent field value
+     setValue('tableName', '');
+     
+     // 3. Reset cached options to ensure fresh load
+     resetOptions('tableName');
+     
+     // 4. Use setTimeout to ensure loading state is visible
+     setTimeout(() => {
+       if (value) {
+         // Load new options
+         loadOptions('tableName', 'baseId', value, true).finally(() => {
+           setLoadingFields(prev => {
+             const newSet = new Set(prev);
+             newSet.delete('tableName');
+             return newSet;
+           });
+         });
+       } else {
+         // Clear loading state if no value
+         setLoadingFields(prev => {
+           const newSet = new Set(prev);
+           newSet.delete('tableName');
+           return newSet;
+         });
+       }
+     }, 10); // 10ms delay ensures smooth loading state
+   }
+   ```
+
+#### Key Points:
+- **Order matters**: Set loading state → Clear value → Reset options → Load new options
+- **resetOptions** clears cached data ensuring "Loading options..." shows immediately
+- **setTimeout** with 10ms prevents flickering and ensures loading state is visible
+- **finally block** ensures loading state is cleared even if loading fails
+- This pattern works for any parent-child field relationship (e.g., filterField→filterValue, baseId→tableName)
+
 ## Security Considerations
 
 - Never log or expose access tokens
