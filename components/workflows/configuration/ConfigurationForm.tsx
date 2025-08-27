@@ -20,8 +20,107 @@ import { cn } from "@/lib/utils";
 import DiscordBotStatus from "../DiscordBotStatus";
 import { useIntegrationStore } from "@/stores/integrationStore";
 import { useWorkflowStore } from '@/stores/workflowStore';
+import { useAuthStore } from '@/stores/authStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence";
+
+/**
+ * Helper function to map Airtable field types to form field types
+ */
+function getAirtableFieldType(airtableType: string): string {
+  switch (airtableType) {
+    case 'singleLineText':
+    case 'multilineText':
+    case 'richText':
+    case 'email':
+    case 'phoneNumber':
+    case 'url':
+      return 'text';
+    case 'number':
+    case 'rating':
+    case 'percent':
+    case 'currency':
+    case 'duration':
+      return 'number';
+    case 'checkbox':
+      return 'checkbox';
+    case 'singleSelect':
+    case 'multipleSelects':
+    case 'singleCollaborator':
+    case 'multipleCollaborators':
+      return 'select';
+    case 'date':
+    case 'dateTime':
+      return 'date';
+    case 'attachment':
+    case 'multipleAttachments':
+      return 'file';
+    default:
+      return 'text';
+  }
+}
+
+/**
+ * Helper function to map Airtable field types from schema to form field types
+ */
+function getAirtableFieldTypeFromSchema(field: any): string {
+  const { type } = field;
+  
+  // If field has predefined choices, it's a select
+  if (field.choices && field.choices.length > 0) {
+    return 'select';
+  }
+  
+  switch (type) {
+    case 'singleLineText':
+    case 'multilineText':
+    case 'richText':
+      return 'textarea';
+    case 'email':
+      return 'email';
+    case 'url':
+      return 'url';
+    case 'phoneNumber':
+      return 'tel';
+    case 'number':
+    case 'currency':
+    case 'percent':
+    case 'duration':
+      return 'number';
+    case 'rating':
+      return 'select'; // Will show as dropdown with rating options
+    case 'checkbox':
+      return 'checkbox';
+    case 'singleSelect':
+    case 'multipleSelects':
+      return 'select';
+    case 'singleCollaborator':
+    case 'multipleCollaborators':
+      return 'select';
+    case 'date':
+    case 'dateTime':
+    case 'createdTime':
+    case 'lastModifiedTime':
+      return 'date';
+    case 'attachment':
+    case 'multipleAttachments':
+      return 'file';
+    case 'multipleRecordLinks':
+    case 'singleRecordLink':
+      return 'select'; // Will need special handling for linked records
+    case 'formula':
+    case 'rollup':
+    case 'count':
+    case 'lookup':
+    case 'autoNumber':
+    case 'button':
+    case 'createdBy':
+    case 'lastModifiedBy':
+      return 'readonly'; // These are computed/system fields
+    default:
+      return 'text';
+  }
+}
 
 /**
  * Component to render the configuration form based on node schema
@@ -64,6 +163,8 @@ export default function ConfigurationForm({
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
   const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
   const [isLoadingInitialConfig, setIsLoadingInitialConfig] = useState(false);
+  const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
+  const [isLoadingTableSchema, setIsLoadingTableSchema] = useState(false);
   
   // Form state management
   const {
@@ -282,6 +383,331 @@ export default function ConfigurationForm({
       return false;
     }
   }, [discordIntegration]);
+
+  // Function to fetch Airtable table schema using existing integration system
+  const fetchAirtableTableSchema = useCallback(async (baseId: string, tableName: string) => {
+    const airtableIntegration = getIntegrationByProvider('airtable');
+    if (!baseId || !tableName || !airtableIntegration) {
+      console.log('🔍 Missing required params for fetching table schema:', { baseId, tableName, hasIntegration: !!airtableIntegration });
+      setIsLoadingTableSchema(false);
+      return;
+    }
+    
+    // Set loading state immediately when called
+    setIsLoadingTableSchema(true);
+    
+    try {
+      console.log('🔍 Fetching Airtable table schema for:', { baseId, tableName });
+      
+      // Use a sample records request to infer field types from actual data
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId: airtableIntegration.id,
+          dataType: 'airtable_records',
+          options: {
+            baseId,
+            tableName,
+            maxRecords: 20 // Fetch sample records to infer field structure
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to fetch table data:', error);
+        setAirtableTableSchema(null);
+        setIsLoadingTableSchema(false);
+        return;
+      }
+      
+      const result = await response.json();
+      const records = result.data || [];
+      
+      if (records.length === 0) {
+        console.log('🔍 No records found to infer schema');
+        setAirtableTableSchema(null);
+        setIsLoadingTableSchema(false);
+        return;
+      }
+      
+      // Infer fields from the records
+      const fieldMap = new Map<string, any>();
+      const linkedRecordFields = new Set<string>(); // Track fields that contain linked records
+      
+      records.forEach((record: any) => {
+        if (record.fields) {
+          Object.entries(record.fields).forEach(([fieldName, value]) => {
+            if (!fieldMap.has(fieldName)) {
+              // Infer field type from value
+              const fieldInfo = {
+                id: fieldName.replace(/[^a-zA-Z0-9]/g, '_'),
+                name: fieldName,
+                type: inferFieldType(value),
+                values: new Set(),
+                isLinkedRecord: false
+              };
+              fieldMap.set(fieldName, fieldInfo);
+            }
+            
+            // Collect unique values for potential dropdown
+            const fieldInfo = fieldMap.get(fieldName);
+            if (fieldInfo && value !== null && value !== undefined) {
+              if (Array.isArray(value)) {
+                // Check if this is an array of record IDs (linked records)
+                const hasRecordIds = value.some(v => typeof v === 'string' && v.startsWith('rec'));
+                if (hasRecordIds) {
+                  fieldInfo.isLinkedRecord = true;
+                  linkedRecordFields.add(fieldName);
+                  // Collect the record IDs so we can fetch their names
+                  value.forEach(v => {
+                    if (typeof v === 'string' && v.startsWith('rec')) {
+                      fieldInfo.values.add(v);
+                    }
+                  });
+                } else {
+                  value.forEach(v => fieldInfo.values.add(v));
+                }
+              } else if (typeof value === 'string' && value.startsWith('rec')) {
+                // Single linked record
+                fieldInfo.isLinkedRecord = true;
+                linkedRecordFields.add(fieldName);
+                // Collect the record ID
+                fieldInfo.values.add(value);
+              } else {
+                fieldInfo.values.add(value);
+              }
+            }
+          });
+        }
+      });
+      
+      // For linked record fields, try to fetch the actual record names
+      const linkedRecordOptions: Record<string, any[]> = {};
+      
+      for (const linkedFieldName of linkedRecordFields) {
+        const fieldInfo = fieldMap.get(linkedFieldName);
+        if (!fieldInfo || !fieldInfo.values.size) continue;
+        
+        // Get the unique record IDs we need to fetch
+        const recordIds = Array.from(fieldInfo.values);
+        
+        // Try to guess the linked table name from the field name
+        let linkedTableName = linkedFieldName;
+        
+        // Handle common patterns
+        if (linkedFieldName.toLowerCase().includes('project')) {
+          linkedTableName = 'Projects';
+        } else if (linkedFieldName.toLowerCase().includes('task')) {
+          linkedTableName = 'Tasks';
+        } else if (linkedFieldName.toLowerCase().includes('feedback')) {
+          linkedTableName = 'Feedback';
+        } else if (linkedFieldName.toLowerCase().includes('user') || linkedFieldName.toLowerCase().includes('assignee')) {
+          linkedTableName = 'Users';
+        } else if (linkedFieldName.toLowerCase().includes('customer') || linkedFieldName.toLowerCase().includes('client')) {
+          linkedTableName = 'Customers';
+        } else {
+          // Default: try plural form
+          linkedTableName = linkedFieldName.replace(/s?$/, 's');
+        }
+        
+        try {
+          // Try to fetch records from the linked table
+          const linkedResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              integrationId: airtableIntegration.id,
+              dataType: 'airtable_records',
+              options: {
+                baseId,
+                tableName: linkedTableName,
+                maxRecords: 100
+              }
+            })
+          });
+          
+          if (linkedResponse.ok) {
+            const linkedResult = await linkedResponse.json();
+            const linkedRecords = linkedResult.data || [];
+            
+            console.log(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table for field ${linkedFieldName}`);
+            
+            // Create a map of record ID to name
+            const recordMap = new Map<string, string>();
+            
+            // Analyze the first record to determine the best field to use for display
+            let displayField: string | null = null;
+            if (linkedRecords.length > 0) {
+              const sampleFields = Object.keys(linkedRecords[0].fields || {});
+              console.log(`🔍 Available fields in ${linkedTableName}:`, sampleFields);
+              
+              // Priority order for finding display field:
+              // 1. Fields containing 'name' or 'title'
+              // 2. Fields containing 'id' (but not created/modified timestamps)
+              // 3. First text/number field
+              displayField = sampleFields.find(field => 
+                field.toLowerCase().includes('name') || 
+                field.toLowerCase().includes('title')
+              ) || sampleFields.find(field => 
+                field.toLowerCase().includes('id') && 
+                !field.toLowerCase().includes('modified') && 
+                !field.toLowerCase().includes('created')
+              ) || sampleFields.find(field => {
+                const value = linkedRecords[0].fields[field];
+                return value && (typeof value === 'string' || typeof value === 'number') && 
+                       !Array.isArray(value);
+              });
+              
+              console.log(`📊 Using field "${displayField}" as display field for ${linkedTableName}`);
+            }
+            
+            linkedRecords.forEach((rec: any) => {
+              let name;
+              
+              if (displayField && rec.fields?.[displayField]) {
+                name = rec.fields[displayField];
+                // Truncate if too long
+                if (typeof name === 'string' && name.length > 50) {
+                  name = name.substring(0, 50) + '...';
+                }
+              } else {
+                // Fallback to record ID
+                name = rec.id;
+              }
+              
+              recordMap.set(rec.id, name);
+            });
+            
+            // Create options only for the record IDs we actually found in the data
+            linkedRecordOptions[linkedFieldName] = recordIds
+              .filter(id => recordMap.has(id))
+              .map(id => ({
+                value: id, // Use the ID as the value (for API calls)
+                label: recordMap.get(id)!, // Use the name as the label (for display)
+                id: id // Keep the original ID
+              }));
+            
+            // Add any records we found that weren't in our original list (for completeness)
+            const existingIds = new Set(recordIds);
+            linkedRecords.forEach((rec: any) => {
+              if (!existingIds.has(rec.id)) {
+                let name;
+                
+                if (displayField && rec.fields?.[displayField]) {
+                  name = rec.fields[displayField];
+                  // Truncate if too long
+                  if (typeof name === 'string' && name.length > 50) {
+                    name = name.substring(0, 50) + '...';
+                  }
+                } else {
+                  // Fallback to record ID
+                  name = rec.id;
+                }
+                
+                linkedRecordOptions[linkedFieldName].push({
+                  value: rec.id, // Use the ID as the value (for API calls)
+                  label: name, // Use the name as the label (for display)
+                  id: rec.id
+                });
+              }
+            });
+            
+            console.log(`🔍 Mapped ${linkedRecordOptions[linkedFieldName].length} linked records for field ${linkedFieldName}`);
+          }
+        } catch (error) {
+          console.log(`Could not fetch linked records for ${linkedFieldName}:`, error);
+          // Fall back to using the IDs if we can't fetch the names
+          linkedRecordOptions[linkedFieldName] = recordIds.map(id => ({
+            value: id,
+            label: `Record ${id}`,
+            id: id
+          }));
+        }
+      }
+      
+      // Convert to array and process values
+      const fields = Array.from(fieldMap.values()).map(field => {
+        const uniqueValues = Array.from(field.values);
+        
+        // Determine if this should be a dropdown
+        let choices = null;
+        
+        if (field.isLinkedRecord && linkedRecordOptions[field.name]) {
+          // Use the fetched linked record options
+          choices = linkedRecordOptions[field.name];
+        } else if (uniqueValues.length <= 20 && uniqueValues.length > 0) {
+          // Check if all values are strings/numbers (not objects)
+          const areSimpleValues = uniqueValues.every(v => 
+            typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'
+          );
+          
+          if (areSimpleValues) {
+            choices = uniqueValues.map(v => ({
+              value: v,
+              label: String(v),
+              id: String(v)
+            }));
+          }
+        }
+        
+        return {
+          ...field,
+          choices,
+          values: undefined, // Remove the Set
+          isLinkedRecord: undefined // Remove internal flag
+        };
+      });
+      
+      const schemaData = {
+        table: {
+          name: tableName,
+          id: tableName
+        },
+        fields,
+        sampleValues: {}
+      };
+      
+      console.log('🔍 Inferred table schema:', schemaData);
+      setAirtableTableSchema(schemaData);
+      
+      // Clear existing dynamic field values when schema changes
+      Object.keys(values).forEach(key => {
+        if (key.startsWith('airtable_field_')) {
+          setValue(key, '');
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching Airtable table schema:', error);
+      setAirtableTableSchema(null);
+    } finally {
+      setIsLoadingTableSchema(false);
+    }
+  }, [setValue, values, getIntegrationByProvider]);
+  
+  // Helper function to infer field type from value
+  const inferFieldType = (value: any): string => {
+    if (value === null || value === undefined) return 'singleLineText';
+    if (typeof value === 'boolean') return 'checkbox';
+    if (typeof value === 'number') return 'number';
+    if (Array.isArray(value)) {
+      if (value.length > 0 && typeof value[0] === 'object' && value[0].url) {
+        return 'multipleAttachments';
+      }
+      return 'multipleSelects';
+    }
+    if (typeof value === 'string') {
+      // Check for common patterns
+      if (/^\d{4}-\d{2}-\d{2}/.test(value)) return 'date';
+      if (/^https?:\/\//.test(value)) return 'url';
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
+      if (value.includes('\n')) return 'multilineText';
+      return 'singleLineText';
+    }
+    return 'singleLineText';
+  };
 
   // Function to invite bot to Discord server
   const handleInviteBot = useCallback((guildId?: string) => {
@@ -1498,8 +1924,18 @@ export default function ConfigurationForm({
     // Handle baseId changes for Airtable
     if (fieldName === 'baseId' && nodeInfo?.providerId === 'airtable') {
       console.log('🔍 Airtable baseId changed to:', value);
-      console.log('🔍 Node type:', nodeInfo.type);
-      console.log('🔍 Previous value was:', values.baseId);
+      
+      // Always set loading state first, even before clearing the value (exact filterField pattern)
+      console.log('🔄 Setting loading state for tableName');
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.add('tableName');
+        console.log('🔄 Loading fields updated:', Array.from(newSet));
+        return newSet;
+      });
+      
+      // Clear tableName when baseId changes
+      setValue('tableName', '');
       
       // Clear preview data when base changes for list records
       if (nodeInfo.type === 'airtable_action_list_records') {
@@ -1507,28 +1943,27 @@ export default function ConfigurationForm({
         setPreviewData([]);
       }
       
-      // Clear dependent fields when baseId changes
-      if (nodeInfo.configSchema) {
-        nodeInfo.configSchema.forEach(field => {
-          if (field.dependsOn === 'baseId') {
-            console.log('🔍 Clearing dependent field:', field.name);
-            setValue(field.name, '');
-            if (value) {
-              console.log('🔍 Loading options for:', field.name, 'with baseId:', value);
-              // Set loading state for this field
-              setLoadingFields(prev => new Set(prev).add(field.name));
-              loadOptions(field.name, 'baseId', value, true).finally(() => {
-                // Clear loading state when done
-                setLoadingFields(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete(field.name);
-                  return newSet;
-                });
-              });
-            }
-          }
-        });
-      }
+      // Force a small delay to ensure loading state is visible
+      setTimeout(() => {
+        // Load tableName options if a base is selected
+        if (value) {
+          console.log('🔍 Loading tableName options for baseId:', value);
+          loadOptions('tableName', 'baseId', value, true).finally(() => {
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('tableName');
+              return newSet;
+            });
+          });
+        } else {
+          // If no base is selected, clear the loading state
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.delete('tableName');
+            return newSet;
+          });
+        }
+      }, 10); // 10ms delay to ensure loading state is visible (same as filterField)
       
       // For update/create/move record actions, clear records and dynamic fields
       if (nodeInfo.type === 'airtable_action_update_record' || 
@@ -1537,12 +1972,23 @@ export default function ConfigurationForm({
         setSelectedRecord(null);
         setAirtableRecords([]);
         setLoadingRecords(false);
+        // Clear table schema and dynamic fields
+        setAirtableTableSchema(null);
         // Clear all dynamic fields
         Object.keys(values).forEach(key => {
           if (key.startsWith('airtable_field_')) {
             setValue(key, '');
           }
         });
+        
+        // If a table is already selected when base changes, reload its schema
+        if (nodeInfo.type === 'airtable_action_create_record' && values.tableName && value) {
+          setIsLoadingTableSchema(true);
+          // Small delay to ensure the table dropdown has updated
+          setTimeout(() => {
+            fetchAirtableTableSchema(value, values.tableName);
+          }, 100);
+        }
       }
     }
     
@@ -1594,6 +2040,10 @@ export default function ConfigurationForm({
         setSelectedRecord(null);
         setAirtableRecords([]);
         setLoadingRecords(false);
+        
+        // Clear table schema immediately to hide old fields
+        setAirtableTableSchema(null);
+        
         // Clear all dynamic fields
         Object.keys(values).forEach(key => {
           if (key.startsWith('airtable_field_')) {
@@ -1604,6 +2054,13 @@ export default function ConfigurationForm({
         // Load records for the new table (only for update record)
         if (nodeInfo.type === 'airtable_action_update_record' && value && values.baseId) {
           loadAirtableRecords(values.baseId, value);
+        }
+        
+        // Fetch table schema for create record to show dynamic fields
+        if (nodeInfo.type === 'airtable_action_create_record' && value && values.baseId) {
+          // Set loading state before fetching
+          setIsLoadingTableSchema(true);
+          fetchAirtableTableSchema(values.baseId, value);
         }
       }
     }
@@ -1813,9 +2270,58 @@ export default function ConfigurationForm({
       }));
     }
     
-    // Special handling for Airtable create/update record - add dynamic fields when table is selected
+    // Special handling for Airtable create record - add dynamic fields from fetched table schema
     if (nodeInfo.providerId === 'airtable' && 
-        (nodeInfo.type === 'airtable_action_create_record' || nodeInfo.type === 'airtable_action_update_record') && 
+        nodeInfo.type === 'airtable_action_create_record' && 
+        values.tableName && 
+        airtableTableSchema?.fields) {
+      
+      console.log('🔍 Generating dynamic fields from table schema for:', values.tableName);
+      console.log('🔍 Table schema fields:', airtableTableSchema.fields);
+      
+      // Create dynamic fields for each Airtable table field
+      const airtableFields = airtableTableSchema.fields.map((tableField: any, fieldIndex: number) => {
+        // Debug log for linked record fields
+        if (tableField.choices && (tableField.name.includes('Project') || tableField.name.includes('Feedback') || tableField.name.includes('Task'))) {
+          console.log(`🔍 Choices for ${tableField.name}:`, tableField.choices);
+        }
+        
+        return {
+          name: `airtable_field_${tableField.id}`,
+          label: tableField.name,
+          type: getAirtableFieldTypeFromSchema(tableField),
+          required: false, // Let user decide which fields to fill
+          description: tableField.description || `${tableField.type} field`,
+          placeholder: `Enter ${tableField.name}`,
+          // Store the original Airtable field data for the renderer
+          airtableField: tableField,
+          // Include choices/options if available
+          options: tableField.choices?.map((choice: any) => ({
+            value: choice.value,
+            label: choice.label,
+            color: choice.color
+          })) || airtableTableSchema.sampleValues?.[tableField.id]?.map((val: any) => ({
+            value: val,
+            label: String(val)
+          })),
+          // Add field-specific properties
+          ...(tableField.type === 'rating' && { max: tableField.max }),
+          ...(tableField.type === 'currency' && { symbol: tableField.symbol, precision: tableField.precision }),
+          ...(tableField.type === 'percent' && { precision: tableField.precision }),
+          // Add a unique identifier to help with React keys
+          uniqueId: `${values.tableName}-${tableField.id}-${fieldIndex}`
+        };
+      });
+      
+      console.log('🔍 Generated airtableFields:', airtableFields);
+      
+      // Add the dynamic fields after the existing schema fields
+      visibleFields = [...visibleFields, ...airtableFields as any];
+    }
+    
+    // Keep existing handling for update record using dynamicOptions
+    if (nodeInfo.providerId === 'airtable' && 
+        nodeInfo.type === 'airtable_action_update_record' && 
         values.tableName) {
       
       console.log('🔍 Attempting to generate dynamic fields for table:', values.tableName);
@@ -2007,8 +2513,9 @@ export default function ConfigurationForm({
   const renderFieldsWithTable = (fields: any[], isDynamic: boolean = false) => {
     const isUpdateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record';
     const isListRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records';
+    const isCreateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_create_record';
     const showRecordsTable = isUpdateRecord && !isDynamic && values.tableName && values.baseId;
-    const showDynamicFields = isUpdateRecord && isDynamic && values.tableName;
+    const showDynamicFields = (isUpdateRecord && isDynamic && values.tableName) || (isCreateRecord && values.tableName);
     
     return (
       <>
@@ -2266,7 +2773,7 @@ export default function ConfigurationForm({
                               }}
                             >
                             <thead className="bg-slate-50/50 sticky top-0 z-10">
-                              <tr style={{ height: '41px' }}>
+                              <tr className="h-10">
                                 {/* ID column as first column */}
                                 <th 
                                   className="font-medium text-slate-700 p-2 text-center sticky left-0 z-20 bg-slate-50/50"
@@ -2352,10 +2859,10 @@ export default function ConfigurationForm({
                             </thead>
                             <tbody>
                               {previewData.slice(0, 8).map((record: any, index: number) => (
-                                <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
+                                <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                   {/* ID cell as first column */}
                                   <td 
-                                    className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center sticky left-0 z-10"
+                                    className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden sticky left-0 z-10"
                                     style={{ 
                                       width: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
@@ -2375,12 +2882,11 @@ export default function ConfigurationForm({
                                         });
                                         return `${Math.min(maxWidth, 250)}px`;
                                       })(),
-                                      height: '49px',
                                       boxSizing: 'border-box'
                                     }}
                                   >
-                                    <div className="flex items-center justify-center px-1 h-full">
-                                      <span className="text-center leading-tight" title={record.value || record.id || ''}>
+                                    <div className="flex items-center justify-center h-12 overflow-hidden">
+                                      <span className="text-center" style={{ lineHeight: '1.2' }} title={record.value || record.id || ''}>
                                         {record.value || record.id || ''}
                                       </span>
                                     </div>
@@ -2434,10 +2940,10 @@ export default function ConfigurationForm({
                                     return (
                                       <td 
                                         key={`${record.id}-${fieldName}-${fieldIndex}`} 
-                                        className="last:border-r-0 p-2 whitespace-nowrap text-center align-middle"
-                                        style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, height: '49px', boxSizing: 'border-box' }}
+                                        className="last:border-r-0 p-2 whitespace-nowrap text-center align-middle overflow-hidden"
+                                        style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, boxSizing: 'border-box' }}
                                       >
-                                        <div className="flex items-center justify-center h-full" style={{ width: `${columnWidth - 16}px` }}>
+                                        <div className="flex items-center justify-center h-12 overflow-hidden" style={{ width: `${columnWidth - 16}px` }}>
                                           {(() => {
                                             // Check if this is an Airtable attachment field
                                             const isAttachment = Array.isArray(fieldValue) && 
@@ -2541,7 +3047,7 @@ export default function ConfigurationForm({
                                 </tr>
                               ))}
                               {previewData.length > 8 && (
-                                <tr style={{ height: '49px' }}>
+                                <tr className="h-12">
                                   <td colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                     ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
                                   </td>
@@ -2666,34 +3172,49 @@ export default function ConfigurationForm({
         )}
         
         {/* Dynamic fields for update/create record */}
-        {showDynamicFields && dynamicFields.length > 0 && (
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-px bg-slate-200 flex-1"></div>
-              <span className="text-sm font-medium text-slate-600 px-3">Table Fields</span>
-              <div className="h-px bg-slate-200 flex-1"></div>
-            </div>
+        {showDynamicFields && (
+          <>
+            {/* Show loading badge when table schema is loading */}
+            {isLoadingTableSchema && (
+              <div className="mt-6">
+                <div className="flex items-center justify-center gap-3 bg-slate-50 border-2 border-slate-300 px-4 py-4 rounded-lg">
+                  <div className="animate-spin h-6 w-6 border-3 border-slate-600 border-t-transparent rounded-full" style={{ borderWidth: '3px' }}></div>
+                  <span className="text-sm font-semibold text-slate-700">Loading table fields...</span>
+                </div>
+              </div>
+            )}
             
-            {fields.map((field, index) => {
-              const fieldKey = `dynamic-field-${(field as any).uniqueId || field.name}-${field.type}-${index}-${nodeInfo?.type || 'unknown'}`;
-              return (
-                <FieldRenderer
-                  key={fieldKey}
-                  field={field}
-                  value={values[field.name]}
-                  onChange={(value) => handleFieldChange(field.name, value)}
-                  error={errors[field.name]}
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingFields.has(field.name)}
-                  nodeInfo={nodeInfo}
-                  allValues={values}
-                  onDynamicLoad={handleDynamicLoad}
-                />
-              );
-            })}
-          </div>
+            {/* Show dynamic fields when loaded */}
+            {!isLoadingTableSchema && dynamicFields.length > 0 && (
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-px bg-slate-200 flex-1"></div>
+                  <span className="text-sm font-medium text-slate-600 px-3">Table Fields</span>
+                  <div className="h-px bg-slate-200 flex-1"></div>
+                </div>
+                
+                {fields.map((field, index) => {
+                  const fieldKey = `dynamic-field-${(field as any).uniqueId || field.name}-${field.type}-${index}-${nodeInfo?.type || 'unknown'}`;
+                  return (
+                    <FieldRenderer
+                      key={fieldKey}
+                      field={field}
+                      value={values[field.name]}
+                      onChange={(value) => handleFieldChange(field.name, value)}
+                      error={errors[field.name]}
+                      workflowData={workflowData}
+                      currentNodeId={currentNodeId}
+                      dynamicOptions={dynamicOptions}
+                      loadingDynamic={loadingFields.has(field.name)}
+                      nodeInfo={nodeInfo}
+                      allValues={values}
+                      onDynamicLoad={handleDynamicLoad}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </>
     );
@@ -3044,7 +3565,7 @@ export default function ConfigurationForm({
                                   >
                                     <table className="text-sm" style={{ borderSpacing: 0 }}>
                                       <thead className="bg-slate-50/50">
-                                        <tr style={{ height: '41px' }}>
+                                        <tr className="h-10">
                                           <th 
                                             className="font-medium text-slate-700 p-2 text-center"
                                             style={{ 
@@ -3076,17 +3597,17 @@ export default function ConfigurationForm({
                                           })();
                                           
                                           return (
-                                            <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
+                                            <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50 h-12">
                                               <td 
-                                                className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle"
-                                                style={{ width: `${idColumnWidth}px`, minHeight: 'inherit' }}
+                                                className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden"
+                                                style={{ width: `${idColumnWidth}px`, boxSizing: 'border-box' }}
                                               >
                                                 <div 
-                                                  className="flex items-center justify-center py-2 px-1" 
-                                                  style={{ width: `${idColumnWidth - 16}px`, minHeight: '49px' }}
+                                                  className="flex items-center justify-center h-12 overflow-hidden" 
+                                                  style={{ width: `${idColumnWidth - 16}px` }}
                                                   title={record.value || record.id || ''}
                                                 >
-                                                  <span className="text-center leading-tight">
+                                                  <span className="text-center" style={{ lineHeight: '1.2' }}>
                                                     {record.value || record.id || ''}
                                                   </span>
                                                 </div>
@@ -3095,7 +3616,7 @@ export default function ConfigurationForm({
                                           );
                                         })}
                                         {previewData.length > 8 && (
-                                          <tr style={{ height: '49px' }}>
+                                          <tr className="h-12">
                                             <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                               ...
                                             </td>
@@ -3204,7 +3725,7 @@ export default function ConfigurationForm({
                                       }}
                                     >
                                       <thead className="bg-slate-50/50 sticky top-0 z-10">
-                                        <tr style={{ height: '41px' }}>
+                                        <tr className="h-10">
                                           {/* Show all fields with horizontal scrolling - no ID column here */}
                                           {Object.keys(previewData[0]?.fields || {}).map((fieldName, index, fields) => {
                                             // Calculate column width
@@ -3264,7 +3785,7 @@ export default function ConfigurationForm({
                                       </thead>
                                       <tbody>
                                         {previewData.slice(0, 8).map((record: any, index: number) => (
-                                          <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ minHeight: '49px' }}>
+                                          <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                             {/* No ID cell - start directly with field data */}
                                             {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
                                               const fieldNames = Object.keys(record.fields || {});
@@ -3322,10 +3843,10 @@ export default function ConfigurationForm({
                                               return (
                                                 <td 
                                                   key={`${record.id}-${fieldName}-${fieldIndex}`} 
-                                                  className="last:border-r-0 p-2 text-center align-middle"
-                                                  style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                                  className="last:border-r-0 p-2 text-center align-middle overflow-hidden"
+                                                  style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, boxSizing: 'border-box' }}
                                                 >
-                                                  <div className="flex items-center justify-center min-h-[40px]" style={{ width: `${columnWidth - 16}px` }}>
+                                                  <div className="flex items-center justify-center h-12 overflow-hidden" style={{ width: `${columnWidth - 16}px` }}>
                                                     {(() => {
                                                       // Check if this is an Airtable attachment field
                                                       const isAttachment = Array.isArray(fieldValue) && 
@@ -3397,7 +3918,7 @@ export default function ConfigurationForm({
                                                       if (Array.isArray(fieldValue)) {
                                                         return (
                                                           <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
-                                                            <span className="block leading-tight text-center" title={fieldValue.join(', ')} style={{ 
+                                                            <span className="block text-center" title={fieldValue.join(', ')} style={{ lineHeight: '1.2', 
                                                               maxWidth: `${columnWidth - 32}px`,
                                                               wordBreak: 'break-word',
                                                               overflowWrap: 'break-word',
@@ -3417,9 +3938,9 @@ export default function ConfigurationForm({
                                                       return (
                                                         <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
                                                           <span 
-                                                            className="block leading-tight text-center" 
+                                                            className="block text-center" 
                                                             title={displayValue}
-                                                            style={{ 
+                                                            style={{ lineHeight: '1.2', 
                                                               maxWidth: `${columnWidth - 32}px`,
                                                               wordBreak: 'break-word',
                                                               overflowWrap: 'break-word',
@@ -3438,7 +3959,7 @@ export default function ConfigurationForm({
                                           </tr>
                                         ))}
                                         {previewData.length > 8 && (
-                                          <tr style={{ height: '49px' }}>
+                                          <tr className="h-12">
                                             <td 
                                               colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} 
                                               className="p-2 text-center text-xs text-slate-500 bg-slate-50"
@@ -3648,7 +4169,7 @@ export default function ConfigurationForm({
                             >
                               <table className="text-sm" style={{ borderSpacing: 0 }}>
                                 <thead className="bg-slate-50/50">
-                                  <tr style={{ height: '41px' }}>
+                                  <tr className="h-10">
                                     <th 
                                       className="font-medium text-slate-700 p-2 text-center"
                                       style={{ 
@@ -3680,17 +4201,17 @@ export default function ConfigurationForm({
                                     })();
                                     
                                     return (
-                                      <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
+                                      <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50 h-12">
                                         <td 
-                                          className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle"
-                                          style={{ width: `${idColumnWidth}px`, height: '49px', boxSizing: 'border-box' }}
+                                          className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden"
+                                          style={{ width: `${idColumnWidth}px`, boxSizing: 'border-box' }}
                                         >
                                           <div 
-                                            className="flex items-center justify-center px-1 h-full" 
+                                            className="flex items-center justify-center h-12 overflow-hidden" 
                                             style={{ width: `${idColumnWidth - 16}px` }}
                                             title={record.value || record.id || ''}
                                           >
-                                            <span className="text-center leading-tight">
+                                            <span className="text-center" style={{ lineHeight: '1.2' }}>
                                               {record.value || record.id || ''}
                                             </span>
                                           </div>
@@ -3699,7 +4220,7 @@ export default function ConfigurationForm({
                                     );
                                   })}
                                   {previewData.length > 8 && (
-                                    <tr style={{ height: '49px' }}>
+                                    <tr className="h-12">
                                       <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                         ...
                                       </td>
@@ -3808,7 +4329,7 @@ export default function ConfigurationForm({
                                 }}
                               >
                                 <thead className="bg-slate-50/50 sticky top-0 z-10">
-                                  <tr style={{ height: '41px' }}>
+                                  <tr className="h-10">
                                     {Object.keys(previewData[0]?.fields || {}).map((fieldName) => {
                                       let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
                                       previewData.slice(0, 8).forEach(record => {
@@ -3836,7 +4357,7 @@ export default function ConfigurationForm({
                                 </thead>
                                 <tbody>
                                   {previewData.slice(0, 8).map((record: any, index: number) => (
-                                    <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ minHeight: '49px' }}>
+                                    <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                       {/* No ID cell - start directly with field data */}
                                       {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
                                         const fieldNames = Object.keys(record.fields || {});
@@ -3886,10 +4407,10 @@ export default function ConfigurationForm({
                                         return (
                                           <td 
                                             key={`${record.id}-${fieldName}-${fieldIndex}`} 
-                                            className="last:border-r-0 p-2 text-center align-middle"
-                                            style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                            className="last:border-r-0 p-2 text-center align-middle overflow-hidden"
+                                            style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, boxSizing: 'border-box' }}
                                           >
-                                            <div className="flex items-center justify-center min-h-[40px]" style={{ width: `${columnWidth - 16}px` }}>
+                                            <div className="flex items-center justify-center h-12 overflow-hidden" style={{ width: `${columnWidth - 16}px` }}>
                                               {(() => {
                                                 // Check if this is an Airtable attachment field
                                                 const isAttachment = Array.isArray(fieldValue) && 
@@ -3961,7 +4482,7 @@ export default function ConfigurationForm({
                                                 if (Array.isArray(fieldValue)) {
                                                   return (
                                                     <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
-                                                      <span className="block leading-tight text-center" title={fieldValue.join(', ')} style={{ 
+                                                      <span className="block text-center" title={fieldValue.join(', ')} style={{ lineHeight: '1.2', 
                                                         maxWidth: `${columnWidth - 32}px`,
                                                         wordBreak: 'break-word',
                                                         overflowWrap: 'break-word',
@@ -3981,7 +4502,7 @@ export default function ConfigurationForm({
                                                 return (
                                                   <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
                                                     <span 
-                                                      className="block leading-tight text-center" 
+                                                      className="block text-center" style={{ lineHeight: '1.2' }} 
                                                       title={displayValue}
                                                       style={{ 
                                                         maxWidth: `${columnWidth - 32}px`,
@@ -4002,7 +4523,7 @@ export default function ConfigurationForm({
                                     </tr>
                                   ))}
                                   {previewData.length > 8 && (
-                                    <tr style={{ height: '49px' }}>
+                                    <tr className="h-12">
                                       <td 
                                         colSpan={Object.keys(previewData[0]?.fields || {}).length} 
                                         className="p-2 text-center text-xs text-slate-500 bg-slate-50"

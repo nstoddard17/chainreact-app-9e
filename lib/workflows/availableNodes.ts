@@ -3823,28 +3823,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Select a table",
         description: "Choose the table to create records in",
         dependsOn: "baseId"
-      },
-      {
-        name: "status",
-        label: "Status",
-        type: "select",
-        required: false,
-        placeholder: "Select status",
-        description: "Set the status for the new record",
-        options: [
-          { value: "active", label: "Active" },
-          { value: "pending", label: "Pending" },
-          { value: "completed", label: "Completed" },
-          { value: "cancelled", label: "Cancelled" }
-        ]
-      },
-      {
-        name: "fields",
-        label: "Record Fields",
-        type: "custom",
-        required: true,
-        description: "Configure the fields and values for the new record",
-        dependsOn: "tableName"
       }
     ],
     outputSchema: [

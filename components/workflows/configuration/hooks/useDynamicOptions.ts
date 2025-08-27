@@ -972,15 +972,15 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
       
     case "baseId":
       return data.map((item: any) => ({
-        value: item.value || item.id,
-        label: item.label || item.name || item.id,
+        value: item.id || item.value,  // Keep ID as value for API calls
+        label: item.name || item.label || item.id,  // Show name in UI
         description: item.description || item.permissionLevel,
       }));
       
     case "tableName":
       return data.map((item: any) => ({
-        value: item.value || item.name || item.id,
-        label: item.label || item.name || item.id,
+        value: item.name || item.id || item.value,  // Use name as value (tables are referenced by name in Airtable API)
+        label: item.name || item.label || item.id,  // Show name in UI
         fields: item.fields,
         description: item.description
       }));
