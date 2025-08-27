@@ -2,8 +2,9 @@
 
 import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiCombobox } from "@/components/ui/combobox";
+import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 interface GenericSelectFieldProps {
   field: any;
@@ -13,6 +14,7 @@ interface GenericSelectFieldProps {
   options: any[];
   isLoading?: boolean;
   onDynamicLoad?: (fieldName: string) => void;
+  nodeInfo?: any;
 }
 
 /**
@@ -27,6 +29,7 @@ export function GenericSelectField({
   options,
   isLoading,
   onDynamicLoad,
+  nodeInfo,
 }: GenericSelectFieldProps) {
 
   // Generic loading behavior
@@ -81,42 +84,88 @@ export function GenericSelectField({
     );
   }
 
-  // Single selection
+  // Check if this is an Airtable create/update record field that should support custom input
+  const isAirtableRecordField = nodeInfo?.providerId === 'airtable' && 
+    (nodeInfo?.type === 'airtable_action_create_record' || 
+     nodeInfo?.type === 'airtable_action_update_record') &&
+    field.name?.startsWith('airtable_field_');
+
+  // Use Combobox for Airtable fields or fields that need clear functionality
+  if (isAirtableRecordField || field.clearable !== false) {
+    return (
+      <Combobox
+        value={value ?? ""}
+        onChange={onChange}
+        options={processedOptions}
+        placeholder={field.placeholder || "Select an option..."}
+        searchPlaceholder="Search options..."
+        emptyPlaceholder="No options found"
+        disabled={isLoading || field.disabled}
+        creatable={isAirtableRecordField} // Allow custom input for Airtable fields
+      />
+    );
+  }
+
+  // Fallback to regular Select with clear button
   return (
-    <Select 
-      value={value ?? ""} 
-      onValueChange={onChange}
-      onOpenChange={handleFieldOpen}
-    >
-      <SelectTrigger 
-        className={cn(
-          "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-          error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-        )}
+    <div className="relative">
+      <Select 
+        value={value ?? ""} 
+        onValueChange={onChange}
+        onOpenChange={handleFieldOpen}
       >
-        <SelectValue placeholder={field.placeholder || "Select an option..."} />
-      </SelectTrigger>
-      <SelectContent>
-        {processedOptions.length > 0 ? (
-          processedOptions.map((option: any, index: number) => {
-            const optionValue = option.value || option.id;
-            const optionLabel = option.label || option.name || option.value || option.id;
-            
-            return (
-              <SelectItem 
-                key={`${optionValue}-${index}`} 
-                value={optionValue}
-              >
-                {optionLabel}
-              </SelectItem>
-            );
-          })
-        ) : (
-          <div className="p-2 text-sm text-slate-500 text-center">
-            No options available
-          </div>
-        )}
-      </SelectContent>
-    </Select>
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 pr-8",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
+        >
+          <SelectValue placeholder={field.placeholder || "Select an option..."} />
+        </SelectTrigger>
+        <SelectContent>
+          {/* Add clear option at the top if there's a value */}
+          {value && (
+            <SelectItem value="" className="border-b mb-1">
+              <div className="flex items-center gap-2">
+                <X className="h-4 w-4" />
+                <span className="text-muted-foreground">Clear selection</span>
+              </div>
+            </SelectItem>
+          )}
+          {processedOptions.length > 0 ? (
+            processedOptions.map((option: any, index: number) => {
+              const optionValue = option.value || option.id;
+              const optionLabel = option.label || option.name || option.value || option.id;
+              
+              return (
+                <SelectItem 
+                  key={`${optionValue}-${index}`} 
+                  value={optionValue}
+                >
+                  {optionLabel}
+                </SelectItem>
+              );
+            })
+          ) : (
+            <div className="p-2 text-sm text-slate-500 text-center">
+              No options available
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+      {/* External clear button for better UX */}
+      {value && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange("");
+          }}
+          className="absolute right-8 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded"
+        >
+          <X className="h-4 w-4 opacity-50 hover:opacity-100" />
+        </button>
+      )}
+    </div>
   );
 }

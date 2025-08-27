@@ -7115,27 +7115,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
       {
         name: "recordId",
-        label: "Record",
-        type: "select",
-        dynamic: "airtable_records",
+        label: "Record ID",
+        type: "text",
         required: true,
-        placeholder: "Select a record to update",
-        description: "Choose the record to update",
-        dependsOn: "tableName"
-      },
-      {
-        name: "status",
-        label: "Status",
-        type: "select",
-        required: false,
-        placeholder: "Select status",
-        description: "Set the status for the updated record",
-        options: [
-          { value: "active", label: "Active" },
-          { value: "pending", label: "Pending" },
-          { value: "completed", label: "Completed" },
-          { value: "cancelled", label: "Cancelled" }
-        ]
+        placeholder: "Select a record from the table below",
+        description: "The ID of the record to update",
+        readOnly: true
       },
       {
         name: "fields",
