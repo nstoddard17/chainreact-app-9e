@@ -7199,21 +7199,112 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dependsOn: "baseId"
       },
       {
+        name: "keywordSearch",
+        label: "Keyword Search",
+        type: "text",
+        required: false,
+        placeholder: "Search across all text fields...",
+        description: "Search for keywords across all text fields in the table"
+      },
+      {
+        name: "filterField",
+        label: "Filter by Field",
+        type: "select",
+        dynamic: "airtable_fields",
+        required: false,
+        placeholder: "Select field to filter by...",
+        description: "Choose a field to filter records by",
+        dependsOn: "tableName"
+      },
+      {
+        name: "filterValue",
+        label: "Filter Value",
+        type: "select",
+        dynamic: "airtable_field_values",
+        required: false,
+        placeholder: "Select value...",
+        description: "Choose the value to filter by",
+        dependsOn: "filterField",
+        showWhen: { filterField: "!empty" }
+      },
+      {
+        name: "sortOrder",
+        label: "Sort Order",
+        type: "select",
+        required: false,
+        options: [
+          { value: "newest", label: "Newest First (by Created Time)" },
+          { value: "oldest", label: "Oldest First (by Created Time)" },
+          { value: "recently_modified", label: "Recently Modified First" },
+          { value: "least_recently_modified", label: "Least Recently Modified First" }
+        ],
+        defaultValue: "newest",
+        placeholder: "Select sort order...",
+        description: "How to sort the returned records"
+      },
+      {
+        name: "dateFilter",
+        label: "Date Filter",
+        type: "select",
+        required: false,
+        options: [
+          { value: "", label: "No date filter" },
+          { value: "today", label: "Created Today" },
+          { value: "yesterday", label: "Created Yesterday" },
+          { value: "last_7_days", label: "Created in Last 7 Days" },
+          { value: "last_30_days", label: "Created in Last 30 Days" },
+          { value: "this_month", label: "Created This Month" },
+          { value: "last_month", label: "Created Last Month" },
+          { value: "custom_date_range", label: "Custom Date Range" }
+        ],
+        placeholder: "Select date filter...",
+        description: "Filter records by creation date"
+      },
+      {
+        name: "customDateRange",
+        label: "Custom Date Range",
+        type: "daterange",
+        required: false,
+        placeholder: "Select date range...",
+        description: "Choose a custom date range to filter records",
+        dependsOn: "dateFilter",
+        showWhen: { dateFilter: "custom_date_range" }
+      },
+      {
+        name: "recordLimit",
+        label: "Record Limit",
+        type: "select",
+        required: false,
+        options: [
+          { value: "", label: "Use Max Records setting" },
+          { value: "last_10", label: "Last 10 Records" },
+          { value: "last_20", label: "Last 20 Records" },
+          { value: "last_50", label: "Last 50 Records" },
+          { value: "last_100", label: "Last 100 Records" },
+          { value: "custom", label: "Custom Amount" }
+        ],
+        placeholder: "Select record limit...",
+        description: "Quick limit for most recent records"
+      },
+      {
         name: "maxRecords",
         label: "Max Records",
         type: "number",
         required: false,
         defaultValue: 100,
         placeholder: "100",
-        description: "Maximum number of records to return"
+        description: "Maximum number of records to return",
+        dependsOn: "recordLimit",
+        showWhen: { recordLimit: "custom" }
       },
       {
         name: "filterByFormula",
-        label: "Filter Formula",
-        type: "text",
+        label: "Advanced Filter Formula",
+        type: "textarea",
         required: false,
         placeholder: "{Status} = 'Active'",
-        description: "Airtable filter formula to apply to the records"
+        description: "Advanced Airtable filter formula (will be combined with other filters using AND logic)",
+        advanced: true
       }
     ]
   },

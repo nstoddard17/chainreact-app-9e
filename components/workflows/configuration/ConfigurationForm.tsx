@@ -110,7 +110,8 @@ export default function ConfigurationForm({
   } = useDynamicOptions({ 
     nodeType: nodeInfo?.type, 
     providerId: nodeInfo?.providerId,
-    onLoadingChange: handleLoadingChange
+    onLoadingChange: handleLoadingChange,
+    getFormValues: () => values
   });
 
   // Discord integration check
@@ -1211,7 +1212,93 @@ export default function ConfigurationForm({
         return;
       }
 
-      console.log('🔍 Loading all records for preview:', { baseId, tableName });
+      // Get current form values to apply filters
+      const {
+        filterField,
+        filterValue,
+        dateFilter,
+        customDateRange,
+        recordLimit,
+        maxRecords
+      } = values;
+
+      console.log('🔍 Loading filtered records for preview:', { 
+        baseId, 
+        tableName, 
+        filterField, 
+        filterValue, 
+        dateFilter, 
+        recordLimit,
+        hasCustomRange: !!customDateRange
+      });
+      
+      // Build options object with filters
+      const options: any = {
+        baseId,
+        tableName,
+        maxRecords: 100 // Base limit for preview
+      };
+
+      // Apply record limit filter
+      if (recordLimit === 'custom_amount' && maxRecords) {
+        options.maxRecords = Math.min(parseInt(maxRecords) || 100, 100); // Cap at 100 for preview
+      }
+
+      // Apply field filter
+      if (filterField && filterValue) {
+        options.filterByFormula = `{${filterField}} = "${filterValue}"`;
+        console.log('🔍 Applying field filter:', options.filterByFormula);
+      }
+
+      // Apply date filter
+      if (dateFilter && dateFilter !== 'all_time') {
+        if (dateFilter === 'custom_date_range' && customDateRange) {
+          const startDate = customDateRange.startDate;
+          const endDate = customDateRange.endDate;
+          if (startDate && endDate) {
+            // Find a date field to filter on (common date field names)
+            const dateFieldCandidates = ['Created Time', 'Modified Time', 'Date', 'Created', 'Updated'];
+            const dateFieldToUse = dateFieldCandidates[0]; // Use first as fallback
+            const dateFormula = `AND(IS_AFTER({${dateFieldToUse}}, "${startDate}"), IS_BEFORE({${dateFieldToUse}}, "${endDate}"))`;
+            
+            if (options.filterByFormula) {
+              options.filterByFormula = `AND(${options.filterByFormula}, ${dateFormula})`;
+            } else {
+              options.filterByFormula = dateFormula;
+            }
+            console.log('🔍 Applying custom date filter:', dateFormula);
+          }
+        } else {
+          // Apply predefined date filters
+          const dateFieldToUse = 'Created Time'; // Default date field
+          let dateFormula = '';
+          
+          const now = new Date();
+          switch (dateFilter) {
+            case 'last_24_hours':
+              const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${yesterday.toISOString()}")`;
+              break;
+            case 'last_week':
+              const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${weekAgo.toISOString()}")`;
+              break;
+            case 'last_month':
+              const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${monthAgo.toISOString()}")`;
+              break;
+          }
+          
+          if (dateFormula) {
+            if (options.filterByFormula) {
+              options.filterByFormula = `AND(${options.filterByFormula}, ${dateFormula})`;
+            } else {
+              options.filterByFormula = dateFormula;
+            }
+            console.log('🔍 Applying date filter:', dateFormula);
+          }
+        }
+      }
       
       // Call the Airtable-specific data API endpoint
       const response = await fetch('/api/integrations/airtable/data', {
@@ -1222,11 +1309,7 @@ export default function ConfigurationForm({
         body: JSON.stringify({
           integrationId: integration.id,
           dataType: 'airtable_records',
-          options: {
-            baseId,
-            tableName,
-            maxRecords: 100 // Limit for preview
-          }
+          options
         })
       });
 
@@ -1238,17 +1321,18 @@ export default function ConfigurationForm({
       const result = await response.json();
       const records = result.data || [];
 
-      console.log('🔍 All records loaded for preview:', records);
-      console.log('🔍 Total record count:', records?.length || 0);
+      console.log('🔍 Filtered records loaded for preview:', records);
+      console.log('🔍 Total filtered record count:', records?.length || 0);
       setPreviewData(records || []);
       setShowPreviewData(true);
     } catch (error) {
       console.error('Error loading preview data:', error);
       setPreviewData([]);
+      setShowPreviewData(true); // Still show preview area to display error message
     } finally {
       setLoadingPreview(false);
     }
-  }, [getIntegrationByProvider]);
+  }, [getIntegrationByProvider, values]);
 
   /**
    * Test configuration handler
@@ -1470,6 +1554,37 @@ export default function ConfigurationForm({
       if (nodeInfo.type === 'airtable_action_list_records') {
         setShowPreviewData(false);
         setPreviewData([]);
+        
+        // Load dependent fields for list records (like filterField)
+        if (nodeInfo.configSchema && value) {
+          nodeInfo.configSchema.forEach(field => {
+            if (field.dependsOn === 'tableName') {
+              console.log('🔍 Loading dependent field for list records:', field.name);
+              setValue(field.name, ''); // Clear dependent field
+              setLoadingFields(prev => new Set(prev).add(field.name));
+              // For filterField, we need to pass baseId explicitly since form values are stale
+              if (field.name === 'filterField') {
+                console.log('🔍 Loading filterField with explicit baseId:', values.baseId);
+                // Pass baseId explicitly in the options parameter
+                loadOptions(field.name, 'tableName', value, true, false, { baseId: values.baseId }).finally(() => {
+                  setLoadingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(field.name);
+                    return newSet;
+                  });
+                });
+              } else {
+                loadOptions(field.name, 'tableName', value, true).finally(() => {
+                  setLoadingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(field.name);
+                    return newSet;
+                  });
+                });
+              }
+            }
+          });
+        }
       }
       
       // Clear record selection and dynamic fields when table changes for update/create/move records
@@ -1491,6 +1606,51 @@ export default function ConfigurationForm({
           loadAirtableRecords(values.baseId, value);
         }
       }
+    }
+    
+    // Handle filterField changes for Airtable - load filterValue options
+    if (fieldName === 'filterField' && nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records') {
+      console.log('🔍 Airtable filterField changed to:', value);
+      
+      // Always set loading state first, even before clearing the value
+      console.log('🔄 Setting loading state for filterValue');
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.add('filterValue');
+        console.log('🔄 Loading fields updated:', Array.from(newSet));
+        return newSet;
+      });
+      
+      // Clear filterValue when filterField changes
+      setValue('filterValue', '');
+      
+      // Force a small delay to ensure loading state is visible
+      setTimeout(() => {
+      
+        // Load filterValue options if a field is selected
+        if (value && values.baseId && values.tableName) {
+          console.log('🔍 Loading filterValue options for field:', value);
+          console.log('🔍 Using explicit baseId and tableName:', { baseId: values.baseId, tableName: values.tableName });
+          // Pass baseId and tableName explicitly in extraOptions to avoid stale form values
+          loadOptions('filterValue', 'filterField', value, true, false, { 
+            baseId: values.baseId, 
+            tableName: values.tableName 
+          }).finally(() => {
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('filterValue');
+              return newSet;
+            });
+          });
+        } else {
+          // If no field is selected, clear the loading state
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.delete('filterValue');
+            return newSet;
+          });
+        }
+      }, 10); // 10ms delay to ensure loading state is visible
     }
     
     // Don't auto-save configuration changes - let user save manually when they click Save or Listen
@@ -1599,30 +1759,58 @@ export default function ConfigurationForm({
     // Start with the base schema fields
     let visibleFields = [...nodeInfo.configSchema];
     
-    // Special handling for Airtable list records - show fields conditionally
+    // Special handling for Airtable list records - show fields with filtering capabilities
     if (nodeInfo.providerId === 'airtable' && nodeInfo.type === 'airtable_action_list_records') {
       // Always show baseId field
       const baseField = visibleFields.find(field => field.name === 'baseId');
+      let result = [baseField];
       
-      // Only show tableName field if baseId is selected
+      // Show tableName field if baseId is selected
       if (values.baseId) {
         const tableField = visibleFields.find(field => field.name === 'tableName');
-        const result = [baseField, tableField].filter(Boolean);
+        result.push(tableField);
         
-        // Add unique identifiers to prevent duplicates
-        return result.map((field, index) => ({
-          ...field,
-          uniqueId: `list_records_${field.name}_${index}`
-        }));
-      } else {
-        const result = [baseField].filter(Boolean);
-        
-        // Add unique identifiers to prevent duplicates
-        return result.map((field, index) => ({
-          ...field,
-          uniqueId: `list_records_${field.name}_${index}`
-        }));
+        // Show filtering fields if both base and table are selected
+        if (values.tableName) {
+          const filterFields = visibleFields.filter(field => 
+            ['keywordSearch', 'filterField', 'filterValue', 'sortOrder', 'dateFilter', 'customDateRange', 'recordLimit', 'maxRecords', 'filterByFormula'].includes(field.name)
+          );
+          
+          // Apply conditional visibility (showWhen) logic to each field
+          const conditionallyVisibleFields = filterFields.filter(field => {
+            // Handle conditional visibility with showWhen
+            if ((field as any).showWhen) {
+              const showWhen = (field as any).showWhen;
+              for (const [conditionField, conditionValues] of Object.entries(showWhen)) {
+                const currentValue = values[conditionField];
+                
+                // Handle special cases
+                if (conditionValues === "!empty") {
+                  // Field should show only when the condition field has a non-empty value
+                  if (!currentValue || currentValue === '') {
+                    return false;
+                  }
+                } else {
+                  // Normal condition matching
+                  const allowedValues = Array.isArray(conditionValues) ? conditionValues : [conditionValues];
+                  if (!allowedValues.includes(currentValue)) {
+                    return false;
+                  }
+                }
+              }
+            }
+            return true;
+          });
+          
+          result.push(...conditionallyVisibleFields);
+        }
       }
+      
+      // Filter out null/undefined and add unique identifiers
+      return result.filter(Boolean).map((field, index) => ({
+        ...field,
+        uniqueId: `list_records_${field.name}_${index}`
+      }));
     }
     
     // Special handling for Airtable create/update record - add dynamic fields when table is selected
@@ -1746,6 +1934,29 @@ export default function ConfigurationForm({
         return !!values.tableName;
       }
       
+      // Handle conditional visibility with showWhen
+      if ((field as any).showWhen) {
+        const showWhen = (field as any).showWhen;
+        for (const [conditionField, conditionValues] of Object.entries(showWhen)) {
+          const currentValue = values[conditionField];
+          
+          // Handle special cases
+          if (conditionValues === "!empty") {
+            // Field should show only when the condition field has a non-empty value
+            if (!currentValue || currentValue === '') {
+              return false;
+            }
+          } else {
+            // Normal condition matching
+            const allowedValues = Array.isArray(conditionValues) ? conditionValues : [conditionValues];
+            if (!allowedValues.includes(currentValue)) {
+              return false;
+            }
+          }
+        }
+      }
+      
+      // Handle regular dependencies
       if (!field.dependsOn) return true;
       return values[field.dependsOn] !== undefined && values[field.dependsOn] !== null && values[field.dependsOn] !== '';
     });
@@ -1837,8 +2048,8 @@ export default function ConfigurationForm({
               />
             )}
             
-            {/* Show preview button for list records right after table field */}
-            {isListRecord && field.name === 'tableName' && values.tableName && values.baseId && (
+            {/* Preview button will be moved to after all fields - removing from here */}
+            {false && isListRecord && field.name === 'tableName' && values.tableName && values.baseId && (
               <div className="mt-4 space-y-4">
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-600 mb-3">
@@ -1864,7 +2075,7 @@ export default function ConfigurationForm({
                       ) : (
                         <Eye className="h-4 w-4" />
                       )}
-                      {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Preview' : 'Preview All Records'}
+                      {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Preview' : 'Preview Records'}
                     </Button>
                     {showPreviewData && previewData.length > 0 && (
                       <div className="text-sm text-slate-600">
@@ -1882,9 +2093,16 @@ export default function ConfigurationForm({
                         <div>
                           <h3 className="text-sm font-medium text-slate-900">
                             Preview: {values.tableName}
+                            {(values.filterField || values.dateFilter !== 'all_time') && (
+                              <span className="text-xs text-blue-600 ml-1">(Filtered)</span>
+                            )}
                           </h3>
                           <p className="text-xs text-slate-600">
-                            {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Data available in workflow
+                            {previewData.length > 0 ? (
+                              `${previewData.length} record${previewData.length !== 1 ? 's' : ''} match${previewData.length === 1 ? 'es' : ''} your filters • Data available in workflow`
+                            ) : (
+                              'No records match your current filters • Try adjusting your filter criteria'
+                            )}
                           </p>
                         </div>
                         <Button
@@ -1944,99 +2162,10 @@ export default function ConfigurationForm({
                           `}</style>
                           <div className="relative">
                             {/* Sticky ID column positioned absolutely */}
+                            {/* Single table with sticky ID column */}
                             <div 
-                              className="absolute left-0 top-0 z-20 bg-white border-r border-slate-200"
+                              className="max-h-[300px] preview-table-container overflow-auto"
                               style={{ 
-                                width: (() => {
-                                  // Calculate optimal ID column width with better sizing
-                                  let maxWidth = Math.max('ID'.length * 10 + 40, 80); // Header width with more space
-                                  
-                                  // Check all ID values with better character width estimation
-                                  previewData.slice(0, 8).forEach(record => {
-                                    const idValue = record.value || record.id || '';
-                                    const idWidth = String(idValue).length * 9 + 24; // 9px per char + more padding
-                                    maxWidth = Math.max(maxWidth, idWidth);
-                                  });
-                                  
-                                  return `${Math.min(maxWidth, 250)}px`; // Higher cap for longer IDs
-                                })()
-                              }}
-                            >
-                              <table className="text-sm" style={{ borderSpacing: 0 }}>
-                                <thead className="bg-slate-50/50">
-                                  <tr style={{ height: '41px' }}>
-                                    <th 
-                                      className="font-medium text-slate-700 p-2 text-center border-b border-slate-200"
-                                      style={{ 
-                                        width: (() => {
-                                          let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                          previewData.slice(0, 8).forEach(record => {
-                                            const idValue = record.value || record.id || '';
-                                            const idWidth = String(idValue).length * 9 + 24;
-                                            maxWidth = Math.max(maxWidth, idWidth);
-                                          });
-                                          return `${Math.min(maxWidth, 250)}px`;
-                                        })()
-                                      }}
-                                    >
-                                      ID
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {previewData.slice(0, 8).map((record: any, index: number) => {
-                                    const idColumnWidth = (() => {
-                                      let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                      previewData.slice(0, 8).forEach(rec => {
-                                        const idValue = rec.value || rec.id || '';
-                                        const idWidth = String(idValue).length * 9 + 24;
-                                        maxWidth = Math.max(maxWidth, idWidth);
-                                      });
-                                      return Math.min(maxWidth, 250);
-                                    })();
-                                    
-                                    return (
-                                      <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
-                                        <td 
-                                          className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center"
-                                          style={{ width: `${idColumnWidth}px` }}
-                                        >
-                                          <div 
-                                            className="overflow-hidden text-center" 
-                                            style={{ width: `${idColumnWidth - 16}px` }}
-                                            title={record.value || record.id || ''}
-                                          >
-                                            {record.value || record.id || ''}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                  {previewData.length > 8 && (
-                                    <tr>
-                                      <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
-                                        ...
-                                      </td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                            
-                            {/* Scrollable content area starting after ID column */}
-                            <div 
-                              className="max-h-[300px] preview-table-container"
-                              style={{ 
-                                marginLeft: (() => {
-                                  // Calculate dynamic ID column width for margin
-                                  let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
-                                    const idValue = record.value || record.id || '';
-                                    const idWidth = String(idValue).length * 9 + 24;
-                                    maxWidth = Math.max(maxWidth, idWidth);
-                                  });
-                                  return `${Math.min(maxWidth, 250)}px`;
-                                })(),
                                 maxWidth: (() => {
                                   // Calculate max width accounting for dynamic ID column - more restrictive
                                   let idWidth = Math.max('ID'.length * 10 + 40, 80);
@@ -2138,7 +2267,33 @@ export default function ConfigurationForm({
                             >
                             <thead className="bg-slate-50/50 sticky top-0 z-10">
                               <tr style={{ height: '41px' }}>
-                                {/* Show all fields with horizontal scrolling - no ID column here */}
+                                {/* ID column as first column */}
+                                <th 
+                                  className="font-medium text-slate-700 p-2 text-center sticky left-0 z-20 bg-slate-50/50"
+                                  style={{ 
+                                    width: (() => {
+                                      let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                      previewData.slice(0, 8).forEach(record => {
+                                        const idValue = record.value || record.id || '';
+                                        const idWidth = String(idValue).length * 9 + 24;
+                                        maxWidth = Math.max(maxWidth, idWidth);
+                                      });
+                                      return `${Math.min(maxWidth, 250)}px`;
+                                    })(),
+                                    minWidth: (() => {
+                                      let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                      previewData.slice(0, 8).forEach(record => {
+                                        const idValue = record.value || record.id || '';
+                                        const idWidth = String(idValue).length * 9 + 24;
+                                        maxWidth = Math.max(maxWidth, idWidth);
+                                      });
+                                      return `${Math.min(maxWidth, 250)}px`;
+                                    })()
+                                  }}
+                                >
+                                  ID
+                                </th>
+                                {/* Show all fields with horizontal scrolling */}
                                 {Object.keys(previewData[0]?.fields || {}).map((fieldName, index, fields) => {
                                   // Calculate column width
                                   let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
@@ -2184,7 +2339,7 @@ export default function ConfigurationForm({
                                   return (
                                     <th 
                                       key={fieldName} 
-                                      className="font-medium text-slate-700 border-r border-slate-200 last:border-r-0 p-2 whitespace-nowrap text-center" 
+                                      className="font-medium text-slate-700 last:border-r-0 p-2 whitespace-nowrap text-center" 
                                       style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
                                     >
                                       <div title={fieldName} className="text-center">
@@ -2198,7 +2353,39 @@ export default function ConfigurationForm({
                             <tbody>
                               {previewData.slice(0, 8).map((record: any, index: number) => (
                                 <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
-                                  {/* No ID cell - start directly with field data */}
+                                  {/* ID cell as first column */}
+                                  <td 
+                                    className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center sticky left-0 z-10"
+                                    style={{ 
+                                      width: (() => {
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(rec => {
+                                          const idValue = rec.value || rec.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })(),
+                                      minWidth: (() => {
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(rec => {
+                                          const idValue = rec.value || rec.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })(),
+                                      height: '49px',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-center px-1 h-full">
+                                      <span className="text-center leading-tight" title={record.value || record.id || ''}>
+                                        {record.value || record.id || ''}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  {/* Field data cells */}
                                   {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
                                     const fieldNames = Object.keys(record.fields || {});
                                     const isLastColumn = fieldIndex === fieldNames.length - 1;
@@ -2247,10 +2434,10 @@ export default function ConfigurationForm({
                                     return (
                                       <td 
                                         key={`${record.id}-${fieldName}-${fieldIndex}`} 
-                                        className="border-r border-slate-100 last:border-r-0 p-2 whitespace-nowrap text-center"
-                                        style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                        className="last:border-r-0 p-2 whitespace-nowrap text-center align-middle"
+                                        style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, height: '49px', boxSizing: 'border-box' }}
                                       >
-                                        <div className="flex items-center justify-center" style={{ width: `${columnWidth - 16}px` }}>
+                                        <div className="flex items-center justify-center h-full" style={{ width: `${columnWidth - 16}px` }}>
                                           {(() => {
                                             // Check if this is an Airtable attachment field
                                             const isAttachment = Array.isArray(fieldValue) && 
@@ -2263,7 +2450,7 @@ export default function ConfigurationForm({
                                             if (isAttachment) {
                                               // Render attachment thumbnails
                                               return (
-                                                <div className="flex flex-wrap gap-1 justify-center">
+                                                <div className="flex flex-wrap gap-1 justify-center h-full items-center">
                                                   {fieldValue.slice(0, 3).map((attachment: any, index: number) => {
                                                     const isImage = attachment.type?.startsWith('image/') || 
                                                       /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(attachment.filename || '');
@@ -2321,8 +2508,8 @@ export default function ConfigurationForm({
                                             // Regular array handling
                                             if (Array.isArray(fieldValue)) {
                                               return (
-                                                <div className="text-xs text-slate-900 text-center">
-                                                  <span className="block" title={fieldValue.join(', ')}>
+                                                <div className="text-xs text-slate-900 text-center h-full flex items-center justify-center">
+                                                  <span className="block truncate" title={fieldValue.join(', ')}>
                                                     {fieldValue.length > 0 ? fieldValue.join(', ') : '[]'}
                                                   </span>
                                                 </div>
@@ -2331,13 +2518,17 @@ export default function ConfigurationForm({
                                             
                                             // Empty/null values
                                             if (fieldValue === null || fieldValue === undefined || fieldValue === '') {
-                                              return <span className="text-slate-400 italic text-xs">—</span>;
+                                              return (
+                                                <div className="text-slate-400 italic text-xs h-full flex items-center justify-center">
+                                                  <span>—</span>
+                                                </div>
+                                              );
                                             }
                                             
                                             // Regular text values
                                             return (
-                                              <div className="text-xs text-slate-900 text-center">
-                                                <span className="block" title={String(fieldValue)}>
+                                              <div className="text-xs text-slate-900 text-center h-full flex items-center justify-center">
+                                                <span className="block truncate" title={String(fieldValue)}>
                                                   {String(fieldValue)}
                                                 </span>
                                               </div>
@@ -2350,8 +2541,8 @@ export default function ConfigurationForm({
                                 </tr>
                               ))}
                               {previewData.length > 8 && (
-                                <tr>
-                                  <td colSpan={Object.keys(previewData[0]?.fields || {}).length} className="p-2 text-center text-xs text-slate-500 bg-slate-50">
+                                <tr style={{ height: '49px' }}>
+                                  <td colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                     ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
                                   </td>
                                 </tr>
@@ -2455,8 +2646,19 @@ export default function ConfigurationForm({
                   </Table>
                 </div>
               ) : (
-                <div className="text-center py-8 text-slate-500">
-                  No records found in this table
+                <div className="text-center py-8">
+                  <div className="text-slate-500 mb-2">
+                    {(values.filterField || values.dateFilter !== 'all_time') ? (
+                      'No records match your current filters'
+                    ) : (
+                      'No records found in this table'
+                    )}
+                  </div>
+                  {(values.filterField || values.dateFilter !== 'all_time') && (
+                    <div className="text-xs text-slate-400">
+                      Try adjusting your filter criteria to see results
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2484,7 +2686,7 @@ export default function ConfigurationForm({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingFields.has('guildId')}
+                  loadingDynamic={loadingFields.has(field.name)}
                   nodeInfo={nodeInfo}
                   allValues={values}
                   onDynamicLoad={handleDynamicLoad}
@@ -2719,6 +2921,587 @@ export default function ConfigurationForm({
                   {/* Render dynamic fields for basic tab */}
                   {dynamicFields.length > 0 && renderFieldsWithTable(dynamicFields, true)}
                   
+                  {/* Preview button for Airtable list records - placed after all fields */}
+                  {nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records' && values.tableName && values.baseId && (
+                    <div className="mt-6 space-y-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-sm text-slate-600 mb-3">
+                          Preview the data that will be retrieved from the selected table. This shows all records that would be returned when the workflow runs.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              if (showPreviewData) {
+                                setShowPreviewData(false);
+                                setPreviewData([]);
+                              } else {
+                                loadPreviewData(values.baseId, values.tableName);
+                              }
+                            }}
+                            disabled={loadingPreview}
+                            className="flex items-center gap-2"
+                          >
+                            {loadingPreview ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                            {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Preview' : 'Preview Records'}
+                          </Button>
+                          {showPreviewData && previewData.length > 0 && (
+                            <div className="text-sm text-slate-600">
+                              Showing {previewData.length} record{previewData.length !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Preview Data Table */}
+                      {showPreviewData && (
+                        <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+                          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="text-sm font-medium text-slate-900">
+                                  Preview: {values.tableName}
+                                </h3>
+                                <p className="text-xs text-slate-600">
+                                  {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Data available in workflow
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setShowPreviewData(false);
+                                  setPreviewData([]);
+                                }}
+                                className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            {previewData.length > 0 ? (
+                              <>
+                                <style jsx>{`
+                                  .preview-table-container {
+                                    overflow: scroll !important;
+                                    overflow-x: scroll !important;
+                                    overflow-y: scroll !important;
+                                  }
+                                  .preview-table-container::-webkit-scrollbar {
+                                    width: 16px !important;
+                                    height: 16px !important;
+                                    background-color: #e2e8f0 !important;
+                                    display: block !important;
+                                  }
+                                  .preview-table-container::-webkit-scrollbar-track {
+                                    background: #f1f5f9 !important;
+                                    border-radius: 8px !important;
+                                    border: 1px solid #cbd5e1 !important;
+                                  }
+                                  .preview-table-container::-webkit-scrollbar-thumb {
+                                    background: #475569 !important;
+                                    border-radius: 8px !important;
+                                    border: 2px solid #e2e8f0 !important;
+                                    min-height: 20px !important;
+                                    min-width: 20px !important;
+                                  }
+                                  .preview-table-container::-webkit-scrollbar-thumb:hover {
+                                    background: #334155 !important;
+                                  }
+                                  .preview-table-container::-webkit-scrollbar-corner {
+                                    background: #f1f5f9 !important;
+                                    border: 1px solid #cbd5e1 !important;
+                                  }
+                                  .preview-table-container {
+                                    scrollbar-width: auto !important;
+                                    scrollbar-color: #475569 #f1f5f9 !important;
+                                    scrollbar-gutter: stable !important;
+                                  }
+                                `}</style>
+                                <div className="relative">
+                                  {/* Sticky ID column positioned absolutely */}
+                                  <div 
+                                    className="absolute left-0 top-0 z-20 bg-white"
+                                    style={{ 
+                                      width: (() => {
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(record => {
+                                          const idValue = record.value || record.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })()
+                                    }}
+                                  >
+                                    <table className="text-sm" style={{ borderSpacing: 0 }}>
+                                      <thead className="bg-slate-50/50">
+                                        <tr style={{ height: '41px' }}>
+                                          <th 
+                                            className="font-medium text-slate-700 p-2 text-center"
+                                            style={{ 
+                                              width: (() => {
+                                                let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                                previewData.slice(0, 8).forEach(record => {
+                                                  const idValue = record.value || record.id || '';
+                                                  const idWidth = String(idValue).length * 9 + 24;
+                                                  maxWidth = Math.max(maxWidth, idWidth);
+                                                });
+                                                return `${Math.min(maxWidth, 250)}px`;
+                                              })()
+                                            }}
+                                          >
+                                            ID
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {previewData.slice(0, 8).map((record: any, index: number) => {
+                                          const idColumnWidth = (() => {
+                                            let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                            previewData.slice(0, 8).forEach(rec => {
+                                              const idValue = rec.value || rec.id || '';
+                                              const idWidth = String(idValue).length * 9 + 24;
+                                              maxWidth = Math.max(maxWidth, idWidth);
+                                            });
+                                            return Math.min(maxWidth, 250);
+                                          })();
+                                          
+                                          return (
+                                            <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
+                                              <td 
+                                                className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle"
+                                                style={{ width: `${idColumnWidth}px`, minHeight: 'inherit' }}
+                                              >
+                                                <div 
+                                                  className="flex items-center justify-center py-2 px-1" 
+                                                  style={{ width: `${idColumnWidth - 16}px`, minHeight: '49px' }}
+                                                  title={record.value || record.id || ''}
+                                                >
+                                                  <span className="text-center leading-tight">
+                                                    {record.value || record.id || ''}
+                                                  </span>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                        {previewData.length > 8 && (
+                                          <tr style={{ height: '49px' }}>
+                                            <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
+                                              ...
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  
+                                  {/* Scrollable content area starting after ID column */}
+                                  <div 
+                                    className="max-h-[300px] preview-table-container"
+                                    style={{ 
+                                      marginLeft: (() => {
+                                        // Calculate dynamic ID column width for margin
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(record => {
+                                          const idValue = record.value || record.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })(),
+                                      maxWidth: (() => {
+                                        // Calculate max width accounting for dynamic ID column - more restrictive
+                                        let idWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(record => {
+                                          const idValue = record.value || record.id || '';
+                                          const calcWidth = String(idValue).length * 9 + 24;
+                                          idWidth = Math.max(idWidth, calcWidth);
+                                        });
+                                        idWidth = Math.min(idWidth, 250);
+                                        return `calc(100vw - ${idWidth}px - 380px - 140px)`; // Even more space for Variables panel
+                                      })(), // Account for ID column + Variables panel + more padding
+                                      overflow: 'scroll',
+                                      overflowX: 'scroll',
+                                      overflowY: 'scroll',
+                                      scrollbarWidth: 'auto',
+                                      scrollbarColor: '#475569 #f1f5f9',
+                                      WebkitOverflowScrolling: 'touch'
+                                    }}
+                                  >
+                                    <table 
+                                      className="text-sm"
+                                      style={{ 
+                                        borderSpacing: 0,
+                                        width: (() => {
+                                          // Calculate dynamic width based on content
+                                          const fields = Object.keys(previewData[0]?.fields || {});
+                                          if (fields.length === 0) return '800px';
+                                          
+                                          // Calculate dynamic ID column width
+                                          let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
+                                          previewData.slice(0, 8).forEach(record => {
+                                            const idValue = record.value || record.id || '';
+                                            const idWidth = String(idValue).length * 9 + 24;
+                                            idColumnWidth = Math.max(idColumnWidth, idWidth);
+                                          });
+                                          idColumnWidth = Math.min(idColumnWidth, 250);
+                                          
+                                          // Calculate width for each column based on content
+                                          let totalWidth = 0;
+                                          fields.forEach(fieldName => {
+                                            // Calculate header width
+                                            let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
+                                            
+                                            // Check data width for this field
+                                            previewData.slice(0, 8).forEach(record => {
+                                              const value = record.fields?.[fieldName];
+                                              
+                                              // Check if this is an attachment field
+                                              const isAttachment = Array.isArray(value) && 
+                                                value.length > 0 && 
+                                                value[0] && 
+                                                typeof value[0] === 'object' && 
+                                                value[0].url && 
+                                                value[0].filename;
+                                              
+                                              if (isAttachment) {
+                                                // For attachment fields, calculate width based on thumbnail count
+                                                const thumbnailCount = Math.min(value.length, 3);
+                                                const hasMoreIndicator = value.length > 3;
+                                                const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
+                                                maxWidth = Math.max(maxWidth, attachmentWidth);
+                                              } else {
+                                                // Regular text width calculation
+                                                const valueStr = Array.isArray(value) 
+                                                  ? value.join(', ') 
+                                                  : String(value || '');
+                                                const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                                maxWidth = Math.max(maxWidth, valueWidth);
+                                              }
+                                            });
+                                            totalWidth += maxWidth;
+                                          });
+                                          
+                                          // For the last column, add dynamic ID column width for perfect alignment
+                                          let finalWidth = totalWidth;
+                                          if (fields.length > 0) {
+                                            finalWidth = totalWidth + idColumnWidth;
+                                          }
+                                          
+                                          return `${finalWidth}px`;
+                                        })(),
+                                        tableLayout: 'fixed'
+                                      }}
+                                    >
+                                      <thead className="bg-slate-50/50 sticky top-0 z-10">
+                                        <tr style={{ height: '41px' }}>
+                                          {/* Show all fields with horizontal scrolling - no ID column here */}
+                                          {Object.keys(previewData[0]?.fields || {}).map((fieldName, index, fields) => {
+                                            // Calculate column width
+                                            let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
+                                            previewData.slice(0, 8).forEach(record => {
+                                              const value = record.fields?.[fieldName];
+                                              
+                                              // Check if this is an attachment field
+                                              const isAttachment = Array.isArray(value) && 
+                                                value.length > 0 && 
+                                                value[0] && 
+                                                typeof value[0] === 'object' && 
+                                                value[0].url && 
+                                                value[0].filename;
+                                              
+                                              if (isAttachment) {
+                                                // For attachment fields, calculate width based on thumbnail count
+                                                const thumbnailCount = Math.min(value.length, 3);
+                                                const hasMoreIndicator = value.length > 3;
+                                                const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
+                                                columnWidth = Math.max(columnWidth, attachmentWidth);
+                                              } else {
+                                                // Regular text width calculation
+                                                const valueStr = Array.isArray(value) 
+                                                  ? value.join(', ') 
+                                                  : String(value || '');
+                                                const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                                columnWidth = Math.max(columnWidth, valueWidth);
+                                              }
+                                            });
+                                            
+                                            // For the last column, add dynamic ID column width for perfect alignment
+                                            if (index === fields.length - 1) {
+                                              let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
+                                              previewData.slice(0, 8).forEach(record => {
+                                                const idValue = record.value || record.id || '';
+                                                const idWidth = String(idValue).length * 9 + 24;
+                                                idColumnWidth = Math.max(idColumnWidth, idWidth);
+                                              });
+                                              idColumnWidth = Math.min(idColumnWidth, 250);
+                                              columnWidth += idColumnWidth; // Add dynamic ID column width for perfect alignment
+                                            }
+                                            
+                                            return (
+                                              <th 
+                                                key={fieldName} 
+                                                className="font-medium text-slate-700 last:border-r-0 p-2 whitespace-nowrap text-center" 
+                                                style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                              >
+                                                <div title={fieldName} className="text-center">
+                                                  {fieldName}
+                                                </div>
+                                              </th>
+                                            );
+                                          })}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {previewData.slice(0, 8).map((record: any, index: number) => (
+                                          <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ minHeight: '49px' }}>
+                                            {/* No ID cell - start directly with field data */}
+                                            {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
+                                              const fieldNames = Object.keys(record.fields || {});
+                                              const isLastColumn = fieldIndex === fieldNames.length - 1;
+                                              
+                                              // Calculate column width (same logic as header)
+                                              let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
+                                              previewData.slice(0, 8).forEach(rec => {
+                                                const value = rec.fields?.[fieldName];
+                                                
+                                                // Check if this is an attachment field
+                                                const isAttachment = Array.isArray(value) && 
+                                                  value.length > 0 && 
+                                                  value[0] && 
+                                                  typeof value[0] === 'object' && 
+                                                  value[0].url && 
+                                                  value[0].filename;
+                                                
+                                                if (isAttachment) {
+                                                  // For attachment fields, calculate width based on thumbnail count
+                                                  const thumbnailCount = Math.min(value.length, 3);
+                                                  const hasMoreIndicator = value.length > 3;
+                                                  const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
+                                                  columnWidth = Math.max(columnWidth, attachmentWidth);
+                                                } else {
+                                                  // Regular text width calculation
+                                                  const valueStr = Array.isArray(value) 
+                                                    ? value.join(', ') 
+                                                    : String(value || '');
+                                                  const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                                  columnWidth = Math.max(columnWidth, valueWidth);
+                                                }
+                                              });
+                                              
+                                              // For the last column, add dynamic ID column width for perfect alignment
+                                              if (isLastColumn) {
+                                                let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
+                                                previewData.slice(0, 8).forEach(rec => {
+                                                  const idValue = rec.value || rec.id || '';
+                                                  const idWidth = String(idValue).length * 9 + 24;
+                                                  idColumnWidth = Math.max(idColumnWidth, idWidth);
+                                                });
+                                                idColumnWidth = Math.min(idColumnWidth, 250);
+                                                columnWidth += idColumnWidth;
+                                              }
+                                              
+                                              // Check if this field value is an attachment
+                                              const isAttachment = Array.isArray(fieldValue) && 
+                                                fieldValue.length > 0 && 
+                                                fieldValue[0] && 
+                                                typeof fieldValue[0] === 'object' && 
+                                                fieldValue[0].url && 
+                                                fieldValue[0].filename;
+                                              
+                                              return (
+                                                <td 
+                                                  key={`${record.id}-${fieldName}-${fieldIndex}`} 
+                                                  className="last:border-r-0 p-2 text-center align-middle"
+                                                  style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                                >
+                                                  <div className="flex items-center justify-center min-h-[40px]" style={{ width: `${columnWidth - 16}px` }}>
+                                                    {(() => {
+                                                      // Check if this is an Airtable attachment field
+                                                      const isAttachment = Array.isArray(fieldValue) && 
+                                                        fieldValue.length > 0 && 
+                                                        fieldValue[0] && 
+                                                        typeof fieldValue[0] === 'object' && 
+                                                        fieldValue[0].url && 
+                                                        fieldValue[0].filename;
+                                                      
+                                                      if (isAttachment) {
+                                                        // Render attachment thumbnails
+                                                        return (
+                                                          <div className="flex flex-wrap gap-1 justify-center">
+                                                            {fieldValue.slice(0, 3).map((attachment: any, index: number) => {
+                                                              const isImage = attachment.type?.startsWith('image/') || 
+                                                                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(attachment.filename || '');
+                                                              
+                                                              if (isImage) {
+                                                                const thumbnailUrl = attachment.thumbnails?.small?.url || attachment.url;
+                                                                return (
+                                                                  <div 
+                                                                    key={`${attachment.id || index}`}
+                                                                    className="relative group"
+                                                                    title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
+                                                                  >
+                                                                    <img 
+                                                                      src={thumbnailUrl}
+                                                                      alt={attachment.filename || 'Attachment'}
+                                                                      className="w-8 h-8 object-cover rounded border border-slate-200 hover:border-blue-300 transition-colors"
+                                                                      onError={(e) => {
+                                                                        // Fallback to file icon if image fails to load
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        target.style.display = 'none';
+                                                                        const parent = target.parentElement;
+                                                                        if (parent) {
+                                                                          parent.innerHTML = `
+                                                                            <div class="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center">
+                                                                              <span class="text-xs text-slate-500">📎</span>
+                                                                            </div>
+                                                                          `;
+                                                                        }
+                                                                      }}
+                                                                    />
+                                                                  </div>
+                                                                );
+                                                              } else {
+                                                                // Non-image attachment - show file icon
+                                                                return (
+                                                                  <div 
+                                                                    key={`${attachment.id || index}`}
+                                                                    className="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center"
+                                                                    title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
+                                                                  >
+                                                                    <span className="text-xs text-slate-500">📎</span>
+                                                                  </div>
+                                                                );
+                                                              }
+                                                            })}
+                                                            {fieldValue.length > 3 && (
+                                                              <div className="w-8 h-8 bg-slate-50 rounded border border-slate-200 flex items-center justify-center">
+                                                                <span className="text-xs text-slate-400">+{fieldValue.length - 3}</span>
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        );
+                                                      }
+                                                      
+                                                      // Regular array handling
+                                                      if (Array.isArray(fieldValue)) {
+                                                        return (
+                                                          <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
+                                                            <span className="block leading-tight text-center" title={fieldValue.join(', ')} style={{ 
+                                                              maxWidth: `${columnWidth - 32}px`,
+                                                              wordBreak: 'break-word',
+                                                              overflowWrap: 'break-word',
+                                                              whiteSpace: 'pre-wrap'
+                                                            }}>
+                                                              {fieldValue.length > 0 ? fieldValue.join(', ') : '[]'}
+                                                            </span>
+                                                          </div>
+                                                        );
+                                                      }
+                                                      
+                                                      // Regular field value
+                                                      const displayValue = String(fieldValue || '');
+                                                      const isTruncated = displayValue.length > 25;
+                                                      const truncatedValue = isTruncated ? displayValue.substring(0, 25) + '...' : displayValue;
+                                                      
+                                                      return (
+                                                        <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
+                                                          <span 
+                                                            className="block leading-tight text-center" 
+                                                            title={displayValue}
+                                                            style={{ 
+                                                              maxWidth: `${columnWidth - 32}px`,
+                                                              wordBreak: 'break-word',
+                                                              overflowWrap: 'break-word',
+                                                              whiteSpace: 'pre-wrap'
+                                                            }}
+                                                          >
+                                                            {displayValue || '-'}
+                                                          </span>
+                                                        </div>
+                                                      );
+                                                    })()}
+                                                  </div>
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        ))}
+                                        {previewData.length > 8 && (
+                                          <tr style={{ height: '49px' }}>
+                                            <td 
+                                              colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} 
+                                              className="p-2 text-center text-xs text-slate-500 bg-slate-50"
+                                            >
+                                              ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center mt-2 py-3 px-4 border-t border-slate-200 min-h-[44px]">
+                                  <div className="flex items-center text-xs text-slate-500">
+                                    <span>Total: {previewData.length} record{previewData.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      loadPreviewData(values.baseId, values.tableName);
+                                    }}
+                                    disabled={loadingPreview}
+                                    className="h-8 px-3 text-xs bg-white border-slate-300 hover:bg-blue-50 hover:border-blue-400 text-slate-700 hover:text-blue-700 font-medium"
+                                    title="Refresh preview data"
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      {loadingPreview ? (
+                                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                                      ) : (
+                                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                      )}
+                                      <span>Refresh</span>
+                                    </div>
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-center py-4">
+                                <div className="text-slate-500 mb-1">
+                                  {(values.filterField || values.dateFilter !== 'all_time') ? (
+                                    'No records match your current filters'
+                                  ) : (
+                                    'No records found in this table'
+                                  )}
+                                </div>
+                                {(values.filterField || values.dateFilter !== 'all_time') && (
+                                  <div className="text-xs text-slate-400">
+                                    Try adjusting your filter criteria
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -2741,6 +3524,547 @@ export default function ConfigurationForm({
             {renderFieldsWithTable(basicFields, false)}
             {/* Render dynamic fields for simple view */}
             {dynamicFields.length > 0 && renderFieldsWithTable(dynamicFields, true)}
+            
+            {/* Preview button for Airtable list records - placed after all fields (simple view) */}
+            {nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records' && values.tableName && values.baseId && (
+              <div className="mt-6 space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-600 mb-3">
+                    Preview the data that will be retrieved from the selected table. This shows all records that would be returned when the workflow runs.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (showPreviewData) {
+                          setShowPreviewData(false);
+                          setPreviewData([]);
+                        } else {
+                          loadPreviewData(values.baseId, values.tableName);
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="flex items-center gap-2"
+                    >
+                      {loadingPreview ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Preview' : 'Preview Records'}
+                    </Button>
+                    {showPreviewData && previewData.length > 0 && (
+                      <div className="text-sm text-slate-600">
+                        Showing {previewData.length} record{previewData.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Preview Data Table */}
+                {showPreviewData && (
+                  <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+                    <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-slate-900">
+                            Preview: {values.tableName}
+                          </h3>
+                          <p className="text-xs text-slate-600">
+                            {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Data available in workflow
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowPreviewData(false);
+                            setPreviewData([]);
+                          }}
+                          className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      {previewData.length > 0 ? (
+                        <>
+                          <style jsx>{`
+                            .preview-table-container-2 {
+                              overflow: scroll !important;
+                              overflow-x: scroll !important;
+                              overflow-y: scroll !important;
+                            }
+                            .preview-table-container-2::-webkit-scrollbar {
+                              width: 16px !important;
+                              height: 16px !important;
+                              background-color: #e2e8f0 !important;
+                              display: block !important;
+                            }
+                            .preview-table-container-2::-webkit-scrollbar-track {
+                              background: #f1f5f9 !important;
+                              border-radius: 8px !important;
+                              border: 1px solid #cbd5e1 !important;
+                            }
+                            .preview-table-container-2::-webkit-scrollbar-thumb {
+                              background: #475569 !important;
+                              border-radius: 8px !important;
+                              border: 2px solid #e2e8f0 !important;
+                              min-height: 20px !important;
+                              min-width: 20px !important;
+                            }
+                            .preview-table-container-2::-webkit-scrollbar-thumb:hover {
+                              background: #334155 !important;
+                            }
+                            .preview-table-container-2::-webkit-scrollbar-corner {
+                              background: #f1f5f9 !important;
+                              border: 1px solid #cbd5e1 !important;
+                            }
+                            .preview-table-container-2 {
+                              scrollbar-width: auto !important;
+                              scrollbar-color: #475569 #f1f5f9 !important;
+                              scrollbar-gutter: stable !important;
+                            }
+                          `}</style>
+                          <div className="relative">
+                            {/* Sticky ID column positioned absolutely */}
+                            <div 
+                              className="absolute left-0 top-0 z-20 bg-white"
+                              style={{ 
+                                width: (() => {
+                                  let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                  previewData.slice(0, 8).forEach(record => {
+                                    const idValue = record.value || record.id || '';
+                                    const idWidth = String(idValue).length * 9 + 24;
+                                    maxWidth = Math.max(maxWidth, idWidth);
+                                  });
+                                  return `${Math.min(maxWidth, 250)}px`;
+                                })()
+                              }}
+                            >
+                              <table className="text-sm" style={{ borderSpacing: 0 }}>
+                                <thead className="bg-slate-50/50">
+                                  <tr style={{ height: '41px' }}>
+                                    <th 
+                                      className="font-medium text-slate-700 p-2 text-center"
+                                      style={{ 
+                                        width: (() => {
+                                          let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                          previewData.slice(0, 8).forEach(record => {
+                                            const idValue = record.value || record.id || '';
+                                            const idWidth = String(idValue).length * 9 + 24;
+                                            maxWidth = Math.max(maxWidth, idWidth);
+                                          });
+                                          return `${Math.min(maxWidth, 250)}px`;
+                                        })()
+                                      }}
+                                    >
+                                      ID
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {previewData.slice(0, 8).map((record: any, index: number) => {
+                                    const idColumnWidth = (() => {
+                                      let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                      previewData.slice(0, 8).forEach(rec => {
+                                        const idValue = rec.value || rec.id || '';
+                                        const idWidth = String(idValue).length * 9 + 24;
+                                        maxWidth = Math.max(maxWidth, idWidth);
+                                      });
+                                      return Math.min(maxWidth, 250);
+                                    })();
+                                    
+                                    return (
+                                      <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50" style={{ height: '49px' }}>
+                                        <td 
+                                          className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle"
+                                          style={{ width: `${idColumnWidth}px`, height: '49px', boxSizing: 'border-box' }}
+                                        >
+                                          <div 
+                                            className="flex items-center justify-center px-1 h-full" 
+                                            style={{ width: `${idColumnWidth - 16}px` }}
+                                            title={record.value || record.id || ''}
+                                          >
+                                            <span className="text-center leading-tight">
+                                              {record.value || record.id || ''}
+                                            </span>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                  {previewData.length > 8 && (
+                                    <tr style={{ height: '49px' }}>
+                                      <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
+                                        ...
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            
+                            {/* Scrollable content area starting after ID column */}
+                            <div 
+                              className="max-h-[300px] preview-table-container-2"
+                              style={{ 
+                                marginLeft: (() => {
+                                  // Calculate dynamic ID column width for margin
+                                  let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                  previewData.slice(0, 8).forEach(record => {
+                                    const idValue = record.value || record.id || '';
+                                    const idWidth = String(idValue).length * 9 + 24;
+                                    maxWidth = Math.max(maxWidth, idWidth);
+                                  });
+                                  return `${Math.min(maxWidth, 250)}px`;
+                                })(),
+                                maxWidth: (() => {
+                                  // Calculate max width accounting for dynamic ID column - more restrictive
+                                  let idWidth = Math.max('ID'.length * 10 + 40, 80);
+                                  previewData.slice(0, 8).forEach(record => {
+                                    const idValue = record.value || record.id || '';
+                                    const calcWidth = String(idValue).length * 9 + 24;
+                                    idWidth = Math.max(idWidth, calcWidth);
+                                  });
+                                  idWidth = Math.min(idWidth, 250);
+                                  return `calc(100vw - ${idWidth}px - 380px - 140px)`; // Even more space for Variables panel
+                                })(), // Account for ID column + Variables panel + more padding
+                                overflow: 'scroll',
+                                overflowX: 'scroll',
+                                overflowY: 'scroll',
+                                scrollbarWidth: 'auto',
+                                scrollbarColor: '#475569 #f1f5f9',
+                                WebkitOverflowScrolling: 'touch'
+                              }}
+                            >
+                              <table 
+                                className="text-sm"
+                                style={{ 
+                                  borderSpacing: 0,
+                                  width: (() => {
+                                    // Calculate dynamic width based on content
+                                    const fields = Object.keys(previewData[0]?.fields || {});
+                                    if (fields.length === 0) return '800px';
+                                    
+                                    // Calculate dynamic ID column width
+                                    let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
+                                    previewData.slice(0, 8).forEach(record => {
+                                      const idValue = record.value || record.id || '';
+                                      const idWidth = String(idValue).length * 9 + 24;
+                                      idColumnWidth = Math.max(idColumnWidth, idWidth);
+                                    });
+                                    idColumnWidth = Math.min(idColumnWidth, 250);
+                                    
+                                    // Calculate width for each column based on content
+                                    let totalWidth = 0;
+                                    fields.forEach(fieldName => {
+                                      // Calculate header width
+                                      let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
+                                      
+                                      // Check data width for this field
+                                      previewData.slice(0, 8).forEach(record => {
+                                        const value = record.fields?.[fieldName];
+                                        
+                                        // Check if this is an attachment field
+                                        const isAttachment = Array.isArray(value) && 
+                                          value.length > 0 && 
+                                          value[0] && 
+                                          typeof value[0] === 'object' && 
+                                          value[0].url && 
+                                          value[0].filename;
+                                        
+                                        if (isAttachment) {
+                                          // For attachment fields, calculate width based on thumbnail count
+                                          const thumbnailCount = Math.min(value.length, 3);
+                                          const hasMoreIndicator = value.length > 3;
+                                          const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
+                                          maxWidth = Math.max(maxWidth, attachmentWidth);
+                                        } else {
+                                          // Regular text width calculation
+                                          const valueStr = Array.isArray(value) 
+                                            ? value.join(', ') 
+                                            : String(value || '');
+                                          const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                          maxWidth = Math.max(maxWidth, valueWidth);
+                                        }
+                                      });
+                                      totalWidth += maxWidth;
+                                    });
+                                    
+                                    // For the last column, add dynamic ID column width for perfect alignment
+                                    let finalWidth = totalWidth;
+                                    if (fields.length > 0) {
+                                      finalWidth = totalWidth + idColumnWidth;
+                                    }
+                                    
+                                    return `${finalWidth}px`;
+                                  })(),
+                                  tableLayout: 'fixed'
+                                }}
+                              >
+                                <thead className="bg-slate-50/50 sticky top-0 z-10">
+                                  <tr style={{ height: '41px' }}>
+                                    {Object.keys(previewData[0]?.fields || {}).map((fieldName) => {
+                                      let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
+                                      previewData.slice(0, 8).forEach(record => {
+                                        const value = record.fields?.[fieldName];
+                                        const valueStr = Array.isArray(value) 
+                                          ? value.join(', ') 
+                                          : String(value || '');
+                                        const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                        columnWidth = Math.max(columnWidth, valueWidth);
+                                      });
+                                      
+                                      return (
+                                        <th 
+                                          key={fieldName} 
+                                          className="font-medium text-slate-700 last:border-r-0 p-2 whitespace-nowrap text-center" 
+                                          style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                        >
+                                          <div title={fieldName} className="text-center">
+                                            {fieldName}
+                                          </div>
+                                        </th>
+                                      );
+                                    })}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {previewData.slice(0, 8).map((record: any, index: number) => (
+                                    <tr key={record.value || record.id || index} className="hover:bg-slate-50/50" style={{ minHeight: '49px' }}>
+                                      {/* No ID cell - start directly with field data */}
+                                      {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
+                                        const fieldNames = Object.keys(record.fields || {});
+                                        const isLastColumn = fieldIndex === fieldNames.length - 1;
+                                        
+                                        // Calculate column width (same logic as header)
+                                        let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
+                                        previewData.slice(0, 8).forEach(rec => {
+                                          const value = rec.fields?.[fieldName];
+                                          
+                                          // Check if this is an attachment field
+                                          const isAttachment = Array.isArray(value) && 
+                                            value.length > 0 && 
+                                            value[0] && 
+                                            typeof value[0] === 'object' && 
+                                            value[0].url && 
+                                            value[0].filename;
+                                          
+                                          if (isAttachment) {
+                                            // For attachment fields, calculate width based on thumbnail count
+                                            const thumbnailCount = Math.min(value.length, 3);
+                                            const hasMoreIndicator = value.length > 3;
+                                            const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
+                                            columnWidth = Math.max(columnWidth, attachmentWidth);
+                                          } else {
+                                            // Regular text width calculation
+                                            const valueStr = Array.isArray(value) 
+                                              ? value.join(', ') 
+                                              : String(value || '');
+                                            const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
+                                            columnWidth = Math.max(columnWidth, valueWidth);
+                                          }
+                                        });
+                                        
+                                        // For the last column, add dynamic ID column width for perfect alignment
+                                        if (isLastColumn) {
+                                          let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
+                                          previewData.slice(0, 8).forEach(rec => {
+                                            const idValue = rec.value || rec.id || '';
+                                            const idWidth = String(idValue).length * 9 + 24;
+                                            idColumnWidth = Math.max(idColumnWidth, idWidth);
+                                          });
+                                          idColumnWidth = Math.min(idColumnWidth, 250);
+                                          columnWidth += idColumnWidth;
+                                        }
+                                        
+                                        return (
+                                          <td 
+                                            key={`${record.id}-${fieldName}-${fieldIndex}`} 
+                                            className="last:border-r-0 p-2 text-center align-middle"
+                                            style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+                                          >
+                                            <div className="flex items-center justify-center min-h-[40px]" style={{ width: `${columnWidth - 16}px` }}>
+                                              {(() => {
+                                                // Check if this is an Airtable attachment field
+                                                const isAttachment = Array.isArray(fieldValue) && 
+                                                  fieldValue.length > 0 && 
+                                                  fieldValue[0] && 
+                                                  typeof fieldValue[0] === 'object' && 
+                                                  fieldValue[0].url && 
+                                                  fieldValue[0].filename;
+                                                
+                                                if (isAttachment) {
+                                                  // Render attachment thumbnails
+                                                  return (
+                                                    <div className="flex flex-wrap gap-1 justify-center">
+                                                      {fieldValue.slice(0, 3).map((attachment: any, index: number) => {
+                                                        const isImage = attachment.type?.startsWith('image/') || 
+                                                          /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(attachment.filename || '');
+                                                        
+                                                        if (isImage) {
+                                                          const thumbnailUrl = attachment.thumbnails?.small?.url || attachment.url;
+                                                          return (
+                                                            <div 
+                                                              key={`${attachment.id || index}`}
+                                                              className="relative group"
+                                                              title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
+                                                            >
+                                                              <img 
+                                                                src={thumbnailUrl}
+                                                                alt={attachment.filename || 'Attachment'}
+                                                                className="w-8 h-8 object-cover rounded border border-slate-200 hover:border-blue-300 transition-colors"
+                                                                onError={(e) => {
+                                                                  // Fallback to file icon if image fails to load
+                                                                  const target = e.target as HTMLImageElement;
+                                                                  target.style.display = 'none';
+                                                                  const parent = target.parentElement;
+                                                                  if (parent) {
+                                                                    parent.innerHTML = `
+                                                                      <div class="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center">
+                                                                        <span class="text-xs text-slate-500">📎</span>
+                                                                      </div>
+                                                                    `;
+                                                                  }
+                                                                }}
+                                                              />
+                                                            </div>
+                                                          );
+                                                        } else {
+                                                          // Non-image attachment - show file icon
+                                                          return (
+                                                            <div 
+                                                              key={`${attachment.id || index}`}
+                                                              className="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center"
+                                                              title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
+                                                            >
+                                                              <span className="text-xs text-slate-500">📎</span>
+                                                            </div>
+                                                          );
+                                                        }
+                                                      })}
+                                                      {fieldValue.length > 3 && (
+                                                        <div className="w-8 h-8 bg-slate-50 rounded border border-slate-200 flex items-center justify-center">
+                                                          <span className="text-xs text-slate-400">+{fieldValue.length - 3}</span>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                }
+                                                
+                                                // Regular array handling
+                                                if (Array.isArray(fieldValue)) {
+                                                  return (
+                                                    <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
+                                                      <span className="block leading-tight text-center" title={fieldValue.join(', ')} style={{ 
+                                                        maxWidth: `${columnWidth - 32}px`,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'break-word',
+                                                        whiteSpace: 'pre-wrap'
+                                                      }}>
+                                                        {fieldValue.length > 0 ? fieldValue.join(', ') : '[]'}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                }
+                                                
+                                                // Regular field value
+                                                const displayValue = String(fieldValue || '');
+                                                const isTruncated = displayValue.length > 25;
+                                                const truncatedValue = isTruncated ? displayValue.substring(0, 25) + '...' : displayValue;
+                                                
+                                                return (
+                                                  <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
+                                                    <span 
+                                                      className="block leading-tight text-center" 
+                                                      title={displayValue}
+                                                      style={{ 
+                                                        maxWidth: `${columnWidth - 32}px`,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'break-word',
+                                                        whiteSpace: 'pre-wrap'
+                                                      }}
+                                                    >
+                                                      {displayValue || '-'}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })()}
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                  {previewData.length > 8 && (
+                                    <tr style={{ height: '49px' }}>
+                                      <td 
+                                        colSpan={Object.keys(previewData[0]?.fields || {}).length} 
+                                        className="p-2 text-center text-xs text-slate-500 bg-slate-50"
+                                      >
+                                        ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-2 py-3 px-4 border-t border-slate-200 min-h-[44px]">
+                            <div className="flex items-center text-xs text-slate-500">
+                              <span>Total: {previewData.length} record{previewData.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                loadPreviewData(values.baseId, values.tableName);
+                              }}
+                              disabled={loadingPreview}
+                              className="h-8 px-3 text-xs bg-white border-slate-300 hover:bg-blue-50 hover:border-blue-400 text-slate-700 hover:text-blue-700 font-medium"
+                              title="Refresh preview data"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {loadingPreview ? (
+                                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                                ) : (
+                                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                )}
+                                <span>Refresh</span>
+                              </div>
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <div className="text-slate-500 mb-1">
+                            {(values.filterField || values.dateFilter !== 'all_time') ? (
+                              'No records match your current filters'
+                            ) : (
+                              'No records found in this table'
+                            )}
+                          </div>
+                          {(values.filterField || values.dateFilter !== 'all_time') && (
+                            <div className="text-xs text-slate-400">
+                              Try adjusting your filter criteria
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </ScrollArea>
       )}

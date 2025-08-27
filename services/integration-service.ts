@@ -236,6 +236,7 @@ export class IntegrationService {
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     })
 
     if (!response.ok) {

@@ -17,12 +17,28 @@ export async function listAirtableRecords(
     const tableName = resolveValue(config.tableName, input)
     const maxRecords = resolveValue(config.maxRecords, input) || 100
     const filterByFormula = resolveValue(config.filterByFormula, input)
+    
+    // New filter parameters
+    const keywordSearch = resolveValue(config.keywordSearch, input)
+    const filterField = resolveValue(config.filterField, input)
+    const filterValue = resolveValue(config.filterValue, input)
+    const sortOrder = resolveValue(config.sortOrder, input) || 'desc'
+    const dateFilter = resolveValue(config.dateFilter, input)
+    const customDateRange = resolveValue(config.customDateRange, input)
+    const recordLimit = resolveValue(config.recordLimit, input)
 
     console.log("Resolved list records values:", { 
       baseId, 
       tableName, 
       maxRecords,
-      filterByFormula
+      filterByFormula,
+      keywordSearch,
+      filterField,
+      filterValue,
+      sortOrder,
+      dateFilter,
+      customDateRange,
+      recordLimit
     })
 
     if (!baseId || !tableName) {
@@ -35,12 +51,155 @@ export async function listAirtableRecords(
       return { success: false, message }
     }
 
+    // Build combined filter formula using AND logic
+    const filterConditions: string[] = []
+    
+    // Add existing filterByFormula if provided
+    if (filterByFormula && filterByFormula.trim()) {
+      filterConditions.push(`(${filterByFormula})`)
+    }
+    
+    // Note: Keyword search will be implemented as post-processing for now
+    // TODO: Enhance to use actual table schema to search across all text fields
+    let keywordSearchTerm = null
+    if (keywordSearch && keywordSearch.trim()) {
+      keywordSearchTerm = keywordSearch.trim().toLowerCase()
+      console.log("Will apply keyword search post-processing for:", keywordSearchTerm)
+    }
+    
+    // Add field-specific filtering
+    if (filterField && filterValue) {
+      filterConditions.push(`{${filterField}} = "${filterValue}"`)
+      console.log("Added field-specific filter:", filterField, "=", filterValue)
+    }
+    
+    // Add date filter based on selected option
+    if (dateFilter) {
+      let dateFormula = ''
+      const today = new Date()
+      
+      switch(dateFilter) {
+        case 'today':
+          dateFormula = `IS_SAME(CREATED_TIME(), TODAY(), 'day')`
+          break
+        case 'yesterday':
+          const yesterday = new Date(today)
+          yesterday.setDate(today.getDate() - 1)
+          dateFormula = `IS_SAME(CREATED_TIME(), '${yesterday.toISOString().split('T')[0]}', 'day')`
+          break
+        case 'last_7_days':
+          const sevenDaysAgo = new Date(today)
+          sevenDaysAgo.setDate(today.getDate() - 7)
+          dateFormula = `CREATED_TIME() >= '${sevenDaysAgo.toISOString().split('T')[0]}'`
+          break
+        case 'last_30_days':
+          const thirtyDaysAgo = new Date(today)
+          thirtyDaysAgo.setDate(today.getDate() - 30)
+          dateFormula = `CREATED_TIME() >= '${thirtyDaysAgo.toISOString().split('T')[0]}'`
+          break
+        case 'this_month':
+          const firstDayThisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+          dateFormula = `CREATED_TIME() >= '${firstDayThisMonth.toISOString().split('T')[0]}'`
+          break
+        case 'last_month':
+          const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+          const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+          dateFormula = `AND(CREATED_TIME() >= '${firstDayLastMonth.toISOString().split('T')[0]}', CREATED_TIME() <= '${lastDayLastMonth.toISOString().split('T')[0]}')`
+          break
+        case 'custom_date_range':
+          if (customDateRange && customDateRange.from && customDateRange.to) {
+            const fromDate = new Date(customDateRange.from).toISOString().split('T')[0]
+            const toDate = new Date(customDateRange.to).toISOString().split('T')[0]
+            dateFormula = `AND(CREATED_TIME() >= '${fromDate}', CREATED_TIME() <= '${toDate}')`
+            console.log("Added custom date range filter:", fromDate, "to", toDate)
+          }
+          break
+      }
+      
+      if (dateFormula) {
+        filterConditions.push(dateFormula)
+        console.log("Added date filter for:", dateFilter)
+      }
+    }
+    
+    // Combine all conditions with AND logic
+    let combinedFilter = ''
+    if (filterConditions.length > 0) {
+      combinedFilter = filterConditions.length === 1 
+        ? filterConditions[0] 
+        : `AND(${filterConditions.join(', ')})`
+    }
+
     // Build the URL with query parameters
     const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`)
-    url.searchParams.append('maxRecords', maxRecords.toString())
     
-    if (filterByFormula) {
-      url.searchParams.append('filterByFormula', filterByFormula)
+    // Handle record limit options
+    let effectiveMaxRecords = 100  // Default fallback
+    
+    if (recordLimit && recordLimit !== '') {
+      switch(recordLimit) {
+        case 'last_10':
+          effectiveMaxRecords = 10
+          break
+        case 'last_20':
+          effectiveMaxRecords = 20
+          break
+        case 'last_50':
+          effectiveMaxRecords = 50
+          break
+        case 'last_100':
+          effectiveMaxRecords = 100
+          break
+        case 'custom':
+          // Use the maxRecords value when custom is selected (maxRecords field is visible)
+          effectiveMaxRecords = maxRecords || 100
+          break
+        default:
+          effectiveMaxRecords = 100
+          break
+      }
+    } else {
+      // When recordLimit is empty ("Use Max Records setting"), use a default since maxRecords field is hidden
+      effectiveMaxRecords = 100
+    }
+    
+    url.searchParams.append('maxRecords', effectiveMaxRecords.toString())
+    
+    if (combinedFilter) {
+      url.searchParams.append('filterByFormula', combinedFilter)
+      console.log("Applied combined filter formula:", combinedFilter)
+    }
+    
+    // Add sorting based on sort order option
+    if (sortOrder) {
+      let sortField = 'Created'
+      let sortDirection = 'desc'
+      
+      switch(sortOrder) {
+        case 'newest':
+          sortField = 'Created'
+          sortDirection = 'desc'
+          break
+        case 'oldest':
+          sortField = 'Created'
+          sortDirection = 'asc'
+          break
+        case 'recently_modified':
+          sortField = 'Last Modified'
+          sortDirection = 'desc'
+          break
+        case 'least_recently_modified':
+          sortField = 'Last Modified'
+          sortDirection = 'asc'
+          break
+        default:
+          sortField = 'Created'
+          sortDirection = 'desc'
+      }
+      
+      url.searchParams.append('sort[0][field]', sortField)
+      url.searchParams.append('sort[0][direction]', sortDirection)
+      console.log(`Added sorting: ${sortField} ${sortDirection}`)
     }
 
     console.log("Fetching records from URL:", url.toString())
@@ -61,19 +220,47 @@ export async function listAirtableRecords(
 
     const result = await response.json()
 
+    // Apply keyword search post-processing if needed
+    let filteredRecords = result.records || []
+    if (keywordSearchTerm && filteredRecords.length > 0) {
+      console.log("Applying keyword search post-processing for:", keywordSearchTerm)
+      filteredRecords = filteredRecords.filter((record: any) => {
+        if (!record.fields) return false
+        
+        // Search across all field values
+        const fieldValues = Object.values(record.fields).map(value => {
+          if (typeof value === 'string') return value.toLowerCase()
+          if (Array.isArray(value)) return value.map(v => String(v).toLowerCase()).join(' ')
+          return String(value).toLowerCase()
+        }).join(' ')
+        
+        return fieldValues.includes(keywordSearchTerm)
+      })
+      
+      console.log(`Keyword search filtered ${result.records?.length || 0} records down to ${filteredRecords.length}`)
+    }
 
     return {
       success: true,
       output: {
-        records: result.records || [],
-        count: result.records?.length || 0,
+        records: filteredRecords,
+        count: filteredRecords.length,
         offset: result.offset,
         tableName: tableName,
         baseId: baseId,
-        maxRecords: maxRecords,
-        filterByFormula: filterByFormula,
+        maxRecords: effectiveMaxRecords,
+        filterByFormula: combinedFilter,
+        appliedFilters: {
+          keywordSearch,
+          filterField,
+          filterValue,
+          dateFilter,
+          customDateRange,
+          recordLimit,
+          sortOrder
+        },
       },
-      message: `Successfully listed ${result.records?.length || 0} records from ${tableName}`
+      message: `Successfully listed ${filteredRecords.length} records from ${tableName}${keywordSearchTerm ? ` (filtered by keyword: "${keywordSearchTerm}")` : ''}`
     }
 
   } catch (error: any) {
