@@ -34,8 +34,28 @@ export function GenericSelectField({
 
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
+    console.log('🔍 [GenericSelectField] handleFieldOpen called:', {
+      open,
+      fieldName: field.name,
+      fieldDynamic: field.dynamic,
+      hasOnDynamicLoad: !!onDynamicLoad,
+      isLoading,
+      optionsLength: options?.length || 0,
+      options,
+      willTriggerLoad: open && field.dynamic && onDynamicLoad && !isLoading && (options?.length === 0)
+    });
+    
+    if (open && field.dynamic && onDynamicLoad && !isLoading && (options?.length === 0)) {
+      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name);
       onDynamicLoad(field.name);
+    } else {
+      console.log('🚫 [GenericSelectField] Dynamic load NOT triggered. Conditions:', {
+        open,
+        hasDynamic: !!field.dynamic,
+        hasLoader: !!onDynamicLoad,
+        notLoading: !isLoading,
+        emptyOptions: (options?.length === 0)
+      });
     }
   };
 
@@ -102,6 +122,7 @@ export function GenericSelectField({
         emptyPlaceholder="No options found"
         disabled={isLoading || field.disabled}
         creatable={isAirtableRecordField} // Allow custom input for Airtable fields
+        onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
       />
     );
   }

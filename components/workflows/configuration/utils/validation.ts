@@ -77,6 +77,17 @@ export const shouldHideField = (
     return true;
   }
 
+  // Check conditional property (used in Google Drive and other nodes)
+  if ((field as any).conditional) {
+    const conditional = (field as any).conditional;
+    const conditionFieldValue = config[conditional.field];
+    
+    // Hide if the condition doesn't match
+    if (conditional.value !== undefined) {
+      return conditionFieldValue !== conditional.value;
+    }
+  }
+
   // Check dependency conditions
   if (field.dependsOn && field.showIf) {
     const dependentValue = config[field.dependsOn];

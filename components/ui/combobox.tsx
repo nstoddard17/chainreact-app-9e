@@ -38,6 +38,7 @@ interface ComboboxProps {
   emptyPlaceholder?: string;
   disabled?: boolean;
   creatable?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface MultiComboboxProps {
@@ -86,8 +87,14 @@ export function Combobox({
   emptyPlaceholder,
   disabled,
   creatable = false,
+  onOpenChange,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    onOpenChange?.(newOpen);
+  };
   const [inputValue, setInputValue] = React.useState("")
   const [localOptions, setLocalOptions] = React.useState<ComboboxOption[]>(options)
 
@@ -188,7 +195,7 @@ export function Combobox({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

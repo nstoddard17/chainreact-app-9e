@@ -25,6 +25,7 @@ import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
+import { Switch } from "@/components/ui/switch";
 
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
@@ -467,6 +468,36 @@ export function FieldRenderer({
           />
         );
 
+      case "button-toggle":
+        // Render a switch toggle button with labels
+        const isChecked = value === field.options?.[1]?.value; // Second option is the "checked" state
+        const handleToggle = (checked: boolean) => {
+          const newValue = checked ? field.options?.[1]?.value : field.options?.[0]?.value;
+          onChange(newValue);
+        };
+        
+        return (
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "text-sm font-medium transition-colors",
+              !isChecked ? "text-slate-700" : "text-muted-foreground"
+            )}>
+              {field.options?.[0]?.label || "Off"}
+            </span>
+            <Switch
+              checked={isChecked}
+              onCheckedChange={handleToggle}
+              className="data-[state=checked]:bg-blue-500"
+            />
+            <span className={cn(
+              "text-sm font-medium transition-colors",
+              isChecked ? "text-slate-700" : "text-muted-foreground"
+            )}>
+              {field.options?.[1]?.label || "On"}
+            </span>
+          </div>
+        );
+
       default:
         return (
           <GenericTextInput
@@ -482,7 +513,7 @@ export function FieldRenderer({
   return (
     <Card className="transition-all duration-200">
       <CardContent className="p-4">
-        {renderLabel()}
+        {field.type !== "button-toggle" && renderLabel()}
         {renderFieldByType()}
         {error && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">

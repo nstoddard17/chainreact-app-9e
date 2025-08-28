@@ -1224,12 +1224,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "File name for the created file. Will be automatically populated when you upload files."
       },
       { 
-        name: "fileContent", 
-        label: "File Content", 
-        type: "textarea", 
+        name: "sourceType", 
+        label: "", 
+        type: "button-toggle", 
         required: false,
-        placeholder: "Enter file content (optional if uploading files)",
-        description: "Text content for the file. Leave empty if uploading files."
+        defaultValue: "file",
+        options: [
+          { value: "file", label: "Upload Files" },
+          { value: "url", label: "From URL" }
+        ]
       },
       { 
         name: "uploadedFiles", 
@@ -1239,29 +1242,18 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Choose files to upload...",
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
         maxSize: 100 * 1024 * 1024, // 100MB limit for Google Drive
-        description: "Upload files to create in Google Drive. Files will be created with their original names and content. The file name field will be auto-populated."
+        description: "Upload files to create in Google Drive. Files will be created with their original names and content. The file name field will be auto-populated.",
+        conditional: { field: "sourceType", value: "file" }
       },
-      {
-        name: "folderId",
-        label: "Destination Folder",
-        type: "select",
-        dynamic: "google-drive-folders",
+      { 
+        name: "fileUrl", 
+        label: "File URL", 
+        type: "text", 
         required: false,
-        placeholder: "Select a folder (optional, defaults to root)",
+        placeholder: "Publicly accessible URL of the file",
+        description: "URL of the file to download and upload to Google Drive",
+        conditional: { field: "sourceType", value: "url" }
       },
-    ],
-  },
-  {
-    type: "google_drive_action_upload_file",
-    title: "Upload File from URL",
-    description: "Upload a file from a URL to Google Drive",
-    icon: Upload,
-    providerId: "google-drive",
-    category: "Google Drive",
-    isTrigger: false,
-    configSchema: [
-      { name: "fileUrl", label: "File URL", type: "text", required: true, placeholder: "Publicly accessible URL of the file" },
-      { name: "fileName", label: "File Name", type: "text", required: false, placeholder: "e.g., report.pdf (optional - will use original filename if blank)" },
       {
         name: "folderId",
         label: "Destination Folder",
@@ -6100,15 +6092,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         placeholder: "Enter the initial content for your document...",
         description: "The initial content to add to the document (supports basic formatting)"
-      },
-      {
-        name: "templateId",
-        label: "Use Template",
-        type: "select",
-        required: false,
-        dynamic: "google-docs_templates",
-        placeholder: "Select a template (optional)",
-        description: "Create document from an existing template"
       },
       {
         name: "folderId",
