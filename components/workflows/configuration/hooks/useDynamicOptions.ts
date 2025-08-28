@@ -531,10 +531,14 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }));
       
     } catch (error: any) {
+      // Get the integration if available for error logging
+      const currentIntegration = getIntegrationByProvider(providerId);
+      
       console.error(`❌ [useDynamicOptions] Failed to load options for ${fieldName}:`, {
         fieldName,
         resourceType,
-        integrationId: integration?.id,
+        integrationId: currentIntegration?.id,
+        providerId,
         options,
         error: error.message,
         stack: error.stack
@@ -810,7 +814,6 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     // Google Docs fields
     google_docs_action_create_document: {
       folderId: "google-drive-folders",
-      templateId: "google-docs_templates",
     },
     // Airtable fields
     airtable_action_create_record: {
