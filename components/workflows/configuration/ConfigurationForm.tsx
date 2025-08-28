@@ -219,7 +219,7 @@ export default function ConfigurationForm({
   });
 
   // Discord integration check
-  const { getIntegrationByProvider, connectIntegration, getConnectedProviders, loadIntegrationData } = useIntegrationStore();
+  const { getIntegrationByProvider, connectIntegration, getConnectedProviders, loadIntegrationData, integrations } = useIntegrationStore();
   const { updateNode, saveWorkflow, currentWorkflow } = useWorkflowStore();
   const discordIntegration = getIntegrationByProvider('discord');
   const needsDiscordConnection = nodeInfo?.providerId === 'discord' && !discordIntegration;
@@ -1798,12 +1798,77 @@ export default function ConfigurationForm({
   /**
    * Handle field value changes
    */
-  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+  const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
     console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig });
     console.log('🔍 Node info:', { type: nodeInfo?.type, providerId: nodeInfo?.providerId });
     
     // Update the form value
     setValue(fieldName, value);
+    
+    // Special handling for Google Docs preview
+    if (nodeInfo?.type === 'google_docs_action_update_document') {
+      // When preview toggle is enabled or document changes while preview is on
+      if ((fieldName === 'previewDocument' && value === 'true') || 
+          (fieldName === 'documentId' && values.previewDocument === 'true')) {
+        
+        const docId = fieldName === 'documentId' ? value : values.documentId;
+        
+        if (docId) {
+          console.log('📄 Fetching Google Docs preview for document:', docId);
+          setValue('documentPreview', 'Loading document preview...');
+          
+          try {
+            // Get the Google integration
+            const integration = integrations.find(i => i.provider === 'google-docs' || i.provider === 'google');
+            
+            if (!integration) {
+              setValue('documentPreview', '(No Google Docs integration found)');
+              return;
+            }
+            
+            // Fetch document preview using the Google API
+            const response = await fetch('/api/integrations/google/data', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                integrationId: integration.id,
+                dataType: 'google-docs-content',
+                options: {
+                  documentId: docId,
+                  previewOnly: true
+                }
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              const preview = result.data?.preview || result.preview || '(Unable to load preview)';
+              const hasMore = result.data?.hasMore || result.hasMore;
+              
+              if (hasMore) {
+                setValue('documentPreview', preview + '\n\n... (document continues)');
+              } else {
+                setValue('documentPreview', preview);
+              }
+            } else {
+              setValue('documentPreview', '(Unable to load document preview)');
+            }
+          } catch (error) {
+            console.error('Error fetching document preview:', error);
+            setValue('documentPreview', '(Error loading preview)');
+          }
+        } else {
+          setValue('documentPreview', '(Select a document to preview)');
+        }
+      }
+      
+      // Clear preview when toggled off
+      if (fieldName === 'previewDocument' && value === 'false') {
+        setValue('documentPreview', '');
+      }
+    }
     
     // Skip Discord logic if we're currently loading initial configuration
     if (isLoadingInitialConfig) {

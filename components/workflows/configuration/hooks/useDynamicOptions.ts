@@ -141,6 +141,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         }
       }
 
+      // Define options variable at the beginning of the async function scope
+      let options: any = {};
+
       try {
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
@@ -301,7 +304,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }
 
       // Load integration data with proper options
-      const options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
+      options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
       
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
@@ -814,6 +817,18 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     // Google Docs fields
     google_docs_action_create_document: {
       folderId: "google-drive-folders",
+    },
+    google_docs_action_update_document: {
+      documentId: "google-docs-documents",
+    },
+    google_docs_action_get_document: {
+      documentId: "google-docs-documents",
+    },
+    google_docs_action_export_document: {
+      documentId: "google-docs-documents",
+    },
+    google_docs_trigger_document_modified: {
+      documentId: "google-docs-documents",
     },
     // Airtable fields
     airtable_action_create_record: {

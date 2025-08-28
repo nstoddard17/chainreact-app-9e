@@ -83,7 +83,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-contacts" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "gmail_signatures" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-contacts" | "google-drive-folders" | "google-drive-files" | "google-docs-documents" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "gmail_signatures" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -6119,22 +6119,43 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "documentId",
         label: "Document",
         type: "select",
-        dynamic: "google-docs_recent_documents",
+        dynamic: "google-docs-documents",
         required: true,
         placeholder: "Select a document from your Google Docs",
-        description: "Choose from your recently modified Google Docs documents"
+        description: "Choose from your Google Docs documents"
+      },
+      {
+        name: "previewDocument",
+        label: "Preview Document",
+        type: "button-toggle",
+        defaultValue: "false",
+        options: [
+          { value: "false", label: "Hide Preview" },
+          { value: "true", label: "Show Preview" }
+        ],
+        description: "Toggle to show a read-only preview of the document's first 10 lines"
+      },
+      {
+        name: "documentPreview",
+        label: "Document Preview",
+        type: "textarea",
+        required: false,
+        placeholder: "Document preview will appear here...",
+        description: "Read-only preview of the document content",
+        rows: 10,
+        disabled: true,
+        conditional: { field: "previewDocument", value: "true" }
       },
       {
         name: "operation",
         label: "Operation Type",
         type: "select",
         required: true,
-        defaultValue: "insert",
+        defaultValue: "append",
         options: [
-          { value: "insert", label: "Insert Text" },
-          { value: "replace", label: "Replace Text" },
-          { value: "delete", label: "Delete Text" },
-          { value: "append", label: "Append to End" }
+          { value: "append", label: "Append to End" },
+          { value: "insert", label: "Insert at Beginning" },
+          { value: "replace", label: "Replace Entire Document" }
         ],
         description: "Type of operation to perform on the document"
       },
@@ -6143,33 +6164,29 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Content",
         type: "textarea",
         required: true,
-        placeholder: "Enter the content to insert, replace, or append...",
-        description: "The content to add to the document"
+        rows: 8,
+        placeholder: "Enter the content to add to the document...\n\nUse {{variable_name}} to insert workflow variables",
+        description: "The content to add to the document. Supports workflow variables with {{variable_name}} syntax"
       },
       {
-        name: "location",
-        label: "Location (for insert/replace)",
-        type: "text",
-        required: false,
-        placeholder: "e.g., 'Hello' or '1:100' (start:end index)",
-        description: "Text to find or index range for the operation"
-      },
-      {
-        name: "formatting",
-        label: "Apply Formatting",
+        name: "editMode",
+        label: "Edit Mode",
         type: "select",
         required: false,
-        defaultValue: "none",
+        defaultValue: "direct",
         options: [
-          { value: "none", label: "No formatting" },
-          { value: "bold", label: "Bold" },
-          { value: "italic", label: "Italic" },
-          { value: "underline", label: "Underline" },
-          { value: "heading1", label: "Heading 1" },
-          { value: "heading2", label: "Heading 2" },
-          { value: "heading3", label: "Heading 3" }
+          { value: "direct", label: "Direct Edit - Apply changes immediately" },
+          { value: "suggestion", label: "Suggested Edit - Create suggestions for review" }
         ],
-        description: "Text formatting to apply"
+        description: "Choose whether to apply changes directly or as suggestions that can be reviewed"
+      },
+      {
+        name: "versionComment",
+        label: "Version Comment (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "e.g., Updated from workflow automation - {{date}}",
+        description: "Optional comment to label this version in the document's revision history"
       }
     ],
   },
@@ -6187,10 +6204,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "documentId",
         label: "Document",
         type: "select",
-        dynamic: "google-docs_recent_documents",
+        dynamic: "google-docs-documents",
         required: true,
         placeholder: "Select a document from your Google Docs",
-        description: "Choose from your recently modified Google Docs documents"
+        description: "Choose from your Google Docs documents"
       },
       {
         name: "shareWith",
@@ -6242,7 +6259,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs_recent_documents", required: true, placeholder: "Select a document to export" },
+      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs-documents", required: true, placeholder: "Select a document to export" },
       { name: "exportFormat", label: "Export Format", type: "select", required: true, defaultValue: "pdf", options: [
         { value: "pdf", label: "PDF" },
         { value: "docx", label: "Microsoft Word (.docx)" },
@@ -6317,11 +6334,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       {
         name: "documentId",
-        label: "Document",
+        label: "Document (Optional)",
         type: "select",
-        dynamic: "google-docs_recent_documents",
+        dynamic: "google-docs-documents",
         required: false,
-        placeholder: "Select a specific document to monitor (optional)",
+        placeholder: "Select a specific document to monitor",
         description: "Leave empty to monitor all documents, or select a specific document"
       }
     ],

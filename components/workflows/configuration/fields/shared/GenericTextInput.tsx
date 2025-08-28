@@ -138,6 +138,7 @@ export function GenericTextInput({
           error={!!error}
           rows={(field as any).rows || 6}
           fieldLabel={field.label || field.name}
+          disabled={field.disabled || false}
         />
       );
 

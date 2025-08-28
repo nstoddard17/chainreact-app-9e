@@ -112,6 +112,7 @@ interface FullscreenTextAreaProps {
   error?: boolean;
   rows?: number;
   fieldLabel?: string;
+  disabled?: boolean;
 }
 
 export function FullscreenTextArea({
@@ -122,6 +123,7 @@ export function FullscreenTextArea({
   error,
   rows = 6,
   fieldLabel = "Content",
+  disabled = false,
 }: FullscreenTextAreaProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -133,22 +135,28 @@ export function FullscreenTextArea({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={cn(
-            "min-h-[120px] resize-y pr-10",
+            "min-h-[120px] resize-y",
+            !disabled && "pr-10",
             error && "border-red-500",
+            disabled && "bg-muted cursor-not-allowed opacity-75",
             className
           )}
           rows={rows}
+          disabled={disabled}
+          readOnly={disabled}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 h-8 w-8"
-          onClick={() => setIsFullscreen(true)}
-          title="Expand to fullscreen"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
+        {!disabled && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-8 w-8"
+            onClick={() => setIsFullscreen(true)}
+            title="Expand to fullscreen"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       <FullscreenTextEditor
