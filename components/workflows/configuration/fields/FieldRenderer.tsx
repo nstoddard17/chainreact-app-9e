@@ -102,8 +102,8 @@ export function FieldRenderer({
     // Check if field has explicit provider
     if (field.provider) return field.provider;
     
-    // Detect provider from dynamic data type
-    if (field.dynamic) {
+    // Detect provider from dynamic data type (only if dynamic is a string)
+    if (field.dynamic && typeof field.dynamic === 'string') {
       if (field.dynamic.includes('gmail')) return 'gmail';
       if (field.dynamic.includes('outlook')) return 'outlook';
       if (field.dynamic.includes('discord')) return 'discord';
@@ -112,6 +112,9 @@ export function FieldRenderer({
     
     // Detect from field name patterns
     if (field.name === 'guildId' || field.name === 'channelId') return 'discord';
+    
+    // For Airtable fields
+    if (field.name?.startsWith('airtable_field_')) return 'airtable';
     
     return 'generic';
   };
@@ -300,7 +303,7 @@ export function FieldRenderer({
         }
         
         // Special handling for all other Discord dynamic fields
-        if (field.dynamic && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
+        if (field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
           return (
             <DiscordGenericField
               field={field}
