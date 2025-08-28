@@ -182,6 +182,9 @@ export default function ConfigurationForm({
     handleSubmit
   } = useFormState(initialData || {}, nodeInfo);
 
+  // Check if this is an update record action
+  const isUpdateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record';
+
   // Handle field loading state changes from the hook
   const handleLoadingChange = useCallback((fieldName: string, isLoading: boolean) => {
     if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
@@ -675,12 +678,35 @@ export default function ConfigurationForm({
       console.log('🔍 Inferred table schema:', schemaData);
       setAirtableTableSchema(schemaData);
       
-      // Clear existing dynamic field values when schema changes
-      Object.keys(values).forEach(key => {
-        if (key.startsWith('airtable_field_')) {
-          setValue(key, '');
+      // Set dynamicOptions for linked fields immediately
+      const linkedFieldOptions: Record<string, any[]> = {};
+      fields.forEach((field: any) => {
+        if ((field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') && field.choices && field.choices.length > 0) {
+          const fieldName = `airtable_field_${field.id}`;
+          linkedFieldOptions[fieldName] = field.choices;
+          console.log(`🔍 Setting dynamic options for linked field ${field.name} (${fieldName}):`, field.choices.length, 'options');
         }
       });
+      
+      if (Object.keys(linkedFieldOptions).length > 0) {
+        setDynamicOptions(prev => ({
+          ...prev,
+          ...linkedFieldOptions
+        }));
+        console.log('🔍 Updated dynamicOptions with linked field choices');
+      }
+      
+      // Only clear dynamic field values if this is the initial load or table changed
+      // Don't clear if we're just updating the schema for the same table
+      const currentTableName = values.tableName;
+      if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
+        console.log('🔍 Clearing dynamic fields due to table change');
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('airtable_field_')) {
+            setValue(key, '');
+          }
+        });
+      }
       
     } catch (error) {
       console.error('Error fetching Airtable table schema:', error);
@@ -2052,8 +2078,8 @@ export default function ConfigurationForm({
           }
         });
         
-        // If a table is already selected when base changes, reload its schema
-        if (nodeInfo.type === 'airtable_action_create_record' && values.tableName && value) {
+        // If a table is already selected when base changes, reload its schema for both create and update
+        if ((nodeInfo.type === 'airtable_action_create_record' || nodeInfo.type === 'airtable_action_update_record') && values.tableName && value) {
           setIsLoadingTableSchema(true);
           // Small delay to ensure the table dropdown has updated
           setTimeout(() => {
@@ -2125,6 +2151,9 @@ export default function ConfigurationForm({
         // Load records for the new table (only for update record)
         if (nodeInfo.type === 'airtable_action_update_record' && value && values.baseId) {
           loadAirtableRecords(values.baseId, value);
+          // Also fetch table schema for update record to get proper field options
+          setIsLoadingTableSchema(true);
+          fetchAirtableTableSchema(values.baseId, value);
         }
         
         // Fetch table schema for create record to show dynamic fields
@@ -2194,17 +2223,48 @@ export default function ConfigurationForm({
     // Set the recordId value for the form (this is the hidden field)
     setValue('recordId', record.id);
     
-    // Find the selected table schema to map field names to field IDs
-    const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
-      table.value === values.tableName
-    );
+    // First try to use the fetched table schema (preferred as it has better field info)
+    let tableFields = airtableTableSchema?.fields;
     
-    if (selectedTable?.fields && record.fields) {
+    // Fall back to dynamicOptions if no schema available
+    if (!tableFields) {
+      const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
+        table.value === values.tableName
+      );
+      tableFields = selectedTable?.fields;
+    }
+    
+    if (tableFields && record.fields) {
+      console.log('🔍 Populating fields from record data:', record.fields);
+      console.log('🔍 Available table fields:', tableFields);
+      
       // Pre-populate dynamic fields with selected record data
-      selectedTable.fields.forEach((tableField: any) => {
+      tableFields.forEach((tableField: any) => {
         const fieldName = `airtable_field_${tableField.id}`;
         const existingValue = record.fields[tableField.name];
-        const fieldType = getAirtableFieldType(tableField.type);
+        
+        // Get field choices from schema if available
+        let fieldChoices = tableField.choices;
+        
+        // If not in the current tableField, try to find in the airtableTableSchema
+        if (!fieldChoices && airtableTableSchema?.fields) {
+          const schemaField = airtableTableSchema.fields.find((f: any) => 
+            f.id === tableField.id || f.name === tableField.name
+          );
+          if (schemaField) {
+            fieldChoices = schemaField.choices;
+            console.log(`🔍 Found choices for ${tableField.name} in schema:`, fieldChoices?.length || 0, 'options');
+          }
+        }
+        
+        // Determine field type
+        let fieldType;
+        if (airtableTableSchema?.fields) {
+          // Use schema-based type detection if available
+          fieldType = getAirtableFieldTypeFromSchema(tableField);
+        } else {
+          fieldType = getAirtableFieldType(tableField.type, isUpdateRecord);
+        }
         
         // Skip file fields as they cannot be programmatically set due to security restrictions
         if (fieldType === 'file') {
@@ -2213,41 +2273,143 @@ export default function ConfigurationForm({
         }
         
         if (existingValue !== undefined && existingValue !== null) {
-          // Handle array values (like multiple selects or linked records)
+          // Handle different value types
           let valueToSet = existingValue;
+          
           if (Array.isArray(existingValue)) {
-            // For arrays, we might need special handling depending on the field type
-            if (fieldType === 'airtable-linked-record') {
-              // For linked records, Airtable returns an array of record IDs
-              // We need to preserve this format for the linked record component
+            // For linked records (array of record IDs)
+            if (tableField.type === 'multipleRecordLinks' || tableField.isLinkedRecord) {
+              // Keep as IDs - the select component will handle display
               valueToSet = existingValue;
-              console.log(`🔍 Linked record field ${tableField.name} existing value:`, existingValue);
-        console.log(`🔍 Linked record IDs for ${tableField.name}:`, existingValue);
-        if (Array.isArray(existingValue)) {
-          existingValue.forEach((id, i) => {
-            console.log(`🔍 ${tableField.name} record ${i}: "${id}" (type: ${typeof id})`);
-          });
-        }
-            } else if (fieldType === 'select') {
-              // For multiple selects, join with commas or keep as array depending on implementation
+              console.log(`🔍 Linked record field ${tableField.name} with IDs:`, existingValue);
+              
+              // Log available choices for debugging
+              if (fieldChoices && fieldChoices.length > 0) {
+                console.log(`🔍 Available choices for ${tableField.name}:`, fieldChoices.map((c: any) => ({ value: c.value, label: c.label })));
+              } else {
+                console.log(`🔍 No choices available yet for ${tableField.name}`);
+              }
+            } 
+            // For multiple select fields
+            else if (tableField.type === 'multipleSelects' || fieldType === 'select') {
+              // Keep as array for multi-select fields
               valueToSet = existingValue;
+              console.log(`🔍 Multi-select field ${tableField.name} with values:`, existingValue);
+            }
+            // For other array types
+            else {
+              valueToSet = existingValue;
+              console.log(`🔍 Array field ${tableField.name} with values:`, existingValue);
             }
           }
-          
-          console.log(`🔍 Pre-populating field ${tableField.name} (${fieldName}) with:`, valueToSet);
-          try {
-            setValue(fieldName, valueToSet);
-          } catch (error) {
-            console.warn(`🔍 Failed to pre-populate field ${tableField.name}:`, error);
-            // Continue with other fields even if one fails
+          // Handle single linked record
+          else if (tableField.type === 'singleRecordLink' && typeof existingValue === 'string') {
+            // Keep as ID - the select component will handle display
+            valueToSet = existingValue;
+            console.log(`🔍 Single linked record field ${tableField.name} with ID:`, existingValue);
+            
+            // Log available choices for debugging
+            if (fieldChoices && fieldChoices.length > 0) {
+              console.log(`🔍 Available choices for ${tableField.name}:`, fieldChoices.map((c: any) => ({ value: c.value, label: c.label })));
+            } else {
+              console.log(`🔍 No choices available yet for ${tableField.name}`);
+            }
           }
+          // Handle checkbox (boolean)
+          else if (tableField.type === 'checkbox') {
+            valueToSet = existingValue === true || existingValue === 1;
+            console.log(`🔍 Checkbox field ${tableField.name} with value:`, valueToSet);
+          }
+          // Handle date fields
+          else if (tableField.type === 'date' || tableField.type === 'dateTime') {
+            // Ensure proper date format
+            valueToSet = existingValue;
+            console.log(`🔍 Date field ${tableField.name} with value:`, valueToSet);
+          }
+          // Handle number fields
+          else if (tableField.type === 'number' || tableField.type === 'currency' || tableField.type === 'percent') {
+            valueToSet = existingValue;
+            console.log(`🔍 Number field ${tableField.name} with value:`, valueToSet);
+          }
+          // Default handling for text and other fields
+          else {
+            valueToSet = existingValue;
+            console.log(`🔍 Field ${tableField.name} (${tableField.type}) with value:`, valueToSet);
+          }
+          
+          console.log(`🔍 Setting field ${fieldName} to:`, valueToSet);
+          
+          // Use setTimeout to ensure the field is rendered and dynamicOptions are available
+          setTimeout(() => {
+            try {
+              setValue(fieldName, valueToSet);
+              
+              // Trigger change event to ensure UI updates
+              const event = new Event('change', { bubbles: true });
+              const fieldElement = document.querySelector(`[name="${fieldName}"]`);
+              if (fieldElement) {
+                fieldElement.dispatchEvent(event);
+              }
+            } catch (error) {
+              console.warn(`🔍 Failed to pre-populate field ${tableField.name}:`, error);
+            }
+          }, 200);
+        } else {
+          // Clear the field if no value in the record
+          console.log(`🔍 Clearing field ${tableField.name} (no value in record)`);
+          setTimeout(() => {
+            setValue(fieldName, '');
+          }, 200);
         }
       });
+    } else {
+      console.warn('🔍 No table fields or record fields available for population');
     }
-  }, [dynamicOptions, values.tableName, setValue]);
+  }, [dynamicOptions, values.tableName, setValue, airtableTableSchema, isUpdateRecord]);
+  
+  // Load linked record options for update record modal
+  const [linkedFieldsLoaded, setLinkedFieldsLoaded] = useState<Set<string>>(new Set());
+  const [lastLoadedTable, setLastLoadedTable] = useState<string>('');
+  
+  useEffect(() => {
+    if (isUpdateRecord && values.tableName && dynamicOptions?.tableName) {
+      // Clear loaded fields if table changed
+      if (lastLoadedTable !== values.tableName) {
+        setLinkedFieldsLoaded(new Set());
+        setLastLoadedTable(values.tableName);
+      }
+      
+      const selectedTable = dynamicOptions.tableName.find((table: any) => 
+        table.value === values.tableName
+      );
+      
+      if (selectedTable?.fields) {
+        // Find all linked record fields and trigger loading for them
+        selectedTable.fields.forEach((field: any) => {
+          if (field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') {
+            const fieldName = `airtable_field_${field.id}`;
+            
+            // Only load if not already loaded for this table
+            const loadKey = `${values.tableName}-${fieldName}`;
+            if (!linkedFieldsLoaded.has(loadKey)) {
+              console.log('🔍 Triggering load for linked field:', fieldName, field.name);
+              
+              // Mark as loaded
+              setLinkedFieldsLoaded(prev => new Set(prev).add(loadKey));
+              
+              // Trigger the load for this field with silent mode
+              if (loadOptions) {
+                loadOptions(fieldName, null, null, true, true);
+              }
+            }
+          }
+        });
+      }
+    }
+  }, [isUpdateRecord, values.tableName, dynamicOptions?.tableName, loadOptions]);
   
   // Helper function to map Airtable field types to form field types
-  const getAirtableFieldType = (airtableType: string): string => {
+  const getAirtableFieldType = (airtableType: string, isUpdate: boolean = false): string => {
     switch (airtableType) {
       case 'singleLineText':
       case 'email':
@@ -2273,7 +2435,9 @@ export default function ConfigurationForm({
       case 'dateTime':
         return 'date';
       case 'multipleRecordLinks':
-        return 'airtable-linked-record'; // Custom type for linked records
+      case 'singleRecordLink':
+        // For update record, return select to show as dropdown
+        return isUpdate ? 'select' : 'airtable-linked-record';
       case 'multipleAttachments':
         return 'file';
       default:
@@ -2393,44 +2557,107 @@ export default function ConfigurationForm({
       visibleFields = [...visibleFields, ...airtableFields as any];
     }
     
-    // Keep existing handling for update record using dynamicOptions
+    // Special handling for Airtable update record - use table schema if available, otherwise fall back to dynamicOptions
     if (nodeInfo.providerId === 'airtable' && 
         nodeInfo.type === 'airtable_action_update_record' && 
         values.tableName) {
       
-      console.log('🔍 Attempting to generate dynamic fields for table:', values.tableName);
-      console.log('🔍 Available dynamicOptions.tableName:', dynamicOptions?.tableName);
+      console.log('🔍 Attempting to generate dynamic fields for update record:', values.tableName);
       
-      // Find the selected table data which contains the fields schema
-      const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
-        table.value === values.tableName
-      );
-      
-      console.log('🔍 Found selectedTable:', selectedTable);
-      
-      if (selectedTable?.fields) {
-        console.log('🔍 Creating dynamic fields from table fields:', selectedTable.fields);
+      // First try to use the fetched table schema (same as create record)
+      if (airtableTableSchema?.fields) {
+        console.log('🔍 Using fetched table schema for update record:', airtableTableSchema.fields);
         
-        // Create dynamic fields for each Airtable table field
-        const airtableFields = selectedTable.fields.map((tableField: any, fieldIndex: number) => ({
-          name: `airtable_field_${tableField.id}`,
-          label: tableField.name,
-          type: getAirtableFieldType(tableField.type),
-          required: tableField.required || false,
-          description: tableField.description,
-          placeholder: `Enter ${tableField.name}`,
-          // Store the original Airtable field data for the renderer
-          airtableField: tableField,
-          // Add a unique identifier to help with React keys
-          uniqueId: `${values.tableName}-${tableField.id}-${fieldIndex}`
-        }));
+        // Create dynamic fields from table schema
+        const airtableFields = airtableTableSchema.fields.map((tableField: any, fieldIndex: number) => {
+          // Debug log for linked record fields
+          if (tableField.choices && (tableField.name.includes('Project') || tableField.name.includes('Feedback') || tableField.name.includes('Task'))) {
+            console.log(`🔍 Choices for ${tableField.name}:`, tableField.choices);
+          }
+          
+          const fieldName = `airtable_field_${tableField.id}`;
+          const isLinkedField = tableField.type === 'multipleRecordLinks' || 
+                                 tableField.type === 'singleRecordLink' || 
+                                 tableField.isLinkedRecord;
+          
+          return {
+            name: fieldName,
+            label: tableField.name,
+            type: getAirtableFieldTypeFromSchema(tableField),
+            required: false, // Let user decide which fields to fill
+            description: tableField.description || `${tableField.type} field`,
+            placeholder: `Enter ${tableField.name}`,
+            // Store the original Airtable field data for the renderer
+            airtableField: tableField,
+            // For non-linked fields, include static options
+            options: (!isLinkedField && tableField.choices) ? tableField.choices.map((choice: any) => ({
+              value: choice.value,
+              label: choice.label,
+              color: choice.color
+            })) : airtableTableSchema.sampleValues?.[tableField.id]?.map((val: any) => ({
+              value: val,
+              label: String(val)
+            })),
+            // Mark linked fields as dynamic so FieldRenderer uses dynamicOptions
+            dynamic: isLinkedField ? true : undefined,
+            // Add a unique identifier to help with React keys
+            uniqueId: `${values.tableName}-${tableField.id}-${fieldIndex}`
+          };
+        });
         
-        console.log('🔍 Generated airtableFields:', airtableFields);
+        console.log('🔍 Generated airtableFields from schema:', airtableFields);
         
         // Add the dynamic fields after the existing schema fields
         visibleFields = [...visibleFields, ...airtableFields as any];
-      } else {
-        console.log('🔍 No fields found in selectedTable');
+      }
+      // Fall back to using dynamicOptions if no table schema
+      else {
+        console.log('🔍 No table schema available, trying dynamicOptions');
+        console.log('🔍 Available dynamicOptions.tableName:', dynamicOptions?.tableName);
+        
+        // Find the selected table data which contains the fields schema
+        const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
+          table.value === values.tableName
+        );
+        
+        console.log('🔍 Found selectedTable:', selectedTable);
+        
+        if (selectedTable?.fields) {
+          console.log('🔍 Creating dynamic fields from table fields:', selectedTable.fields);
+          
+          // Create dynamic fields for each Airtable table field
+          const airtableFields = selectedTable.fields.map((tableField: any, fieldIndex: number) => {
+            // For linked record fields, set them as dynamic to load options
+            const isLinkedField = tableField.type === 'multipleRecordLinks' || tableField.type === 'singleRecordLink';
+            
+            return {
+              name: `airtable_field_${tableField.id}`,
+              label: tableField.name,
+              type: getAirtableFieldType(tableField.type, isUpdateRecord),
+              required: tableField.required || false,
+              description: tableField.description,
+              placeholder: `Enter ${tableField.name}`,
+              // Store the original Airtable field data for the renderer
+              airtableField: tableField,
+              // Mark linked fields as dynamic so they load options
+              dynamic: isLinkedField,
+              // Include the linked table information
+              ...(isLinkedField && tableField.options && {
+                linkedTableId: tableField.options.linkedTableId,
+                linkedTableName: tableField.options.inverseLinkFieldId
+              }),
+              // Add a unique identifier to help with React keys
+              uniqueId: `${values.tableName}-${tableField.id}-${fieldIndex}`
+            };
+          });
+          
+          console.log('🔍 Generated airtableFields from dynamicOptions:', airtableFields);
+          
+          // Add the dynamic fields after the existing schema fields
+          visibleFields = [...visibleFields, ...airtableFields as any];
+        } else {
+          console.log('🔍 No fields found in selectedTable');
+        }
       }
     }
     
@@ -2585,7 +2812,6 @@ export default function ConfigurationForm({
    * Render fields with optional records table for update record
    */
   const renderFieldsWithTable = (fields: any[], isDynamic: boolean = false) => {
-    const isUpdateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record';
     const isListRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records';
     const isCreateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_create_record';
     const showRecordsTable = isUpdateRecord && !isDynamic && values.tableName && values.baseId;
@@ -3315,7 +3541,7 @@ export default function ConfigurationForm({
                               key={`id-${record.id || index}`} 
                               className={cn(
                                 "h-12 cursor-pointer",
-                                "hover:bg-slate-50/50"
+                                selectedRecord?.id === record.id ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-slate-50/50"
                               )}
                               onClick={() => handleRecordSelect(record)}
                             >
@@ -3390,6 +3616,22 @@ export default function ConfigurationForm({
                                   typeof value[0] === 'object' && 
                                   (value[0].url || value[0].thumbnails);
                                 
+                                // Check if this is a linked record field and get the field info
+                                let isLinkedField = false;
+                                let linkedFieldOptions: any[] = [];
+                                
+                                if (airtableTableSchema?.fields) {
+                                  const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+                                  if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                                      tableField.type === 'singleRecordLink' || 
+                                      tableField.isLinkedRecord)) {
+                                    isLinkedField = true;
+                                    // Get the options from dynamicOptions
+                                    const fieldId = `airtable_field_${tableField.id}`;
+                                    linkedFieldOptions = dynamicOptions?.[fieldId] || tableField.choices || [];
+                                  }
+                                }
+                                
                                 let displayContent;
                                 if (isAttachment) {
                                   // Display thumbnails for attachments
@@ -3416,6 +3658,35 @@ export default function ConfigurationForm({
                                       {value.length > 3 && (
                                         <span className="text-xs text-slate-500">+{value.length - 3}</span>
                                       )}
+                                    </div>
+                                  );
+                                } else if (isLinkedField) {
+                                  // Handle linked record fields - map IDs to names
+                                  let displayValue = '';
+                                  let mappedNames: string[] = [];
+                                  
+                                  if (Array.isArray(value)) {
+                                    // Multiple linked records
+                                    mappedNames = value.map((id: string) => {
+                                      const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                      return option ? option.label : id;
+                                    });
+                                    displayValue = mappedNames.join(', ');
+                                  } else if (value) {
+                                    // Single linked record
+                                    const option = linkedFieldOptions.find((opt: any) => opt.value === value);
+                                    const name = option ? option.label : String(value);
+                                    mappedNames = [name];
+                                    displayValue = name;
+                                  }
+                                  
+                                  // Show with special styling for linked records
+                                  displayContent = (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-blue-600" title="Linked record">🔗</span>
+                                      <div className="truncate text-blue-700" title={displayValue}>
+                                        {displayValue || '-'}
+                                      </div>
                                     </div>
                                   );
                                 } else {
