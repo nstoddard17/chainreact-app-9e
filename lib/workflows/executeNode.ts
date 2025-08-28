@@ -93,6 +93,18 @@ import {
   executeFilterAction,
   executeDelayAction
 } from './actions'
+import {
+  createGoogleDocument,
+  updateGoogleDocument,
+  shareGoogleDocument,
+  getGoogleDocument,
+  exportGoogleDocument
+} from './actions/googleDocs'
+import { sendGmailEmail } from './actions/gmail/sendEmail'
+import { applyGmailLabels } from './actions/gmail/applyLabels'
+import { fetchGmailMessage } from './actions/gmail/fetchMessage'
+import { createGoogleCalendarEvent } from './actions/googleCalendar/createEvent'
+import { uploadGoogleDriveFile } from './actions/googleDrive/uploadFile'
 
 /**
  * Wrapper function for AI agent execution that adapts to the executeAction signature
@@ -1725,12 +1737,27 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "ai_action_classify": classifyContent,
     
     // Gmail actions
-    "gmail_action_send_email": sendGmail,
-    "gmail_action_add_label": addGmailLabels,
+    "gmail_action_send_email": sendGmailEmail,
+    "gmail_action_add_label": applyGmailLabels,
+    "gmail_action_apply_labels": applyGmailLabels,
     "gmail_action_search_email": searchGmailEmails,
+    "gmail_action_fetch_message": fetchGmailMessage,
     
     // Google Sheets actions
     "google_sheets_action_read_data": readGoogleSheetsData,
+    
+    // Google Calendar actions
+    "google_calendar_action_create_event": createGoogleCalendarEvent,
+    
+    // Google Drive actions
+    "google_drive_action_upload_file": uploadGoogleDriveFile,
+    
+    // Google Docs actions
+    "google_docs_action_create_document": createGoogleDocument,
+    "google_docs_action_update_document": updateGoogleDocument,
+    "google_docs_action_share_document": shareGoogleDocument,
+    "google_docs_action_get_document": getGoogleDocument,
+    "google_docs_action_export_document": exportGoogleDocument,
     
     // Airtable actions
     "airtable_action_move_record": moveAirtableRecord,

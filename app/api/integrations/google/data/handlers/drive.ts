@@ -104,3 +104,124 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
     throw error
   }
 }
+
+/**
+ * Fetch Google Docs documents for the authenticated user
+ */
+export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    console.log("📝 [Google Docs] Fetching documents")
+
+    // Query specifically for Google Docs documents
+    let query = "mimeType='application/vnd.google-apps.document' and trashed=false"
+    const { folderId } = options || {}
+    
+    if (folderId) {
+      query += ` and '${folderId}' in parents`
+    }
+
+    const accessToken = getGoogleAccessToken(integration)
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,mimeType,webViewLink,owners,shared)&orderBy=modifiedTime desc`,
+      accessToken
+    )
+
+    const data = await response.json()
+    
+    const documents = (data.files || []).map((doc: any): GoogleDriveFile => ({
+      id: doc.id,
+      name: doc.name,
+      value: doc.id,
+      label: doc.name, // Add label for dropdown display
+      parent_ids: doc.parents,
+      created_time: doc.createdTime,
+      modified_time: doc.modifiedTime,
+      mime_type: doc.mimeType,
+      web_view_link: doc.webViewLink,
+      owners: doc.owners,
+      shared: doc.shared
+    }))
+
+    console.log(`✅ [Google Docs] Retrieved ${documents.length} documents`)
+    return documents
+
+  } catch (error: any) {
+    console.error("❌ [Google Docs] Error fetching documents:", error)
+    throw error
+  }
+}
+
+/**
+ * Fetch Google Docs document content/preview
+ */
+export const getGoogleDocsContent: GoogleDataHandler<any> = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    const { documentId, previewOnly = true } = options || {}
+    
+    if (!documentId) {
+      throw new Error("Document ID is required")
+    }
+    
+    console.log("📄 [Google Docs] Fetching document content:", { documentId, previewOnly })
+
+    const accessToken = getGoogleAccessToken(integration)
+    
+    // Use Google Docs API to get document content
+    const response = await makeGoogleApiRequest(
+      `https://docs.googleapis.com/v1/documents/${documentId}`,
+      accessToken
+    )
+
+    const document = await response.json()
+    
+    // Extract text content from the document
+    let textContent = ""
+    if (document.body && document.body.content) {
+      document.body.content.forEach((element: any) => {
+        if (element.paragraph && element.paragraph.elements) {
+          element.paragraph.elements.forEach((elem: any) => {
+            if (elem.textRun && elem.textRun.content) {
+              textContent += elem.textRun.content
+            }
+          })
+        }
+      })
+    }
+    
+    // If preview only, return first 10 lines
+    if (previewOnly) {
+      const lines = textContent.split('\n')
+      const preview = lines.slice(0, 10).join('\n')
+      const hasMore = lines.length > 10
+      
+      return {
+        preview: preview || "(Empty document)",
+        lineCount: lines.length,
+        hasMore,
+        title: document.title
+      }
+    }
+    
+    return {
+      content: textContent,
+      title: document.title,
+      documentId: document.documentId
+    }
+
+  } catch (error: any) {
+    console.error("❌ [Google Docs] Error fetching document content:", error)
+    // Return a user-friendly error message
+    if (error.message?.includes('404')) {
+      return {
+        preview: "(Document not found or you don't have access)",
+        error: true
+      }
+    }
+    return {
+      preview: "(Unable to load document preview)",
+      error: true
+    }
+  }
+}
