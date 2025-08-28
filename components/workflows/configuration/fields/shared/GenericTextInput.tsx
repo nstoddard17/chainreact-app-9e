@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { useDragDrop } from "@/hooks/use-drag-drop";
+import { FullscreenTextArea } from "../FullscreenTextEditor";
 
 interface GenericTextInputProps {
   field: any;
@@ -127,13 +128,16 @@ export function GenericTextInput({
   switch (field.type) {
     case "textarea":
       return (
-        <Textarea
-          {...commonProps}
+        <FullscreenTextArea
+          value={value || ""}
+          onChange={onChange}
+          placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
           className={cn(
-            "min-h-[80px] resize-none",
             error && "border-red-500"
           )}
-          rows={(field as any).rows || 3}
+          error={!!error}
+          rows={(field as any).rows || 6}
+          fieldLabel={field.label || field.name}
         />
       );
 

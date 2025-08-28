@@ -8,7 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField } from "@/lib/workflows/availableNodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
@@ -141,10 +140,7 @@ export function FieldRenderer({
       </div>
       
       {field.description && (
-        <EnhancedTooltip
-          description={field.description}
-          disabled={!tooltipsEnabled}
-        />
+        <HelpCircle className="h-4 w-4 text-muted-foreground" title={field.description} />
       )}
       
       {field.required && (
