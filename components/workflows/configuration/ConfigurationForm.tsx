@@ -3551,6 +3551,22 @@ export default function ConfigurationForm({
                                   typeof value[0] === 'object' && 
                                   (value[0].url || value[0].thumbnails);
                                 
+                                // Check if this is a linked record field and get the field info
+                                let isLinkedField = false;
+                                let linkedFieldOptions: any[] = [];
+                                
+                                if (airtableTableSchema?.fields) {
+                                  const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+                                  if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                                      tableField.type === 'singleRecordLink' || 
+                                      tableField.isLinkedRecord)) {
+                                    isLinkedField = true;
+                                    // Get the options from dynamicOptions
+                                    const fieldId = `airtable_field_${tableField.id}`;
+                                    linkedFieldOptions = dynamicOptions?.[fieldId] || tableField.choices || [];
+                                  }
+                                }
+                                
                                 let displayContent;
                                 if (isAttachment) {
                                   // Display thumbnails for attachments
@@ -3577,6 +3593,35 @@ export default function ConfigurationForm({
                                       {value.length > 3 && (
                                         <span className="text-xs text-slate-500">+{value.length - 3}</span>
                                       )}
+                                    </div>
+                                  );
+                                } else if (isLinkedField) {
+                                  // Handle linked record fields - map IDs to names
+                                  let displayValue = '';
+                                  let mappedNames: string[] = [];
+                                  
+                                  if (Array.isArray(value)) {
+                                    // Multiple linked records
+                                    mappedNames = value.map((id: string) => {
+                                      const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                      return option ? option.label : id;
+                                    });
+                                    displayValue = mappedNames.join(', ');
+                                  } else if (value) {
+                                    // Single linked record
+                                    const option = linkedFieldOptions.find((opt: any) => opt.value === value);
+                                    const name = option ? option.label : String(value);
+                                    mappedNames = [name];
+                                    displayValue = name;
+                                  }
+                                  
+                                  // Show with special styling for linked records
+                                  displayContent = (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-blue-600" title="Linked record">🔗</span>
+                                      <div className="truncate text-blue-700" title={displayValue}>
+                                        {displayValue || '-'}
+                                      </div>
                                     </div>
                                   );
                                 } else {
