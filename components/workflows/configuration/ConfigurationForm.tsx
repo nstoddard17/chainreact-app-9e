@@ -2126,6 +2126,9 @@ export default function ConfigurationForm({
     console.log('🔍 Record selected:', record);
     setSelectedRecord(record);
     
+    // Set the recordId value for the form (this is the hidden field)
+    setValue('recordId', record.id);
+    
     // Find the selected table schema to map field names to field IDs
     const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
       table.value === values.tableName
@@ -2219,8 +2222,8 @@ export default function ConfigurationForm({
   const getVisibleFields = () => {
     if (!nodeInfo?.configSchema) return [];
     
-    // Start with the base schema fields
-    let visibleFields = [...nodeInfo.configSchema];
+    // Start with the base schema fields and filter out hidden ones
+    let visibleFields = [...nodeInfo.configSchema].filter(field => !shouldHideField(field, values));
     
     // Special handling for Airtable list records - show fields with filtering capabilities
     if (nodeInfo.providerId === 'airtable' && nodeInfo.type === 'airtable_action_list_records') {
@@ -3127,134 +3130,318 @@ export default function ConfigurationForm({
         );
         })}
         
-        {/* Records table for update record */}
+        {/* Records table for update record - exact copy from list records */}
         {showRecordsTable && (
-          <div className="mt-6 space-y-4">
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-slate-900 mb-2">Select Record to Update</h4>
-              <p className="text-sm text-slate-600 mb-4">
-                Choose an existing record from the table to update its values. Once selected, the form fields below will be pre-populated with the current record data.
-              </p>
-              
+          <div className="mt-6 border border-slate-200 rounded-lg bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-slate-900">
+                    Select Record: {values.tableName}
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    {airtableRecords.length} record{airtableRecords.length !== 1 ? 's' : ''} • Click to select
+                    {selectedRecord && (
+                      <span className="ml-2 text-blue-600">Selected: {selectedRecord.id}</span>
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedRecord(null);
+                    setValue('recordId', '');
+                    // Clear all dynamic field values
+                    Object.keys(values).forEach(key => {
+                      if (key.startsWith('airtable_field_')) {
+                        setValue(key, '');
+                      }
+                    });
+                  }}
+                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            
+            <div>
               {loadingRecords ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
                   <span className="ml-2 text-sm text-slate-600">Loading records...</span>
                 </div>
               ) : airtableRecords.length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead className="w-[120px]">Record ID</TableHead>
-                        <TableHead>Preview</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {airtableRecords.map((record, index) => (
-                        <TableRow
-                          key={record.id}
-                          className={cn(
-                            "cursor-pointer hover:bg-slate-50",
-                            selectedRecord?.id === record.id && "bg-blue-50 border-blue-200"
-                          )}
-                          onClick={() => handleRecordSelect(record)}
-                        >
-                          <TableCell>
-                            <div className={cn(
-                              "w-4 h-4 rounded-full border-2",
-                              selectedRecord?.id === record.id 
-                                ? "bg-blue-500 border-blue-500" 
-                                : "border-slate-300"
-                            )}>
-                              {selectedRecord?.id === record.id && (
-                                <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                <>
+                  <style jsx>{`
+                    .update-record-table-container {
+                      overflow: scroll !important;
+                      overflow-x: scroll !important;
+                      overflow-y: scroll !important;
+                    }
+                    .update-record-table-container::-webkit-scrollbar {
+                      width: 16px !important;
+                      height: 16px !important;
+                      background-color: #e2e8f0 !important;
+                      display: block !important;
+                    }
+                    .update-record-table-container::-webkit-scrollbar-track {
+                      background: #f1f5f9 !important;
+                      border-radius: 8px !important;
+                      border: 1px solid #cbd5e1 !important;
+                    }
+                    .update-record-table-container::-webkit-scrollbar-thumb {
+                      background: #475569 !important;
+                      border-radius: 8px !important;
+                      border: 2px solid #e2e8f0 !important;
+                      min-height: 20px !important;
+                      min-width: 20px !important;
+                    }
+                    .update-record-table-container::-webkit-scrollbar-thumb:hover {
+                      background: #334155 !important;
+                    }
+                    .update-record-table-container::-webkit-scrollbar-corner {
+                      background: #f1f5f9 !important;
+                      border: 1px solid #cbd5e1 !important;
+                    }
+                    .update-record-table-container {
+                      scrollbar-width: auto !important;
+                      scrollbar-color: #475569 #f1f5f9 !important;
+                      scrollbar-gutter: stable !important;
+                    }
+                    .selectable-row {
+                      cursor: pointer;
+                      transition: all 0.15s ease;
+                    }
+                    .selectable-row:hover {
+                      background-color: #f8fafc;
+                    }
+                    .selectable-row.selected {
+                      background-color: #dbeafe !important;
+                    }
+                    .selectable-row.selected:hover {
+                      background-color: #bfdbfe !important;
+                    }
+                  `}</style>
+                  <div className="relative">
+                    {/* Sticky ID column positioned absolutely */}
+                    <div 
+                      className="absolute left-0 top-0 z-20 bg-white"
+                      style={{ 
+                        width: '150px'
+                      }}
+                    >
+                      <table className="text-sm" style={{ borderSpacing: 0 }}>
+                        <thead className="bg-slate-50/50">
+                          <tr className="h-10">
+                            <th 
+                              className="font-medium text-slate-700 p-2 text-center"
+                              style={{ width: '150px' }}
+                            >
+                              ID
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {airtableRecords.map((record: any, index: number) => (
+                            <tr 
+                              key={`id-${record.id || index}`} 
+                              className={cn(
+                                "h-12 cursor-pointer",
+                                "hover:bg-slate-50/50"
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {record.id.substring(0, 12)}...
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-slate-700 truncate max-w-[300px]">
-                              {record.fields && Object.entries(record.fields).slice(0, 3).map(([key, value]) => (
-                                <span key={key} className="mr-4">
-                                  <span className="font-medium">{key}:</span> {String(value).substring(0, 20)}
-                                  {String(value).length > 20 && '...'}
-                                </span>
-                              ))}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-slate-500 mb-2">
-                    {(values.filterField || values.dateFilter !== 'all_time') ? (
-                      'No records match your current filters'
-                    ) : (
-                      'No records found in this table'
-                    )}
-                  </div>
-                  {(values.filterField || values.dateFilter !== 'all_time') && (
-                    <div className="text-xs text-slate-400">
-                      Try adjusting your filter criteria to see results
+                              onClick={() => handleRecordSelect(record)}
+                            >
+                              <td 
+                                className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden"
+                                style={{ 
+                                  width: '150px'
+                                }}
+                              >
+                                <div className="truncate" title={record.id}>
+                                  {record.id}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                    
+                    {/* Scrollable content area starting after ID column */}
+                    <div 
+                      className="max-h-[300px] update-record-table-container"
+                      style={{
+                        marginLeft: '150px',
+                        maxWidth: 'calc(100vw - 150px - 380px - 140px)', // Account for ID column + Variables panel + padding
+                        overflow: 'scroll',
+                        overflowX: 'scroll',
+                        overflowY: 'scroll',
+                        scrollbarWidth: 'auto',
+                        scrollbarColor: '#475569 #f1f5f9',
+                        WebkitOverflowScrolling: 'touch'
+                      }}
+                    >
+                      <table 
+                        className="text-sm"
+                        style={{ 
+                          borderSpacing: 0,
+                          width: 'max-content',
+                          tableLayout: 'fixed'
+                        }}
+                      >
+                        <thead className="bg-slate-50/50 sticky top-0 z-10">
+                          <tr className="h-10">
+                            {Object.keys(airtableRecords[0]?.fields || {}).map((fieldName) => (
+                              <th 
+                                key={fieldName} 
+                                className="font-medium text-slate-700 p-2 text-center whitespace-nowrap border-r border-slate-200 last:border-r-0"
+                                style={{ minWidth: '200px' }}
+                              >
+                                {fieldName}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {airtableRecords.map((record: any, index: number) => (
+                            <tr 
+                              key={`fields-${record.id || index}`} 
+                              className={cn(
+                                "h-12 cursor-pointer",
+                                selectedRecord?.id === record.id ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-slate-50/50"
+                              )}
+                              onClick={() => handleRecordSelect(record)}
+                            >
+                              {Object.keys(airtableRecords[0]?.fields || {}).map((fieldName) => {
+                                const value = record.fields?.[fieldName];
+                                
+                                // Check if it's an attachment field
+                                const isAttachment = Array.isArray(value) && 
+                                  value.length > 0 && 
+                                  value[0] && 
+                                  typeof value[0] === 'object' && 
+                                  (value[0].url || value[0].thumbnails);
+                                
+                                let displayContent;
+                                if (isAttachment) {
+                                  // Display thumbnails for attachments
+                                  displayContent = (
+                                    <div className="flex items-center justify-center gap-1">
+                                      {value.slice(0, 3).map((attachment, idx) => {
+                                        const thumbnailUrl = attachment.thumbnails?.small?.url || attachment.url;
+                                        return (
+                                          <div key={idx} className="w-8 h-8 bg-slate-100 rounded overflow-hidden">
+                                            {thumbnailUrl ? (
+                                              <img 
+                                                src={thumbnailUrl} 
+                                                alt={attachment.filename || 'attachment'}
+                                                className="w-full h-full object-cover"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
+                                                📎
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      {value.length > 3 && (
+                                        <span className="text-xs text-slate-500">+{value.length - 3}</span>
+                                      )}
+                                    </div>
+                                  );
+                                } else {
+                                  // Regular text display
+                                  const displayValue = value === null || value === undefined ? '' : 
+                                    Array.isArray(value) ? value.join(', ') : String(value);
+                                  
+                                  displayContent = (
+                                    <div className="truncate" title={displayValue}>
+                                      {displayValue || '-'}
+                                    </div>
+                                  );
+                                }
+                                
+                                return (
+                                  <td 
+                                    key={fieldName} 
+                                    className="p-2 align-middle overflow-hidden text-center border-r border-slate-200 last:border-r-0"
+                                    style={{ 
+                                      color: selectedRecord?.id === record.id ? '#334155' : '#475569',
+                                      minWidth: '200px'
+                                    }}
+                                  >
+                                    {displayContent}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 rounded-b-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-slate-600">
+                        <span>Total: {airtableRecords.length} record{airtableRecords.length !== 1 ? 's' : ''}</span>
+                        <span className="ml-3">• Showing all {Object.keys(airtableRecords[0]?.fields || {}).length} field{Object.keys(airtableRecords[0]?.fields || {}).length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Refresh the records
+                          if (values.baseId && values.tableName) {
+                            setLoadingRecords(true);
+                            loadAirtableRecords(values.baseId, values.tableName);
+                          }
+                        }}
+                        disabled={loadingRecords}
+                        className="h-7 px-2.5 text-xs bg-white border-slate-300 hover:bg-slate-100 hover:border-slate-400 text-slate-700 font-medium rounded"
+                        title="Refresh records"
+                      >
+                        <div className="flex items-center gap-1">
+                          {loadingRecords ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                          ) : (
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          )}
+                          <span>Refresh</span>
+                        </div>
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-slate-500 mb-1">
+                    No records found in this table
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Records will appear here once they are created
+                  </div>
                 </div>
               )}
             </div>
           </div>
         )}
         
-        {/* Dynamic fields for update/create record */}
-        {showDynamicFields && (
-          <>
-            {/* Show loading badge when table schema is loading */}
-            {isLoadingTableSchema && (
-              <div className="mt-6">
-                <div className="flex items-center justify-center gap-3 bg-slate-50 border-2 border-slate-300 px-4 py-4 rounded-lg">
-                  <div className="animate-spin h-6 w-6 border-3 border-slate-600 border-t-transparent rounded-full" style={{ borderWidth: '3px' }}></div>
-                  <span className="text-sm font-semibold text-slate-700">Loading table fields...</span>
-                </div>
-              </div>
-            )}
-            
-            {/* Show dynamic fields when loaded */}
-            {!isLoadingTableSchema && dynamicFields.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-px bg-slate-200 flex-1"></div>
-                  <span className="text-sm font-medium text-slate-600 px-3">Table Fields</span>
-                  <div className="h-px bg-slate-200 flex-1"></div>
-                </div>
-                
-                {fields.map((field, index) => {
-                  const fieldKey = `dynamic-field-${(field as any).uniqueId || field.name}-${field.type}-${index}-${nodeInfo?.type || 'unknown'}`;
-                  return (
-                    <FieldRenderer
-                      key={fieldKey}
-                      field={field}
-                      value={values[field.name]}
-                      onChange={(value) => handleFieldChange(field.name, value)}
-                      error={errors[field.name]}
-                      workflowData={workflowData}
-                      currentNodeId={currentNodeId}
-                      dynamicOptions={dynamicOptions}
-                      loadingDynamic={loadingFields.has(field.name)}
-                      nodeInfo={nodeInfo}
-                      allValues={values}
-                      onDynamicLoad={handleDynamicLoad}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </>
+        {/* Dynamic fields loading indicator for create record only */}
+        {showDynamicFields && isCreateRecord && isLoadingTableSchema && (
+          <div className="mt-6">
+            <div className="flex items-center justify-center gap-3 bg-slate-50 border-2 border-slate-300 px-4 py-4 rounded-lg">
+              <div className="animate-spin h-6 w-6 border-3 border-slate-600 border-t-transparent rounded-full" style={{ borderWidth: '3px' }}></div>
+              <span className="text-sm font-semibold text-slate-700">Loading table fields...</span>
+            </div>
+          </div>
         )}
       </>
     );
@@ -3523,7 +3710,7 @@ export default function ConfigurationForm({
                         </div>
                       </div>
                       
-                      {/* Records Table for Selection */}
+                      {/* Records Table for Selection - Updated to match list records design */}
                       {showPreviewData && (
                         <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
                           <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
@@ -3534,6 +3721,9 @@ export default function ConfigurationForm({
                                 </h3>
                                 <p className="text-xs text-slate-600">
                                   {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Click to select
+                                  {selectedRecord && (
+                                    <span className="ml-2 text-blue-600">Selected: {selectedRecord.label || selectedRecord.value}</span>
+                                  )}
                                 </p>
                               </div>
                               <Button
@@ -3556,82 +3746,197 @@ export default function ConfigurationForm({
                               <>
                                 <style jsx>{`
                                   .update-record-table-container {
-                                    overflow: auto !important;
-                                    max-height: 300px;
+                                    overflow: scroll !important;
+                                    overflow-x: scroll !important;
+                                    overflow-y: scroll !important;
                                   }
                                   .update-record-table-container::-webkit-scrollbar {
-                                    width: 8px !important;
-                                    height: 8px !important;
+                                    width: 16px !important;
+                                    height: 16px !important;
+                                    background-color: #e2e8f0 !important;
+                                    display: block !important;
                                   }
                                   .update-record-table-container::-webkit-scrollbar-track {
                                     background: #f1f5f9 !important;
-                                    border-radius: 4px !important;
+                                    border-radius: 8px !important;
+                                    border: 1px solid #cbd5e1 !important;
                                   }
                                   .update-record-table-container::-webkit-scrollbar-thumb {
-                                    background: #94a3b8 !important;
-                                    border-radius: 4px !important;
+                                    background: #475569 !important;
+                                    border-radius: 8px !important;
+                                    border: 2px solid #e2e8f0 !important;
+                                    min-height: 20px !important;
+                                    min-width: 20px !important;
                                   }
                                   .update-record-table-container::-webkit-scrollbar-thumb:hover {
-                                    background: #64748b !important;
+                                    background: #334155 !important;
+                                  }
+                                  .update-record-table-container::-webkit-scrollbar-corner {
+                                    background: #f1f5f9 !important;
+                                    border: 1px solid #cbd5e1 !important;
+                                  }
+                                  .update-record-table-container {
+                                    scrollbar-width: auto !important;
+                                    scrollbar-color: #475569 #f1f5f9 !important;
+                                    scrollbar-gutter: stable !important;
                                   }
                                   .selectable-row {
                                     cursor: pointer;
                                     transition: all 0.15s ease;
                                   }
                                   .selectable-row:hover {
-                                    background-color: #f1f5f9;
+                                    background-color: #f0f9ff;
                                   }
                                   .selectable-row.selected {
                                     background-color: #dbeafe;
-                                    border-left: 3px solid #2563eb;
                                   }
                                 `}</style>
-                                <div className="update-record-table-container">
-                                  <table className="w-full text-sm">
-                                    <thead className="bg-slate-50/50 sticky top-0 z-10">
-                                      <tr className="h-10">
-                                        <th className="text-left px-3 py-2 font-medium text-slate-700">ID</th>
-                                        {previewData.length > 0 && Object.keys(previewData[0].fields || {}).slice(0, 3).map(fieldName => (
-                                          <th key={fieldName} className="text-left px-3 py-2 font-medium text-slate-700">
-                                            {fieldName}
+                                <div className="relative">
+                                  {/* Sticky ID column */}
+                                  <div 
+                                    className="absolute left-0 top-0 z-20 bg-white"
+                                    style={{ 
+                                      width: (() => {
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(record => {
+                                          const idValue = record.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })()
+                                    }}
+                                  >
+                                    <table className="text-sm" style={{ borderSpacing: 0 }}>
+                                      <thead className="bg-slate-50/50">
+                                        <tr className="h-10">
+                                          <th 
+                                            className="font-medium text-slate-700 p-2 text-center sticky top-0 bg-slate-50/50 z-30"
+                                            style={{ 
+                                              width: (() => {
+                                                let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                                previewData.slice(0, 8).forEach(record => {
+                                                  const idValue = record.id || '';
+                                                  const idWidth = String(idValue).length * 9 + 24;
+                                                  maxWidth = Math.max(maxWidth, idWidth);
+                                                });
+                                                return `${Math.min(maxWidth, 250)}px`;
+                                              })()
+                                            }}
+                                          >
+                                            ID
                                           </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {previewData.map((record: any) => (
-                                        <tr 
-                                          key={record.id}
-                                          className={`selectable-row ${selectedRecord?.value === record.id ? 'selected' : ''}`}
-                                          onClick={() => {
-                                            const newRecord = {
-                                              value: record.id,
-                                              label: record.fields?.[Object.keys(record.fields)[0]] || record.id,
-                                              fields: record.fields
-                                            };
-                                            setSelectedRecord(newRecord);
-                                            setValue('recordId', record.id);
-                                            // Populate field values
-                                            Object.entries(record.fields || {}).forEach(([fieldName, fieldValue]) => {
-                                              const dynamicFieldName = `airtable_field_${fieldName.toLowerCase().replace(/\s+/g, '_')}`;
-                                              if (!aiFields.has(dynamicFieldName)) {
-                                                setValue(dynamicFieldName, fieldValue);
-                                              }
-                                            });
-                                          }}
-                                        >
-                                          <td className="px-3 py-2 font-mono text-xs">{record.id}</td>
-                                          {Object.entries(record.fields || {}).slice(0, 3).map(([fieldName, fieldValue]: [string, any]) => (
-                                            <td key={fieldName} className="px-3 py-2">
-                                              {Array.isArray(fieldValue) 
-                                                ? `[${fieldValue.length} items]`
-                                                : String(fieldValue || '').substring(0, 50)}
-                                            </td>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {previewData.map((record: any) => {
+                                          const isSelected = selectedRecord?.value === record.id;
+                                          return (
+                                            <tr 
+                                              key={record.id}
+                                              className={`selectable-row h-12 ${isSelected ? 'selected' : ''}`}
+                                              onClick={() => {
+                                                const newRecord = {
+                                                  value: record.id,
+                                                  label: record.fields?.[Object.keys(record.fields)[0]] || record.id,
+                                                  fields: record.fields
+                                                };
+                                                setSelectedRecord(newRecord);
+                                                setValue('recordId', record.id);
+                                                // Populate field values
+                                                Object.entries(record.fields || {}).forEach(([fieldName, fieldValue]) => {
+                                                  const dynamicFieldName = `airtable_field_${fieldName.toLowerCase().replace(/\s+/g, '_')}`;
+                                                  if (!aiFields.has(dynamicFieldName)) {
+                                                    setValue(dynamicFieldName, fieldValue);
+                                                  }
+                                                });
+                                              }}
+                                            >
+                                              <td 
+                                                className="font-mono text-xs text-center p-2 bg-white"
+                                                style={{ 
+                                                  backgroundColor: isSelected ? '#dbeafe' : 'white',
+                                                  borderLeft: isSelected ? '3px solid #2563eb' : 'none',
+                                                  paddingLeft: isSelected ? 'calc(0.5rem - 3px)' : '0.5rem'
+                                                }}
+                                              >
+                                                {record.id}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  
+                                  {/* Scrollable content area */}
+                                  <div 
+                                    className="max-h-[300px] update-record-table-container"
+                                    style={{ 
+                                      marginLeft: (() => {
+                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
+                                        previewData.slice(0, 8).forEach(record => {
+                                          const idValue = record.id || '';
+                                          const idWidth = String(idValue).length * 9 + 24;
+                                          maxWidth = Math.max(maxWidth, idWidth);
+                                        });
+                                        return `${Math.min(maxWidth, 250)}px`;
+                                      })()
+                                    }}
+                                  >
+                                    <table className="text-sm w-full" style={{ borderSpacing: 0 }}>
+                                      <thead className="bg-slate-50/50 sticky top-0 z-10">
+                                        <tr className="h-10">
+                                          {Object.keys(previewData[0]?.fields || {}).map((fieldName) => (
+                                            <th 
+                                              key={fieldName} 
+                                              className="font-medium text-slate-700 p-2 text-left whitespace-nowrap"
+                                            >
+                                              {fieldName}
+                                            </th>
                                           ))}
                                         </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                      </thead>
+                                      <tbody>
+                                        {previewData.map((record: any) => {
+                                          const isSelected = selectedRecord?.value === record.id;
+                                          return (
+                                            <tr 
+                                              key={record.id}
+                                              className={`selectable-row h-12 ${isSelected ? 'selected' : ''}`}
+                                              style={{ backgroundColor: isSelected ? '#dbeafe' : 'transparent' }}
+                                              onClick={() => {
+                                                const newRecord = {
+                                                  value: record.id,
+                                                  label: record.fields?.[Object.keys(record.fields)[0]] || record.id,
+                                                  fields: record.fields
+                                                };
+                                                setSelectedRecord(newRecord);
+                                                setValue('recordId', record.id);
+                                                // Populate field values
+                                                Object.entries(record.fields || {}).forEach(([fieldName, fieldValue]) => {
+                                                  const dynamicFieldName = `airtable_field_${fieldName.toLowerCase().replace(/\s+/g, '_')}`;
+                                                  if (!aiFields.has(dynamicFieldName)) {
+                                                    setValue(dynamicFieldName, fieldValue);
+                                                  }
+                                                });
+                                              }}
+                                            >
+                                              {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any]) => (
+                                                <td key={fieldName} className="p-2 whitespace-nowrap">
+                                                  {Array.isArray(fieldValue) 
+                                                    ? `[${fieldValue.length} items]`
+                                                    : typeof fieldValue === 'object' && fieldValue !== null
+                                                    ? JSON.stringify(fieldValue).substring(0, 50)
+                                                    : String(fieldValue || '').substring(0, 100)}
+                                                </td>
+                                              ))}
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                 </div>
                               </>
                             ) : (

@@ -123,15 +123,6 @@ export function GenericSelectField({
           <SelectValue placeholder={field.placeholder || "Select an option..."} />
         </SelectTrigger>
         <SelectContent>
-          {/* Add clear option at the top if there's a value */}
-          {value && (
-            <SelectItem value="" className="border-b mb-1">
-              <div className="flex items-center gap-2">
-                <X className="h-4 w-4" />
-                <span className="text-muted-foreground">Clear selection</span>
-              </div>
-            </SelectItem>
-          )}
           {processedOptions.length > 0 ? (
             processedOptions.map((option: any, index: number) => {
               const optionValue = option.value || option.id;
@@ -153,17 +144,19 @@ export function GenericSelectField({
           )}
         </SelectContent>
       </Select>
-      {/* External clear button for better UX */}
+      {/* Clear button */}
       {value && (
         <button
           type="button"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             onChange("");
           }}
-          className="absolute right-8 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded"
+          className="group absolute right-9 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 rounded-md transition-colors"
+          aria-label="Clear selection"
         >
-          <X className="h-4 w-4 opacity-50 hover:opacity-100" />
+          <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
         </button>
       )}
     </div>

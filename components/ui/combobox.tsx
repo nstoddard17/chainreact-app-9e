@@ -200,12 +200,23 @@ export function Combobox({
           <span className="flex-1 text-left truncate">
             {selectedOption ? selectedOption.label : value || placeholder || "Select option..."}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {value && !disabled && (
-              <X 
-                className="h-4 w-4 opacity-50 hover:opacity-100 transition-opacity" 
+              <div
+                className="group p-0.5 hover:bg-slate-100 rounded transition-colors cursor-pointer"
                 onClick={handleClear}
-              />
+                aria-label="Clear selection"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleClear(e as any);
+                  }
+                }}
+              >
+                <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
+              </div>
             )}
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </div>
@@ -230,18 +241,6 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {/* Add clear option at the top if there's a value */}
-              {value && (
-                <CommandItem
-                  key="clear-selection"
-                  value="__clear__"
-                  onSelect={() => handleSelect("")}
-                  className="border-b mb-1"
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  <span className="text-muted-foreground">Clear selection</span>
-                </CommandItem>
-              )}
               {filteredOptions.map((option, index) => (
                 <CommandItem
                   key={`${index}-${option.value || 'undefined'}`}
@@ -416,13 +415,24 @@ export function MultiCombobox({
               <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {selectedOptions.length > 0 && !disabled && (
-              <X 
-                className="h-4 w-4 opacity-50 hover:opacity-100 transition-opacity" 
+              <div
+                className="group p-0.5 hover:bg-slate-100 rounded transition-colors cursor-pointer"
                 onClick={handleClearAll}
+                aria-label="Clear all selections"
                 title="Clear all"
-              />
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleClearAll(e as any);
+                  }
+                }}
+              >
+                <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
+              </div>
             )}
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </div>
