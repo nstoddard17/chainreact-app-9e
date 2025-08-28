@@ -6087,11 +6087,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
       {
         name: "content",
-        label: "Initial Content",
+        label: "Content",
         type: "textarea",
         required: false,
-        placeholder: "Enter the initial content for your document...",
-        description: "The initial content to add to the document (supports basic formatting)"
+        rows: 10,
+        placeholder: "Enter content with workflow variables using {{variable_name}}...\n\nExample:\nMeeting Notes – {{date}}\nSubject: {{email.subject}}\nFrom: {{email.sender}}\n\n{{email.body}}",
+        description: "Use {{variable_name}} to insert values from your workflow (e.g., {{email.subject}}, {{email.body}}, {{date}}).\n\nExample:\nMeeting Notes – {{date}}\nSubject: {{email.subject}}\nFrom: {{email.sender}}\n\n{{email.body}}"
       },
       {
         name: "folderId",
@@ -6101,27 +6102,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dynamic: "google-drive-folders",
         placeholder: "Select a folder (optional, defaults to root)",
         description: "Choose where to create the document"
-      },
-      {
-        name: "shareWith",
-        label: "Share With",
-        type: "text",
-        required: false,
-        placeholder: "email@example.com (comma-separated for multiple)",
-        description: "Email addresses to share the document with (optional)"
-      },
-      {
-        name: "permission",
-        label: "Permission Level",
-        type: "select",
-        required: false,
-        defaultValue: "writer",
-        options: [
-          { value: "reader", label: "Reader (view only)" },
-          { value: "commenter", label: "Commenter (view and comment)" },
-          { value: "writer", label: "Writer (view, comment, and edit)" }
-        ],
-        description: "Permission level for shared users"
       }
     ],
   },
