@@ -141,9 +141,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         }
       }
 
-      // Define options variable at the beginning of the async function scope
+      // Define variables at the beginning of the async function scope
+      let integration: any;
       let options: any = {};
-
+      
       try {
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
@@ -275,11 +276,205 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }
 
       // Get integration for other providers
-      const integration = getIntegrationByProvider(providerId);
+      integration = getIntegrationByProvider(providerId);
       if (!integration) {
         console.warn(`No integration found for provider: ${providerId}`);
         loadingFields.current.delete(cacheKey);
         setLoading(false);
+        return;
+      }
+
+      // Special handling for dynamic Airtable fields (linked records)
+      if (fieldName.startsWith('airtable_field_') && providerId === 'airtable') {
+        console.log('🔍 [useDynamicOptions] Loading linked records for field:', fieldName);
+        
+        // Get the form values to find the base and linked table info
+        const formValues = getFormValues?.() || {};
+        const baseId = formValues.baseId;
+        
+        if (!baseId) {
+          console.log('🔍 [useDynamicOptions] No baseId available for linked record loading');
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          return;
+        }
+        
+        // Extract field info from the selected table's fields
+        const selectedTable = optionsCache.current.tableName?.find((table: any) => 
+          table.value === formValues.tableName
+        ) || dynamicOptions?.tableName?.find((table: any) => 
+          table.value === formValues.tableName
+        );
+        
+        if (!selectedTable?.fields) {
+          console.log('🔍 [useDynamicOptions] No table fields found for linked record loading');
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          return;
+        }
+        
+        // Find the field configuration
+        const fieldId = fieldName.replace('airtable_field_', '');
+        const tableField = selectedTable.fields.find((f: any) => f.id === fieldId);
+        
+        if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
+          console.log('🔍 [useDynamicOptions] Field is not a linked record field:', tableField?.type);
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          return;
+        }
+        
+        // Get the linked table ID from field options
+        const linkedTableId = tableField.options?.linkedTableId;
+        let linkedTableName: string | null = null;
+        
+        // If no linkedTableId, try to guess the table name from the field name
+        if (!linkedTableId) {
+          console.log('🔍 [useDynamicOptions] No linked table ID found in field options, trying to guess from field name:', tableField.name);
+          
+          // Try to guess the linked table name from the field name
+          const fieldNameLower = (tableField.name || '').toLowerCase();
+          if (fieldNameLower.includes('project')) {
+            linkedTableName = 'Projects';
+          } else if (fieldNameLower.includes('task')) {
+            linkedTableName = 'Tasks';
+          } else if (fieldNameLower.includes('feedback')) {
+            linkedTableName = 'Feedback';
+          } else if (fieldNameLower.includes('user') || fieldNameLower.includes('assignee')) {
+            linkedTableName = 'Users';
+          } else if (fieldNameLower.includes('customer') || fieldNameLower.includes('client')) {
+            linkedTableName = 'Customers';
+          }
+          
+          if (!linkedTableName) {
+            console.log('🔍 [useDynamicOptions] Could not determine linked table name from field name');
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            return;
+          }
+          
+          console.log('🔍 [useDynamicOptions] Guessed linked table name:', linkedTableName);
+        }
+        
+        console.log('🔍 [useDynamicOptions] Loading records from linked table:', linkedTableId);
+        
+        try {
+          // We need to find the table name from the linked table ID
+          // First, get all tables for this base
+          const tablesResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              dataType: 'airtable_tables',
+              options: { baseId }
+            }),
+          });
+          
+          if (!tablesResponse.ok) {
+            throw new Error(`Failed to load tables: ${tablesResponse.status}`);
+          }
+          
+          const tablesResult = await tablesResponse.json();
+          const tables = tablesResult.data || [];
+          
+          // Find the linked table by ID or name
+          let linkedTable: any = null;
+          
+          if (linkedTableId) {
+            linkedTable = tables.find((table: any) => table.id === linkedTableId);
+            if (!linkedTable) {
+              console.log('🔍 [useDynamicOptions] Linked table not found by ID:', linkedTableId);
+            }
+          }
+          
+          // If not found by ID, try by name (from guessing)
+          if (!linkedTable && linkedTableName) {
+            linkedTable = tables.find((table: any) => 
+              table.name === linkedTableName || 
+              table.value === linkedTableName ||
+              table.name?.toLowerCase() === linkedTableName.toLowerCase()
+            );
+            if (linkedTable) {
+              console.log('🔍 [useDynamicOptions] Found linked table by name:', linkedTableName);
+            }
+          }
+          
+          if (!linkedTable) {
+            console.log('🔍 [useDynamicOptions] Linked table not found:', { linkedTableId, linkedTableName });
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            return;
+          }
+          
+          console.log('🔍 [useDynamicOptions] Using linked table:', linkedTable.name || linkedTable.value);
+          
+          // Load records from the linked table using its name
+          const recordsResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              dataType: 'airtable_records',
+              options: {
+                baseId,
+                tableName: linkedTable.name || linkedTable.value,
+                maxRecords: 100
+              }
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+
+          if (!recordsResponse.ok) {
+            throw new Error(`Failed to load linked records: ${recordsResponse.status}`);
+          }
+
+          const recordsResult = await recordsResponse.json();
+          const records = recordsResult.data || [];
+          
+          console.log('🔍 [useDynamicOptions] Loaded', records.length, 'linked records');
+          
+          // Format records as options
+          const formattedOptions = records.map((record: any) => ({
+            value: record.id,
+            label: record.fields?.Name || record.fields?.Title || record.fields?.['Primary Field'] || record.id
+          }));
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: formattedOptions
+          }));
+        } catch (error: any) {
+          console.error('❌ [useDynamicOptions] Failed to load linked records:', {
+            field: fieldName,
+            baseId,
+            linkedTableId,
+            error: error?.message || String(error)
+          });
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+        } finally {
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+        }
         return;
       }
 
@@ -543,8 +738,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         integrationId: currentIntegration?.id,
         providerId,
         options,
-        error: error.message,
-        stack: error.stack
+        error: error?.message || String(error),
+        stack: error?.stack || 'No stack trace available'
       });
       setDynamicOptions(prev => ({
         ...prev,
