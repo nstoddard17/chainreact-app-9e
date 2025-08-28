@@ -640,6 +640,17 @@ export default function ConfigurationForm({
         // Determine if this should be a dropdown
         let choices = null;
         
+        // Update field type for linked records
+        let fieldType = field.type;
+        if (field.isLinkedRecord) {
+          // Set proper Airtable linked record type based on value structure
+          if (Array.isArray(Array.from(field.values)[0]) || field.type === 'multipleSelects') {
+            fieldType = 'multipleRecordLinks';
+          } else {
+            fieldType = 'singleRecordLink';
+          }
+        }
+        
         if (field.isLinkedRecord && linkedRecordOptions[field.name]) {
           // Use the fetched linked record options
           choices = linkedRecordOptions[field.name];
@@ -660,9 +671,10 @@ export default function ConfigurationForm({
         
         return {
           ...field,
+          type: fieldType, // Use the updated type
           choices,
           values: undefined, // Remove the Set
-          isLinkedRecord: undefined // Remove internal flag
+          isLinkedRecord: field.isLinkedRecord // Keep the isLinkedRecord flag for table display
         };
       });
       
@@ -678,23 +690,15 @@ export default function ConfigurationForm({
       console.log('🔍 Inferred table schema:', schemaData);
       setAirtableTableSchema(schemaData);
       
-      // Set dynamicOptions for linked fields immediately
-      const linkedFieldOptions: Record<string, any[]> = {};
+      // Store the linked field options in the table schema itself
+      // The choices are already attached to each field, so they'll be available
+      // when the fields are rendered
       fields.forEach((field: any) => {
         if ((field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') && field.choices && field.choices.length > 0) {
           const fieldName = `airtable_field_${field.id}`;
-          linkedFieldOptions[fieldName] = field.choices;
-          console.log(`🔍 Setting dynamic options for linked field ${field.name} (${fieldName}):`, field.choices.length, 'options');
+          console.log(`🔍 Linked field ${field.name} (${fieldName}) has ${field.choices.length} choices with user-friendly names`);
         }
       });
-      
-      if (Object.keys(linkedFieldOptions).length > 0) {
-        setDynamicOptions(prev => ({
-          ...prev,
-          ...linkedFieldOptions
-        }));
-        console.log('🔍 Updated dynamicOptions with linked field choices');
-      }
       
       // Only clear dynamic field values if this is the initial load or table changed
       // Don't clear if we're just updating the schema for the same table
@@ -1610,6 +1614,12 @@ export default function ConfigurationForm({
     try {
       setLoadingRecords(true);
       
+      // Ensure table schema is loaded first (for linked field name mappings)
+      if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
+        console.log('🔍 Loading table schema before records');
+        await fetchAirtableTableSchema(baseId, tableName);
+      }
+      
       const integration = getIntegrationByProvider('airtable');
       if (!integration) {
         console.warn('No Airtable integration found');
@@ -1653,7 +1663,7 @@ export default function ConfigurationForm({
     } finally {
       setLoadingRecords(false);
     }
-  }, [getIntegrationByProvider]);
+  }, [getIntegrationByProvider, airtableTableSchema, fetchAirtableTableSchema]);
 
   /**
    * Load preview data for list records
@@ -1665,6 +1675,12 @@ export default function ConfigurationForm({
       if (!integration) {
         console.warn('No Airtable integration found');
         return;
+      }
+      
+      // Ensure table schema is loaded first (for linked field name mappings)
+      if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
+        console.log('🔍 Loading table schema before preview data');
+        await fetchAirtableTableSchema(baseId, tableName);
       }
 
       // Get current form values to apply filters
@@ -1787,7 +1803,7 @@ export default function ConfigurationForm({
     } finally {
       setLoadingPreview(false);
     }
-  }, [getIntegrationByProvider, values]);
+  }, [getIntegrationByProvider, values, airtableTableSchema, fetchAirtableTableSchema]);
 
   /**
    * Test configuration handler
@@ -2098,6 +2114,13 @@ export default function ConfigurationForm({
         setShowPreviewData(false);
         setPreviewData([]);
         
+        // Fetch table schema for list records to get linked field mappings
+        if (value && values.baseId) {
+          console.log('🔍 Fetching table schema for list records to get linked field info');
+          setIsLoadingTableSchema(true);
+          fetchAirtableTableSchema(values.baseId, value);
+        }
+        
         // Load dependent fields for list records (like filterField)
         if (nodeInfo.configSchema && value) {
           nodeInfo.configSchema.forEach(field => {
@@ -2134,8 +2157,9 @@ export default function ConfigurationForm({
       if (nodeInfo.type === 'airtable_action_update_record' || 
           nodeInfo.type === 'airtable_action_create_record' || 
           nodeInfo.type === 'airtable_action_move_record') {
+        console.log('🔍 Table changed - clearing records and schema for', nodeInfo.type);
         setSelectedRecord(null);
-        setAirtableRecords([]);
+        setAirtableRecords([]); // Clear old records immediately
         setLoadingRecords(false);
         
         // Clear table schema immediately to hide old fields
@@ -2372,7 +2396,9 @@ export default function ConfigurationForm({
   const [lastLoadedTable, setLastLoadedTable] = useState<string>('');
   
   useEffect(() => {
-    if (isUpdateRecord && values.tableName && dynamicOptions?.tableName) {
+    // Skip automatic loading if we already have table schema with choices
+    // The fetchAirtableTableSchema function handles loading linked record options with user-friendly names
+    if (isUpdateRecord && values.tableName && dynamicOptions?.tableName && !airtableTableSchema) {
       // Clear loaded fields if table changed
       if (lastLoadedTable !== values.tableName) {
         setLinkedFieldsLoaded(new Set());
@@ -2397,16 +2423,16 @@ export default function ConfigurationForm({
               // Mark as loaded
               setLinkedFieldsLoaded(prev => new Set(prev).add(loadKey));
               
-              // Trigger the load for this field with silent mode
+              // Trigger the load for this field with silent mode, passing baseId in extraOptions
               if (loadOptions) {
-                loadOptions(fieldName, null, null, true, true);
+                loadOptions(fieldName, null, null, true, true, { baseId: values.baseId });
               }
             }
           }
         });
       }
     }
-  }, [isUpdateRecord, values.tableName, dynamicOptions?.tableName, loadOptions]);
+  }, [isUpdateRecord, values.tableName, dynamicOptions?.tableName, loadOptions, airtableTableSchema]);
   
   // Helper function to map Airtable field types to form field types
   const getAirtableFieldType = (airtableType: string, isUpdate: boolean = false): string => {
@@ -2524,8 +2550,13 @@ export default function ConfigurationForm({
           console.log(`🔍 Choices for ${tableField.name}:`, tableField.choices);
         }
         
+        const fieldName = `airtable_field_${tableField.id}`;
+        const isLinkedField = tableField.type === 'multipleRecordLinks' || 
+                               tableField.type === 'singleRecordLink' || 
+                               tableField.isLinkedRecord;
+        
         return {
-          name: `airtable_field_${tableField.id}`,
+          name: fieldName,
           label: tableField.name,
           type: getAirtableFieldTypeFromSchema(tableField),
           required: false, // Let user decide which fields to fill
@@ -2533,15 +2564,17 @@ export default function ConfigurationForm({
           placeholder: `Enter ${tableField.name}`,
           // Store the original Airtable field data for the renderer
           airtableField: tableField,
-          // Include choices/options if available
+          // Include choices/options if available (same logic as update record)
           options: tableField.choices?.map((choice: any) => ({
-            value: choice.value,
-            label: choice.label,
+            value: choice.value || choice,
+            label: choice.label || choice,
             color: choice.color
           })) || airtableTableSchema.sampleValues?.[tableField.id]?.map((val: any) => ({
             value: val,
             label: String(val)
           })),
+          // Don't mark linked fields as dynamic if we already have choices
+          dynamic: (isLinkedField && !tableField.choices) ? true : undefined,
           // Add field-specific properties
           ...(tableField.type === 'rating' && { max: tableField.max }),
           ...(tableField.type === 'currency' && { symbol: tableField.symbol, precision: tableField.precision }),
@@ -2589,17 +2622,17 @@ export default function ConfigurationForm({
             placeholder: `Enter ${tableField.name}`,
             // Store the original Airtable field data for the renderer
             airtableField: tableField,
-            // For non-linked fields, include static options
-            options: (!isLinkedField && tableField.choices) ? tableField.choices.map((choice: any) => ({
-              value: choice.value,
-              label: choice.label,
+            // Include options for both linked and non-linked fields
+            options: tableField.choices ? tableField.choices.map((choice: any) => ({
+              value: choice.value || choice,
+              label: choice.label || choice,
               color: choice.color
             })) : airtableTableSchema.sampleValues?.[tableField.id]?.map((val: any) => ({
               value: val,
               label: String(val)
             })),
-            // Mark linked fields as dynamic so FieldRenderer uses dynamicOptions
-            dynamic: isLinkedField ? true : undefined,
+            // Don't mark linked fields as dynamic if we already have choices
+            dynamic: (isLinkedField && !tableField.choices) ? true : undefined,
             // Add a unique identifier to help with React keys
             uniqueId: `${values.tableName}-${tableField.id}-${fieldIndex}`
           };
@@ -3345,7 +3378,77 @@ export default function ConfigurationForm({
                                               );
                                             }
                                             
-                                            // Regular array handling
+                                            // Check if this is a linked record field
+                                            let isLinkedField = false;
+                                            let linkedFieldOptions: any[] = [];
+                                            
+                                            // Debug: Check what's in the schema
+                                            console.log(`📊 Checking field ${fieldName}:`, {
+                                              hasSchema: !!airtableTableSchema?.fields,
+                                              schemaFieldCount: airtableTableSchema?.fields?.length,
+                                              fieldValue: fieldValue,
+                                              fieldValueType: Array.isArray(fieldValue) ? 'array' : typeof fieldValue,
+                                              isRecordId: typeof fieldValue === 'string' && fieldValue.startsWith('rec') ||
+                                                         (Array.isArray(fieldValue) && fieldValue[0]?.startsWith('rec'))
+                                            });
+                                            
+                                            if (airtableTableSchema?.fields) {
+                                              const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+                                              
+                                              console.log(`📊 Found tableField for ${fieldName}:`, {
+                                                found: !!tableField,
+                                                type: tableField?.type,
+                                                hasChoices: !!tableField?.choices,
+                                                choicesLength: tableField?.choices?.length,
+                                                isLinkedRecord: tableField?.isLinkedRecord
+                                              });
+                                              
+                                              if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                                                  tableField.type === 'singleRecordLink' || 
+                                                  tableField.isLinkedRecord)) {
+                                                isLinkedField = true;
+                                                // Get the options with user-friendly names
+                                                linkedFieldOptions = tableField.choices || [];
+                                                
+                                                console.log(`🔗 List table display - Linked field ${fieldName}:`, {
+                                                  hasChoices: !!tableField.choices,
+                                                  choicesCount: tableField.choices?.length,
+                                                  firstChoice: tableField.choices?.[0],
+                                                  value: fieldValue
+                                                });
+                                              }
+                                            } else {
+                                              console.log(`⚠️ No table schema available for field ${fieldName}`);
+                                            }
+                                            
+                                            // Handle linked record fields - show user-friendly names
+                                            if (isLinkedField && linkedFieldOptions.length > 0) {
+                                              let displayValue = '';
+                                              
+                                              if (Array.isArray(fieldValue)) {
+                                                // Multiple linked records - map IDs to names
+                                                const mappedNames = fieldValue.map((id: string) => {
+                                                  const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                                  return option ? option.label : id;
+                                                });
+                                                displayValue = mappedNames.join(', ');
+                                              } else if (fieldValue) {
+                                                // Single linked record
+                                                const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
+                                                displayValue = option ? option.label : String(fieldValue);
+                                              }
+                                              
+                                              return (
+                                                <div className="text-xs text-blue-700 text-center h-full flex items-center justify-center gap-1">
+                                                  <span className="text-blue-600" title="Linked record">🔗</span>
+                                                  <span className="block truncate" title={displayValue}>
+                                                    {displayValue || '—'}
+                                                  </span>
+                                                </div>
+                                              );
+                                            }
+                                            
+                                            // Regular array handling (non-linked arrays)
                                             if (Array.isArray(fieldValue)) {
                                               return (
                                                 <div className="text-xs text-slate-900 text-center h-full flex items-center justify-center">
@@ -3608,6 +3711,7 @@ export default function ConfigurationForm({
                             >
                               {Object.keys(airtableRecords[0]?.fields || {}).map((fieldName) => {
                                 const value = record.fields?.[fieldName];
+                                console.log(`🎯 Rendering table cell for field: ${fieldName}, value:`, value, 'Table schema:', airtableTableSchema?.table?.name);
                                 
                                 // Check if it's an attachment field
                                 const isAttachment = Array.isArray(value) && 
@@ -3620,15 +3724,47 @@ export default function ConfigurationForm({
                                 let isLinkedField = false;
                                 let linkedFieldOptions: any[] = [];
                                 
-                                if (airtableTableSchema?.fields) {
+                                // Only use schema if it matches the current table
+                                const schemaMatchesTable = airtableTableSchema?.table?.name === values.tableName;
+                                
+                                if (airtableTableSchema?.fields && schemaMatchesTable) {
+                                  console.log(`🔍 Looking for field "${fieldName}" in schema with ${airtableTableSchema.fields.length} fields (Table: ${airtableTableSchema.table?.name})`);
+                                  console.log(`🔍 Schema fields:`, airtableTableSchema.fields.map((f: any) => ({ name: f.name, type: f.type, hasChoices: !!f.choices })));
                                   const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+                                  console.log(`🔍 Found field "${fieldName}"?`, !!tableField, 'Field data:', tableField);
+                                  
+                                  if (tableField) {
+                                    console.log(`📋 Field details for "${fieldName}":`, {
+                                      type: tableField.type,
+                                      isLinkedRecord: tableField.isLinkedRecord,
+                                      hasChoices: !!tableField.choices,
+                                      choicesLength: tableField.choices?.length,
+                                      firstChoice: tableField.choices?.[0]
+                                    });
+                                  }
+                                  
                                   if (tableField && (tableField.type === 'multipleRecordLinks' || 
                                       tableField.type === 'singleRecordLink' || 
                                       tableField.isLinkedRecord)) {
                                     isLinkedField = true;
-                                    // Get the options from dynamicOptions
-                                    const fieldId = `airtable_field_${tableField.id}`;
-                                    linkedFieldOptions = dynamicOptions?.[fieldId] || tableField.choices || [];
+                                    // Prioritize choices from table schema (has user-friendly names) over dynamicOptions
+                                    linkedFieldOptions = tableField.choices || [];
+                                    
+                                    console.log(`🔗 Table display - Linked field ${fieldName}:`, {
+                                      hasChoices: !!tableField.choices,
+                                      choicesCount: tableField.choices?.length,
+                                      firstChoice: tableField.choices?.[0],
+                                      value: value,
+                                      fieldType: tableField.type,
+                                      isLinkedRecord: tableField.isLinkedRecord
+                                    });
+                                    
+                                    // Only use dynamicOptions as a fallback if no choices in schema
+                                    if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
+                                      const fieldId = `airtable_field_${tableField.id}`;
+                                      linkedFieldOptions = dynamicOptions?.[fieldId] || [];
+                                      console.log(`🔗 Using fallback dynamicOptions for ${fieldName}:`, linkedFieldOptions.length);
+                                    }
                                   }
                                 }
                                 
@@ -3662,6 +3798,7 @@ export default function ConfigurationForm({
                                   );
                                 } else if (isLinkedField) {
                                   // Handle linked record fields - map IDs to names
+                                  console.log(`🔗 Displaying linked field "${fieldName}" with ${linkedFieldOptions.length} options`);
                                   let displayValue = '';
                                   let mappedNames: string[] = [];
                                   
@@ -3669,6 +3806,7 @@ export default function ConfigurationForm({
                                     // Multiple linked records
                                     mappedNames = value.map((id: string) => {
                                       const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                      console.log(`  Mapping ID ${id} to:`, option?.label || 'NOT FOUND');
                                       return option ? option.label : id;
                                     });
                                     displayValue = mappedNames.join(', ');
@@ -3676,9 +3814,12 @@ export default function ConfigurationForm({
                                     // Single linked record
                                     const option = linkedFieldOptions.find((opt: any) => opt.value === value);
                                     const name = option ? option.label : String(value);
+                                    console.log(`  Mapping single ID ${value} to:`, name);
                                     mappedNames = [name];
                                     displayValue = name;
                                   }
+                                  
+                                  console.log(`🔗 Final display value for ${fieldName}:`, displayValue);
                                   
                                   // Show with special styling for linked records
                                   displayContent = (
