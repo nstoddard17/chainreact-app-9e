@@ -7120,7 +7120,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: true,
         placeholder: "Select a record from the table below",
         description: "The ID of the record to update",
-        readOnly: true
+        readOnly: true,
+        hidden: true
       },
       {
         name: "fields",
@@ -7128,7 +7129,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "custom",
         required: true,
         description: "Configure the fields and values for the updated record",
-        dependsOn: "tableName"
+        dependsOn: "tableName",
+        hidden: true
       }
     ]
   },
