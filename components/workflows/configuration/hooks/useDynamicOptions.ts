@@ -450,11 +450,57 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           console.log('🔍 [useDynamicOptions] Loaded', records.length, 'linked records');
           
+          // Determine the best field to use for display
+          let displayField: string | null = null;
+          let sampleFields: string[] = [];
+          
+          if (records.length > 0) {
+            sampleFields = Object.keys(records[0].fields || {});
+            console.log(`🔍 [useDynamicOptions] Available fields in linked table:`, sampleFields);
+            
+            // Priority order for finding display field (same logic as ConfigurationForm.tsx):
+            // 1. Fields containing 'name' or 'title'
+            // 2. Fields containing 'id' (but not created/modified timestamps)
+            // 3. First string/number field found
+            displayField = sampleFields.find(field => 
+              field.toLowerCase().includes('name') || 
+              field.toLowerCase().includes('title')
+            ) || sampleFields.find(field => 
+              field.toLowerCase().includes('id') && 
+              !field.toLowerCase().includes('modified') && 
+              !field.toLowerCase().includes('created')
+            ) || sampleFields.find(field => {
+              const value = records[0].fields[field];
+              return value && (typeof value === 'string' || typeof value === 'number') && 
+                     !Array.isArray(value);
+            });
+            
+            console.log(`🔍 [useDynamicOptions] Using field "${displayField}" as display field for linked records`);
+          }
+          
           // Format records as options
-          const formattedOptions = records.map((record: any) => ({
-            value: record.id,
-            label: record.fields?.Name || record.fields?.Title || record.fields?.['Primary Field'] || record.id
-          }));
+          const formattedOptions = records.map((record: any) => {
+            let label = record.id; // Default to ID if no better field found
+            
+            if (displayField && record.fields?.[displayField]) {
+              const fieldValue = record.fields[displayField];
+              // Only use the field if it's not just an ID field (unless it's the only option)
+              if (displayField.toLowerCase() !== 'id' || !sampleFields.some(f => 
+                f.toLowerCase().includes('name') || f.toLowerCase().includes('title')
+              )) {
+                label = String(fieldValue);
+                // Truncate if too long
+                if (label.length > 50) {
+                  label = label.substring(0, 47) + '...';
+                }
+              }
+            }
+            
+            return {
+              value: record.id,
+              label: label
+            };
+          });
           
           setDynamicOptions(prev => ({
             ...prev,
