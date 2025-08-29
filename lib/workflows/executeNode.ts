@@ -1,4 +1,5 @@
 import { TokenRefreshService } from "../integrations/tokenRefreshService"
+import type { Integration } from "@/types/integration"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
@@ -25,6 +26,8 @@ import {
   
   // Google Sheets actions
   readGoogleSheetsData,
+  executeGoogleSheetsUnifiedAction,
+  exportGoogleSheetsData,
   
   // Airtable actions
   moveAirtableRecord,
@@ -176,8 +179,11 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       throw new Error(`No integration found for ${provider}`)
     }
 
+    // Cast the integration to the proper type
+    const typedIntegration = integration as unknown as Integration
+
     // Check if token needs refresh
-    const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+    const shouldRefresh = TokenRefreshService.shouldRefreshToken(typedIntegration, {
       accessTokenExpiryThreshold: 5 // Refresh if expiring within 5 minutes
     })
 
@@ -189,7 +195,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       const refreshResult = await TokenRefreshService.refreshTokenForProvider(
         integration.provider,
         integration.refresh_token,
-        integration
+        typedIntegration
       )
 
       if (refreshResult.success && refreshResult.accessToken) {
@@ -1758,6 +1764,10 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "google_docs_action_share_document": shareGoogleDocument,
     "google_docs_action_get_document": getGoogleDocument,
     "google_docs_action_export_document": exportGoogleDocument,
+    
+    // Google Sheets actions
+    "google_sheets_unified_action": executeGoogleSheetsUnifiedAction,
+    "google-sheets_action_export_sheet": exportGoogleSheetsData,
     
     // Airtable actions
     "airtable_action_move_record": moveAirtableRecord,

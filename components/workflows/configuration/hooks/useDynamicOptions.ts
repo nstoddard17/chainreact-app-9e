@@ -1179,6 +1179,28 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       spreadsheetId: "google-sheets_spreadsheets",
       sheetName: "google-sheets_sheets",
     },
+    "google-sheets_action_create_row": {
+      spreadsheetId: "google-sheets_spreadsheets",
+      sheetName: "google-sheets_sheets",
+    },
+    "google-sheets_action_update_row": {
+      spreadsheetId: "google-sheets_spreadsheets",
+      sheetName: "google-sheets_sheets",
+      matchColumn: "google-sheets_columns",
+    },
+    "google-sheets_action_delete_row": {
+      spreadsheetId: "google-sheets_spreadsheets",
+      sheetName: "google-sheets_sheets",
+      matchColumn: "google-sheets_columns",
+    },
+    "google-sheets_action_list_rows": {
+      spreadsheetId: "google-sheets_spreadsheets",
+      sheetName: "google-sheets_sheets",
+      filterColumn: "google-sheets_columns",
+      filterValue: "google-sheets_column_values",
+      sortColumn: "google-sheets_columns",
+      dateColumn: "google-sheets_columns",
+    },
     // Google Drive fields
     "google-drive:new_file_in_folder": {
       folderId: "google-drive-folders",

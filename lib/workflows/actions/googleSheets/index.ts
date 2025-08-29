@@ -1,1 +1,6 @@
-export { readGoogleSheetsData } from './readData' 
+export { readGoogleSheetsData } from './readData'
+export { executeGoogleSheetsUnifiedAction } from '../google-sheets/unifiedAction'
+export { listGoogleSheetsRows as exportGoogleSheetsData } from '../google-sheets/listRows'
+export { createGoogleSheetsRow } from '../google-sheets/createRow'
+export { updateGoogleSheetsRow } from '../google-sheets/updateRow'
+export { deleteGoogleSheetsRow } from '../google-sheets/deleteRow' 

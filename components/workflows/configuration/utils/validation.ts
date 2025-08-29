@@ -72,9 +72,24 @@ export const shouldHideField = (
   field: NodeField | ConfigField,
   config: Record<string, any>
 ): boolean => {
-  // Check if the field has explicit hidden property
-  if (field.hidden) {
+  // Check if the field has explicit hidden property and showIf function
+  if (field.hidden && (field as any).showIf) {
+    // If there's a showIf function, evaluate it
+    if (typeof (field as any).showIf === 'function') {
+      const shouldShow = (field as any).showIf(config);
+      return !shouldShow; // Hide if showIf returns false
+    }
+  }
+  
+  // Check if the field has explicit hidden property without showIf
+  if (field.hidden && !(field as any).showIf) {
     return true;
+  }
+
+  // Check if there's just a showIf function without hidden property
+  if ((field as any).showIf && typeof (field as any).showIf === 'function') {
+    const shouldShow = (field as any).showIf(config);
+    return !shouldShow; // Hide if showIf returns false
   }
 
   // Check conditional property (used in Google Drive and other nodes)
@@ -88,7 +103,7 @@ export const shouldHideField = (
     }
   }
 
-  // Check dependency conditions
+  // Check dependency conditions (legacy showIf with dependsOn)
   if (field.dependsOn && field.showIf) {
     const dependentValue = config[field.dependsOn];
     
@@ -105,7 +120,33 @@ export const shouldHideField = (
     }
   }
 
-  // By default, show the field
+  // Check showWhen property (another variation used in some nodes)
+  if ((field as any).showWhen) {
+    const showWhen = (field as any).showWhen;
+    for (const [conditionField, conditionValues] of Object.entries(showWhen)) {
+      const currentValue = config[conditionField];
+      
+      // Handle special cases
+      if (conditionValues === "!empty") {
+        // Field should show only when the condition field has a non-empty value
+        if (!currentValue || currentValue === '') {
+          return true; // Hide if empty
+        }
+      } else if (Array.isArray(conditionValues)) {
+        // Field should show only when the condition field matches one of the values
+        if (!conditionValues.includes(currentValue)) {
+          return true; // Hide if not matching
+        }
+      } else {
+        // Single value comparison
+        if (currentValue !== conditionValues) {
+          return true; // Hide if not matching
+        }
+      }
+    }
+  }
+
+  // By default, show the field if not explicitly hidden
   return false;
 };
 

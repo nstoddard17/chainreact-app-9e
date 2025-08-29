@@ -289,6 +289,87 @@ export const getGoogleSheetsColumns: GoogleDataHandler<GoogleSheetColumn> = asyn
 }
 
 /**
+ * Fetch unique values from a specific column for filtering
+ */
+export const getGoogleSheetsColumnValues: GoogleDataHandler<{ id: string; name: string; value: string }> = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    
+    const { spreadsheetId, sheetName, filterColumn } = options || {}
+    if (!spreadsheetId || !sheetName || !filterColumn) {
+      throw new Error("Spreadsheet ID, sheet name, and column are required to fetch column values")
+    }
+
+    console.log(`📊 [Google Sheets] Fetching column values for: ${spreadsheetId}/${sheetName}/${filterColumn}`)
+
+    const accessToken = getGoogleAccessToken(integration)
+    
+    // Get the column data
+    const response = await makeGoogleApiRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}?majorDimension=COLUMNS`,
+      accessToken
+    )
+
+    const data = await response.json()
+    const columns = data.values || []
+    
+    // Find the column index (either by letter or header name)
+    let columnIndex = -1
+    let columnData: string[] = []
+    
+    // Check if filterColumn is a letter (A, B, C, etc.)
+    if (/^[A-Z]+$/i.test(filterColumn)) {
+      // Convert letter to index (A=0, B=1, etc.)
+      columnIndex = filterColumn.toUpperCase().charCodeAt(0) - 65
+      if (filterColumn.length > 1) {
+        columnIndex = (columnIndex + 1) * 26 + filterColumn.charCodeAt(1) - 65
+      }
+      columnData = columns[columnIndex] || []
+    } else {
+      // Search by header name
+      const headers = columns.map(col => col[0])
+      columnIndex = headers.findIndex(header => header === filterColumn)
+      if (columnIndex >= 0) {
+        columnData = columns[columnIndex] || []
+      }
+    }
+
+    if (columnData.length === 0) {
+      return []
+    }
+
+    // Get unique values from the column (skip header row)
+    const uniqueValues = new Set(columnData.slice(1).filter(val => val !== undefined && val !== null && val !== ''))
+    
+    // Convert to option format and sort
+    const values = Array.from(uniqueValues)
+      .sort((a, b) => {
+        // Try numeric sort first
+        const numA = parseFloat(a)
+        const numB = parseFloat(b)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB
+        }
+        // Fall back to string sort
+        return a.localeCompare(b)
+      })
+      .slice(0, 100) // Limit to 100 values for performance
+      .map(value => ({
+        id: value,
+        name: value,
+        value: value
+      }))
+
+    console.log(`✅ [Google Sheets] Retrieved ${values.length} unique values from column ${filterColumn}`)
+    return values
+
+  } catch (error: any) {
+    console.error("❌ [Google Sheets] Error fetching column values:", error)
+    throw error
+  }
+}
+
+/**
  * Fetch enhanced preview with detailed analysis for a specific Google Spreadsheet sheet
  */
 export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhancedPreview> = async (integration: GoogleIntegration, options?: any) => {
