@@ -1,6 +1,6 @@
 import { ActionResult } from './core/executeWait'
 import { resolveValue } from './core/resolveValue'
-import { getDecryptedAccessToken } from '../executeNode'
+import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { google } from 'googleapis'
 
 /**
