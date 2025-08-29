@@ -13,8 +13,6 @@ import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { TimePicker } from "@/components/ui/time-picker";
-import { DatePicker } from "@/components/ui/date-picker";
-import { DateRangePickerWithPresets } from "@/components/ui/date-range-picker";
 import EnhancedFileInput from "./EnhancedFileInput";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
@@ -52,6 +50,7 @@ interface FieldProps {
   loadingDynamic?: boolean;
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
+  bubbleValues?: string[]; // Values that have bubbles created
 }
 
 /**
@@ -89,6 +88,7 @@ export function FieldRenderer({
   loadingDynamic,
   onDynamicLoad,
   nodeInfo,
+  bubbleValues = [],
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -159,7 +159,8 @@ export function FieldRenderer({
 
   // Handles date field changes
   const handleDateChange = (date: Date | undefined) => {
-    onChange(date ? date.toISOString() : null);
+    // Use YYYY-MM-DD format to match Airtable's date format
+    onChange(date ? date.toISOString().split('T')[0] : null);
   };
 
   // Get user session for email signature integration
@@ -331,6 +332,7 @@ export function FieldRenderer({
                 isLoading={loadingDynamic}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
+                selectedValues={bubbleValues}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -357,6 +359,7 @@ export function FieldRenderer({
             isLoading={loadingDynamic}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
+            selectedValues={bubbleValues}
           />
         );
 
@@ -376,75 +379,141 @@ export function FieldRenderer({
         );
 
       case "date":
-        // Handle single date selection with DatePicker
+        // Handle single date selection with native HTML date input
         const dateValue = useMemo(() => {
-          if (!value) return undefined;
-          if (value instanceof Date) return value;
+          if (!value) return '';
+          if (value instanceof Date) {
+            return value.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+          }
           if (typeof value === 'string' && value) {
             const date = new Date(value);
-            return isNaN(date.getTime()) ? undefined : date;
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+            }
           }
-          return undefined;
+          return '';
         }, [value]);
         
-        const handleDateChange = (date: Date | undefined) => {
-          onChange(date ? date.toISOString() : null);
+        const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newValue = e.target.value;
+          // Use YYYY-MM-DD format to match Airtable's date format
+          onChange(newValue || null);
         };
         
         return (
-          <DatePicker
+          <Input
+            type="date"
             value={dateValue}
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
             disabled={field.disabled}
             className={cn(
+              "w-full",
               error && "border-red-500"
             )}
           />
         );
 
       case "daterange":
-        // Handle date range value with the new DateRangePicker component
-        const dateRangeValue = useMemo(() => {
-          if (!value) return undefined;
-          if (typeof value === 'object' && value.from && value.to) {
-            return {
-              from: new Date(value.from),
-              to: new Date(value.to)
-            };
+        // Handle date range with two native HTML date inputs
+        const startDateValue = useMemo(() => {
+          if (!value) return '';
+          const startDate = value.startDate || value.from;
+          if (startDate) {
+            const date = new Date(startDate);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0];
+            }
           }
-          if (typeof value === 'object' && value.startDate && value.endDate) {
-            return {
-              from: new Date(value.startDate),
-              to: new Date(value.endDate)
-            };
-          }
-          return undefined;
+          return '';
         }, [value]);
 
-        const handleDateRangeChange = (range: any) => {
-          if (range?.from && range?.to) {
+        const endDateValue = useMemo(() => {
+          if (!value) return '';
+          const endDate = value.endDate || value.to;
+          if (endDate) {
+            const date = new Date(endDate);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0];
+            }
+          }
+          return '';
+        }, [value]);
+
+        const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newStartDate = e.target.value;
+          const currentEndDate = value?.endDate || value?.to;
+          
+          if (newStartDate) {
+            // Use YYYY-MM-DD format to match Airtable's date format
             onChange({
-              startDate: range.from.toISOString(),
-              endDate: range.to.toISOString(),
-              from: range.from.toISOString(),
-              to: range.to.toISOString()
+              startDate: newStartDate,
+              endDate: currentEndDate,
+              from: newStartDate,
+              to: currentEndDate
             });
-          } else {
+          } else if (!currentEndDate) {
             onChange(null);
+          } else {
+            onChange({
+              startDate: null,
+              endDate: currentEndDate,
+              from: null,
+              to: currentEndDate
+            });
+          }
+        };
+
+        const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newEndDate = e.target.value;
+          const currentStartDate = value?.startDate || value?.from;
+          
+          if (newEndDate) {
+            // Use YYYY-MM-DD format to match Airtable's date format
+            onChange({
+              startDate: currentStartDate,
+              endDate: newEndDate,
+              from: currentStartDate,
+              to: newEndDate
+            });
+          } else if (!currentStartDate) {
+            onChange(null);
+          } else {
+            onChange({
+              startDate: currentStartDate,
+              endDate: null,
+              from: currentStartDate,
+              to: null
+            });
           }
         };
 
         return (
-          <DateRangePickerWithPresets
-            value={dateRangeValue}
-            onChange={handleDateRangeChange}
-            placeholder={field.placeholder || "Select date range..."}
-            disabled={field.disabled}
-            className={cn(
-              error && "border-red-500"
-            )}
-          />
+          <div className="flex gap-2 items-center">
+            <Input
+              type="date"
+              value={startDateValue}
+              onChange={handleStartDateChange}
+              placeholder="Start date"
+              disabled={field.disabled}
+              className={cn(
+                "flex-1",
+                error && "border-red-500"
+              )}
+            />
+            <span className="text-sm text-gray-500">to</span>
+            <Input
+              type="date"
+              value={endDateValue}
+              onChange={handleEndDateChange}
+              placeholder="End date"
+              disabled={field.disabled}
+              className={cn(
+                "flex-1",
+                error && "border-red-500"
+              )}
+            />
+          </div>
         );
 
       case "time":

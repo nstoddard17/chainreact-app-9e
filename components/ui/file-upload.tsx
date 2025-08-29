@@ -13,6 +13,7 @@ interface FileUploadProps {
   className?: string
   placeholder?: string
   disabled?: boolean
+  hideUploadedFiles?: boolean
 }
 
 interface UploadedFile {
@@ -32,7 +33,8 @@ export function FileUpload({
   maxFiles = 5,
   className,
   placeholder = "Choose files to upload...",
-  disabled = false
+  disabled = false,
+  hideUploadedFiles = false
 }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -255,7 +257,7 @@ export function FileUpload({
       )}
 
       {/* Uploaded Files List */}
-      {uploadedFiles.length > 0 && (
+      {!hideUploadedFiles && uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium">Attached Files:</p>
           {uploadedFiles.map((uploadedFile) => (

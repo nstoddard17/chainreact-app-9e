@@ -183,6 +183,7 @@ export function GenericTextInput({
           maxFiles={field.multiple ? 10 : 1}
           placeholder={field.placeholder || "Choose files to attach..."}
           disabled={field.disabled}
+          hideUploadedFiles={true} // Hide the upload badge/banner
         />
       );
 
