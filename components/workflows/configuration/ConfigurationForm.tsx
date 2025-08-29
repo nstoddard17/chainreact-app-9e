@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye, Database } from "lucide-react";
+import { Loader2, Play, TestTube, Save, Settings, Zap, Link, X, Eye, Database, Search, ChevronDown } from "lucide-react";
 import { FieldRenderer } from "./fields/FieldRenderer";
 import { AIFieldWrapper } from "./fields/AIFieldWrapper";
 import { DiscordReactionRemover } from "./fields/discord/DiscordReactionRemover";
@@ -168,6 +168,9 @@ export default function ConfigurationForm({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [tableDisplayCount, setTableDisplayCount] = useState(10); // Default to show 10 records
+  const [tableSearchQuery, setTableSearchQuery] = useState(''); // Search query for filtering
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({}); // Validation errors for required fields
   const [channelBotStatus, setChannelBotStatus] = useState<{ 
     isInChannel: boolean; 
     canSendMessages: boolean; 
@@ -705,58 +708,27 @@ export default function ConfigurationForm({
         };
       });
       
-      // Store the linked field options in the table schema itself
-      // Also check if we have options from dynamicOptions and merge them
-      // For list records, we need to ensure linked fields have their options loaded
-      const linkedFieldsToLoad: string[] = [];
-      
-      // Create a new fields array with choices included to avoid mutation issues
-      const fieldsWithChoices = fields.map((field: any) => {
-        const fieldName = `airtable_field_${field.id}`;
-        
-        // Check if we have dynamic options for this field
-        if ((field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink')) {
-          // Check if dynamicOptions has choices for this field
-          if (dynamicOptions[fieldName] && Array.isArray(dynamicOptions[fieldName])) {
-            console.log(`🔍 Added ${dynamicOptions[fieldName].length} choices from dynamicOptions to linked field ${field.name}`);
-            return { ...field, choices: dynamicOptions[fieldName] };
-          } else if (field.choices && field.choices.length > 0) {
-            console.log(`🔍 Linked field ${field.name} (${fieldName}) has ${field.choices.length} choices with user-friendly names`);
-            return field;
-          } else {
-            console.log(`⚠️ Linked field ${field.name} has no choices available yet, will load them`);
-            // Queue this field for loading if it's a list records action
-            if (nodeInfo?.type === 'airtable_action_list_records') {
-              linkedFieldsToLoad.push(fieldName);
-            }
-            return field;
+      // Add choices to linked fields from what we already fetched
+      fields.forEach((field: any) => {
+        if (field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') {
+          // Choices should already be set from the linked record fetching above
+          if (field.choices && field.choices.length > 0) {
+            console.log(`🔍 Linked field ${field.name} has ${field.choices.length} choices`);
           }
         }
-        return field;
       });
       
-      // NOW create the schema data with the new fields array that includes choices
       const schemaData = {
         table: {
           name: tableName,
           id: tableName
         },
-        fields: fieldsWithChoices, // Use the new array with choices
+        fields,
         sampleValues: {}
       };
       
-      console.log('🔍 Inferred table schema with choices:', schemaData);
-      console.log('🔍 Sample field with choices:', fieldsWithChoices.find((f: any) => f.choices)?.choices?.slice(0, 2));
+      console.log('🔍 Inferred table schema:', schemaData);
       setAirtableTableSchema(schemaData);
-      
-      // For list records, trigger loading of linked field options
-      if (nodeInfo?.type === 'airtable_action_list_records' && linkedFieldsToLoad.length > 0) {
-        console.log(`🔍 Loading options for ${linkedFieldsToLoad.length} linked fields for list records`);
-        linkedFieldsToLoad.forEach(fieldName => {
-          // Load options silently for linked fields
-          loadOptions(fieldName, null, null, true, true, { baseId, tableName });
-        });
-      }
       
       // Only clear dynamic field values if this is the initial load or table changed
       // Don't clear if we're just updating the schema for the same table
@@ -777,6 +749,134 @@ export default function ConfigurationForm({
       setIsLoadingTableSchema(false);
     }
   }, [setValue, values, getIntegrationByProvider]);
+  
+  // Helper function to validate required fields
+  const validateRequiredFields = (fields: any[]): boolean => {
+    const errors: Record<string, string> = {};
+    let isValid = true;
+    
+    fields.forEach(field => {
+      // Check if field is required
+      if (field.required || field.validation?.required) {
+        const fieldValue = values[field.name];
+        
+        // Check if field is empty
+        if (
+          fieldValue === undefined || 
+          fieldValue === null || 
+          fieldValue === '' || 
+          (Array.isArray(fieldValue) && fieldValue.length === 0) ||
+          (typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0)
+        ) {
+          errors[field.name] = `${field.label || field.name} is required`;
+          isValid = false;
+        }
+      }
+    });
+    
+    setValidationErrors(errors);
+    return isValid;
+  };
+  
+  // Helper function to filter records based on search query
+  const filterRecordsbySearch = (records: any[], searchQuery: string): any[] => {
+    if (!searchQuery || searchQuery.trim() === '') {
+      return records;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    return records.filter(record => {
+      // Only search in the actual field values that are displayed in the table
+      if (record.fields) {
+        return Object.entries(record.fields).some(([fieldName, fieldValue]) => {
+          if (!fieldValue) return false;
+          
+          // Check if this is a linked record field (Associated Project, Feedback, Tasks, etc.)
+          let isLinkedField = false;
+          let linkedFieldOptions: any[] = [];
+          
+          // Check if we have table schema to identify linked fields
+          if (airtableTableSchema?.fields) {
+            const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+            if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                              tableField.type === 'singleRecordLink' || 
+                              tableField.isLinkedRecord)) {
+              isLinkedField = true;
+              linkedFieldOptions = tableField.choices || [];
+            }
+          }
+          
+          // Convert value to searchable string based on what's actually shown in the table
+          let searchableValue = '';
+          
+          if (isLinkedField && Array.isArray(fieldValue)) {
+            // For linked record fields, map record IDs to their display names
+            searchableValue = fieldValue.map(recordId => {
+              // Find the display name for this record ID
+              const option = linkedFieldOptions.find((opt: any) => opt.value === recordId);
+              if (option) {
+                return option.label.toLowerCase();
+              }
+              // If no mapping found, check in dynamic options
+              const fieldKey = `airtable_field_${fieldName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+              const dynamicFieldOptions = dynamicOptions?.[fieldKey] || [];
+              const dynamicOption = dynamicFieldOptions.find((opt: any) => opt.value === recordId);
+              if (dynamicOption) {
+                return dynamicOption.label.toLowerCase();
+              }
+              // Fallback to record ID if no name found
+              return String(recordId).toLowerCase();
+            }).join(' ');
+          } else if (isLinkedField && typeof fieldValue === 'string') {
+            // Single linked record
+            const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
+            if (option) {
+              searchableValue = option.label.toLowerCase();
+            } else {
+              // Check dynamic options
+              const fieldKey = `airtable_field_${fieldName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+              const dynamicFieldOptions = dynamicOptions?.[fieldKey] || [];
+              const dynamicOption = dynamicFieldOptions.find((opt: any) => opt.value === fieldValue);
+              if (dynamicOption) {
+                searchableValue = dynamicOption.label.toLowerCase();
+              } else {
+                searchableValue = String(fieldValue).toLowerCase();
+              }
+            }
+          } else if (typeof fieldValue === 'string') {
+            searchableValue = fieldValue.toLowerCase();
+          } else if (typeof fieldValue === 'number' || typeof fieldValue === 'boolean') {
+            searchableValue = String(fieldValue).toLowerCase();
+          } else if (Array.isArray(fieldValue)) {
+            // For non-linked arrays, search in the display values
+            searchableValue = fieldValue.map(v => {
+              if (typeof v === 'object' && v !== null) {
+                // For attachments, search in filename
+                if (v.filename) {
+                  return v.filename;
+                }
+                // For other objects, convert to string
+                return JSON.stringify(v);
+              }
+              return String(v);
+            }).join(' ').toLowerCase();
+          } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+            // For objects, convert to readable string
+            if (fieldValue.name) {
+              searchableValue = fieldValue.name.toLowerCase();
+            } else {
+              searchableValue = JSON.stringify(fieldValue).toLowerCase();
+            }
+          }
+          
+          return searchableValue.includes(query);
+        });
+      }
+      
+      return false;
+    });
+  };
   
   // Helper function to infer field type from value and field name
   const inferFieldType = (value: any, fieldName?: string): string => {
@@ -1758,18 +1858,17 @@ export default function ConfigurationForm({
         return;
       }
       
-      // Ensure table schema is loaded first (for linked field name mappings)
-      // Always reload schema to ensure we have the latest linked field choices
-      console.log('🔍 Loading table schema before preview data to ensure linked field mappings');
+      // Always fetch the table schema to ensure we have the latest linked field mappings
+      console.log('🔍 Fetching table schema for preview data to ensure linked field mappings');
       await fetchAirtableTableSchema(baseId, tableName);
       
-      // Wait longer for the schema to be set and linked field options to load
-      // React state updates are asynchronous, so we need to give it time
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Small delay to ensure state updates have propagated
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Double-check that linked field options are loaded
-      // The fetchAirtableTableSchema should have triggered loading of linked field options
-      console.log('🔍 Schema should now be loaded with linked field choices');
+      // After the delay, we should have the updated schema in state
+      console.log('🔍 Checking table schema after fetch');
+      // Note: We can't access the updated state directly here due to closure,
+      // but the render will use the updated state when displaying the preview
 
       // Get current form values to apply filters
       const {
@@ -1805,8 +1904,26 @@ export default function ConfigurationForm({
 
       // Apply field filter
       if (filterField && filterValue) {
-        options.filterByFormula = `{${filterField}} = "${filterValue}"`;
-        console.log('🔍 Applying field filter:', options.filterByFormula);
+        // Check if filterValue contains both ID and name (format: "recXXX::Name")
+        const isLinkedRecordFilter = typeof filterValue === 'string' && filterValue.includes('::');
+        
+        if (isLinkedRecordFilter) {
+          // Extract the name part for filtering (after ::)
+          const [recordId, recordName] = filterValue.split('::');
+          // For linked record fields in Airtable, filter by the display value (name)
+          // Airtable automatically matches this against the primary field of the linked table
+          options.filterByFormula = `{${filterField}} = "${recordName}"`;
+          console.log('🔍 Applying linked record filter by name:', {
+            field: filterField,
+            recordId,
+            recordName,
+            formula: options.filterByFormula
+          });
+        } else {
+          // For regular fields, use standard equality
+          options.filterByFormula = `{${filterField}} = "${filterValue}"`;
+          console.log('🔍 Applying field filter:', options.filterByFormula);
+        }
       }
 
       // Apply date filter
@@ -1971,6 +2088,103 @@ export default function ConfigurationForm({
     
     const isFileField = field && (field.type === 'file' || field.type === 'attachment' || field.type === 'multipleAttachments');
     
+    // Handle bubble creation for UPDATE RECORD linked fields (Associated Project, Feedback, Tasks)
+    if (!skipBubbleCreation && isUpdateRecord && fieldName.startsWith('airtable_field_') && value && value !== '' && !isFileField) {
+      // Get field info from table schema
+      const fieldId = fieldName.replace('airtable_field_', '');
+      const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+      
+      // Only handle linked record fields for update record
+      const isLinkedField = tableField && (
+        tableField.type === 'multipleRecordLinks' || 
+        tableField.type === 'singleRecordLink' || 
+        tableField.isLinkedRecord
+      );
+      
+      // Check if this is one of the specific fields we want to handle
+      const isTargetField = tableField && (
+        tableField.name.toLowerCase().includes('project') ||
+        tableField.name.toLowerCase().includes('feedback') ||
+        tableField.name.toLowerCase().includes('task')
+      );
+      
+      if (isLinkedField && isTargetField) {
+        // Get the display name from options (NEVER show IDs)
+        const currentOptions = dynamicOptions?.[fieldName] || [];
+        const selectedOption = currentOptions.find((opt: any) => opt.value === value);
+        
+        if (!selectedOption) {
+          console.warn(`Could not find label for value ${value} in field ${tableField.name}`);
+          // Show the selected name in the field temporarily
+          setValue(fieldName, selectedOption?.label || '');
+          return;
+        }
+        
+        const newSuggestion = {
+          value: value, // Keep the ID for API calls
+          label: selectedOption.label, // Always show the name
+          fieldName: tableField.name
+        };
+        
+        // Check if there's an active bubble
+        const activeBubbleIndices = activeBubbles[fieldName];
+        const hasActiveBubble = Array.isArray(activeBubbleIndices) 
+          ? activeBubbleIndices.length > 0 
+          : activeBubbleIndices !== undefined && activeBubbleIndices !== null;
+        
+        // Check if this value already exists as a bubble
+        const existingSuggestions = fieldSuggestions[fieldName] || [];
+        const existingIndex = existingSuggestions.findIndex((s: any) => s.value === value);
+        
+        if (existingIndex !== -1) {
+          // Value already exists as a bubble, don't add duplicate
+          console.log(`Value ${selectedOption.label} already exists as a bubble`);
+          // Show the selected name in the field temporarily
+          setValue(fieldName, selectedOption.label);
+          setTimeout(() => setValue(fieldName, ''), 100);
+          return;
+        }
+        
+        if (hasActiveBubble) {
+          // Replace the active bubble with the new selection
+          setFieldSuggestions(prev => {
+            const existing = [...(prev[fieldName] || [])];
+            
+            if (Array.isArray(activeBubbleIndices)) {
+              // For multi-select with multiple active bubbles, replace the first active one
+              const firstActiveIndex = activeBubbleIndices[0];
+              if (firstActiveIndex !== undefined && existing[firstActiveIndex]) {
+                existing[firstActiveIndex] = newSuggestion;
+              }
+            } else if (typeof activeBubbleIndices === 'number' && existing[activeBubbleIndices]) {
+              // Single active bubble
+              existing[activeBubbleIndices] = newSuggestion;
+            }
+            
+            return {
+              ...prev,
+              [fieldName]: existing
+            };
+          });
+          
+          console.log(`Replaced active bubble with ${selectedOption.label}`);
+        } else {
+          // No active bubble, add new bubble
+          setFieldSuggestions(prev => ({
+            ...prev,
+            [fieldName]: [...(prev[fieldName] || []), newSuggestion]
+          }));
+          
+          console.log(`Added new bubble for ${selectedOption.label}`);
+        }
+        
+        // Show the selected name in the field temporarily then clear it
+        setValue(fieldName, selectedOption.label);
+        setTimeout(() => setValue(fieldName, ''), 100);
+        return;
+      }
+    }
+    
     // Skip bubble creation for file fields - they'll be handled separately below
     // Also skip if explicitly told to (e.g., when clicking an existing bubble)
     if (!skipBubbleCreation && isCreateRecord && fieldName.startsWith('airtable_field_') && value && value !== '' && !isFileField) {
@@ -1994,7 +2208,6 @@ export default function ConfigurationForm({
           tableField.type === 'multipleCollaborators'
         );
       
-      // EXACTLY REPLICATE UPDATE RECORD LOGIC
       // Get field choices from schema if available
       let fieldChoices = null;
       
@@ -2020,7 +2233,7 @@ export default function ConfigurationForm({
         }
       }
       
-      // For linked records, convert IDs to names (EXACTLY LIKE UPDATE RECORD)
+      // For linked records, convert IDs to names
       const isLinkedField = tableField?.type === 'multipleRecordLinks' || 
                            tableField?.type === 'singleRecordLink' || 
                            tableField?.isLinkedRecord;
@@ -2083,8 +2296,45 @@ export default function ConfigurationForm({
       const valueToCompare = isLinkedField && Array.isArray(value) ? value[0] : value;
       const existingIndex = existingSuggestions.findIndex((s: any) => s.value === valueToCompare);
       
-      if (existingIndex === -1) {
-        // Update field suggestions (EXACTLY LIKE UPDATE RECORD)
+      if (existingIndex !== -1) {
+        // Value already exists as a bubble, don't add duplicate
+        console.log(`[Create] Value already exists as a bubble`);
+        // Clear the dropdown to allow more selections
+        setTimeout(() => setValue(fieldName, ''), 100);
+        return;
+      }
+      
+      // Check if there's an active bubble for multi-value fields
+      const activeBubbleIndices = activeBubbles[fieldName];
+      const hasActiveBubble = Array.isArray(activeBubbleIndices) 
+        ? activeBubbleIndices.length > 0 
+        : activeBubbleIndices !== undefined && activeBubbleIndices !== null;
+      
+      if (isMultiValue && hasActiveBubble) {
+        // For multi-value fields with an active bubble, replace the active bubble
+        setFieldSuggestions(prev => {
+          const existing = [...(prev[fieldName] || [])];
+          
+          if (Array.isArray(activeBubbleIndices)) {
+            // Replace the first active bubble
+            const firstActiveIndex = activeBubbleIndices[0];
+            if (firstActiveIndex !== undefined && existing[firstActiveIndex]) {
+              existing[firstActiveIndex] = newSuggestion;
+              console.log(`[Create] Replaced active bubble at index ${firstActiveIndex} with new value`);
+            }
+          } else if (typeof activeBubbleIndices === 'number' && existing[activeBubbleIndices]) {
+            // Single active bubble
+            existing[activeBubbleIndices] = newSuggestion;
+            console.log(`[Create] Replaced active bubble at index ${activeBubbleIndices} with new value`);
+          }
+          
+          return {
+            ...prev,
+            [fieldName]: existing
+          };
+        });
+      } else {
+        // No active bubble or single-value field - add new bubble or replace all
         setFieldSuggestions(prev => {
           const existing = prev[fieldName] || [];
           
@@ -2096,23 +2346,14 @@ export default function ConfigurationForm({
             };
           }
           
-          // For multi-value fields, add to existing bubbles avoiding duplicates
-          const isDuplicate = existing.some((existingSug: any) => 
-            existingSug.value === newSuggestion.value
-          );
-          
-          if (!isDuplicate) {
-            return {
-              ...prev,
-              [fieldName]: [...existing, newSuggestion]
-            };
-          }
-          
-          return prev;
+          // For multi-value fields with no active bubble, add new bubble
+          return {
+            ...prev,
+            [fieldName]: [...existing, newSuggestion]
+          };
         });
         
-        // For linked record fields only, automatically activate the bubble
-        // Other fields should require user to click the bubble to activate
+        // For single-value linked fields, automatically activate the bubble
         if (!isMultiValue && isLinkedField) {
           setActiveBubbles(prev => ({
             ...prev,
@@ -2127,6 +2368,180 @@ export default function ConfigurationForm({
       }, 100);
       
       return; // Skip the normal setValue
+    }
+    
+    // Handle recordId changes for Airtable update record
+    if (fieldName === 'recordId' && nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record') {
+      console.log('🔍 Airtable recordId selected for update:', value);
+      
+      // Clear existing field suggestions when a new record is selected
+      setFieldSuggestions({});
+      setActiveBubbles({});
+      
+      // If a record is selected, fetch its data to populate field suggestions
+      if (value && values.baseId && values.tableName) {
+        const airtableIntegration = getIntegrationByProvider('airtable');
+        if (airtableIntegration) {
+          try {
+            console.log('🔍 Fetching record data for field suggestions:', { baseId: values.baseId, tableName: values.tableName, recordId: value });
+            
+            // Fetch the specific record
+            const response = await fetch('/api/integrations/airtable/data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                integrationId: airtableIntegration.id,
+                dataType: 'airtable_single_record',
+                options: {
+                  baseId: values.baseId,
+                  tableName: values.tableName,
+                  recordId: value
+                }
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              const record = result.data;
+              
+              if (record && record.fields) {
+                console.log('🔍 Record data fetched for suggestions:', record.fields);
+                
+                // Create field suggestions from the record data
+                const newSuggestions: Record<string, any[]> = {};
+                
+                Object.entries(record.fields).forEach(([fieldName, fieldValue]) => {
+                  if (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0)) {
+                    return; // Skip empty fields
+                  }
+                  
+                  // Find the field in the table schema
+                  const tableField = airtableTableSchema?.fields?.find((f: any) => f.name === fieldName);
+                  if (!tableField) {
+                    console.log(`🔍 Field ${fieldName} not found in table schema, skipping`);
+                    return;
+                  }
+                  
+                  const fieldKey = `airtable_field_${tableField.id}`;
+                  
+                  // Check if this is a linked record field
+                  const isLinkedField = tableField.type === 'multipleRecordLinks' || 
+                                       tableField.type === 'singleRecordLink' || 
+                                       tableField.isLinkedRecord;
+                  
+                  // Check if this is a multi-value field
+                  const isMultiple = tableField.type === 'multipleSelects' || 
+                                   tableField.type === 'multipleRecordLinks' || 
+                                   tableField.type === 'multipleAttachments' ||
+                                   tableField.type === 'multipleCollaborators';
+                  
+                  if (isLinkedField) {
+                    // For linked fields, we need to map IDs to names (NEVER show IDs in UI)
+                    const fieldOptions = dynamicOptions?.[fieldKey] || tableField.choices || [];
+                    
+                    if (Array.isArray(fieldValue)) {
+                      // Multiple linked records
+                      newSuggestions[fieldKey] = fieldValue.map((recordId: string) => {
+                        const option = fieldOptions.find((opt: any) => opt.value === recordId);
+                        if (!option) {
+                          console.warn(`Could not find name for record ${recordId} in field ${fieldName}`);
+                        }
+                        return {
+                          value: recordId, // Keep ID for API calls
+                          label: option ? option.label : `Loading...`, // Never show IDs, show loading if name not found
+                          fieldName: fieldName,
+                          needsRefresh: !option // Mark if we couldn't find the label
+                        };
+                      });
+                    } else {
+                      // Single linked record
+                      const option = fieldOptions.find((opt: any) => opt.value === fieldValue);
+                      if (!option) {
+                        console.warn(`Could not find name for record ${fieldValue} in field ${fieldName}`);
+                      }
+                      newSuggestions[fieldKey] = [{
+                        value: fieldValue, // Keep ID for API calls
+                        label: option ? option.label : `Loading...`, // Never show IDs, show loading if name not found
+                        fieldName: fieldName,
+                        needsRefresh: !option
+                      }];
+                    }
+                    
+                    console.log(`🔍 Created ${newSuggestions[fieldKey].length} suggestions for linked field ${fieldName}`);
+                  } else if (isMultiple) {
+                    // Multiple value field (non-linked)
+                    if (Array.isArray(fieldValue)) {
+                      newSuggestions[fieldKey] = fieldValue.map((val: any) => ({
+                        value: val,
+                        label: String(val),
+                        fieldName: fieldName
+                      }));
+                    }
+                  } else {
+                    // Single value field
+                    newSuggestions[fieldKey] = [{
+                      value: fieldValue,
+                      label: String(fieldValue),
+                      fieldName: fieldName
+                    }];
+                  }
+                });
+                
+                console.log('🔍 Setting field suggestions from record:', newSuggestions);
+                setFieldSuggestions(newSuggestions);
+                
+                // Automatically activate all bubbles for single-value fields
+                const newActiveBubbles: Record<string, number | number[]> = {};
+                Object.entries(newSuggestions).forEach(([fieldKey, suggestions]) => {
+                  const fieldId = fieldKey.replace('airtable_field_', '');
+                  const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+                  
+                  const isMultiple = tableField && (
+                    tableField.type === 'multipleSelects' || 
+                    tableField.type === 'multipleRecordLinks' || 
+                    tableField.type === 'multipleAttachments' ||
+                    tableField.type === 'multipleCollaborators'
+                  );
+                  
+                  if (isMultiple) {
+                    // For multiple value fields, activate all bubbles
+                    newActiveBubbles[fieldKey] = suggestions.map((_, idx) => idx);
+                  } else {
+                    // For single value fields, activate the first (and only) bubble
+                    if (suggestions.length > 0) {
+                      newActiveBubbles[fieldKey] = 0;
+                    }
+                  }
+                });
+                
+                console.log('🔍 Setting active bubbles:', newActiveBubbles);
+                setActiveBubbles(newActiveBubbles);
+                
+                // For linked fields that couldn't be mapped, try to load their options
+                Object.entries(newSuggestions).forEach(([fieldKey, suggestions]) => {
+                  const needsRefresh = suggestions.some((s: any) => s.needsRefresh);
+                  if (needsRefresh) {
+                    const fieldId = fieldKey.replace('airtable_field_', '');
+                    const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+                    
+                    if (tableField && (tableField.type === 'multipleRecordLinks' || tableField.type === 'singleRecordLink')) {
+                      console.log(`🔍 Loading options for linked field ${tableField.name}`);
+                      // Try to load options for this field
+                      loadOptions(fieldKey, undefined, undefined, true).then(() => {
+                        console.log(`✅ Options loaded for ${tableField.name}`);
+                      }).catch(err => {
+                        console.error(`Failed to load options for ${tableField.name}:`, err);
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching record data for suggestions:', error);
+          }
+        }
+      }
     }
     
     // Update the form value
@@ -4278,7 +4693,7 @@ export default function ConfigurationForm({
                   <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
                     <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-sm font-medium text-slate-900">
                             Preview: {values.tableName}
                             {(values.filterField || values.dateFilter !== 'all_time') && (
@@ -4286,30 +4701,77 @@ export default function ConfigurationForm({
                             )}
                           </h3>
                           <p className="text-xs text-slate-600">
-                            {previewData.length > 0 ? (
-                              `${previewData.length} record${previewData.length !== 1 ? 's' : ''} match${previewData.length === 1 ? 'es' : ''} your filters • Data available in workflow`
-                            ) : (
-                              'No records match your current filters • Try adjusting your filter criteria'
-                            )}
+                            {(() => {
+                              const filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+                              return filteredData.length > 0 ? (
+                                `${filteredData.length} record${filteredData.length !== 1 ? 's' : ''} ${tableSearchQuery ? 'found' : 'match your filters'} • Data available in workflow`
+                              ) : (
+                                tableSearchQuery ? 'No records match your search' : 'No records match your current filters • Try adjusting your filter criteria'
+                              );
+                            })()}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setShowPreviewData(false);
-                            setPreviewData([]);
-                          }}
-                          className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {/* Search Bar */}
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Search records..."
+                              value={tableSearchQuery}
+                              onChange={(e) => setTableSearchQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                              className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-40"
+                            />
+                          </div>
+                          
+                          {/* Display Count Dropdown */}
+                          <div className="relative">
+                            <select
+                              value={tableDisplayCount}
+                              onChange={(e) => setTableDisplayCount(Number(e.target.value))}
+                              className="appearance-none pl-2 pr-6 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer"
+                            >
+                              <option value={5}>Show 5</option>
+                              <option value={10}>Show 10</option>
+                              <option value={20}>Show 20</option>
+                              <option value={50}>Show 50</option>
+                              <option value={100}>Show 100</option>
+                              <option value={-1}>Show All</option>
+                            </select>
+                            <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                          </div>
+                          
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowPreviewData(false);
+                              setPreviewData([]);
+                              setTableSearchQuery('');
+                            }}
+                            className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     
                     <div>
-                      {previewData.length > 0 ? (
+                      {(() => {
+                        const filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+                        const displayData = tableDisplayCount === -1 
+                          ? filteredData 
+                          : filteredData.slice(0, tableDisplayCount);
+                        
+                        return filteredData.length > 0 ? (
                         <>
                           <style jsx>{`
                             .preview-table-container {
@@ -4357,7 +4819,7 @@ export default function ConfigurationForm({
                                 maxWidth: (() => {
                                   // Calculate max width accounting for dynamic ID column - more restrictive
                                   let idWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const idValue = record.value || record.id || '';
                                     const calcWidth = String(idValue).length * 9 + 24;
                                     idWidth = Math.max(idWidth, calcWidth);
@@ -4396,12 +4858,12 @@ export default function ConfigurationForm({
                                 borderSpacing: 0,
                                 width: (() => {
                                   // Calculate dynamic width based on content
-                                  const fields = Object.keys(previewData[0]?.fields || {});
+                                  const fields = Object.keys(displayData[0]?.fields || {});
                                   if (fields.length === 0) return '800px';
                                   
                                   // Calculate dynamic ID column width
                                   let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const idValue = record.value || record.id || '';
                                     const idWidth = String(idValue).length * 9 + 24;
                                     idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -4415,7 +4877,7 @@ export default function ConfigurationForm({
                                     let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
                                     
                                     // Check data width for this field
-                                    previewData.slice(0, 8).forEach(record => {
+                                    displayData.forEach(record => {
                                       const value = record.fields?.[fieldName];
                                       
                                       // Check if this is an attachment field
@@ -4461,7 +4923,7 @@ export default function ConfigurationForm({
                                   style={{ 
                                     width: (() => {
                                       let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                      previewData.slice(0, 8).forEach(record => {
+                                      displayData.forEach(record => {
                                         const idValue = record.value || record.id || '';
                                         const idWidth = String(idValue).length * 9 + 24;
                                         maxWidth = Math.max(maxWidth, idWidth);
@@ -4470,7 +4932,7 @@ export default function ConfigurationForm({
                                     })(),
                                     minWidth: (() => {
                                       let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                      previewData.slice(0, 8).forEach(record => {
+                                      displayData.forEach(record => {
                                         const idValue = record.value || record.id || '';
                                         const idWidth = String(idValue).length * 9 + 24;
                                         maxWidth = Math.max(maxWidth, idWidth);
@@ -4482,10 +4944,10 @@ export default function ConfigurationForm({
                                   ID
                                 </th>
                                 {/* Show all fields with horizontal scrolling */}
-                                {Object.keys(previewData[0]?.fields || {}).map((fieldName, index, fields) => {
+                                {Object.keys(displayData[0]?.fields || {}).map((fieldName, index, fields) => {
                                   // Calculate column width
                                   let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const value = record.fields?.[fieldName];
                                     
                                     // Check if this is an attachment field
@@ -4515,7 +4977,7 @@ export default function ConfigurationForm({
                                   // For the last column, add dynamic ID column width for perfect alignment
                                   if (index === fields.length - 1) {
                                     let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                    previewData.slice(0, 8).forEach(record => {
+                                    displayData.forEach(record => {
                                       const idValue = record.value || record.id || '';
                                       const idWidth = String(idValue).length * 9 + 24;
                                       idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -4539,7 +5001,7 @@ export default function ConfigurationForm({
                               </tr>
                             </thead>
                             <tbody>
-                              {previewData.slice(0, 8).map((record: any, index: number) => (
+                              {displayData.map((record: any, index: number) => (
                                 <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                   {/* ID cell as first column */}
                                   <td 
@@ -4547,7 +5009,7 @@ export default function ConfigurationForm({
                                     style={{ 
                                       width: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(rec => {
+                                        displayData.forEach(rec => {
                                           const idValue = rec.value || rec.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -4556,7 +5018,7 @@ export default function ConfigurationForm({
                                       })(),
                                       minWidth: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(rec => {
+                                        displayData.forEach(rec => {
                                           const idValue = rec.value || rec.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -4579,7 +5041,7 @@ export default function ConfigurationForm({
                                     
                                     // Calculate column width (same logic as header)
                                     let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                    previewData.slice(0, 8).forEach(rec => {
+                                    displayData.forEach(rec => {
                                       const value = rec.fields?.[fieldName];
                                       
                                       // Check if this is an attachment field
@@ -4609,7 +5071,7 @@ export default function ConfigurationForm({
                                     // Add dynamic ID column width to last column for alignment
                                     if (isLastColumn) {
                                       let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                      previewData.slice(0, 8).forEach(rec => {
+                                      displayData.forEach(rec => {
                                         const idValue = rec.value || rec.id || '';
                                         const idWidth = String(idValue).length * 9 + 24;
                                         idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -4692,121 +5154,71 @@ export default function ConfigurationForm({
                                               );
                                             }
                                             
-                                            // Check if this is a linked record field
+                                            // Check if this is a linked record field - EXACTLY LIKE UPDATE RECORD TABLE
                                             let isLinkedField = false;
                                             let linkedFieldOptions: any[] = [];
-                                            
-                                            // First check if the value looks like linked records (contains record IDs)
-                                            const valueContainsRecordIds = (
-                                              (typeof fieldValue === 'string' && fieldValue.startsWith('rec')) ||
-                                              (Array.isArray(fieldValue) && fieldValue.length > 0 && 
-                                               typeof fieldValue[0] === 'string' && fieldValue[0].startsWith('rec'))
-                                            );
-                                            
-                                            // Debug: Check what's in the schema
-                                            console.log(`📊 Preview table - Checking field ${fieldName}:`, {
-                                              hasSchema: !!airtableTableSchema?.fields,
-                                              schemaFieldCount: airtableTableSchema?.fields?.length,
-                                              fieldValue: fieldValue,
-                                              fieldValueType: Array.isArray(fieldValue) ? 'array' : typeof fieldValue,
-                                              valueContainsRecordIds,
-                                              firstValue: Array.isArray(fieldValue) ? fieldValue[0] : fieldValue
-                                            });
                                             
                                             if (airtableTableSchema?.fields) {
                                               const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
                                               
-                                              // Extra detailed logging for debugging
-                                              console.log(`📊 Preview table - Schema state check:`, {
-                                                schemaExists: !!airtableTableSchema,
-                                                fieldsCount: airtableTableSchema?.fields?.length,
-                                                tableName: airtableTableSchema?.table?.name
-                                              });
-                                              
-                                              console.log(`📊 Preview table - Found tableField for ${fieldName}:`, {
-                                                found: !!tableField,
-                                                type: tableField?.type,
-                                                hasChoices: !!tableField?.choices,
-                                                choicesLength: tableField?.choices?.length,
-                                                isLinkedRecord: tableField?.isLinkedRecord,
-                                                firstChoice: tableField?.choices?.[0],
-                                                allChoices: tableField?.choices
-                                              });
-                                              
                                               if (tableField && (tableField.type === 'multipleRecordLinks' || 
                                                   tableField.type === 'singleRecordLink' || 
-                                                  tableField.isLinkedRecord ||
-                                                  valueContainsRecordIds)) {
+                                                  tableField.isLinkedRecord)) {
                                                 isLinkedField = true;
-                                                // Get the options with user-friendly names
-                                                // First check if choices are in the tableField, then check dynamicOptions
-                                                const dynamicFieldName = `airtable_field_${tableField.id}`;
+                                                linkedFieldOptions = tableField.choices || [];
                                                 
-                                                // Also check filterValue dynamic options if this is a filter field value
-                                                const filterValueOptions = dynamicOptions['filterValue'];
+                                                // Debug logging to verify choices are available
+                                                if (linkedFieldOptions && linkedFieldOptions.length > 0) {
+                                                  console.log(`🔍 Found ${linkedFieldOptions.length} choices for linked field ${fieldName}`);
+                                                } else {
+                                                  console.log(`⚠️ No choices found for linked field ${fieldName}, falling back to dynamicOptions`);
+                                                }
                                                 
-                                                linkedFieldOptions = tableField.choices || 
-                                                                   dynamicOptions[dynamicFieldName] || 
-                                                                   (fieldName === values.filterField && filterValueOptions) ||
-                                                                   [];
-                                                
-                                                console.log(`🔗 Preview table - Will map linked field ${fieldName}:`, {
-                                                  isLinkedField,
-                                                  hasChoices: !!tableField.choices,
-                                                  hasDynamicOptions: !!dynamicOptions[dynamicFieldName],
-                                                  hasFilterValueOptions: !!(fieldName === values.filterField && filterValueOptions),
-                                                  choicesCount: linkedFieldOptions.length,
-                                                  choices: linkedFieldOptions.slice(0, 3), // Show first 3 for debugging
-                                                  currentValue: fieldValue,
-                                                  willMapValues: true,
-                                                  dynamicFieldName
-                                                });
+                                                // Fallback to dynamicOptions if no choices
+                                                if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
+                                                  const fieldId = `airtable_field_${tableField.id}`;
+                                                  linkedFieldOptions = dynamicOptions?.[fieldId] || [];
+                                                  
+                                                  if (linkedFieldOptions && linkedFieldOptions.length > 0) {
+                                                    console.log(`✅ Found ${linkedFieldOptions.length} options from dynamicOptions for ${fieldName}`);
+                                                  }
+                                                }
                                               }
-                                            } else {
-                                              console.log(`⚠️ Preview table - No table schema available for field ${fieldName}`);
                                             }
                                             
-                                            // Handle linked record fields - show user-friendly names
+                                            // Handle linked record fields - EXACTLY LIKE UPDATE RECORD TABLE
                                             if (isLinkedField) {
                                               let displayValue = '';
                                               
-                                              console.log(`🔍 Processing linked field ${fieldName} with ${linkedFieldOptions.length} options`);
-                                              console.log(`🔍 Field value to map:`, fieldValue);
-                                              console.log(`🔍 Available options:`, linkedFieldOptions);
+                                              // Special handling for known linked fields when options aren't loaded yet
+                                              const isKnownLinkedField = fieldName.toLowerCase().includes('project') || 
+                                                                        fieldName.toLowerCase().includes('feedback') || 
+                                                                        fieldName.toLowerCase().includes('task');
                                               
                                               if (linkedFieldOptions.length > 0) {
-                                                // We have choices, map IDs to names
+                                                // We have the mapped options, use them
                                                 if (Array.isArray(fieldValue)) {
-                                                  // Multiple linked records - map IDs to names
+                                                  // Multiple linked records
                                                   const mappedNames = fieldValue.map((id: string) => {
-                                                    const option = linkedFieldOptions.find((opt: any) => {
-                                                      const matches = opt.value === id || opt.id === id;
-                                                      if (!matches) {
-                                                        console.log(`❌ No match for ${id} against option:`, opt);
-                                                      }
-                                                      return matches;
-                                                    });
-                                                    const mappedName = option ? option.label : id;
-                                                    console.log(`🔗 Mapping ${id} to ${mappedName}`, { option, found: !!option });
-                                                    return mappedName;
+                                                    const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                                    return option ? option.label : id;
                                                   });
                                                   displayValue = mappedNames.join(', ');
                                                 } else if (fieldValue) {
                                                   // Single linked record
-                                                  const option = linkedFieldOptions.find((opt: any) => {
-                                                    const matches = opt.value === fieldValue || opt.id === fieldValue;
-                                                    if (!matches) {
-                                                      console.log(`❌ No match for ${fieldValue} against option:`, opt);
-                                                    }
-                                                    return matches;
-                                                  });
+                                                  const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
                                                   displayValue = option ? option.label : String(fieldValue);
-                                                  console.log(`🔗 Single value mapping ${fieldValue} to ${displayValue}`, { option, found: !!option });
                                                 }
-                                              } else if (valueContainsRecordIds) {
-                                                // No choices available but we know these are record IDs
-                                                // Just show the IDs for now
-                                                console.log(`⚠️ No choices available for linked field ${fieldName}, showing IDs`);
+                                              } else if (isKnownLinkedField && fieldValue) {
+                                                // For known linked fields without loaded options, show loading indicator
+                                                console.log(`⚠️ No options loaded yet for linked field ${fieldName}, showing IDs temporarily`);
+                                                if (Array.isArray(fieldValue)) {
+                                                  displayValue = fieldValue.join(', ');
+                                                } else {
+                                                  displayValue = String(fieldValue);
+                                                }
+                                              } else if (fieldValue) {
+                                                // Fallback to showing the raw value
                                                 if (Array.isArray(fieldValue)) {
                                                   displayValue = fieldValue.join(', ');
                                                 } else {
@@ -4858,10 +5270,10 @@ export default function ConfigurationForm({
                                   })}
                                 </tr>
                               ))}
-                              {previewData.length > 8 && (
+                              {filteredData.length > displayData.length && (
                                 <tr className="h-12">
-                                  <td colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} className="p-2 text-center text-xs text-slate-500 bg-slate-50">
-                                    ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
+                                  <td colSpan={Object.keys(displayData[0]?.fields || {}).length + 1} className="p-2 text-center text-xs text-slate-500 bg-slate-50">
+                                    ... and {filteredData.length - displayData.length} more record{filteredData.length - displayData.length !== 1 ? 's' : ''}
                                   </td>
                                 </tr>
                               )}
@@ -4871,26 +5283,97 @@ export default function ConfigurationForm({
                           </div>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-8 text-slate-500">
-                          <div className="bg-slate-100 rounded-full p-2 mb-2">
-                            <Eye className="h-4 w-4 text-slate-400" />
-                          </div>
-                          <p className="text-sm font-medium">No preview data available</p>
-                          <p className="text-xs text-slate-400 mt-1">The table may be empty or there was an error loading data</p>
+                        <div className="p-8 text-center text-slate-500">
+                          <Database className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                          <p className="text-sm">
+                            {tableSearchQuery ? 'No records match your search' : 'No records found'}
+                          </p>
+                          {tableSearchQuery && (
+                            <p className="text-xs text-slate-400 mt-1">Try adjusting your search terms</p>
+                          )}
                         </div>
-                      )}
+                      );
+                      })()}
                     </div>
                     
-                    {previewData.length > 0 && (
-                      <>
-                        <div className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 rounded-b-lg">
-                          <div className="flex items-center justify-between text-xs text-slate-600">
-                            <span>Total: {previewData.length} record{previewData.length !== 1 ? 's' : ''}</span>
-                            <span>Showing all {Object.keys(previewData[0]?.fields || {}).length} field{Object.keys(previewData[0]?.fields || {}).length !== 1 ? 's' : ''}</span>
-                          </div>
+                    {/* Footer with refresh button - always visible */}
+                    <div className="px-3 py-2 border-t border-slate-200 bg-slate-50 rounded-b-lg flex items-center justify-between">
+                      <div className="text-xs text-slate-600">
+                        {(() => {
+                          const filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+                          return filteredData.length > 0 ? (
+                            <>
+                              <span>Total: {filteredData.length} record{filteredData.length !== 1 ? 's' : ''}</span>
+                              {tableDisplayCount !== -1 && filteredData.length > tableDisplayCount && (
+                                <span className="ml-2 text-slate-400">• Showing {Math.min(tableDisplayCount, filteredData.length)}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span>No records found</span>
+                          );
+                        })()}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          loadPreviewData(values.baseId, values.tableName);
+                        }}
+                        disabled={loadingPreview}
+                        className="flex items-center gap-2 h-7"
+                      >
+                        {loadingPreview ? (
+                          <>
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                            <span className="text-xs">Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3 w-3" />
+                            <span className="text-xs">Refresh</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {/* Always show footer with refresh button */}
+                    <div className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 rounded-b-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-slate-600">
+                          {previewData.length > 0 ? (
+                            <>
+                              <span>Total: {previewData.length} record{previewData.length !== 1 ? 's' : ''}</span>
+                              <span className="ml-4">Showing all {Object.keys(displayData[0]?.fields || {}).length} field{Object.keys(displayData[0]?.fields || {}).length !== 1 ? 's' : ''}</span>
+                            </>
+                          ) : (
+                            <span>No records found</span>
+                          )}
                         </div>
-                      </>
-                    )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            loadPreviewData(values.baseId, values.tableName);
+                          }}
+                          disabled={loadingPreview}
+                          className="h-7 px-2 text-xs bg-white border-slate-300 hover:bg-blue-50 hover:border-blue-400 text-slate-700 hover:text-blue-700 font-medium"
+                          title="Refresh preview data"
+                        >
+                          <div className="flex items-center gap-1">
+                            {loadingPreview ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                            ) : (
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            )}
+                            <span>Refresh</span>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -4904,35 +5387,80 @@ export default function ConfigurationForm({
           <div className="mt-6 border border-slate-200 rounded-lg bg-white shadow-sm">
             <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <h3 className="text-sm font-medium text-slate-900">
                     Select Record: {values.tableName}
                   </h3>
                   <p className="text-xs text-slate-600">
-                    {airtableRecords.length} record{airtableRecords.length !== 1 ? 's' : ''} • Click to select
+                    {(() => {
+                      const filteredData = filterRecordsbySearch(airtableRecords, tableSearchQuery);
+                      return filteredData.length > 0 ? (
+                        `${filteredData.length} record${filteredData.length !== 1 ? 's' : ''} ${tableSearchQuery ? 'found' : ''} • Click to select`
+                      ) : (
+                        tableSearchQuery ? 'No records match your search' : 'No records available'
+                      );
+                    })()}
                     {selectedRecord && (
                       <span className="ml-2 text-blue-600">Selected: {selectedRecord.id}</span>
                     )}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedRecord(null);
-                    setValue('recordId', '');
-                    // Clear all dynamic field values
-                    Object.keys(values).forEach(key => {
-                      if (key.startsWith('airtable_field_')) {
-                        setValue(key, '');
-                      }
-                    });
-                  }}
-                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search records..."
+                      value={tableSearchQuery}
+                      onChange={(e) => setTableSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                      className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-40"
+                    />
+                  </div>
+                  
+                  {/* Display Count Dropdown */}
+                  <div className="relative">
+                    <select
+                      value={tableDisplayCount}
+                      onChange={(e) => setTableDisplayCount(Number(e.target.value))}
+                      className="appearance-none pl-2 pr-6 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer"
+                    >
+                      <option value={5}>Show 5</option>
+                      <option value={10}>Show 10</option>
+                      <option value={20}>Show 20</option>
+                      <option value={50}>Show 50</option>
+                      <option value={100}>Show 100</option>
+                      <option value={-1}>Show All</option>
+                    </select>
+                    <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedRecord(null);
+                      setValue('recordId', '');
+                      setTableSearchQuery('');
+                      // Clear all dynamic field values
+                      Object.keys(values).forEach(key => {
+                        if (key.startsWith('airtable_field_')) {
+                          setValue(key, '');
+                        }
+                      });
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -4942,7 +5470,13 @@ export default function ConfigurationForm({
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
                   <span className="ml-2 text-sm text-slate-600">Loading records...</span>
                 </div>
-              ) : airtableRecords.length > 0 ? (
+              ) : (() => {
+                const filteredData = filterRecordsbySearch(airtableRecords, tableSearchQuery);
+                const displayData = tableDisplayCount === -1 
+                  ? filteredData 
+                  : filteredData.slice(0, tableDisplayCount);
+                
+                return filteredData.length > 0 ? (
                 <>
                   <style jsx>{`
                     .update-record-table-container {
@@ -5014,7 +5548,7 @@ export default function ConfigurationForm({
                           </tr>
                         </thead>
                         <tbody>
-                          {airtableRecords.map((record: any, index: number) => (
+                          {displayData.map((record: any, index: number) => (
                             <tr 
                               key={`id-${record.id || index}`} 
                               className={cn(
@@ -5063,7 +5597,7 @@ export default function ConfigurationForm({
                       >
                         <thead className="bg-slate-50/50 sticky top-0 z-10">
                           <tr className="h-10">
-                            {Object.keys(airtableRecords[0]?.fields || {}).map((fieldName) => (
+                            {Object.keys(displayData[0]?.fields || {}).map((fieldName) => (
                               <th 
                                 key={fieldName} 
                                 className="font-medium text-slate-700 p-2 text-center whitespace-nowrap border-r border-slate-200 last:border-r-0"
@@ -5075,7 +5609,7 @@ export default function ConfigurationForm({
                           </tr>
                         </thead>
                         <tbody>
-                          {airtableRecords.map((record: any, index: number) => (
+                          {displayData.map((record: any, index: number) => (
                             <tr 
                               key={`fields-${record.id || index}`} 
                               className={cn(
@@ -5084,7 +5618,7 @@ export default function ConfigurationForm({
                               )}
                               onClick={() => handleRecordSelect(record)}
                             >
-                              {Object.keys(airtableRecords[0]?.fields || {}).map((fieldName) => {
+                              {Object.keys(displayData[0]?.fields || {}).map((fieldName) => {
                                 const value = record.fields?.[fieldName];
                                 console.log(`🎯 Rendering table cell for field: ${fieldName}, value:`, value, 'Table schema:', airtableTableSchema?.table?.name);
                                 
@@ -5238,7 +5772,7 @@ export default function ConfigurationForm({
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-slate-600">
                         <span>Total: {airtableRecords.length} record{airtableRecords.length !== 1 ? 's' : ''}</span>
-                        <span className="ml-3">• Showing all {Object.keys(airtableRecords[0]?.fields || {}).length} field{Object.keys(airtableRecords[0]?.fields || {}).length !== 1 ? 's' : ''}</span>
+                        <span className="ml-3">• Showing all {Object.keys(displayData[0]?.fields || {}).length} field{Object.keys(displayData[0]?.fields || {}).length !== 1 ? 's' : ''}</span>
                       </div>
                       <Button
                         type="button"
@@ -5272,13 +5806,14 @@ export default function ConfigurationForm({
               ) : (
                 <div className="text-center py-4">
                   <div className="text-slate-500 mb-1">
-                    No records found in this table
+                    {tableSearchQuery ? 'No records match your search' : 'No records found in this table'}
                   </div>
                   <div className="text-xs text-slate-400">
-                    Records will appear here once they are created
+                    {tableSearchQuery ? 'Try adjusting your search terms' : 'Records will appear here once they are created'}
                   </div>
                 </div>
-              )}
+              );
+              })()}
             </div>
           </div>
         )}
@@ -5322,6 +5857,19 @@ export default function ConfigurationForm({
     return (
       <form onSubmit={async (e) => {
         e.preventDefault();
+        
+        // Validate required fields
+        const allFields = [...(baseFields || []), ...(advancedFields || [])];
+        if (!validateRequiredFields(allFields)) {
+          // Show error toast or alert
+          const missingFields = Object.keys(validationErrors).map(key => {
+            const field = allFields.find(f => f.name === key);
+            return field?.label || key;
+          });
+          
+          alert(`Please fill out the following required fields before saving:\n• ${missingFields.join('\n• ')}`);
+          return;
+        }
         
         // Handle saving configuration for both existing and new/pending nodes
         try {
@@ -5419,6 +5967,19 @@ export default function ConfigurationForm({
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
+      
+      // Validate required fields
+      const allFields = [...(baseFields || []), ...(advancedFields || [])];
+      if (!validateRequiredFields(allFields)) {
+        // Show error toast or alert
+        const missingFields = Object.keys(validationErrors).map(key => {
+          const field = allFields.find(f => f.name === key);
+          return field?.label || key;
+        });
+        
+        alert(`Please fill out the following required fields before saving:\n• ${missingFields.join('\n• ')}`);
+        return;
+      }
       
       // Special handling for Airtable create/update record - restructure dynamic fields
       let submissionValues = { ...values };
@@ -5669,7 +6230,7 @@ export default function ConfigurationForm({
                                     style={{ 
                                       width: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(record => {
+                                        displayData.forEach(record => {
                                           const idValue = record.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -5686,7 +6247,7 @@ export default function ConfigurationForm({
                                             style={{ 
                                               width: (() => {
                                                 let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                                previewData.slice(0, 8).forEach(record => {
+                                                displayData.forEach(record => {
                                                   const idValue = record.id || '';
                                                   const idWidth = String(idValue).length * 9 + 24;
                                                   maxWidth = Math.max(maxWidth, idWidth);
@@ -5746,7 +6307,7 @@ export default function ConfigurationForm({
                                     style={{ 
                                       marginLeft: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(record => {
+                                        displayData.forEach(record => {
                                           const idValue = record.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -5758,7 +6319,7 @@ export default function ConfigurationForm({
                                     <table className="text-sm w-full" style={{ borderSpacing: 0 }}>
                                       <thead className="bg-slate-50/50 sticky top-0 z-10">
                                         <tr className="h-10">
-                                          {Object.keys(previewData[0]?.fields || {}).map((fieldName) => (
+                                          {Object.keys(displayData[0]?.fields || {}).map((fieldName) => (
                                             <th 
                                               key={fieldName} 
                                               className="font-medium text-slate-700 p-2 text-left whitespace-nowrap"
@@ -5937,7 +6498,7 @@ export default function ConfigurationForm({
                                     style={{ 
                                       width: (() => {
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(record => {
+                                        displayData.forEach(record => {
                                           const idValue = record.value || record.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -5954,7 +6515,7 @@ export default function ConfigurationForm({
                                             style={{ 
                                               width: (() => {
                                                 let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                                previewData.slice(0, 8).forEach(record => {
+                                                displayData.forEach(record => {
                                                   const idValue = record.value || record.id || '';
                                                   const idWidth = String(idValue).length * 9 + 24;
                                                   maxWidth = Math.max(maxWidth, idWidth);
@@ -5971,7 +6532,7 @@ export default function ConfigurationForm({
                                         {previewData.slice(0, 8).map((record: any, index: number) => {
                                           const idColumnWidth = (() => {
                                             let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                            previewData.slice(0, 8).forEach(rec => {
+                                            displayData.forEach(rec => {
                                               const idValue = rec.value || rec.id || '';
                                               const idWidth = String(idValue).length * 9 + 24;
                                               maxWidth = Math.max(maxWidth, idWidth);
@@ -5998,7 +6559,7 @@ export default function ConfigurationForm({
                                             </tr>
                                           );
                                         })}
-                                        {previewData.length > 8 && (
+                                        {filteredData.length > displayData.length && (
                                           <tr className="h-12">
                                             <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                               ...
@@ -6016,7 +6577,7 @@ export default function ConfigurationForm({
                                       marginLeft: (() => {
                                         // Calculate dynamic ID column width for margin
                                         let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(record => {
+                                        displayData.forEach(record => {
                                           const idValue = record.value || record.id || '';
                                           const idWidth = String(idValue).length * 9 + 24;
                                           maxWidth = Math.max(maxWidth, idWidth);
@@ -6026,7 +6587,7 @@ export default function ConfigurationForm({
                                       maxWidth: (() => {
                                         // Calculate max width accounting for dynamic ID column - more restrictive
                                         let idWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        previewData.slice(0, 8).forEach(record => {
+                                        displayData.forEach(record => {
                                           const idValue = record.value || record.id || '';
                                           const calcWidth = String(idValue).length * 9 + 24;
                                           idWidth = Math.max(idWidth, calcWidth);
@@ -6048,12 +6609,12 @@ export default function ConfigurationForm({
                                         borderSpacing: 0,
                                         width: (() => {
                                           // Calculate dynamic width based on content
-                                          const fields = Object.keys(previewData[0]?.fields || {});
+                                          const fields = Object.keys(displayData[0]?.fields || {});
                                           if (fields.length === 0) return '800px';
                                           
                                           // Calculate dynamic ID column width
                                           let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                          previewData.slice(0, 8).forEach(record => {
+                                          displayData.forEach(record => {
                                             const idValue = record.value || record.id || '';
                                             const idWidth = String(idValue).length * 9 + 24;
                                             idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -6067,7 +6628,7 @@ export default function ConfigurationForm({
                                             let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
                                             
                                             // Check data width for this field
-                                            previewData.slice(0, 8).forEach(record => {
+                                            displayData.forEach(record => {
                                               const value = record.fields?.[fieldName];
                                               
                                               // Check if this is an attachment field
@@ -6110,10 +6671,10 @@ export default function ConfigurationForm({
                                       <thead className="bg-slate-50/50 sticky top-0 z-10">
                                         <tr className="h-10">
                                           {/* Show all fields with horizontal scrolling - no ID column here */}
-                                          {Object.keys(previewData[0]?.fields || {}).map((fieldName, index, fields) => {
+                                          {Object.keys(displayData[0]?.fields || {}).map((fieldName, index, fields) => {
                                             // Calculate column width
                                             let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                            previewData.slice(0, 8).forEach(record => {
+                                            displayData.forEach(record => {
                                               const value = record.fields?.[fieldName];
                                               
                                               // Check if this is an attachment field
@@ -6143,7 +6704,7 @@ export default function ConfigurationForm({
                                             // For the last column, add dynamic ID column width for perfect alignment
                                             if (index === fields.length - 1) {
                                               let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                              previewData.slice(0, 8).forEach(record => {
+                                              displayData.forEach(record => {
                                                 const idValue = record.value || record.id || '';
                                                 const idWidth = String(idValue).length * 9 + 24;
                                                 idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -6167,7 +6728,7 @@ export default function ConfigurationForm({
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {previewData.slice(0, 8).map((record: any, index: number) => (
+                                        {displayData.map((record: any, index: number) => (
                                           <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                             {/* No ID cell - start directly with field data */}
                                             {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
@@ -6176,7 +6737,7 @@ export default function ConfigurationForm({
                                               
                                               // Calculate column width (same logic as header)
                                               let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                              previewData.slice(0, 8).forEach(rec => {
+                                              displayData.forEach(rec => {
                                                 const value = rec.fields?.[fieldName];
                                                 
                                                 // Check if this is an attachment field
@@ -6206,7 +6767,7 @@ export default function ConfigurationForm({
                                               // For the last column, add dynamic ID column width for perfect alignment
                                               if (isLastColumn) {
                                                 let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                                previewData.slice(0, 8).forEach(rec => {
+                                                displayData.forEach(rec => {
                                                   const idValue = rec.value || rec.id || '';
                                                   const idWidth = String(idValue).length * 9 + 24;
                                                   idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -6297,7 +6858,69 @@ export default function ConfigurationForm({
                                                         );
                                                       }
                                                       
-                                                      // Regular array handling
+                                                      // Check if this is a linked record field - same logic as first table
+                                                      let isLinkedField = false;
+                                                      let linkedFieldOptions: any[] = [];
+                                                      
+                                                      if (airtableTableSchema?.fields) {
+                                                        const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
+                                                        
+                                                        if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                                                            tableField.type === 'singleRecordLink' || 
+                                                            tableField.isLinkedRecord)) {
+                                                          isLinkedField = true;
+                                                          linkedFieldOptions = tableField.choices || [];
+                                                          
+                                                          // Fallback to dynamicOptions if no choices
+                                                          if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
+                                                            const fieldId = `airtable_field_${tableField.id}`;
+                                                            linkedFieldOptions = dynamicOptions?.[fieldId] || [];
+                                                          }
+                                                        }
+                                                      }
+                                                      
+                                                      // Handle linked record fields
+                                                      if (isLinkedField) {
+                                                        let displayValue = '';
+                                                        
+                                                        if (linkedFieldOptions.length > 0) {
+                                                          // We have the mapped options, use them
+                                                          if (Array.isArray(fieldValue)) {
+                                                            // Multiple linked records
+                                                            const mappedNames = fieldValue.map((id: string) => {
+                                                              const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                                              return option ? option.label : id;
+                                                            });
+                                                            displayValue = mappedNames.join(', ');
+                                                          } else if (fieldValue) {
+                                                            // Single linked record
+                                                            const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
+                                                            displayValue = option ? option.label : String(fieldValue);
+                                                          }
+                                                        } else if (fieldValue) {
+                                                          // No options loaded, show the raw value
+                                                          if (Array.isArray(fieldValue)) {
+                                                            displayValue = fieldValue.join(', ');
+                                                          } else {
+                                                            displayValue = String(fieldValue);
+                                                          }
+                                                        }
+                                                        
+                                                        return (
+                                                          <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
+                                                            <span className="block text-center" title={displayValue} style={{ lineHeight: '1.2', 
+                                                              maxWidth: `${columnWidth - 32}px`,
+                                                              wordBreak: 'break-word',
+                                                              overflowWrap: 'break-word',
+                                                              whiteSpace: 'pre-wrap'
+                                                            }}>
+                                                              {displayValue || '—'}
+                                                            </span>
+                                                          </div>
+                                                        );
+                                                      }
+                                                      
+                                                      // Regular array handling (non-linked)
                                                       if (Array.isArray(fieldValue)) {
                                                         return (
                                                           <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
@@ -6341,13 +6964,13 @@ export default function ConfigurationForm({
                                             })}
                                           </tr>
                                         ))}
-                                        {previewData.length > 8 && (
+                                        {filteredData.length > displayData.length && (
                                           <tr className="h-12">
                                             <td 
-                                              colSpan={Object.keys(previewData[0]?.fields || {}).length + 1} 
+                                              colSpan={Object.keys(displayData[0]?.fields || {}).length + 1} 
                                               className="p-2 text-center text-xs text-slate-500 bg-slate-50"
                                             >
-                                              ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
+                                              ... and {filteredData.length - displayData.length} more record{filteredData.length - displayData.length !== 1 ? 's' : ''}
                                             </td>
                                           </tr>
                                         )}
@@ -6541,7 +7164,7 @@ export default function ConfigurationForm({
                               style={{ 
                                 width: (() => {
                                   let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const idValue = record.value || record.id || '';
                                     const idWidth = String(idValue).length * 9 + 24;
                                     maxWidth = Math.max(maxWidth, idWidth);
@@ -6558,7 +7181,7 @@ export default function ConfigurationForm({
                                       style={{ 
                                         width: (() => {
                                           let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                          previewData.slice(0, 8).forEach(record => {
+                                          displayData.forEach(record => {
                                             const idValue = record.value || record.id || '';
                                             const idWidth = String(idValue).length * 9 + 24;
                                             maxWidth = Math.max(maxWidth, idWidth);
@@ -6575,7 +7198,7 @@ export default function ConfigurationForm({
                                   {previewData.slice(0, 8).map((record: any, index: number) => {
                                     const idColumnWidth = (() => {
                                       let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                      previewData.slice(0, 8).forEach(rec => {
+                                      displayData.forEach(rec => {
                                         const idValue = rec.value || rec.id || '';
                                         const idWidth = String(idValue).length * 9 + 24;
                                         maxWidth = Math.max(maxWidth, idWidth);
@@ -6602,7 +7225,7 @@ export default function ConfigurationForm({
                                       </tr>
                                     );
                                   })}
-                                  {previewData.length > 8 && (
+                                  {filteredData.length > displayData.length && (
                                     <tr className="h-12">
                                       <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
                                         ...
@@ -6620,7 +7243,7 @@ export default function ConfigurationForm({
                                 marginLeft: (() => {
                                   // Calculate dynamic ID column width for margin
                                   let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const idValue = record.value || record.id || '';
                                     const idWidth = String(idValue).length * 9 + 24;
                                     maxWidth = Math.max(maxWidth, idWidth);
@@ -6630,7 +7253,7 @@ export default function ConfigurationForm({
                                 maxWidth: (() => {
                                   // Calculate max width accounting for dynamic ID column - more restrictive
                                   let idWidth = Math.max('ID'.length * 10 + 40, 80);
-                                  previewData.slice(0, 8).forEach(record => {
+                                  displayData.forEach(record => {
                                     const idValue = record.value || record.id || '';
                                     const calcWidth = String(idValue).length * 9 + 24;
                                     idWidth = Math.max(idWidth, calcWidth);
@@ -6652,12 +7275,12 @@ export default function ConfigurationForm({
                                   borderSpacing: 0,
                                   width: (() => {
                                     // Calculate dynamic width based on content
-                                    const fields = Object.keys(previewData[0]?.fields || {});
+                                    const fields = Object.keys(displayData[0]?.fields || {});
                                     if (fields.length === 0) return '800px';
                                     
                                     // Calculate dynamic ID column width
                                     let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                    previewData.slice(0, 8).forEach(record => {
+                                    displayData.forEach(record => {
                                       const idValue = record.value || record.id || '';
                                       const idWidth = String(idValue).length * 9 + 24;
                                       idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -6671,7 +7294,7 @@ export default function ConfigurationForm({
                                       let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
                                       
                                       // Check data width for this field
-                                      previewData.slice(0, 8).forEach(record => {
+                                      displayData.forEach(record => {
                                         const value = record.fields?.[fieldName];
                                         
                                         // Check if this is an attachment field
@@ -6713,9 +7336,9 @@ export default function ConfigurationForm({
                               >
                                 <thead className="bg-slate-50/50 sticky top-0 z-10">
                                   <tr className="h-10">
-                                    {Object.keys(previewData[0]?.fields || {}).map((fieldName) => {
+                                    {Object.keys(displayData[0]?.fields || {}).map((fieldName) => {
                                       let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                      previewData.slice(0, 8).forEach(record => {
+                                      displayData.forEach(record => {
                                         const value = record.fields?.[fieldName];
                                         const valueStr = Array.isArray(value) 
                                           ? value.join(', ') 
@@ -6739,7 +7362,7 @@ export default function ConfigurationForm({
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {previewData.slice(0, 8).map((record: any, index: number) => (
+                                  {displayData.map((record: any, index: number) => (
                                     <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
                                       {/* No ID cell - start directly with field data */}
                                       {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
@@ -6748,7 +7371,7 @@ export default function ConfigurationForm({
                                         
                                         // Calculate column width (same logic as header)
                                         let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                        previewData.slice(0, 8).forEach(rec => {
+                                        displayData.forEach(rec => {
                                           const value = rec.fields?.[fieldName];
                                           
                                           // Check if this is an attachment field
@@ -6778,7 +7401,7 @@ export default function ConfigurationForm({
                                         // For the last column, add dynamic ID column width for perfect alignment
                                         if (isLastColumn) {
                                           let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                          previewData.slice(0, 8).forEach(rec => {
+                                          displayData.forEach(rec => {
                                             const idValue = rec.value || rec.id || '';
                                             const idWidth = String(idValue).length * 9 + 24;
                                             idColumnWidth = Math.max(idColumnWidth, idWidth);
@@ -6905,13 +7528,13 @@ export default function ConfigurationForm({
                                       })}
                                     </tr>
                                   ))}
-                                  {previewData.length > 8 && (
+                                  {filteredData.length > displayData.length && (
                                     <tr className="h-12">
                                       <td 
-                                        colSpan={Object.keys(previewData[0]?.fields || {}).length} 
+                                        colSpan={Object.keys(displayData[0]?.fields || {}).length} 
                                         className="p-2 text-center text-xs text-slate-500 bg-slate-50"
                                       >
-                                        ... and {previewData.length - 8} more record{previewData.length - 8 !== 1 ? 's' : ''}
+                                        ... and {filteredData.length - displayData.length} more record{filteredData.length - displayData.length !== 1 ? 's' : ''}
                                       </td>
                                     </tr>
                                   )}

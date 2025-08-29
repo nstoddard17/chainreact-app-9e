@@ -69,8 +69,44 @@ export async function listAirtableRecords(
     
     // Add field-specific filtering
     if (filterField && filterValue) {
-      filterConditions.push(`{${filterField}} = "${filterValue}"`)
-      console.log("Added field-specific filter:", filterField, "=", filterValue)
+      // Check if filterValue contains both ID and name (format: "recXXX::Name")
+      // This indicates we're filtering by a linked record field
+      const isLinkedRecordFilter = typeof filterValue === 'string' && filterValue.includes('::');
+      
+      console.log("🔍 Filter Debug:", {
+        filterField,
+        filterValue,
+        isLinkedRecordFilter,
+        valueType: typeof filterValue,
+        valueLength: filterValue?.length
+      });
+      
+      if (isLinkedRecordFilter) {
+        // Extract the record ID and name from the combined value
+        const [recordId, recordName] = filterValue.split('::');
+        
+        // For linked record fields in Airtable, we filter by the display name
+        // Airtable's API will match this against the primary field of the linked table
+        const linkedFilter = `{${filterField}} = "${recordName}"`
+        
+        filterConditions.push(linkedFilter)
+        console.log("📎 Added linked record filter by name:", {
+          field: filterField,
+          recordId,
+          recordName,
+          formula: linkedFilter,
+          note: "Filtering by linked record display name"
+        })
+      } else {
+        // For regular fields, use standard equality check
+        const regularFilter = `{${filterField}} = "${filterValue}"`
+        filterConditions.push(regularFilter)
+        console.log("📝 Added regular field filter:", {
+          field: filterField,
+          value: filterValue,
+          formula: regularFilter
+        })
+      }
     }
     
     // Add date filter based on selected option
@@ -129,6 +165,12 @@ export async function listAirtableRecords(
         ? filterConditions[0] 
         : `AND(${filterConditions.join(', ')})`
     }
+    
+    console.log("🔧 Final Filter Formula:", {
+      conditions: filterConditions,
+      combinedFilter,
+      hasFilter: !!combinedFilter
+    });
 
     // Build the URL with query parameters
     const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`)
@@ -219,6 +261,32 @@ export async function listAirtableRecords(
     }
 
     const result = await response.json()
+    
+    console.log("📊 Airtable API Response:", {
+      totalRecords: result.records?.length || 0,
+      hasOffset: !!result.offset,
+      sampleRecord: result.records?.[0] ? {
+        id: result.records[0].id,
+        fields: Object.keys(result.records[0].fields || {})
+      } : null
+    });
+    
+    // Log the first few records to see the actual data structure
+    if (result.records?.length > 0) {
+      console.log("🔍 First record details:", JSON.stringify(result.records[0], null, 2));
+      
+      // Specifically check for linked fields
+      const firstRecord = result.records[0];
+      if (firstRecord.fields) {
+        Object.entries(firstRecord.fields).forEach(([fieldName, fieldValue]) => {
+          // Check if this looks like a linked field (array of record IDs)
+          if (Array.isArray(fieldValue) && fieldValue.length > 0 && 
+              typeof fieldValue[0] === 'string' && fieldValue[0].startsWith('rec')) {
+            console.log(`🔗 Found linked field "${fieldName}":`, fieldValue);
+          }
+        });
+      }
+    }
 
     // Apply keyword search post-processing if needed
     let filteredRecords = result.records || []
