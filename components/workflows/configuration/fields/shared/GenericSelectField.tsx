@@ -15,6 +15,7 @@ interface GenericSelectFieldProps {
   isLoading?: boolean;
   onDynamicLoad?: (fieldName: string) => void;
   nodeInfo?: any;
+  selectedValues?: string[]; // Values that already have bubbles
 }
 
 /**
@@ -30,7 +31,21 @@ export function GenericSelectField({
   isLoading,
   onDynamicLoad,
   nodeInfo,
+  selectedValues = [],
 }: GenericSelectFieldProps) {
+  // For Airtable create record fields, we need to get the bubble values from the form
+  // Since we can't pass them through easily, we'll get them from window object
+  const isAirtableCreateRecord = nodeInfo?.type === 'airtable_action_create_record' && 
+                                 field.name?.startsWith('airtable_field_');
+  
+  // Get bubble values from window object for Airtable create fields
+  let effectiveSelectedValues = selectedValues;
+  if (isAirtableCreateRecord && typeof window !== 'undefined') {
+    const bubbleValues = (window as any).__airtableBubbleValues?.[field.name];
+    if (bubbleValues) {
+      effectiveSelectedValues = bubbleValues.map((b: any) => b.value);
+    }
+  }
 
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
@@ -96,6 +111,7 @@ export function GenericSelectField({
         disabled={isLoading}
         creatable={(field as any).creatable || false}
         onOpenChange={handleFieldOpen}
+        selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
         className={cn(
           "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
           error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
@@ -123,6 +139,7 @@ export function GenericSelectField({
         disabled={isLoading || field.disabled}
         creatable={isAirtableRecordField} // Allow custom input for Airtable fields
         onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
+        selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
       />
     );
   }

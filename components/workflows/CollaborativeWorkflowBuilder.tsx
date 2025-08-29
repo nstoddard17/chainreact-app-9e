@@ -2733,99 +2733,63 @@ function WorkflowBuilderContent() {
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
-              {availableIntegrations.filter(int => {
-                if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
-                if (filterCategory !== 'all' && int.category !== filterCategory) return false
-                
-                // Filter out integrations that have no compatible actions
-                const trigger = nodes.find(node => node.data?.isTrigger)
-                const compatibleActions = int.actions.filter(action => {
-                  // Gmail actions should only be available with Gmail triggers
-                  if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-                    return false
-                  }
-                  return true
-                })
-                if (compatibleActions.length === 0) return false
-                
-                if (searchQuery) {
-                  const query = searchQuery.toLowerCase()
-                  const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                  const matchesAction = compatibleActions.some(action => 
-                    (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
-                  )
-                  return matchesIntegration || matchesAction
-                }
-                return compatibleActions.length > 0
-              }).length === 0 && showConnectedOnly ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-muted-foreground mb-2">
-                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
-                  <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
-                </div>
-              ) : availableIntegrations.filter(int => {
-                if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
-                if (filterCategory !== 'all' && int.category !== filterCategory) return false
-                
-                // Filter out integrations that have no compatible actions
-                const trigger = nodes.find(node => node.data?.isTrigger)
-                const compatibleActions = int.actions.filter(action => {
-                  // Gmail actions should only be available with Gmail triggers
-                  if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-                    return false
-                  }
-                  return true
-                })
-                if (compatibleActions.length === 0) return false
-                
-                if (searchQuery) {
-                  const query = searchQuery.toLowerCase()
-                  const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                  const matchesAction = compatibleActions.some(action => 
-                    (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
-                  )
-                  return matchesIntegration || matchesAction
-                }
-                return compatibleActions.length > 0
-              }).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-muted-foreground mb-2">
-                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-muted-foreground">No integrations match your search</p>
-                </div>
-              ) : (
-                availableIntegrations
-                  .filter(int => {
-                    if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
-                    if (filterCategory !== 'all' && int.category !== filterCategory) return false
-                    
-                    // Get all actions for this integration
-                    const trigger = nodes.find(node => node.data?.isTrigger)
-                    const compatibleActions = int.actions.filter(action => {
-                      // Show all actions regardless of trigger
-                      return true
-                    })
-                    // Don't filter out AI Agent integration even if it has no actions initially
-                    if (compatibleActions.length === 0 && int.id !== 'ai') return false
-                    
-                    if (searchQuery) {
-                      const query = searchQuery.toLowerCase()
-                      const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                      const matchesAction = compatibleActions.some(action => 
-                        (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
-                      )
-                      return matchesIntegration || matchesAction
+              {(() => {
+                // Memoize the filtered integrations to avoid duplicate filtering
+                const filteredIntegrationsForActions = availableIntegrations.filter(int => {
+                  if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
+                  if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                  
+                  // Filter out integrations that have no compatible actions
+                  const trigger = nodes.find(node => node.data?.isTrigger)
+                  const compatibleActions = int.actions.filter(action => {
+                    // Gmail actions should only be available with Gmail triggers
+                    if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+                      return false
                     }
-                    return compatibleActions.length > 0
+                    return true
                   })
-                  .map((integration) => (
+                  if (compatibleActions.length === 0) return false
+                  
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase()
+                    const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
+                    const matchesAction = compatibleActions.some(action => 
+                      (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                    )
+                    return matchesIntegration || matchesAction
+                  }
+                  return compatibleActions.length > 0
+                });
+
+                if (filteredIntegrationsForActions.length === 0 && showConnectedOnly) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="text-muted-foreground mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
+                      <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
+                    </div>
+                  );
+                }
+
+                if (filteredIntegrationsForActions.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="text-muted-foreground mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-muted-foreground">No integrations match your search</p>
+                    </div>
+                  );
+                }
+
+                // Use the already filtered integrations instead of filtering again
+                return filteredIntegrationsForActions.map((integration) => (
                     <div
                       key={integration.id}
                       className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
@@ -2835,8 +2799,8 @@ function WorkflowBuilderContent() {
                       <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
-                  ))
-              )}
+                  ));
+              })()}
               </div>
             </ScrollArea>
             <div className="w-3/5 flex-1">
