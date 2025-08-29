@@ -481,6 +481,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           // Format records as options
           const formattedOptions = records.map((record: any) => {
             let label = record.id; // Default to ID if no better field found
+            let actualValue = record.id; // Default to using record ID
             
             if (displayField && record.fields?.[displayField]) {
               const fieldValue = record.fields[displayField];
@@ -489,7 +490,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 f.toLowerCase().includes('name') || f.toLowerCase().includes('title')
               )) {
                 label = String(fieldValue);
-                // Truncate if too long
+                // For linked fields, we'll use the name as the value for filtering
+                // Store both ID and name - use name for filtering
+                actualValue = `${record.id}::${label}`; // Store both with separator
+                
+                // Truncate label if too long
                 if (label.length > 50) {
                   label = label.substring(0, 47) + '...';
                 }
@@ -497,8 +502,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             }
             
             return {
-              value: record.id,
-              label: label
+              value: actualValue, // This will be "recID::Name" for linked fields
+              label: label,
+              recordId: record.id // Keep the actual record ID separately
             };
           });
           
@@ -855,7 +861,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                   if (recordIds.has(record.id) && displayField) {
                     const displayValue = record.fields[displayField];
                     if (displayValue) {
-                      fieldValues.set(record.id, String(displayValue));
+                      // For filtering, we need to use the name, not the ID
+                      // Store as "recordId::name" so we have both
+                      const nameValue = String(displayValue);
+                      fieldValues.set(`${record.id}::${nameValue}`, nameValue);
                     }
                   }
                 });
