@@ -170,8 +170,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "path", label: "Path", type: "text", placeholder: "/webhook-path" },
-      { name: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"] },
+      { name: "path", label: "Path", type: "text", placeholder: "/webhook-path", description: "The URL path for your webhook endpoint (e.g., /webhook-path)" },
+      { name: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"], description: "The HTTP method that will trigger this webhook" },
     ],
   },
   {
@@ -182,8 +182,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *" },
-      { name: "timezone", label: "Timezone", type: "text", placeholder: "UTC" },
+      { name: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *", description: "Cron expression for scheduling (minute hour day month weekday)" },
+      { name: "timezone", label: "Timezone", type: "text", placeholder: "UTC", description: "Timezone for the schedule (e.g., UTC, America/New_York)" },
     ],
   },
   {
@@ -206,7 +206,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     configSchema: [
-      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100" },
+      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100", description: "JavaScript expression to evaluate as filter condition" },
     ],
   },
   {
@@ -374,7 +374,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       }
     ],
     configSchema: [
-      { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
+      { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60", description: "How long to pause the workflow in seconds" },
     ],
   },
   {
@@ -668,7 +668,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     configSchema: [
-      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'" },
+      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'", description: "JavaScript expression to determine workflow branching" },
     ],
   },
   {
@@ -680,7 +680,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     configSchema: [
-      { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };" },
+      { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };", description: "Custom JavaScript code to execute (must return an object)" },
     ],
   },
   {
@@ -691,7 +691,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     configSchema: [
-      { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}" },
+      { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}", description: "Array or list of items to iterate through" },
     ],
   },
 
@@ -706,9 +706,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     triggerType: 'webhook',
     producesOutput: true,
     configSchema: [
-      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
-      { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
-      { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"], defaultValue: "any" },
+      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender", description: "Filter emails by sender address" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject", description: "Filter emails by subject line" },
+      { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"], defaultValue: "any", description: "Filter emails based on attachment presence" },
     ],
     payloadSchema: {
       id: "The unique ID of the email.",
@@ -849,8 +849,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dynamic: "gmail-recent-recipients",
         placeholder: "Select BCC email address..."
       },
-      { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
-      { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true, description: "Subject line of the email" },
+      { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail", description: "Email message content with rich text formatting" },
       { 
         name: "attachments", 
         label: "Attachments", 
@@ -1276,8 +1276,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { name: "sheetName", label: "Sheet Name", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
+      { name: "sheetName", label: "Sheet Name", type: "text", description: "The name of the sheet within the spreadsheet" },
     ],
   },
   {
@@ -1290,7 +1290,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
     ],
   },
   {
@@ -1302,8 +1302,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { name: "sheetName", label: "Sheet Name", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
+      { name: "sheetName", label: "Sheet Name", type: "text", description: "The name of the sheet within the spreadsheet" },
     ],
   },
   {
@@ -6351,14 +6351,136 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         disabled: true,
         conditional: { field: "previewDocument", value: "true" }
       },
-      { name: "exportFormat", label: "Export Format", type: "select", required: true, defaultValue: "pdf", options: [
-        { value: "pdf", label: "PDF" },
-        { value: "docx", label: "Microsoft Word (.docx)" },
-        { value: "txt", label: "Plain Text (.txt)" },
-        { value: "html", label: "HTML" },
-        { value: "rtf", label: "Rich Text Format (.rtf)" }
-      ] },
-      { name: "fileName", label: "File Name", type: "text", required: false, placeholder: "Custom file name (optional)" }
+      {
+        name: "exportFormat",
+        label: "Export Format",
+        type: "select",
+        required: true,
+        defaultValue: "pdf",
+        options: [
+          { value: "pdf", label: "PDF" },
+          { value: "docx", label: "Microsoft Word (.docx)" },
+          { value: "txt", label: "Plain Text (.txt)" },
+          { value: "html", label: "HTML" },
+          { value: "rtf", label: "Rich Text Format (.rtf)" },
+          { value: "epub", label: "EPUB (E-book)" },
+          { value: "odt", label: "OpenDocument Text (.odt)" }
+        ],
+        description: "Choose the format for the exported document"
+      },
+      {
+        name: "fileName",
+        label: "File Name",
+        type: "text",
+        required: false,
+        placeholder: "Custom file name (without extension)",
+        description: "Custom name for the exported file (extension added automatically)"
+      },
+      {
+        name: "destination",
+        label: "Export Destination",
+        type: "select",
+        required: true,
+        defaultValue: "drive",
+        options: [
+          { value: "drive", label: "Save to Google Drive" },
+          { value: "email", label: "Send as Email Attachment" },
+          { value: "workflow", label: "Pass to Next Step (File ID)" },
+          { value: "webhook", label: "Send to Webhook URL" }
+        ],
+        description: "Where to send the exported document"
+      },
+      {
+        name: "driveFolder",
+        label: "Google Drive Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: false,
+        placeholder: "Select a folder (or use root)",
+        description: "Folder to save the exported document",
+        conditional: { field: "destination", value: "drive" }
+      },
+      {
+        name: "emailTo",
+        label: "Email Recipients",
+        type: "text",
+        required: false,
+        placeholder: "email@example.com (comma-separated for multiple)",
+        description: "Email addresses to send the document to",
+        conditional: { field: "destination", value: "email" }
+      },
+      {
+        name: "emailSubject",
+        label: "Email Subject",
+        type: "text",
+        required: false,
+        placeholder: "Your exported document",
+        defaultValue: "Exported Document",
+        description: "Subject line for the email",
+        conditional: { field: "destination", value: "email" }
+      },
+      {
+        name: "emailBody",
+        label: "Email Body",
+        type: "textarea",
+        required: false,
+        placeholder: "Please find the attached document...",
+        defaultValue: "Please find your exported document attached to this email.",
+        description: "Message body for the email",
+        rows: 4,
+        conditional: { field: "destination", value: "email" }
+      },
+      {
+        name: "webhookUrl",
+        label: "Webhook URL",
+        type: "text",
+        required: false,
+        placeholder: "https://your-webhook-endpoint.com/receive",
+        description: "URL to POST the exported document to",
+        conditional: { field: "destination", value: "webhook" }
+      },
+      {
+        name: "webhookHeaders",
+        label: "Webhook Headers (JSON)",
+        type: "textarea",
+        required: false,
+        placeholder: '{"Authorization": "Bearer token", "Content-Type": "application/pdf"}',
+        description: "Optional headers to include with webhook request",
+        rows: 3,
+        conditional: { field: "destination", value: "webhook" }
+      }
+    ],
+    outputSchema: [
+      {
+        name: "fileId",
+        label: "File ID",
+        type: "string",
+        description: "ID of the exported file (for Google Drive or workflow)"
+      },
+      {
+        name: "fileName",
+        label: "File Name",
+        type: "string",
+        description: "Name of the exported file with extension"
+      },
+      {
+        name: "fileUrl",
+        label: "File URL",
+        type: "string",
+        description: "URL to access the exported file (if saved to Drive)"
+      },
+      {
+        name: "fileSize",
+        label: "File Size",
+        type: "number",
+        description: "Size of the exported file in bytes"
+      },
+      {
+        name: "destination",
+        label: "Destination",
+        type: "string",
+        description: "Where the file was sent"
+      }
     ]
   },
 
