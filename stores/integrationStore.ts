@@ -402,7 +402,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getIntegrationByProvider: (providerId: string) => {
       const { integrations } = get()
       
-      const integration = integrations.find((i) => i.provider === providerId)
+      // For Google services, they might all be under a single 'google' integration
+      // Map specific Google service providers to the base 'google' provider
+      const providerMapping: Record<string, string> = {
+        'google-docs': 'google',
+        'google-drive': 'google',
+        'google-sheets': 'google',
+        'google-calendar': 'google',
+      }
+      
+      // Check if we need to map the provider
+      const actualProvider = providerMapping[providerId] || providerId
+      
+      // First try exact match
+      let integration = integrations.find((i) => i.provider === providerId)
+      
+      // If not found and we have a mapping, try the mapped provider
+      if (!integration && actualProvider !== providerId) {
+        integration = integrations.find((i) => i.provider === actualProvider)
+      }
+      
       return integration || null
     },
 

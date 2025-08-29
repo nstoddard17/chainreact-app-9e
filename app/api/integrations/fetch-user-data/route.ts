@@ -231,41 +231,42 @@ export async function POST(req: NextRequest) {
     }
 
     // Route Google (Drive/Docs/Sheets) requests to dedicated Google data API
-    if (integration.provider?.startsWith('google') && (
-      dataType.startsWith('google-') || 
-      dataType === 'google-calendars' || 
-      dataType === 'google-contacts'
-    )) {
-      console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType}`);
-      
-      try {
-        const baseUrl = req.nextUrl.origin
-        const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            integrationId,
-            dataType,
-            options
-          })
-        });
-
-        if (!googleApiResponse.ok) {
-          const error = await googleApiResponse.json();
-          console.error(`❌ [SERVER] Google API error:`, error);
-          return Response.json(error, { status: googleApiResponse.status });
-        }
-
-        const googleResult = await googleApiResponse.json();
-        console.log(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
-
-        return Response.json(googleResult);
+    // Check if provider starts with 'google' (covers google, google-docs, google-drive, google-sheets, etc.)
+    if (integration.provider?.startsWith('google')) {
+      // Check if the dataType is a Google-related data type
+      if (dataType.startsWith('google-') || 
+          dataType === 'google-calendars' || 
+          dataType === 'google-contacts') {
+        console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType} (provider: ${integration.provider})`);
         
-      } catch (error: any) {
-        console.error(`❌ [SERVER] Google API routing error:`, error);
-        return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+        try {
+          const baseUrl = req.nextUrl.origin
+          const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              integrationId,
+              dataType,
+              options
+            })
+          });
+
+          if (!googleApiResponse.ok) {
+            const error = await googleApiResponse.json();
+            console.error(`❌ [SERVER] Google API error:`, error);
+            return Response.json(error, { status: googleApiResponse.status });
+          }
+
+          const googleResult = await googleApiResponse.json();
+          console.log(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
+
+          return Response.json(googleResult);
+        } catch (error: any) {
+          console.error(`❌ [SERVER] Google API routing error:`, error);
+          return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+        }
       }
     }
 
