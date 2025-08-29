@@ -6210,12 +6210,34 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "Choose from your Google Docs documents"
       },
       {
+        name: "previewDocument",
+        label: "Preview Document",
+        type: "button-toggle",
+        defaultValue: "false",
+        options: [
+          { value: "false", label: "Hide Preview" },
+          { value: "true", label: "Show Preview" }
+        ],
+        description: "Toggle to show a read-only preview of the document's first 10 lines"
+      },
+      {
+        name: "documentPreview",
+        label: "Document Preview",
+        type: "textarea",
+        required: false,
+        placeholder: "Document preview will appear here...",
+        description: "Read-only preview of the document content",
+        rows: 10,
+        disabled: true,
+        conditional: { field: "previewDocument", value: "true" }
+      },
+      {
         name: "shareWith",
         label: "Share With",
         type: "text",
-        required: true,
+        required: false,
         placeholder: "email@example.com (comma-separated for multiple)",
-        description: "Email addresses to share the document with"
+        description: "Email addresses to share the document with (leave empty for public sharing only)"
       },
       {
         name: "permission",
@@ -6246,6 +6268,45 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         placeholder: "Optional message to include in the sharing notification...",
         description: "Custom message to include in the sharing email"
+      },
+      {
+        name: "makePublic",
+        label: "Make Public",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Make the document publicly accessible to anyone with the link"
+      },
+      {
+        name: "publicPermission",
+        label: "Public Permission Level",
+        type: "select",
+        required: false,
+        defaultValue: "reader",
+        options: [
+          { value: "reader", label: "Reader (view only)" },
+          { value: "commenter", label: "Commenter (view and comment)" }
+        ],
+        description: "Permission level for public access",
+        conditional: { field: "makePublic", value: true }
+      },
+      {
+        name: "allowDiscovery",
+        label: "Allow Discovery",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Allow the document to be discovered through search",
+        conditional: { field: "makePublic", value: true }
+      },
+      {
+        name: "transferOwnership",
+        label: "Transfer Ownership",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Transfer document ownership (only works when permission is 'owner')",
+        conditional: { field: "permission", value: "owner" }
       }
     ],
   },

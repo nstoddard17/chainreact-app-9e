@@ -234,7 +234,7 @@ export async function updateGoogleDocument(
 }
 
 /**
- * Share a Google Docs document
+ * Share a Google Docs document with enhanced features
  */
 export async function shareGoogleDocument(
   config: any,
@@ -243,7 +243,17 @@ export async function shareGoogleDocument(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { documentId, email, role = 'reader', message } = resolvedConfig
+    const { 
+      documentId, 
+      shareWith, 
+      permission = 'reader', 
+      sendNotification = true,
+      message,
+      makePublic = false,
+      publicPermission = 'reader',
+      allowDiscovery = false,
+      transferOwnership = false
+    } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
     
@@ -252,28 +262,122 @@ export async function shareGoogleDocument(
     
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    // Share the document
-    const permission = await drive.permissions.create({
+    const sharedEmails: string[] = []
+    const permissionIds: string[] = []
+    const errors: string[] = []
+
+    // Share with specific users if provided
+    if (shareWith) {
+      // Parse comma-separated emails
+      const emails = shareWith.split(',').map((e: string) => e.trim()).filter(Boolean)
+      
+      for (const email of emails) {
+        try {
+          // Handle ownership transfer specially
+          if (permission === 'owner' && transferOwnership) {
+            // Transfer ownership requires special handling
+            const permission = await drive.permissions.create({
+              fileId: documentId,
+              requestBody: {
+                type: 'user',
+                role: 'owner',
+                emailAddress: email
+              },
+              sendNotificationEmail: sendNotification,
+              emailMessage: message,
+              transferOwnership: true
+            })
+            
+            sharedEmails.push(email)
+            permissionIds.push(permission.data.id || '')
+            console.log(`Ownership transferred to ${email}`)
+          } else {
+            // Regular permission sharing
+            const actualRole = permission === 'owner' ? 'writer' : permission // Can't share as owner without transfer
+            
+            const permissionResult = await drive.permissions.create({
+              fileId: documentId,
+              requestBody: {
+                type: 'user',
+                role: actualRole,
+                emailAddress: email
+              },
+              sendNotificationEmail: sendNotification,
+              emailMessage: message
+            })
+            
+            sharedEmails.push(email)
+            permissionIds.push(permissionResult.data.id || '')
+          }
+        } catch (error: any) {
+          console.error(`Failed to share with ${email}:`, error)
+          errors.push(`${email}: ${error.message}`)
+        }
+      }
+    }
+
+    // Make document public if requested
+    if (makePublic) {
+      try {
+        // Create public permission
+        const publicRole = publicPermission === 'writer' ? 'writer' : publicPermission
+        
+        const publicPermissionResult = await drive.permissions.create({
+          fileId: documentId,
+          requestBody: {
+            type: 'anyone',
+            role: publicRole,
+            allowFileDiscovery: allowDiscovery
+          }
+        })
+        
+        permissionIds.push(publicPermissionResult.data.id || '')
+        
+        console.log(`Document made public with ${publicRole} permission`)
+      } catch (error: any) {
+        console.error('Failed to make document public:', error)
+        errors.push(`Public sharing: ${error.message}`)
+      }
+    }
+
+    // Get updated document metadata
+    const fileResponse = await drive.files.get({
       fileId: documentId,
-      requestBody: {
-        type: 'user',
-        role,
-        emailAddress: email
-      },
-      sendNotificationEmail: true,
-      emailMessage: message
+      fields: 'id,name,webViewLink,permissions'
     })
+
+    const result: any = {
+      documentId,
+      documentName: fileResponse.data.name,
+      documentUrl: fileResponse.data.webViewLink || `https://docs.google.com/document/d/${documentId}/edit`,
+      permissionIds,
+      sharedWith: sharedEmails,
+      isPublic: makePublic,
+      publicPermission: makePublic ? publicPermission : null,
+      allowsDiscovery: makePublic ? allowDiscovery : false,
+      totalPermissions: fileResponse.data.permissions?.length || 0
+    }
+
+    if (errors.length > 0) {
+      result.errors = errors
+    }
+
+    // Determine success message
+    let successMessage = 'Document sharing updated successfully'
+    if (sharedEmails.length > 0) {
+      successMessage = `Document shared with ${sharedEmails.length} user(s)`
+    }
+    if (makePublic) {
+      successMessage += ' and made public'
+    }
+    if (transferOwnership && permission === 'owner' && sharedEmails.length > 0) {
+      successMessage = `Document ownership transferred to ${sharedEmails[0]}`
+    }
 
     return {
       success: true,
-      output: {
-        documentId,
-        permissionId: permission.data.id,
-        email,
-        role,
-        documentUrl: `https://docs.google.com/document/d/${documentId}/edit`
-      },
-      message: `Document shared with ${email} as ${role}`
+      output: result,
+      message: successMessage
     }
   } catch (error: any) {
     console.error('Share Google Document error:', error)
