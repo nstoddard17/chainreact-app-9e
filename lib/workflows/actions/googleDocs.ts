@@ -447,7 +447,7 @@ export async function getGoogleDocument(
 }
 
 /**
- * Export a Google Docs document
+ * Export a Google Docs document with multiple destination options
  */
 export async function exportGoogleDocument(
   config: any,
@@ -456,7 +456,18 @@ export async function exportGoogleDocument(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { documentId, exportFormat = 'pdf' } = resolvedConfig
+    const { 
+      documentId,
+      exportFormat = 'pdf',
+      fileName,
+      destination = 'drive',
+      driveFolder,
+      emailTo,
+      emailSubject = 'Exported Document',
+      emailBody = 'Please find your exported document attached to this email.',
+      webhookUrl,
+      webhookHeaders
+    } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
     
@@ -464,7 +475,16 @@ export async function exportGoogleDocument(
     oauth2Client.setCredentials({ access_token: accessToken })
     
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    const docs = google.docs({ version: 'v1', auth: oauth2Client })
 
+    // Get document metadata
+    const docMetadata = await docs.documents.get({
+      documentId: documentId
+    })
+    
+    const docTitle = docMetadata.data.title || 'Untitled Document'
+    const baseFileName = fileName || docTitle
+    
     // Map format to MIME type
     const mimeTypeMap: Record<string, string> = {
       pdf: 'application/pdf',
@@ -472,41 +492,163 @@ export async function exportGoogleDocument(
       txt: 'text/plain',
       html: 'text/html',
       rtf: 'application/rtf',
-      odt: 'application/vnd.oasis.opendocument.text',
-      epub: 'application/epub+zip'
+      epub: 'application/epub+zip',
+      odt: 'application/vnd.oasis.opendocument.text'
     }
-
-    const mimeType = mimeTypeMap[exportFormat] || 'application/pdf'
+    
+    const exportMimeType = mimeTypeMap[exportFormat] || 'application/pdf'
+    const fullFileName = `${baseFileName}.${exportFormat}`
 
     // Export the document
-    const response = await drive.files.export({
+    const exportResponse = await drive.files.export({
       fileId: documentId,
-      mimeType
-    }, {
-      responseType: 'arraybuffer'
-    })
+      mimeType: exportMimeType
+    }, { responseType: 'arraybuffer' })
+    
+    const fileBuffer = Buffer.from(exportResponse.data as ArrayBuffer)
+    const fileSize = fileBuffer.length
 
-    // Convert to base64 for storage/transfer
-    const base64Data = Buffer.from(response.data as ArrayBuffer).toString('base64')
+    let result: any = {
+      fileName: fullFileName,
+      fileSize,
+      format: exportFormat,
+      destination
+    }
 
-    // Get document metadata
-    const fileMetadata = await drive.files.get({
-      fileId: documentId,
-      fields: 'name'
-    })
+    // Handle different destinations
+    switch (destination) {
+      case 'drive':
+        // Save to Google Drive
+        const createFileResponse = await drive.files.create({
+          requestBody: {
+            name: fullFileName,
+            mimeType: exportMimeType,
+            parents: driveFolder ? [driveFolder] : undefined
+          },
+          media: {
+            mimeType: exportMimeType,
+            body: fileBuffer
+          },
+          fields: 'id,name,webViewLink,webContentLink'
+        })
+        
+        result.fileId = createFileResponse.data.id
+        result.fileUrl = createFileResponse.data.webViewLink || createFileResponse.data.webContentLink
+        result.message = `Document exported to Google Drive as ${fullFileName}`
+        break
+
+      case 'email':
+        // Send as email attachment
+        if (!emailTo) {
+          throw new Error('Email recipients are required for email destination')
+        }
+
+        // Try to get Gmail access token
+        let gmailAccessToken
+        try {
+          gmailAccessToken = await getDecryptedAccessToken(userId, 'gmail')
+        } catch (error) {
+          // If no Gmail integration, could fall back to using sendmail or other service
+          throw new Error('Gmail integration required to send email attachments')
+        }
+
+        const gmailOAuth2Client = new google.auth.OAuth2()
+        gmailOAuth2Client.setCredentials({ access_token: gmailAccessToken })
+        const gmail = google.gmail({ version: 'v1', auth: gmailOAuth2Client })
+
+        // Create email with attachment
+        const boundary = `boundary_${Date.now()}`
+        const emailParts = [
+          `To: ${emailTo}`,
+          `Subject: ${emailSubject}`,
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          '',
+          `--${boundary}`,
+          'Content-Type: text/plain; charset=utf-8',
+          '',
+          emailBody,
+          `--${boundary}`,
+          `Content-Type: ${exportMimeType}`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${fullFileName}"`,
+          '',
+          fileBuffer.toString('base64'),
+          `--${boundary}--`
+        ]
+
+        const message = emailParts.join('\r\n')
+        const encodedMessage = Buffer.from(message).toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '')
+
+        const sendResult = await gmail.users.messages.send({
+          userId: 'me',
+          requestBody: {
+            raw: encodedMessage
+          }
+        })
+
+        result.emailMessageId = sendResult.data.id
+        result.emailTo = emailTo
+        result.message = `Document emailed to ${emailTo} as ${fullFileName}`
+        break
+
+      case 'webhook':
+        // Send to webhook
+        if (!webhookUrl) {
+          throw new Error('Webhook URL is required for webhook destination')
+        }
+
+        // Parse headers if provided
+        let headers: Record<string, string> = {
+          'Content-Type': exportMimeType,
+          'X-Document-Name': fullFileName,
+          'X-Document-Id': documentId
+        }
+        
+        if (webhookHeaders) {
+          try {
+            const parsedHeaders = JSON.parse(webhookHeaders)
+            headers = { ...headers, ...parsedHeaders }
+          } catch (e) {
+            console.warn('Failed to parse webhook headers:', e)
+          }
+        }
+
+        // Send to webhook
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers,
+          body: fileBuffer
+        })
+
+        if (!webhookResponse.ok) {
+          throw new Error(`Webhook failed: ${webhookResponse.status} ${webhookResponse.statusText}`)
+        }
+
+        result.webhookStatus = webhookResponse.status
+        result.webhookUrl = webhookUrl
+        result.message = `Document sent to webhook: ${webhookUrl}`
+        break
+
+      case 'workflow':
+        // Return as base64 for next workflow step
+        result.data = fileBuffer.toString('base64')
+        result.mimeType = exportMimeType
+        result.message = `Document exported for workflow use as ${fullFileName}`
+        break
+
+      default:
+        throw new Error(`Unknown destination: ${destination}`)
+    }
 
     return {
       success: true,
-      output: {
-        documentId,
-        fileName: `${fileMetadata.data.name}.${exportFormat}`,
-        format: exportFormat,
-        mimeType,
-        data: base64Data,
-        size: (response.data as ArrayBuffer).byteLength
-      },
-      message: `Document exported as ${exportFormat.toUpperCase()}`
+      output: result,
+      message: result.message
     }
+
   } catch (error: any) {
     console.error('Export Google Document error:', error)
     return {
