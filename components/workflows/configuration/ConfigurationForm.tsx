@@ -65,7 +65,20 @@ function getAirtableFieldType(airtableType: string): string {
  * Helper function to map Airtable field types from schema to form field types
  */
 function getAirtableFieldTypeFromSchema(field: any): string {
-  const { type } = field;
+  const { type, name } = field;
+  
+  // Check field name for type hints (same logic as inferFieldType)
+  if (name) {
+    const lowerFieldName = name.toLowerCase();
+    // Date-related field names should always be date pickers
+    if (lowerFieldName.includes('date') || 
+        lowerFieldName.includes('time') || 
+        lowerFieldName.includes('created') || 
+        lowerFieldName.includes('modified') ||
+        lowerFieldName.includes('updated')) {
+      return 'date';
+    }
+  }
   
   // If field has predefined choices, it's a select
   if (field.choices && field.choices.length > 0) {
@@ -74,6 +87,11 @@ function getAirtableFieldTypeFromSchema(field: any): string {
   
   switch (type) {
     case 'singleLineText':
+      // Check if it should be a date based on field name
+      if (name && name.toLowerCase().includes('date')) {
+        return 'date';
+      }
+      return 'text';
     case 'multilineText':
     case 'richText':
       return 'textarea';
@@ -167,6 +185,12 @@ export default function ConfigurationForm({
   const [isLoadingInitialConfig, setIsLoadingInitialConfig] = useState(false);
   const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
   const [isLoadingTableSchema, setIsLoadingTableSchema] = useState(false);
+  const [fieldSuggestions, setFieldSuggestions] = useState<Record<string, any[]>>({});
+  const [activeBubbles, setActiveBubbles] = useState<Record<string, number | number[]>>({});
+  const [originalBubbleValues, setOriginalBubbleValues] = useState<Record<string, any>>({});
+  const [imagePreview, setImagePreview] = useState<{fieldName: string, url: string} | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{fieldName: string, message: string} | null>(null);
+  const [deletedBubbles, setDeletedBubbles] = useState<Record<string, { bubble: any, index: number, wasActive: boolean }[]>>({});
   
   // Form state management
   const {
@@ -184,6 +208,8 @@ export default function ConfigurationForm({
 
   // Check if this is an update record action
   const isUpdateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record';
+  const isCreateRecord = nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_create_record';
+  const isAirtableRecordAction = isUpdateRecord || isCreateRecord;
 
   // Handle field loading state changes from the hook
   const handleLoadingChange = useCallback((fieldName: string, isLoading: boolean) => {
@@ -213,7 +239,8 @@ export default function ConfigurationForm({
     loading: loadingDynamic,
     isInitialLoading,
     loadOptions,
-    resetOptions
+    resetOptions,
+    setDynamicOptions
   } = useDynamicOptions({ 
     nodeType: nodeInfo?.type, 
     providerId: nodeInfo?.providerId,
@@ -446,11 +473,11 @@ export default function ConfigurationForm({
         if (record.fields) {
           Object.entries(record.fields).forEach(([fieldName, value]) => {
             if (!fieldMap.has(fieldName)) {
-              // Infer field type from value
+              // Infer field type from value and field name
               const fieldInfo = {
                 id: fieldName.replace(/[^a-zA-Z0-9]/g, '_'),
                 name: fieldName,
-                type: inferFieldType(value),
+                type: inferFieldType(value, fieldName),
                 values: new Set(),
                 isLinkedRecord: false
               };
@@ -678,27 +705,58 @@ export default function ConfigurationForm({
         };
       });
       
+      // Store the linked field options in the table schema itself
+      // Also check if we have options from dynamicOptions and merge them
+      // For list records, we need to ensure linked fields have their options loaded
+      const linkedFieldsToLoad: string[] = [];
+      
+      // Create a new fields array with choices included to avoid mutation issues
+      const fieldsWithChoices = fields.map((field: any) => {
+        const fieldName = `airtable_field_${field.id}`;
+        
+        // Check if we have dynamic options for this field
+        if ((field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink')) {
+          // Check if dynamicOptions has choices for this field
+          if (dynamicOptions[fieldName] && Array.isArray(dynamicOptions[fieldName])) {
+            console.log(`🔍 Added ${dynamicOptions[fieldName].length} choices from dynamicOptions to linked field ${field.name}`);
+            return { ...field, choices: dynamicOptions[fieldName] };
+          } else if (field.choices && field.choices.length > 0) {
+            console.log(`🔍 Linked field ${field.name} (${fieldName}) has ${field.choices.length} choices with user-friendly names`);
+            return field;
+          } else {
+            console.log(`⚠️ Linked field ${field.name} has no choices available yet, will load them`);
+            // Queue this field for loading if it's a list records action
+            if (nodeInfo?.type === 'airtable_action_list_records') {
+              linkedFieldsToLoad.push(fieldName);
+            }
+            return field;
+          }
+        }
+        return field;
+      });
+      
+      // NOW create the schema data with the new fields array that includes choices
       const schemaData = {
         table: {
           name: tableName,
           id: tableName
         },
-        fields,
+        fields: fieldsWithChoices, // Use the new array with choices
         sampleValues: {}
       };
       
-      console.log('🔍 Inferred table schema:', schemaData);
+      console.log('🔍 Inferred table schema with choices:', schemaData);
+      console.log('🔍 Sample field with choices:', fieldsWithChoices.find((f: any) => f.choices)?.choices?.slice(0, 2));
       setAirtableTableSchema(schemaData);
       
-      // Store the linked field options in the table schema itself
-      // The choices are already attached to each field, so they'll be available
-      // when the fields are rendered
-      fields.forEach((field: any) => {
-        if ((field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') && field.choices && field.choices.length > 0) {
-          const fieldName = `airtable_field_${field.id}`;
-          console.log(`🔍 Linked field ${field.name} (${fieldName}) has ${field.choices.length} choices with user-friendly names`);
-        }
-      });
+      // For list records, trigger loading of linked field options
+      if (nodeInfo?.type === 'airtable_action_list_records' && linkedFieldsToLoad.length > 0) {
+        console.log(`🔍 Loading options for ${linkedFieldsToLoad.length} linked fields for list records`);
+        linkedFieldsToLoad.forEach(fieldName => {
+          // Load options silently for linked fields
+          loadOptions(fieldName, null, null, true, true, { baseId, tableName });
+        });
+      }
       
       // Only clear dynamic field values if this is the initial load or table changed
       // Don't clear if we're just updating the schema for the same table
@@ -720,8 +778,31 @@ export default function ConfigurationForm({
     }
   }, [setValue, values, getIntegrationByProvider]);
   
-  // Helper function to infer field type from value
-  const inferFieldType = (value: any): string => {
+  // Helper function to infer field type from value and field name
+  const inferFieldType = (value: any, fieldName?: string): string => {
+    // Check field name for hints
+    if (fieldName) {
+      const lowerFieldName = fieldName.toLowerCase();
+      // Date-related field names
+      if (lowerFieldName.includes('date') || 
+          lowerFieldName.includes('time') || 
+          lowerFieldName.includes('created') || 
+          lowerFieldName.includes('modified') ||
+          lowerFieldName.includes('updated')) {
+        return 'date';
+      }
+      // Designer field - check if it's a collaborator field
+      if (lowerFieldName.includes('designer') || 
+          lowerFieldName.includes('assignee') || 
+          lowerFieldName.includes('collaborator')) {
+        // If it has array values, it's multiple collaborators
+        if (Array.isArray(value)) {
+          return 'multipleCollaborators';
+        }
+        return 'singleCollaborator';
+      }
+    }
+    
     if (value === null || value === undefined) return 'singleLineText';
     if (typeof value === 'boolean') return 'checkbox';
     if (typeof value === 'number') return 'number';
@@ -1678,10 +1759,17 @@ export default function ConfigurationForm({
       }
       
       // Ensure table schema is loaded first (for linked field name mappings)
-      if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
-        console.log('🔍 Loading table schema before preview data');
-        await fetchAirtableTableSchema(baseId, tableName);
-      }
+      // Always reload schema to ensure we have the latest linked field choices
+      console.log('🔍 Loading table schema before preview data to ensure linked field mappings');
+      await fetchAirtableTableSchema(baseId, tableName);
+      
+      // Wait longer for the schema to be set and linked field options to load
+      // React state updates are asynchronous, so we need to give it time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Double-check that linked field options are loaded
+      // The fetchAirtableTableSchema should have triggered loading of linked field options
+      console.log('🔍 Schema should now be loaded with linked field choices');
 
       // Get current form values to apply filters
       const {
@@ -1745,18 +1833,23 @@ export default function ConfigurationForm({
           let dateFormula = '';
           
           const now = new Date();
+          // Helper function to format date as YYYY-MM-DD for Airtable
+          const formatDateForAirtable = (date: Date) => {
+            return date.toISOString().split('T')[0];
+          };
+          
           switch (dateFilter) {
             case 'last_24_hours':
               const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${yesterday.toISOString()}")`;
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${formatDateForAirtable(yesterday)}")`;
               break;
             case 'last_week':
               const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${weekAgo.toISOString()}")`;
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${formatDateForAirtable(weekAgo)}")`;
               break;
             case 'last_month':
               const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${monthAgo.toISOString()}")`;
+              dateFormula = `IS_AFTER({${dateFieldToUse}}, "${formatDateForAirtable(monthAgo)}")`;
               break;
           }
           
@@ -1838,14 +1931,431 @@ export default function ConfigurationForm({
   }, [nodeInfo, values, currentNodeId]);
 
   /**
+   * Get bubble values for a specific field
+   */
+  const getBubbleValuesForField = useCallback((fieldName: string) => {
+    const suggestions = fieldSuggestions[fieldName] || [];
+    return suggestions.map((s: any) => s.value);
+  }, [fieldSuggestions]);
+  
+  // Make bubble values available globally for the select components
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__airtableBubbleValues = fieldSuggestions;
+    }
+  }, [fieldSuggestions]);
+
+  /**
    * Handle field value changes
    */
-  const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig });
+  const handleFieldChange = useCallback(async (fieldName: string, value: any, skipBubbleCreation: boolean = false) => {
+    console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig, skipBubbleCreation });
     console.log('🔍 Node info:', { type: nodeInfo?.type, providerId: nodeInfo?.providerId });
+    
+    // Check if this is a file/attachment field first
+    let field = nodeInfo?.configSchema?.find(f => f.name === fieldName);
+    
+    // For Airtable fields, check the table schema as well
+    if (!field && fieldName.startsWith('airtable_field_') && airtableTableSchema?.fields) {
+      const fieldId = fieldName.replace('airtable_field_', '');
+      const tableField = airtableTableSchema.fields.find((f: any) => f.id === fieldId);
+      if (tableField) {
+        // Map table field to the format we expect
+        field = {
+          name: fieldName,
+          type: tableField.type === 'multipleAttachments' ? 'file' : tableField.type,
+          label: tableField.name
+        };
+      }
+    }
+    
+    const isFileField = field && (field.type === 'file' || field.type === 'attachment' || field.type === 'multipleAttachments');
+    
+    // Skip bubble creation for file fields - they'll be handled separately below
+    // Also skip if explicitly told to (e.g., when clicking an existing bubble)
+    if (!skipBubbleCreation && isCreateRecord && fieldName.startsWith('airtable_field_') && value && value !== '' && !isFileField) {
+      // Get field info from table schema
+      const fieldId = fieldName.replace('airtable_field_', '');
+      const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+      
+      // Handle arrays - if value is an array with no elements or only empty strings, skip
+      if (Array.isArray(value) && (value.length === 0 || value.every(v => v === ''))) {
+        setValue(fieldName, '');
+        return;
+      }
+      
+      // Check if this is a multi-value field
+      // Date fields are always single-value
+      const isMultiValue = tableField && 
+        tableField.type !== 'date' && (
+          tableField.type === 'multipleSelects' || 
+          tableField.type === 'multipleRecordLinks' || 
+          tableField.type === 'multipleAttachments' ||
+          tableField.type === 'multipleCollaborators'
+        );
+      
+      // EXACTLY REPLICATE UPDATE RECORD LOGIC
+      // Get field choices from schema if available
+      let fieldChoices = null;
+      
+      // For create record, the choices are stored directly in the airtableTableSchema
+      // The field IDs in the schema use the field name instead of the actual ID
+      if (airtableTableSchema?.fields) {
+        // Try to find by the actual field ID first
+        let schemaField = airtableTableSchema.fields.find((f: any) => f.id === fieldId);
+        
+        // If not found, try by field name (the schema sometimes uses field names as IDs)
+        if (!schemaField && tableField?.name) {
+          schemaField = airtableTableSchema.fields.find((f: any) => 
+            f.id === tableField.name.replace(/[^a-zA-Z0-9]/g, '_') || 
+            f.name === tableField.name
+          );
+        }
+        
+        if (schemaField && schemaField.choices) {
+          fieldChoices = schemaField.choices;
+          console.log(`🔍 Found choices for ${tableField?.name} in schema:`, fieldChoices?.length || 0, 'options, sample:', fieldChoices?.[0]);
+        } else {
+          console.log(`🔍 No choices found for ${tableField?.name} in schema. SchemaField:`, schemaField);
+        }
+      }
+      
+      // For linked records, convert IDs to names (EXACTLY LIKE UPDATE RECORD)
+      const isLinkedField = tableField?.type === 'multipleRecordLinks' || 
+                           tableField?.type === 'singleRecordLink' || 
+                           tableField?.isLinkedRecord;
+      
+      let newSuggestion;
+      
+      if (isLinkedField) {
+        // Ensure options are available for mapping (prioritize dynamic options, fall back to fieldChoices)
+        const currentOptions = dynamicOptions?.[fieldName] || fieldChoices || [];
+        
+        // Handle array values (multi-select sends arrays, we need the first value)
+        const actualValue = Array.isArray(value) ? value[0] : value;
+        
+        console.log(`🔍 [Create] Looking for label for linked field ${tableField?.name}:`, {
+          originalValue: value,
+          actualValue,
+          isArray: Array.isArray(value),
+          dynamicOptionsCount: dynamicOptions?.[fieldName]?.length || 0,
+          fieldChoicesCount: fieldChoices?.length || 0,
+          currentOptionsCount: currentOptions.length,
+          sampleOption: currentOptions[0]
+        });
+        
+        // Find the option to get the label
+        const option = currentOptions.find((opt: any) => opt.value === actualValue);
+        const suggestionLabel = option ? option.label : actualValue;
+        
+        newSuggestion = {
+          value: actualValue, // Use the actual value, not the array
+          label: suggestionLabel,
+          fieldName: tableField?.name
+        };
+        
+        console.log(`🔍 [Create] Created suggestion for linked field ${tableField?.name}: value="${actualValue}", label="${suggestionLabel}", found option:`, option);
+        
+        // Make sure dynamic options are loaded for the dropdown
+        if (!dynamicOptions?.[fieldName] && fieldChoices) {
+          console.log(`🔍 [Create] Setting dynamic options for ${fieldName} from fieldChoices`);
+          setDynamicOptions((prev: any) => ({
+            ...prev,
+            [fieldName]: fieldChoices
+          }));
+        }
+      } else {
+        // Non-linked field
+        // Try to find the label from dynamic options or field choices
+        const currentOptions = dynamicOptions?.[fieldName] || fieldChoices || [];
+        const selectedOption = currentOptions.find((opt: any) => opt.value === value);
+        
+        newSuggestion = {
+          value: value,
+          label: selectedOption?.label || String(value),
+          fieldName: tableField?.name
+        };
+      }
+      
+      // Check if this value already exists as a bubble
+      const existingSuggestions = fieldSuggestions[fieldName] || [];
+      // For linked fields, compare using actualValue
+      const valueToCompare = isLinkedField && Array.isArray(value) ? value[0] : value;
+      const existingIndex = existingSuggestions.findIndex((s: any) => s.value === valueToCompare);
+      
+      if (existingIndex === -1) {
+        // Update field suggestions (EXACTLY LIKE UPDATE RECORD)
+        setFieldSuggestions(prev => {
+          const existing = prev[fieldName] || [];
+          
+          // For single-value fields, replace all bubbles
+          if (!isMultiValue) {
+            return {
+              ...prev,
+              [fieldName]: [newSuggestion]
+            };
+          }
+          
+          // For multi-value fields, add to existing bubbles avoiding duplicates
+          const isDuplicate = existing.some((existingSug: any) => 
+            existingSug.value === newSuggestion.value
+          );
+          
+          if (!isDuplicate) {
+            return {
+              ...prev,
+              [fieldName]: [...existing, newSuggestion]
+            };
+          }
+          
+          return prev;
+        });
+        
+        // For linked record fields only, automatically activate the bubble
+        // Other fields should require user to click the bubble to activate
+        if (!isMultiValue && isLinkedField) {
+          setActiveBubbles(prev => ({
+            ...prev,
+            [fieldName]: 0
+          }));
+        }
+      }
+      
+      // Clear the dropdown selection to allow selecting more options
+      setTimeout(() => {
+        setValue(fieldName, '');
+      }, 100);
+      
+      return; // Skip the normal setValue
+    }
     
     // Update the form value
     setValue(fieldName, value);
+    
+    // Special handling for file/image fields (field and isFileField already detected above)
+    
+    console.log('🔍 Field change details:', {
+      fieldName,
+      fieldType: field?.type,
+      isFileField,
+      valueType: typeof value,
+      isFile: value instanceof File,
+      isFileList: value instanceof FileList,
+      valueConstructor: value?.constructor?.name,
+      airtableSchema: fieldName.startsWith('airtable_field_') ? airtableTableSchema?.fields?.find((f: any) => f.id === fieldName.replace('airtable_field_', ''))?.type : null
+    });
+    
+    if (isFileField && value) {
+      console.log('📸 File field changed:', fieldName, value);
+      
+      // Check if this is a new file upload (FileList, File object, or data URL)
+      let file: File | null = null;
+      
+      if (value instanceof FileList && value.length > 0) {
+        file = value[0]; // Get the first file from FileList
+        console.log('📸 Detected FileList with file:', file.name);
+      } else if (value instanceof File) {
+        file = value;
+        console.log('📸 Detected File object:', file.name);
+      } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+        file = value[0]; // Handle array of File objects
+        console.log('📸 Detected File array with file:', file.name);
+      }
+      
+      if (file || (typeof value === 'string' && value.startsWith('data:'))) {
+        console.log('📸 Processing file upload:', file ? file.name : 'data URL');
+        // Store the previous bubble(s) before replacing
+        const previousBubbles = fieldSuggestions[fieldName] || [];
+        const previousActiveBubble = previousBubbles.find((_, idx) => 
+          activeBubbles[fieldName] === idx || 
+          (Array.isArray(activeBubbles[fieldName]) && (activeBubbles[fieldName] as number[]).includes(idx))
+        );
+        
+        // Create a new image bubble for the uploaded file
+        const newImageBubble = {
+          value: file || value,
+          label: file ? file.name : 'Uploaded Image',
+          isImage: true,
+          thumbnailUrl: file ? URL.createObjectURL(file) : value,
+          fullUrl: file ? URL.createObjectURL(file) : value,
+          filename: file ? file.name : 'image.png',
+          size: file ? file.size : 0,
+          hasChanged: true,
+          isNewUpload: true,
+          previousBubble: previousActiveBubble || previousBubbles[0] // Store the previous bubble for undo
+        };
+        
+        // Store the original bubble value for undo functionality
+        if (previousActiveBubble || previousBubbles[0]) {
+          const originalBubble = previousActiveBubble || previousBubbles[0];
+          setOriginalBubbleValues(prev => ({
+            ...prev,
+            [`${fieldName}-0`]: {
+              value: originalBubble.value,
+              label: originalBubble.label,
+              thumbnailUrl: originalBubble.thumbnailUrl,
+              fullUrl: originalBubble.fullUrl,
+              filename: originalBubble.filename,
+              size: originalBubble.size,
+              isImage: true
+            }
+          }));
+        }
+        
+        // Replace existing bubbles with the new one (for single image fields)
+        setFieldSuggestions(prev => ({
+          ...prev,
+          [fieldName]: [newImageBubble]
+        }));
+        
+        // Set as active bubble
+        setActiveBubbles(prev => ({
+          ...prev,
+          [fieldName]: 0
+        }));
+        
+        // Update the preview immediately
+        setImagePreview({
+          fieldName: fieldName,
+          url: newImageBubble.fullUrl
+        });
+        
+        console.log('📸 Created new image bubble for uploaded file:', newImageBubble);
+        return; // Don't process the rest of the logic for file uploads
+      }
+      
+      // If value is empty (user cleared the file), don't do anything special
+      // The normal field update logic will handle it
+      if (!value || (value instanceof FileList && value.length === 0)) {
+        console.log('📸 File field cleared');
+        return;
+      }
+    }
+    
+    // Update active bubble(s) if they exist
+    if (activeBubbles[fieldName] !== undefined) {
+      const activeBubbleIndices = Array.isArray(activeBubbles[fieldName]) 
+        ? activeBubbles[fieldName] as number[]
+        : [activeBubbles[fieldName] as number];
+      
+      // For single-value fields, update the one active bubble
+      if (activeBubbleIndices.length === 1) {
+        const activeBubbleIndex = activeBubbleIndices[0];
+        
+        // Check if the new value would create a duplicate
+        const currentSuggestions = fieldSuggestions[fieldName] || [];
+        const isDuplicate = currentSuggestions.some((sug: any, idx: number) => 
+          idx !== activeBubbleIndex && sug.value === value
+        );
+        
+        if (isDuplicate) {
+          console.log(`⚠️ Cannot update bubble: value "${value}" already exists in another bubble`);
+          
+          // Show warning message
+          const label = (() => {
+            const fieldOptions = dynamicOptions?.[fieldName];
+            if (fieldOptions && value) {
+              const option = fieldOptions.find((opt: any) => opt.value === value);
+              return option ? option.label : value;
+            }
+            return value;
+          })();
+          
+          // Get the original value to revert to
+          const key = `${fieldName}-${activeBubbleIndex}`;
+          const originalValue = originalBubbleValues[key];
+          
+          if (originalValue) {
+            // Revert the bubble to its original value
+            setFieldSuggestions(prev => {
+              const fieldSugs = [...(prev[fieldName] || [])];
+              if (fieldSugs[activeBubbleIndex]) {
+                fieldSugs[activeBubbleIndex] = {
+                  ...fieldSugs[activeBubbleIndex],
+                  value: originalValue.value,
+                  label: originalValue.label,
+                  hasChanged: false
+                };
+              }
+              return {
+                ...prev,
+                [fieldName]: fieldSugs
+              };
+            });
+            
+            // Also revert the field value to the original
+            setValue(fieldName, originalValue.value);
+            
+            // Clean up the original value storage since we've reverted
+            setOriginalBubbleValues(prev => {
+              const newVals = { ...prev };
+              delete newVals[key];
+              return newVals;
+            });
+            
+            setDuplicateWarning({
+              fieldName,
+              message: `"${label}" already exists as a bubble. The value has been reverted to "${originalValue.label}".`
+            });
+          } else {
+            // If no original value stored (shouldn't happen normally), just prevent the update
+            // and revert to the current bubble's value
+            const currentBubble = currentSuggestions[activeBubbleIndex];
+            if (currentBubble) {
+              setValue(fieldName, currentBubble.value);
+              setDuplicateWarning({
+                fieldName,
+                message: `"${label}" already exists as a bubble. The value change was prevented.`
+              });
+            }
+          }
+          
+          // Clear warning after 3 seconds
+          setTimeout(() => {
+            setDuplicateWarning(null);
+          }, 3000);
+          
+          return; // Don't update to duplicate value
+        }
+        
+        setFieldSuggestions(prev => {
+          const fieldSugs = [...(prev[fieldName] || [])];
+          if (fieldSugs[activeBubbleIndex]) {
+            // Get label for the new value
+            let newLabel = value;
+            const fieldOptions = dynamicOptions?.[fieldName];
+            if (fieldOptions && value) {
+              const option = fieldOptions.find((opt: any) => opt.value === value);
+              newLabel = option ? option.label : value;
+            }
+            
+            // Store original value if not already stored
+            const key = `${fieldName}-${activeBubbleIndex}`;
+            if (!originalBubbleValues[key] && !fieldSugs[activeBubbleIndex].hasChanged) {
+              setOriginalBubbleValues(prevOrig => ({
+                ...prevOrig,
+                [key]: { 
+                  value: fieldSugs[activeBubbleIndex].value, 
+                  label: fieldSugs[activeBubbleIndex].label 
+                }
+              }));
+            }
+            
+            // Update the active bubble with new value and label
+            fieldSugs[activeBubbleIndex] = {
+              ...fieldSugs[activeBubbleIndex],
+              value: value,
+              label: String(newLabel),
+              hasChanged: true
+            };
+          }
+          return {
+            ...prev,
+            [fieldName]: fieldSugs
+          };
+        });
+      }
+    }
     
     // Special handling for Google Docs preview
     if (nodeInfo?.type === 'google_docs_action_update_document') {
@@ -2109,6 +2619,9 @@ export default function ConfigurationForm({
     if (fieldName === 'tableName' && nodeInfo?.providerId === 'airtable') {
       console.log('🔍 Airtable tableName changed to:', value);
       
+      // Clear field suggestions when table changes
+      setFieldSuggestions({});
+      
       // For list records, clear any existing preview data when table changes
       if (nodeInfo.type === 'airtable_action_list_records') {
         setShowPreviewData(false);
@@ -2235,11 +2748,137 @@ export default function ConfigurationForm({
     }
     
     // Don't auto-save configuration changes - let user save manually when they click Save or Listen
-  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, checkChannelBotStatus, checkBotInServer, currentNodeId, getWorkflowId, dynamicOptions, setShowPreviewData, setPreviewData, setSelectedRecord, setAirtableRecords, setLoadingRecords, loadAirtableRecords, isLoadingInitialConfig]);
+  }, [nodeInfo, setValue, loadOptions, values, discordIntegration, checkBotStatus, checkChannelBotStatus, checkBotInServer, currentNodeId, getWorkflowId, dynamicOptions, setShowPreviewData, setPreviewData, setSelectedRecord, setAirtableRecords, setLoadingRecords, loadAirtableRecords, isLoadingInitialConfig, activeBubbles, fieldSuggestions, originalBubbleValues]);
   
   /**
    * Handle record selection from the Airtable records table
    */
+  
+  // Helper function to add current field value as suggestion
+  const addFieldValueAsSuggestion = useCallback((fieldName: string) => {
+    const currentValue = values[fieldName];
+    if (!currentValue) return;
+    
+    // Get the label for the current value
+    const fieldOptions = dynamicOptions?.[fieldName];
+    
+    // Check if field is multiple or single value
+    const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
+      table.value === values.tableName
+    );
+    const field = selectedTable?.fields?.find((f: any) => `airtable_field_${f.id}` === fieldName);
+    // Default to allowing multiple if field type can't be determined
+    const isMultiple = field ? (field.type?.includes('multiple') || field.multiple) : true;
+    
+    if (Array.isArray(currentValue)) {
+      // Handle multi-value fields - add all values that aren't already bubbles
+      const newSuggestions = currentValue.map(val => {
+        const option = fieldOptions?.find((opt: any) => opt.value === val);
+        return {
+          value: val,
+          label: option ? option.label : String(val),
+          fieldName: fieldName.replace('airtable_field_', ''),
+          isManual: true
+        };
+      });
+      
+      setFieldSuggestions(prev => {
+        const existing = prev[fieldName] || [];
+        
+        // Filter to only add values not already in bubbles
+        const toAdd = newSuggestions.filter(ns => 
+          !existing.some((s: any) => s.value === ns.value)
+        );
+        
+        if (toAdd.length === 0) {
+          console.log('All values already exist as bubbles');
+          return prev;
+        }
+        
+        // For single-value fields, replace all bubbles
+        if (!isMultiple) {
+          return {
+            ...prev,
+            [fieldName]: [toAdd[0]]
+          };
+        }
+        
+        // For multi-value fields, append new bubbles
+        return {
+          ...prev,
+          [fieldName]: [...existing, ...toAdd]
+        };
+      });
+    } else {
+      // Single value - add it if it doesn't exist
+      const option = fieldOptions?.find((opt: any) => opt.value === currentValue);
+      const label = option ? option.label : String(currentValue);
+      
+      setFieldSuggestions(prev => {
+        const existing = prev[fieldName] || [];
+        const exists = existing.some((s: any) => s.value === currentValue);
+        
+        if (exists) {
+          console.log('Value already exists as a bubble');
+          return prev;
+        }
+        
+        const newSuggestion = {
+          value: currentValue,
+          label: label,
+          fieldName: fieldName.replace('airtable_field_', ''),
+          isManual: true
+        };
+        
+        // For single-value fields, replace all bubbles
+        if (!isMultiple) {
+          return {
+            ...prev,
+            [fieldName]: [newSuggestion]
+          };
+        }
+        
+        // For multi-value fields or when field type is unknown, append
+        return {
+          ...prev,
+          [fieldName]: [...existing, newSuggestion]
+        };
+      });
+    }
+    
+    // Don't auto-activate for multi-value fields
+    if (!isMultiple) {
+      setActiveBubbles(prev => ({
+        ...prev,
+        [fieldName]: 0
+      }));
+    }
+  }, [values, dynamicOptions]);
+  
+  // Add keyboard event handler for Enter key to save suggestions
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const target = e.target as HTMLElement;
+        const fieldName = target.getAttribute('name');
+        
+        // Check if it's an Airtable dynamic field
+        if (fieldName?.startsWith('airtable_field_')) {
+          e.preventDefault();
+          addFieldValueAsSuggestion(fieldName);
+        }
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [addFieldValueAsSuggestion]);
+
   const handleRecordSelect = useCallback((record: any) => {
     console.log('🔍 Record selected:', record);
     setSelectedRecord(record);
@@ -2259,10 +2898,12 @@ export default function ConfigurationForm({
     }
     
     if (tableFields && record.fields) {
-      console.log('🔍 Populating fields from record data:', record.fields);
+      console.log('🔍 Adding field suggestions from record:', record.fields);
       console.log('🔍 Available table fields:', tableFields);
       
-      // Pre-populate dynamic fields with selected record data
+      // Add field values as suggestions instead of directly setting them
+      const newSuggestions: Record<string, any[]> = {};
+      
       tableFields.forEach((tableField: any) => {
         const fieldName = `airtable_field_${tableField.id}`;
         const existingValue = record.fields[tableField.name];
@@ -2290,115 +2931,192 @@ export default function ConfigurationForm({
           fieldType = getAirtableFieldType(tableField.type, isUpdateRecord);
         }
         
-        // Skip file fields as they cannot be programmatically set due to security restrictions
-        if (fieldType === 'file') {
-          console.log(`🔍 Skipping file field ${tableField.name} (cannot pre-populate file inputs)`);
+        // Skip empty values
+        if (existingValue === undefined || existingValue === null) {
           return;
         }
         
-        if (existingValue !== undefined && existingValue !== null) {
-          // Handle different value types
-          let valueToSet = existingValue;
+        // Handle attachment/image fields specially
+        if (fieldType === 'file' || tableField.type === 'multipleAttachments' || tableField.type === 'attachment') {
+          console.log(`🖼️ Processing attachment field ${tableField.name}, type: ${tableField.type}, fieldType: ${fieldType}, value:`, existingValue);
+          
+          // Check if it's an attachment with image data
+          if (Array.isArray(existingValue) && existingValue.length > 0 && existingValue[0]?.url) {
+            // Create image bubbles for attachments
+            const imageSuggestions = existingValue.map((attachment: any) => ({
+              value: attachment.url,
+              label: attachment.filename || 'Image',
+              recordId: record.id,
+              fieldName: tableField.name,
+              isImage: true,
+              thumbnailUrl: attachment.thumbnails?.small?.url || attachment.thumbnails?.large?.url || attachment.url,
+              fullUrl: attachment.thumbnails?.large?.url || attachment.url,
+              filename: attachment.filename,
+              size: attachment.size,
+              type: attachment.type
+            }));
+            
+            console.log(`🖼️ Created image suggestions for ${fieldName}:`, imageSuggestions);
+            
+            // For single-value image fields, only keep one bubble
+            if (!tableField.type?.includes('multiple')) {
+              newSuggestions[fieldName] = [imageSuggestions[0]];
+            } else {
+              newSuggestions[fieldName] = imageSuggestions;
+            }
+            console.log(`🖼️ Created ${imageSuggestions.length} image suggestions for field ${tableField.name} (${fieldName})`);
+          } else {
+            console.log(`🖼️ No valid attachments found for field ${tableField.name}`);
+          }
+          return;
+        }
+        
+        // Create suggestion object with proper display value
+        let suggestionValue = existingValue;
+        let suggestionLabel = existingValue;
+        
+        // For linked records, convert IDs to names
+        const isLinkedField = tableField.type === 'multipleRecordLinks' || 
+                            tableField.type === 'singleRecordLink' || 
+                            tableField.isLinkedRecord;
+        
+        if (isLinkedField && fieldChoices) {
+          // Ensure options are available for mapping
+          const currentOptions = dynamicOptions?.[fieldName] || fieldChoices;
           
           if (Array.isArray(existingValue)) {
-            // For linked records (array of record IDs)
-            if (tableField.type === 'multipleRecordLinks' || tableField.isLinkedRecord) {
-              // Keep as IDs - the select component will handle display
-              valueToSet = existingValue;
-              console.log(`🔍 Linked record field ${tableField.name} with IDs:`, existingValue);
-              
-              // Log available choices for debugging
-              if (fieldChoices && fieldChoices.length > 0) {
-                console.log(`🔍 Available choices for ${tableField.name}:`, fieldChoices.map((c: any) => ({ value: c.value, label: c.label })));
-              } else {
-                console.log(`🔍 No choices available yet for ${tableField.name}`);
-              }
-            } 
-            // For multiple select fields
-            else if (tableField.type === 'multipleSelects' || fieldType === 'select') {
-              // Keep as array for multi-select fields
-              valueToSet = existingValue;
-              console.log(`🔍 Multi-select field ${tableField.name} with values:`, existingValue);
-            }
-            // For other array types
-            else {
-              valueToSet = existingValue;
-              console.log(`🔍 Array field ${tableField.name} with values:`, existingValue);
-            }
-          }
-          // Handle single linked record
-          else if (tableField.type === 'singleRecordLink' && typeof existingValue === 'string') {
-            // Keep as ID - the select component will handle display
-            valueToSet = existingValue;
-            console.log(`🔍 Single linked record field ${tableField.name} with ID:`, existingValue);
-            
-            // Log available choices for debugging
-            if (fieldChoices && fieldChoices.length > 0) {
-              console.log(`🔍 Available choices for ${tableField.name}:`, fieldChoices.map((c: any) => ({ value: c.value, label: c.label })));
-            } else {
-              console.log(`🔍 No choices available yet for ${tableField.name}`);
-            }
-          }
-          // Handle checkbox (boolean)
-          else if (tableField.type === 'checkbox') {
-            valueToSet = existingValue === true || existingValue === 1;
-            console.log(`🔍 Checkbox field ${tableField.name} with value:`, valueToSet);
-          }
-          // Handle date fields
-          else if (tableField.type === 'date' || tableField.type === 'dateTime') {
-            // Ensure proper date format
-            valueToSet = existingValue;
-            console.log(`🔍 Date field ${tableField.name} with value:`, valueToSet);
-          }
-          // Handle number fields
-          else if (tableField.type === 'number' || tableField.type === 'currency' || tableField.type === 'percent') {
-            valueToSet = existingValue;
-            console.log(`🔍 Number field ${tableField.name} with value:`, valueToSet);
-          }
-          // Default handling for text and other fields
-          else {
-            valueToSet = existingValue;
-            console.log(`🔍 Field ${tableField.name} (${tableField.type}) with value:`, valueToSet);
+            // Multiple linked records - create separate suggestions for each
+            const suggestions = existingValue.map((id: string) => {
+              const option = currentOptions.find((opt: any) => opt.value === id);
+              return {
+                value: id,
+                label: option ? option.label : id,
+                recordId: record.id,
+                fieldName: tableField.name
+              };
+            });
+            newSuggestions[fieldName] = suggestions;
+            console.log(`🔍 Created ${suggestions.length} suggestions for linked field ${tableField.name}`);
+          } else {
+            // Single linked record
+            const option = currentOptions.find((opt: any) => opt.value === existingValue);
+            suggestionLabel = option ? option.label : existingValue;
+            newSuggestions[fieldName] = [{
+              value: existingValue,
+              label: suggestionLabel,
+              recordId: record.id,
+              fieldName: tableField.name
+            }];
+            console.log(`🔍 Created suggestion for linked field ${tableField.name}: ${suggestionLabel}`);
           }
           
-          console.log(`🔍 Setting field ${fieldName} to:`, valueToSet);
-          
-          // Use setTimeout to ensure the field is rendered and dynamicOptions are available
-          setTimeout(() => {
-            try {
-              setValue(fieldName, valueToSet);
-              
-              // Trigger change event to ensure UI updates
-              const event = new Event('change', { bubbles: true });
-              const fieldElement = document.querySelector(`[name="${fieldName}"]`);
-              if (fieldElement) {
-                fieldElement.dispatchEvent(event);
-              }
-            } catch (error) {
-              console.warn(`🔍 Failed to pre-populate field ${tableField.name}:`, error);
-            }
-          }, 200);
+          // Make sure dynamic options are loaded for the dropdown
+          if (!dynamicOptions?.[fieldName] && fieldChoices) {
+            setDynamicOptions((prev: any) => ({
+              ...prev,
+              [fieldName]: fieldChoices
+            }));
+          }
+        } else if (Array.isArray(existingValue)) {
+          // Multi-select or array fields - create separate suggestions
+          const suggestions = existingValue.map((val: any) => ({
+            value: val,
+            label: String(val),
+            recordId: record.id,
+            fieldName: tableField.name
+          }));
+          newSuggestions[fieldName] = suggestions;
         } else {
-          // Clear the field if no value in the record
-          console.log(`🔍 Clearing field ${tableField.name} (no value in record)`);
-          setTimeout(() => {
-            setValue(fieldName, '');
-          }, 200);
+          // Single value fields
+          newSuggestions[fieldName] = [{
+            value: existingValue,
+            label: String(existingValue),
+            recordId: record.id,
+            fieldName: tableField.name
+          }];
         }
+      });
+      
+      // Merge new suggestions with existing ones (avoiding duplicates)
+      setFieldSuggestions(prev => {
+        const merged = { ...prev };
+        const originalValues: Record<string, any> = {};
+        
+        Object.entries(newSuggestions).forEach(([fieldName, suggestions]) => {
+          const newSugs = suggestions as any[];
+          
+          // Find the field definition to check if it's single-value
+          const field = tableFields.find((f: any) => `airtable_field_${f.id}` === fieldName);
+          const isMultiple = field?.type?.includes('multiple') || field?.multiple;
+          
+          if (!isMultiple && newSugs.length > 0) {
+            // For single-value fields, only keep one suggestion (replace existing)
+            merged[fieldName] = [newSugs[0]];
+            // Set this as the active bubble
+            setActiveBubbles(prev => ({
+              ...prev,
+              [fieldName]: 0
+            }));
+            // Store original value for undo functionality
+            originalValues[`${fieldName}-0`] = {
+              value: newSugs[0].value,
+              label: newSugs[0].label,
+              thumbnailUrl: newSugs[0].thumbnailUrl,
+              fullUrl: newSugs[0].fullUrl,
+              filename: newSugs[0].filename,
+              size: newSugs[0].size,
+              isImage: newSugs[0].isImage
+            };
+          } else {
+            // For multi-value fields, add new suggestions avoiding duplicates
+            const existing = merged[fieldName] || [];
+            let newIndex = existing.length;
+            newSugs.forEach(newSug => {
+              const isDuplicate = existing.some((existingSug: any) => 
+                existingSug.value === newSug.value
+              );
+              
+              if (!isDuplicate) {
+                merged[fieldName] = [...existing, newSug];
+                // Store original value for each bubble
+                originalValues[`${fieldName}-${newIndex}`] = {
+                  value: newSug.value,
+                  label: newSug.label,
+                  thumbnailUrl: newSug.thumbnailUrl,
+                  fullUrl: newSug.fullUrl,
+                  filename: newSug.filename,
+                  size: newSug.size,
+                  isImage: newSug.isImage
+                };
+                newIndex++;
+              }
+            });
+          }
+        });
+        
+        // Store all original values from the selected record
+        setOriginalBubbleValues(prevOrig => ({
+          ...prevOrig,
+          ...originalValues
+        }));
+        
+        console.log('🔍 Updated field suggestions:', merged);
+        console.log('🔍 Stored original bubble values:', originalValues);
+        return merged;
       });
     } else {
       console.warn('🔍 No table fields or record fields available for population');
     }
-  }, [dynamicOptions, values.tableName, setValue, airtableTableSchema, isUpdateRecord]);
+  }, [dynamicOptions, values.tableName, setValue, airtableTableSchema, isUpdateRecord, setDynamicOptions]);
   
-  // Load linked record options for update record modal
+  // Load linked record options for update and create record modals
   const [linkedFieldsLoaded, setLinkedFieldsLoaded] = useState<Set<string>>(new Set());
   const [lastLoadedTable, setLastLoadedTable] = useState<string>('');
   
   useEffect(() => {
     // Skip automatic loading if we already have table schema with choices
     // The fetchAirtableTableSchema function handles loading linked record options with user-friendly names
-    if (isUpdateRecord && values.tableName && dynamicOptions?.tableName && !airtableTableSchema) {
+    if ((isUpdateRecord || isCreateRecord) && values.tableName && dynamicOptions?.tableName && !airtableTableSchema) {
       // Clear loaded fields if table changed
       if (lastLoadedTable !== values.tableName) {
         setLinkedFieldsLoaded(new Set());
@@ -2432,12 +3150,99 @@ export default function ConfigurationForm({
         });
       }
     }
-  }, [isUpdateRecord, values.tableName, dynamicOptions?.tableName, loadOptions, airtableTableSchema]);
+  }, [isUpdateRecord, isCreateRecord, values.tableName, dynamicOptions?.tableName, loadOptions, airtableTableSchema, values.baseId]);
+  
+  // Update bubble labels when dynamic options are loaded for linked record fields
+  useEffect(() => {
+    if (isCreateRecord && airtableTableSchema?.fields) {
+      // Check all fields that might have bubbles needing label updates
+      Object.keys(fieldSuggestions).forEach(fieldName => {
+        if (!fieldName.startsWith('airtable_field_')) return;
+        
+        const fieldId = fieldName.replace('airtable_field_', '');
+        const tableField = airtableTableSchema.fields.find((f: any) => f.id === fieldId);
+        
+        // Check if this is a linked record field
+        if (tableField?.type === 'multipleRecordLinks' || tableField?.type === 'singleRecordLink') {
+          const dynOptions = dynamicOptions?.[fieldName] || [];
+          
+          if (dynOptions.length > 0) {
+            // Update bubble labels for this field
+            setFieldSuggestions(prev => {
+              const currentSuggestions = prev[fieldName] || [];
+              const updatedSuggestions = currentSuggestions.map((suggestion: any) => {
+                // Find the option with the matching value to get the proper label
+                const option = dynOptions.find((opt: any) => opt.value === suggestion.value);
+                
+                // Check if this label needs updating (is showing an ID instead of name)
+                const isShowingId = suggestion.value === suggestion.label || 
+                                   suggestion.label?.startsWith('rec') ||
+                                   suggestion.needsRefresh || 
+                                   suggestion.label?.startsWith('Loading...') || 
+                                   suggestion.label?.startsWith('Record:');
+                
+                if (option && isShowingId) {
+                  console.log(`🔗 Updating bubble label for ${tableField?.name}: "${suggestion.label}" -> "${option.label}"`);
+                  return {
+                    ...suggestion,
+                    label: option.label,
+                    needsRefresh: false
+                  };
+                } else if (!suggestion.label && option) {
+                  // If label is empty/undefined but we have an option, fix it
+                  console.log(`🔗 Fixing empty label for ${tableField?.name}: setting to "${option.label}"`);
+                  return {
+                    ...suggestion,
+                    label: option.label,
+                    needsRefresh: false
+                  };
+                }
+                
+                return suggestion;
+              });
+              
+              // Only update if something changed
+              const hasChanges = updatedSuggestions.some((updated: any, idx: number) => 
+                updated.label !== currentSuggestions[idx]?.label
+              );
+              
+              if (hasChanges) {
+                return {
+                  ...prev,
+                  [fieldName]: updatedSuggestions
+                };
+              }
+              
+              return prev;
+            });
+          }
+        }
+      });
+    }
+  }, [isCreateRecord, airtableTableSchema, fieldSuggestions, dynamicOptions]);
   
   // Helper function to map Airtable field types to form field types
-  const getAirtableFieldType = (airtableType: string, isUpdate: boolean = false): string => {
+  const getAirtableFieldType = (airtableType: string, isUpdate: boolean = false, fieldName?: string): string => {
+    // Check field name for type hints (consistent with getAirtableFieldTypeFromSchema)
+    if (fieldName) {
+      const lowerFieldName = fieldName.toLowerCase();
+      // Date-related field names should always be date pickers
+      if (lowerFieldName.includes('date') || 
+          lowerFieldName.includes('time') || 
+          lowerFieldName.includes('created') || 
+          lowerFieldName.includes('modified') ||
+          lowerFieldName.includes('updated')) {
+        return 'date';
+      }
+    }
+    
     switch (airtableType) {
       case 'singleLineText':
+        // Check if it should be a date based on field name
+        if (fieldName && fieldName.toLowerCase().includes('date')) {
+          return 'date';
+        }
+        return 'text';
       case 'email':
       case 'url':
       case 'phoneNumber':
@@ -2555,6 +3360,20 @@ export default function ConfigurationForm({
                                tableField.type === 'singleRecordLink' || 
                                tableField.isLinkedRecord;
         
+        // Check if this is a multi-value field
+        // Status fields and singleSelect fields should always be single-select
+        const isStatusField = tableField.name?.toLowerCase() === 'status' || 
+                             tableField.name?.toLowerCase() === 'state';
+        const isSingleSelectType = tableField.type === 'singleSelect' || 
+                                   tableField.type === 'singleRecordLink' ||
+                                   tableField.type === 'date'; // Date fields are always single-value
+        const isMultiValue = !isStatusField && !isSingleSelectType && (
+          tableField.type === 'multipleSelects' || 
+          tableField.type === 'multipleRecordLinks' || 
+          tableField.type === 'multipleAttachments' ||
+          tableField.type === 'multipleCollaborators'
+        );
+        
         return {
           name: fieldName,
           label: tableField.name,
@@ -2564,6 +3383,10 @@ export default function ConfigurationForm({
           placeholder: `Enter ${tableField.name}`,
           // Store the original Airtable field data for the renderer
           airtableField: tableField,
+          // For create record, don't mark any fields as multiple
+          // We handle multi-value through bubbles, not through multi-select dropdown
+          // This ensures the dropdown closes after each selection
+          multiple: isCreateRecord ? false : isMultiValue,
           // Include choices/options if available (same logic as update record)
           options: tableField.choices?.map((choice: any) => ({
             value: choice.value || choice,
@@ -2613,6 +3436,20 @@ export default function ConfigurationForm({
                                  tableField.type === 'singleRecordLink' || 
                                  tableField.isLinkedRecord;
           
+          // Check if this is a multi-value field
+          // Status fields and singleSelect fields should always be single-select
+          const isStatusField = tableField.name?.toLowerCase() === 'status' || 
+                               tableField.name?.toLowerCase() === 'state';
+          const isSingleSelectType = tableField.type === 'singleSelect' || 
+                                     tableField.type === 'singleRecordLink' ||
+                                     tableField.type === 'date'; // Date fields are always single-value
+          const isMultiValue = !isStatusField && !isSingleSelectType && (
+            tableField.type === 'multipleSelects' || 
+            tableField.type === 'multipleRecordLinks' || 
+            tableField.type === 'multipleAttachments' ||
+            tableField.type === 'multipleCollaborators'
+          );
+          
           return {
             name: fieldName,
             label: tableField.name,
@@ -2622,6 +3459,8 @@ export default function ConfigurationForm({
             placeholder: `Enter ${tableField.name}`,
             // Store the original Airtable field data for the renderer
             airtableField: tableField,
+            // Mark field as multiple for multi-value fields
+            multiple: isMultiValue,
             // Include options for both linked and non-linked fields
             options: tableField.choices ? tableField.choices.map((choice: any) => ({
               value: choice.value || choice,
@@ -2666,7 +3505,7 @@ export default function ConfigurationForm({
             return {
               name: `airtable_field_${tableField.id}`,
               label: tableField.name,
-              type: getAirtableFieldType(tableField.type, isUpdateRecord),
+              type: getAirtableFieldType(tableField.type, isUpdateRecord, tableField.name),
               required: tableField.required || false,
               description: tableField.description,
               placeholder: `Enter ${tableField.name}`,
@@ -2856,6 +3695,7 @@ export default function ConfigurationForm({
         {fields.map((field, index) => {
           const fieldKey = `${isDynamic ? 'dynamic' : 'basic'}-field-${(field as any).uniqueId || field.name}-${field.type}-${index}-${nodeInfo?.type || 'unknown'}`;
           const shouldUseAIWrapper = isUpdateRecord && (field.name === 'recordId' || isDynamic);
+          const shouldShowBubbles = isAirtableRecordAction && isDynamic;
           
           // Skip rendering if it's a dynamic section but we shouldn't show dynamic fields
           if (isDynamic && !showDynamicFields) return null;
@@ -2902,6 +3742,478 @@ export default function ConfigurationForm({
                 nodeInfo={nodeInfo}
                 onDynamicLoad={handleDynamicLoad}
               />
+            )}
+            
+            {/* Show inline image preview above the field */}
+            {imagePreview && imagePreview.fieldName === field.name && (
+              <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="text-sm font-medium text-gray-700">Image Preview</h4>
+                  <button
+                    type="button"
+                    onClick={() => setImagePreview(null)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <img 
+                    src={imagePreview.url}
+                    alt="Preview"
+                    className="max-w-full max-h-[400px] object-contain rounded-md shadow-sm"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Show duplicate warning if it exists for this field */}
+            {duplicateWarning && duplicateWarning.fieldName === field.name && (
+              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md flex items-center gap-2">
+                <span className="text-yellow-600">⚠️</span>
+                <span className="text-sm text-yellow-800">{duplicateWarning.message}</span>
+              </div>
+            )}
+            
+            {/* Show field suggestions as bubbles below the field */}
+            {fieldSuggestions[field.name] && fieldSuggestions[field.name].length > 0 && (
+              <div className="mt-2 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {fieldSuggestions[field.name].map((suggestion: any, idx: number) => {
+                    // Check if this bubble is active
+                    const isActive = Array.isArray(activeBubbles[field.name]) 
+                      ? (activeBubbles[field.name] as number[]).includes(idx)
+                      : activeBubbles[field.name] === idx;
+                    
+                    // Check if field supports multiple values
+                    const isMultiple = (field as any).multiple || field.type === 'multiselect';
+                    
+                    // Render image bubble differently
+                    if (suggestion.isImage) {
+                      return (
+                        <div
+                          key={`${field.name}-suggestion-${idx}-${suggestion.value}`}
+                          className={cn(
+                            "group relative rounded-md cursor-pointer transition-all",
+                            isActive 
+                              ? "ring-2 ring-green-400 ring-offset-2" 
+                              : "hover:ring-2 hover:ring-blue-400 hover:ring-offset-2"
+                          )}
+                          onClick={() => {
+                            // Handle active bubble selection
+                            if (isMultiple) {
+                              // Multi-value field - toggle selection
+                              setActiveBubbles(prev => {
+                                const current = Array.isArray(prev[field.name]) ? prev[field.name] as number[] : [];
+                                if (current.includes(idx)) {
+                                  return {
+                                    ...prev,
+                                    [field.name]: current.filter(i => i !== idx)
+                                  };
+                                } else {
+                                  return {
+                                    ...prev,
+                                    [field.name]: [...current, idx]
+                                  };
+                                }
+                              });
+                            } else {
+                              // Single-value field - toggle selection
+                              const currentlyActive = activeBubbles[field.name] === idx;
+                              
+                              if (currentlyActive) {
+                                // Deselect the bubble (but keep the preview)
+                                setActiveBubbles(prev => {
+                                  const newBubbles = { ...prev };
+                                  delete newBubbles[field.name];
+                                  return newBubbles;
+                                });
+                              } else {
+                                // Select the bubble
+                                setActiveBubbles(prev => ({
+                                  ...prev,
+                                  [field.name]: idx
+                                }));
+                                
+                                // Store original value if not already stored
+                                const key = `${field.name}-${idx}`;
+                                if (!originalBubbleValues[key]) {
+                                  setOriginalBubbleValues(prev => ({
+                                    ...prev,
+                                    [key]: { value: suggestion.value, label: suggestion.label }
+                                  }));
+                                }
+                                
+                                // Don't set the field value for image fields to avoid upload notifications
+                                // The actual file will be handled when user uploads a new one
+                              }
+                            }
+                            
+                            // Always show preview when clicking image bubble (regardless of selection state)
+                            setImagePreview({
+                              fieldName: field.name,
+                              url: suggestion.fullUrl || suggestion.thumbnailUrl
+                            });
+                          }}
+                          title={`${suggestion.filename || suggestion.label} ${suggestion.size ? `(${(suggestion.size / 1024).toFixed(1)}KB)` : ''}`}
+                        >
+                          <img 
+                            src={suggestion.thumbnailUrl}
+                            alt={suggestion.label}
+                            className="w-16 h-16 object-cover rounded-md border border-slate-200"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRTJFOEYwIi8+CjxwYXRoIGQ9Ik0yOCA0MEgyMkMxOS43OTA5IDQwIDE4IDM4LjIwOTEgMTggMzZWMjRDMTggMjEuNzkwOSAxOS43OTA5IDIwIDIyIDIwSDQyQzQ0LjIwOTEgMjAgNDYgMjEuNzkwOSA0NiAyNFYzNkM0NiAzOC4yMDkxIDQ0LjIwOTEgNDAgNDIgNDBIMzYiIHN0cm9rZT0iIzk0QTNCOCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPGNpcmNsZSBjeD0iMjYiIGN5PSIyOCIgcj0iMiIgZmlsbD0iIzk0QTNCOCIvPgo8cGF0aCBkPSJNNDYgMzJMMzguNSAyNC41TDI4IDM1IiBzdHJva2U9IiM5NEEzQjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPg==';
+                            }}
+                          />
+                          
+                          {/* Undo button for uploaded images */}
+                          {suggestion.isNewUpload && originalBubbleValues[`${field.name}-${idx}`] && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Revert to the original/previous image
+                                const original = originalBubbleValues[`${field.name}-${idx}`];
+                                setFieldSuggestions(prev => {
+                                  const fieldSugs = [...(prev[field.name] || [])];
+                                  if (fieldSugs[idx]) {
+                                    fieldSugs[idx] = {
+                                      ...original,
+                                      isImage: true,
+                                      hasChanged: false,
+                                      isNewUpload: false
+                                    };
+                                  }
+                                  return { ...prev, [field.name]: fieldSugs };
+                                });
+                                
+                                // Update the preview to show the original image
+                                setImagePreview({
+                                  fieldName: field.name,
+                                  url: original.fullUrl || original.thumbnailUrl || original.value
+                                });
+                                
+                                // Clear the original value storage since we've reverted
+                                setOriginalBubbleValues(prev => {
+                                  const newVals = { ...prev };
+                                  delete newVals[`${field.name}-${idx}`];
+                                  return newVals;
+                                });
+                              }}
+                              className="absolute -bottom-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100 rounded-full p-0.5 shadow-md hover:bg-yellow-200"
+                              title="Undo upload - revert to previous image"
+                            >
+                              <svg className="h-3 w-3 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                              </svg>
+                            </button>
+                          )}
+                          
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              
+                              // Store deleted bubble for undo
+                              const deletedBubble = suggestion;
+                              const wasActive = activeBubbles[field.name] === idx;
+                              setDeletedBubbles(prev => ({
+                                ...prev,
+                                [field.name]: [{
+                                  bubble: deletedBubble,
+                                  index: idx,
+                                  wasActive: wasActive
+                                }, ...(prev[field.name] || [])]
+                              }));
+                              
+                              // Remove this suggestion
+                              setFieldSuggestions(prev => ({
+                                ...prev,
+                                [field.name]: prev[field.name].filter((_: any, i: number) => i !== idx)
+                              }));
+                              // Clear active bubble if this was it
+                              if (activeBubbles[field.name] === idx) {
+                                setActiveBubbles(prev => {
+                                  const newBubbles = { ...prev };
+                                  delete newBubbles[field.name];
+                                  return newBubbles;
+                                });
+                              }
+                            }}
+                            className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-0.5 shadow-md"
+                          >
+                            <X className="h-3 w-3 text-red-500 hover:text-red-700" />
+                          </button>
+                        </div>
+                      );
+                    }
+                    
+                    // Regular text bubble
+                    return (
+                      <div
+                        key={`${field.name}-suggestion-${idx}-${suggestion.value}`}
+                        className={cn(
+                          "group flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer transition-colors",
+                          isActive 
+                            ? "bg-green-100 hover:bg-green-200 border border-green-300" 
+                            : "bg-blue-50 hover:bg-blue-100 border border-blue-200"
+                        )}
+                    onClick={() => {
+                      // Handle active bubble selection
+                      if (isMultiple) {
+                        // Multi-value field - toggle selection
+                        setActiveBubbles(prev => {
+                          const current = Array.isArray(prev[field.name]) ? prev[field.name] as number[] : [];
+                          if (current.includes(idx)) {
+                            // Deselecting - remove from active bubbles
+                            return {
+                              ...prev,
+                              [field.name]: current.filter(i => i !== idx)
+                            };
+                          } else {
+                            // Selecting - add to active bubbles
+                            return {
+                              ...prev,
+                              [field.name]: [...current, idx]
+                            };
+                          }
+                        });
+                        
+                        // Toggle value in field
+                        const currentValue = values[field.name];
+                        const currentArray = Array.isArray(currentValue) ? currentValue : [];
+                        let newValue;
+                        
+                        if (currentArray.includes(suggestion.value)) {
+                          newValue = currentArray.filter(v => v !== suggestion.value);
+                        } else {
+                          newValue = [...currentArray, suggestion.value];
+                        }
+                        handleFieldChange(field.name, newValue, true); // Skip bubble creation when clicking existing bubble
+                      } else {
+                        // Single-value field - toggle selection
+                        const currentlyActive = activeBubbles[field.name] === idx;
+                        
+                        if (currentlyActive) {
+                          // Deselect the bubble (but keep the field value)
+                          setActiveBubbles(prev => {
+                            const newBubbles = { ...prev };
+                            delete newBubbles[field.name];
+                            return newBubbles;
+                          });
+                          
+                          // Don't clear the field value - keep it as is
+                        } else {
+                          // Select the bubble
+                          setActiveBubbles(prev => ({
+                            ...prev,
+                            [field.name]: idx
+                          }));
+                          
+                          // Store original value if not already stored
+                          const key = `${field.name}-${idx}`;
+                          if (!originalBubbleValues[key]) {
+                            setOriginalBubbleValues(prev => ({
+                              ...prev,
+                              [key]: { value: suggestion.value, label: suggestion.label }
+                            }));
+                          }
+                          
+                          // Apply suggestion to field
+                          handleFieldChange(field.name, suggestion.value, true); // Skip bubble creation when clicking existing bubble
+                        }
+                      }
+                    }}
+                        title={`Click to apply: ${suggestion.label}`}
+                      >
+                        <span className={cn(
+                          "text-sm flex items-center gap-1",
+                          isActive ? "text-green-700 font-medium" : "text-blue-700"
+                        )}>
+                          {suggestion.label}
+                          {isActive && !isMultiple && " ✓"}
+                          {isActive && isMultiple && " ✓"}
+                        </span>
+                        
+                        {/* Undo button for changed bubbles */}
+                        {suggestion.hasChanged && originalBubbleValues[`${field.name}-${idx}`] && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Revert to original value
+                              const original = originalBubbleValues[`${field.name}-${idx}`];
+                              setFieldSuggestions(prev => {
+                                const fieldSugs = [...(prev[field.name] || [])];
+                                fieldSugs[idx] = {
+                                  ...fieldSugs[idx],
+                                  value: original.value,
+                                  label: original.label,
+                                  hasChanged: false
+                                };
+                                return {
+                                  ...prev,
+                                  [field.name]: fieldSugs
+                                };
+                              });
+                              
+                              // If this is the active bubble, update the field value
+                              if (isActive) {
+                                handleFieldChange(field.name, original.value, true); // Skip bubble creation when reverting
+                              }
+                            }}
+                            className="text-xs px-1.5 py-0.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded transition-colors"
+                            title="Undo changes"
+                          >
+                            ↺
+                          </button>
+                        )}
+                        
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            
+                            // Store deleted bubble for undo
+                            const deletedBubble = suggestion;
+                            setDeletedBubbles(prev => ({
+                              ...prev,
+                              [field.name]: [{
+                                bubble: deletedBubble,
+                                index: idx,
+                                wasActive: isActive
+                              }, ...(prev[field.name] || [])]
+                            }));
+                            
+                            // Remove this suggestion
+                            setFieldSuggestions(prev => ({
+                              ...prev,
+                              [field.name]: prev[field.name].filter((_: any, i: number) => i !== idx)
+                            }));
+                            // Remove from active bubbles if it was active
+                            if (isActive) {
+                              setActiveBubbles(prev => {
+                                if (isMultiple && Array.isArray(prev[field.name])) {
+                                  return {
+                                    ...prev,
+                                    [field.name]: (prev[field.name] as number[]).filter(i => i !== idx)
+                                  };
+                                } else if (!isMultiple && prev[field.name] === idx) {
+                                  const newBubbles = { ...prev };
+                                  delete newBubbles[field.name];
+                                  return newBubbles;
+                                }
+                                return prev;
+                              });
+                            }
+                            // Clean up original value storage
+                            const key = `${field.name}-${idx}`;
+                            if (originalBubbleValues[key]) {
+                              setOriginalBubbleValues(prev => {
+                                const newVals = { ...prev };
+                                delete newVals[key];
+                                return newVals;
+                              });
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className={cn(
+                            "h-3 w-3",
+                            isActive ? "text-green-600 hover:text-green-800" : "text-blue-600 hover:text-blue-800"
+                          )} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Add current value as bubble button - hide for multi-value fields in create record if using bubbles */}
+                {values[field.name] && !(isCreateRecord && field.name?.startsWith('airtable_field_')) && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addFieldValueAsSuggestion(field.name)}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors"
+                    >
+                      Save current value as suggestion
+                    </button>
+                    <span className="text-xs text-gray-500">or press Enter in the field</span>
+                  </div>
+                )}
+                
+                {/* Show undo deleted bubbles */}
+                {deletedBubbles[field.name] && deletedBubbles[field.name].length > 0 && (
+                  <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">
+                        Recently deleted ({deletedBubbles[field.name].length}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Clear all deleted bubbles for this field
+                          setDeletedBubbles(prev => {
+                            const newDeleted = { ...prev };
+                            delete newDeleted[field.name];
+                            return newDeleted;
+                          });
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {deletedBubbles[field.name].slice(0, 3).map((deleted, delIdx) => (
+                        <button
+                          key={`deleted-${field.name}-${delIdx}`}
+                          type="button"
+                          onClick={() => {
+                            // Restore the deleted bubble
+                            setFieldSuggestions(prev => {
+                              const fieldSugs = [...(prev[field.name] || [])];
+                              // Insert at original position or at end
+                              if (deleted.index < fieldSugs.length) {
+                                fieldSugs.splice(deleted.index, 0, deleted.bubble);
+                              } else {
+                                fieldSugs.push(deleted.bubble);
+                              }
+                              return { ...prev, [field.name]: fieldSugs };
+                            });
+                            
+                            // Restore active state if it was active
+                            if (deleted.wasActive) {
+                              const newIndex = Math.min(deleted.index, (fieldSuggestions[field.name] || []).length);
+                              setActiveBubbles(prev => ({
+                                ...prev,
+                                [field.name]: newIndex
+                              }));
+                            }
+                            
+                            // Remove from deleted list
+                            setDeletedBubbles(prev => ({
+                              ...prev,
+                              [field.name]: prev[field.name].filter((_, i) => i !== delIdx)
+                            }));
+                          }}
+                          className="text-xs px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                          title="Click to restore"
+                        >
+                          ↺ {deleted.bubble.label}
+                        </button>
+                      ))}
+                      {deletedBubbles[field.name].length > 3 && (
+                        <span className="text-xs text-gray-500 px-1">
+                          +{deletedBubbles[field.name].length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             
             {/* Show reaction remover component after messageId field for remove reaction actions */}
@@ -3382,65 +4694,126 @@ export default function ConfigurationForm({
                                             let isLinkedField = false;
                                             let linkedFieldOptions: any[] = [];
                                             
+                                            // First check if the value looks like linked records (contains record IDs)
+                                            const valueContainsRecordIds = (
+                                              (typeof fieldValue === 'string' && fieldValue.startsWith('rec')) ||
+                                              (Array.isArray(fieldValue) && fieldValue.length > 0 && 
+                                               typeof fieldValue[0] === 'string' && fieldValue[0].startsWith('rec'))
+                                            );
+                                            
                                             // Debug: Check what's in the schema
-                                            console.log(`📊 Checking field ${fieldName}:`, {
+                                            console.log(`📊 Preview table - Checking field ${fieldName}:`, {
                                               hasSchema: !!airtableTableSchema?.fields,
                                               schemaFieldCount: airtableTableSchema?.fields?.length,
                                               fieldValue: fieldValue,
                                               fieldValueType: Array.isArray(fieldValue) ? 'array' : typeof fieldValue,
-                                              isRecordId: typeof fieldValue === 'string' && fieldValue.startsWith('rec') ||
-                                                         (Array.isArray(fieldValue) && fieldValue[0]?.startsWith('rec'))
+                                              valueContainsRecordIds,
+                                              firstValue: Array.isArray(fieldValue) ? fieldValue[0] : fieldValue
                                             });
                                             
                                             if (airtableTableSchema?.fields) {
                                               const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
                                               
-                                              console.log(`📊 Found tableField for ${fieldName}:`, {
+                                              // Extra detailed logging for debugging
+                                              console.log(`📊 Preview table - Schema state check:`, {
+                                                schemaExists: !!airtableTableSchema,
+                                                fieldsCount: airtableTableSchema?.fields?.length,
+                                                tableName: airtableTableSchema?.table?.name
+                                              });
+                                              
+                                              console.log(`📊 Preview table - Found tableField for ${fieldName}:`, {
                                                 found: !!tableField,
                                                 type: tableField?.type,
                                                 hasChoices: !!tableField?.choices,
                                                 choicesLength: tableField?.choices?.length,
-                                                isLinkedRecord: tableField?.isLinkedRecord
+                                                isLinkedRecord: tableField?.isLinkedRecord,
+                                                firstChoice: tableField?.choices?.[0],
+                                                allChoices: tableField?.choices
                                               });
                                               
                                               if (tableField && (tableField.type === 'multipleRecordLinks' || 
                                                   tableField.type === 'singleRecordLink' || 
-                                                  tableField.isLinkedRecord)) {
+                                                  tableField.isLinkedRecord ||
+                                                  valueContainsRecordIds)) {
                                                 isLinkedField = true;
                                                 // Get the options with user-friendly names
-                                                linkedFieldOptions = tableField.choices || [];
+                                                // First check if choices are in the tableField, then check dynamicOptions
+                                                const dynamicFieldName = `airtable_field_${tableField.id}`;
                                                 
-                                                console.log(`🔗 List table display - Linked field ${fieldName}:`, {
+                                                // Also check filterValue dynamic options if this is a filter field value
+                                                const filterValueOptions = dynamicOptions['filterValue'];
+                                                
+                                                linkedFieldOptions = tableField.choices || 
+                                                                   dynamicOptions[dynamicFieldName] || 
+                                                                   (fieldName === values.filterField && filterValueOptions) ||
+                                                                   [];
+                                                
+                                                console.log(`🔗 Preview table - Will map linked field ${fieldName}:`, {
+                                                  isLinkedField,
                                                   hasChoices: !!tableField.choices,
-                                                  choicesCount: tableField.choices?.length,
-                                                  firstChoice: tableField.choices?.[0],
-                                                  value: fieldValue
+                                                  hasDynamicOptions: !!dynamicOptions[dynamicFieldName],
+                                                  hasFilterValueOptions: !!(fieldName === values.filterField && filterValueOptions),
+                                                  choicesCount: linkedFieldOptions.length,
+                                                  choices: linkedFieldOptions.slice(0, 3), // Show first 3 for debugging
+                                                  currentValue: fieldValue,
+                                                  willMapValues: true,
+                                                  dynamicFieldName
                                                 });
                                               }
                                             } else {
-                                              console.log(`⚠️ No table schema available for field ${fieldName}`);
+                                              console.log(`⚠️ Preview table - No table schema available for field ${fieldName}`);
                                             }
                                             
                                             // Handle linked record fields - show user-friendly names
-                                            if (isLinkedField && linkedFieldOptions.length > 0) {
+                                            if (isLinkedField) {
                                               let displayValue = '';
                                               
-                                              if (Array.isArray(fieldValue)) {
-                                                // Multiple linked records - map IDs to names
-                                                const mappedNames = fieldValue.map((id: string) => {
-                                                  const option = linkedFieldOptions.find((opt: any) => opt.value === id);
-                                                  return option ? option.label : id;
-                                                });
-                                                displayValue = mappedNames.join(', ');
-                                              } else if (fieldValue) {
-                                                // Single linked record
-                                                const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
-                                                displayValue = option ? option.label : String(fieldValue);
+                                              console.log(`🔍 Processing linked field ${fieldName} with ${linkedFieldOptions.length} options`);
+                                              console.log(`🔍 Field value to map:`, fieldValue);
+                                              console.log(`🔍 Available options:`, linkedFieldOptions);
+                                              
+                                              if (linkedFieldOptions.length > 0) {
+                                                // We have choices, map IDs to names
+                                                if (Array.isArray(fieldValue)) {
+                                                  // Multiple linked records - map IDs to names
+                                                  const mappedNames = fieldValue.map((id: string) => {
+                                                    const option = linkedFieldOptions.find((opt: any) => {
+                                                      const matches = opt.value === id || opt.id === id;
+                                                      if (!matches) {
+                                                        console.log(`❌ No match for ${id} against option:`, opt);
+                                                      }
+                                                      return matches;
+                                                    });
+                                                    const mappedName = option ? option.label : id;
+                                                    console.log(`🔗 Mapping ${id} to ${mappedName}`, { option, found: !!option });
+                                                    return mappedName;
+                                                  });
+                                                  displayValue = mappedNames.join(', ');
+                                                } else if (fieldValue) {
+                                                  // Single linked record
+                                                  const option = linkedFieldOptions.find((opt: any) => {
+                                                    const matches = opt.value === fieldValue || opt.id === fieldValue;
+                                                    if (!matches) {
+                                                      console.log(`❌ No match for ${fieldValue} against option:`, opt);
+                                                    }
+                                                    return matches;
+                                                  });
+                                                  displayValue = option ? option.label : String(fieldValue);
+                                                  console.log(`🔗 Single value mapping ${fieldValue} to ${displayValue}`, { option, found: !!option });
+                                                }
+                                              } else if (valueContainsRecordIds) {
+                                                // No choices available but we know these are record IDs
+                                                // Just show the IDs for now
+                                                console.log(`⚠️ No choices available for linked field ${fieldName}, showing IDs`);
+                                                if (Array.isArray(fieldValue)) {
+                                                  displayValue = fieldValue.join(', ');
+                                                } else {
+                                                  displayValue = String(fieldValue);
+                                                }
                                               }
                                               
                                               return (
-                                                <div className="text-xs text-blue-700 text-center h-full flex items-center justify-center gap-1">
-                                                  <span className="text-blue-600" title="Linked record">🔗</span>
+                                                <div className="text-xs text-slate-900 text-center h-full flex items-center justify-center">
                                                   <span className="block truncate" title={displayValue}>
                                                     {displayValue || '—'}
                                                   </span>
@@ -3821,13 +5194,10 @@ export default function ConfigurationForm({
                                   
                                   console.log(`🔗 Final display value for ${fieldName}:`, displayValue);
                                   
-                                  // Show with special styling for linked records
+                                  // Display linked records with regular styling (no special blue text or icon)
                                   displayContent = (
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-blue-600" title="Linked record">🔗</span>
-                                      <div className="truncate text-blue-700" title={displayValue}>
-                                        {displayValue || '-'}
-                                      </div>
+                                    <div className="truncate" title={displayValue}>
+                                      {displayValue || '-'}
                                     </div>
                                   );
                                 } else {
@@ -4067,7 +5437,29 @@ export default function ConfigurationForm({
             );
             const fieldDef = selectedTable?.fields?.find((f: any) => f.id === fieldId);
             
-            if (fieldDef && value !== undefined && value !== null && value !== '') {
+            // For create record, aggregate active bubble values
+            if (nodeInfo?.type === 'airtable_action_create_record' && fieldSuggestions[key]) {
+              const activeBubblesForField = activeBubbles[key];
+              if (activeBubblesForField !== undefined) {
+                const suggestions = fieldSuggestions[key];
+                let aggregatedValue;
+                
+                if (Array.isArray(activeBubblesForField)) {
+                  // Multi-value field - collect all active bubble values
+                  aggregatedValue = activeBubblesForField.map(idx => suggestions[idx]?.value).filter(v => v !== undefined);
+                } else if (typeof activeBubblesForField === 'number') {
+                  // Single-value field - get the active bubble value
+                  aggregatedValue = suggestions[activeBubblesForField]?.value;
+                }
+                
+                if (aggregatedValue !== undefined && (Array.isArray(aggregatedValue) ? aggregatedValue.length > 0 : aggregatedValue !== '')) {
+                  if (fieldDef) {
+                    airtableFields[fieldDef.name] = aggregatedValue;
+                  }
+                }
+              }
+            } else if (fieldDef && value !== undefined && value !== null && value !== '') {
+              // Keep the value as-is (record IDs for linked fields, which is what Airtable API expects)
               airtableFields[fieldDef.name] = value;
             }
           } else {

@@ -39,6 +39,7 @@ interface ComboboxProps {
   disabled?: boolean;
   creatable?: boolean;
   onOpenChange?: (open: boolean) => void;
+  selectedValues?: string[]; // Values that already have bubbles/are selected
 }
 
 interface MultiComboboxProps {
@@ -51,6 +52,7 @@ interface MultiComboboxProps {
   disabled?: boolean;
   creatable?: boolean;
   onOpenChange?: (open: boolean) => void;
+  selectedValues?: string[]; // Values that already have bubbles/are selected
 }
 
 export interface HierarchicalComboboxOption {
@@ -88,6 +90,7 @@ export function Combobox({
   disabled,
   creatable = false,
   onOpenChange,
+  selectedValues = [],
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   
@@ -261,7 +264,7 @@ export function Combobox({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
+                      value === option.value || selectedValues.includes(option.value) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col">
@@ -309,6 +312,7 @@ export function MultiCombobox({
   disabled,
   creatable = false,
   onOpenChange,
+  selectedValues = [],
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
@@ -473,7 +477,7 @@ export function MultiCombobox({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value.includes(option.value) ? "opacity-100" : "opacity-0"
+                      value.includes(option.value) || selectedValues.includes(option.value) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col">
