@@ -203,7 +203,7 @@ export class IntegrationService {
    * Load data for a specific integration (e.g., Gmail labels, Discord guilds)
    */
   static async loadIntegrationData(
-    providerId: string, 
+    dataType: string, 
     integrationId: string, 
     params?: Record<string, any>, 
     forceRefresh = false
@@ -214,18 +214,18 @@ export class IntegrationService {
     const url = `/api/integrations/fetch-user-data`
     const requestBody = {
       integrationId,
-      dataType: providerId,
+      dataType: dataType,
       options: params,
       forceRefresh,
     }
 
     console.log(`🔍 [Integration Service] Loading data:`, {
-      providerId,
+      dataType,
       integrationId,
       params,
       forceRefresh,
       requestBody,
-      message: `About to make API call with dataType: ${providerId}`
+      message: `About to make API call with dataType: ${dataType}`
     })
 
 
@@ -246,7 +246,7 @@ export class IntegrationService {
       console.error(`❌ [Integration Service] HTTP error: ${status} ${statusText}`, {
         status,
         statusText,
-        providerId,
+        dataType,
         integrationId,
         requestBody,
         url
@@ -261,7 +261,7 @@ export class IntegrationService {
       }
       
       // Try to read the error response
-      let errorMessage = `Failed to load ${providerId} data: ${status} ${statusText}`
+      let errorMessage = `Failed to load ${dataType} data: ${status} ${statusText}`
       
       try {
         const errorText = await response.text()

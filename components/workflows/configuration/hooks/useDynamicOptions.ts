@@ -1209,6 +1209,9 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
     google_docs_action_update_document: {
       documentId: "google-docs-documents",
     },
+    google_docs_action_share_document: {
+      documentId: "google-docs-documents",
+    },
     google_docs_action_get_document: {
       documentId: "google-docs-documents",
     },
@@ -1216,6 +1219,9 @@ function getResourceTypeForField(fieldName: string, nodeType: string): string | 
       documentId: "google-docs-documents",
     },
     google_docs_trigger_document_modified: {
+      documentId: "google-docs-documents",
+    },
+    google_docs_trigger_document_updated: {
       documentId: "google-docs-documents",
     },
     // Airtable fields

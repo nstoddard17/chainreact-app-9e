@@ -135,11 +135,16 @@ Tests should be written using Jest and React Testing Library when implementing n
 
 ## Documentation Requirements
 
+**⚠️ IMPORTANT REMINDER**: You MUST update documentation after EVERY significant change or feature implementation.
+
 When implementing significant features, fixes, or architectural changes, ALWAYS update the `/learning` directory with:
 - Implementation walkthroughs for complex fixes in `/learning/walkthroughs/`
 - Architecture documentation in `/learning/docs/`
 - Update changelog in `/learning/logs/CHANGELOG.md`
-- Update social media summary in `/learning/logs/socialMedia.md` (add new posts at the top with proper dates)
+- **Update social media summary in `/learning/logs/socialMedia.md` - YOU HAVE NOT BEEN DOING THIS CONSISTENTLY!**
+  - Add new posts at the top with proper dates
+  - Include brief summary of changes made
+  - This is REQUIRED for tracking progress and communication
 - Component templates in `/learning/templates/` if creating reusable patterns
 
 This ensures knowledge is captured for future development work and team collaboration.
@@ -246,6 +251,16 @@ When implementing dependent fields that show "Loading options..." when their par
 - **setTimeout** with 10ms prevents flickering and ensures loading state is visible
 - **finally block** ensures loading state is cleared even if loading fails
 - This pattern works for any parent-child field relationship (e.g., filterField→filterValue, baseId→tableName)
+
+## Field Implementation Guide
+
+**IMPORTANT**: When creating or modifying fields for workflow actions/triggers, ALWAYS consult `/learning/docs/field-implementation-guide.md` for the complete checklist. Missing steps (especially field mappings) cause runtime errors.
+
+Key areas to check:
+1. Field definition in `availableNodes.ts`
+2. **Field mapping in `useDynamicOptions.ts` (CRITICAL - often missed!)**
+3. Backend handler implementation and registration
+4. Action handler using the field value
 
 ## Security Considerations
 
