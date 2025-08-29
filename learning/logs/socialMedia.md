@@ -2,6 +2,18 @@
 
 *Latest updates are added at the top with proper dates*
 
+## August 29, 2025 - Google Docs Integration Overhaul
+
+Completely revamped our Google Docs workflow integration. The old system had inconsistent field configurations - some actions had document previews, others didn't. Some had proper dropdowns, others were broken. We standardized everything so all Google Docs actions (update, share, export) now work identically with document selection, preview functionality, and proper backend routing.
+
+The biggest fix was discovering that field mappings were missing for certain actions, causing "Unsupported data type" errors. Created comprehensive documentation for field implementation to prevent this issue in the future. Now when you're building document workflows, everything just works - select a document, preview it, share it with specific permissions, and it all executes flawlessly.
+
+## August 29, 2025 - Created Field Implementation Guide
+
+After repeatedly hitting the same issues with missing field mappings and incomplete implementations, we created a comprehensive guide for implementing workflow fields. This documents the entire flow from UI definition to backend execution, including all the easy-to-miss steps like dynamic field mappings and handler registration.
+
+This guide will save hours of debugging time by ensuring fields are implemented completely the first time. It covers dynamic dropdowns, dependent fields, conditional visibility, and all the backend wiring needed to make fields actually work in production workflows.
+
 ## August 22, 2025 - Making Email Fields Actually Work
 
 We completely rebuilt how email fields work in our workflow builder. The old system was basically broken - dropdowns wouldn't close properly, scrolling was weird, and selecting multiple emails was a nightmare. We threw it all out and built something that actually works like normal web dropdowns should.

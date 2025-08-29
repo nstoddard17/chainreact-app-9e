@@ -6320,7 +6320,37 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs-documents", required: true, placeholder: "Select a document to export" },
+      {
+        name: "documentId",
+        label: "Document",
+        type: "select",
+        dynamic: "google-docs-documents",
+        required: true,
+        placeholder: "Select a document from your Google Docs",
+        description: "Choose from your Google Docs documents"
+      },
+      {
+        name: "previewDocument",
+        label: "Preview Document",
+        type: "button-toggle",
+        defaultValue: "false",
+        options: [
+          { value: "false", label: "Hide Preview" },
+          { value: "true", label: "Show Preview" }
+        ],
+        description: "Toggle to show a read-only preview of the document's first 10 lines"
+      },
+      {
+        name: "documentPreview",
+        label: "Document Preview",
+        type: "textarea",
+        required: false,
+        placeholder: "Document preview will appear here...",
+        description: "Read-only preview of the document content",
+        rows: 10,
+        disabled: true,
+        conditional: { field: "previewDocument", value: "true" }
+      },
       { name: "exportFormat", label: "Export Format", type: "select", required: true, defaultValue: "pdf", options: [
         { value: "pdf", label: "PDF" },
         { value: "docx", label: "Microsoft Word (.docx)" },

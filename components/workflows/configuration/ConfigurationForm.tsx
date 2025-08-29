@@ -2359,7 +2359,8 @@ export default function ConfigurationForm({
     
     // Special handling for Google Docs preview
     if (nodeInfo?.type === 'google_docs_action_update_document' || 
-        nodeInfo?.type === 'google_docs_action_share_document') {
+        nodeInfo?.type === 'google_docs_action_share_document' ||
+        nodeInfo?.type === 'google_docs_action_export_document') {
       // When preview toggle is enabled or document changes while preview is on
       if ((fieldName === 'previewDocument' && value === 'true') || 
           (fieldName === 'documentId' && values.previewDocument === 'true')) {
