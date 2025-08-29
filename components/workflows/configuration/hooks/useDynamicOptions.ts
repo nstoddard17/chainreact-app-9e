@@ -664,6 +664,79 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           filterField: dependsOnValue 
         });
         
+        // Check if this is a linked record field based on field name patterns
+        // Since the API is failing, we'll detect based on common naming patterns
+        let isLinkedRecordField = false;
+        let linkedTableName = '';
+        
+        // Common patterns for linked record fields
+        const linkedFieldPatterns = [
+          'associated', 'linked', 'related', 'project', 'task', 'feedback', 
+          'user', 'assignee', 'customer', 'client', 'owner', 'created by'
+        ];
+        
+        const fieldNameLower = dependsOnValue.toLowerCase();
+        const mightBeLinkedField = linkedFieldPatterns.some(pattern => fieldNameLower.includes(pattern));
+        
+        if (mightBeLinkedField) {
+          // First, do a quick check on the actual data to see if it contains record IDs
+          const recordsResponse = await fetch('/api/integrations/airtable/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              dataType: 'airtable_records',
+              options: {
+                baseId,
+                tableName,
+                maxRecords: 5 // Just check a few records
+              }
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+
+          if (recordsResponse.ok) {
+            const recordsResult = await recordsResponse.json();
+            const sampleRecords = recordsResult.data || [];
+            
+            // Check if the field contains record IDs (starting with 'rec')
+            if (sampleRecords.length > 0) {
+              const sampleValue = sampleRecords[0].fields?.[dependsOnValue];
+              if (sampleValue) {
+                const isRecordId = (val: any) => typeof val === 'string' && val.startsWith('rec');
+                
+                if (Array.isArray(sampleValue)) {
+                  isLinkedRecordField = sampleValue.some(isRecordId);
+                } else {
+                  isLinkedRecordField = isRecordId(sampleValue);
+                }
+              }
+            }
+          }
+          
+          if (isLinkedRecordField) {
+            // Try to guess the linked table name
+            if (fieldNameLower.includes('project')) {
+              linkedTableName = 'Projects';
+            } else if (fieldNameLower.includes('task')) {
+              linkedTableName = 'Tasks';
+            } else if (fieldNameLower.includes('feedback')) {
+              linkedTableName = 'Feedback';
+            } else if (fieldNameLower.includes('user') || fieldNameLower.includes('assignee')) {
+              linkedTableName = 'Users';
+            } else if (fieldNameLower.includes('customer') || fieldNameLower.includes('client')) {
+              linkedTableName = 'Customers';
+            } else {
+              // Default: try plural form of the field name
+              const baseName = dependsOnValue.replace(/^(associated|linked|related)\s*/i, '');
+              linkedTableName = baseName.replace(/s?$/, 's');
+            }
+            console.log('🔍 [useDynamicOptions] Detected linked record field based on data, will fetch from table:', linkedTableName);
+          }
+        }
+        
         // Use the same approach as preview records to get field values
         try {
           const recordsResponse = await fetch('/api/integrations/airtable/data', {
@@ -694,7 +767,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           console.log('🔍 [useDynamicOptions] Records loaded for field values extraction:', records.length);
           
           // Extract unique values from the selected field
-          const fieldValues = new Set<string>();
+          const fieldValues = new Map<string, string>(); // Use Map to store value -> label
+          const recordIds = new Set<string>(); // Track unique record IDs for linked fields
           
           records.forEach(record => {
             const value = record.fields?.[dependsOnValue];
@@ -704,31 +778,103 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 // Multi-select or linked records - add each item
                 value.forEach(item => {
                   if (typeof item === 'string') {
-                    fieldValues.add(item);
+                    if (isLinkedRecordField && item.startsWith('rec')) {
+                      // This is a linked record ID
+                      recordIds.add(item);
+                    } else {
+                      fieldValues.set(item, item);
+                    }
                   } else if (typeof item === 'object' && item.name) {
-                    fieldValues.add(item.name); // For linked records
+                    fieldValues.set(item.id || item.name, item.name);
                   } else {
-                    fieldValues.add(String(item));
+                    const strValue = String(item);
+                    fieldValues.set(strValue, strValue);
                   }
                 });
               } else if (typeof value === 'object' && value.name) {
                 // Single linked record
-                fieldValues.add(value.name);
+                fieldValues.set(value.id || value.name, value.name);
               } else {
                 // Simple field types (text, number, etc.)
-                fieldValues.add(String(value));
+                const strValue = String(value);
+                if (isLinkedRecordField && strValue.startsWith('rec')) {
+                  // This is a linked record ID
+                  recordIds.add(strValue);
+                } else {
+                  fieldValues.set(strValue, strValue);
+                }
               }
             }
           });
           
-          console.log('🔍 [useDynamicOptions] Extracted unique field values:', Array.from(fieldValues));
+          // If we have linked record IDs, fetch their names
+          if (isLinkedRecordField && recordIds.size > 0 && linkedTableName) {
+            console.log('🔍 [useDynamicOptions] Fetching names for linked records:', Array.from(recordIds));
+            
+            try {
+              const linkedResponse = await fetch('/api/integrations/airtable/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  integrationId: integration.id,
+                  dataType: 'airtable_records',
+                  options: {
+                    baseId,
+                    tableName: linkedTableName,
+                    maxRecords: 100
+                  }
+                })
+              });
+              
+              if (linkedResponse.ok) {
+                const linkedResult = await linkedResponse.json();
+                const linkedRecords = linkedResult.data || [];
+                
+                console.log(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table`);
+                
+                // Find the best field to use for display
+                let displayField: string | null = null;
+                if (linkedRecords.length > 0) {
+                  const sampleFields = Object.keys(linkedRecords[0].fields || {});
+                  
+                  // Priority order for finding display field
+                  displayField = sampleFields.find(field => 
+                    field.toLowerCase().includes('name') || 
+                    field.toLowerCase().includes('title')
+                  ) || sampleFields.find(field => 
+                    field.toLowerCase().includes('id') && 
+                    !field.toLowerCase().includes('created') && 
+                    !field.toLowerCase().includes('modified')
+                  ) || sampleFields[0];
+                  
+                  console.log(`🔍 Using field "${displayField}" for display names`);
+                }
+                
+                // Map record IDs to their display names
+                linkedRecords.forEach(record => {
+                  if (recordIds.has(record.id) && displayField) {
+                    const displayValue = record.fields[displayField];
+                    if (displayValue) {
+                      fieldValues.set(record.id, String(displayValue));
+                    }
+                  }
+                });
+              }
+            } catch (error) {
+              console.warn('⚠️ [useDynamicOptions] Could not fetch linked record names:', error);
+              // Fall back to using record IDs
+              recordIds.forEach(id => fieldValues.set(id, id));
+            }
+          }
+          
+          console.log('🔍 [useDynamicOptions] Extracted unique field values:', Array.from(fieldValues.entries()));
           
           // Format as field value options
-          const valueOptions = Array.from(fieldValues)
-            .sort() // Sort alphabetically
-            .map(value => ({
+          const valueOptions = Array.from(fieldValues.entries())
+            .sort((a, b) => a[1].localeCompare(b[1])) // Sort by label alphabetically
+            .map(([value, label]) => ({
               value: value,
-              label: value
+              label: label
             }));
           
           console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: valueOptions.length });
@@ -869,7 +1015,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     loading,
     isInitialLoading,
     loadOptions,
-    resetOptions
+    resetOptions,
+    setDynamicOptions
   };
 };
 
@@ -1233,7 +1380,6 @@ function formatOptionsForField(fieldName: string, data: any): { value: string; l
       return data.map((item: any) => ({
         value: item.id || item.value,  // Keep ID as value for API calls
         label: item.name || item.label || item.id,  // Show name in UI
-        description: item.description || item.permissionLevel,
       }));
       
     case "tableName":
