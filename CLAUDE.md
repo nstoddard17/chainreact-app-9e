@@ -142,7 +142,9 @@ When implementing significant features, fixes, or architectural changes, ALWAYS 
 - Architecture documentation in `/learning/docs/`
 - Update changelog in `/learning/logs/CHANGELOG.md`
 - **Update social media summary in `/learning/logs/socialMedia.md` - YOU HAVE NOT BEEN DOING THIS CONSISTENTLY!**
-  - Add new posts at the top with proper dates
+  - Add new entries at the top
+  - Use date headers (e.g., "## August 29, 2025") only ONCE per day
+  - If multiple updates on the same day, add them to the existing date section
   - Include brief summary of changes made
   - This is REQUIRED for tracking progress and communication
 - Component templates in `/learning/templates/` if creating reusable patterns
@@ -252,8 +254,9 @@ When implementing dependent fields that show "Loading options..." when their par
 - **finally block** ensures loading state is cleared even if loading fails
 - This pattern works for any parent-child field relationship (e.g., filterField→filterValue, baseId→tableName)
 
-## Field Implementation Guide
+## Workflow Implementation Guides
 
+### Field Implementation Guide
 **IMPORTANT**: When creating or modifying fields for workflow actions/triggers, ALWAYS consult `/learning/docs/field-implementation-guide.md` for the complete checklist. Missing steps (especially field mappings) cause runtime errors.
 
 Key areas to check:
@@ -261,6 +264,22 @@ Key areas to check:
 2. **Field mapping in `useDynamicOptions.ts` (CRITICAL - often missed!)**
 3. Backend handler implementation and registration
 4. Action handler using the field value
+
+### Action/Trigger Implementation Guide
+**CRITICAL**: When implementing new workflow actions or triggers, ALWAYS follow `/learning/docs/action-trigger-implementation-guide.md` to ensure complete end-to-end functionality and uniform structure.
+
+Essential steps that MUST be completed:
+1. Define node in `availableNodes.ts` with all fields and schemas
+2. Create action handler function with proper error handling
+3. **Register handler in `executeNode.ts` (OFTEN MISSED!)**
+4. Add field mappings for ALL dynamic fields
+5. Implement and register data handlers for dropdowns
+6. Handle special UI behavior if needed
+7. Test complete flow from UI to execution
+
+⚠️ **WARNING**: Missing ANY of these steps will cause runtime failures. The guides ensure uniform structure across all workflow nodes.
+
+📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
 ## Security Considerations
 
