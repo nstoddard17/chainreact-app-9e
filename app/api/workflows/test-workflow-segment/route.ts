@@ -2,7 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 // Import execution functions from the main execute route
 async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[], context: any): Promise<any> {

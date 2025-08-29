@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Copy, ExternalLink, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { getWebhookUrl, getEnvironmentName, isDevelopment, isProduction } from '@/lib/utils/getBaseUrl'
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 
 interface WebhookConfigurationPanelProps {

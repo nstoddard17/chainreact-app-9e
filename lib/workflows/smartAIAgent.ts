@@ -5,7 +5,7 @@
  * all user-fillable fields based on upstream context, replicating n8n's AI Agent functionality.
  */
 
-import { ALL_NODE_COMPONENTS } from './availableNodes';
+import { ALL_NODE_COMPONENTS } from './nodes';
 
 export interface FieldSchema {
   name: string;

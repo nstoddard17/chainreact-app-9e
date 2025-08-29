@@ -5,7 +5,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 export interface WebhookConfig {
   id: string

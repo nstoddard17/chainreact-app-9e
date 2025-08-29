@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Database, Variable } from "lucide-react";
-import { NodeField } from "@/lib/workflows/availableNodes";
+import { NodeField } from "@/lib/workflows/nodes";
 import VariablePicker from "../../VariablePicker";
 
 interface EnhancedFileInputProps {

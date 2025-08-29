@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 interface WebhookTriggerConfig {

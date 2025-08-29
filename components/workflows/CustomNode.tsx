@@ -2,7 +2,7 @@
 
 import React, { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { Settings, Trash2, TestTube, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
