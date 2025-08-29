@@ -10,7 +10,7 @@ import { DiscordReactionRemover } from "./fields/discord/DiscordReactionRemover"
 import { DiscordReactionSelector } from "./fields/discord/DiscordReactionSelector";
 import { useFormState } from "./hooks/useFormState";
 import { useDynamicOptions } from "./hooks/useDynamicOptions";
-import { NodeComponent } from "@/lib/workflows/availableNodes";
+import { NodeComponent } from "@/lib/workflows/nodes";
 import { ConfigFormProps } from "./utils/types";
 import { shouldHideField } from "./utils/validation";
 import { ScrollArea } from "@/components/ui/scroll-area";

@@ -3,7 +3,7 @@
 import { useReducer, useCallback, useEffect } from 'react';
 import { FormState, FormAction } from '../utils/types';
 import { validateAllRequiredFields } from '../utils/validation';
-import { NodeComponent } from '@/lib/workflows/availableNodes';
+import { NodeComponent } from '@/lib/workflows/nodes';
 
 /**
  * Form state reducer function

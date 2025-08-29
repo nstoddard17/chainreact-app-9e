@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes';
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
 
 export async function GET() {
   const supabase = createAdminClient();

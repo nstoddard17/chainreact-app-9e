@@ -396,7 +396,7 @@ export default function AIAgentConfigModal({
     if (!inputNodeData) return []
     
     // Get the node component definition to access its output schema
-    const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+    const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/nodes")
     const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === inputNodeData.data?.type)
     
     // Use the node's outputSchema if available, otherwise fall back to trigger outputs
@@ -502,7 +502,7 @@ export default function AIAgentConfigModal({
                                 const iconPath = integrationIcons[integrationId as keyof typeof integrationIcons]
                                 
                                 // Check if this node produces output
-                                const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                                const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/nodes")
                                 const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
                                 const producesOutput = nodeComponent?.producesOutput
                                 
@@ -873,7 +873,7 @@ export default function AIAgentConfigModal({
                         <>
                           {(() => {
                             // Check if we're using outputSchema (dynamic) vs trigger outputs (hardcoded)
-                            const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                            const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/nodes")
                             const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === inputNodeData?.data?.type)
                             const usingOutputSchema = nodeComponent?.outputSchema && nodeComponent.outputSchema.length > 0
                             
@@ -1245,7 +1245,7 @@ export default function AIAgentConfigModal({
               {config.inputNodeId && (
                 (() => {
                   const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-                  const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                  const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/nodes")
                   const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
                   const producesOutput = nodeComponent?.producesOutput
                   

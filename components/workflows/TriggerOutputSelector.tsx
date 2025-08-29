@@ -30,7 +30,7 @@ import {
   Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 
 interface TriggerOutputSelectorProps {
   workflowData?: { nodes: any[], edges: any[] }

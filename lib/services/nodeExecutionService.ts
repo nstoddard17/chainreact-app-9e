@@ -1,4 +1,4 @@
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { TriggerNodeHandlers } from "./executionHandlers/triggerHandlers"
 import { ActionNodeHandlers } from "./executionHandlers/actionHandlers"
 import { IntegrationNodeHandlers } from "./executionHandlers/integrationHandlers"

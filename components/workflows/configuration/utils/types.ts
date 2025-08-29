@@ -1,4 +1,4 @@
-import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
+import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/nodes"
 
 /**
  * Common configuration modal props interface

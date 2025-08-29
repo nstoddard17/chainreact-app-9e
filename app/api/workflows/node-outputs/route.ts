@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 export async function GET(request: Request) {
   try {

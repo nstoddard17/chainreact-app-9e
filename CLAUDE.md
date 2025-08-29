@@ -281,6 +281,27 @@ Essential steps that MUST be completed:
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
+## Code Refactoring Guide
+
+**CRITICAL**: When refactoring large files or modules, ALWAYS follow `/learning/docs/refactoring-guide.md` to ensure proper cleanup of legacy code and maintain functionality.
+
+The refactoring guide covers:
+- Pre-refactoring dependency analysis and type safety checks
+- Step-by-step migration process for large files (especially those >1000 lines)
+- Critical checks for import paths, handler registrations, and field mappings
+- Common pitfalls and their solutions
+- Post-refactoring validation steps
+- Specific patterns for splitting node definitions and extracting handlers
+
+Key reminders when refactoring:
+1. **Never delete the original file** until all imports are updated
+2. **Always update handler registrations** in executeNode.ts, route files, etc.
+3. **Verify dynamic field mappings** in useDynamicOptions.ts still work
+4. **Run build and lint** after each major refactoring step
+5. **Document lessons learned** in the refactoring guide for future use
+
+This is especially important for files like `availableNodes.ts` which has grown to 8000+ lines and requires systematic refactoring to maintain code quality and developer productivity.
+
 ## Security Considerations
 
 - Never log or expose access tokens

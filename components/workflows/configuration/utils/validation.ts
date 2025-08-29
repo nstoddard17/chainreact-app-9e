@@ -1,4 +1,4 @@
-import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
+import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/nodes"
 
 /**
  * Validates if a field is required and has a value
