@@ -38,6 +38,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());
   const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
+  const abortControllers = useRef<Map<string, AbortController>>(new Map());
+  const optionsCache = useRef<Record<string, any>>({});
   
   // Cache key generator
   const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
@@ -70,6 +72,14 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     
     // Create a cache key that includes dependencies
     const cacheKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
+    
+    // Cancel any existing request for this field before starting a new one
+    const existingController = abortControllers.current.get(cacheKey);
+    if (existingController) {
+      console.log('🚫 [loadOptions] Cancelling existing request for:', { fieldName, cacheKey });
+      existingController.abort();
+      abortControllers.current.delete(cacheKey);
+    }
     
     // Check if there's already an active request for this exact field/dependency combination
     const activeRequestKey = cacheKey;
@@ -120,6 +130,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
+    
+    // Create AbortController for this request
+    const abortController = new AbortController();
+    abortControllers.current.set(cacheKey, abortController);
     
     // Create and store the loading promise to prevent duplicate requests
     const loadingPromise = (async () => {
@@ -381,6 +395,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               dataType: 'airtable_tables',
               options: { baseId }
             }),
+            signal: abortController.signal
           });
           
           if (!tablesResponse.ok) {
@@ -438,7 +453,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 maxRecords: 100
               }
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: abortController.signal
           });
 
           if (!recordsResponse.ok) {
@@ -594,7 +609,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 maxRecords: 5 // Just need a few records to get field names
               }
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: abortController.signal,
           });
 
           if (!recordsResponse.ok) {
@@ -700,7 +715,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 maxRecords: 5 // Just check a few records
               }
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: abortController.signal,
           });
 
           if (recordsResponse.ok) {
@@ -759,7 +774,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 maxRecords: 100 // Get more records to capture more unique values
               }
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: abortController.signal,
           });
 
           if (!recordsResponse.ok) {
@@ -929,7 +944,28 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         ...updateObject
       }));
       
+      // Clear loading state on successful completion
+      loadingFields.current.delete(cacheKey);
+      setLoading(false);
+      
+      // Only clear loading states if not in silent mode
+      if (!silent) {
+        if (fieldName === 'tableName') {
+          console.log('✅ [loadOptions] Successfully loaded tableName, clearing loading state');
+        }
+        onLoadingChangeRef.current?.(fieldName, false);
+      }
+      
     } catch (error: any) {
+      // Check if the error was due to abort
+      if (error.name === 'AbortError') {
+        console.log('🚫 [loadOptions] Request aborted for:', { fieldName, cacheKey });
+        // Don't update state or clear loading for aborted requests
+        // The loading state should persist until the new request completes
+        loadingFields.current.delete(cacheKey); // Only remove from tracking
+        return;
+      }
+      
       // Get the integration if available for error logging
       const currentIntegration = getIntegrationByProvider(providerId);
       
@@ -946,25 +982,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         ...prev,
         [fieldName]: []
       }));
-      } finally {
-        loadingFields.current.delete(cacheKey);
-        setLoading(false);
-        
-        // Only clear loading states if not in silent mode
-        if (!silent) {
-          // Enhanced logging for channelId loading state
-          if (fieldName === 'channelId') {
-            console.log('🔄 [loadOptions] Setting channelId loading to FALSE:', { cacheKey, timestamp: new Date().toISOString() });
-          }
-          
-          onLoadingChangeRef.current?.(fieldName, false);
-        } else {
-          // Silent mode - just log completion
-          if (fieldName === 'channelId') {
-            console.log('🔕 [loadOptions] Completed channelId loading silently:', { cacheKey, timestamp: new Date().toISOString() });
-          }
-        }
+      
+      // Only clear loading state for non-abort errors
+      loadingFields.current.delete(cacheKey);
+      setLoading(false);
+      
+      // Only clear loading states if not in silent mode
+      if (!silent) {
+        onLoadingChangeRef.current?.(fieldName, false);
       }
+    } finally {
+      // Only perform cleanup if not aborted
+      // This is handled in the catch block now
+    }
     })();
     
     // Store the promise to prevent duplicate requests
@@ -980,10 +1010,29 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   
   // Clear all options when node type changes
   useEffect(() => {
+    console.log('🔄 [useDynamicOptions] Node type or provider changed, clearing all state', { nodeType, providerId });
+    
+    // Abort all active fetch requests
+    abortControllers.current.forEach((controller, key) => {
+      console.log('🚫 [useDynamicOptions] Aborting fetch request:', key);
+      controller.abort();
+    });
+    abortControllers.current.clear();
+    
+    // Cancel all active requests
+    activeRequests.current.forEach((promise, key) => {
+      console.log('🚫 [useDynamicOptions] Cancelling active request:', key);
+    });
+    
+    // Clear everything
     setDynamicOptions({});
     loadingFields.current.clear();
     activeRequests.current.clear();
     setLoading(false);
+    setIsInitialLoading(false);
+    
+    // Also clear any cached options
+    optionsCache.current = {};
   }, [nodeType, providerId]);
 
   // Preload independent fields when modal opens
@@ -1017,6 +1066,30 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         setIsInitialLoading(false);
       });
     }
+    
+    // Cleanup function when component unmounts
+    return () => {
+      console.log('🧹 [useDynamicOptions] Component unmounting, cleaning up...');
+      
+      // Abort all active fetch requests
+      abortControllers.current.forEach((controller, key) => {
+        console.log('🚫 [useDynamicOptions] Aborting fetch on unmount:', key);
+        controller.abort();
+      });
+      abortControllers.current.clear();
+      
+      // Cancel all active requests
+      activeRequests.current.forEach((promise, key) => {
+        console.log('🚫 [useDynamicOptions] Cancelling request on unmount:', key);
+      });
+      
+      // Clear all state
+      loadingFields.current.clear();
+      activeRequests.current.clear();
+      optionsCache.current = {};
+      setLoading(false);
+      setIsInitialLoading(false);
+    };
   }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
   
   return {
