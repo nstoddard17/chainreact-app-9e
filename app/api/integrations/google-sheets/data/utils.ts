@@ -21,7 +21,7 @@ export async function createGoogleSheetsClient(integration: GoogleSheetsIntegrat
   const oauth2Client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-sheets/callback`
+    `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
   )
 
   oauth2Client.setCredentials({
@@ -61,7 +61,7 @@ export async function createGoogleDriveClient(integration: GoogleSheetsIntegrati
   const oauth2Client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google-sheets/callback`
+    `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/google/callback`
   )
 
   oauth2Client.setCredentials({
