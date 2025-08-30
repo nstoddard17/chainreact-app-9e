@@ -170,6 +170,10 @@ export default function ConfigurationForm({
   const [scrollProgress, setScrollProgress] = useState(0);
   const [tableDisplayCount, setTableDisplayCount] = useState(10); // Default to show 10 records
   const [tableSearchQuery, setTableSearchQuery] = useState(''); // Search query for filtering
+  const [googleSheetsSortField, setGoogleSheetsSortField] = useState<string | null>(null);
+  const [googleSheetsSortDirection, setGoogleSheetsSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [googleSheetsSelectedRows, setGoogleSheetsSelectedRows] = useState<Set<string>>(new Set());
+  const [googleSheetsHasHeaders, setGoogleSheetsHasHeaders] = useState(true);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({}); // Validation errors for required fields
   const [channelBotStatus, setChannelBotStatus] = useState<{ 
     isInChannel: boolean; 
@@ -2018,18 +2022,42 @@ export default function ConfigurationForm({
   /**
    * Load preview data for Google Sheets update record
    */
-  const loadGoogleSheetsPreviewData = useCallback(async (spreadsheetId: string, sheetName: string) => {
+  const loadGoogleSheetsPreviewData = useCallback(async (spreadsheetId: string, sheetName: string, hasHeaders: boolean = true) => {
     try {
+      console.log('🔍 Starting Google Sheets preview data load');
+      console.log('📋 Available integrations:', integrations.map(i => ({ id: i.id, provider: i.provider, status: i.status })));
       setLoadingPreview(true);
-      const integration = getIntegrationByProvider('google');
+      
+      // Find any Google-related integration
+      const googleIntegration = integrations.find(i => 
+        i.provider?.includes('google') || 
+        i.provider === 'gmail'
+      );
+      
+      if (googleIntegration) {
+        console.log('✅ Found Google integration:', googleIntegration);
+      }
+      
+      // Try multiple provider names that Google services might use
+      const integration = getIntegrationByProvider('google-sheets') || 
+                         getIntegrationByProvider('google') || 
+                         getIntegrationByProvider('gmail') ||
+                         googleIntegration;
+                         
       if (!integration) {
-        console.warn('No Google Sheets integration found');
+        console.error('❌ No Google Sheets integration found');
+        console.error('Tried providers: google-sheets, google, gmail');
+        console.error('Available providers:', integrations.map(i => i.provider));
+        alert('No Google Sheets integration found. Please connect your Google account first.');
         return;
       }
       
       console.log('🔍 Loading Google Sheets records for preview:', { 
+        integrationId: integration.id,
         spreadsheetId, 
-        sheetName
+        sheetName,
+        status: integration.status,
+        hasHeaders
       });
       
       // Call the Google Sheets data API endpoint
@@ -2044,32 +2072,37 @@ export default function ConfigurationForm({
           options: {
             spreadsheetId,
             sheetName,
-            maxRows: 100, // Limit preview to 100 rows
-            includeHeaders: true
+            maxRows: 50, // Reduced initial load for better performance
+            includeHeaders: hasHeaders
           }
         })
       });
 
+      console.log('📡 Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ API Error:', errorData);
         throw new Error(errorData.error || `Failed to load preview data: ${response.status}`);
       }
 
       const result = await response.json();
       const records = result.data || [];
 
-      console.log('🔍 Google Sheets records loaded for preview:', records);
-      console.log('🔍 Total record count:', records?.length || 0);
+      console.log('✅ Google Sheets records loaded for preview:', records);
+      console.log('📊 Total record count:', records?.length || 0);
       setPreviewData(records || []);
       setShowPreviewData(true);
-    } catch (error) {
-      console.error('Error loading Google Sheets preview data:', error);
+    } catch (error: any) {
+      console.error('❌ Error loading Google Sheets preview data:', error);
+      console.error('Stack trace:', error.stack);
+      alert(`Failed to load sheet data: ${error.message}`);
       setPreviewData([]);
       setShowPreviewData(true); // Still show preview area to display error message
     } finally {
       setLoadingPreview(false);
     }
-  }, [getIntegrationByProvider]);
+  }, [getIntegrationByProvider, integrations]);
 
   /**
    * Test configuration handler
@@ -3049,10 +3082,14 @@ export default function ConfigurationForm({
     if (fieldName === 'action' && nodeInfo?.providerId === 'google-sheets') {
       const previousAction = values.action;
       
-      // Clear preview data
+      // Clear preview data and Google Sheets specific state
       setSelectedRecord(null);
       setPreviewData([]);
       setShowPreviewData(false);
+      setTableSearchQuery('');
+      setGoogleSheetsSortField(null);
+      setGoogleSheetsSortDirection('asc');
+      setGoogleSheetsSelectedRows(new Set());
       
       // Clear update-specific fields when changing from update
       if (previousAction === 'update') {
@@ -4230,14 +4267,43 @@ export default function ConfigurationForm({
           
           // Special handling for Google Sheets data preview field
           if (field.type === 'google_sheets_data_preview' && nodeInfo?.providerId === 'google-sheets') {
-            // Only show for update action
-            if (values.action !== 'update') return null;
+            // Show for update action, or delete action when column_value is selected
+            if (values.action === 'update') {
+              // Show for update
+            } else if (values.action === 'delete' && values.deleteRowBy === 'column_value') {
+              // Show for delete by column value
+            } else {
+              return null;
+            }
+            
+            // Filter and sort the data
+            let filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+            
+            // Apply sorting if a field is selected
+            if (googleSheetsSortField && filteredData.length > 0) {
+              filteredData = [...filteredData].sort((a, b) => {
+                const aVal = a.fields?.[googleSheetsSortField] || '';
+                const bVal = b.fields?.[googleSheetsSortField] || '';
+                
+                const comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
+                return googleSheetsSortDirection === 'asc' ? comparison : -comparison;
+              });
+            }
+            
+            // Apply pagination
+            const displayCount = tableDisplayCount === -1 ? filteredData.length : tableDisplayCount;
+            const paginatedData = filteredData.slice(0, displayCount);
             
             return (
               <div key={fieldKey} className="mt-6 space-y-4">
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-600 mb-3">
-                    Select a row from the sheet to update. The fields will be populated with the current values.
+                    {values.action === 'update' 
+                      ? "Select a row from the sheet to update. The fields will be populated with the current values."
+                      : values.action === 'delete'
+                      ? "View your sheet data to select columns and values for deletion."
+                      : "Preview your sheet data."
+                    }
                   </p>
                   <div className="flex items-center gap-3">
                     <Button
@@ -4248,7 +4314,7 @@ export default function ConfigurationForm({
                           setShowPreviewData(false);
                           setPreviewData([]);
                         } else {
-                          loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName);
+                          loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName, googleSheetsHasHeaders);
                         }
                       }}
                       disabled={loadingPreview}
@@ -4261,16 +4327,10 @@ export default function ConfigurationForm({
                       )}
                       {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Rows' : 'Show Rows'}
                     </Button>
-                    {showPreviewData && previewData.length > 0 && (
-                      <div className="text-sm text-slate-600">
-                        {selectedRecord ? (
-                          <span className="font-medium text-blue-600">
-                            Selected: Row {selectedRecord.rowNumber} - {selectedRecord.label}
-                          </span>
-                        ) : (
-                          <span>Click a row to select it</span>
-                        )}
-                      </div>
+                    {showPreviewData && googleSheetsSelectedRows.size > 0 && (
+                      <span className="text-sm text-slate-600 font-medium">
+                        {googleSheetsSelectedRows.size} row{googleSheetsSelectedRows.size !== 1 ? 's' : ''} selected
+                      </span>
                     )}
                   </div>
                 </div>
@@ -4280,86 +4340,265 @@ export default function ConfigurationForm({
                   <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
                     <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-sm font-medium text-slate-900">
-                            Select Row: {values.sheetName}
+                            {values.action === 'update' ? 'Select Row: ' : 'Sheet Data: '}{values.sheetName}
                           </h3>
                           <p className="text-xs text-slate-600">
-                            {previewData.length} row{previewData.length !== 1 ? 's' : ''} • Click to select
-                            {selectedRecord && (
-                              <span className="ml-2 text-blue-600">Selected: Row {selectedRecord.rowNumber}</span>
+                            {filteredData.length} row{filteredData.length !== 1 ? 's' : ''} 
+                            {tableSearchQuery ? 'found' : 'total'}
+                            {values.action === 'update' && (
+                              <> • {googleSheetsSelectedRows.size > 0 ? `${googleSheetsSelectedRows.size} selected` : 'Click to select'}</>
                             )}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setShowPreviewData(false);
-                            setPreviewData([]);
-                          }}
-                          className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        
+                        {/* Search and Controls */}
+                        <div className="flex items-center gap-2">
+                          {/* Has Headers Toggle */}
+                          <label className="flex items-center gap-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={googleSheetsHasHeaders}
+                              onChange={(e) => {
+                                const newHasHeaders = e.target.checked;
+                                setGoogleSheetsHasHeaders(newHasHeaders);
+                                // Reload data with new headers setting if preview is showing
+                                if (showPreviewData && values.spreadsheetId && values.sheetName) {
+                                  loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName, newHasHeaders);
+                                }
+                              }}
+                              className="rounded border-slate-300"
+                            />
+                            <span className="text-slate-600">Has Headers</span>
+                          </label>
+                          
+                          {/* Search Input */}
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Search..."
+                              value={tableSearchQuery}
+                              onChange={(e) => setTableSearchQuery(e.target.value)}
+                              className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 w-32"
+                            />
+                            {tableSearchQuery && (
+                              <button
+                                onClick={() => setTableSearchQuery('')}
+                                className="absolute right-1 top-1/2 transform -translate-y-1/2 p-0.5 hover:bg-slate-100 rounded"
+                              >
+                                <X className="h-3 w-3 text-slate-400" />
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* Display Count Selector */}
+                          <select
+                            value={tableDisplayCount}
+                            onChange={(e) => setTableDisplayCount(Number(e.target.value))}
+                            className="text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value={10}>10 rows</option>
+                            <option value={25}>25 rows</option>
+                            <option value={50}>50 rows</option>
+                            <option value={100}>100 rows</option>
+                            <option value={-1}>All rows</option>
+                          </select>
+                          
+                          {/* Select All/None */}
+                          {paginatedData.length > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (googleSheetsSelectedRows.size === paginatedData.length) {
+                                  setGoogleSheetsSelectedRows(new Set());
+                                } else {
+                                  setGoogleSheetsSelectedRows(new Set(paginatedData.map(r => r.id)));
+                                }
+                              }}
+                              className="text-xs px-2 py-1"
+                            >
+                              {googleSheetsSelectedRows.size === paginatedData.length ? 'Deselect All' : 'Select All'}
+                            </Button>
+                          )}
+                          
+                          {/* Close Button */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowPreviewData(false);
+                              setPreviewData([]);
+                              setTableSearchQuery('');
+                              setGoogleSheetsSelectedRows(new Set());
+                            }}
+                            className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     
                     <div>
-                      {previewData.length > 0 ? (
+                      {filteredData.length > 0 ? (
                         <>
-                          <div className="update-record-table-container max-h-96 overflow-auto">
+                          {/* Table with reduced height - shows 4-5 rows before scroll */}
+                          <div className="update-record-table-container overflow-auto" style={{ maxHeight: '200px' }}>
                             <table className="w-full">
                               <thead className="bg-slate-50 sticky top-0 z-10">
                                 <tr>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase">
-                                    Row
+                                  {/* Checkbox Column */}
+                                  <th className="px-2 py-2 text-left">
+                                    <input
+                                      type="checkbox"
+                                      checked={googleSheetsSelectedRows.size === paginatedData.length && paginatedData.length > 0}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setGoogleSheetsSelectedRows(new Set(paginatedData.map(r => r.id)));
+                                        } else {
+                                          setGoogleSheetsSelectedRows(new Set());
+                                        }
+                                      }}
+                                      className="rounded border-slate-300"
+                                    />
                                   </th>
-                                  {previewData[0]?.fields && Object.keys(previewData[0].fields).slice(0, 5).map((fieldName) => (
-                                    <th key={fieldName} className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase truncate max-w-[150px]">
-                                      {fieldName}
-                                    </th>
-                                  ))}
-                                  {previewData[0]?.fields && Object.keys(previewData[0].fields).length > 5 && (
+                                  
+                                  {/* Row Number Column with Sort */}
+                                  <th 
+                                    className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase cursor-pointer hover:bg-slate-100"
+                                    onClick={() => {
+                                      if (googleSheetsSortField === 'rowNumber') {
+                                        setGoogleSheetsSortDirection(googleSheetsSortDirection === 'asc' ? 'desc' : 'asc');
+                                      } else {
+                                        setGoogleSheetsSortField('rowNumber');
+                                        setGoogleSheetsSortDirection('asc');
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      Row
+                                      {googleSheetsSortField === 'rowNumber' && (
+                                        <span className="text-blue-600">
+                                          {googleSheetsSortDirection === 'asc' ? '↑' : '↓'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </th>
+                                  
+                                  {/* Data Columns with Sort */}
+                                  {paginatedData[0]?.fields && Object.keys(paginatedData[0].fields).slice(0, 5).map((fieldName, index) => {
+                                    // Convert index to column letter (A, B, C, etc.)
+                                    const columnLetter = String.fromCharCode(65 + index);
+                                    const displayName = googleSheetsHasHeaders ? fieldName : columnLetter;
+                                    
+                                    return (
+                                      <th 
+                                        key={fieldName} 
+                                        className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase truncate max-w-[150px] cursor-pointer hover:bg-slate-100 resize-x overflow-auto"
+                                        onClick={() => {
+                                          if (googleSheetsSortField === fieldName) {
+                                            setGoogleSheetsSortDirection(googleSheetsSortDirection === 'asc' ? 'desc' : 'asc');
+                                          } else {
+                                            setGoogleSheetsSortField(fieldName);
+                                            setGoogleSheetsSortDirection('asc');
+                                          }
+                                        }}
+                                        style={{ minWidth: '100px' }}
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          {displayName}
+                                          {googleSheetsSortField === fieldName && (
+                                            <span className="text-blue-600">
+                                              {googleSheetsSortDirection === 'asc' ? '↑' : '↓'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                  {paginatedData[0]?.fields && Object.keys(paginatedData[0].fields).length > 5 && (
                                     <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase">
-                                      +{Object.keys(previewData[0].fields).length - 5} more
+                                      +{Object.keys(paginatedData[0].fields).length - 5} more
                                     </th>
                                   )}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-200">
-                                {previewData.map((record: any) => {
+                                {paginatedData.map((record: any) => {
                                   const isSelected = selectedRecord?.id === record.id;
+                                  const isChecked = googleSheetsSelectedRows.has(record.id);
                                   return (
                                     <tr
                                       key={record.id}
-                                      onClick={() => {
+                                      className={`selectable-row transition-colors hover:bg-blue-50 ${
+                                        isSelected ? 'bg-blue-100' : isChecked ? 'bg-blue-50' : ''
+                                      }`}
+                                      onDoubleClick={() => {
+                                        const newSelected = new Set(googleSheetsSelectedRows);
+                                        if (newSelected.has(record.id)) {
+                                          newSelected.delete(record.id);
+                                        } else {
+                                          newSelected.add(record.id);
+                                        }
+                                        setGoogleSheetsSelectedRows(newSelected);
+                                        
+                                        // Also set as selected record for field population
                                         setSelectedRecord(record);
                                         setValue('updateRowNumber', record.rowNumber);
-                                        // Populate the update fields with current values
                                         if (record.fields) {
                                           Object.entries(record.fields).forEach(([fieldName, value]) => {
-                                            // Set the field values for the column mapper
                                             const fieldKey = `updateMapping.${fieldName}`;
                                             setValue(fieldKey, value);
                                           });
                                         }
                                       }}
-                                      className={`selectable-row cursor-pointer transition-colors hover:bg-blue-50 ${
-                                        isSelected ? 'bg-blue-100' : ''
-                                      }`}
                                     >
-                                      <td className="px-3 py-2 text-sm font-medium text-slate-900">
+                                      {/* Checkbox Cell */}
+                                      <td className="px-2 py-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            e.stopPropagation();
+                                            const newSelected = new Set(googleSheetsSelectedRows);
+                                            if (e.target.checked) {
+                                              newSelected.add(record.id);
+                                            } else {
+                                              newSelected.delete(record.id);
+                                            }
+                                            setGoogleSheetsSelectedRows(newSelected);
+                                          }}
+                                          className="rounded border-slate-300"
+                                        />
+                                      </td>
+                                      
+                                      {/* Row Number Cell */}
+                                      <td className={`px-3 py-2 text-sm font-medium cursor-pointer ${
+                                        isSelected ? 'text-slate-900' : isChecked ? 'text-slate-800' : 'text-slate-700'
+                                      }`}>
                                         {record.rowNumber}
                                       </td>
+                                      
+                                      {/* Data Cells */}
                                       {Object.entries(record.fields || {}).slice(0, 5).map(([fieldName, value]: [string, any]) => (
-                                        <td key={fieldName} className="px-3 py-2 text-sm text-slate-700 truncate max-w-[150px]">
+                                        <td 
+                                          key={fieldName} 
+                                          className={`px-3 py-2 text-sm truncate max-w-[150px] cursor-pointer ${
+                                            isSelected ? 'text-slate-900' : isChecked ? 'text-slate-800' : 'text-slate-700'
+                                          }`}
+                                        >
                                           {String(value || '')}
                                         </td>
                                       ))}
                                       {Object.keys(record.fields || {}).length > 5 && (
-                                        <td className="px-3 py-2 text-sm text-slate-500 italic">
+                                        <td className={`px-3 py-2 text-sm italic ${
+                                          isSelected ? 'text-slate-700' : isChecked ? 'text-slate-600' : 'text-slate-500'
+                                        }`}>
                                           ...
                                         </td>
                                       )}
@@ -4369,13 +4608,478 @@ export default function ConfigurationForm({
                               </tbody>
                             </table>
                           </div>
+                          
+                          {/* Pagination Info */}
+                          {filteredData.length > paginatedData.length && (
+                            <div className="px-3 py-2 border-t border-slate-200 bg-slate-50 text-xs text-slate-600">
+                              Showing {paginatedData.length} of {filteredData.length} rows
+                              {tableDisplayCount !== -1 && (
+                                <button
+                                  onClick={() => setTableDisplayCount(-1)}
+                                  className="ml-2 text-blue-600 hover:text-blue-700 underline"
+                                >
+                                  Show all
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="p-8 text-center text-slate-500">
                           <Database className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                          <p className="text-sm">No rows found in this sheet</p>
+                          <p className="text-sm">
+                            {tableSearchQuery ? 'No rows match your search' : 'No rows found in this sheet'}
+                          </p>
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Column Update Fields - Different UI for single vs multiple rows */}
+                {showPreviewData && googleSheetsSelectedRows.size > 0 && values.action === 'update' && (
+                  <div className="mt-4 space-y-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                      {googleSheetsSelectedRows.size === 1 ? (
+                        // Single Row Selected - Show all columns as editable fields
+                        (() => {
+                          // Get the selected row data
+                          const selectedRowId = Array.from(googleSheetsSelectedRows)[0];
+                          const selectedRowData = previewData.find((row: any) => row.id === selectedRowId);
+                          
+                          if (!selectedRowData) return null;
+                          
+                          return (
+                            <div className="space-y-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-slate-700 mb-3">
+                                  Update Row {selectedRowData.rowNumber}
+                                </h3>
+                                <p className="text-xs text-slate-500 mb-4">
+                                  Edit the fields below. Only modified fields will be updated.
+                                </p>
+                              </div>
+                              
+                              {/* Display all columns as individual fields */}
+                              <div className="space-y-3">
+                                {Object.entries(selectedRowData.fields || {}).map(([columnName, currentValue]) => {
+                                  // Detect field type based on value characteristics
+                                  const isImageUrl = typeof currentValue === 'string' && 
+                                    (currentValue.startsWith('http') && 
+                                     (currentValue.includes('.jpg') || currentValue.includes('.jpeg') || 
+                                      currentValue.includes('.png') || currentValue.includes('.gif') || 
+                                      currentValue.includes('.webp') || currentValue.includes('.svg')));
+                                  
+                                  const isUrl = typeof currentValue === 'string' && 
+                                    (currentValue.startsWith('http://') || currentValue.startsWith('https://'));
+                                  
+                                  const isEmail = typeof currentValue === 'string' && 
+                                    currentValue.includes('@') && currentValue.includes('.');
+                                  
+                                  const isBoolean = typeof currentValue === 'boolean' || 
+                                    (typeof currentValue === 'string' && 
+                                     (currentValue.toLowerCase() === 'true' || currentValue.toLowerCase() === 'false'));
+                                  
+                                  const isNumber = typeof currentValue === 'number' || 
+                                    (typeof currentValue === 'string' && !isNaN(Number(currentValue)) && currentValue !== '');
+                                  
+                                  const isDate = typeof currentValue === 'string' && 
+                                    !isNaN(Date.parse(currentValue)) && 
+                                    (currentValue.includes('-') || currentValue.includes('/'));
+                                  
+                                  // Check if it looks like a dropdown value (has specific patterns)
+                                  const possibleDropdownValues = ['Active', 'Inactive', 'Pending', 'Completed', 'Yes', 'No', 'High', 'Medium', 'Low'];
+                                  const isDropdown = typeof currentValue === 'string' && 
+                                    possibleDropdownValues.includes(currentValue);
+                                  
+                                  return (
+                                    <div key={columnName}>
+                                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        {googleSheetsHasHeaders ? columnName : `Column ${columnName}`}
+                                      </label>
+                                      
+                                      {/* Image field */}
+                                      {isImageUrl ? (
+                                        <div className="space-y-2">
+                                          <div className="border border-slate-200 rounded-md p-2 bg-white">
+                                            <img 
+                                              src={String(currentValue)} 
+                                              alt={columnName}
+                                              className="max-h-32 max-w-full object-contain"
+                                              onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                              }}
+                                            />
+                                          </div>
+                                          <div className="relative">
+                                            <input
+                                              type="url"
+                                              value={values[`column_${columnName}`] !== undefined 
+                                                ? values[`column_${columnName}`] 
+                                                : String(currentValue || '')}
+                                              onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                              placeholder="Enter image URL or drag a variable"
+                                              className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                                            />
+                                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                              </svg>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : isBoolean ? (
+                                        // Boolean field - show as toggle/checkbox
+                                        <div className="flex items-center space-x-3">
+                                          <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={values[`column_${columnName}`] !== undefined 
+                                                ? values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true
+                                                : currentValue === 'true' || currentValue === true}
+                                              onChange={(e) => setValue(`column_${columnName}`, e.target.checked.toString())}
+                                              className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            <span className="ml-3 text-sm text-slate-600">
+                                              {values[`column_${columnName}`] !== undefined 
+                                                ? (values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true ? 'True' : 'False')
+                                                : (currentValue === 'true' || currentValue === true ? 'True' : 'False')}
+                                            </span>
+                                          </label>
+                                        </div>
+                                      ) : isDropdown ? (
+                                        // Dropdown field - show as select
+                                        <div className="relative">
+                                          <select
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '')}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          >
+                                            <option value={String(currentValue)}>{String(currentValue)}</option>
+                                            {possibleDropdownValues
+                                              .filter(v => v !== String(currentValue))
+                                              .map(option => (
+                                                <option key={option} value={option}>{option}</option>
+                                              ))}
+                                            <option value="">Clear value</option>
+                                          </select>
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      ) : isDate ? (
+                                        // Date field
+                                        <div className="relative">
+                                          <input
+                                            type="date"
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '').split('T')[0]}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          />
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      ) : isEmail ? (
+                                        // Email field
+                                        <div className="relative">
+                                          <input
+                                            type="email"
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '')}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            placeholder="Enter email or drag a variable"
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          />
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      ) : isNumber ? (
+                                        // Number field
+                                        <div className="relative">
+                                          <input
+                                            type="number"
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '')}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            placeholder="Enter number or drag a variable"
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          />
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      ) : isUrl ? (
+                                        // URL field (non-image)
+                                        <div className="relative">
+                                          <input
+                                            type="url"
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '')}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            placeholder="Enter URL or drag a variable"
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          />
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        // Default text field
+                                        <div className="relative">
+                                          <input
+                                            type="text"
+                                            value={values[`column_${columnName}`] !== undefined 
+                                              ? values[`column_${columnName}`] 
+                                              : String(currentValue || '')}
+                                            onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
+                                            placeholder="Enter new value or drag a variable"
+                                            className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                          />
+                                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        // Multiple Rows Selected - Show column selector for bulk update
+                        <div className="space-y-4">
+                          <div>
+                            <h3 className="text-sm font-medium text-slate-700 mb-2">
+                              Bulk Update {googleSheetsSelectedRows.size} Rows
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4">
+                              Select columns to update. The same value will be applied to all selected rows.
+                            </p>
+                          </div>
+                          
+                          {/* Column Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                              Which column do you want to modify?
+                            </label>
+                            <select
+                              value={values.columnToUpdate || ''}
+                              onChange={(e) => setValue('columnToUpdate', e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Select a column...</option>
+                              {previewData[0]?.fields && Object.keys(previewData[0].fields).map((columnName) => (
+                                <option key={columnName} value={columnName}>
+                                  {googleSheetsHasHeaders ? columnName : `Column ${columnName}`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          {/* Value Input Field - Show after column selection */}
+                          {values.columnToUpdate && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-2">
+                                New value for {googleSheetsHasHeaders ? values.columnToUpdate : `Column ${values.columnToUpdate}`}
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={values[`updateValue_${values.columnToUpdate}`] || ''}
+                                  onChange={(e) => setValue(`updateValue_${values.columnToUpdate}`, e.target.value)}
+                                  placeholder="Enter new value or drag a variable from the right panel"
+                                  className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                This value will be applied to all {googleSheetsSelectedRows.size} selected rows
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Add More Columns Button */}
+                          {values.columnToUpdate && values[`updateValue_${values.columnToUpdate}`] && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Store the current column/value pair
+                                const currentColumn = values.columnToUpdate;
+                                const currentValue = values[`updateValue_${currentColumn}`];
+                                
+                                // Store in an array of updates
+                                const updates = values.columnUpdates || [];
+                                updates.push({ column: currentColumn, value: currentValue });
+                                setValue('columnUpdates', updates);
+                                
+                                // Clear the current selection
+                                setValue('columnToUpdate', '');
+                                setValue(`updateValue_${currentColumn}`, '');
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              + Add another column to update
+                            </button>
+                          )}
+                          
+                          {/* Show list of columns being updated */}
+                          {values.columnUpdates && values.columnUpdates.length > 0 && (
+                            <div className="border-t pt-3">
+                              <p className="text-sm font-medium text-slate-700 mb-2">Columns to update:</p>
+                              <div className="space-y-2">
+                                {values.columnUpdates.map((update: any, index: number) => (
+                                  <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-slate-200">
+                                    <span className="text-sm">
+                                      <span className="font-medium">{update.column}:</span> {update.value}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updates = [...values.columnUpdates];
+                                        updates.splice(index, 1);
+                                        setValue('columnUpdates', updates);
+                                      }}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Delete Row UI - Show after viewing data when delete action is selected */}
+                {showPreviewData && values.action === 'delete' && values.deleteRowBy === 'column_value' && (
+                  <div className="mt-4 space-y-4">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-red-900 mb-2">
+                            Delete Rows by Column Value
+                          </h3>
+                          <p className="text-xs text-red-700 mb-4">
+                            ⚠️ This action cannot be undone. Rows will be permanently deleted.
+                          </p>
+                        </div>
+                        
+                        {/* Column Selection - Same style as bulk update */}
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Which column contains the value to match?
+                          </label>
+                          <select
+                            value={values.deleteColumn || ''}
+                            onChange={(e) => setValue('deleteColumn', e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                          >
+                            <option value="">Select a column...</option>
+                            {previewData[0]?.fields && Object.keys(previewData[0].fields).map((columnName) => (
+                              <option key={columnName} value={columnName}>
+                                {googleSheetsHasHeaders ? columnName : `Column ${columnName}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        {/* Value Input Field - Show after column selection */}
+                        {values.deleteColumn && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Value to match in {googleSheetsHasHeaders ? values.deleteColumn : `Column ${values.deleteColumn}`}
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={values.deleteValue || ''}
+                                  onChange={(e) => setValue('deleteValue', e.target.value)}
+                                  placeholder="Enter exact value to match"
+                                  className="w-full px-3 py-2 pr-10 border border-red-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                The search is case-sensitive. Make sure to enter the exact value.
+                              </p>
+                            </div>
+                            
+                            
+                            {/* Preview of matching rows */}
+                            {values.deleteValue && (
+                              <div className="bg-white border border-red-200 rounded-lg p-3">
+                                <p className="text-xs text-red-700 mb-2">
+                                  Preview: {values.deleteAll ? 'ALL rows' : 'First row'} that will be deleted
+                                </p>
+                                <div className="max-h-32 overflow-auto">
+                                  {(() => {
+                                    const matchingRows = previewData.filter((row: any) => 
+                                      row.fields[values.deleteColumn] === values.deleteValue
+                                    );
+                                    const rowsToShow = values.deleteAll ? matchingRows : matchingRows.slice(0, 1);
+                                    
+                                    return (
+                                      <>
+                                        {rowsToShow.map((row: any) => (
+                                          <div key={row.id} className="text-xs text-slate-600 py-1 border-b border-slate-100">
+                                            Row {row.rowNumber}: {Object.entries(row.fields).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                                            {Object.keys(row.fields).length > 3 && '...'}
+                                          </div>
+                                        ))}
+                                        {matchingRows.length === 0 && (
+                                          <p className="text-xs text-slate-500 italic">No matching rows found</p>
+                                        )}
+                                        {values.deleteAll && matchingRows.length > 5 && (
+                                          <p className="text-xs text-slate-500 italic mt-1">
+                                            ... and {matchingRows.length - 5} more rows
+                                          </p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -27,6 +27,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     spreadsheetId,
     sheetName,
     maxRows,
+    includeHeaders,
     hasToken: !!integration.access_token
   })
   
@@ -62,37 +63,56 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
       return []
     }
     
+    console.log(`📊 Fetched ${rows.length} rows. First row:`, rows[0]?.slice(0, 3), '...')
+    
     // Get headers if needed
     let headers: string[] | undefined
     let dataRows = rows
+    let actualStartRow = startRow
     
-    if (includeHeaders && startRow === 1) {
-      // First row is headers
-      headers = rows[0].map((header, index) => 
-        header || `Column ${String.fromCharCode(65 + index)}`
-      )
-      dataRows = rows.slice(1)
-    } else if (includeHeaders) {
-      // Need to fetch headers separately
-      const headerResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `${sheetName}!A1:Z1`,
-        valueRenderOption: 'FORMATTED_VALUE'
-      })
-      
-      if (headerResponse.data.values && headerResponse.data.values[0]) {
-        headers = headerResponse.data.values[0].map((header, index) => 
+    if (includeHeaders) {
+      if (startRow === 1) {
+        // First row is headers
+        headers = rows[0].map((header, index) => 
           header || `Column ${String.fromCharCode(65 + index)}`
         )
+        dataRows = rows.slice(1)
+        actualStartRow = 2 // Data starts at row 2 when headers are in row 1
+      } else {
+        // Need to fetch headers separately
+        const headerResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${sheetName}!A1:Z1`,
+          valueRenderOption: 'FORMATTED_VALUE'
+        })
+        
+        if (headerResponse.data.values && headerResponse.data.values[0]) {
+          headers = headerResponse.data.values[0].map((header, index) => 
+            header || `Column ${String.fromCharCode(65 + index)}`
+          )
+        }
       }
+    } else {
+      // No headers - use column letters (A, B, C, etc.)
+      // Determine the number of columns from the first row
+      const numColumns = rows[0]?.length || 0
+      headers = Array.from({ length: numColumns }, (_, index) => 
+        String.fromCharCode(65 + (index % 26)) + (index >= 26 ? Math.floor(index / 26).toString() : '')
+      )
+      // ALL rows are data when includeHeaders is false
+      dataRows = rows
+      actualStartRow = startRow
     }
     
     // Convert rows to records format
     const records = convertRowsToRecords(
       dataRows,
       headers,
-      includeHeaders && startRow === 1 ? 2 : startRow
+      actualStartRow
     )
+    
+    console.log(`✅ Converted to ${records.length} records. Headers:`, headers)
+    console.log(`📋 First record:`, records[0])
     
     // Apply filters if specified
     const filteredRecords = filterRecords(records, {
