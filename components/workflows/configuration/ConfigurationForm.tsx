@@ -2144,43 +2144,80 @@ export default function ConfigurationForm({
     
     const isFileField = field && (field.type === 'file' || field.type === 'attachment' || field.type === 'multipleAttachments');
     
-    // Handle bubble creation for UPDATE RECORD linked fields (Associated Project, Feedback, Tasks)
+    // Handle bubble creation for UPDATE RECORD fields - only for select and linked fields
     if (!skipBubbleCreation && isUpdateRecord && fieldName.startsWith('airtable_field_') && value && value !== '' && !isFileField) {
       // Get field info from table schema
       const fieldId = fieldName.replace('airtable_field_', '');
       const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
       
-      // Only handle linked record fields for update record
-      const isLinkedField = tableField && (
-        tableField.type === 'multipleRecordLinks' || 
-        tableField.type === 'singleRecordLink' || 
-        tableField.isLinkedRecord
-      );
-      
-      // Check if this is one of the specific fields we want to handle
-      const isTargetField = tableField && (
-        tableField.name.toLowerCase().includes('project') ||
-        tableField.name.toLowerCase().includes('feedback') ||
-        tableField.name.toLowerCase().includes('task')
-      );
-      
-      if (isLinkedField && isTargetField) {
-        // Get the display name from options (NEVER show IDs)
-        const currentOptions = dynamicOptions?.[fieldName] || [];
-        const selectedOption = currentOptions.find((opt: any) => opt.value === value);
+      if (tableField) {
+        // Check if this is a linked record field
+        const isLinkedField = tableField.type === 'multipleRecordLinks' || 
+          tableField.type === 'singleRecordLink' || 
+          tableField.isLinkedRecord;
         
-        if (!selectedOption) {
-          console.warn(`Could not find label for value ${value} in field ${tableField.name}`);
-          // Show the selected name in the field temporarily
-          setValue(fieldName, selectedOption?.label || '');
-          return;
+        // Check if this is a select field
+        const isSelectField = tableField.type === 'multipleSelects' || 
+          tableField.type === 'singleSelect';
+        
+        // Only handle bubble creation for linked and select fields
+        if (!isLinkedField && !isSelectField) {
+          // For other field types, let the normal flow continue
+          console.log(`[Update] Skipping bubble creation for non-select/linked field: ${tableField.name} (${tableField.type})`);
+          // Don't return here - let the value be set normally
+        } else {
+          // Check if this is a multi-value field
+          const isMultiValue = tableField.type === 'multipleSelects' || 
+            tableField.type === 'multipleRecordLinks' || 
+            tableField.type === 'multipleAttachments' ||
+            tableField.type === 'multipleCollaborators';
+          
+          // Handle arrays - if value is an array with no elements or only empty strings, skip
+          if (Array.isArray(value) && (value.length === 0 || value.every(v => v === ''))) {
+            setValue(fieldName, '');
+            return;
+          }
+        // Determine the label to show for the bubble
+        let label: string;
+        let actualValue = value;
+        
+        if (isLinkedField) {
+          // For linked fields, get the display name from options (NEVER show IDs)
+          const currentOptions = dynamicOptions?.[fieldName] || [];
+          const selectedOption = currentOptions.find((opt: any) => opt.value === value);
+          
+          if (!selectedOption) {
+            console.warn(`Could not find label for value ${value} in field ${tableField.name}`);
+            setValue(fieldName, '');
+            return;
+          }
+          
+          label = selectedOption.label;
+        } else {
+          // For non-linked fields, use the value as the label
+          // If it's an option field with choices, try to find the label
+          const currentOptions = dynamicOptions?.[fieldName] || [];
+          const selectedOption = currentOptions.find((opt: any) => opt.value === value);
+          label = selectedOption ? selectedOption.label : String(value);
         }
         
         const newSuggestion = {
-          value: value, // Keep the ID for API calls
-          label: selectedOption.label, // Always show the name
+          value: actualValue, // Keep the original value for API calls
+          label: label, // Display name
           fieldName: tableField.name
         };
+        
+        // Check if this value already exists as a bubble
+        const existingSuggestions = fieldSuggestions[fieldName] || [];
+        const existingIndex = existingSuggestions.findIndex((s: any) => s.value === actualValue);
+        
+        if (existingIndex !== -1) {
+          // Value already exists as a bubble, don't add duplicate
+          console.log(`[Update] Value ${label} already exists as a bubble`);
+          // Clear the dropdown after a short delay
+          setTimeout(() => setValue(fieldName, ''), 50);
+          return;
+        }
         
         // Check if there's an active bubble
         const activeBubbleIndices = activeBubbles[fieldName];
@@ -2188,21 +2225,22 @@ export default function ConfigurationForm({
           ? activeBubbleIndices.length > 0 
           : activeBubbleIndices !== undefined && activeBubbleIndices !== null;
         
-        // Check if this value already exists as a bubble
-        const existingSuggestions = fieldSuggestions[fieldName] || [];
-        const existingIndex = existingSuggestions.findIndex((s: any) => s.value === value);
-        
-        if (existingIndex !== -1) {
-          // Value already exists as a bubble, don't add duplicate
-          console.log(`Value ${selectedOption.label} already exists as a bubble`);
-          // Show the selected name in the field temporarily
-          setValue(fieldName, selectedOption.label);
-          setTimeout(() => setValue(fieldName, ''), 100);
-          return;
-        }
-        
-        if (hasActiveBubble) {
-          // Replace the active bubble with the new selection
+        // For single-value fields, always replace the existing bubble(s)
+        if (!isMultiValue) {
+          setFieldSuggestions(prev => ({
+            ...prev,
+            [fieldName]: [newSuggestion]
+          }));
+          
+          // Automatically activate the bubble for single-value fields
+          setActiveBubbles(prev => ({
+            ...prev,
+            [fieldName]: 0
+          }));
+          
+          console.log(`[Update] Replaced bubble for single-value field ${tableField.name}`);
+        } else if (hasActiveBubble) {
+          // For multi-value fields with an active bubble, replace the active bubble
           setFieldSuggestions(prev => {
             const existing = [...(prev[fieldName] || [])];
             
@@ -2223,21 +2261,21 @@ export default function ConfigurationForm({
             };
           });
           
-          console.log(`Replaced active bubble with ${selectedOption.label}`);
+          console.log(`[Update] Replaced active bubble with ${label}`);
         } else {
-          // No active bubble, add new bubble
+          // Multi-value field with no active bubble - add new bubble
           setFieldSuggestions(prev => ({
             ...prev,
             [fieldName]: [...(prev[fieldName] || []), newSuggestion]
           }));
           
-          console.log(`Added new bubble for ${selectedOption.label}`);
+          console.log(`[Update] Added new bubble for ${label}`);
         }
         
-        // Show the selected name in the field temporarily then clear it
-        setValue(fieldName, selectedOption.label);
-        setTimeout(() => setValue(fieldName, ''), 100);
-        return;
+          // Clear the dropdown selection to allow selecting more options
+          setTimeout(() => setValue(fieldName, ''), 50);
+          return;
+        }
       }
     }
     
@@ -2356,17 +2394,33 @@ export default function ConfigurationForm({
         // Value already exists as a bubble, don't add duplicate
         console.log(`[Create] Value already exists as a bubble`);
         // Clear the dropdown to allow more selections
-        setTimeout(() => setValue(fieldName, ''), 100);
+        setTimeout(() => setValue(fieldName, ''), 50);
         return;
       }
       
-      // Check if there's an active bubble for multi-value fields
+      // Check if there's an active bubble
       const activeBubbleIndices = activeBubbles[fieldName];
       const hasActiveBubble = Array.isArray(activeBubbleIndices) 
         ? activeBubbleIndices.length > 0 
         : activeBubbleIndices !== undefined && activeBubbleIndices !== null;
       
-      if (isMultiValue && hasActiveBubble) {
+      // For single-value fields, always replace the existing bubble(s)
+      if (!isMultiValue) {
+        setFieldSuggestions(prev => ({
+          ...prev,
+          [fieldName]: [newSuggestion]
+        }));
+        
+        // For single-value linked fields, automatically activate the bubble
+        if (isLinkedField) {
+          setActiveBubbles(prev => ({
+            ...prev,
+            [fieldName]: 0
+          }));
+        }
+        
+        console.log(`[Create] Replaced bubble for single-value field ${fieldName}`);
+      } else if (hasActiveBubble) {
         // For multi-value fields with an active bubble, replace the active bubble
         setFieldSuggestions(prev => {
           const existing = [...(prev[fieldName] || [])];
@@ -2390,38 +2444,17 @@ export default function ConfigurationForm({
           };
         });
       } else {
-        // No active bubble or single-value field - add new bubble or replace all
-        setFieldSuggestions(prev => {
-          const existing = prev[fieldName] || [];
-          
-          // For single-value fields, replace all bubbles
-          if (!isMultiValue) {
-            return {
-              ...prev,
-              [fieldName]: [newSuggestion]
-            };
-          }
-          
-          // For multi-value fields with no active bubble, add new bubble
-          return {
-            ...prev,
-            [fieldName]: [...existing, newSuggestion]
-          };
-        });
+        // Multi-value field with no active bubble - add new bubble
+        setFieldSuggestions(prev => ({
+          ...prev,
+          [fieldName]: [...(prev[fieldName] || []), newSuggestion]
+        }));
         
-        // For single-value linked fields, automatically activate the bubble
-        if (!isMultiValue && isLinkedField) {
-          setActiveBubbles(prev => ({
-            ...prev,
-            [fieldName]: 0
-          }));
-        }
+        console.log(`[Create] Added new bubble for multi-value field ${fieldName}`);
       }
       
       // Clear the dropdown selection to allow selecting more options
-      setTimeout(() => {
-        setValue(fieldName, '');
-      }, 100);
+      setTimeout(() => setValue(fieldName, ''), 50);
       
       return; // Skip the normal setValue
     }
@@ -2908,41 +2941,116 @@ export default function ConfigurationForm({
         
         // For Discord triggers, only load the channels without other side effects
         if (nodeInfo.type === 'discord_trigger_new_message') {
+          // Set loading state for dependent fields
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('channelId');
+            newSet.add('filterAuthor');
+            return newSet;
+          });
+          
+          // Clear dependent field values
+          setValue('channelId', '');
+          setValue('filterAuthor', '');
+          setValue('contentFilter', '');
+          
+          // Reset cached options to ensure fresh load
+          resetOptions('channelId');
+          resetOptions('filterAuthor');
+          
           // Load all related data when guild is selected
           if (value) {
             console.log('🔍 Loading all Discord data for trigger with guildId:', value);
             
-            // Load dependent options once per selection (non-blocking)
-            loadOptions('channelId', 'guildId', value);
-            loadOptions('filterAuthor', 'guildId', value);
+            // Use setTimeout to ensure loading state is visible
+            setTimeout(() => {
+              // Load dependent options with force refresh
+              loadOptions('channelId', 'guildId', value, true).finally(() => {
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('channelId');
+                  return newSet;
+                });
+              });
+              loadOptions('filterAuthor', 'guildId', value, true).finally(() => {
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('filterAuthor');
+                  return newSet;
+                });
+              });
+            }, 10);
           } else {
             console.log('🔍 Clearing dependent fields as guildId is empty');
-            setValue('channelId', '');
-            setValue('filterAuthor', '');
-            setValue('contentFilter', '');
+            // Clear loading state if no value
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('channelId');
+              newSet.delete('filterAuthor');
+              return newSet;
+            });
           }
         } 
         // For Discord actions, check bot status first then load channels
         else if (nodeInfo?.type?.startsWith('discord_action_')) {
+          // Set loading state for dependent fields
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('channelId');
+            if (nodeInfo.configSchema?.some(f => f.name === 'filterAuthor')) {
+              newSet.add('filterAuthor');
+            }
+            return newSet;
+          });
+          
           // Always clear all Discord-related states when server field changes
           setValue('channelId', '');
           setChannelBotStatus(null);
           setChannelLoadingError(null);
           setIsBotStatusChecking(true); // Start checking immediately without clearing bot status
           
+          // Reset cached options to ensure fresh load
+          resetOptions('channelId');
+          resetOptions('filterAuthor');
+          resetOptions('messageId');
+          
           if (value && value.trim() !== '' && discordIntegration) {
             console.log('🔍 Server selected, checking bot status for Discord action with guildId:', value);
             
-            // Load dependent options for Discord actions
-            console.log('🔍 Loading dependent fields for Discord action with guildId:', value);
-            loadOptions('channelId', 'guildId', value);
-            loadOptions('filterAuthor', 'guildId', value);
-            
-            // Start bot status check which will trigger loading state in progressive disclosure UI
-            checkBotStatus(value);
+            // Use setTimeout to ensure loading state is visible
+            setTimeout(() => {
+              // Load dependent options for Discord actions with force refresh
+              console.log('🔍 Loading dependent fields for Discord action with guildId:', value);
+              loadOptions('channelId', 'guildId', value, true).finally(() => {
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('channelId');
+                  return newSet;
+                });
+              });
+              
+              if (nodeInfo.configSchema?.some(f => f.name === 'filterAuthor')) {
+                loadOptions('filterAuthor', 'guildId', value, true).finally(() => {
+                  setLoadingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('filterAuthor');
+                    return newSet;
+                  });
+                });
+              }
+              
+              // Start bot status check which will trigger loading state in progressive disclosure UI
+              checkBotStatus(value);
+            }, 10);
           } else {
             console.log('🔍 Server cleared or Discord not connected, keeping bot status null');
-            // Keep botStatus as null - this will show just the server field in progressive disclosure
+            // Clear loading state if no value
+            setLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('channelId');
+              newSet.delete('filterAuthor');
+              return newSet;
+            });
           }
         }
       }
@@ -2954,18 +3062,52 @@ export default function ConfigurationForm({
         // Clear previous channel bot status
         setChannelBotStatus(null);
         
+        // Check if we have messageId field
+        const nodeFields = nodeInfo.configSchema || [];
+        const hasMessageField = nodeFields.some(field => field.name === 'messageId');
+        
+        if (hasMessageField) {
+          // Set loading state for messageId
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('messageId');
+            return newSet;
+          });
+          
+          // Clear messageId value
+          setValue('messageId', '');
+          
+          // Reset cached options
+          resetOptions('messageId');
+        }
+        
         if (value && values.guildId) {
           console.log('🔍 Checking bot status for channel:', value, 'in guild:', values.guildId);
           
           // Load messages for this channel if the action needs them
-          const nodeFields = nodeInfo.configSchema || [];
-          const hasMessageField = nodeFields.some(field => field.name === 'messageId');
           if (hasMessageField) {
             console.log('🔍 Loading messages for Discord action with channelId:', value);
-            loadOptions('messageId', 'channelId', value);
+            
+            // Use setTimeout to ensure loading state is visible
+            setTimeout(() => {
+              loadOptions('messageId', 'channelId', value, true).finally(() => {
+                setLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('messageId');
+                  return newSet;
+                });
+              });
+            }, 10);
           }
           
           checkChannelBotStatus(value, values.guildId);
+        } else if (hasMessageField) {
+          // Clear loading state if no value
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.delete('messageId');
+            return newSet;
+          });
         }
       }
       
@@ -3099,13 +3241,8 @@ export default function ConfigurationForm({
         // Load tableName options if a base is selected
         if (value) {
           console.log('🔍 Loading tableName options for baseId:', value);
-          loadOptions('tableName', 'baseId', value, true).finally(() => {
-            setLoadingFields(prev => {
-              const newSet = new Set(prev);
-              newSet.delete('tableName');
-              return newSet;
-            });
-          });
+          // Don't manually manage loading state - let the hook handle it
+          loadOptions('tableName', 'baseId', value, true);
         } else {
           // If no base is selected, clear the loading state
           setLoadingFields(prev => {
@@ -3172,22 +3309,11 @@ export default function ConfigurationForm({
               // For filterField, we need to pass baseId explicitly since form values are stale
               if (field.name === 'filterField') {
                 console.log('🔍 Loading filterField with explicit baseId:', values.baseId);
-                // Pass baseId explicitly in the options parameter
-                loadOptions(field.name, 'tableName', value, true, false, { baseId: values.baseId }).finally(() => {
-                  setLoadingFields(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(field.name);
-                    return newSet;
-                  });
-                });
+                // Don't manually manage loading state - let the hook handle it
+                loadOptions(field.name, 'tableName', value, true, false, { baseId: values.baseId });
               } else {
-                loadOptions(field.name, 'tableName', value, true).finally(() => {
-                  setLoadingFields(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(field.name);
-                    return newSet;
-                  });
-                });
+                // Don't manually manage loading state - let the hook handle it
+                loadOptions(field.name, 'tableName', value, true);
               }
             }
           });
@@ -3253,16 +3379,10 @@ export default function ConfigurationForm({
         if (value && values.baseId && values.tableName) {
           console.log('🔍 Loading filterValue options for field:', value);
           console.log('🔍 Using explicit baseId and tableName:', { baseId: values.baseId, tableName: values.tableName });
-          // Pass baseId and tableName explicitly in extraOptions to avoid stale form values
+          // Don't manually manage loading state - let the hook handle it
           loadOptions('filterValue', 'filterField', value, true, false, { 
             baseId: values.baseId, 
             tableName: values.tableName 
-          }).finally(() => {
-            setLoadingFields(prev => {
-              const newSet = new Set(prev);
-              newSet.delete('filterValue');
-              return newSet;
-            });
           });
         } else {
           // If no field is selected, clear the loading state
@@ -3291,12 +3411,30 @@ export default function ConfigurationForm({
     const fieldOptions = dynamicOptions?.[fieldName];
     
     // Check if field is multiple or single value
-    const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
-      table.value === values.tableName
-    );
-    const field = selectedTable?.fields?.find((f: any) => `airtable_field_${f.id}` === fieldName);
-    // Default to allowing multiple if field type can't be determined
-    const isMultiple = field ? (field.type?.includes('multiple') || field.multiple) : true;
+    // For Airtable fields, check the table schema
+    let isMultiple = true; // Default to multiple if we can't determine
+    
+    if (fieldName.startsWith('airtable_field_')) {
+      const fieldId = fieldName.replace('airtable_field_', '');
+      const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+      
+      if (tableField) {
+        // Check if this is a multi-value field
+        isMultiple = tableField.type === 'multipleSelects' || 
+          tableField.type === 'multipleRecordLinks' || 
+          tableField.type === 'multipleAttachments' ||
+          tableField.type === 'multipleCollaborators';
+      }
+    } else {
+      // For non-Airtable fields, check in dynamicOptions
+      const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
+        table.value === values.tableName
+      );
+      const field = selectedTable?.fields?.find((f: any) => `airtable_field_${f.id}` === fieldName);
+      if (field) {
+        isMultiple = field.type?.includes('multiple') || field.multiple || false;
+      }
+    }
     
     if (Array.isArray(currentValue)) {
       // Handle multi-value fields - add all values that aren't already bubbles
@@ -3575,7 +3713,13 @@ export default function ConfigurationForm({
           
           // Find the field definition to check if it's single-value
           const field = tableFields.find((f: any) => `airtable_field_${f.id}` === fieldName);
-          const isMultiple = field?.type?.includes('multiple') || field?.multiple;
+          // Check if this is a multi-value field using the same logic as elsewhere
+          const isMultiple = field && (
+            field.type === 'multipleSelects' || 
+            field.type === 'multipleRecordLinks' || 
+            field.type === 'multipleAttachments' ||
+            field.type === 'multipleCollaborators'
+          );
           
           if (!isMultiple && newSugs.length > 0) {
             // For single-value fields, only keep one suggestion (replace existing)
@@ -4827,8 +4971,32 @@ export default function ConfigurationForm({
                   </div>
                 )}
                 
-                {/* Show undo deleted bubbles */}
-                {deletedBubbles[field.name] && deletedBubbles[field.name].length > 0 && (
+                {/* Show undo deleted bubbles - only for multi-value fields */}
+                {deletedBubbles[field.name] && deletedBubbles[field.name].length > 0 && (() => {
+                  // Check if this is a multi-value field
+                  const fieldId = field.name.replace('airtable_field_', '');
+                  const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+                  const isMultiValue = tableField && (
+                    tableField.type === 'multipleSelects' || 
+                    tableField.type === 'multipleRecordLinks' || 
+                    tableField.type === 'multipleAttachments' ||
+                    tableField.type === 'multipleCollaborators'
+                  );
+                  
+                  // Only show undo for multi-value fields
+                  if (!isMultiValue) {
+                    // For single-value fields, clear the deleted bubbles automatically
+                    if (deletedBubbles[field.name].length > 0) {
+                      setDeletedBubbles(prev => {
+                        const newDeleted = { ...prev };
+                        delete newDeleted[field.name];
+                        return newDeleted;
+                      });
+                    }
+                    return null;
+                  }
+                  
+                  return (
                   <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-600">
@@ -4855,20 +5023,44 @@ export default function ConfigurationForm({
                           key={`deleted-${field.name}-${delIdx}`}
                           type="button"
                           onClick={() => {
+                            // Check if this is a multi-value field
+                            const fieldId = field.name.replace('airtable_field_', '');
+                            const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
+                            const isMultiValue = tableField && (
+                              tableField.type === 'multipleSelects' || 
+                              tableField.type === 'multipleRecordLinks' || 
+                              tableField.type === 'multipleAttachments' ||
+                              tableField.type === 'multipleCollaborators'
+                            );
+                            
                             // Restore the deleted bubble
                             setFieldSuggestions(prev => {
-                              const fieldSugs = [...(prev[field.name] || [])];
-                              // Insert at original position or at end
-                              if (deleted.index < fieldSugs.length) {
-                                fieldSugs.splice(deleted.index, 0, deleted.bubble);
+                              if (!isMultiValue) {
+                                // For single-value fields, replace any existing bubble
+                                return { 
+                                  ...prev, 
+                                  [field.name]: [deleted.bubble] 
+                                };
                               } else {
-                                fieldSugs.push(deleted.bubble);
+                                // For multi-value fields, restore at original position
+                                const fieldSugs = [...(prev[field.name] || [])];
+                                if (deleted.index < fieldSugs.length) {
+                                  fieldSugs.splice(deleted.index, 0, deleted.bubble);
+                                } else {
+                                  fieldSugs.push(deleted.bubble);
+                                }
+                                return { ...prev, [field.name]: fieldSugs };
                               }
-                              return { ...prev, [field.name]: fieldSugs };
                             });
                             
-                            // Restore active state if it was active
-                            if (deleted.wasActive) {
+                            // For single-value fields, always set as active
+                            if (!isMultiValue) {
+                              setActiveBubbles(prev => ({
+                                ...prev,
+                                [field.name]: 0
+                              }));
+                            } else if (deleted.wasActive) {
+                              // For multi-value fields, restore active state if it was active
                               const newIndex = Math.min(deleted.index, (fieldSuggestions[field.name] || []).length);
                               setActiveBubbles(prev => ({
                                 ...prev,
@@ -4895,7 +5087,8 @@ export default function ConfigurationForm({
                       )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
             
@@ -6694,64 +6887,116 @@ export default function ConfigurationForm({
                         <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
                           <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
                             <div className="flex items-center justify-between">
-                              <div>
+                              <div className="flex-1">
                                 <h3 className="text-sm font-medium text-slate-900">
                                   Preview: {values.tableName}
                                 </h3>
                                 <p className="text-xs text-slate-600">
-                                  {previewData.length} record{previewData.length !== 1 ? 's' : ''} • Data available in workflow
+                                  {(() => {
+                                    const filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+                                    return filteredData.length > 0 ? (
+                                      `${filteredData.length} record${filteredData.length !== 1 ? 's' : ''} ${tableSearchQuery ? 'found' : ''} • Data available in workflow`
+                                    ) : (
+                                      tableSearchQuery ? 'No records match your search' : 'No records available'
+                                    );
+                                  })()}
                                 </p>
                               </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setShowPreviewData(false);
-                                  setPreviewData([]);
-                                }}
-                                className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                {/* Search Bar */}
+                                <div className="relative">
+                                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search records..."
+                                    value={tableSearchQuery}
+                                    onChange={(e) => setTableSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                      }
+                                    }}
+                                    className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-40"
+                                  />
+                                </div>
+                                
+                                {/* Display Count Dropdown */}
+                                <div className="relative">
+                                  <select
+                                    value={tableDisplayCount}
+                                    onChange={(e) => setTableDisplayCount(Number(e.target.value))}
+                                    className="appearance-none pl-2 pr-6 py-1 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white cursor-pointer"
+                                  >
+                                    <option value={5}>Show 5</option>
+                                    <option value={10}>Show 10</option>
+                                    <option value={20}>Show 20</option>
+                                    <option value={50}>Show 50</option>
+                                    <option value={100}>Show 100</option>
+                                    <option value={-1}>Show All</option>
+                                  </select>
+                                  <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                                </div>
+                                
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setShowPreviewData(false);
+                                    setPreviewData([]);
+                                    setTableSearchQuery('');
+                                  }}
+                                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                           
                           <div>
-                            {previewData.length > 0 ? (
+                            {previewData.length > 0 ? (() => {
+                              // Define displayData first before using it
+                              const filteredData = filterRecordsbySearch(previewData, tableSearchQuery);
+                              const displayData = tableDisplayCount === -1 
+                                ? filteredData 
+                                : filteredData.slice(0, tableDisplayCount);
+                              
+                              return (
                               <>
                                 <style jsx>{`
-                                  .preview-table-container {
+                                  .list-record-table-container {
                                     overflow: scroll !important;
                                     overflow-x: scroll !important;
                                     overflow-y: scroll !important;
                                   }
-                                  .preview-table-container::-webkit-scrollbar {
+                                  .list-record-table-container::-webkit-scrollbar {
                                     width: 16px !important;
                                     height: 16px !important;
                                     background-color: #e2e8f0 !important;
                                     display: block !important;
                                   }
-                                  .preview-table-container::-webkit-scrollbar-track {
+                                  .list-record-table-container::-webkit-scrollbar-track {
                                     background: #f1f5f9 !important;
                                     border-radius: 8px !important;
                                     border: 1px solid #cbd5e1 !important;
                                   }
-                                  .preview-table-container::-webkit-scrollbar-thumb {
+                                  .list-record-table-container::-webkit-scrollbar-thumb {
                                     background: #475569 !important;
                                     border-radius: 8px !important;
                                     border: 2px solid #e2e8f0 !important;
                                     min-height: 20px !important;
                                     min-width: 20px !important;
                                   }
-                                  .preview-table-container::-webkit-scrollbar-thumb:hover {
+                                  .list-record-table-container::-webkit-scrollbar-thumb:hover {
                                     background: #334155 !important;
                                   }
-                                  .preview-table-container::-webkit-scrollbar-corner {
+                                  .list-record-table-container::-webkit-scrollbar-corner {
                                     background: #f1f5f9 !important;
                                     border: 1px solid #cbd5e1 !important;
                                   }
-                                  .preview-table-container {
+                                  .list-record-table-container {
                                     scrollbar-width: auto !important;
                                     scrollbar-color: #475569 #f1f5f9 !important;
                                     scrollbar-gutter: stable !important;
@@ -6762,15 +7007,7 @@ export default function ConfigurationForm({
                                   <div 
                                     className="absolute left-0 top-0 z-20 bg-white"
                                     style={{ 
-                                      width: (() => {
-                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        displayData.forEach(record => {
-                                          const idValue = record.value || record.id || '';
-                                          const idWidth = String(idValue).length * 9 + 24;
-                                          maxWidth = Math.max(maxWidth, idWidth);
-                                        });
-                                        return `${Math.min(maxWidth, 250)}px`;
-                                      })()
+                                      width: '150px'
                                     }}
                                   >
                                     <table className="text-sm" style={{ borderSpacing: 0 }}>
@@ -6778,89 +7015,40 @@ export default function ConfigurationForm({
                                         <tr className="h-10">
                                           <th 
                                             className="font-medium text-slate-700 p-2 text-center"
-                                            style={{ 
-                                              width: (() => {
-                                                let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                                displayData.forEach(record => {
-                                                  const idValue = record.value || record.id || '';
-                                                  const idWidth = String(idValue).length * 9 + 24;
-                                                  maxWidth = Math.max(maxWidth, idWidth);
-                                                });
-                                                return `${Math.min(maxWidth, 250)}px`;
-                                              })()
-                                            }}
+                                            style={{ width: '150px' }}
                                           >
                                             ID
                                           </th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {previewData.slice(0, 8).map((record: any, index: number) => {
-                                          const idColumnWidth = (() => {
-                                            let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                            displayData.forEach(rec => {
-                                              const idValue = rec.value || rec.id || '';
-                                              const idWidth = String(idValue).length * 9 + 24;
-                                              maxWidth = Math.max(maxWidth, idWidth);
-                                            });
-                                            return Math.min(maxWidth, 250);
-                                          })();
-                                          
-                                          return (
-                                            <tr key={`id-${record.value || record.id || index}`} className="hover:bg-slate-50/50 h-12">
-                                              <td 
-                                                className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden"
-                                                style={{ width: `${idColumnWidth}px`, boxSizing: 'border-box' }}
-                                              >
-                                                <div 
-                                                  className="flex items-center justify-center h-12 overflow-hidden" 
-                                                  style={{ width: `${idColumnWidth - 16}px` }}
-                                                  title={record.value || record.id || ''}
-                                                >
-                                                  <span className="text-center" style={{ lineHeight: '1.2' }}>
-                                                    {record.value || record.id || ''}
-                                                  </span>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                        {filteredData.length > displayData.length && (
-                                          <tr className="h-12">
-                                            <td className="p-2 text-center text-xs text-slate-500 bg-slate-50">
-                                              ...
+                                        {displayData.map((record: any, index: number) => (
+                                          <tr 
+                                            key={`id-${record.id || index}`} 
+                                            className="h-12 hover:bg-slate-50/50"
+                                          >
+                                            <td 
+                                              className="font-mono text-xs text-slate-500 bg-slate-50/30 p-2 text-center align-middle overflow-hidden"
+                                              style={{ 
+                                                width: '150px'
+                                              }}
+                                            >
+                                              <div className="truncate" title={record.id}>
+                                                {record.id}
+                                              </div>
                                             </td>
                                           </tr>
-                                        )}
+                                        ))}
                                       </tbody>
                                     </table>
                                   </div>
                                   
                                   {/* Scrollable content area starting after ID column */}
                                   <div 
-                                    className="max-h-[300px] preview-table-container"
-                                    style={{ 
-                                      marginLeft: (() => {
-                                        // Calculate dynamic ID column width for margin
-                                        let maxWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        displayData.forEach(record => {
-                                          const idValue = record.value || record.id || '';
-                                          const idWidth = String(idValue).length * 9 + 24;
-                                          maxWidth = Math.max(maxWidth, idWidth);
-                                        });
-                                        return `${Math.min(maxWidth, 250)}px`;
-                                      })(),
-                                      maxWidth: (() => {
-                                        // Calculate max width accounting for dynamic ID column - more restrictive
-                                        let idWidth = Math.max('ID'.length * 10 + 40, 80);
-                                        displayData.forEach(record => {
-                                          const idValue = record.value || record.id || '';
-                                          const calcWidth = String(idValue).length * 9 + 24;
-                                          idWidth = Math.max(idWidth, calcWidth);
-                                        });
-                                        idWidth = Math.min(idWidth, 250);
-                                        return `calc(100vw - ${idWidth}px - 380px - 140px)`; // Even more space for Variables panel
-                                      })(), // Account for ID column + Variables panel + more padding
+                                    className="max-h-[300px] list-record-table-container"
+                                    style={{
+                                      marginLeft: '150px',
+                                      maxWidth: 'calc(100vw - 150px - 380px - 140px)', // Account for ID column + Variables panel + padding
                                       overflow: 'scroll',
                                       overflowX: 'scroll',
                                       overflowY: 'scroll',
@@ -6873,373 +7061,141 @@ export default function ConfigurationForm({
                                       className="text-sm"
                                       style={{ 
                                         borderSpacing: 0,
-                                        width: (() => {
-                                          // Calculate dynamic width based on content
-                                          const fields = Object.keys(displayData[0]?.fields || {});
-                                          if (fields.length === 0) return '800px';
-                                          
-                                          // Calculate dynamic ID column width
-                                          let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                          displayData.forEach(record => {
-                                            const idValue = record.value || record.id || '';
-                                            const idWidth = String(idValue).length * 9 + 24;
-                                            idColumnWidth = Math.max(idColumnWidth, idWidth);
-                                          });
-                                          idColumnWidth = Math.min(idColumnWidth, 250);
-                                          
-                                          // Calculate width for each column based on content
-                                          let totalWidth = 0;
-                                          fields.forEach(fieldName => {
-                                            // Calculate header width
-                                            let maxWidth = Math.max(fieldName.length * 8 + 32, 100); // 8px per char + padding
-                                            
-                                            // Check data width for this field
-                                            displayData.forEach(record => {
-                                              const value = record.fields?.[fieldName];
-                                              
-                                              // Check if this is an attachment field
-                                              const isAttachment = Array.isArray(value) && 
-                                                value.length > 0 && 
-                                                value[0] && 
-                                                typeof value[0] === 'object' && 
-                                                value[0].url && 
-                                                value[0].filename;
-                                              
-                                              if (isAttachment) {
-                                                // For attachment fields, calculate width based on thumbnail count
-                                                const thumbnailCount = Math.min(value.length, 3);
-                                                const hasMoreIndicator = value.length > 3;
-                                                const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
-                                                maxWidth = Math.max(maxWidth, attachmentWidth);
-                                              } else {
-                                                // Regular text width calculation
-                                                const valueStr = Array.isArray(value) 
-                                                  ? value.join(', ') 
-                                                  : String(value || '');
-                                                const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
-                                                maxWidth = Math.max(maxWidth, valueWidth);
-                                              }
-                                            });
-                                            totalWidth += maxWidth;
-                                          });
-                                          
-                                          // For the last column, add dynamic ID column width for perfect alignment
-                                          let finalWidth = totalWidth;
-                                          if (fields.length > 0) {
-                                            finalWidth = totalWidth + idColumnWidth;
-                                          }
-                                          
-                                          return `${finalWidth}px`;
-                                        })(),
+                                        width: 'max-content',
                                         tableLayout: 'fixed'
                                       }}
                                     >
                                       <thead className="bg-slate-50/50 sticky top-0 z-10">
                                         <tr className="h-10">
-                                          {/* Show all fields with horizontal scrolling - no ID column here */}
-                                          {Object.keys(displayData[0]?.fields || {}).map((fieldName, index, fields) => {
-                                            // Calculate column width
-                                            let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                            displayData.forEach(record => {
-                                              const value = record.fields?.[fieldName];
-                                              
-                                              // Check if this is an attachment field
-                                              const isAttachment = Array.isArray(value) && 
-                                                value.length > 0 && 
-                                                value[0] && 
-                                                typeof value[0] === 'object' && 
-                                                value[0].url && 
-                                                value[0].filename;
-                                              
-                                              if (isAttachment) {
-                                                // For attachment fields, calculate width based on thumbnail count
-                                                const thumbnailCount = Math.min(value.length, 3);
-                                                const hasMoreIndicator = value.length > 3;
-                                                const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
-                                                columnWidth = Math.max(columnWidth, attachmentWidth);
-                                              } else {
-                                                // Regular text width calculation
-                                                const valueStr = Array.isArray(value) 
-                                                  ? value.join(', ') 
-                                                  : String(value || '');
-                                                const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
-                                                columnWidth = Math.max(columnWidth, valueWidth);
-                                              }
-                                            });
-                                            
-                                            // For the last column, add dynamic ID column width for perfect alignment
-                                            if (index === fields.length - 1) {
-                                              let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                              displayData.forEach(record => {
-                                                const idValue = record.value || record.id || '';
-                                                const idWidth = String(idValue).length * 9 + 24;
-                                                idColumnWidth = Math.max(idColumnWidth, idWidth);
-                                              });
-                                              idColumnWidth = Math.min(idColumnWidth, 250);
-                                              columnWidth += idColumnWidth; // Add dynamic ID column width for perfect alignment
-                                            }
-                                            
-                                            return (
-                                              <th 
-                                                key={fieldName} 
-                                                className="font-medium text-slate-700 last:border-r-0 p-2 whitespace-nowrap text-center" 
-                                                style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
-                                              >
-                                                <div title={fieldName} className="text-center">
-                                                  {fieldName}
-                                                </div>
-                                              </th>
-                                            );
-                                          })}
+                                          {Object.keys(displayData[0]?.fields || {}).map((fieldName) => (
+                                            <th 
+                                              key={fieldName} 
+                                              className="font-medium text-slate-700 p-2 text-center whitespace-nowrap border-r border-slate-200 last:border-r-0"
+                                              style={{ minWidth: '200px' }}
+                                            >
+                                              {fieldName}
+                                            </th>
+                                          ))}
                                         </tr>
                                       </thead>
                                       <tbody>
                                         {displayData.map((record: any, index: number) => (
-                                          <tr key={record.value || record.id || index} className="hover:bg-slate-50/50 h-12">
-                                            {/* No ID cell - start directly with field data */}
-                                            {Object.entries(record.fields || {}).map(([fieldName, fieldValue]: [string, any], fieldIndex: number) => {
-                                              const fieldNames = Object.keys(record.fields || {});
-                                              const isLastColumn = fieldIndex === fieldNames.length - 1;
+                                          <tr 
+                                            key={`fields-${record.id || index}`} 
+                                            className="h-12 hover:bg-slate-50/50"
+                                          >
+                                            {Object.keys(displayData[0]?.fields || {}).map((fieldName) => {
+                                              const value = record.fields?.[fieldName];
                                               
-                                              // Calculate column width (same logic as header)
-                                              let columnWidth = Math.max(fieldName.length * 8 + 32, 100);
-                                              displayData.forEach(rec => {
-                                                const value = rec.fields?.[fieldName];
+                                              // Check if it's an attachment field
+                                              const isAttachment = Array.isArray(value) && 
+                                                value.length > 0 && 
+                                                value[0] && 
+                                                typeof value[0] === 'object' && 
+                                                (value[0].url || value[0].thumbnails);
+                                              
+                                              // Check if this is a linked record field and get the field info
+                                              let isLinkedField = false;
+                                              let linkedFieldOptions: any[] = [];
+                                              
+                                              if (airtableTableSchema?.fields) {
+                                                const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
                                                 
-                                                // Check if this is an attachment field
-                                                const isAttachment = Array.isArray(value) && 
-                                                  value.length > 0 && 
-                                                  value[0] && 
-                                                  typeof value[0] === 'object' && 
-                                                  value[0].url && 
-                                                  value[0].filename;
-                                                
-                                                if (isAttachment) {
-                                                  // For attachment fields, calculate width based on thumbnail count
-                                                  const thumbnailCount = Math.min(value.length, 3);
-                                                  const hasMoreIndicator = value.length > 3;
-                                                  const attachmentWidth = (thumbnailCount * 32) + ((thumbnailCount - 1) * 4) + (hasMoreIndicator ? 36 : 0) + 32; // 32px per thumbnail + 4px gap + more indicator + padding
-                                                  columnWidth = Math.max(columnWidth, attachmentWidth);
-                                                } else {
-                                                  // Regular text width calculation
-                                                  const valueStr = Array.isArray(value) 
-                                                    ? value.join(', ') 
-                                                    : String(value || '');
-                                                  const valueWidth = Math.min(valueStr.length * 7 + 16, 300);
-                                                  columnWidth = Math.max(columnWidth, valueWidth);
+                                                if (tableField && (tableField.type === 'multipleRecordLinks' || 
+                                                    tableField.type === 'singleRecordLink' || 
+                                                    tableField.isLinkedRecord)) {
+                                                  isLinkedField = true;
+                                                  linkedFieldOptions = tableField.choices || [];
+                                                  
+                                                  // Fallback to dynamicOptions if no choices
+                                                  if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
+                                                    const fieldId = `airtable_field_${tableField.id}`;
+                                                    linkedFieldOptions = dynamicOptions?.[fieldId] || [];
+                                                  }
                                                 }
-                                              });
-                                              
-                                              // For the last column, add dynamic ID column width for perfect alignment
-                                              if (isLastColumn) {
-                                                let idColumnWidth = Math.max('ID'.length * 10 + 40, 80);
-                                                displayData.forEach(rec => {
-                                                  const idValue = rec.value || rec.id || '';
-                                                  const idWidth = String(idValue).length * 9 + 24;
-                                                  idColumnWidth = Math.max(idColumnWidth, idWidth);
-                                                });
-                                                idColumnWidth = Math.min(idColumnWidth, 250);
-                                                columnWidth += idColumnWidth;
                                               }
                                               
-                                              // Check if this field value is an attachment
-                                              const isAttachment = Array.isArray(fieldValue) && 
-                                                fieldValue.length > 0 && 
-                                                fieldValue[0] && 
-                                                typeof fieldValue[0] === 'object' && 
-                                                fieldValue[0].url && 
-                                                fieldValue[0].filename;
+                                              let displayContent;
+                                              if (isAttachment) {
+                                                // Display thumbnails for attachments
+                                                displayContent = (
+                                                  <div className="flex items-center justify-center gap-1">
+                                                    {value.slice(0, 3).map((attachment: any, idx: number) => {
+                                                      const thumbnailUrl = attachment.thumbnails?.small?.url || attachment.url;
+                                                      return (
+                                                        <div key={idx} className="w-8 h-8 bg-slate-100 rounded overflow-hidden">
+                                                          {thumbnailUrl ? (
+                                                            <img 
+                                                              src={thumbnailUrl} 
+                                                              alt={attachment.filename || 'attachment'}
+                                                              className="w-full h-full object-cover"
+                                                            />
+                                                          ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
+                                                              📎
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      );
+                                                    })}
+                                                    {value.length > 3 && (
+                                                      <span className="text-xs text-slate-500">+{value.length - 3}</span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              } else if (isLinkedField) {
+                                                // Handle linked record fields - map IDs to names
+                                                let displayValue = '';
+                                                
+                                                if (linkedFieldOptions.length > 0) {
+                                                  if (Array.isArray(value)) {
+                                                    const mappedNames = value.map((id: string) => {
+                                                      const option = linkedFieldOptions.find((opt: any) => opt.value === id);
+                                                      return option ? option.label : id;
+                                                    });
+                                                    displayValue = mappedNames.join(', ');
+                                                  } else if (value) {
+                                                    const option = linkedFieldOptions.find((opt: any) => opt.value === value);
+                                                    displayValue = option ? option.label : String(value);
+                                                  }
+                                                } else if (value) {
+                                                  displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+                                                }
+                                                
+                                                displayContent = (
+                                                  <span className="text-xs text-slate-900 truncate" title={displayValue}>
+                                                    {displayValue || '—'}
+                                                  </span>
+                                                );
+                                              } else if (Array.isArray(value)) {
+                                                // Regular array field
+                                                displayContent = (
+                                                  <span className="text-xs text-slate-900 truncate" title={value.join(', ')}>
+                                                    {value.join(', ') || '[]'}
+                                                  </span>
+                                                );
+                                              } else {
+                                                // Regular field
+                                                const displayValue = String(value || '—');
+                                                displayContent = (
+                                                  <span className="text-xs text-slate-900 truncate" title={displayValue}>
+                                                    {displayValue}
+                                                  </span>
+                                                );
+                                              }
                                               
                                               return (
                                                 <td 
-                                                  key={`${record.id}-${fieldName}-${fieldIndex}`} 
-                                                  className="last:border-r-0 p-2 text-center align-middle overflow-hidden"
-                                                  style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px`, boxSizing: 'border-box' }}
+                                                  key={fieldName} 
+                                                  className="p-2 text-center align-middle border-r border-slate-200 last:border-r-0"
+                                                  style={{ minWidth: '200px' }}
                                                 >
-                                                  <div className="flex items-center justify-center h-12 overflow-hidden" style={{ width: `${columnWidth - 16}px` }}>
-                                                    {(() => {
-                                                      // Check if this is an Airtable attachment field
-                                                      const isAttachment = Array.isArray(fieldValue) && 
-                                                        fieldValue.length > 0 && 
-                                                        fieldValue[0] && 
-                                                        typeof fieldValue[0] === 'object' && 
-                                                        fieldValue[0].url && 
-                                                        fieldValue[0].filename;
-                                                      
-                                                      if (isAttachment) {
-                                                        // Render attachment thumbnails
-                                                        return (
-                                                          <div className="flex flex-wrap gap-1 justify-center">
-                                                            {fieldValue.slice(0, 3).map((attachment: any, index: number) => {
-                                                              const isImage = attachment.type?.startsWith('image/') || 
-                                                                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(attachment.filename || '');
-                                                              
-                                                              if (isImage) {
-                                                                const thumbnailUrl = attachment.thumbnails?.small?.url || attachment.url;
-                                                                return (
-                                                                  <div 
-                                                                    key={`${attachment.id || index}`}
-                                                                    className="relative group"
-                                                                    title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
-                                                                  >
-                                                                    <img 
-                                                                      src={thumbnailUrl}
-                                                                      alt={attachment.filename || 'Attachment'}
-                                                                      className="w-8 h-8 object-cover rounded border border-slate-200 hover:border-blue-300 transition-colors"
-                                                                      onError={(e) => {
-                                                                        // Fallback to file icon if image fails to load
-                                                                        const target = e.target as HTMLImageElement;
-                                                                        target.style.display = 'none';
-                                                                        const parent = target.parentElement;
-                                                                        if (parent) {
-                                                                          parent.innerHTML = `
-                                                                            <div class="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center">
-                                                                              <span class="text-xs text-slate-500">📎</span>
-                                                                            </div>
-                                                                          `;
-                                                                        }
-                                                                      }}
-                                                                    />
-                                                                  </div>
-                                                                );
-                                                              } else {
-                                                                // Non-image attachment - show file icon
-                                                                return (
-                                                                  <div 
-                                                                    key={`${attachment.id || index}`}
-                                                                    className="w-8 h-8 bg-slate-100 rounded border border-slate-200 flex items-center justify-center"
-                                                                    title={`${attachment.filename} (${(attachment.size / 1024).toFixed(1)}KB)`}
-                                                                  >
-                                                                    <span className="text-xs text-slate-500">📎</span>
-                                                                  </div>
-                                                                );
-                                                              }
-                                                            })}
-                                                            {fieldValue.length > 3 && (
-                                                              <div className="w-8 h-8 bg-slate-50 rounded border border-slate-200 flex items-center justify-center">
-                                                                <span className="text-xs text-slate-400">+{fieldValue.length - 3}</span>
-                                                              </div>
-                                                            )}
-                                                          </div>
-                                                        );
-                                                      }
-                                                      
-                                                      // Check if this is a linked record field - same logic as first table
-                                                      let isLinkedField = false;
-                                                      let linkedFieldOptions: any[] = [];
-                                                      
-                                                      if (airtableTableSchema?.fields) {
-                                                        const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
-                                                        
-                                                        if (tableField && (tableField.type === 'multipleRecordLinks' || 
-                                                            tableField.type === 'singleRecordLink' || 
-                                                            tableField.isLinkedRecord)) {
-                                                          isLinkedField = true;
-                                                          linkedFieldOptions = tableField.choices || [];
-                                                          
-                                                          // Fallback to dynamicOptions if no choices
-                                                          if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
-                                                            const fieldId = `airtable_field_${tableField.id}`;
-                                                            linkedFieldOptions = dynamicOptions?.[fieldId] || [];
-                                                          }
-                                                        }
-                                                      }
-                                                      
-                                                      // Handle linked record fields
-                                                      if (isLinkedField) {
-                                                        let displayValue = '';
-                                                        
-                                                        if (linkedFieldOptions.length > 0) {
-                                                          // We have the mapped options, use them
-                                                          if (Array.isArray(fieldValue)) {
-                                                            // Multiple linked records
-                                                            const mappedNames = fieldValue.map((id: string) => {
-                                                              const option = linkedFieldOptions.find((opt: any) => opt.value === id);
-                                                              return option ? option.label : id;
-                                                            });
-                                                            displayValue = mappedNames.join(', ');
-                                                          } else if (fieldValue) {
-                                                            // Single linked record
-                                                            const option = linkedFieldOptions.find((opt: any) => opt.value === fieldValue);
-                                                            displayValue = option ? option.label : String(fieldValue);
-                                                          }
-                                                        } else if (fieldValue) {
-                                                          // No options loaded, show the raw value
-                                                          if (Array.isArray(fieldValue)) {
-                                                            displayValue = fieldValue.join(', ');
-                                                          } else {
-                                                            displayValue = String(fieldValue);
-                                                          }
-                                                        }
-                                                        
-                                                        return (
-                                                          <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
-                                                            <span className="block text-center" title={displayValue} style={{ lineHeight: '1.2', 
-                                                              maxWidth: `${columnWidth - 32}px`,
-                                                              wordBreak: 'break-word',
-                                                              overflowWrap: 'break-word',
-                                                              whiteSpace: 'pre-wrap'
-                                                            }}>
-                                                              {displayValue || '—'}
-                                                            </span>
-                                                          </div>
-                                                        );
-                                                      }
-                                                      
-                                                      // Regular array handling (non-linked)
-                                                      if (Array.isArray(fieldValue)) {
-                                                        return (
-                                                          <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
-                                                            <span className="block text-center" title={fieldValue.join(', ')} style={{ lineHeight: '1.2', 
-                                                              maxWidth: `${columnWidth - 32}px`,
-                                                              wordBreak: 'break-word',
-                                                              overflowWrap: 'break-word',
-                                                              whiteSpace: 'pre-wrap'
-                                                            }}>
-                                                              {fieldValue.length > 0 ? fieldValue.join(', ') : '[]'}
-                                                            </span>
-                                                          </div>
-                                                        );
-                                                      }
-                                                      
-                                                      // Regular field value
-                                                      const displayValue = String(fieldValue || '');
-                                                      const isTruncated = displayValue.length > 25;
-                                                      const truncatedValue = isTruncated ? displayValue.substring(0, 25) + '...' : displayValue;
-                                                      
-                                                      return (
-                                                        <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">
-                                                          <span 
-                                                            className="block text-center" 
-                                                            title={displayValue}
-                                                            style={{ lineHeight: '1.2', 
-                                                              maxWidth: `${columnWidth - 32}px`,
-                                                              wordBreak: 'break-word',
-                                                              overflowWrap: 'break-word',
-                                                              whiteSpace: 'pre-wrap'
-                                                            }}
-                                                          >
-                                                            {displayValue || '-'}
-                                                          </span>
-                                                        </div>
-                                                      );
-                                                    })()}
-                                                  </div>
+                                                  {displayContent}
                                                 </td>
                                               );
                                             })}
                                           </tr>
                                         ))}
-                                        {filteredData.length > displayData.length && (
-                                          <tr className="h-12">
-                                            <td 
-                                              colSpan={Object.keys(displayData[0]?.fields || {}).length + 1} 
-                                              className="p-2 text-center text-xs text-slate-500 bg-slate-50"
-                                            >
-                                              ... and {filteredData.length - displayData.length} more record{filteredData.length - displayData.length !== 1 ? 's' : ''}
-                                            </td>
-                                          </tr>
-                                        )}
                                       </tbody>
                                     </table>
                                   </div>
@@ -7273,7 +7229,8 @@ export default function ConfigurationForm({
                                   </Button>
                                 </div>
                               </>
-                            ) : (
+                              );
+                            })() : (
                               <div className="text-center py-4">
                                 <div className="text-slate-500 mb-1">
                                   {(values.filterField || values.dateFilter !== 'all_time') ? (
