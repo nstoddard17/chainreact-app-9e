@@ -1,4 +1,17 @@
-import { FieldSchema } from '../../../ai/smartAIAgent';
+
+export interface FieldSchema {
+  name: string
+  type: string
+  required?: boolean
+  description?: string
+  examples?: any[]
+  priority?: string
+  defaultValue?: any
+  options?: any[]
+  maxLength?: number
+  minLength?: number
+  pattern?: string
+}
 
 export const sendMessage: FieldSchema[] = [
   {

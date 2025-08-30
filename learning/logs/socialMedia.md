@@ -2,6 +2,36 @@
 
 *Latest updates are added at the top with proper dates*
 
+## August 30, 2025
+
+### Complete Workflow Testing System with n8n-Style Interface
+
+Implemented a comprehensive workflow testing system that matches n8n's sophisticated testing capabilities. The new system replaces the confusing "Listen" and "Execute" buttons with intuitive "Test" and "Enable" controls that actually make sense to users.
+
+The Test button now works exactly like n8n - when clicked, it puts the workflow into test mode where triggers wait for real activation. For Discord triggers, it waits for an actual Discord message. For webhooks, it waits for an HTTP request. For email triggers, it waits for an email. The workflow shows visual feedback with color-coded node states: blue pulsing border for listening, yellow for running, green for completed, and red for errors.
+
+Each node now has its own test capability with a dedicated Test Panel that shows input and output data side-by-side, just like n8n. The panel displays formatted JSON data with syntax highlighting, allows copying individual fields, shows execution logs, and tracks timing metrics. Users can test individual nodes or entire workflow segments, with the system executing everything up to that point and displaying the results.
+
+The Enable button (formerly Execute) now properly enables the workflow and redirects users back to the workflow dashboard, making the flow much more intuitive. When a workflow is enabled, it's marked as active in the database and ready to run automatically based on its triggers.
+
+For admins and developers, we added confidence scores and detailed routing information as tooltips on the AI Router paths. Regular users see a clean interface while power users get the technical details they need. The visual execution flow shows exactly which paths were taken with animated indicators and confidence percentages.
+
+### Revolutionary AI Router Node - Multi-Path Workflow Intelligence
+
+Completely redesigned our AI Agent node into an AI Router that can intelligently route workflows through multiple output paths based on content analysis. This is a game-changer for automation - instead of complex if-then logic, users can now have AI decide which path(s) to take based on the actual content.
+
+The new AI Router features pre-configured templates (Support Router, Content Moderator, Lead Qualifier, Task Dispatcher) that instantly set up common routing patterns. Each router can have up to 10 output paths, with AI analyzing incoming data and choosing which paths to trigger based on confidence scores. For example, a support message about a bug that also requests a feature can trigger both the "Bug Report" and "Feature Request" paths simultaneously.
+
+We added comprehensive API flexibility - users can either use ChainReact's API (with metered billing) or bring their own OpenAI, Anthropic, Google, or Mistral API keys. All usage is tracked regardless of source, ensuring our business model remains intact while giving power users the flexibility they need. Custom API keys are AES-256 encrypted and stored securely with budget tracking.
+
+The memory system is particularly sophisticated - routers can be stateless, remember context within a workflow run, maintain conversation history across runs, or even use vector databases (Pinecone, Weaviate) for semantic memory search. This means the AI gets smarter over time and can make better routing decisions based on historical context.
+
+From a technical perspective, we built a complete usage tracking and rate limiting system that enforces plan limits (Free: 100/month, Pro: 1000/month, Business: 5000/month, Enterprise: unlimited) while calculating actual costs per model. The system tracks every token used and every penny spent, whether using our API or custom keys.
+
+The visual workflow builder now shows multiple output ports from the AI Router node, with color-coded paths that make it crystal clear which routes are available. During execution, users can see exactly which path(s) were triggered and why, with full reasoning from the AI included in the output.
+
+This transforms ChainReact from a linear automation tool into an intelligent workflow orchestrator that can make complex decisions autonomously. It's like having a smart assistant that knows exactly where to route each request based on its content.
+
 ## August 29, 2025
 
 ### Replicated Airtable UI Flow for Google Sheets
