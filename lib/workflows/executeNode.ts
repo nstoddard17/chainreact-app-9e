@@ -15,6 +15,7 @@ import {
   classifyContent,
 } from './actions/aiDataProcessing'
 import { executeAIAgent } from './aiAgent'
+import { processAIFields, ProcessingContext } from './ai/fieldProcessor'
 import {
   // Core utilities
   ActionResult,
@@ -1718,6 +1719,16 @@ async function getTwitterMentions(config: any, userId: string, input: any): Prom
  */
 export async function executeAction({ node, input, userId, workflowId }: ExecuteActionParams): Promise<ActionResult> {
   const { type, config } = node.data
+  
+  // Process AI fields if needed
+  const processedConfig = await processAIFieldsIfNeeded(type, config, {
+    userId,
+    workflowId: workflowId || 'unknown',
+    executionId: input?.executionId || 'unknown',
+    nodeId: node.id || 'unknown',
+    trigger: input?.trigger,
+    previousResults: input?.previousResults
+  })
 
   // Check if environment is properly configured
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -1890,6 +1901,84 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     }
   }
 
-  // Execute the handler with the provided parameters
-  return handler({ config, userId, input })
+  // Execute the handler with the processed parameters
+  return handler({ config: processedConfig, userId, input })
+}
+
+/**
+ * Process AI fields in configuration if needed
+ */
+async function processAIFieldsIfNeeded(
+  nodeType: string,
+  config: any,
+  context: {
+    userId: string
+    workflowId: string
+    executionId: string
+    nodeId: string
+    trigger?: any
+    previousResults?: any
+  }
+): Promise<any> {
+  // Check if any fields need AI processing
+  const needsProcessing = Object.values(config).some(value => 
+    typeof value === 'string' && (
+      value.includes('{{AI_FIELD:') ||
+      value.includes('[') ||
+      value.includes('{{AI:')
+    )
+  )
+  
+  if (!needsProcessing && nodeType !== 'ai_router') {
+    return config // No processing needed
+  }
+  
+  // Build processing context
+  const processingContext: ProcessingContext = {
+    userId: context.userId,
+    workflowId: context.workflowId,
+    executionId: context.executionId,
+    nodeId: context.nodeId,
+    nodeType,
+    triggerData: context.trigger,
+    previousNodes: context.previousResults ? new Map(Object.entries(context.previousResults)) : undefined,
+    config,
+    availableActions: nodeType === 'ai_router' ? getAvailableActions(config) : undefined,
+    apiKey: config.customApiKey,
+    model: config.model
+  }
+  
+  try {
+    const result = await processAIFields(processingContext)
+    
+    // For AI Router, handle routing decision
+    if (nodeType === 'ai_router' && result.routing) {
+      return {
+        ...config,
+        ...result.fields,
+        _aiRouting: result.routing // Special field for routing decision
+      }
+    }
+    
+    // Return config with processed fields
+    return {
+      ...config,
+      ...result.fields
+    }
+  } catch (error) {
+    console.error('AI field processing failed:', error)
+    // Fall back to original config
+    return config
+  }
+}
+
+/**
+ * Get available actions from AI Router config
+ */
+function getAvailableActions(config: any): string[] {
+  if (!config.outputPaths) return []
+  
+  return config.outputPaths
+    .filter((path: any) => path.actionId)
+    .map((path: any) => path.actionId)
 }

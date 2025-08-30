@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
-  DialogContentWithoutClose,
+  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -22,7 +22,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Slider } from '@/components/ui/slider'
 import { 
   Bot, 
   Sparkles, 
@@ -49,27 +48,20 @@ import {
   Key,
   HelpCircle,
   ArrowRight,
-  Loader2,
-  Save,
-  Play,
-  Database,
-  Clock
+  Loader2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AIVariableMenu } from './AIVariableMenu'
 import { useAIVariables } from '@/hooks/useAIVariables'
+import { AIFieldControl } from './AIFieldControl'
 import { cn } from '@/lib/utils'
-import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence"
-import { useWorkflowTestStore } from "@/stores/workflowTestStore"
-import { useIntegrationStore } from "@/stores/integrationStore"
 
-interface AIAgentConfigModalProps {
+interface AIAgentModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (config: Record<string, any>) => void
-  onUpdateConnections?: (sourceNodeId: string, targetNodeId: string) => void
-  initialData?: Record<string, any>
-  workflowData?: { nodes: any[], edges: any[] }
+  onSave: (config: any) => void
+  initialConfig?: any
+  nodes: any[]
   currentNodeId?: string
 }
 
@@ -88,13 +80,6 @@ const AI_MODELS = {
     capabilities: ['Fast responses', 'Good for simple tasks', 'Cost-effective'],
     costPer1k: { input: 0.0005, output: 0.0015 },
     contextWindow: 16000
-  },
-  'gpt-4': {
-    name: 'GPT-4',
-    provider: 'OpenAI',
-    capabilities: ['Most capable', 'Complex reasoning', 'Creative tasks'],
-    costPer1k: { input: 0.03, output: 0.06 },
-    contextWindow: 8192
   },
   'claude-3-opus': { 
     name: 'Claude 3 Opus', 
@@ -119,125 +104,53 @@ const AI_MODELS = {
   }
 }
 
-// Template options
-const TEMPLATES = [
-  { value: 'none', label: 'No Template' },
-  { value: 'support', label: 'Customer Support' },
-  { value: 'content', label: 'Content Generation' },
-  { value: 'data', label: 'Data Processing' },
-  { value: 'automation', label: 'Task Automation' },
-  { value: 'custom', label: 'Custom Template' }
-]
-
-export default function AIAgentConfigModal({
+export function AIAgentModal({
   isOpen,
   onClose,
   onSave,
-  onUpdateConnections,
-  initialData = {},
-  workflowData,
-  currentNodeId,
-}: AIAgentConfigModalProps) {
+  initialConfig = {},
+  nodes,
+  currentNodeId
+}: AIAgentModalProps) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('prompt')
   const [config, setConfig] = useState({
-    // Core settings
-    systemPrompt: '',
+    prompt: '',
     model: 'gpt-3.5-turbo',
     temperature: 0.7,
     maxTokens: 1000,
-    
-    // Behavior settings
     tone: 'professional',
     verbosity: 'concise',
     includeEmojis: false,
-    outputFormat: 'text',
-    
-    // Memory settings
     memory: 'none',
-    memoryIntegration: '',
-    
-    // Template settings
-    template: 'none',
-    customTemplate: '',
-    
-    // API settings
     apiSource: 'chainreact',
     customApiKey: '',
-    
-    // Action settings
+    customInstructions: '',
+    outputFormat: 'text',
     targetActions: [],
     autoDiscoverActions: true,
     fieldBehavior: 'smart',
-    
-    // Input/Output
-    inputNodeId: '',
-    customInstructions: '',
-    
-    // From initial data
-    ...initialData
+    ...initialConfig
   })
 
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
   const [previewData, setPreviewData] = useState<any>(null)
   const [estimatedCost, setEstimatedCost] = useState(0)
-  const [showApiKeyInput, setShowApiKeyInput] = useState(config.apiSource === 'custom')
-  const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false)
 
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const instructionsRef = useRef<HTMLTextAreaElement>(null)
 
-  const nodes = workflowData?.nodes || []
   const { variableGroups, insertVariable, hasAIAgent } = useAIVariables({
     nodes,
     currentNodeId,
     hasAIAgent: true
   })
 
-  // Get workflow ID from URL
-  const getWorkflowId = useCallback(() => {
-    if (typeof window === "undefined") return ""
-    const pathParts = window.location.pathname.split('/')
-    const builderIndex = pathParts.indexOf('builder')
-    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
-      return pathParts[builderIndex + 1]
-    }
-    return ""
-  }, [])
-
-  // Load saved configuration
   useEffect(() => {
-    const loadSavedConfig = async () => {
-      if (!currentNodeId) return
-      
-      setIsLoadingSavedConfig(true)
-      try {
-        const workflowId = getWorkflowId()
-        if (workflowId) {
-          const savedConfig = await loadNodeConfig(workflowId, currentNodeId)
-          if (savedConfig) {
-            setConfig(prev => ({ ...prev, ...savedConfig }))
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load saved config:", error)
-      } finally {
-        setIsLoadingSavedConfig(false)
-      }
-    }
-
-    loadSavedConfig()
-  }, [currentNodeId, getWorkflowId])
-
-  // Update config from initial data
-  useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 0) {
-      setConfig(prev => ({ ...prev, ...initialData }))
-      setShowApiKeyInput(initialData.apiSource === 'custom')
-    }
-  }, [initialData])
+    setConfig(prev => ({ ...prev, ...initialConfig }))
+  }, [initialConfig])
 
   // Calculate estimated cost
   useEffect(() => {
@@ -252,11 +165,10 @@ export default function AIAgentConfigModal({
 
   const handleFieldChange = (field: string, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }))
-    setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
   const handleDiscoverActions = async () => {
-    if (!config.systemPrompt) {
+    if (!config.prompt) {
       toast({
         title: "Prompt Required",
         description: "Please enter a prompt to discover relevant actions",
@@ -272,7 +184,7 @@ export default function AIAgentConfigModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'intent',
-          query: config.systemPrompt,
+          query: config.prompt,
           availableActions: nodes
             .filter(n => n.type !== 'trigger' && n.type !== 'ai_agent')
             .map(n => n.data?.type || n.type)
@@ -314,7 +226,7 @@ export default function AIAgentConfigModal({
                 from: 'john@example.com',
                 sender_name: 'John Doe',
                 subject: 'Test Subject',
-                body: 'This is a test email body'
+                body: 'This is a test email'
               }
             }
           }
@@ -334,51 +246,24 @@ export default function AIAgentConfigModal({
     }
   }
 
-  const handleSave = async () => {
-    // Validate required fields
-    const newErrors: Record<string, string> = {}
-    if (!config.systemPrompt && config.targetActions.length === 0) {
-      newErrors.systemPrompt = "Please provide a prompt or select target actions"
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
+  const handleSave = () => {
+    if (!config.prompt && config.targetActions.length === 0) {
       toast({
         title: "Configuration Required",
-        description: "Please fill in all required fields",
+        description: "Please provide a prompt or select target actions",
         variant: "destructive"
       })
       return
     }
 
-    // Save configuration
-    try {
-      const workflowId = getWorkflowId()
-      if (workflowId && currentNodeId) {
-        await saveNodeConfig(workflowId, currentNodeId, config)
-      }
-      
-      onSave(config)
-      onClose()
-      
-      toast({
-        title: "Configuration Saved",
-        description: "AI Agent settings have been saved successfully"
-      })
-    } catch (error) {
-      console.error("Failed to save config:", error)
-      toast({
-        title: "Save Failed",
-        description: "Could not save configuration. Please try again.",
-        variant: "destructive"
-      })
-    }
+    onSave(config)
+    onClose()
   }
 
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContentWithoutClose className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
@@ -392,30 +277,30 @@ export default function AIAgentConfigModal({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="prompt" className="flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />
-                <span className="hidden sm:inline">Prompt</span>
+                <MessageSquare className="w-4 h-4" />
+                Prompt
               </TabsTrigger>
               <TabsTrigger value="model" className="flex items-center gap-1">
-                <Brain className="w-3 h-3" />
-                <span className="hidden sm:inline">Model</span>
+                <Brain className="w-4 h-4" />
+                Model
               </TabsTrigger>
               <TabsTrigger value="behavior" className="flex items-center gap-1">
-                <Settings className="w-3 h-3" />
-                <span className="hidden sm:inline">Behavior</span>
+                <Settings className="w-4 h-4" />
+                Behavior
               </TabsTrigger>
               <TabsTrigger value="actions" className="flex items-center gap-1">
-                <Target className="w-3 h-3" />
-                <span className="hidden sm:inline">Actions</span>
+                <Target className="w-4 h-4" />
+                Actions
               </TabsTrigger>
               <TabsTrigger value="preview" className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                <span className="hidden sm:inline">Preview</span>
+                <Eye className="w-4 h-4" />
+                Preview
               </TabsTrigger>
             </TabsList>
 
             <ScrollArea className="h-[500px] mt-4">
               {/* Prompt Tab */}
-              <TabsContent value="prompt" className="space-y-4 px-1">
+              <TabsContent value="prompt" className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Main Prompt</CardTitle>
@@ -426,7 +311,7 @@ export default function AIAgentConfigModal({
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="systemPrompt">System Prompt</Label>
+                        <Label htmlFor="prompt">Prompt</Label>
                         <AIVariableMenu
                           nodes={nodes}
                           currentNodeId={currentNodeId}
@@ -436,18 +321,12 @@ export default function AIAgentConfigModal({
                       </div>
                       <Textarea
                         ref={promptRef}
-                        id="systemPrompt"
+                        id="prompt"
                         placeholder="Analyze the [message] and generate a professional response that addresses [subject]. Include {{AI:next_steps}} and maintain a [tone] tone."
-                        value={config.systemPrompt}
-                        onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
-                        className={cn(
-                          "min-h-[150px] font-mono text-sm",
-                          errors.systemPrompt && "border-red-500"
-                        )}
+                        value={config.prompt}
+                        onChange={(e) => handleFieldChange('prompt', e.target.value)}
+                        className="min-h-[150px] font-mono text-sm"
                       />
-                      {errors.systemPrompt && (
-                        <p className="text-xs text-red-500">{errors.systemPrompt}</p>
-                      )}
                       <p className="text-xs text-muted-foreground">
                         Use [variables] for simple replacements and {'{{AI:instruction}'} for AI-generated content
                       </p>
@@ -481,7 +360,7 @@ export default function AIAgentConfigModal({
               </TabsContent>
 
               {/* Model Tab */}
-              <TabsContent value="model" className="space-y-4 px-1">
+              <TabsContent value="model" className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Model Selection</CardTitle>
@@ -549,13 +428,14 @@ export default function AIAgentConfigModal({
                             </TooltipContent>
                           </Tooltip>
                         </div>
-                        <Slider
+                        <input
+                          type="range"
                           id="temperature"
-                          min={0}
-                          max={2}
-                          step={0.1}
-                          value={[config.temperature]}
-                          onValueChange={([value]) => handleFieldChange('temperature', value)}
+                          min="0"
+                          max="2"
+                          step="0.1"
+                          value={config.temperature}
+                          onChange={(e) => handleFieldChange('temperature', parseFloat(e.target.value))}
                           className="w-full"
                         />
                       </div>
@@ -639,7 +519,7 @@ export default function AIAgentConfigModal({
               </TabsContent>
 
               {/* Behavior Tab */}
-              <TabsContent value="behavior" className="space-y-4 px-1">
+              <TabsContent value="behavior" className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Agent Behavior</CardTitle>
@@ -665,7 +545,6 @@ export default function AIAgentConfigModal({
                             <SelectItem value="formal">Formal</SelectItem>
                             <SelectItem value="technical">Technical</SelectItem>
                             <SelectItem value="conversational">Conversational</SelectItem>
-                            <SelectItem value="neutral">Neutral</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -716,7 +595,6 @@ export default function AIAgentConfigModal({
                           <SelectItem value="none">No Memory</SelectItem>
                           <SelectItem value="workflow">Workflow Context</SelectItem>
                           <SelectItem value="conversation">Conversation Memory</SelectItem>
-                          <SelectItem value="all-storage">All Storage</SelectItem>
                           <SelectItem value="vector">Vector Storage (Advanced)</SelectItem>
                         </SelectContent>
                       </Select>
@@ -785,44 +663,12 @@ export default function AIAgentConfigModal({
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="template">Template</Label>
-                      <Select
-                        value={config.template}
-                        onValueChange={(value) => handleFieldChange('template', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TEMPLATES.map(template => (
-                            <SelectItem key={template.value} value={template.value}>
-                              {template.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {config.template === 'custom' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="customTemplate">Custom Template</Label>
-                        <Textarea
-                          id="customTemplate"
-                          placeholder="Enter your custom template..."
-                          value={config.customTemplate}
-                          onChange={(e) => handleFieldChange('customTemplate', e.target.value)}
-                          className="min-h-[100px] font-mono text-sm"
-                        />
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
 
               {/* Actions Tab */}
-              <TabsContent value="actions" className="space-y-4 px-1">
+              <TabsContent value="actions" className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Target Actions</CardTitle>
@@ -938,7 +784,7 @@ export default function AIAgentConfigModal({
               </TabsContent>
 
               {/* Preview Tab */}
-              <TabsContent value="preview" className="space-y-4 px-1">
+              <TabsContent value="preview" className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Field Resolution Preview</CardTitle>
@@ -1028,27 +874,18 @@ export default function AIAgentConfigModal({
                   Custom API (no plan limits)
                 </Badge>
               )}
-              {estimatedCost > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  ~${estimatedCost.toFixed(4)}/run
-                </Badge>
-              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isLoadingSavedConfig}>
-                {isLoadingSavedConfig ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 mr-2" />
-                )}
+              <Button onClick={handleSave}>
+                <Sparkles className="w-4 h-4 mr-2" />
                 Save Configuration
               </Button>
             </div>
           </DialogFooter>
-        </DialogContentWithoutClose>
+        </DialogContent>
       </Dialog>
     </TooltipProvider>
   )
