@@ -40,6 +40,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const optionsCache = useRef<Record<string, any>>({});
+  // Track request IDs to handle concurrent requests for the same field
+  const requestCounter = useRef(0);
+  const activeRequestIds = useRef<Map<string, number>>(new Map());
   
   // Cache key generator
   const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
@@ -73,13 +76,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Create a cache key that includes dependencies
     const cacheKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
     
+    // Generate a unique request ID
+    const requestId = ++requestCounter.current;
+    
     // Cancel any existing request for this field before starting a new one
     const existingController = abortControllers.current.get(cacheKey);
     if (existingController) {
-      console.log('🚫 [loadOptions] Cancelling existing request for:', { fieldName, cacheKey });
+      console.log('🚫 [loadOptions] Cancelling existing request for:', { fieldName, cacheKey, oldRequestId: activeRequestIds.current.get(cacheKey), newRequestId: requestId });
       existingController.abort();
       abortControllers.current.delete(cacheKey);
     }
+    
+    // Track the current request ID for this cache key
+    activeRequestIds.current.set(cacheKey, requestId);
     
     // Check if there's already an active request for this exact field/dependency combination
     const activeRequestKey = cacheKey;
@@ -210,8 +219,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             [fieldName]: []
           }));
         } finally {
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+          }
         }
         return;
       }
@@ -293,8 +305,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       integration = getIntegrationByProvider(providerId);
       if (!integration) {
         console.warn(`No integration found for provider: ${providerId}`);
-        loadingFields.current.delete(cacheKey);
-        setLoading(false);
+        // Only clear loading if this is still the current request
+        if (activeRequestIds.current.get(cacheKey) === requestId) {
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          activeRequestIds.current.delete(cacheKey);
+        }
         return;
       }
 
@@ -312,8 +328,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             ...prev,
             [fieldName]: []
           }));
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            activeRequestIds.current.delete(cacheKey);
+          }
           return;
         }
         
@@ -330,8 +350,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             ...prev,
             [fieldName]: []
           }));
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            activeRequestIds.current.delete(cacheKey);
+          }
           return;
         }
         
@@ -341,8 +365,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         
         if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
           console.log('🔍 [useDynamicOptions] Field is not a linked record field:', tableField?.type);
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            activeRequestIds.current.delete(cacheKey);
+          }
           return;
         }
         
@@ -374,8 +402,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               ...prev,
               [fieldName]: []
             }));
-            loadingFields.current.delete(cacheKey);
-            setLoading(false);
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+            }
             return;
           }
           
@@ -433,8 +465,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               ...prev,
               [fieldName]: []
             }));
-            loadingFields.current.delete(cacheKey);
-            setLoading(false);
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+            }
             return;
           }
           
@@ -523,6 +559,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             };
           });
           
+          // Check if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            console.log('🚫 [loadOptions] Linked record request superseded, not updating state for:', { fieldName, cacheKey, requestId });
+            return;
+          }
+          
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: formattedOptions
@@ -539,8 +581,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             [fieldName]: []
           }));
         } finally {
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+          }
         }
         return;
       }
@@ -560,8 +605,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         } else {
           console.log(`🔍 [useDynamicOptions] Field ${fieldName} does not require dynamic loading for node: ${nodeType}`);
         }
-        loadingFields.current.delete(cacheKey);
-        setLoading(false);
+        // Only clear loading if this is still the current request
+        if (activeRequestIds.current.get(cacheKey) === requestId) {
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          activeRequestIds.current.delete(cacheKey);
+        }
         return;
       }
 
@@ -636,6 +685,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           }));
           
           console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: fieldOptions.length });
+          
+          // Check if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            console.log('🚫 [useDynamicOptions] Request superseded by newer request, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
+            return;
+          }
           
           const formattedOptions = formatOptionsForField(fieldName, fieldOptions);
           const updateObject = { [fieldName]: formattedOptions };
@@ -722,6 +777,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             const recordsResult = await recordsResponse.json();
             const sampleRecords = recordsResult.data || [];
             
+            // Check if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) !== requestId) {
+              console.log('🚫 [useDynamicOptions] Request superseded during sample records fetch, not updating state');
+              return;
+            }
+            
             // Check if the field contains record IDs (starting with 'rec')
             if (sampleRecords.length > 0) {
               const sampleValue = sampleRecords[0].fields?.[dependsOnValue];
@@ -784,6 +845,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
           const recordsResult = await recordsResponse.json();
           const records = recordsResult.data || [];
+          
+          // Check if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            console.log('🚫 [useDynamicOptions] Request superseded during records fetch, not updating state');
+            return;
+          }
           
           console.log('🔍 [useDynamicOptions] Records loaded for field values extraction:', records.length);
           
@@ -851,6 +918,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 const linkedResult = await linkedResponse.json();
                 const linkedRecords = linkedResult.data || [];
                 
+                // Check if this is still the current request
+                if (activeRequestIds.current.get(cacheKey) !== requestId) {
+                  console.log('🚫 [useDynamicOptions] Request superseded during linked records fetch, not updating state');
+                  return;
+                }
+                
                 console.log(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table`);
                 
                 // Find the best field to use for display
@@ -903,6 +976,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: valueOptions.length });
           
+          // Check if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            console.log('🚫 [useDynamicOptions] Request superseded by newer request, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
+            return;
+          }
+          
           const formattedOptions = formatOptionsForField(fieldName, valueOptions);
           const updateObject = { [fieldName]: formattedOptions };
           
@@ -920,6 +999,13 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       console.log('🚀 [useDynamicOptions] Calling loadIntegrationData...');
       const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
       console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: result?.data?.length || 'unknown', result });
+      
+      // Check if this is still the current request
+      // This is crucial because loadIntegrationData might not support abort signals
+      if (activeRequestIds.current.get(cacheKey) !== requestId) {
+        console.log('🚫 [loadOptions] Request superseded during processing, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
+        return; // Don't update state if this request was superseded
+      }
       
       // Format the results - extract data array from response object if needed
       const dataArray = result.data || result;
@@ -945,15 +1031,24 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }));
       
       // Clear loading state on successful completion
-      loadingFields.current.delete(cacheKey);
-      setLoading(false);
-      
-      // Only clear loading states if not in silent mode
-      if (!silent) {
-        if (fieldName === 'tableName') {
-          console.log('✅ [loadOptions] Successfully loaded tableName, clearing loading state');
+      // IMPORTANT: Only clear if this is still the current request
+      if (activeRequestIds.current.get(cacheKey) === requestId) {
+        loadingFields.current.delete(cacheKey);
+        setLoading(false);
+        
+        // Clean up the abort controller and request ID since we're done
+        abortControllers.current.delete(cacheKey);
+        activeRequestIds.current.delete(cacheKey);
+        
+        // Only clear loading states if not in silent mode
+        if (!silent) {
+          if (fieldName === 'tableName') {
+            console.log('✅ [loadOptions] Successfully loaded tableName, clearing loading state');
+          }
+          onLoadingChangeRef.current?.(fieldName, false);
         }
-        onLoadingChangeRef.current?.(fieldName, false);
+      } else {
+        console.log('🚫 [loadOptions] Not clearing loading state for superseded request:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
       }
       
     } catch (error: any) {
@@ -962,7 +1057,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         console.log('🚫 [loadOptions] Request aborted for:', { fieldName, cacheKey });
         // Don't update state or clear loading for aborted requests
         // The loading state should persist until the new request completes
-        loadingFields.current.delete(cacheKey); // Only remove from tracking
         return;
       }
       
@@ -984,8 +1078,15 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }));
       
       // Only clear loading state for non-abort errors
-      loadingFields.current.delete(cacheKey);
-      setLoading(false);
+      // But only if this is still the current request
+      if (activeRequestIds.current.get(cacheKey) === requestId) {
+        loadingFields.current.delete(cacheKey);
+        setLoading(false);
+        
+        // Clean up the abort controller and request ID on error
+        abortControllers.current.delete(cacheKey);
+        activeRequestIds.current.delete(cacheKey);
+      }
       
       // Only clear loading states if not in silent mode
       if (!silent) {
@@ -1018,6 +1119,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       controller.abort();
     });
     abortControllers.current.clear();
+    activeRequestIds.current.clear();
     
     // Cancel all active requests
     activeRequests.current.forEach((promise, key) => {
@@ -1077,6 +1179,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         controller.abort();
       });
       abortControllers.current.clear();
+    activeRequestIds.current.clear();
       
       // Cancel all active requests
       activeRequests.current.forEach((promise, key) => {
