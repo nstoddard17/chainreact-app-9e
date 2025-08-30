@@ -566,6 +566,11 @@ export function FieldRenderer({
           </div>
         );
 
+      case "google_sheets_data_preview":
+        // This is a special field that should be rendered by ConfigurationForm
+        // Return null as the preview UI is handled at the form level
+        return null;
+
       default:
         return (
           <GenericTextInput

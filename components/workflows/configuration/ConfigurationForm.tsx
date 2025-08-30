@@ -2016,6 +2016,62 @@ export default function ConfigurationForm({
   }, [getIntegrationByProvider, values, airtableTableSchema, fetchAirtableTableSchema]);
 
   /**
+   * Load preview data for Google Sheets update record
+   */
+  const loadGoogleSheetsPreviewData = useCallback(async (spreadsheetId: string, sheetName: string) => {
+    try {
+      setLoadingPreview(true);
+      const integration = getIntegrationByProvider('google');
+      if (!integration) {
+        console.warn('No Google Sheets integration found');
+        return;
+      }
+      
+      console.log('🔍 Loading Google Sheets records for preview:', { 
+        spreadsheetId, 
+        sheetName
+      });
+      
+      // Call the Google Sheets data API endpoint
+      const response = await fetch('/api/integrations/google-sheets/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          integrationId: integration.id,
+          dataType: 'google_sheets_records',
+          options: {
+            spreadsheetId,
+            sheetName,
+            maxRows: 100, // Limit preview to 100 rows
+            includeHeaders: true
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to load preview data: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const records = result.data || [];
+
+      console.log('🔍 Google Sheets records loaded for preview:', records);
+      console.log('🔍 Total record count:', records?.length || 0);
+      setPreviewData(records || []);
+      setShowPreviewData(true);
+    } catch (error) {
+      console.error('Error loading Google Sheets preview data:', error);
+      setPreviewData([]);
+      setShowPreviewData(true); // Still show preview area to display error message
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [getIntegrationByProvider]);
+
+  /**
    * Test configuration handler
    */
   const handleTest = useCallback(async () => {
@@ -2934,6 +2990,20 @@ export default function ConfigurationForm({
     if (fieldName === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
       console.log('🔍 Google Sheets spreadsheetId changed to:', value);
       
+      // Clear preview data for update action
+      if (values.action === 'update') {
+        setSelectedRecord(null);
+        setPreviewData([]);
+        setShowPreviewData(false);
+        setValue('updateRowNumber', '');
+        // Clear updateMapping fields
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('updateMapping.')) {
+            setValue(key, '');
+          }
+        });
+      }
+      
       // Clear dependent fields when spreadsheetId changes
       if (nodeInfo.configSchema) {
         nodeInfo.configSchema.forEach(field => {
@@ -2953,6 +3023,47 @@ export default function ConfigurationForm({
                 });
               });
             }
+          }
+        });
+      }
+    }
+    
+    // Handle sheetName changes for Google Sheets
+    if (fieldName === 'sheetName' && nodeInfo?.providerId === 'google-sheets') {
+      // Clear preview data for update action
+      if (values.action === 'update') {
+        setSelectedRecord(null);
+        setPreviewData([]);
+        setShowPreviewData(false);
+        setValue('updateRowNumber', '');
+        // Clear updateMapping fields
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('updateMapping.')) {
+            setValue(key, '');
+          }
+        });
+      }
+    }
+    
+    // Handle action changes for Google Sheets
+    if (fieldName === 'action' && nodeInfo?.providerId === 'google-sheets') {
+      const previousAction = values.action;
+      
+      // Clear preview data
+      setSelectedRecord(null);
+      setPreviewData([]);
+      setShowPreviewData(false);
+      
+      // Clear update-specific fields when changing from update
+      if (previousAction === 'update') {
+        setValue('updateRowNumber', '');
+        setValue('findRowBy', '');
+        setValue('updateColumn', '');
+        setValue('updateValue', '');
+        // Clear updateMapping fields
+        Object.keys(values).forEach(key => {
+          if (key.startsWith('updateMapping.')) {
+            setValue(key, '');
           }
         });
       }
@@ -4116,6 +4227,161 @@ export default function ConfigurationForm({
           
           // Skip rendering if it's a dynamic section but we shouldn't show dynamic fields
           if (isDynamic && !showDynamicFields) return null;
+          
+          // Special handling for Google Sheets data preview field
+          if (field.type === 'google_sheets_data_preview' && nodeInfo?.providerId === 'google-sheets') {
+            // Only show for update action
+            if (values.action !== 'update') return null;
+            
+            return (
+              <div key={fieldKey} className="mt-6 space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-600 mb-3">
+                    Select a row from the sheet to update. The fields will be populated with the current values.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (showPreviewData) {
+                          setShowPreviewData(false);
+                          setPreviewData([]);
+                        } else {
+                          loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName);
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="flex items-center gap-2"
+                    >
+                      {loadingPreview ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      {loadingPreview ? 'Loading...' : showPreviewData ? 'Hide Rows' : 'Show Rows'}
+                    </Button>
+                    {showPreviewData && previewData.length > 0 && (
+                      <div className="text-sm text-slate-600">
+                        {selectedRecord ? (
+                          <span className="font-medium text-blue-600">
+                            Selected: Row {selectedRecord.rowNumber} - {selectedRecord.label}
+                          </span>
+                        ) : (
+                          <span>Click a row to select it</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Google Sheets Rows Table for Selection */}
+                {showPreviewData && (
+                  <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+                    <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 rounded-t-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-slate-900">
+                            Select Row: {values.sheetName}
+                          </h3>
+                          <p className="text-xs text-slate-600">
+                            {previewData.length} row{previewData.length !== 1 ? 's' : ''} • Click to select
+                            {selectedRecord && (
+                              <span className="ml-2 text-blue-600">Selected: Row {selectedRecord.rowNumber}</span>
+                            )}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowPreviewData(false);
+                            setPreviewData([]);
+                          }}
+                          className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      {previewData.length > 0 ? (
+                        <>
+                          <div className="update-record-table-container max-h-96 overflow-auto">
+                            <table className="w-full">
+                              <thead className="bg-slate-50 sticky top-0 z-10">
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase">
+                                    Row
+                                  </th>
+                                  {previewData[0]?.fields && Object.keys(previewData[0].fields).slice(0, 5).map((fieldName) => (
+                                    <th key={fieldName} className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase truncate max-w-[150px]">
+                                      {fieldName}
+                                    </th>
+                                  ))}
+                                  {previewData[0]?.fields && Object.keys(previewData[0].fields).length > 5 && (
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase">
+                                      +{Object.keys(previewData[0].fields).length - 5} more
+                                    </th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {previewData.map((record: any) => {
+                                  const isSelected = selectedRecord?.id === record.id;
+                                  return (
+                                    <tr
+                                      key={record.id}
+                                      onClick={() => {
+                                        setSelectedRecord(record);
+                                        setValue('updateRowNumber', record.rowNumber);
+                                        // Populate the update fields with current values
+                                        if (record.fields) {
+                                          Object.entries(record.fields).forEach(([fieldName, value]) => {
+                                            // Set the field values for the column mapper
+                                            const fieldKey = `updateMapping.${fieldName}`;
+                                            setValue(fieldKey, value);
+                                          });
+                                        }
+                                      }}
+                                      className={`selectable-row cursor-pointer transition-colors hover:bg-blue-50 ${
+                                        isSelected ? 'bg-blue-100' : ''
+                                      }`}
+                                    >
+                                      <td className="px-3 py-2 text-sm font-medium text-slate-900">
+                                        {record.rowNumber}
+                                      </td>
+                                      {Object.entries(record.fields || {}).slice(0, 5).map(([fieldName, value]: [string, any]) => (
+                                        <td key={fieldName} className="px-3 py-2 text-sm text-slate-700 truncate max-w-[150px]">
+                                          {String(value || '')}
+                                        </td>
+                                      ))}
+                                      {Object.keys(record.fields || {}).length > 5 && (
+                                        <td className="px-3 py-2 text-sm text-slate-500 italic">
+                                          ...
+                                        </td>
+                                      )}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-8 text-center text-slate-500">
+                          <Database className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                          <p className="text-sm">No rows found in this sheet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
           
           return (
           <React.Fragment key={fieldKey}>
