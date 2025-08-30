@@ -135,12 +135,14 @@ export const googleSheetsNodes: NodeComponent[] = [
         helpText: "Select which sheet tab to work with"
       },
 
-      // === ACTION SELECTION (ALWAYS VISIBLE) ===
+      // === ACTION SELECTION (VISIBLE AFTER SHEET SELECTION) ===
       {
         name: "action",
         label: "What do you want to do?",
         type: "select",
         required: true,
+        hidden: true,
+        showIf: (values: any) => values.sheetName,
         placeholder: "Select an action...",
         options: [
           { value: "add", label: "➕ Add new row" },
@@ -193,90 +195,18 @@ export const googleSheetsNodes: NodeComponent[] = [
       },
 
       // === UPDATE ROW FIELDS ===
-      {
-        name: "findRowBy",
-        label: "Find Row By",
-        type: "select",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update",
-        options: [
-          { value: "row_number", label: "Row number" },
-          { value: "column_value", label: "Column value" },
-          { value: "conditions", label: "Multiple conditions" }
-        ],
-        description: "How to identify which row to update",
-        helpText: "Row number: Update a specific row (e.g. row 5). Column value: Find row where a column contains a specific value. Multiple conditions: Use complex rules to find the right row."
-      },
+      // Removed findRowBy field - users now select rows directly from the preview table
       {
         name: "updateRowNumber",
-        label: "Row Number",
+        label: "Selected Row Number",
         type: "number",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update" && values.findRowBy === "row_number",
-        placeholder: "Enter row number (e.g. 5)",
-        min: 2,
-        description: "The row number to update (2 = first data row)",
-        helpText: "Row 1 is usually headers, so data starts at row 2"
-      },
-      {
-        name: "updateColumn",
-        label: "Column to Check",
-        type: "select",
-        dynamic: "google-sheets_columns",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update" && values.findRowBy === "column_value",
-        dependsOn: "sheetName",
-        placeholder: "Select column",
-        description: "Which column contains the value you're looking for",
-        helpText: "For example, if you want to update the row where Email is 'john@example.com', select the Email column"
-      },
-      {
-        name: "updateValue",
-        label: "Value to Find",
-        type: "text",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update" && values.findRowBy === "column_value",
-        placeholder: "Enter value to search for",
-        description: "The exact value to find in the selected column",
-        helpText: "This will find the first row where the column matches this value exactly"
-      },
-      {
-        name: "conditions",
-        label: "Conditions",
-        type: "google_sheets_condition_builder",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update" && values.findRowBy === "conditions",
-        dependsOn: "sheetName",
-        description: "Set up rules to find the right row",
-        helpText: "Create multiple conditions to find rows. For example, 'Status equals Active AND Date is after 2024-01-01'."
-      },
-      {
-        name: "updateMapping",
-        label: "What Data to Update",
-        type: "google_sheets_column_mapper",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "update",
-        dependsOn: "sheetName",
-        description: "Choose which columns to update with new data",
-        helpText: "Select the columns you want to change and what new data should go in them. Only these columns will be updated - everything else stays the same."
-      },
-      {
-        name: "updateMultiple",
-        label: "Update Multiple Rows",
-        type: "boolean",
         required: false,
-        hidden: true,
-        showIf: (values: any) => values.action === "update" && values.findRowBy !== "row_number",
-        defaultValue: false,
-        description: "Update all rows that match the conditions (not just the first)",
-        helpText: "When enabled, all matching rows will be updated. When disabled, only the first match is updated."
+        hidden: true, // Hidden field, populated when user selects a row from preview
+        showIf: (values: any) => false, // Never show to user
+        description: "The row number selected from the preview table"
       },
+      // Removed updateColumn, updateValue, and conditions fields - users now select rows directly from preview
+      // Column selection and value fields are now handled in the UI after row selection
 
       // === DELETE ROW FIELDS ===
       {
@@ -307,40 +237,55 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "The row number to delete (2 = first data row)",
         helpText: "Row 1 is usually headers, so data starts at row 2"
       },
+      // === DATA PREVIEW (Shows for update or delete by column) ===
       {
-        name: "deleteColumn",
-        label: "Column to Check",
-        type: "select",
-        dynamic: "google-sheets_columns",
-        required: true,
+        name: "dataPreview",
+        label: "Sheet Preview",
+        type: "google_sheets_data_preview",
+        required: false,
         hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value",
+        showIf: (values: any) => values.sheetName && (values.action === "update" || (values.action === "delete" && values.deleteRowBy === "column_value")),
         dependsOn: "sheetName",
-        placeholder: "Select column",
-        description: "Which column contains the value you're looking for",
-        helpText: "For example, if you want to delete the row where Status is 'Inactive', select the Status column"
+        description: "Preview of your spreadsheet data",
+        helpText: "This shows you the first few rows of your sheet to help you understand the column structure and data types."
       },
+      
+      // Column selection for delete is now handled in the UI below the grid
+      
+      // Delete All field comes AFTER the data preview and column selection UI
       {
-        name: "deleteValue",
-        label: "Value to Find",
+        name: "deleteAll",
+        label: "Delete All Matching Rows",
+        type: "boolean",
+        required: false,
+        hidden: true,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value" && values.deleteColumn && values.deleteValue,
+        defaultValue: false,
+        description: "Choose whether to delete ALL matching rows or just the first one found",
+        helpText: "⚠️ IMPORTANT:\n• UNCHECKED (default): Only the FIRST matching row found will be deleted\n• CHECKED: ALL rows matching your criteria will be deleted\n\nIf you don't check this box, the system will search from top to bottom and delete only the first row it finds that matches your criteria."
+      },
+      
+      {
+        name: "deleteConditions",
+        label: "Delete Conditions",
         type: "text",
         required: true,
         hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value",
-        placeholder: "Enter value to search for",
-        description: "The exact value to find in the selected column",
-        helpText: "This will delete the first row where the column matches this value exactly. Be careful - this action cannot be undone!"
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "conditions",
+        placeholder: "e.g., Status = 'Inactive' AND Date < '2024-01-01'",
+        description: "Enter conditions using Column = 'Value' format",
+        helpText: "Use AND/OR to combine conditions. Examples:\n• Name = 'John' AND Status = 'Active'\n• Price > 100 OR Category = 'Premium'\n• Date < '2024-01-01' AND Status != 'Completed'\nSupported operators: =, !=, <, >, <=, >=\nWithout 'Delete All' checked, only the FIRST match is deleted."
       },
       {
-        name: "deleteConditions",
-        label: "Conditions",
-        type: "google_sheets_condition_builder",
-        required: true,
+        name: "deleteAllConditions",
+        label: "Delete All Matching Rows",
+        type: "boolean",
+        required: false,
         hidden: true,
         showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "conditions",
-        dependsOn: "sheetName",
-        description: "Set up rules to find the right row",
-        helpText: "Create multiple conditions to find rows to delete. For example, 'Status equals Inactive AND Last Login is before 2024-01-01'. Be careful - matching rows will be permanently deleted!"
+        defaultValue: false,
+        description: "Choose whether to delete ALL matching rows or just the first one found",
+        helpText: "⚠️ IMPORTANT:\n• UNCHECKED (default): Only the FIRST matching row found will be deleted\n• CHECKED: ALL rows matching your conditions will be deleted\n\nIf you don't check this box, the system will search from top to bottom and delete only the first row it finds that matches your conditions."
       },
       {
         name: "startRow",
@@ -367,17 +312,6 @@ export const googleSheetsNodes: NodeComponent[] = [
         helpText: "The last row number in the range to delete (inclusive)"
       },
       {
-        name: "deleteAll",
-        label: "Delete All Matching Rows",
-        type: "boolean",
-        required: false,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete" && (values.deleteRowBy === "column_value" || values.deleteRowBy === "conditions"),
-        defaultValue: false,
-        description: "Delete all rows that match (not just the first)",
-        helpText: "When enabled, all matching rows will be deleted. When disabled, only the first match is deleted."
-      },
-      {
         name: "confirmDelete",
         label: "Confirm Delete",
         type: "boolean",
@@ -387,19 +321,6 @@ export const googleSheetsNodes: NodeComponent[] = [
         defaultValue: false,
         description: "Confirm that you want to permanently delete the row(s)",
         helpText: "You must check this box to confirm the delete operation. This action cannot be undone!"
-      },
-
-      // === DATA PREVIEW ===
-      {
-        name: "dataPreview",
-        label: "Sheet Preview",
-        type: "google_sheets_data_preview",
-        required: false,
-        hidden: true,
-        showIf: (values: any) => values.sheetName,
-        dependsOn: "sheetName",
-        description: "Preview of your spreadsheet data",
-        helpText: "This shows you the first few rows of your sheet to help you understand the column structure and data types."
       }
     ],
   },

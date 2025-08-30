@@ -23,12 +23,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Fetch integration from database
+    // Fetch integration from database - Google Sheets is stored with various provider names
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
-      .eq('provider', 'google')
       .single()
 
     if (integrationError || !integration) {
