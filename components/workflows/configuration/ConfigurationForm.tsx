@@ -2245,8 +2245,19 @@ export default function ConfigurationForm({
         const existingIndex = existingSuggestions.findIndex((s: any) => s.value === actualValue);
         
         if (existingIndex !== -1) {
-          // Value already exists as a bubble, don't add duplicate
-          console.log(`[Update] Value ${label} already exists as a bubble`);
+          // Value already exists as a bubble
+          console.log(`[Update] Value ${label} already exists as a bubble at index ${existingIndex}`);
+          
+          // For single-value fields, just keep the existing bubble as active
+          if (!isMultiValue) {
+            // Ensure the existing bubble remains active
+            setActiveBubbles(prev => ({
+              ...prev,
+              [fieldName]: existingIndex
+            }));
+          }
+          // For multi-value fields, the bubble already exists, just clear the dropdown
+          
           // Clear the dropdown after a short delay
           setTimeout(() => setValue(fieldName, ''), 50);
           return;
@@ -2389,7 +2400,7 @@ export default function ConfigurationForm({
         const suggestionLabel = option ? option.label : actualValue;
         
         newSuggestion = {
-          value: actualValue, // Use the actual value, not the array
+          value: actualValue, // Use the actual value (record ID)
           label: suggestionLabel,
           fieldName: tableField?.name
         };
@@ -2424,8 +2435,21 @@ export default function ConfigurationForm({
       const existingIndex = existingSuggestions.findIndex((s: any) => s.value === valueToCompare);
       
       if (existingIndex !== -1) {
-        // Value already exists as a bubble, don't add duplicate
-        console.log(`[Create] Value already exists as a bubble`);
+        // Value already exists as a bubble
+        console.log(`[Create] Value already exists as a bubble at index ${existingIndex}`);
+        
+        // For single-value fields, just keep the existing bubble as active
+        if (!isMultiValue) {
+          // Ensure the existing bubble remains active (for linked fields)
+          if (isLinkedField) {
+            setActiveBubbles(prev => ({
+              ...prev,
+              [fieldName]: existingIndex
+            }));
+          }
+        }
+        // For multi-value fields, the bubble already exists, just clear the dropdown
+        
         // Clear the dropdown to allow more selections
         setTimeout(() => setValue(fieldName, ''), 50);
         return;
