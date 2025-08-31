@@ -192,7 +192,7 @@ export function AIAgentConfigModal({
   const [activeTab, setActiveTab] = useState('prompt')
   
   // Collapsible sections
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tone']))
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   
   // Configuration state
   const [config, setConfig] = useState({
@@ -388,50 +388,12 @@ export function AIAgentConfigModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContentWithoutClose className="max-w-7xl w-[95vw] h-[95vh] p-0 overflow-hidden">
-        <div className="flex h-full">
-          {/* Variable Panel (collapsible sidebar) */}
-          <AnimatePresence>
-            {showVariablePanel && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 350, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-r bg-muted/30 h-full overflow-hidden"
-              >
-                <AIVariablePanel
-                  nodes={nodes}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={(variable) => {
-                    // Insert variable at cursor position
-                    if (promptRef.current) {
-                      const start = promptRef.current.selectionStart
-                      const end = promptRef.current.selectionEnd
-                      const text = config.systemPrompt
-                      const newText = text.substring(0, start) + variable.value + text.substring(end)
-                      setConfig(prev => ({ ...prev, systemPrompt: newText }))
-                      
-                      // Reset cursor position
-                      setTimeout(() => {
-                        if (promptRef.current) {
-                          promptRef.current.selectionStart = start + variable.value.length
-                          promptRef.current.selectionEnd = start + variable.value.length
-                          promptRef.current.focus()
-                        }
-                      }, 0)
-                    }
-                  }}
-                  onDragStart={setDraggedVariable}
-                  onClose={() => setShowVariablePanel(false)}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+    <TooltipProvider>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContentWithoutClose className="max-w-[1400px] w-[95vw] h-[95vh] p-0 overflow-hidden">
+          <div className="flex h-full max-h-[95vh]">
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Header with mode toggle */}
             <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10">
               <div className="flex items-center justify-between">
@@ -523,7 +485,7 @@ export function AIAgentConfigModal({
             )}
 
             {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
               <TabsList className="mx-6 mt-4 grid w-fit" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
                 {tabs.map(tab => (
                   <TabsTrigger key={tab} value={tab} className="gap-2">
@@ -542,16 +504,16 @@ export function AIAgentConfigModal({
                 ))}
               </TabsList>
 
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 {/* Prompt Tab */}
                 <TabsContent value="prompt" className="h-full mt-0" forceMount hidden={activeTab !== 'prompt'}>
-                  <ScrollArea className="h-full px-6 py-4">
-                    <div className="space-y-4">
+                  <ScrollArea className="h-[calc(95vh-260px)]">  {/* Adjust height based on header and footer */}
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold">AI Instructions</h3>
+                      <h3 className="text-lg font-semibold">AI Task Configuration</h3>
                       <p className="text-sm text-muted-foreground">
-                        Define what the AI should do with workflow data
+                        Tell the AI what to do - we handle the workflow complexity
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -579,13 +541,51 @@ export function AIAgentConfigModal({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="prompt">
-                      Master Prompt
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        Use variables to reference workflow data
+                  {/* System Prompt Info */}
+                  <Alert className="mb-4">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>AI Agent - Automatic Mode</AlertTitle>
+                    <AlertDescription>
+                      {isAdvancedMode ? (
+                        "You can customize the AI's behavior using the Master Prompt below. Leave it blank to use automatic mode."
+                      ) : (
+                        "The AI will automatically analyze your workflow and determine the best actions to take. Switch to Advanced Mode if you need custom behavior."
+                      )}
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Master Prompt - Only show in advanced mode */}
+                  {isAdvancedMode && (
+                    <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="prompt" className="flex items-center gap-2">
+                        Master Prompt
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-2 text-xs">
+                              <p className="font-semibold">Master Prompt (Optional):</p>
+                              <p>Override the AI's default behavior with custom instructions. Leave blank to let the AI automatically determine the best actions based on your workflow.</p>
+                              <div className="space-y-1">
+                                <p className="font-medium">Examples:</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                  <li>"Summarize the email from [trigger.email]"</li>
+                                  <li>"Generate a professional response"</li>
+                                  <li>"Extract key information and format as JSON"</li>
+                                  <li>"Translate {`{{content}}`} to Spanish"</li>
+                                </ul>
+                              </div>
+                              <p className="text-yellow-600 mt-2">💡 You don't need to explain how workflows work - we handle that automatically!</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        Describe what the AI should do
                       </span>
-                    </Label>
+                    </div>
                     <div
                       className={cn(
                         "relative rounded-lg border",
@@ -607,7 +607,7 @@ export function AIAgentConfigModal({
                         id="prompt"
                         value={config.systemPrompt}
                         onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                        placeholder="e.g., Analyze the email in [message] and generate a helpful response..."
+                        placeholder="e.g., Summarize the content and extract action items..."
                         className={cn(
                           "min-h-[200px] border-0 resize-none",
                           errors.systemPrompt && "border-red-500"
@@ -625,6 +625,7 @@ export function AIAgentConfigModal({
                       <p className="text-xs text-red-500">{errors.systemPrompt}</p>
                     )}
                   </div>
+                  )}
 
                   {/* Variable Resolution Preview */}
                   {testResults?.prompt && (
@@ -656,8 +657,8 @@ export function AIAgentConfigModal({
 
                 {/* Model Tab */}
                 <TabsContent value="model" className="h-full mt-0" forceMount hidden={activeTab !== 'model'}>
-                  <ScrollArea className="h-full px-6 py-4">
-                    <div className="space-y-4">
+                  <ScrollArea className="h-[calc(95vh-260px)]">
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">AI Model Selection</h3>
@@ -795,7 +796,23 @@ export function AIAgentConfigModal({
                   {/* API Source */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-sm">API Configuration</CardTitle>
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        API Configuration
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-2 text-xs">
+                              <p className="font-semibold">API Source Options:</p>
+                              <ul className="list-disc list-inside space-y-1">
+                                <li><strong>ChainReact API:</strong> Uses your plan's included AI credits</li>
+                                <li><strong>Custom API Key:</strong> Use your own OpenAI/Anthropic key (no credit limits)</li>
+                              </ul>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -868,8 +885,25 @@ export function AIAgentConfigModal({
                     <CollapsibleContent className="space-y-4 mt-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="temperature" className="text-sm">
+                          <Label htmlFor="temperature" className="text-sm flex items-center gap-2">
                             Temperature: {config.temperature}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2 text-xs">
+                                  <p className="font-semibold">Temperature Control:</p>
+                                  <p>Controls randomness in AI responses (0.0 to 1.0)</p>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    <li><strong>0.0-0.3:</strong> Very consistent, factual responses</li>
+                                    <li><strong>0.4-0.6:</strong> Balanced creativity and consistency</li>
+                                    <li><strong>0.7-1.0:</strong> More creative and varied responses</li>
+                                  </ul>
+                                  <p className="font-medium">Recommended: 0.7 for most use cases</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                           </Label>
                           <span className="text-xs text-muted-foreground">
                             Lower = more deterministic, Higher = more creative
@@ -887,8 +921,26 @@ export function AIAgentConfigModal({
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="max-tokens" className="text-sm">
+                          <Label htmlFor="max-tokens" className="text-sm flex items-center gap-2">
                             Max Tokens: {config.maxTokens}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2 text-xs">
+                                  <p className="font-semibold">Max Tokens Guide:</p>
+                                  <p>Maximum length of the AI response (1 token ≈ 0.75 words)</p>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    <li><strong>100-500:</strong> Short responses (tweets, titles)</li>
+                                    <li><strong>500-1000:</strong> Medium responses (paragraphs)</li>
+                                    <li><strong>1000-2000:</strong> Long responses (emails, articles)</li>
+                                    <li><strong>2000-4000:</strong> Very long content</li>
+                                  </ul>
+                                  <p className="text-yellow-600">⚠️ Higher values increase cost</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                           </Label>
                           <span className="text-xs text-muted-foreground">
                             Maximum response length
@@ -912,8 +964,8 @@ export function AIAgentConfigModal({
                 {/* Behavior Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
                   <TabsContent value="behavior" className="h-full mt-0" forceMount hidden={activeTab !== 'behavior'}>
-                    <ScrollArea className="h-full px-6 py-4">
-                      <div className="space-y-4">
+                    <ScrollArea className="h-[calc(95vh-260px)]">
+                      <div className="px-6 py-4 space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold">Response Behavior</h3>
                       <p className="text-sm text-muted-foreground">
@@ -922,12 +974,37 @@ export function AIAgentConfigModal({
                     </div>
 
                     {/* Tone Selection with Previews */}
-                    <Collapsible open={expandedSections.has('tone')}>
+                    <Collapsible 
+                      open={expandedSections.has('tone')}
+                      onOpenChange={(isOpen) => {
+                        setExpandedSections(prev => {
+                          const newSet = new Set(prev)
+                          if (isOpen) {
+                            newSet.add('tone')
+                          } else {
+                            newSet.delete('tone')
+                          }
+                          return newSet
+                        })
+                      }}
+                    >
                       <CollapsibleTrigger asChild>
                         <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
                           <div className="flex items-center gap-2">
                             <MessageSquare className="w-4 h-4" />
                             <span className="font-medium">Tone & Style</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" onClick={(e) => e.stopPropagation()} />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2 text-xs">
+                                  <p className="font-semibold">Tone Settings:</p>
+                                  <p>Controls how the AI communicates in its responses.</p>
+                                  <p>Choose based on your audience and use case.</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                             <Badge variant="secondary">
                               {TONE_SAMPLES[config.tone]?.icon} {config.tone}
                             </Badge>
@@ -975,12 +1052,41 @@ export function AIAgentConfigModal({
                     </Collapsible>
 
                     {/* Formatting Options */}
-                    <Collapsible open={expandedSections.has('formatting')}>
+                    <Collapsible 
+                      open={expandedSections.has('formatting')}
+                      onOpenChange={(isOpen) => {
+                        setExpandedSections(prev => {
+                          const newSet = new Set(prev)
+                          if (isOpen) {
+                            newSet.add('formatting')
+                          } else {
+                            newSet.delete('formatting')
+                          }
+                          return newSet
+                        })
+                      }}
+                    >
                       <CollapsibleTrigger asChild>
                         <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
                           <div className="flex items-center gap-2">
                             <FileText className="w-4 h-4" />
                             <span className="font-medium">Output Formatting</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" onClick={(e) => e.stopPropagation()} />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2 text-xs">
+                                  <p className="font-semibold">Output Format:</p>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    <li><strong>Plain Text:</strong> Simple unformatted text</li>
+                                    <li><strong>Markdown:</strong> Formatted with headers, lists, etc.</li>
+                                    <li><strong>HTML:</strong> Web-ready formatted content</li>
+                                    <li><strong>JSON:</strong> Structured data for APIs</li>
+                                  </ul>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                           <ChevronDown className={cn(
                             "w-4 h-4 transition-transform",
@@ -1008,8 +1114,19 @@ export function AIAgentConfigModal({
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="include-context" className="text-sm">
+                          <Label htmlFor="include-context" className="text-sm flex items-center gap-2">
                             Include workflow context
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2 text-xs">
+                                  <p className="font-semibold">Workflow Context:</p>
+                                  <p>When enabled, the AI receives information about previous nodes' outputs and the overall workflow structure, allowing for more contextual responses.</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                           </Label>
                           <Switch
                             id="include-context"
@@ -1021,7 +1138,20 @@ export function AIAgentConfigModal({
                     </Collapsible>
 
                     {/* Advanced Settings (Safety, Retry, etc.) */}
-                    <Collapsible open={expandedSections.has('advanced')}>
+                    <Collapsible 
+                      open={expandedSections.has('advanced')}
+                      onOpenChange={(isOpen) => {
+                        setExpandedSections(prev => {
+                          const newSet = new Set(prev)
+                          if (isOpen) {
+                            newSet.add('advanced')
+                          } else {
+                            newSet.delete('advanced')
+                          }
+                          return newSet
+                        })
+                      }}
+                    >
                       <CollapsibleTrigger asChild>
                         <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
                           <div className="flex items-center gap-2">
@@ -1037,7 +1167,27 @@ export function AIAgentConfigModal({
                       <CollapsibleContent className="mt-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label htmlFor="safety" className="text-sm">Safety Filtering</Label>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="safety" className="text-sm">Safety Filtering</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-2 text-xs">
+                                    <p className="font-semibold">Safety Filter:</p>
+                                    <p>Automatically filters out:</p>
+                                    <ul className="list-disc list-inside space-y-1">
+                                      <li>Harmful or toxic content</li>
+                                      <li>Personal information (PII)</li>
+                                      <li>Inappropriate language</li>
+                                      <li>Sensitive topics</li>
+                                    </ul>
+                                    <p className="text-yellow-600">⚠️ Recommended for public-facing content</p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               Filter harmful or sensitive content
                             </p>
@@ -1086,8 +1236,8 @@ export function AIAgentConfigModal({
                 {/* Actions Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
                   <TabsContent value="actions" className="h-full mt-0" forceMount hidden={activeTab !== 'actions'}>
-                    <ScrollArea className="h-full px-6 py-4">
-                      <div className="space-y-4">
+                    <ScrollArea className="h-[calc(95vh-260px)]">
+                      <div className="px-6 py-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-semibold">Action Discovery</h3>
@@ -1185,8 +1335,8 @@ export function AIAgentConfigModal({
 
                 {/* Preview Tab */}
                 <TabsContent value="preview" className="h-full mt-0" forceMount hidden={activeTab !== 'preview'}>
-                  <ScrollArea className="h-full px-6 py-4">
-                    <div className="space-y-4">
+                  <ScrollArea className="h-[calc(95vh-260px)]">
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold">Test & Preview</h3>
@@ -1303,38 +1453,93 @@ export function AIAgentConfigModal({
             </Tabs>
 
             {/* Footer */}
-            <DialogFooter className="px-6 py-4 border-t bg-muted/30">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Activity className="w-4 h-4" />
-                  <span>Est. ${estimatedCost.toFixed(4)}/run</span>
-                  <span>•</span>
-                  <Clock className="w-4 h-4" />
-                  <span>{estimatedLatency}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Configuration
-                      </>
-                    )}
-                  </Button>
-                </div>
+            <div className="flex justify-between items-center h-[70px] px-6 border-t border-slate-200 bg-white flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex items-center gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
               </div>
-            </DialogFooter>
+              
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Activity className="w-4 h-4" />
+                    <span>Est. ${estimatedCost.toFixed(4)}/run</span>
+                  </div>
+                  <span>•</span>
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{estimatedLatency}</span>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Configuration
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {/* Variable Panel (collapsible sidebar on right) */}
+          <AnimatePresence>
+            {showVariablePanel && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 350, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="border-l bg-muted/30 h-full overflow-hidden"
+              >
+                <AIVariablePanel
+                  nodes={nodes}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    // Insert variable at cursor position
+                    if (promptRef.current) {
+                      const start = promptRef.current.selectionStart
+                      const end = promptRef.current.selectionEnd
+                      const text = config.systemPrompt
+                      const newText = text.substring(0, start) + variable.value + text.substring(end)
+                      setConfig(prev => ({ ...prev, systemPrompt: newText }))
+                      
+                      // Reset cursor position
+                      setTimeout(() => {
+                        if (promptRef.current) {
+                          promptRef.current.selectionStart = start + variable.value.length
+                          promptRef.current.selectionEnd = start + variable.value.length
+                          promptRef.current.focus()
+                        }
+                      }, 0)
+                    }
+                  }}
+                  onDragStart={setDraggedVariable}
+                  onClose={() => setShowVariablePanel(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </DialogContentWithoutClose>
     </Dialog>
+    </TooltipProvider>
   )
 }

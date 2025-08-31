@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { 
   Variable, Bot, Hash, AtSign, Sparkles, Search, X,
   ChevronDown, Copy, Plus, Grip, Info, Code, Wand2,
-  BookOpen, Lightbulb, ChevronRight, MousePointer
+  BookOpen, Lightbulb, ChevronRight, MousePointer, HelpCircle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -194,7 +194,7 @@ export function AIVariablePanel({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full pl-2">
+      <div className="flex flex-col h-full pl-2 overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-3">
@@ -202,16 +202,6 @@ export function AIVariablePanel({
               <Sparkles className="w-5 h-5 text-purple-500" />
               <h3 className="font-semibold">AI Variables</h3>
             </div>
-            {onClose && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="h-7 w-7 p-0"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
           </div>
           
           {/* Search */}
@@ -228,9 +218,47 @@ export function AIVariablePanel({
 
           {/* Instructions */}
           <div className="mt-3 p-2 bg-muted rounded-lg text-xs">
-            <div className="flex items-center gap-2 mb-1">
-              <MousePointer className="w-3 h-3" />
-              <span className="font-medium">How to use:</span>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <MousePointer className="w-3 h-3" />
+                <span className="font-medium">How to use:</span>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                    <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-sm">
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <p className="font-semibold mb-1">Variable Types:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li><strong>[simple]</strong> - Direct text replacement</li>
+                        <li><strong>{`{{complex}}`}</strong> - Nested data & objects</li>
+                        <li><strong>{`{{AI:instruction}}`}</strong> - AI-processed content</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-1">Usage Examples:</p>
+                      <code className="block bg-muted p-2 rounded">
+                        Hi [userName],<br/>
+                        Your order {`{{trigger.orderId}}`} is ready.<br/>
+                        {`{{AI:summarize}}`}
+                      </code>
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-1">Advanced Features:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Chain multiple variables</li>
+                        <li>Access nested properties with dot notation</li>
+                        <li>Combine with static text</li>
+                        <li>Use in any text field</li>
+                      </ul>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <ul className="space-y-1 text-muted-foreground">
               <li>• Click to insert at cursor</li>
@@ -241,7 +269,7 @@ export function AIVariablePanel({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-4 mt-2 grid w-full grid-cols-3">
             <TabsTrigger value="variables" className="text-xs">
               <Variable className="w-3 h-3 mr-1" />
@@ -257,7 +285,7 @@ export function AIVariablePanel({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             {/* Variables Tab */}
             <TabsContent value="variables" className="px-4 pb-4 space-y-2">
               {filteredGroups.length === 0 ? (
@@ -410,8 +438,32 @@ export function AIVariablePanel({
               <div className="mt-4 p-3 bg-muted rounded-lg">
                 <div className="flex items-start gap-2">
                   <Lightbulb className="w-4 h-4 text-yellow-500 mt-0.5" />
-                  <div className="text-xs space-y-1">
-                    <p className="font-medium">Custom Instructions</p>
+                  <div className="text-xs space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">Custom Instructions</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs">
+                          <div className="space-y-2 text-xs">
+                            <p className="font-semibold">How Custom AI Instructions Work:</p>
+                            <p>Create your own AI instructions using the format: {`{{AI:instruction_name}}`}</p>
+                            <div className="space-y-1">
+                              <p className="font-medium">Examples:</p>
+                              <ul className="list-disc list-inside space-y-1">
+                                <li>{`{{AI:write_follow_up}}`} - Writes a follow-up message</li>
+                                <li>{`{{AI:extract_phone}}`} - Extracts phone numbers</li>
+                                <li>{`{{AI:create_title}}`} - Generates a title</li>
+                              </ul>
+                            </div>
+                            <p>The AI will interpret your instruction based on the workflow context and available data.</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <p className="text-muted-foreground">
                       Create custom AI instructions:
                     </p>
