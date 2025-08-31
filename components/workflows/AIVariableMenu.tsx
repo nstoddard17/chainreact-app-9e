@@ -138,11 +138,11 @@ export function AIVariableMenu({
         </Tooltip>
         
         <DropdownMenuContent 
-          className="w-80" 
+          className="w-80 p-0" 
           align={position === 'left' ? 'start' : 'end'}
           sideOffset={5}
         >
-          <DropdownMenuLabel className="flex items-center justify-between">
+          <DropdownMenuLabel className="flex items-center justify-between px-2 py-1.5">
             <span className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               AI Variables
@@ -154,21 +154,20 @@ export function AIVariableMenu({
           
           <DropdownMenuSeparator />
           
-          {/* Search */}
-          <div className="px-2 pb-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                placeholder="Search variables..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-9"
-              />
+          <ScrollArea className="max-h-64 overflow-y-auto">
+            {/* Search */}
+            <div className="px-2 pb-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search variables..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
             </div>
-          </div>
-          
-          <ScrollArea className="h-[400px]">
             {filteredGroups.length === 0 ? (
               <div className="px-2 py-8 text-center text-sm text-muted-foreground">
                 No variables found
@@ -213,11 +212,9 @@ export function AIVariableMenu({
                 </div>
               ))
             )}
-          </ScrollArea>
-          
-          <DropdownMenuSeparator />
-          
-          <div className="px-2 py-2">
+            <DropdownMenuSeparator />
+            
+            <div className="px-2 py-2">
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="w-3 h-3 mt-0.5" />
               <div>
@@ -229,7 +226,7 @@ export function AIVariableMenu({
                 </p>
               </div>
             </div>
-          </div>
+          </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
     </TooltipProvider>
