@@ -31,7 +31,7 @@ import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integration
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
-import AIAgentConfigModal from "./AIAgentConfigModal"
+import { AIAgentConfigModal } from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"

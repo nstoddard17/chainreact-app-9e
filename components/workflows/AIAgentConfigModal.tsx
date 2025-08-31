@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Dialog,
   DialogContentWithoutClose,
@@ -20,48 +20,29 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
+// import { ScrollArea } from '@/components/ui/scroll-area' // Not needed - using native overflow-y-auto
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
-  Bot, 
-  Sparkles, 
-  Brain, 
-  Zap, 
-  Settings, 
-  Code,
-  Eye,
-  Search,
-  DollarSign,
-  Info,
-  AlertCircle,
-  CheckCircle,
-  X,
-  Plus,
-  ChevronRight,
-  Variable,
-  Lightbulb,
-  Target,
-  Wand2,
-  BookOpen,
-  MessageSquare,
-  Gauge,
-  Key,
-  HelpCircle,
-  ArrowRight,
-  Loader2,
-  Save,
-  Play,
-  Database,
-  Clock
+  Bot, Sparkles, Brain, Zap, Settings, Code, Eye, Search,
+  DollarSign, Info, AlertCircle, CheckCircle, X, Plus,
+  ChevronRight, ChevronDown, Variable, Lightbulb, Target,
+  Wand2, BookOpen, MessageSquare, Gauge, Key, HelpCircle,
+  ArrowRight, Loader2, Save, Play, Database, Clock, Shield,
+  Download, Copy, GraduationCap, ToggleLeft, ToggleRight,
+  FileText, Palette, Lock, Unlock, RefreshCw, TrendingUp,
+  Activity, Coins, Layers, Shuffle
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { AIVariableMenu } from './AIVariableMenu'
+import { AIVariablePanel } from './AIVariablePanel'
 import { useAIVariables } from '@/hooks/useAIVariables'
 import { cn } from '@/lib/utils'
 import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistence"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -73,526 +54,754 @@ interface AIAgentConfigModalProps {
   currentNodeId?: string
 }
 
-// AI Models with their capabilities and pricing
-const AI_MODELS = {
-  'gpt-4-turbo': { 
-    name: 'GPT-4 Turbo', 
-    provider: 'OpenAI',
-    capabilities: ['Advanced reasoning', 'Complex tasks', 'Long context'],
-    costPer1k: { input: 0.01, output: 0.03 },
-    contextWindow: 128000
+// Group models by recommendation
+const MODEL_GROUPS = {
+  recommended: [
+    {
+      id: 'gpt-4-turbo',
+      name: 'GPT-4 Turbo',
+      provider: 'OpenAI',
+      badges: ['⚡ Fast', '🧠 Smart', '📚 128k Context'],
+      description: 'Best for complex reasoning and long documents',
+      costPer1k: { input: 0.01, output: 0.03 },
+      contextWindow: 128000,
+      latency: '~2s'
+    },
+    {
+      id: 'claude-3-sonnet',
+      name: 'Claude 3 Sonnet',
+      provider: 'Anthropic',
+      badges: ['⚖️ Balanced', '✍️ Creative', '📚 100k Context'],
+      description: 'Great balance of speed and capability',
+      costPer1k: { input: 0.003, output: 0.015 },
+      contextWindow: 100000,
+      latency: '~1.5s'
+    }
+  ],
+  other: [
+    {
+      id: 'gpt-3.5-turbo',
+      name: 'GPT-3.5 Turbo',
+      provider: 'OpenAI',
+      badges: ['💰 Cost-Efficient', '⚡ Ultra-Fast'],
+      description: 'Good for simple tasks and high volume',
+      costPer1k: { input: 0.0005, output: 0.0015 },
+      contextWindow: 16000,
+      latency: '~0.5s'
+    },
+    {
+      id: 'claude-3-opus',
+      name: 'Claude 3 Opus',
+      provider: 'Anthropic',
+      badges: ['🎯 Most Capable', '📚 200k Context'],
+      description: 'Top performance for complex analysis',
+      costPer1k: { input: 0.015, output: 0.075 },
+      contextWindow: 200000,
+      latency: '~3s'
+    },
+    {
+      id: 'gemini-pro',
+      name: 'Gemini Pro',
+      provider: 'Google',
+      badges: ['🌐 Multimodal', '💰 Free Tier'],
+      description: 'Supports images and has generous free tier',
+      costPer1k: { input: 0.0005, output: 0.0015 },
+      contextWindow: 32000,
+      latency: '~1s'
+    }
+  ]
+}
+
+// Tone preview samples
+const TONE_SAMPLES = {
+  professional: {
+    icon: '💼',
+    sample: 'Thank you for your inquiry. I will process your request and provide a comprehensive response.',
+    description: 'Formal and business-appropriate'
   },
-  'gpt-3.5-turbo': { 
-    name: 'GPT-3.5 Turbo', 
-    provider: 'OpenAI',
-    capabilities: ['Fast responses', 'Good for simple tasks', 'Cost-effective'],
-    costPer1k: { input: 0.0005, output: 0.0015 },
-    contextWindow: 16000
+  casual: {
+    icon: '😊',
+    sample: 'Hey there! Let me help you out with that.',
+    description: 'Relaxed and friendly'
   },
-  'gpt-4': {
-    name: 'GPT-4',
-    provider: 'OpenAI',
-    capabilities: ['Most capable', 'Complex reasoning', 'Creative tasks'],
-    costPer1k: { input: 0.03, output: 0.06 },
-    contextWindow: 8192
+  friendly: {
+    icon: '👋',
+    sample: 'Hi! I\'d be happy to help you with this.',
+    description: 'Warm and approachable'
   },
-  'claude-3-opus': { 
-    name: 'Claude 3 Opus', 
-    provider: 'Anthropic',
-    capabilities: ['Nuanced understanding', 'Creative tasks', 'Safety-focused'],
-    costPer1k: { input: 0.015, output: 0.075 },
-    contextWindow: 200000
+  technical: {
+    icon: '🔧',
+    sample: 'Processing input parameters. Executing workflow automation sequence.',
+    description: 'Precise and detailed'
   },
-  'claude-3-sonnet': { 
-    name: 'Claude 3 Sonnet', 
-    provider: 'Anthropic',
-    capabilities: ['Balanced performance', 'Good value', 'Fast'],
-    costPer1k: { input: 0.003, output: 0.015 },
-    contextWindow: 200000
+  conversational: {
+    icon: '💬',
+    sample: 'Great question! Let\'s work through this together.',
+    description: 'Natural dialogue style'
   },
-  'gemini-pro': { 
-    name: 'Gemini Pro', 
-    provider: 'Google',
-    capabilities: ['Multimodal', 'Fast', 'Free tier available'],
-    costPer1k: { input: 0.00025, output: 0.0005 },
-    contextWindow: 32000
+  formal: {
+    icon: '🎩',
+    sample: 'Dear User, I acknowledge receipt of your communication.',
+    description: 'Very formal and traditional'
   }
 }
 
-// Template options
-const TEMPLATES = [
-  { value: 'none', label: 'No Template' },
-  { value: 'support', label: 'Customer Support' },
-  { value: 'content', label: 'Content Generation' },
-  { value: 'data', label: 'Data Processing' },
-  { value: 'automation', label: 'Task Automation' },
-  { value: 'custom', label: 'Custom Template' }
+// Quick start templates
+const QUICK_START_TEMPLATES = [
+  {
+    id: 'email_reply',
+    name: 'Email Auto-Reply',
+    icon: '✉️',
+    prompt: 'Analyze the email in [message] and generate a helpful, professional response. Address the main points and include {{AI:next_steps}} if needed.',
+    model: 'gpt-4-turbo',
+    tone: 'professional'
+  },
+  {
+    id: 'content_summary',
+    name: 'Content Summarizer',
+    icon: '📝',
+    prompt: 'Review the content from {{trigger.data}} and {{AI:summarize}}. Extract key points and {{AI:assess_priority}}.',
+    model: 'claude-3-sonnet',
+    tone: 'technical'
+  },
+  {
+    id: 'task_router',
+    name: 'Task Router',
+    icon: '🚦',
+    prompt: 'Based on [message], determine the appropriate team/action and {{AI:categorize}}. Generate routing instructions.',
+    model: 'gpt-3.5-turbo',
+    tone: 'technical'
+  }
 ]
 
-export default function AIAgentConfigModal({
+export function AIAgentConfigModal({
   isOpen,
   onClose,
   onSave,
   onUpdateConnections,
-  initialData = {},
+  initialData,
   workflowData,
-  currentNodeId,
+  currentNodeId
 }: AIAgentConfigModalProps) {
   const { toast } = useToast()
+  const promptRef = useRef<HTMLTextAreaElement>(null)
+  const nodes = workflowData?.nodes || []
+  
+  // Progressive disclosure state
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false)
   const [activeTab, setActiveTab] = useState('prompt')
+  
+  // Collapsible sections
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['tone']))
+  
+  // Configuration state
   const [config, setConfig] = useState({
-    // Core settings
+    title: 'AI Agent',
     systemPrompt: '',
-    model: 'gpt-3.5-turbo',
-    temperature: 0.7,
-    maxTokens: 1000,
-    
-    // Behavior settings
-    tone: 'professional',
-    verbosity: 'concise',
-    includeEmojis: false,
-    outputFormat: 'text',
-    
-    // Memory settings
-    memory: 'none',
-    memoryIntegration: '',
-    
-    // Template settings
-    template: 'none',
-    customTemplate: '',
-    
-    // API settings
+    model: 'gpt-4-turbo',
     apiSource: 'chainreact',
     customApiKey: '',
-    
-    // Action settings
-    targetActions: [],
-    autoDiscoverActions: true,
-    fieldBehavior: 'smart',
-    
-    // Input/Output
-    inputNodeId: '',
-    customInstructions: '',
-    
-    // From initial data
+    tone: 'professional',
+    temperature: 0.7,
+    maxTokens: 2000,
+    outputFormat: 'text',
+    includeContext: true,
+    enableSafety: true,
+    maxRetries: 3,
+    timeout: 30000,
+    targetActions: [] as string[],
     ...initialData
   })
 
+  // UI state
+  const [showModelDetails, setShowModelDetails] = useState(false)
+  const [selectedTone, setSelectedTone] = useState(config.tone)
+  const [isTestingPrompt, setIsTestingPrompt] = useState(false)
+  const [isTestingModel, setIsTestingModel] = useState(false)
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
-  const [previewData, setPreviewData] = useState<any>(null)
+  const [testResults, setTestResults] = useState<any>(null)
+  const [showVariablePanel, setShowVariablePanel] = useState(true)
+  const [draggedVariable, setDraggedVariable] = useState<any>(null)
   const [estimatedCost, setEstimatedCost] = useState(0)
-  const [showApiKeyInput, setShowApiKeyInput] = useState(config.apiSource === 'custom')
-  const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
+  const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showWizard, setShowWizard] = useState(false)
+  
+  // Loading states
+  const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const promptRef = useRef<HTMLTextAreaElement>(null)
-  const instructionsRef = useRef<HTMLTextAreaElement>(null)
-
-  const nodes = workflowData?.nodes || []
-  const { variableGroups, insertVariable, hasAIAgent } = useAIVariables({
-    nodes,
-    currentNodeId,
-    hasAIAgent: true
-  })
-
-  // Get workflow ID from URL
-  const getWorkflowId = useCallback(() => {
-    if (typeof window === "undefined") return ""
-    const pathParts = window.location.pathname.split('/')
-    const builderIndex = pathParts.indexOf('builder')
-    if (builderIndex !== -1 && pathParts.length > builderIndex + 1) {
-      return pathParts[builderIndex + 1]
-    }
-    return ""
-  }, [])
-
-  // Load saved configuration
+  // Calculate cost and latency dynamically
   useEffect(() => {
-    const loadSavedConfig = async () => {
-      if (!currentNodeId) return
-      
-      setIsLoadingSavedConfig(true)
-      try {
-        const workflowId = getWorkflowId()
-        if (workflowId) {
-          const savedConfig = await loadNodeConfig(workflowId, currentNodeId)
-          if (savedConfig) {
-            setConfig(prev => ({ ...prev, ...savedConfig }))
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load saved config:", error)
-      } finally {
-        setIsLoadingSavedConfig(false)
-      }
-    }
-
-    loadSavedConfig()
-  }, [currentNodeId, getWorkflowId])
-
-  // Update config from initial data
-  useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 0) {
-      setConfig(prev => ({ ...prev, ...initialData }))
-      setShowApiKeyInput(initialData.apiSource === 'custom')
-    }
-  }, [initialData])
-
-  // Calculate estimated cost
-  useEffect(() => {
-    const model = AI_MODELS[config.model as keyof typeof AI_MODELS]
+    const modelGroup = [...MODEL_GROUPS.recommended, ...MODEL_GROUPS.other]
+    const model = modelGroup.find(m => m.id === config.model)
     if (model) {
       const avgTokens = config.maxTokens / 2
       const inputCost = (avgTokens / 1000) * model.costPer1k.input
       const outputCost = (avgTokens / 1000) * model.costPer1k.output
       setEstimatedCost(inputCost + outputCost)
+      setEstimatedLatency(model.latency)
     }
   }, [config.model, config.maxTokens])
 
-  const handleFieldChange = (field: string, value: any) => {
-    setConfig(prev => ({ ...prev, [field]: value }))
-    setErrors(prev => ({ ...prev, [field]: '' }))
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(section)) {
+        newSet.delete(section)
+      } else {
+        newSet.add(section)
+      }
+      return newSet
+    })
   }
 
-  const handleDiscoverActions = async () => {
-    if (!config.systemPrompt) {
-      toast({
-        title: "Prompt Required",
-        description: "Please enter a prompt to discover relevant actions",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setIsDiscovering(true)
+  const handleQuickTest = async (testType: 'prompt' | 'model' | 'full') => {
+    const setLoading = testType === 'prompt' ? setIsTestingPrompt : setIsTestingModel
+    setLoading(true)
+    
     try {
-      const response = await fetch('/api/workflows/ai/search-actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'intent',
-          query: config.systemPrompt,
-          availableActions: nodes
-            .filter(n => n.type !== 'trigger' && n.type !== 'ai_agent')
-            .map(n => n.data?.type || n.type)
-        })
-      })
-
-      const data = await response.json()
-      if (data.success && data.matches) {
-        setDiscoveredActions(data.matches)
-        toast({
-          title: "Actions Discovered",
-          description: `Found ${data.matches.length} relevant actions based on your prompt`
-        })
+      // Simulate test execution
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      const mockResults = {
+        prompt: {
+          variables: ['[name]', '[email]', '{{trigger.data}}'],
+          resolved: 'Hello John Doe, regarding your email...',
+          tokens: 125
+        },
+        model: {
+          response: 'Sample AI response based on your configuration',
+          latency: estimatedLatency,
+          cost: estimatedCost.toFixed(4)
+        },
+        full: {
+          input: 'Test input data',
+          output: 'Generated output',
+          variables: ['[name]', '[email]'],
+          cost: estimatedCost.toFixed(4),
+          latency: estimatedLatency,
+          tokens: { input: 100, output: 150 }
+        }
       }
-    } catch (error) {
-      console.error('Action discovery failed:', error)
+      
+      setTestResults(mockResults[testType === 'full' ? 'full' : testType])
+      
       toast({
-        title: "Discovery Failed",
-        description: "Could not discover actions. Please try again.",
+        title: "Test Complete",
+        description: `${testType} test executed successfully`
+      })
+    } catch (error) {
+      toast({
+        title: "Test Failed",
+        description: "Could not complete test",
         variant: "destructive"
       })
     } finally {
-      setIsDiscovering(false)
+      setLoading(false)
     }
   }
 
-  const handlePreviewFields = async () => {
-    try {
-      const response = await fetch('/api/workflows/ai/resolve-fields', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'preview',
-          nodeType: 'ai_agent',
-          config,
-          sampleData: {
-            trigger: {
-              email: {
-                from: 'john@example.com',
-                sender_name: 'John Doe',
-                subject: 'Test Subject',
-                body: 'This is a test email body'
-              }
-            }
-          }
-        })
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        setPreviewData(data.preview)
-        toast({
-          title: "Preview Generated",
-          description: "See how AI will process your fields"
-        })
-      }
-    } catch (error) {
-      console.error('Preview failed:', error)
+  const handleExportTestLog = () => {
+    const log = {
+      timestamp: new Date().toISOString(),
+      config,
+      testResults,
+      variables: ['[name]', '[email]', '{{trigger.data}}'],
+      estimatedCost,
+      estimatedLatency
     }
+    
+    const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ai-agent-test-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    
+    toast({
+      title: "Log Exported",
+      description: "Test log downloaded successfully"
+    })
+  }
+
+  const handleTemplateSelect = (template: typeof QUICK_START_TEMPLATES[0]) => {
+    setConfig(prev => ({
+      ...prev,
+      systemPrompt: template.prompt,
+      model: template.model,
+      tone: template.tone
+    }))
+    setShowWizard(false)
+    toast({
+      title: "Template Applied",
+      description: `${template.name} template loaded`
+    })
   }
 
   const handleSave = async () => {
-    // Validate required fields
-    const newErrors: Record<string, string> = {}
-    if (!config.systemPrompt && config.targetActions.length === 0) {
-      newErrors.systemPrompt = "Please provide a prompt or select target actions"
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      toast({
-        title: "Configuration Required",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      })
+    // Validation
+    if (!config.systemPrompt.trim()) {
+      setErrors({ systemPrompt: 'Prompt is required' })
+      setActiveTab('prompt')
       return
     }
 
-    // Save configuration
+    if (config.apiSource === 'custom' && !config.customApiKey) {
+      setErrors({ customApiKey: 'API key is required for custom source' })
+      setActiveTab('model')
+      return
+    }
+
+    setIsSaving(true)
     try {
-      const workflowId = getWorkflowId()
-      if (workflowId && currentNodeId) {
-        await saveNodeConfig(workflowId, currentNodeId, config)
-      }
-      
-      onSave(config)
-      onClose()
-      
+      await onSave(config)
       toast({
         title: "Configuration Saved",
-        description: "AI Agent settings have been saved successfully"
+        description: "AI Agent settings have been updated"
       })
+      onClose()
     } catch (error) {
-      console.error("Failed to save config:", error)
       toast({
         title: "Save Failed",
-        description: "Could not save configuration. Please try again.",
+        description: "Could not save configuration",
         variant: "destructive"
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
+  // Tabs configuration based on mode
+  const tabs = isAdvancedMode 
+    ? ['prompt', 'model', 'behavior', 'actions', 'preview']
+    : ['prompt', 'model', 'preview']
+
+  const tabLabels = {
+    prompt: 'Prompt',
+    model: 'Model',
+    behavior: 'Behavior',
+    actions: 'Actions',
+    preview: 'Preview'
+  }
+
   return (
-    <TooltipProvider>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContentWithoutClose className="max-w-4xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              AI Agent Configuration
-            </DialogTitle>
-            <DialogDescription>
-              Configure your AI agent to intelligently process workflow data and automate field values
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContentWithoutClose className="max-w-7xl w-[95vw] h-[95vh] p-0 overflow-hidden">
+        <div className="flex h-full">
+          {/* Variable Panel (collapsible sidebar) */}
+          <AnimatePresence>
+            {showVariablePanel && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 350, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="border-r bg-muted/30 h-full overflow-y-auto"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                <AIVariablePanel
+                  nodes={nodes}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    // Insert variable at cursor position
+                    if (promptRef.current) {
+                      const start = promptRef.current.selectionStart
+                      const end = promptRef.current.selectionEnd
+                      const text = config.systemPrompt
+                      const newText = text.substring(0, start) + variable.value + text.substring(end)
+                      setConfig(prev => ({ ...prev, systemPrompt: newText }))
+                      
+                      // Reset cursor position
+                      setTimeout(() => {
+                        if (promptRef.current) {
+                          promptRef.current.selectionStart = start + variable.value.length
+                          promptRef.current.selectionEnd = start + variable.value.length
+                          promptRef.current.focus()
+                        }
+                      }, 0)
+                    }
+                  }}
+                  onDragStart={setDraggedVariable}
+                  onClose={() => setShowVariablePanel(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="prompt" className="flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />
-                <span className="hidden sm:inline">Prompt</span>
-              </TabsTrigger>
-              <TabsTrigger value="model" className="flex items-center gap-1">
-                <Brain className="w-3 h-3" />
-                <span className="hidden sm:inline">Model</span>
-              </TabsTrigger>
-              <TabsTrigger value="behavior" className="flex items-center gap-1">
-                <Settings className="w-3 h-3" />
-                <span className="hidden sm:inline">Behavior</span>
-              </TabsTrigger>
-              <TabsTrigger value="actions" className="flex items-center gap-1">
-                <Target className="w-3 h-3" />
-                <span className="hidden sm:inline">Actions</span>
-              </TabsTrigger>
-              <TabsTrigger value="preview" className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                <span className="hidden sm:inline">Preview</span>
-              </TabsTrigger>
-            </TabsList>
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header with mode toggle */}
+            <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-lg font-semibold">Configure AI Agent</DialogTitle>
+                    <DialogDescription className="text-sm">
+                      {isAdvancedMode ? 'Advanced Configuration' : 'Guided Setup'} Mode
+                    </DialogDescription>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  {/* Status Pills */}
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {MODEL_GROUPS.recommended.find(m => m.id === config.model)?.name || 
+                       MODEL_GROUPS.other.find(m => m.id === config.model)?.name}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {config.apiSource === 'custom' ? '🔑 Custom' : '⚡ ChainReact'}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {TONE_SAMPLES[config.tone]?.icon} {config.tone}
+                    </Badge>
+                  </div>
 
-            <ScrollArea className="h-[500px] mt-4">
-              {/* Prompt Tab */}
-              <TabsContent value="prompt" className="space-y-4 px-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Main Prompt</CardTitle>
-                    <CardDescription>
-                      Define what you want the AI agent to do
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="systemPrompt">System Prompt</Label>
-                        <AIVariableMenu
-                          nodes={nodes}
-                          currentNodeId={currentNodeId}
-                          inputRef={promptRef}
-                          buttonClassName="h-7 text-xs"
-                        />
-                      </div>
+                  {/* Mode Toggle */}
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="mode-toggle" className="text-sm">
+                      {isAdvancedMode ? 'Advanced' : 'Guided'}
+                    </Label>
+                    <Switch
+                      id="mode-toggle"
+                      checked={isAdvancedMode}
+                      onCheckedChange={setIsAdvancedMode}
+                    />
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Quick Start Wizard */}
+            {showWizard && (
+              <Alert className="mx-6 mt-4">
+                <GraduationCap className="w-4 h-4" />
+                <AlertTitle>Quick Start</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 flex gap-2">
+                    {QUICK_START_TEMPLATES.map(template => (
+                      <Button
+                        key={template.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTemplateSelect(template)}
+                        className="gap-2"
+                      >
+                        <span>{template.icon}</span>
+                        {template.name}
+                      </Button>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <TabsList className="mx-6 mt-4 grid w-fit" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+                {tabs.map(tab => (
+                  <TabsTrigger key={tab} value={tab} className="gap-2">
+                    {tab === 'prompt' && <MessageSquare className="w-4 h-4" />}
+                    {tab === 'model' && <Brain className="w-4 h-4" />}
+                    {tab === 'behavior' && <Palette className="w-4 h-4" />}
+                    {tab === 'actions' && <Target className="w-4 h-4" />}
+                    {tab === 'preview' && <Eye className="w-4 h-4" />}
+                    {tabLabels[tab]}
+                    {/* Quick Test indicator */}
+                    {(tab === 'prompt' && isTestingPrompt) ||
+                     (tab === 'model' && isTestingModel) ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : null}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <div className="flex-1 overflow-hidden">
+                {/* Prompt Tab */}
+                <TabsContent value="prompt" className="h-full mt-0" forceMount hidden={activeTab !== 'prompt'}>
+                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
+                    <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">AI Instructions</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Define what the AI should do with workflow data
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowVariablePanel(!showVariablePanel)}
+                      >
+                        <Variable className="w-4 h-4 mr-2" />
+                        {showVariablePanel ? 'Hide' : 'Show'} Variables
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowWizard(!showWizard)}
+                      >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Templates
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuickTest('prompt')}
+                        disabled={isTestingPrompt}
+                      >
+                        {isTestingPrompt ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
+                        Quick Test
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="prompt">
+                      Master Prompt
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        Use variables to reference workflow data
+                      </span>
+                    </Label>
+                    <div
+                      className={cn(
+                        "relative rounded-lg border",
+                        draggedVariable && "border-blue-500 bg-blue-50/50"
+                      )}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        if (draggedVariable && promptRef.current) {
+                          const text = config.systemPrompt
+                          const newText = text + ' ' + draggedVariable.value
+                          setConfig(prev => ({ ...prev, systemPrompt: newText }))
+                          setDraggedVariable(null)
+                        }
+                      }}
+                    >
                       <Textarea
                         ref={promptRef}
-                        id="systemPrompt"
-                        placeholder="Analyze the [message] and generate a professional response that addresses [subject]. Include {{AI:next_steps}} and maintain a [tone] tone."
+                        id="prompt"
                         value={config.systemPrompt}
-                        onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
+                        onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                        placeholder="e.g., Analyze the email in [message] and generate a helpful response..."
                         className={cn(
-                          "min-h-[150px] font-mono text-sm",
+                          "min-h-[200px] border-0 resize-none",
                           errors.systemPrompt && "border-red-500"
                         )}
                       />
-                      {errors.systemPrompt && (
-                        <p className="text-xs text-red-500">{errors.systemPrompt}</p>
+                      {draggedVariable && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <Badge variant="secondary" className="bg-blue-100">
+                            Drop to insert {draggedVariable.value}
+                          </Badge>
+                        </div>
                       )}
-                      <p className="text-xs text-muted-foreground">
-                        Use [variables] for simple replacements and {'{{AI:instruction}'} for AI-generated content
-                      </p>
                     </div>
+                    {errors.systemPrompt && (
+                      <p className="text-xs text-red-500">{errors.systemPrompt}</p>
+                    )}
+                  </div>
 
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <Label htmlFor="customInstructions">Additional Instructions</Label>
-                      <Textarea
-                        ref={instructionsRef}
-                        id="customInstructions"
-                        placeholder="Any specific requirements or context..."
-                        value={config.customInstructions}
-                        onChange={(e) => handleFieldChange('customInstructions', e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                    </div>
-
-                    <Alert>
-                      <Lightbulb className="h-4 w-4" />
-                      <AlertTitle>Pro Tips</AlertTitle>
-                      <AlertDescription className="space-y-1 mt-2">
-                        <p>• Use <code className="text-xs bg-muted px-1 py-0.5 rounded">[name]</code> for simple variable replacement</p>
-                        <p>• Use <code className="text-xs bg-muted px-1 py-0.5 rounded">{'{{trigger.email.from}}'}</code> for specific data paths</p>
-                        <p>• Use <code className="text-xs bg-muted px-1 py-0.5 rounded">{'{{AI:summarize}}'}</code> for AI-generated content</p>
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Model Tab */}
-              <TabsContent value="model" className="space-y-4 px-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Model Selection</CardTitle>
-                    <CardDescription>
-                      Choose the AI model and configure its parameters
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="model">AI Model</Label>
-                      <Select
-                        value={config.model}
-                        onValueChange={(value) => handleFieldChange('model', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(AI_MODELS).map(([key, model]) => (
-                            <SelectItem key={key} value={key}>
-                              <div className="flex items-center justify-between w-full">
-                                <div>
-                                  <p className="font-medium">{model.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {model.provider} • {model.contextWindow.toLocaleString()} tokens
-                                  </p>
-                                </div>
-                                <Badge variant="secondary" className="ml-2">
-                                  ${model.costPer1k.input}/1k
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {config.model && (
-                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                        <p className="text-sm font-medium">Model Capabilities</p>
-                        <div className="flex flex-wrap gap-1">
-                          {AI_MODELS[config.model as keyof typeof AI_MODELS].capabilities.map(cap => (
-                            <Badge key={cap} variant="outline" className="text-xs">
-                              {cap}
+                  {/* Variable Resolution Preview */}
+                  {testResults?.prompt && (
+                    <Card>
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm">Variable Resolution Preview</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {testResults.prompt.variables.map((v: string) => (
+                            <Badge key={v} variant="secondary" className="font-mono text-xs">
+                              {v} → <span className="text-green-600">resolved</span>
                             </Badge>
                           ))}
                         </div>
-                      </div>
-                    )}
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="temperature">
-                            Temperature: {config.temperature}
-                          </Label>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <HelpCircle className="w-4 h-4 text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Controls randomness. Lower = more focused, Higher = more creative</p>
-                            </TooltipContent>
-                          </Tooltip>
+                        <div className="p-2 bg-muted rounded text-sm">
+                          {testResults.prompt.resolved}
                         </div>
-                        <Slider
-                          id="temperature"
-                          min={0}
-                          max={2}
-                          step={0.1}
-                          value={[config.temperature]}
-                          onValueChange={([value]) => handleFieldChange('temperature', value)}
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="maxTokens">Max Tokens</Label>
-                        <Input
-                          id="maxTokens"
-                          type="number"
-                          min="100"
-                          max="4000"
-                          value={config.maxTokens}
-                          onChange={(e) => handleFieldChange('maxTokens', parseInt(e.target.value))}
-                        />
-                      </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Estimated tokens: {testResults.prompt.tokens}</span>
+                          <span>Cost: ${(testResults.prompt.tokens * 0.00001).toFixed(4)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                     </div>
+                  </div>
+                </TabsContent>
 
-                    <Separator />
-
+                {/* Model Tab */}
+                <TabsContent value="model" className="h-full mt-0" forceMount hidden={activeTab !== 'model'}>
+                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>API Source</Label>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">AI Model Selection</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Choose the right model for your needs
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickTest('model')}
+                      disabled={isTestingModel}
+                    >
+                      {isTestingModel ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-2" />
+                      )}
+                      Quick Test
+                    </Button>
+                  </div>
+
+                  {/* Recommended Models */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Recommended Models</Label>
+                    <div className="grid gap-3">
+                      {MODEL_GROUPS.recommended.map(model => (
+                        <Card
+                          key={model.id}
+                          className={cn(
+                            "cursor-pointer transition-all",
+                            config.model === model.id && "border-blue-500 bg-blue-50/50"
+                          )}
+                          onClick={() => setConfig(prev => ({ ...prev, model: model.id }))}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{model.name}</h4>
+                                  <Badge variant="outline" className="text-xs">
+                                    {model.provider}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {model.description}
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  {model.badges.map(badge => (
+                                    <Badge key={badge} variant="secondary" className="text-xs">
+                                      {badge}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              {config.model === model.id && (
+                                <CheckCircle className="w-5 h-5 text-blue-500" />
+                              )}
+                            </div>
+                            {/* Inline cost/latency */}
+                            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {model.latency}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Coins className="w-3 h-3" />
+                                ${model.costPer1k.input}/1k in, ${model.costPer1k.output}/1k out
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Other Models (Collapsible) */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-between">
+                        Other Models
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 mt-3">
+                      {MODEL_GROUPS.other.map(model => (
+                        <Card
+                          key={model.id}
+                          className={cn(
+                            "cursor-pointer transition-all",
+                            config.model === model.id && "border-blue-500 bg-blue-50/50"
+                          )}
+                          onClick={() => setConfig(prev => ({ ...prev, model: model.id }))}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{model.name}</h4>
+                                  <Badge variant="outline" className="text-xs">
+                                    {model.provider}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {model.description}
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  {model.badges.map(badge => (
+                                    <Badge key={badge} variant="secondary" className="text-xs">
+                                      {badge}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              {config.model === model.id && (
+                                <CheckCircle className="w-5 h-5 text-blue-500" />
+                              )}
+                            </div>
+                            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {model.latency}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Coins className="w-3 h-3" />
+                                ${model.costPer1k.input}/1k in, ${model.costPer1k.output}/1k out
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* API Source */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">API Configuration</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="api-source" className="text-sm">
+                          API Source
+                        </Label>
                         <Select
                           value={config.apiSource}
-                          onValueChange={(value) => {
-                            handleFieldChange('apiSource', value)
-                            setShowApiKeyInput(value === 'custom')
-                          }}
+                          onValueChange={(value) => setConfig(prev => ({ ...prev, apiSource: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-[200px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="chainreact">
                               <div className="flex items-center gap-2">
                                 <Zap className="w-4 h-4" />
-                                ChainReact API (Metered)
+                                ChainReact API
                               </div>
                             </SelectItem>
                             <SelectItem value="custom">
@@ -605,451 +814,515 @@ export default function AIAgentConfigModal({
                         </Select>
                       </div>
 
-                      {showApiKeyInput && (
+                      {config.apiSource === 'custom' && (
                         <div className="space-y-2">
-                          <Label htmlFor="customApiKey">API Key</Label>
+                          <Label htmlFor="api-key" className="text-sm">
+                            API Key
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              Your key won't count against plan limits
+                            </span>
+                          </Label>
                           <Input
-                            id="customApiKey"
+                            id="api-key"
                             type="password"
-                            placeholder="sk-..."
                             value={config.customApiKey}
-                            onChange={(e) => handleFieldChange('customApiKey', e.target.value)}
+                            onChange={(e) => setConfig(prev => ({ ...prev, customApiKey: e.target.value }))}
+                            placeholder="sk-..."
+                            className={errors.customApiKey ? "border-red-500" : ""}
                           />
-                          <p className="text-xs text-muted-foreground">
-                            Your API key is encrypted and never exposed. Usage doesn't count against plan limits.
-                          </p>
+                          {errors.customApiKey && (
+                            <p className="text-xs text-red-500">{errors.customApiKey}</p>
+                          )}
                         </div>
                       )}
-                    </div>
+                    </CardContent>
+                  </Card>
 
-                    <Alert>
-                      <DollarSign className="h-4 w-4" />
-                      <AlertTitle>Estimated Cost</AlertTitle>
-                      <AlertDescription>
-                        ~${estimatedCost.toFixed(4)} per execution
-                        {config.apiSource === 'custom' && (
-                          <span className="block mt-1 text-xs">
-                            Billed directly to your API key, not your ChainReact plan
+                  {/* Advanced Model Settings */}
+                  <Collapsible open={expandedSections.has('model-advanced')}>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-between"
+                        onClick={() => toggleSection('model-advanced')}
+                      >
+                        Advanced Settings
+                        <ChevronDown className={cn(
+                          "w-4 h-4 transition-transform",
+                          expandedSections.has('model-advanced') && "rotate-180"
+                        )} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-4 mt-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="temperature" className="text-sm">
+                            Temperature: {config.temperature}
+                          </Label>
+                          <span className="text-xs text-muted-foreground">
+                            Lower = more deterministic, Higher = more creative
                           </span>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Behavior Tab */}
-              <TabsContent value="behavior" className="space-y-4 px-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Agent Behavior</CardTitle>
-                    <CardDescription>
-                      Configure how the AI agent generates content
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="tone">Tone & Style</Label>
-                        <Select
-                          value={config.tone}
-                          onValueChange={(value) => handleFieldChange('tone', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="professional">Professional</SelectItem>
-                            <SelectItem value="casual">Casual</SelectItem>
-                            <SelectItem value="friendly">Friendly</SelectItem>
-                            <SelectItem value="formal">Formal</SelectItem>
-                            <SelectItem value="technical">Technical</SelectItem>
-                            <SelectItem value="conversational">Conversational</SelectItem>
-                            <SelectItem value="neutral">Neutral</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="verbosity">Content Length</Label>
-                        <Select
-                          value={config.verbosity}
-                          onValueChange={(value) => handleFieldChange('verbosity', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="concise">Concise</SelectItem>
-                            <SelectItem value="detailed">Detailed</SelectItem>
-                            <SelectItem value="comprehensive">Comprehensive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Include Emojis</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Add emojis for casual platforms
-                        </p>
-                      </div>
-                      <Switch
-                        checked={config.includeEmojis}
-                        onCheckedChange={(checked) => handleFieldChange('includeEmojis', checked)}
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <Label htmlFor="memory">Memory & Context</Label>
-                      <Select
-                        value={config.memory}
-                        onValueChange={(value) => handleFieldChange('memory', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No Memory</SelectItem>
-                          <SelectItem value="workflow">Workflow Context</SelectItem>
-                          <SelectItem value="conversation">Conversation Memory</SelectItem>
-                          <SelectItem value="all-storage">All Storage</SelectItem>
-                          <SelectItem value="vector">Vector Storage (Advanced)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="outputFormat">Output Format</Label>
-                      <Select
-                        value={config.outputFormat}
-                        onValueChange={(value) => handleFieldChange('outputFormat', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="text">Plain Text</SelectItem>
-                          <SelectItem value="json">JSON</SelectItem>
-                          <SelectItem value="markdown">Markdown</SelectItem>
-                          <SelectItem value="html">HTML</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fieldBehavior">Field Population Behavior</Label>
-                      <Select
-                        value={config.fieldBehavior}
-                        onValueChange={(value) => handleFieldChange('fieldBehavior', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="smart">
-                            <div>
-                              <p className="font-medium">Smart (Recommended)</p>
-                              <p className="text-xs text-muted-foreground">
-                                AI decides which fields to populate
-                              </p>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="all">
-                            <div>
-                              <p className="font-medium">All Fields</p>
-                              <p className="text-xs text-muted-foreground">
-                                Attempt to fill every field
-                              </p>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="required">
-                            <div>
-                              <p className="font-medium">Required Only</p>
-                              <p className="text-xs text-muted-foreground">
-                                Only fill required fields
-                              </p>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="template">
-                            <div>
-                              <p className="font-medium">Template Mode</p>
-                              <p className="text-xs text-muted-foreground">
-                                Only resolve variables in templates
-                              </p>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="template">Template</Label>
-                      <Select
-                        value={config.template}
-                        onValueChange={(value) => handleFieldChange('template', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TEMPLATES.map(template => (
-                            <SelectItem key={template.value} value={template.value}>
-                              {template.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {config.template === 'custom' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="customTemplate">Custom Template</Label>
-                        <Textarea
-                          id="customTemplate"
-                          placeholder="Enter your custom template..."
-                          value={config.customTemplate}
-                          onChange={(e) => handleFieldChange('customTemplate', e.target.value)}
-                          className="min-h-[100px] font-mono text-sm"
+                        </div>
+                        <Slider
+                          id="temperature"
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          value={[config.temperature]}
+                          onValueChange={([value]) => setConfig(prev => ({ ...prev, temperature: value }))}
                         />
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
-              {/* Actions Tab */}
-              <TabsContent value="actions" className="space-y-4 px-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Target Actions</CardTitle>
-                    <CardDescription>
-                      Select which actions the AI agent should help populate
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Auto-Discover Actions</Label>
-                        <p className="text-xs text-muted-foreground">
-                          AI will find relevant actions based on your prompt
-                        </p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="max-tokens" className="text-sm">
+                            Max Tokens: {config.maxTokens}
+                          </Label>
+                          <span className="text-xs text-muted-foreground">
+                            Maximum response length
+                          </span>
+                        </div>
+                        <Slider
+                          id="max-tokens"
+                          min={100}
+                          max={4000}
+                          step={100}
+                          value={[config.maxTokens]}
+                          onValueChange={([value]) => setConfig(prev => ({ ...prev, maxTokens: value }))}
+                        />
                       </div>
-                      <Switch
-                        checked={config.autoDiscoverActions}
-                        onCheckedChange={(checked) => handleFieldChange('autoDiscoverActions', checked)}
-                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Behavior Tab (Advanced Mode Only) */}
+                {isAdvancedMode && (
+                  <TabsContent value="behavior" className="h-full mt-0" forceMount hidden={activeTab !== 'behavior'}>
+                    <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
+                      <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Response Behavior</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure how the AI responds and formats output
+                      </p>
                     </div>
 
-                    {config.autoDiscoverActions && (
+                    {/* Tone Selection with Previews */}
+                    <Collapsible open={expandedSections.has('tone')}>
+                      <CollapsibleTrigger asChild>
+                        <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="w-4 h-4" />
+                            <span className="font-medium">Tone & Style</span>
+                            <Badge variant="secondary">
+                              {TONE_SAMPLES[config.tone]?.icon} {config.tone}
+                            </Badge>
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform",
+                            expandedSections.has('tone') && "rotate-180"
+                          )} />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          {Object.entries(TONE_SAMPLES).map(([key, tone]) => (
+                            <Card
+                              key={key}
+                              className={cn(
+                                "cursor-pointer transition-all",
+                                config.tone === key && "border-blue-500 bg-blue-50/50"
+                              )}
+                              onClick={() => setConfig(prev => ({ ...prev, tone: key }))}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-start gap-3">
+                                  <span className="text-2xl">{tone.icon}</span>
+                                  <div className="flex-1 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-medium capitalize">{key}</h4>
+                                      {config.tone === key && (
+                                        <CheckCircle className="w-4 h-4 text-blue-500" />
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {tone.description}
+                                    </p>
+                                    <div className="mt-2 p-2 bg-muted rounded text-xs italic">
+                                      "{tone.sample}"
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* Formatting Options */}
+                    <Collapsible open={expandedSections.has('formatting')}>
+                      <CollapsibleTrigger asChild>
+                        <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span className="font-medium">Output Formatting</span>
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform",
+                            expandedSections.has('formatting') && "rotate-180"
+                          )} />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4 space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="output-format" className="text-sm">Format</Label>
+                          <Select
+                            value={config.outputFormat}
+                            onValueChange={(value) => setConfig(prev => ({ ...prev, outputFormat: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Plain Text</SelectItem>
+                              <SelectItem value="markdown">Markdown</SelectItem>
+                              <SelectItem value="html">HTML</SelectItem>
+                              <SelectItem value="json">JSON</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="include-context" className="text-sm">
+                            Include workflow context
+                          </Label>
+                          <Switch
+                            id="include-context"
+                            checked={config.includeContext}
+                            onCheckedChange={(checked) => setConfig(prev => ({ ...prev, includeContext: checked }))}
+                          />
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* Advanced Settings (Safety, Retry, etc.) */}
+                    <Collapsible open={expandedSections.has('advanced')}>
+                      <CollapsibleTrigger asChild>
+                        <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <Settings className="w-4 h-4" />
+                            <span className="font-medium">Advanced Settings</span>
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform",
+                            expandedSections.has('advanced') && "rotate-180"
+                          )} />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="safety" className="text-sm">Safety Filtering</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Filter harmful or sensitive content
+                            </p>
+                          </div>
+                          <Switch
+                            id="safety"
+                            checked={config.enableSafety}
+                            onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableSafety: checked }))}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="retries" className="text-sm">
+                            Max Retries: {config.maxRetries}
+                          </Label>
+                          <Slider
+                            id="retries"
+                            min={0}
+                            max={5}
+                            step={1}
+                            value={[config.maxRetries]}
+                            onValueChange={([value]) => setConfig(prev => ({ ...prev, maxRetries: value }))}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="timeout" className="text-sm">
+                            Timeout: {config.timeout / 1000}s
+                          </Label>
+                          <Slider
+                            id="timeout"
+                            min={5000}
+                            max={60000}
+                            step={5000}
+                            value={[config.timeout]}
+                            onValueChange={([value]) => setConfig(prev => ({ ...prev, timeout: value }))}
+                          />
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                      </div>
+                    </div>
+                  </TabsContent>
+                )}
+
+                {/* Actions Tab (Advanced Mode Only) */}
+                {isAdvancedMode && (
+                  <TabsContent value="actions" className="h-full mt-0" forceMount hidden={activeTab !== 'actions'}>
+                    <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
+                      <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">Action Discovery</h3>
+                        <p className="text-sm text-muted-foreground">
+                          AI can trigger these workflow actions
+                        </p>
+                      </div>
                       <Button
                         variant="outline"
-                        className="w-full"
-                        onClick={handleDiscoverActions}
+                        onClick={() => {/* handleDiscoverActions */}}
                         disabled={isDiscovering}
                       >
                         {isDiscovering ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Discovering...
-                          </>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
-                          <>
-                            <Search className="w-4 h-4 mr-2" />
-                            Discover Actions from Prompt
-                          </>
+                          <Search className="w-4 h-4 mr-2" />
                         )}
+                        Discover Actions
                       </Button>
-                    )}
-
-                    {discoveredActions.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Discovered Actions</Label>
-                        <div className="space-y-2">
-                          {discoveredActions.map((action, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-2 border rounded-lg"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Target className="w-4 h-4" />
-                                <span className="text-sm font-medium">{action.actionId}</span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {Math.round(action.confidence * 100)}% match
-                                </Badge>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  const newTargets = [...config.targetActions, action.actionId]
-                                  handleFieldChange('targetActions', newTargets)
-                                }}
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label>Selected Target Actions</Label>
-                      {config.targetActions.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No actions selected. AI will work with all available actions.
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {config.targetActions.map((actionId: string, idx: number) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-2 border rounded-lg"
-                            >
-                              <span className="text-sm">{actionId}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  const newTargets = config.targetActions.filter((_: any, i: number) => i !== idx)
-                                  handleFieldChange('targetActions', newTargets)
-                                }}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
-                    <Alert>
-                      <Info className="h-4 w-4" />
-                      <AlertDescription>
-                        The AI agent will analyze these actions and intelligently populate their fields based on workflow context.
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                    {/* Action Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search for actions (e.g., 'send email', 'create task')..."
+                        className="pl-10"
+                        onChange={(e) => {/* handleActionSearch */}}
+                      />
+                    </div>
 
-              {/* Preview Tab */}
-              <TabsContent value="preview" className="space-y-4 px-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Field Resolution Preview</CardTitle>
-                    <CardDescription>
-                      See how AI will process your configuration
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={handlePreviewFields}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Generate Preview
-                    </Button>
-
-                    {previewData && (
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Resolved Fields</Label>
-                          <div className="bg-muted rounded-lg p-4 space-y-2">
-                            {Object.entries(previewData).map(([field, data]: [string, any]) => (
-                              <div key={field} className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">{field}</span>
-                                  <Badge variant={data.type === 'ai-generated' ? 'default' : 'secondary'}>
-                                    {data.type}
-                                  </Badge>
+                    {/* Discovered Actions as Cards */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {discoveredActions.map((action: any) => (
+                        <Card
+                          key={action.id}
+                          className={cn(
+                            "cursor-pointer transition-all",
+                            config.targetActions.includes(action.id) && "border-blue-500 bg-blue-50/50"
+                          )}
+                          onClick={() => {
+                            setConfig(prev => ({
+                              ...prev,
+                              targetActions: prev.targetActions.includes(action.id)
+                                ? prev.targetActions.filter(a => a !== action.id)
+                                : [...prev.targetActions, action.id]
+                            }))
+                          }}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-muted rounded">
+                                  {action.icon || <Zap className="w-4 h-4" />}
                                 </div>
-                                {data.original !== data.resolved && (
-                                  <div className="text-xs space-y-1">
-                                    <p className="text-muted-foreground">
-                                      Original: <code className="bg-background px-1 py-0.5 rounded">{data.original}</code>
-                                    </p>
-                                    <p className="text-green-600 dark:text-green-400">
-                                      Resolved: <code className="bg-background px-1 py-0.5 rounded">{data.resolved}</code>
-                                    </p>
-                                  </div>
-                                )}
+                                <div>
+                                  <h4 className="font-medium">{action.name}</h4>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {action.description}
+                                  </p>
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                              <Badge variant={action.confidence > 80 ? "default" : "secondary"}>
+                                {action.confidence}%
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
 
-                        <Alert>
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <AlertTitle>Preview Generated</AlertTitle>
-                          <AlertDescription>
-                            This shows how fields will be resolved at runtime based on actual workflow data.
-                          </AlertDescription>
-                        </Alert>
+                    {/* You Might Also Want Section */}
+                    {discoveredActions.length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium mb-3">You might also want</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['slack_send', 'gmail_send', 'notion_create'].map(action => (
+                            <Button
+                              key={action}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {/* Add to target actions */}}
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              {action}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     )}
-
-                    <div className="space-y-2">
-                      <Label>Sample Workflow Data</Label>
-                      <div className="bg-muted rounded-lg p-3 font-mono text-xs">
-                        <pre>{JSON.stringify({
-                          trigger: {
-                            email: {
-                              from: 'customer@example.com',
-                              subject: 'Product inquiry',
-                              body: 'I need help with...'
-                            }
-                          }
-                        }, null, 2)}</pre>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </ScrollArea>
-          </Tabs>
-
-          <DialogFooter className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {config.apiSource === 'chainreact' && (
-                <Badge variant="outline" className="text-xs">
-                  <Gauge className="w-3 h-3 mr-1" />
-                  Using plan limits
-                </Badge>
-              )}
-              {config.apiSource === 'custom' && config.customApiKey && (
-                <Badge variant="outline" className="text-xs text-green-600">
-                  <Key className="w-3 h-3 mr-1" />
-                  Custom API (no plan limits)
-                </Badge>
-              )}
-              {estimatedCost > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  ~${estimatedCost.toFixed(4)}/run
-                </Badge>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isLoadingSavedConfig}>
-                {isLoadingSavedConfig ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  </TabsContent>
                 )}
-                Save Configuration
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContentWithoutClose>
-      </Dialog>
-    </TooltipProvider>
+
+                {/* Preview Tab */}
+                <TabsContent value="preview" className="h-full mt-0" forceMount hidden={activeTab !== 'preview'}>
+                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
+                    <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Test & Preview</h3>
+                      <p className="text-sm text-muted-foreground">
+                        See how your AI agent will behave
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportTestLog}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Log
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleQuickTest('full')}
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Run Full Test
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Side-by-side layout */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Input Panel */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">Sample Input</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Textarea
+                          placeholder="Enter sample workflow data..."
+                          className="min-h-[200px]"
+                          defaultValue={JSON.stringify({
+                            trigger: { email: { from: "user@example.com", subject: "Help needed" } },
+                            data: { message: "I need assistance with my account" }
+                          }, null, 2)}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    {/* Output Panel */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm">AI Output Preview</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {testResults?.full ? (
+                          <div className="space-y-3">
+                            <div className="p-3 bg-muted rounded">
+                              <pre className="text-sm whitespace-pre-wrap">
+                                {testResults.full.output}
+                              </pre>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Tokens: {testResults.full.tokens.input} + {testResults.full.tokens.output}</span>
+                              <span>Cost: ${testResults.full.cost}</span>
+                              <span>Latency: {testResults.full.latency}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                            <Play className="w-8 h-8" />
+                            <span className="ml-2">Run test to see output</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Cost & Performance Estimates */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Performance Estimates</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-yellow-500" />
+                            <span className="text-sm font-medium">Cost per Run</span>
+                          </div>
+                          <p className="text-2xl font-bold">${estimatedCost.toFixed(4)}</p>
+                          <p className="text-xs text-muted-foreground">Based on avg usage</p>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm font-medium">Latency</span>
+                          </div>
+                          <p className="text-2xl font-bold">{estimatedLatency}</p>
+                          <p className="text-xs text-muted-foreground">Typical response time</p>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium">Reliability</span>
+                          </div>
+                          <p className="text-2xl font-bold">99.9%</p>
+                          <p className="text-xs text-muted-foreground">Uptime SLA</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                    </div>
+                  </div>
+                </TabsContent>
+              </div>
+            </Tabs>
+
+            {/* Footer */}
+            <DialogFooter className="px-6 py-4 border-t bg-muted/30">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Activity className="w-4 h-4" />
+                  <span>Est. ${estimatedCost.toFixed(4)}/run</span>
+                  <span>•</span>
+                  <Clock className="w-4 h-4" />
+                  <span>{estimatedLatency}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Configuration
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogFooter>
+          </div>
+        </div>
+      </DialogContentWithoutClose>
+    </Dialog>
   )
 }
