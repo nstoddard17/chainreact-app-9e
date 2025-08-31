@@ -194,7 +194,7 @@ export function AIVariablePanel({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full pl-2">
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-3">

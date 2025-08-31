@@ -20,7 +20,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-// import { ScrollArea } from '@/components/ui/scroll-area' // Not needed - using native overflow-y-auto
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -379,7 +378,7 @@ export function AIAgentConfigModal({
     ? ['prompt', 'model', 'behavior', 'actions', 'preview']
     : ['prompt', 'model', 'preview']
 
-  const tabLabels = {
+  const tabLabels: Record<string, string> = {
     prompt: 'Prompt',
     model: 'Model',
     behavior: 'Behavior',
@@ -399,8 +398,7 @@ export function AIAgentConfigModal({
                 animate={{ width: 350, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-r bg-muted/30 h-full overflow-y-auto"
-                style={{ scrollbarWidth: 'thin' }}
+                className="border-r bg-muted/30 h-full overflow-hidden"
               >
                 <AIVariablePanel
                   nodes={nodes}
@@ -432,7 +430,7 @@ export function AIAgentConfigModal({
           </AnimatePresence>
 
           {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Header with mode toggle */}
             <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10">
               <div className="flex items-center justify-between">
@@ -449,6 +447,17 @@ export function AIAgentConfigModal({
                 </div>
                 
                 <div className="flex items-center gap-4">
+                  {/* Variables Toggle Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowVariablePanel(!showVariablePanel)}
+                    className="gap-2"
+                  >
+                    <Variable className="w-4 h-4" />
+                    {showVariablePanel ? 'Hide' : 'Show'} Variables
+                  </Button>
+
                   {/* Status Pills */}
                   <div className="flex gap-2">
                     <Badge variant="outline" className="text-xs">
@@ -474,6 +483,16 @@ export function AIAgentConfigModal({
                       onCheckedChange={setIsAdvancedMode}
                     />
                   </div>
+
+                  {/* Close Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group"
+                  >
+                    <X className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
+                  </Button>
                 </div>
               </div>
             </DialogHeader>
@@ -524,9 +543,9 @@ export function AIAgentConfigModal({
 
               <div className="flex-1 overflow-hidden">
                 {/* Prompt Tab */}
-                <TabsContent value="prompt" className="h-full mt-0" forceMount hidden={activeTab !== 'prompt'}>
-                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
-                    <div className="space-y-4">
+                <TabsContent value="prompt" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'prompt'}>
+                  <div className="h-full overflow-y-auto">
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">AI Instructions</h3>
@@ -535,14 +554,6 @@ export function AIAgentConfigModal({
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowVariablePanel(!showVariablePanel)}
-                      >
-                        <Variable className="w-4 h-4 mr-2" />
-                        {showVariablePanel ? 'Hide' : 'Show'} Variables
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -643,9 +654,9 @@ export function AIAgentConfigModal({
                 </TabsContent>
 
                 {/* Model Tab */}
-                <TabsContent value="model" className="h-full mt-0" forceMount hidden={activeTab !== 'model'}>
-                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
-                    <div className="space-y-4">
+                <TabsContent value="model" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'model'}>
+                  <div className="h-full overflow-y-auto">
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">AI Model Selection</h3>
@@ -899,9 +910,9 @@ export function AIAgentConfigModal({
 
                 {/* Behavior Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
-                  <TabsContent value="behavior" className="h-full mt-0" forceMount hidden={activeTab !== 'behavior'}>
-                    <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
-                      <div className="space-y-4">
+                  <TabsContent value="behavior" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'behavior'}>
+                    <div className="h-full overflow-y-auto">
+                      <div className="px-6 py-4 space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold">Response Behavior</h3>
                       <p className="text-sm text-muted-foreground">
@@ -1073,9 +1084,9 @@ export function AIAgentConfigModal({
 
                 {/* Actions Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
-                  <TabsContent value="actions" className="h-full mt-0" forceMount hidden={activeTab !== 'actions'}>
-                    <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
-                      <div className="space-y-4">
+                  <TabsContent value="actions" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'actions'}>
+                    <div className="h-full overflow-y-auto">
+                      <div className="px-6 py-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-semibold">Action Discovery</h3>
@@ -1172,9 +1183,9 @@ export function AIAgentConfigModal({
                 )}
 
                 {/* Preview Tab */}
-                <TabsContent value="preview" className="h-full mt-0" forceMount hidden={activeTab !== 'preview'}>
-                  <div className="h-full overflow-y-auto px-6 py-4" style={{ scrollbarWidth: 'thin' }}>
-                    <div className="space-y-4">
+                <TabsContent value="preview" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'preview'}>
+                  <div className="h-full overflow-y-auto">
+                    <div className="px-6 py-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold">Test & Preview</h3>
