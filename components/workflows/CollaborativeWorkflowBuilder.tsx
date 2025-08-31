@@ -1271,7 +1271,27 @@ const useWorkflowBuilderState = () => {
     } else {
       // Handle existing node configuration updates - update local state AND save to database
       console.log('✅ [WorkflowBuilder] Updating existing node configuration in local state');
-      setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)));
+      console.log('  - Node ID:', context.id);
+      console.log('  - New Config:', newConfig);
+      console.log('  - Current nodes before update:', nodes.map(n => ({ id: n.id, type: n.type, data: n.data })));
+      
+      setNodes((nds) => nds.map((node) => {
+        if (node.id === context.id) {
+          const updatedNode = { ...node, data: { ...node.data, config: newConfig } };
+          console.log('  - Updated node:', updatedNode);
+          return updatedNode;
+        }
+        return node;
+      }));
+      
+      // Mark the workflow as having unsaved changes
+      setHasUnsavedChanges(true);
+      
+      // Show success message
+      toast({ 
+        title: "Configuration Updated", 
+        description: "Node configuration has been updated. Remember to save the workflow." 
+      });
       
       // Save individual node configuration to persistent storage using our configPersistence system
       if (currentWorkflow?.id && context.id) {
@@ -2915,7 +2935,14 @@ function WorkflowBuilderContent() {
                 setPendingNode(null);
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
-              onSave={async (config) => await handleSaveConfiguration(configuringNode, config)}
+              onSave={async (config) => {
+                console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
+                console.log('🤖 [WorkflowBuilder] ConfiguringNode:', configuringNode);
+                await handleSaveConfiguration(configuringNode, config);
+                // Close the modal after successful save
+                setConfiguringNode(null);
+                setPendingNode(null);
+              }}
               onUpdateConnections={(sourceNodeId, targetNodeId) => {
                 // Create or update the edge between the selected input node and the AI Agent
                 const newEdge = {

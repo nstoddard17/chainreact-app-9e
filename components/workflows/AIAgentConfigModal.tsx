@@ -343,12 +343,10 @@ export function AIAgentConfigModal({
 
   const handleSave = async () => {
     // Validation
-    if (!config.systemPrompt.trim()) {
-      setErrors({ systemPrompt: 'Prompt is required' })
-      setActiveTab('prompt')
-      return
-    }
-
+    // In guided mode, the master prompt is optional (AI will auto-determine actions)
+    // In advanced mode, we still allow empty prompt for automatic mode
+    // So we removed the systemPrompt validation entirely
+    
     if (config.apiSource === 'custom' && !config.customApiKey) {
       setErrors({ customApiKey: 'API key is required for custom source' })
       setActiveTab('model')
@@ -357,13 +355,16 @@ export function AIAgentConfigModal({
 
     setIsSaving(true)
     try {
+      console.log('🤖 [AIAgentConfigModal] Saving AI Agent configuration:', config)
       await onSave(config)
+      console.log('✅ [AIAgentConfigModal] AI Agent configuration saved successfully')
       toast({
         title: "Configuration Saved",
         description: "AI Agent settings have been updated"
       })
-      onClose()
+      // Don't close immediately - let the parent handle closing after state update
     } catch (error) {
+      console.error('❌ [AIAgentConfigModal] Failed to save AI Agent configuration:', error)
       toast({
         title: "Save Failed",
         description: "Could not save configuration",
@@ -608,10 +609,7 @@ export function AIAgentConfigModal({
                         value={config.systemPrompt}
                         onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
                         placeholder="e.g., Summarize the content and extract action items..."
-                        className={cn(
-                          "min-h-[200px] border-0 resize-none",
-                          errors.systemPrompt && "border-red-500"
-                        )}
+                        className="min-h-[200px] border-0 resize-none"
                       />
                       {draggedVariable && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -621,9 +619,6 @@ export function AIAgentConfigModal({
                         </div>
                       )}
                     </div>
-                    {errors.systemPrompt && (
-                      <p className="text-xs text-red-500">{errors.systemPrompt}</p>
-                    )}
                   </div>
                   )}
 
