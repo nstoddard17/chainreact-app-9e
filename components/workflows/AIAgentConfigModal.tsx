@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -541,11 +542,11 @@ export function AIAgentConfigModal({
                 ))}
               </TabsList>
 
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-h-0">
                 {/* Prompt Tab */}
-                <TabsContent value="prompt" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'prompt'}>
-                  <div className="h-full overflow-y-auto">
-                    <div className="px-6 py-4 space-y-4">
+                <TabsContent value="prompt" className="h-full mt-0" forceMount hidden={activeTab !== 'prompt'}>
+                  <ScrollArea className="h-full px-6 py-4">
+                    <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">AI Instructions</h3>
@@ -650,13 +651,13 @@ export function AIAgentConfigModal({
                     </Card>
                   )}
                     </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
 
                 {/* Model Tab */}
-                <TabsContent value="model" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'model'}>
-                  <div className="h-full overflow-y-auto">
-                    <div className="px-6 py-4 space-y-4">
+                <TabsContent value="model" className="h-full mt-0" forceMount hidden={activeTab !== 'model'}>
+                  <ScrollArea className="h-full px-6 py-4">
+                    <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">AI Model Selection</h3>
@@ -905,14 +906,14 @@ export function AIAgentConfigModal({
                     </CollapsibleContent>
                   </Collapsible>
                     </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
 
                 {/* Behavior Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
-                  <TabsContent value="behavior" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'behavior'}>
-                    <div className="h-full overflow-y-auto">
-                      <div className="px-6 py-4 space-y-4">
+                  <TabsContent value="behavior" className="h-full mt-0" forceMount hidden={activeTab !== 'behavior'}>
+                    <ScrollArea className="h-full px-6 py-4">
+                      <div className="space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold">Response Behavior</h3>
                       <p className="text-sm text-muted-foreground">
@@ -1078,15 +1079,15 @@ export function AIAgentConfigModal({
                       </CollapsibleContent>
                     </Collapsible>
                       </div>
-                    </div>
+                    </ScrollArea>
                   </TabsContent>
                 )}
 
                 {/* Actions Tab (Advanced Mode Only) */}
                 {isAdvancedMode && (
-                  <TabsContent value="actions" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'actions'}>
-                    <div className="h-full overflow-y-auto">
-                      <div className="px-6 py-4 space-y-4">
+                  <TabsContent value="actions" className="h-full mt-0" forceMount hidden={activeTab !== 'actions'}>
+                    <ScrollArea className="h-full px-6 py-4">
+                      <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-semibold">Action Discovery</h3>
@@ -1178,14 +1179,14 @@ export function AIAgentConfigModal({
                       </div>
                     )}
                       </div>
-                    </div>
+                    </ScrollArea>
                   </TabsContent>
                 )}
 
                 {/* Preview Tab */}
-                <TabsContent value="preview" className="h-full mt-0 overflow-hidden" forceMount hidden={activeTab !== 'preview'}>
-                  <div className="h-full overflow-y-auto">
-                    <div className="px-6 py-4 space-y-4">
+                <TabsContent value="preview" className="h-full mt-0" forceMount hidden={activeTab !== 'preview'}>
+                  <ScrollArea className="h-full px-6 py-4">
+                    <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold">Test & Preview</h3>
@@ -1296,7 +1297,7 @@ export function AIAgentConfigModal({
                     </CardContent>
                   </Card>
                     </div>
-                  </div>
+                  </ScrollArea>
                 </TabsContent>
               </div>
             </Tabs>
