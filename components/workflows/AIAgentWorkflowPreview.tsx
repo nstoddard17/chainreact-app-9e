@@ -13,7 +13,8 @@ import {
   Position,
   Handle,
   NodeProps,
-  BackgroundVariant
+  BackgroundVariant,
+  ConnectionMode
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Card } from '@/components/ui/card'
@@ -70,6 +71,7 @@ const PreviewNode = ({ data }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Left}
+        id="in"
         className="!bg-gray-400 !w-2 !h-2"
         style={{ left: -5 }}
       />
@@ -114,6 +116,7 @@ const PreviewNode = ({ data }: NodeProps) => {
       <Handle
         type="source"
         position={Position.Right}
+        id="out"
         className="!bg-gray-400 !w-2 !h-2"
         style={{ right: -5 }}
       />
@@ -160,6 +163,8 @@ export function AIAgentWorkflowPreview({
         id: 'trigger-ai',
         source: 'trigger',
         target: aiAgentNodeId,
+        sourceHandle: 'out',
+        targetHandle: 'in',
         animated: true,
         style: { stroke: '#6366f1', strokeWidth: 2 }
       })
@@ -216,6 +221,8 @@ export function AIAgentWorkflowPreview({
             id: `ai-${nodeId}`,
             source: aiAgentNodeId,
             target: nodeId,
+            sourceHandle: 'out',
+            targetHandle: 'in',
             animated: true,
             style: { 
               stroke: getChainColor(chain.color), 
@@ -232,6 +239,8 @@ export function AIAgentWorkflowPreview({
             id: `${prevNodeId}-${nodeId}`,
             source: prevNodeId,
             target: nodeId,
+            sourceHandle: 'out',
+            targetHandle: 'in',
             style: { 
               stroke: getChainColor(chain.color), 
               strokeWidth: 2 
@@ -301,6 +310,7 @@ export function AIAgentWorkflowPreview({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
+        connectionMode={ConnectionMode.Strict}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
