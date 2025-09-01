@@ -233,6 +233,7 @@ export function AIAgentConfigModal({
   const [actionSearchQuery, setActionSearchQuery] = useState('')
   const [actionFilterCategory, setActionFilterCategory] = useState('all')
   const [selectedActionIntegration, setSelectedActionIntegration] = useState<any>(null)
+  const [selectedActionInModal, setSelectedActionInModal] = useState<any>(null)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
   const [testResults, setTestResults] = useState<any>(null)
   const [showVariablePanel, setShowVariablePanel] = useState(true)
@@ -507,9 +508,10 @@ export function AIAgentConfigModal({
         setPendingActionCallback(null)
       }
       
-      // Close dialog
+      // Close dialog and reset state
       setShowActionSelector(false)
       setSelectedActionIntegration(null)
+      setSelectedActionInModal(null)
       setActionSearchQuery('')
       
       toast({
@@ -1841,55 +1843,90 @@ export function AIAgentConfigModal({
                               }
                               return true
                             })
-                            .map((action: any) => (
-                              <Card
-                                key={action.type}
-                                className="cursor-pointer hover:border-primary transition-all hover:shadow-md"
-                                onClick={() => handleActionSelection(action)}
-                              >
-                                <CardHeader className="pb-3">
+                            .map((action: any) => {
+                              const isComingSoon = action.comingSoon
+                              
+                              return (
+                                <div
+                                  key={action.type}
+                                  className={`p-4 border rounded-lg transition-all ${
+                                    isComingSoon
+                                      ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
+                                      : selectedActionInModal?.type === action.type
+                                        ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                                        : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
+                                  }`}
+                                  onClick={() => {
+                                    if (isComingSoon) return
+                                    setSelectedActionInModal(action)
+                                    handleActionSelection(action)
+                                  }}
+                                >
                                   <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                      {action.icon && React.createElement(action.icon, { className: "w-6 h-6 text-primary" })}
-                                      <div className="flex-1">
-                                        <CardTitle className="text-sm font-medium">
-                                          {action.title}
-                                        </CardTitle>
-                                        <CardDescription className="text-xs mt-1">
-                                          {action.description}
-                                        </CardDescription>
-                                      </div>
+                                    <div className="flex-1">
+                                      <p className={`font-medium ${isComingSoon ? 'text-muted-foreground' : ''}`}>
+                                        {action.title || 'Unnamed Action'}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {action.description || 'No description available'}
+                                      </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      {isAIMode && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          <Bot className="w-3 h-3 mr-1" />
+                                    <div className="flex items-center gap-2 ml-2">
+                                      {isAIMode && !isComingSoon && (
+                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                           AI Config
-                                        </Badge>
+                                        </span>
                                       )}
-                                      {action.isAIEnabled && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <Sparkles className="w-3 h-3 mr-1" />
+                                      {action.isAIEnabled && !isComingSoon && (
+                                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
                                           AI Ready
-                                        </Badge>
+                                        </span>
+                                      )}
+                                      {isComingSoon && (
+                                        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
+                                          Coming Soon
+                                        </span>
                                       )}
                                     </div>
                                   </div>
-                                </CardHeader>
-                              </Card>
-                            ))}
+                                </div>
+                              )
+                            })}
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <div className="text-center">
-                          <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                          <p className="text-sm">Select an integration to view available actions</p>
-                        </div>
+                        <p>Select an integration to see its actions</p>
                       </div>
                     )}
                   </div>
                 </ScrollArea>
+              </div>
+            </div>
+            
+            {/* Footer with selection info - matching main workflow builder */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {selectedActionIntegration && (
+                    <>
+                      <span className="font-medium">Integration:</span> {selectedActionIntegration.name}
+                    </>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {isAIMode ? (
+                    <span className="text-blue-600 font-medium">
+                      <Bot className="w-3 h-3 inline mr-1" />
+                      AI will configure all fields
+                    </span>
+                  ) : (
+                    <span className="text-orange-600 font-medium">
+                      <Settings className="w-3 h-3 inline mr-1" />
+                      Manual configuration required
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </DialogContent>
