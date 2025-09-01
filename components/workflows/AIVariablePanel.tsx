@@ -194,9 +194,9 @@ export function AIVariablePanel({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full pl-2 overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b">
+        <div className="px-4 py-4 border-b">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-500" />
@@ -270,7 +270,7 @@ export function AIVariablePanel({
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-4 mt-2 grid w-full grid-cols-3">
+          <TabsList className="mx-4 mt-2 grid w-[calc(100%-2rem)] grid-cols-3">
             <TabsTrigger value="variables" className="text-xs">
               <Variable className="w-3 h-3 mr-1" />
               Variables
