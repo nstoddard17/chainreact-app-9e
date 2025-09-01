@@ -34,6 +34,7 @@ import { ConfigurationModal } from "./configuration"
 import { AIAgentConfigModal } from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
+import InsertActionNode from "./InsertActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
 import ErrorNotificationPopup from "./ErrorNotificationPopup"
 
@@ -165,6 +166,7 @@ const useWorkflowBuilderState = () => {
   const nodeTypes = useMemo(() => ({
     custom: CustomNode,
     addAction: AddActionNode,
+    insertAction: InsertActionNode,
   }), [])
 
   const [isSaving, setIsSaving] = useState(false)
@@ -181,10 +183,11 @@ const useWorkflowBuilderState = () => {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
   const [showConnectedOnly, setShowConnectedOnly] = useState(true)
-  const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string } | null>(null)
+  const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
+  const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
   const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -374,6 +377,19 @@ const useWorkflowBuilderState = () => {
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
     setSourceAddNode({ id: nodeId, parentId })
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
+    setShowActionDialog(true)
+  }, [])
+
+  // Handle insert action between nodes
+  const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
+    setSourceAddNode({ 
+      id: `insert-${sourceNodeId}-${targetNodeId}`, 
+      parentId: sourceNodeId,
+      insertBefore: targetNodeId 
+    })
     setSelectedIntegration(null)
     setSelectedAction(null)
     setSearchQuery("")
@@ -1112,6 +1128,24 @@ const useWorkflowBuilderState = () => {
   };
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
+    // Check if this is for an AI Agent chain
+    if (aiAgentActionCallback) {
+      // Call the callback with the action details
+      aiAgentActionCallback(action.type, integration.id, {})
+      
+      // Clear the callback and close the dialog
+      setAiAgentActionCallback(null)
+      setShowActionDialog(false)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSourceAddNode(null)
+      
+      toast({
+        title: "Action Added",
+        description: `Added ${action.title || action.type} to AI Agent chain`
+      })
+      return
+    }
     
     let effectiveSourceAddNode = sourceAddNode
     
@@ -1158,12 +1192,15 @@ const useWorkflowBuilderState = () => {
     }
   }
 
-  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string }): string | null => {
+  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string; insertBefore?: string }): string | null => {
     const parentNode = getNodes().find((n) => n.id === sourceNodeInfo.parentId)
     if (!parentNode) return null
+    
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
-      id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
+      id: newNodeId, 
+      type: "custom", 
+      position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
       data: { 
         ...action, 
         title: action.title, 
@@ -1175,30 +1212,88 @@ const useWorkflowBuilderState = () => {
         config 
       },
     }
-    const newAddActionId = `add-action-${Date.now()}`
-    const newAddActionNode: Node = {
-      id: newAddActionId, type: "addAction", position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
-      data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
-    }
-    setNodes((prevNodes: Node[]) => [...prevNodes.filter((n: Node) => n.id !== sourceNodeInfo.id), newActionNode, newAddActionNode])
-    setEdges((prevEdges: Edge[]) => [
-      ...prevEdges.filter((e: Edge) => e.target !== sourceNodeInfo.id),
-      {
-        id: `${parentNode.id}-${newNodeId}`,
-        source: parentNode.id,
-        target: newNodeId,
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1 }
-      },
-      {
-        id: `${newNodeId}-${newAddActionId}`,
-        source: newNodeId,
-        target: newAddActionId,
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+    
+    // Handle insertion between nodes
+    if (sourceNodeInfo.insertBefore) {
+      // We're inserting between sourceNodeInfo.parentId and sourceNodeInfo.insertBefore
+      const targetNode = getNodes().find((n) => n.id === sourceNodeInfo.insertBefore)
+      
+      if (targetNode) {
+        // Position the new node between parent and target
+        newActionNode.position = {
+          x: (parentNode.position.x + targetNode.position.x) / 2,
+          y: (parentNode.position.y + targetNode.position.y) / 2
+        }
+        
+        // Update nodes
+        setNodes((prevNodes: Node[]) => [
+          ...prevNodes.filter((n: Node) => !n.id.startsWith('insert-')), // Remove insert nodes
+          newActionNode
+        ])
+        
+        // Update edges - redirect the edge from parent->target to parent->new->target
+        setEdges((prevEdges: Edge[]) => {
+          const filteredEdges = prevEdges.filter((e: Edge) => 
+            !(e.source === sourceNodeInfo.parentId && e.target === sourceNodeInfo.insertBefore)
+          )
+          
+          return [
+            ...filteredEdges,
+            {
+              id: `${parentNode.id}-${newNodeId}`,
+              source: parentNode.id,
+              target: newNodeId,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 }
+            },
+            {
+              id: `${newNodeId}-${sourceNodeInfo.insertBefore}`,
+              source: newNodeId,
+              target: sourceNodeInfo.insertBefore,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 }
+            }
+          ]
+        })
       }
-    ])
-    setShowActionDialog(false); setSelectedIntegration(null); setSourceAddNode(null)
+    } else {
+      // Normal add action at the end
+      const newAddActionId = `add-action-${Date.now()}`
+      const newAddActionNode: Node = {
+        id: newAddActionId, 
+        type: "addAction", 
+        position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
+        data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
+      }
+      
+      setNodes((prevNodes: Node[]) => [
+        ...prevNodes.filter((n: Node) => n.id !== sourceNodeInfo.id), 
+        newActionNode, 
+        newAddActionNode
+      ])
+      
+      setEdges((prevEdges: Edge[]) => [
+        ...prevEdges.filter((e: Edge) => e.target !== sourceNodeInfo.id),
+        {
+          id: `${parentNode.id}-${newNodeId}`,
+          source: parentNode.id,
+          target: newNodeId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 }
+        },
+        {
+          id: `${newNodeId}-${newAddActionId}`,
+          source: newNodeId,
+          target: newAddActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+        }
+      ])
+    }
+    
+    setShowActionDialog(false)
+    setSelectedIntegration(null)
+    setSourceAddNode(null)
     setTimeout(() => fitView({ padding: 0.5 }), 100)
     
     return newNodeId // Return the new node ID so we can save its config to persistence
@@ -2961,6 +3056,11 @@ function WorkflowBuilderContent() {
               initialData={configuringNode.config}
               workflowData={{ nodes, edges }}
               currentNodeId={configuringNode.id}
+              onOpenActionDialog={() => setShowActionDialog(true)}
+              onActionSelect={(callback) => {
+                // Store the callback for when an action is selected from the main dialog
+                setAiAgentActionCallback(() => callback)
+              }}
             />
           ) : (
             <ConfigurationModal

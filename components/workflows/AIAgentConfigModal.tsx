@@ -33,7 +33,7 @@ import {
   ArrowRight, Loader2, Save, Play, Database, Clock, Shield,
   Download, Copy, GraduationCap, ToggleLeft, ToggleRight,
   FileText, Palette, Lock, Unlock, RefreshCw, TrendingUp,
-  Activity, Coins, Layers, Shuffle
+  Activity, Coins, Layers, Shuffle, Workflow
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AIVariablePanel } from './AIVariablePanel'
@@ -43,6 +43,7 @@ import { loadNodeConfig, saveNodeConfig } from "@/lib/workflows/configPersistenc
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { motion, AnimatePresence } from 'framer-motion'
+import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -52,6 +53,8 @@ interface AIAgentConfigModalProps {
   initialData?: Record<string, any>
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
+  onOpenActionDialog?: () => void
+  onActionSelect?: (action: any) => void
 }
 
 // Group models by recommendation
@@ -181,7 +184,9 @@ export function AIAgentConfigModal({
   onUpdateConnections,
   initialData,
   workflowData,
-  currentNodeId
+  currentNodeId,
+  onOpenActionDialog,
+  onActionSelect
 }: AIAgentConfigModalProps) {
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
@@ -210,6 +215,7 @@ export function AIAgentConfigModal({
     maxRetries: 3,
     timeout: 30000,
     targetActions: [] as string[],
+    chains: [] as any[],
     ...initialData
   })
 
@@ -227,6 +233,7 @@ export function AIAgentConfigModal({
   const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
+  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string) => void) | null>(null)
   
   // Loading states
   const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
@@ -244,6 +251,34 @@ export function AIAgentConfigModal({
       setEstimatedLatency(model.latency)
     }
   }, [config.model, config.maxTokens])
+  
+  // Load initial data when modal opens
+  useEffect(() => {
+    if (initialData && isOpen) {
+      setConfig(prev => ({
+        ...prev,
+        ...initialData,
+        chains: initialData.chains || []
+      }))
+    }
+  }, [initialData, isOpen])
+  
+  // Handle action selection from parent workflow builder
+  useEffect(() => {
+    // When onActionSelect is called from parent with an action selection
+    // and we have a pending callback, execute it
+    if (pendingActionCallback && onActionSelect) {
+      // Override the onActionSelect to call our pending callback
+      const originalOnActionSelect = onActionSelect
+      onActionSelect = (action: any) => {
+        if (pendingActionCallback && action) {
+          pendingActionCallback(action.type, action.providerId, action.config)
+          setPendingActionCallback(null)
+        }
+        originalOnActionSelect(action)
+      }
+    }
+  }, [pendingActionCallback, onActionSelect])
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => {
@@ -377,14 +412,13 @@ export function AIAgentConfigModal({
 
   // Tabs configuration based on mode
   const tabs = isAdvancedMode 
-    ? ['prompt', 'model', 'behavior', 'actions', 'preview']
+    ? ['prompt', 'model', 'behavior', 'preview']
     : ['prompt', 'model', 'preview']
 
   const tabLabels: Record<string, string> = {
     prompt: 'Prompt',
     model: 'Model',
     behavior: 'Behavior',
-    actions: 'Actions',
     preview: 'Preview'
   }
 
@@ -554,6 +588,29 @@ export function AIAgentConfigModal({
                       )}
                     </AlertDescription>
                   </Alert>
+
+                  {/* Visual Chain Builder */}
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Workflow className="w-5 h-5" />
+                        Action Chains
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Build parallel workflows that execute based on AI decisions
+                      </p>
+                    </div>
+                    
+                    <AIAgentVisualChainBuilderWrapper
+                      chains={config.chains}
+                      onChainsChange={(chains) => setConfig(prev => ({ ...prev, chains }))}
+                      onOpenActionDialog={onOpenActionDialog}
+                      onActionSelect={(callback) => {
+                        // Store the callback for when action is selected
+                        setPendingActionCallback(() => callback)
+                      }}
+                    />
+                  </div>
 
                   {/* Master Prompt - Only show in advanced mode */}
                   {isAdvancedMode && (
@@ -1441,6 +1498,7 @@ export function AIAgentConfigModal({
                       </div>
                     </CardContent>
                   </Card>
+
                     </div>
                   </ScrollArea>
                 </TabsContent>
