@@ -191,6 +191,8 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     throw new Error("Supabase client not available")
   }
 
+  console.log(`📝 Starting workflow update for ${id}`)
+
   // Get the current workflow from the store
   let currentWorkflow = useCurrentWorkflowStore.getState().data
   
@@ -216,34 +218,50 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     Object.assign(updateData, currentWorkflow, updates)
   }
 
-  const { data: savedData, error } = await supabase
+  console.log(`📤 Sending update to Supabase for workflow ${id}`)
+
+  // Create a timeout promise
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("Supabase update timed out after 30 seconds")), 30000)
+  })
+
+  // Race between the update and the timeout
+  const updatePromise = supabase
     .from("workflows")
     .update(updateData)
     .eq("id", id)
     .select()
     .single()
 
-  if (error) {
+  try {
+    const { data: savedData, error } = await Promise.race([updatePromise, timeoutPromise]) as any
+
+    if (error) {
+      console.error(`❌ Supabase update failed for workflow ${id}:`, error)
+      throw error
+    }
+    
+    console.log("✅ Workflow updated successfully:", {
+      id: savedData.id,
+      status: savedData.status,
+      updated_at: savedData.updated_at
+    })
+
+    // Update the current workflow store with the actual saved data from database
+    useCurrentWorkflowStore.getState().setData(savedData)
+    
+    // Update the workflows list store with the actual saved data
+    const workflows = useWorkflowsListStore.getState().data || []
+    const updatedWorkflows = workflows.map(w => 
+      w.id === id ? savedData : w
+    )
+    useWorkflowsListStore.getState().setData(updatedWorkflows)
+
+    return savedData
+  } catch (error) {
+    console.error(`❌ Failed to update workflow ${id}:`, error)
     throw error
   }
-  
-  console.log("✅ Workflow status updated:", {
-    id: savedData.id,
-    status: savedData.status,
-    updated_at: savedData.updated_at
-  })
-
-  // Update the current workflow store with the actual saved data from database
-  useCurrentWorkflowStore.getState().setData(savedData)
-  
-  // Update the workflows list store with the actual saved data
-  const workflows = useWorkflowsListStore.getState().data || []
-  const updatedWorkflows = workflows.map(w => 
-    w.id === id ? savedData : w
-  )
-  useWorkflowsListStore.getState().setData(updatedWorkflows)
-
-  return savedData
 }
 
 /**

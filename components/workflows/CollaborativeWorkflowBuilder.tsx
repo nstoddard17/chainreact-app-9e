@@ -1456,7 +1456,7 @@ const useWorkflowBuilderState = () => {
     setIsSaving(true)
     isSavingRef.current = true
     
-    // Add timeout protection
+    // Add timeout protection - increased for complex workflows with AI Agent nodes
     const saveTimeout = setTimeout(() => {
       console.error("Save operation timed out")
       setIsSaving(false)
@@ -1466,7 +1466,7 @@ const useWorkflowBuilderState = () => {
         description: "Save operation took too long. Please try again.", 
         variant: "destructive" 
       })
-    }, 30000) // 30 second timeout
+    }, 60000) // 60 second timeout for complex workflows
     
     try {
       // Get current nodes and edges from React Flow
@@ -1482,7 +1482,18 @@ const useWorkflowBuilderState = () => {
           y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
         };
         
-        // Log each node position to verify
+        // Deep clone config to avoid circular references, especially for AI Agent nodes
+        let nodeConfig = {};
+        try {
+          if (n.data.config) {
+            // Use JSON parse/stringify to create a deep clone and remove any circular references
+            nodeConfig = JSON.parse(JSON.stringify(n.data.config));
+          }
+        } catch (error) {
+          console.error(`Failed to serialize config for node ${n.id}:`, error);
+          // If serialization fails, try to extract only serializable properties
+          nodeConfig = n.data.config || {};
+        }
         
         return {
           id: n.id, 
@@ -1491,7 +1502,7 @@ const useWorkflowBuilderState = () => {
           data: { 
             label: n.data.label as string, 
             type: n.data.type as string, 
-            config: n.data.config || {},
+            config: nodeConfig,
             providerId: n.data.providerId as string | undefined,
             isTrigger: n.data.isTrigger as boolean | undefined,
             title: n.data.title as string | undefined,
@@ -1517,9 +1528,28 @@ const useWorkflowBuilderState = () => {
         status: currentWorkflow.status,
       }
 
+      // Log the save operation details for debugging
+      console.log("🔄 Starting save operation:", {
+        workflowId: currentWorkflow!.id,
+        nodesCount: mappedNodes.length,
+        connectionsCount: mappedConnections.length,
+        hasAIAgent: mappedNodes.some(n => n.data.type === 'ai_agent'),
+        timestamp: new Date().toISOString()
+      })
 
       // Save to database with better error handling
-      const result = await updateWorkflow(currentWorkflow!.id, updates)
+      // Clear the timeout as soon as the save completes
+      const savePromise = updateWorkflow(currentWorkflow!.id, updates);
+      
+      const result = await savePromise;
+      
+      // Clear timeout immediately after successful save
+      clearTimeout(saveTimeout);
+      
+      console.log("✅ Save operation completed successfully:", {
+        workflowId: currentWorkflow!.id,
+        timestamp: new Date().toISOString()
+      })
       
       // Update the current workflow state with the new data but keep React Flow intact
       const userId: string = typeof currentWorkflow!.user_id === "string" ? currentWorkflow!.user_id : (() => { throw new Error("user_id is missing from currentWorkflow"); })();
@@ -1551,91 +1581,102 @@ const useWorkflowBuilderState = () => {
       // Update the current workflow with the saved data instead of clearing it
       setCurrentWorkflow(newWorkflow);
       
-      // Force a rebuild of nodes after save to ensure positions are updated
-      setIsRebuildingAfterSave(true);
+      // Skip rebuild if nodes haven't structurally changed - just update the workflow state
+      // This significantly speeds up save operations
+      const currentNodes = getNodes();
+      const needsRebuild = currentNodes.length !== mappedNodes.length || 
+        currentNodes.some((n: Node, i: number) => n.id !== mappedNodes[i]?.id);
       
-      setTimeout(() => {
-        const customNodes: Node[] = (newWorkflow.nodes || []).map((node: WorkflowNode) => {
-          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
-          
-          return {
-            id: node.id, 
-            type: "custom", 
-            position: node.position,
-            data: {
-              ...node.data,
-              title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
-              name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
-              description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
-              onConfigure: handleConfigureNode,
-              onDelete: handleDeleteNodeWithConfirmation,
-              onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
-              providerId: node.data.providerId || node.data.type?.split('-')[0]
-            },
-          };
-        });
+      if (needsRebuild) {
+        // Force a rebuild of nodes after save to ensure positions are updated
+        setIsRebuildingAfterSave(true);
+        
+        // Use requestAnimationFrame for smoother UI updates
+        requestAnimationFrame(() => {
+          const customNodes: Node[] = (newWorkflow.nodes || []).map((node: WorkflowNode) => {
+            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+            
+            return {
+              id: node.id, 
+              type: "custom", 
+              position: node.position,
+              data: {
+                ...node.data,
+                title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+                name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+                description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
+                onConfigure: handleConfigureNode,
+                onDelete: handleDeleteNodeWithConfirmation,
+                onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+                providerId: node.data.providerId || node.data.type?.split('-')[0]
+              },
+            };
+          });
 
-        let allNodes: Node[] = [...customNodes];
-        
-        // Find the last action node (not the trigger) to position the add action node
-        const actionNodes = customNodes.filter(n => n.id !== 'trigger');
-        const lastActionNode = actionNodes.length > 0 
-          ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
-          : null;
-        
-        if (lastActionNode) {
-          const addActionId = `add-action-${lastActionNode.id}`;
-          const addActionNode: Node = {
-            id: addActionId, 
-            type: 'addAction', 
-            position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 },
-            data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
-          };
-          allNodes.push(addActionNode);
-        } else {
-          const triggerNode = customNodes.find(n => n.id === 'trigger');
-          if (triggerNode) {
-            const addActionId = `add-action-${triggerNode.id}`;
+          let allNodes: Node[] = [...customNodes];
+          
+          // Find the last action node (not the trigger) to position the add action node
+          const actionNodes = customNodes.filter(n => n.id !== 'trigger');
+          const lastActionNode = actionNodes.length > 0 
+            ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
+            : null;
+          
+          if (lastActionNode) {
+            const addActionId = `add-action-${lastActionNode.id}`;
             const addActionNode: Node = {
               id: addActionId, 
               type: 'addAction', 
-              position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
-              data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+              position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 },
+              data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
             };
             allNodes.push(addActionNode);
+          } else {
+            const triggerNode = customNodes.find(n => n.id === 'trigger');
+            if (triggerNode) {
+              const addActionId = `add-action-${triggerNode.id}`;
+              const addActionNode: Node = {
+                id: addActionId, 
+                type: 'addAction', 
+                position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+                data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+              };
+              allNodes.push(addActionNode);
+            }
           }
-        }
-        
-        const initialEdges: Edge[] = (newWorkflow.connections || []).map((conn: WorkflowConnection) => ({
-          id: conn.id, source: conn.source, target: conn.target,
-        }));
-        
-        // Add edge from the last node (action or trigger) to the add action node
-        const addActionNode = allNodes.find(n => n.type === 'addAction');
-        if (addActionNode) {
-          const sourceNode = lastActionNode || customNodes.find(n => n.id === 'trigger');
-          if (sourceNode) {
-            initialEdges.push({
-              id: `${sourceNode.id}->${addActionNode.id}`, 
-              source: sourceNode.id, 
-              target: addActionNode.id, 
-              animated: true,
-              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
-              type: 'straight'
-            });
+          
+          const initialEdges: Edge[] = (newWorkflow.connections || []).map((conn: WorkflowConnection) => ({
+            id: conn.id, source: conn.source, target: conn.target,
+          }));
+          
+          // Add edge from the last node (action or trigger) to the add action node
+          const addActionNode = allNodes.find(n => n.type === 'addAction');
+          if (addActionNode) {
+            const sourceNode = lastActionNode || customNodes.find(n => n.id === 'trigger');
+            if (sourceNode) {
+              initialEdges.push({
+                id: `${sourceNode.id}->${addActionNode.id}`, 
+                source: sourceNode.id, 
+                target: addActionNode.id, 
+                animated: true,
+                style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
+                type: 'straight'
+              });
+            }
           }
-        }
-        
-        setNodes(allNodes);
-        setEdges(initialEdges);
-        
-        // Ensure unsaved changes flag is cleared after rebuild completes and prevent detection
-        setTimeout(() => {
+          
+          setNodes(allNodes);
+          setEdges(initialEdges);
+          
+          // Clear flags immediately - don't need additional delay
           setHasUnsavedChanges(false);
-          lastSaveTimeRef.current = Date.now(); // Refresh timestamp after rebuild
+          lastSaveTimeRef.current = Date.now();
           setIsRebuildingAfterSave(false);
-        }, 200);
-      }, 100);
+        });
+      } else {
+        // No rebuild needed - just clear the unsaved changes flag
+        setHasUnsavedChanges(false);
+        lastSaveTimeRef.current = Date.now();
+      }
     } catch (error: any) {
       console.error("Failed to save workflow:", error)
       
