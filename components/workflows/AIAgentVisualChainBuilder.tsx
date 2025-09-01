@@ -150,7 +150,7 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
               <h3 className="text-xl font-medium text-foreground">
                 {title || (component && component.title) || 'Unnamed Action'}
               </h3>
-              {description && !type?.includes('chain_placeholder') && (
+              {description && (
                 <p className="text-muted-foreground">{description}</p>
               )}
             </div>
@@ -332,9 +332,45 @@ function AIAgentVisualChainBuilder({
   onActionSelect
 }: AIAgentVisualChainBuilderProps) {
   const { toast } = useToast()
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
+  const [nodes, setNodes, onNodesChangeBase] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const { fitView, getZoom, setViewport } = useReactFlow()
+  
+  // Custom onNodesChange to handle Add Action nodes following their parent
+  const onNodesChange = useCallback((changes: any) => {
+    // Apply the base changes first
+    onNodesChangeBase(changes)
+    
+    // Check if any position changes occurred
+    const positionChanges = changes.filter((change: any) => change.type === 'position' && change.dragging === false)
+    
+    if (positionChanges.length > 0) {
+      setNodes((nds) => {
+        const updatedNodes = [...nds]
+        
+        // For each position change, update connected Add Action nodes
+        positionChanges.forEach((change: any) => {
+          const parentNode = updatedNodes.find(n => n.id === change.id)
+          if (parentNode) {
+            // Find Add Action nodes that should follow this parent
+            const connectedAddActionNode = updatedNodes.find(n => 
+              n.type === 'addAction' && n.data?.parentId === change.id
+            )
+            
+            if (connectedAddActionNode) {
+              // Update Add Action node position to follow parent
+              connectedAddActionNode.position = {
+                x: parentNode.position.x,
+                y: parentNode.position.y + 160
+              }
+            }
+          }
+        })
+        
+        return updatedNodes
+      })
+    }
+  }, [onNodesChangeBase, setNodes])
 
   // Declare handleDeleteNode early for use in initialization
   const handleDeleteNode = useCallback((nodeId: string) => {
@@ -490,9 +526,14 @@ function AIAgentVisualChainBuilder({
     setNodes(initialNodes)
     setEdges(initialEdges)
     
-    // Center view after initial load
+    // Center view after initial load to show all nodes
     setTimeout(() => {
-      fitView({ padding: 0.2, duration: 400 })
+      fitView({ 
+        padding: 0.1, 
+        duration: 400,
+        minZoom: 0.5,
+        maxZoom: 1
+      })
     }, 100)
   }, [fitView])
 
@@ -583,10 +624,15 @@ function AIAgentVisualChainBuilder({
         }
       ])
       
-      // Auto-center the view after adding the action
+      // Auto-center the view to show all nodes after adding the action
       setTimeout(() => {
-        fitView({ padding: 0.2, duration: 400 })
-      }, 100)
+        fitView({ 
+          padding: 0.1, 
+          duration: 400,
+          minZoom: 0.5,
+          maxZoom: 1
+        })
+      }, 150)
     }
   }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView])
 
@@ -657,10 +703,15 @@ function AIAgentVisualChainBuilder({
             ]
           })
           
-          // Auto-center the view after adding the node
+          // Auto-center the view to show all nodes after adding the node
           setTimeout(() => {
-            fitView({ padding: 0.2, duration: 400 })
-          }, 100)
+            fitView({ 
+              padding: 0.1, 
+              duration: 400,
+              minZoom: 0.5,
+              maxZoom: 1
+            })
+          }, 150)
         })
       }
     }
@@ -781,10 +832,15 @@ function AIAgentVisualChainBuilder({
             }
           ])
           
-          // Auto-center the view after adding the action
+          // Auto-center the view to show all nodes after adding the action
           setTimeout(() => {
-            fitView({ padding: 0.2, duration: 400 })
-          }, 100)
+            fitView({ 
+              padding: 0.1, 
+              duration: 400,
+              minZoom: 0.5,
+              maxZoom: 1
+            })
+          }, 150)
         })
       }
     }
@@ -880,13 +936,13 @@ function AIAgentVisualChainBuilder({
       }
     }])
 
-    // Auto-zoom to fit all nodes with animation
+    // Auto-zoom to show all nodes with animation
     setTimeout(() => {
       fitView({ 
-        padding: 0.15, 
-        duration: 500,
-        maxZoom: 1.5,
-        minZoom: 0.3
+        padding: 0.1, 
+        duration: 400,
+        maxZoom: 1,
+        minZoom: 0.5
       })
     }, 50)
 
