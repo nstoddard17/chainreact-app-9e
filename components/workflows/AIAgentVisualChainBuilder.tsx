@@ -320,7 +320,7 @@ interface AIAgentVisualChainBuilderProps {
   chains?: any[]
   onChainsChange?: (chains: any[]) => void
   onOpenActionDialog?: () => void
-  onActionSelect?: (callback: (action: any) => void) => void
+  onActionSelect?: (callback: (actionType: string, providerId: string, config?: any) => void) => void
 }
 
 function AIAgentVisualChainBuilder({
@@ -371,10 +371,10 @@ function AIAgentVisualChainBuilder({
   }, [])
 
   // Declare placeholder for handleAddActionToChain
-  const handleAddActionToChainRef = React.useRef<(chainId: string, action: any) => void>()
-  const handleAddActionToChain = useCallback((chainId: string, action: any) => {
+  const handleAddActionToChainRef = React.useRef<(chainId: string, actionType: string, providerId: string, config?: any) => void>()
+  const handleAddActionToChain = useCallback((chainId: string, actionType: string, providerId: string, config?: any) => {
     if (handleAddActionToChainRef.current) {
-      handleAddActionToChainRef.current(chainId, action)
+      handleAddActionToChainRef.current(chainId, actionType, providerId, config)
     }
   }, [])
 
@@ -440,8 +440,8 @@ function AIAgentVisualChainBuilder({
             if (onOpenActionDialog) {
               onOpenActionDialog()
               if (onActionSelect) {
-                onActionSelect((action: any) => {
-                  handleAddActionToChain(defaultChainId, action)
+                onActionSelect((actionType: string, providerId: string, config?: any) => {
+                  handleAddActionToChain(defaultChainId, actionType, providerId, config)
                 })
               }
             }
@@ -496,11 +496,14 @@ function AIAgentVisualChainBuilder({
 
   // Update the ref with the actual implementation
   React.useEffect(() => {
-    handleAddActionToChainRef.current = (chainId: string, action: any) => {
+    handleAddActionToChainRef.current = (chainId: string, actionType: string, providerId: string, config?: any) => {
       const chainNode = nodes.find(n => n.id === chainId)
       if (!chainNode) return
       
       const newNodeId = `node-${Date.now()}`
+      
+      // Find the action details from ALL_NODE_COMPONENTS
+      const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
       
       // Create the action node at the same position as the chain placeholder
       const newNode: Node = {
@@ -508,11 +511,11 @@ function AIAgentVisualChainBuilder({
         type: 'custom',
         position: { ...chainNode.position },
         data: {
-          title: action.title || action.name,
-          description: action.description,
-          type: action.type,
-          providerId: action.providerId,
-          config: {},
+          title: actionComponent?.title || actionType,
+          description: actionComponent?.description || '',
+          type: actionType,
+          providerId: providerId,
+          config: config || {},  // Include the AI config or manual config
           onConfigure: () => handleConfigureNode(newNodeId),
           onDelete: () => handleDeleteNode(newNodeId),
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
@@ -542,18 +545,19 @@ function AIAgentVisualChainBuilder({
     if (onOpenActionDialog) {
       onOpenActionDialog()
       if (onActionSelect) {
-        onActionSelect((action: any) => {
+        onActionSelect((actionType: string, providerId: string, config?: any) => {
           const newNodeId = `node-${Date.now()}`
+          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
           const newNode: Node = {
             id: newNodeId,
             type: 'custom',
             position,
             data: {
-              title: action.title || action.name,
-              description: action.description,
-              type: action.type,
-              providerId: action.providerId,
-              config: {},
+              title: actionComponent?.title || actionType,
+              description: actionComponent?.description || '',
+              type: actionType,
+              providerId: providerId,
+              config: config || {},
               onConfigure: () => handleConfigureNode(newNodeId),
               onDelete: () => handleDeleteNode(newNodeId),
               onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
@@ -634,11 +638,13 @@ function AIAgentVisualChainBuilder({
     if (onOpenActionDialog) {
       onOpenActionDialog()
       if (onActionSelect) {
-        onActionSelect((action: any) => {
+        onActionSelect((actionType: string, providerId: string, config?: any) => {
           const newNodeId = `node-${Date.now()}`
           const lastNode = nodes.find(n => n.id === lastNodeId)
           
           if (!lastNode) return
+          
+          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
           
           const newNode: Node = {
             id: newNodeId,
@@ -648,11 +654,11 @@ function AIAgentVisualChainBuilder({
               y: lastNode.position.y 
             },
             data: {
-              title: action.title || action.name,
-              description: action.description,
-              type: action.type,
-              providerId: action.providerId,
-              config: {},
+              title: actionComponent?.title || actionType,
+              description: actionComponent?.description || '',
+              type: actionType,
+              providerId: providerId,
+              config: config || {},
               onConfigure: () => handleConfigureNode(newNodeId),
               onDelete: () => handleDeleteNode(newNodeId),
               onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
@@ -740,8 +746,8 @@ function AIAgentVisualChainBuilder({
           if (onOpenActionDialog) {
             onOpenActionDialog()
             if (onActionSelect) {
-              onActionSelect((action: any) => {
-                handleAddActionToChain(newNodeId, action)
+              onActionSelect((actionType: string, providerId: string, config?: any) => {
+                handleAddActionToChain(newNodeId, actionType, providerId, config)
               })
             }
           }
