@@ -55,6 +55,8 @@ import { AIVariableMenu } from './AIVariableMenu'
 import { useAIVariables } from '@/hooks/useAIVariables'
 import { AIFieldControl } from './AIFieldControl'
 import { cn } from '@/lib/utils'
+import { AIAgentFlowBuilder } from './AIAgentFlowBuilder'
+import { AIAgentSimpleFlowBuilder } from './AIAgentSimpleFlowBuilder'
 
 interface AIAgentModalProps {
   isOpen: boolean
@@ -63,6 +65,7 @@ interface AIAgentModalProps {
   initialConfig?: any
   nodes: any[]
   currentNodeId?: string
+  workflowId?: string
 }
 
 // AI Models with their capabilities and pricing
@@ -110,10 +113,11 @@ export function AIAgentModal({
   onSave,
   initialConfig = {},
   nodes,
-  currentNodeId
+  currentNodeId,
+  workflowId
 }: AIAgentModalProps) {
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState('prompt')
+  const [activeTab, setActiveTab] = useState('chains')
   const [config, setConfig] = useState({
     prompt: '',
     model: 'gpt-3.5-turbo',
@@ -138,6 +142,7 @@ export function AIAgentModal({
   const [previewData, setPreviewData] = useState<any>(null)
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
+  const [chains, setChains] = useState<any[]>(initialConfig.chains || [])
 
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const instructionsRef = useRef<HTMLTextAreaElement>(null)
@@ -247,16 +252,16 @@ export function AIAgentModal({
   }
 
   const handleSave = () => {
-    if (!config.prompt && config.targetActions.length === 0) {
+    if (!config.prompt && config.targetActions.length === 0 && chains.length === 0) {
       toast({
         title: "Configuration Required",
-        description: "Please provide a prompt or select target actions",
+        description: "Please provide a prompt, select target actions, or create chains",
         variant: "destructive"
       })
       return
     }
 
-    onSave(config)
+    onSave({ ...config, chains })
     onClose()
   }
 
@@ -275,7 +280,7 @@ export function AIAgentModal({
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="prompt" className="flex items-center gap-1">
                 <MessageSquare className="w-4 h-4" />
                 Prompt
@@ -292,13 +297,17 @@ export function AIAgentModal({
                 <Target className="w-4 h-4" />
                 Actions
               </TabsTrigger>
+              <TabsTrigger value="chains" className="flex items-center gap-1">
+                <Workflow className="w-4 h-4" />
+                Chains
+              </TabsTrigger>
               <TabsTrigger value="preview" className="flex items-center gap-1">
                 <Eye className="w-4 h-4" />
                 Preview
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[500px] mt-4">
+            <div className="h-[500px] mt-4 overflow-auto">
               {/* Prompt Tab */}
               <TabsContent value="prompt" className="space-y-4">
                 <Card>
@@ -667,6 +676,14 @@ export function AIAgentModal({
                 </Card>
               </TabsContent>
 
+              {/* Chains Tab - New Visual Builder */}
+              <TabsContent value="chains" className="h-[500px] p-0 overflow-hidden">
+                <AIAgentSimpleFlowBuilder
+                  chains={chains}
+                  onChainsChange={setChains}
+                />
+              </TabsContent>
+
               {/* Actions Tab */}
               <TabsContent value="actions" className="space-y-4">
                 <Card>
@@ -857,7 +874,7 @@ export function AIAgentModal({
                   </CardContent>
                 </Card>
               </TabsContent>
-            </ScrollArea>
+            </div>
           </Tabs>
 
           <DialogFooter className="flex items-center justify-between">

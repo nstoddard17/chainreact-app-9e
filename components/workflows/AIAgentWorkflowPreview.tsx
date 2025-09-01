@@ -24,7 +24,25 @@ import {
   Bot, Zap, Workflow, ArrowRight, Layers, 
   ZoomIn, ZoomOut, Maximize2, RotateCcw 
 } from 'lucide-react'
-import { Chain, ChainAction } from './AIAgentChainBuilder'
+// Define types locally
+export interface ChainAction {
+  id: string
+  nodeType: string
+  providerId: string
+  config: Record<string, any>
+  aiAutoConfig: boolean
+  position: number
+}
+
+export interface Chain {
+  id: string
+  name: string
+  description?: string
+  condition?: string
+  actions: ChainAction[]
+  enabled: boolean
+  color?: string
+}
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 
 interface AIAgentWorkflowPreviewProps {

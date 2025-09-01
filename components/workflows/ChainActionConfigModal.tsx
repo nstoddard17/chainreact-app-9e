@@ -5,7 +5,14 @@ import { ConfigurationModal } from './configuration'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useToast } from '@/hooks/use-toast'
-import type { ChainAction } from './AIAgentChainBuilder'
+// Define ChainAction type locally
+export interface ChainAction {
+  id: string
+  nodeType: string
+  providerId: string
+  config: Record<string, any>
+  aiAutoConfig: boolean
+}
 
 interface ChainActionConfigModalProps {
   action: ChainAction | null
