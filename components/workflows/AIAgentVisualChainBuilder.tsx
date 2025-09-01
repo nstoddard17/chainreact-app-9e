@@ -582,8 +582,13 @@ function AIAgentVisualChainBuilder({
           }
         }
       ])
+      
+      // Auto-center the view after adding the action
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 400 })
+      }, 100)
     }
-  }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain])
+  }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView])
 
   // Forward declare these functions to avoid circular dependencies
   const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
@@ -651,10 +656,15 @@ function AIAgentVisualChainBuilder({
               }
             ]
           })
+          
+          // Auto-center the view after adding the node
+          setTimeout(() => {
+            fitView({ padding: 0.2, duration: 400 })
+          }, 100)
         })
       }
     }
-  }, [onOpenActionDialog, onActionSelect])
+  }, [onOpenActionDialog, onActionSelect, fitView])
 
   const onConnect = useCallback((params: Connection) => {
     const newEdge: Edge = {
@@ -770,11 +780,16 @@ function AIAgentVisualChainBuilder({
               }
             }
           ])
+          
+          // Auto-center the view after adding the action
+          setTimeout(() => {
+            fitView({ padding: 0.2, duration: 400 })
+          }, 100)
         })
       }
     }
     }
-  }, [nodes, onOpenActionDialog, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween])
+  }, [nodes, onOpenActionDialog, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView])
 
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {
@@ -819,7 +834,7 @@ function AIAgentVisualChainBuilder({
       type: 'custom',
       position: { x: newX, y: newY },
       data: {
-        title: `Chain ${chainNodes.length + 1}`,
+        title: `Chain ${chainPlaceholders.length + 1}`,
         description: 'Add actions to build your workflow',
         type: 'chain_placeholder',
         isTrigger: false,
