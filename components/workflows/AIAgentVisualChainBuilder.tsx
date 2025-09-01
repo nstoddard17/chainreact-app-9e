@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Plus, Settings, Trash2, Bot, Workflow,
-  PlusCircle, X
+  PlusCircle, X, Sparkles, Wand2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { ChainActionConfigModal } from './ChainActionConfigModal'
+import { AIAgentActionSelector } from './AIAgentActionSelector'
 
 // Types for chain actions and nodes
 interface ChainAction {
@@ -95,7 +96,8 @@ const ChainActionNode = ({ id, data, selected }: NodeProps<ChainNodeData>) => {
                   {data.providerId}
                 </Badge>
                 {data.aiAutoConfig && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 border-purple-300">
+                    <Sparkles className="w-3 h-3 mr-1" />
                     AI Config
                   </Badge>
                 )}
@@ -116,8 +118,21 @@ const ChainActionNode = ({ id, data, selected }: NodeProps<ChainNodeData>) => {
             className="h-8 w-8"
             onClick={(e) => {
               e.stopPropagation()
+              data.onInsertAfter?.(id)
+            }}
+            title="Add action after this"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation()
               data.onConfigure?.(id)
             }}
+            title="Configure action"
           >
             <Settings className="w-4 h-4" />
           </Button>
@@ -129,6 +144,7 @@ const ChainActionNode = ({ id, data, selected }: NodeProps<ChainNodeData>) => {
               e.stopPropagation()
               data.onDelete?.(id)
             }}
+            title="Delete action"
           >
             <Trash2 className="w-4 h-4 text-red-500" />
           </Button>
@@ -372,6 +388,8 @@ function AIAgentVisualChainBuilderInner({
   const [pendingActionAdd, setPendingActionAdd] = useState<{ chainId: string, position: number } | null>(null)
   const [configuringAction, setConfiguringAction] = useState<ChainAction | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [showActionSelector, setShowActionSelector] = useState(false)
+  const [actionSelectorContext, setActionSelectorContext] = useState<{ chainId: string, position: number, chainName?: string } | null>(null)
   
   // Force center view when nodes change
   useEffect(() => {
@@ -419,35 +437,41 @@ function AIAgentVisualChainBuilderInner({
           isAIAgent: true
         },
         draggable: true
+      },
+      // Add action node after AI Agent
+      {
+        id: 'add-after-ai-agent',
+        type: 'addAction',
+        position: { x: aiAgentPosition.x, y: aiAgentPosition.y + 120 },
+        data: {
+          label: 'Add Action',
+          onInsertAfter: (id: string) => {
+            // If no chains exist, create one and add action
+            if (chains.length === 0) {
+              handleRequestAction('default-chain', 0)
+            } else {
+              // Add to first chain by default
+              handleRequestAction(chains[0].id, 0)
+            }
+          }
+        }
       }
     ]
 
-    const initialEdges: Edge[] = []
-
-    // If no chains exist, show default starting layout
-    if (chains.length === 0) {
-      // Add default chain start node centered below AI Agent
-      initialNodes.push({
-        id: 'chain-start-1',
-        type: 'chainStart',
-        position: { x: aiAgentPosition.x, y: 250 },
-        data: {
-          label: 'Chain 1',
-          chainId: 'default-chain',
-          onAddFirstAction: (chainId: string) => handleRequestAction('default-chain', 0)
-        }
-      })
-
-      // Connect AI Agent to chain start
-      initialEdges.push({
-        id: 'ai-agent-to-chain-start',
+    const initialEdges: Edge[] = [
+      // Connect AI Agent to Add button
+      {
+        id: 'ai-agent-to-add',
         source: 'ai-agent',
-        target: 'chain-start-1',
-        animated: true,
-        style: { stroke: '#8b5cf6', strokeWidth: 2 },
+        target: 'add-after-ai-agent',
+        animated: false,
+        style: { stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '5 5' },
         type: 'step'
-      })
+      }
+    ]
 
+    // If no chains exist, just show the AI Agent node with add button
+    if (chains.length === 0) {
       setNodes(initialNodes)
       setEdges(initialEdges)
       return
@@ -461,7 +485,7 @@ function AIAgentVisualChainBuilderInner({
     
     visibleChains.forEach((chain, chainIndex) => {
       const chainX = startX + (chainIndex * chainSpacing)
-      const baseY = 250
+      const baseY = 280  // Adjusted for add button space
       
       // If chain has no actions, show chain start node
       if (!chain.actions || chain.actions.length === 0) {
@@ -477,10 +501,10 @@ function AIAgentVisualChainBuilderInner({
           }
         })
         
-        // Connect AI Agent to chain start
+        // Connect add button to chain start
         initialEdges.push({
-          id: `ai-${chainStartId}`,
-          source: 'ai-agent',
+          id: `add-${chainStartId}`,
+          source: 'add-after-ai-agent',
           target: chainStartId,
           animated: true,
           style: { stroke: '#8b5cf6', strokeWidth: 2 },
@@ -515,10 +539,10 @@ function AIAgentVisualChainBuilderInner({
         
         // Connect nodes
         if (actionIndex === 0) {
-          // Connect AI Agent to first action
+          // Connect add button to first action
           initialEdges.push({
-            id: `ai-${nodeId}`,
-            source: 'ai-agent',
+            id: `add-${nodeId}`,
+            source: 'add-after-ai-agent',
             target: nodeId,
             animated: true,
             style: { stroke: '#8b5cf6', strokeWidth: 2 },
@@ -595,93 +619,90 @@ function AIAgentVisualChainBuilderInner({
   }, [chains])
 
   const handleRequestAction = useCallback((chainId: string, position: number) => {
-    // If chainId is 'default-chain' and no chain exists, create one first
-    if (chainId === 'default-chain' && chains.length === 0) {
+    let finalChainId = chainId
+    let targetChains = chains
+    
+    // If no chains exist, create a default chain
+    if (chains.length === 0) {
       const newChain = {
         id: `chain-${Date.now()}`,
         name: `Chain 1`,
         actions: [],
         enabled: true
       }
-      onChainsChange([newChain])
-      chainId = newChain.id
+      targetChains = [newChain]
+      onChainsChange(targetChains)
+      finalChainId = newChain.id
+    } else if (chainId === 'default-chain' || !chains.find(c => c.id === chainId)) {
+      finalChainId = chains[0].id
     }
     
-    // Open the main workflow's action selection modal
-    if (onOpenActionDialogRef.current) {
-      // Store the context for where to add the action
-      const actionCallback = (nodeType: string, providerId: string, config?: any) => {
-        const newAction: ChainAction = {
-          id: `action-${Date.now()}`,
-          nodeType: nodeType,
-          providerId: providerId,
-          config: config || {},
-          aiAutoConfig: false
-        }
-        
-        const chain = chains.find(c => c.id === chainId)
-        if (!chain) return
-        
-        const updatedChain = {
-          ...chain,
-          actions: [
-            ...chain.actions.slice(0, position),
-            newAction,
-            ...chain.actions.slice(position)
-          ]
-        }
-        
-        const updatedChains = chains.map(c => c.id === chainId ? updatedChain : c)
-        onChainsChange(updatedChains)
-        
-        toast({
-          title: "Action Added",
-          description: `Added ${nodeType} action to chain`
-        })
-      }
-      
-      // Pass the callback to the parent modal
-      if (onActionSelectRef.current) {
-        onActionSelectRef.current(actionCallback)
-      }
-      
-      // Open the action dialog
-      onOpenActionDialogRef.current()
-    } else {
-      // Fallback: add a placeholder action if dialog handlers not provided
-      const placeholderAction: ChainAction = {
-        id: `action-${Date.now()}`,
-        nodeType: 'logic_action_code',  // Default to a logic code action
-        providerId: 'logic',
-        config: {},
-        aiAutoConfig: true
-      }
-      
-      const chain = chains.find(c => c.id === chainId)
-      if (!chain) return
-      
-      const updatedChain = {
-        ...chain,
-        actions: [
-          ...chain.actions.slice(0, position),
-          placeholderAction,
-          ...chain.actions.slice(position)
-        ]
-      }
-      
-      const updatedChains = chains.map(c => c.id === chainId ? updatedChain : c)
-      onChainsChange(updatedChains)
-      
-      toast({
-        title: "Action Added",
-        description: "Click the settings icon to configure the action"
-      })
+    // Get chain name for context
+    const chain = targetChains.find(c => c.id === finalChainId) || targetChains[0]
+    const chainName = chain?.name || 'Chain'
+    
+    // Open our custom AI Agent action selector
+    setActionSelectorContext({
+      chainId: finalChainId,
+      position,
+      chainName
+    })
+    setShowActionSelector(true)
+  }, [chains, onChainsChange])
+  
+  const handleCreateNewChain = useCallback(() => {
+    const chainNumber = chains.length + 1
+    const newChain = {
+      id: `chain-${Date.now()}`,
+      name: `Chain ${chainNumber}`,
+      actions: [],
+      enabled: true
     }
+    onChainsChange([...chains, newChain])
+    
+    toast({
+      title: "New Chain Created",
+      description: `${newChain.name} has been added`
+    })
   }, [chains, onChainsChange, toast])
   
   const handleAddAction = useCallback((chainId: string, position: number) => {
     handleRequestAction(chainId, position)
   }, [handleRequestAction])
+  
+  const handleActionSelected = useCallback((integration: any, action: any, aiAutoConfig: boolean) => {
+    if (!actionSelectorContext) return
+    
+    const { chainId, position } = actionSelectorContext
+    
+    // Create the new action with AI config flag
+    const newAction: ChainAction = {
+      id: `action-${Date.now()}`,
+      nodeType: action.type,
+      providerId: integration.id,
+      config: {},
+      aiAutoConfig: aiAutoConfig
+    }
+    
+    // Find the chain and add the action
+    const chain = chains.find(c => c.id === chainId)
+    if (!chain) return
+    
+    const updatedChain = {
+      ...chain,
+      actions: [
+        ...chain.actions.slice(0, position),
+        newAction,
+        ...chain.actions.slice(position)
+      ]
+    }
+    
+    const updatedChains = chains.map(c => c.id === chainId ? updatedChain : c)
+    onChainsChange(updatedChains)
+    
+    // Clear context
+    setActionSelectorContext(null)
+  }, [actionSelectorContext, chains, onChainsChange])
 
   const handleDeleteAction = useCallback((chainId: string, actionId: string) => {
     // Update chains state
@@ -705,27 +726,28 @@ function AIAgentVisualChainBuilderInner({
     }
   }, [chains])
 
-  const handleCreateNewChain = useCallback(() => {
-    const newChain = {
-      id: `chain-${Date.now()}`,
-      name: `Chain ${chains.length + 1}`,
-      actions: [],
-      enabled: true
-    }
-    onChainsChange([...chains, newChain])
-    
-    toast({
-      title: "New Chain Added",
-      description: `Chain ${chains.length + 1} has been created`
-    })
-  }, [chains, onChainsChange, toast])
-
   const handleApplyTemplate = useCallback((templateId: string) => {
     const template = CHAIN_TEMPLATES.find(t => t.id === templateId)
     if (!template) return
 
+    let targetChains = chains
+    let targetChainId = chains[0]?.id
+    
+    // If no chains exist, create a default chain
+    if (chains.length === 0) {
+      const newChain = {
+        id: `chain-${Date.now()}`,
+        name: `Chain 1`,
+        actions: [],
+        enabled: true
+      }
+      targetChains = [newChain]
+      targetChainId = newChain.id
+      onChainsChange(targetChains)
+    }
+
     // Smart substitution - find available alternatives
-    const actions: ChainAction[] = []
+    const newActions: ChainAction[] = []
     template.actions.forEach((templateAction, index) => {
       // Check if primary integration is connected
       let selectedType = templateAction.type
@@ -752,7 +774,7 @@ function AIAgentVisualChainBuilderInner({
         }
       }
 
-      actions.push({
+      newActions.push({
         id: `action-${Date.now()}-${index}`,
         nodeType: selectedType,
         providerId: selectedProvider,
@@ -761,39 +783,69 @@ function AIAgentVisualChainBuilderInner({
       })
     })
 
-    const newChain = {
-      id: `chain-${Date.now()}`,
-      name: template.name,
-      description: template.description,
-      actions,
-      enabled: true
-    }
+    // Add actions to the first/target chain instead of creating a new chain
+    const updatedChains = targetChains.map(chain => {
+      if (chain.id === targetChainId) {
+        return {
+          ...chain,
+          actions: [...(chain.actions || []), ...newActions]
+        }
+      }
+      return chain
+    })
 
-    onChainsChange([...chains, newChain])
+    onChainsChange(updatedChains)
     setSelectedTemplate(null)
     
     toast({
       title: "Template Applied",
-      description: `${template.name} chain created with available integrations`
+      description: `${template.name} actions added to ${targetChains.find(c => c.id === targetChainId)?.name || 'chain'}`
     })
   }, [chains, integrations, onChainsChange, toast])
 
+  console.log('🎨 Rendering AIAgentVisualChainBuilder with', chains.length, 'chains')
+  
   return (
-    <div className="space-y-4">
-      {/* Templates */}
-      <div className="flex gap-2 flex-wrap">
-        {CHAIN_TEMPLATES.map(template => (
+    <div className="space-y-3">
+      {/* Action Control Bar - Always visible at top */}
+      <div className="bg-muted/30 rounded-lg p-3 border">
+        <div className="flex gap-3 flex-wrap items-center">
+          {/* New Chain Button */}
           <Button
-            key={template.id}
             variant="outline"
             size="sm"
-            onClick={() => handleApplyTemplate(template.id)}
+            onClick={() => {
+              console.log('🆕 New Chain clicked')
+              handleCreateNewChain()
+            }}
             className="gap-2"
+            title="Create a new chain"
           >
-            <span>{template.icon}</span>
-            {template.name}
+            <Workflow className="w-4 h-4" />
+            New Chain
           </Button>
-        ))}
+          
+          {/* Separator */}
+          <div className="w-px h-6 bg-border" />
+          
+          {/* Quick Templates - Add actions to current chain */}
+          <div className="flex gap-2 items-center">
+            <span className="text-xs text-muted-foreground font-medium">Templates:</span>
+            {CHAIN_TEMPLATES.map(template => (
+              <Button
+                key={template.id}
+                variant="ghost"
+                size="sm"
+                onClick={() => handleApplyTemplate(template.id)}
+                className="gap-1 h-8 px-2"
+                title={`Add ${template.name} actions to current chain`}
+              >
+                <span className="text-base">{template.icon}</span>
+                <span className="text-xs">{template.name}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Visual Builder - Calculated height to fit within modal */}
@@ -858,6 +910,18 @@ function AIAgentVisualChainBuilderInner({
           }}
         />
       )}
+      
+      {/* AI Agent Action Selector Modal */}
+      <AIAgentActionSelector
+        isOpen={showActionSelector}
+        onClose={() => {
+          setShowActionSelector(false)
+          setActionSelectorContext(null)
+        }}
+        onActionSelect={handleActionSelected}
+        chainId={actionSelectorContext?.chainId}
+        chainName={actionSelectorContext?.chainName}
+      />
     </div>
   )
 }
