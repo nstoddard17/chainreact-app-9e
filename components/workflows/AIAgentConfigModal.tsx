@@ -46,6 +46,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { motion, AnimatePresence } from 'framer-motion'
 import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -476,15 +477,17 @@ export function AIAgentConfigModal({
     return integrations
   }
   
-  // Render integration logo
-  const renderIntegrationLogo = (id: string, name: string) => {
-    // This would ideally use the actual logo components
-    // For now, return a placeholder with the first letter
-    return (
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-        {name.charAt(0).toUpperCase()}
-      </div>
-    )
+  // Render integration logo - matching main workflow builder
+  const renderIntegrationLogo = (integrationId: string, integrationName: string) => {
+    // Extract provider name from integrationId (e.g., "slack_action_send_message" -> "slack")
+    const providerId = integrationId.split('_')[0]
+    const config = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
+    return <img 
+      src={config?.logo || `/integrations/${providerId}.svg`} 
+      alt={`${integrationName} logo`} 
+      className="w-10 h-10 object-contain" 
+      style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
+    />
   }
   
   // Handle action selection
