@@ -1128,6 +1128,20 @@ const useWorkflowBuilderState = () => {
   };
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
+    // Check if trying to add an AI Agent when one already exists
+    if (action.type === 'ai_agent') {
+      const existingAIAgent = getNodes().find(n => n.data?.type === 'ai_agent')
+      if (existingAIAgent) {
+        toast({
+          title: "AI Agent Already Exists",
+          description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+          variant: "destructive"
+        })
+        // Keep the dialog open but don't proceed
+        return
+      }
+    }
+    
     // Check if this is for an AI Agent chain
     if (aiAgentActionCallback) {
       // Call the callback with the action details
@@ -2937,11 +2951,14 @@ function WorkflowBuilderContent() {
                         })
                         .map((action) => {
                           const isComingSoon = action.comingSoon
+                          const existingAIAgent = nodes.find(n => n.data?.type === 'ai_agent')
+                          const isAIAgentDisabled = action.type === 'ai_agent' && existingAIAgent
+                          
                           return (
                             <div
                               key={action.type}
                               className={`p-4 border rounded-lg transition-all ${
-                                isComingSoon 
+                                isComingSoon || isAIAgentDisabled
                                   ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
                                   : selectedAction?.type === action.type 
                                     ? 'border-primary bg-primary/10 ring-1 ring-primary/20' 
@@ -2949,6 +2966,14 @@ function WorkflowBuilderContent() {
                               }`}
                               onClick={() => {
                                 if (isComingSoon) return
+                                if (isAIAgentDisabled) {
+                                  toast({
+                                    title: "AI Agent Already Exists",
+                                    description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+                                    variant: "destructive"
+                                  })
+                                  return
+                                }
                                 setSelectedAction(action)
                                 // If action doesn't need configuration, add it immediately
                                 if (selectedIntegration && !nodeNeedsConfiguration(action)) {
@@ -2957,6 +2982,14 @@ function WorkflowBuilderContent() {
                               }}
                               onDoubleClick={() => {
                                 if (isComingSoon) return
+                                if (isAIAgentDisabled) {
+                                  toast({
+                                    title: "AI Agent Already Exists",
+                                    description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+                                    variant: "destructive"
+                                  })
+                                  return
+                                }
                                 setSelectedAction(action)
                                 if (selectedIntegration) {
                                   handleActionSelect(selectedIntegration, action)
@@ -2965,7 +2998,7 @@ function WorkflowBuilderContent() {
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
-                                  <p className={`font-medium ${isComingSoon ? 'text-muted-foreground' : ''}`}>
+                                  <p className={`font-medium ${isComingSoon || isAIAgentDisabled ? 'text-muted-foreground' : ''}`}>
                                     {action.title || 'Unnamed Action'}
                                   </p>
                                   <p className="text-sm text-muted-foreground mt-1">
@@ -2975,6 +3008,11 @@ function WorkflowBuilderContent() {
                                 {isComingSoon && (
                                   <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full ml-2">
                                     Coming Soon
+                                  </span>
+                                )}
+                                {isAIAgentDisabled && (
+                                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                                    Already Added
                                   </span>
                                 )}
                               </div>
