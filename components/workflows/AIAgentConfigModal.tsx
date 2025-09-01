@@ -227,6 +227,12 @@ export function AIAgentConfigModal({
   const [isTestingPrompt, setIsTestingPrompt] = useState(false)
   const [isTestingModel, setIsTestingModel] = useState(false)
   const [isDiscovering, setIsDiscovering] = useState(false)
+  
+  // Action selector state
+  const [isAIMode, setIsAIMode] = useState(true)
+  const [actionSearchQuery, setActionSearchQuery] = useState('')
+  const [actionFilterCategory, setActionFilterCategory] = useState('all')
+  const [selectedActionIntegration, setSelectedActionIntegration] = useState<any>(null)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
   const [testResults, setTestResults] = useState<any>(null)
   const [showVariablePanel, setShowVariablePanel] = useState(true)
@@ -410,6 +416,116 @@ export function AIAgentConfigModal({
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Get available integrations for action selector
+  const getFilteredIntegrations = () => {
+    // Get unique integrations from ALL_NODE_COMPONENTS
+    const integrationMap = new Map()
+    
+    ALL_NODE_COMPONENTS.filter(node => 
+      node.type !== 'trigger' && 
+      node.type !== 'ai_agent' &&
+      !node.type.includes('trigger')
+    ).forEach(node => {
+      const providerId = node.providerId || node.type.split('-')[0]
+      if (!integrationMap.has(providerId)) {
+        integrationMap.set(providerId, {
+          id: providerId,
+          name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
+          actions: []
+        })
+      }
+      integrationMap.get(providerId).actions.push(node)
+    })
+    
+    let integrations = Array.from(integrationMap.values())
+    
+    // Apply category filter
+    if (actionFilterCategory !== 'all') {
+      integrations = integrations.filter(int => {
+        // Simple category mapping based on provider
+        const categoryMap: Record<string, string> = {
+          'gmail': 'Communication',
+          'slack': 'Communication',
+          'discord': 'Communication',
+          'notion': 'Productivity',
+          'airtable': 'Data',
+          'sheets': 'Data',
+          'openai': 'AI',
+          'anthropic': 'AI'
+        }
+        return categoryMap[int.id] === actionFilterCategory
+      })
+    }
+    
+    // Apply search filter
+    if (actionSearchQuery) {
+      const query = actionSearchQuery.toLowerCase()
+      integrations = integrations.filter(int => 
+        int.name.toLowerCase().includes(query) ||
+        int.actions.some((action: any) => 
+          action.title?.toLowerCase().includes(query) ||
+          action.description?.toLowerCase().includes(query)
+        )
+      )
+    }
+    
+    return integrations
+  }
+  
+  // Render integration logo
+  const renderIntegrationLogo = (id: string, name: string) => {
+    // This would ideally use the actual logo components
+    // For now, return a placeholder with the first letter
+    return (
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    )
+  }
+  
+  // Handle action selection
+  const handleActionSelection = (action: any) => {
+    if (isAIMode) {
+      // In AI mode, add action with all fields set to AI
+      const aiConfig: Record<string, any> = {}
+      
+      // Set all fields to use AI
+      if (action.fields) {
+        action.fields.forEach((field: any) => {
+          if (field.type !== 'label' && field.type !== 'separator') {
+            aiConfig[field.name] = `{{AI_FIELD:${field.name}}}`
+          }
+        })
+      }
+      
+      // Add to chain via callback
+      if (pendingActionCallback) {
+        pendingActionCallback(action.type, action.providerId || '', aiConfig)
+        setPendingActionCallback(null)
+      }
+      
+      // Close dialog
+      setShowActionSelector(false)
+      setSelectedActionIntegration(null)
+      setActionSearchQuery('')
+      
+      toast({
+        title: "Action Added",
+        description: `${action.title} added with AI configuration`
+      })
+    } else {
+      // In Manual mode, open config modal
+      setShowActionSelector(false)
+      
+      // TODO: Open configuration modal for manual setup
+      // This will be implemented to open the standard config modal
+      toast({
+        title: "Manual Configuration",
+        description: "Opening configuration modal..."
+      })
     }
   }
 
@@ -1597,75 +1713,185 @@ export function AIAgentConfigModal({
         </div>
       </DialogContentWithoutClose>
       
-      {/* Action Selector Dialog */}
+      {/* Action Selector Dialog - Matching Main Workflow Builder Design */}
       {showActionSelector && (
         <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Select Action</DialogTitle>
-              <DialogDescription>
-                Choose an action to add to your chain. AI can automatically configure fields for you.
-              </DialogDescription>
+          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+            <DialogHeader className="pb-3 border-b border-slate-200">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                      Select an Action
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">AI Chain</Badge>
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-slate-600 mt-1">
+                      Choose an action to add to your AI agent chain.
+                    </DialogDescription>
+                  </div>
+                </div>
+                
+                {/* AI/Manual Toggle */}
+                <div className="flex items-center gap-2 mr-8">
+                  <Label htmlFor="ai-mode-toggle" className="text-sm font-medium">
+                    Configuration:
+                  </Label>
+                  <div className="flex items-center bg-muted rounded-lg p-1">
+                    <Button
+                      id="ai-mode"
+                      variant={isAIMode ? "default" : "ghost"}
+                      size="sm"
+                      className="px-3 py-1 h-7"
+                      onClick={() => setIsAIMode(true)}
+                    >
+                      <Bot className="w-3 h-3 mr-1" />
+                      AI
+                    </Button>
+                    <Button
+                      id="manual-mode"
+                      variant={!isAIMode ? "default" : "ghost"}
+                      size="sm"
+                      className="px-3 py-1 h-7"
+                      onClick={() => setIsAIMode(false)}
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      Manual
+                    </Button>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">
+                        <strong>AI Mode:</strong> Action fields will be automatically configured by AI at runtime.<br/>
+                        <strong>Manual Mode:</strong> Configure action fields yourself with specific values.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </DialogHeader>
             
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="grid grid-cols-2 gap-4">
-                {ALL_NODE_COMPONENTS.filter(node => 
-                  node.type !== 'trigger' && 
-                  node.type !== 'ai_agent' &&
-                  !node.type.includes('trigger')
-                ).map((node) => (
-                  <Card
-                    key={node.type}
-                    className="cursor-pointer hover:border-primary transition-colors"
-                    onClick={() => {
-                      if (pendingActionCallback) {
-                        pendingActionCallback(node.type, node.providerId || '')
-                        setPendingActionCallback(null)
-                      }
-                      setShowActionSelector(false)
-                    }}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          {node.providerId ? (
-                            <img
-                              src={`/integrations/${node.providerId}.svg`}
-                              alt={node.title}
-                              className="w-8 h-8 object-contain"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          ) : (
-                            node.icon && React.createElement(node.icon, { className: "w-8 h-8" })
-                          )}
-                          <div>
-                            <CardTitle className="text-sm">{node.title}</CardTitle>
-                            <CardDescription className="text-xs mt-1">
-                              {node.description}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        {node.isAIEnabled && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            AI
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+            <div className="pt-3 pb-3 border-b border-slate-200">
+              <div className="flex items-center space-x-4">
+                <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search integrations or actions..."
+                    className="pl-10"
+                    value={actionSearchQuery}
+                    onChange={(e) => setActionSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={actionFilterCategory} onValueChange={setActionFilterCategory}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="Communication">Communication</SelectItem>
+                    <SelectItem value="Productivity">Productivity</SelectItem>
+                    <SelectItem value="Data">Data</SelectItem>
+                    <SelectItem value="AI">AI</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </ScrollArea>
+            </div>
             
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowActionSelector(false)}>
-                Cancel
-              </Button>
-            </DialogFooter>
+            <div className="flex-1 flex min-h-0 overflow-hidden">
+              <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
+                <div className="pt-2 pb-3 pl-3 pr-5">
+                  {/* Integration List */}
+                  {getFilteredIntegrations().map((integration) => (
+                    <div
+                      key={integration.id}
+                      className={`flex items-center p-3 rounded-md cursor-pointer ${
+                        selectedActionIntegration?.id === integration.id 
+                          ? 'bg-primary/10 ring-1 ring-primary/20' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setSelectedActionIntegration(integration)}
+                    >
+                      {renderIntegrationLogo(integration.id, integration.name)}
+                      <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              
+              <div className="w-3/5 flex-1">
+                <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+                  <div className="p-4">
+                    {selectedActionIntegration ? (
+                      <div className="h-full">
+                        <div className="grid grid-cols-1 gap-3">
+                          {selectedActionIntegration.actions
+                            .filter((action: any) => {
+                              if (actionSearchQuery) {
+                                const query = actionSearchQuery.toLowerCase()
+                                return (
+                                  (action.title?.toLowerCase() || '').includes(query) || 
+                                  (action.description?.toLowerCase() || '').includes(query)
+                                )
+                              }
+                              return true
+                            })
+                            .map((action: any) => (
+                              <Card
+                                key={action.type}
+                                className="cursor-pointer hover:border-primary transition-all hover:shadow-md"
+                                onClick={() => handleActionSelection(action)}
+                              >
+                                <CardHeader className="pb-3">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-3">
+                                      {action.icon && React.createElement(action.icon, { className: "w-6 h-6 text-primary" })}
+                                      <div className="flex-1">
+                                        <CardTitle className="text-sm font-medium">
+                                          {action.title}
+                                        </CardTitle>
+                                        <CardDescription className="text-xs mt-1">
+                                          {action.description}
+                                        </CardDescription>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {isAIMode && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          <Bot className="w-3 h-3 mr-1" />
+                                          AI Config
+                                        </Badge>
+                                      )}
+                                      {action.isAIEnabled && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <Sparkles className="w-3 h-3 mr-1" />
+                                          AI Ready
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                              </Card>
+                            ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p className="text-sm">Select an integration to view available actions</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       )}
