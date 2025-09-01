@@ -141,3 +141,23 @@ If ReactFlow doesn't render in modal:
 - Modal environments need overflow handling
 - Event-based sync prevents circular updates
 - Simplified version serves as both test and fallback
+
+## Performance Optimizations (September 1, 2025)
+
+### Save Operation Timeout Fix
+- **Issue**: Save operations were timing out after 30 seconds for workflows with AI Agent nodes
+- **Cause**: Complex node rebuilding logic after save with nested setTimeout calls
+- **Solution**:
+  1. Increased timeout from 30s to 60s for complex workflows
+  2. Added conditional rebuild logic - only rebuild when nodes structurally change
+  3. Replaced setTimeout with requestAnimationFrame for smoother UI updates
+  4. Removed unnecessary delays in rebuild process
+  
+### Key Changes:
+- `CollaborativeWorkflowBuilder.tsx:1469`: Timeout increased to 60000ms
+- `CollaborativeWorkflowBuilder.tsx:1554-1649`: Optimized rebuild logic with:
+  - Conditional rebuild check based on node structure changes
+  - requestAnimationFrame for UI updates instead of setTimeout
+  - Immediate flag clearing without additional delays
+  
+This optimization significantly improves save performance, especially for workflows containing AI Agent nodes with multiple chains.

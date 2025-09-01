@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Dialog,
+  DialogContent,
   DialogContentWithoutClose,
   DialogDescription,
   DialogFooter,
@@ -44,6 +45,7 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { motion, AnimatePresence } from 'framer-motion'
 import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -234,6 +236,7 @@ export function AIAgentConfigModal({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
   const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string) => void) | null>(null)
+  const [showActionSelector, setShowActionSelector] = useState(false)
   
   // Loading states
   const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
@@ -604,10 +607,11 @@ export function AIAgentConfigModal({
                     <AIAgentVisualChainBuilderWrapper
                       chains={config.chains}
                       onChainsChange={(chains) => setConfig(prev => ({ ...prev, chains }))}
-                      onOpenActionDialog={onOpenActionDialog}
+                      onOpenActionDialog={() => setShowActionSelector(true)}
                       onActionSelect={(callback) => {
                         // Store the callback for when action is selected
                         setPendingActionCallback(() => callback)
+                        setShowActionSelector(true)
                       }}
                     />
                   </div>
@@ -1592,6 +1596,79 @@ export function AIAgentConfigModal({
           </AnimatePresence>
         </div>
       </DialogContentWithoutClose>
+      
+      {/* Action Selector Dialog */}
+      {showActionSelector && (
+        <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Select Action</DialogTitle>
+              <DialogDescription>
+                Choose an action to add to your chain. AI can automatically configure fields for you.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="h-[500px] pr-4">
+              <div className="grid grid-cols-2 gap-4">
+                {ALL_NODE_COMPONENTS.filter(node => 
+                  node.type !== 'trigger' && 
+                  node.type !== 'ai_agent' &&
+                  !node.type.includes('trigger')
+                ).map((node) => (
+                  <Card
+                    key={node.type}
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => {
+                      if (pendingActionCallback) {
+                        pendingActionCallback(node.type, node.providerId || '')
+                        setPendingActionCallback(null)
+                      }
+                      setShowActionSelector(false)
+                    }}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          {node.providerId ? (
+                            <img
+                              src={`/integrations/${node.providerId}.svg`}
+                              alt={node.title}
+                              className="w-8 h-8 object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            node.icon && React.createElement(node.icon, { className: "w-8 h-8" })
+                          )}
+                          <div>
+                            <CardTitle className="text-sm">{node.title}</CardTitle>
+                            <CardDescription className="text-xs mt-1">
+                              {node.description}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        {node.isAIEnabled && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            AI
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowActionSelector(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
     </TooltipProvider>
   )

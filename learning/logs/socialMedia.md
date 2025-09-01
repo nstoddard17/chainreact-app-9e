@@ -2,6 +2,18 @@
 
 *Latest updates are added at the top with proper dates*
 
+## September 1, 2025
+
+### AI Agent Workflow Builder Refinement & Performance Fix
+
+Successfully refined the AI Agent node's workflow builder to perfectly match the main Workflow Builder page design. The interface now features identical node shapes, colors, and typography with seamless drag-to-connect lines that go from dot to dot at the center of each node.
+
+Key improvements include replacing "Create Chain" with a clearer "Add New Chain" button, removing the MiniMap for a cleaner interface while keeping zoom controls, and implementing auto-centering with smart zoom that adjusts when new chains are added. Chains now appear directly below the AI agent in a clean grid layout (3 per row), and each chain shows an "Add Action" button centered in placeholder nodes for intuitive workflow building.
+
+Fixed a critical save operation timeout issue that was occurring with complex workflows containing AI Agent nodes. The save operation was timing out after 30 seconds due to complex node rebuilding logic. Optimized performance by increasing timeout to 60 seconds for complex workflows, implementing conditional rebuild logic that only rebuilds when nodes structurally change, replacing setTimeout with requestAnimationFrame for smoother UI updates, and removing unnecessary delays in the rebuild process. This optimization significantly improves save performance, especially for workflows with multiple AI Agent chains.
+
+The AI Agent action selection now opens directly from the chain nodes, showing a grid of available actions with provider icons and AI-enabled badges. Users can select actions and configure AI fields directly from the modal, creating a seamless workflow building experience that matches the polish of the main builder.
+
 ## August 30, 2025
 
 ### Complete Workflow Testing System with n8n-Style Interface

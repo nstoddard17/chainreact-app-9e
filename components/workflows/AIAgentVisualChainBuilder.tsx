@@ -149,23 +149,8 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
               <h3 className="text-xl font-medium text-foreground">
                 {title || (component && component.title) || 'Unnamed Action'}
               </h3>
-              {description && (
+              {description && !type?.includes('chain_placeholder') && (
                 <p className="text-muted-foreground">{description}</p>
-              )}
-              {/* Add Action button for chain placeholders */}
-              {type === 'chain_placeholder' && hasAddButton && onAddAction && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAddAction()
-                  }}
-                  className="mt-2 gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Action
-                </Button>
               )}
             </div>
           </div>
@@ -211,6 +196,24 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
           </div>
         </div>
       </div>
+
+      {/* Centered Add Action button for chain placeholders */}
+      {type === 'chain_placeholder' && hasAddButton && onAddAction && (
+        <div className="px-4 pb-4 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddAction()
+            }}
+            className="gap-2 w-full max-w-[200px]"
+          >
+            <Plus className="w-4 h-4" />
+            Add Action
+          </Button>
+        </div>
+      )}
 
       {/* Handles - matching main CustomNode.tsx exactly */}
       {!isTrigger && (
