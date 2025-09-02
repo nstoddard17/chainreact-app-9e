@@ -112,6 +112,12 @@ export function GenericSelectField({
 
   // Handle multiple selection fields
   if ((field as any).multiple) {
+    // Check if this is an Airtable linked record field (which uses bubbles)
+    const isAirtableLinkedField = nodeInfo?.providerId === 'airtable' && 
+      field.name?.startsWith('airtable_field_') &&
+      (field.airtableFieldType === 'multipleRecordLinks' || 
+       field.airtableFieldType === 'multipleSelects');
+    
     return (
       <MultiCombobox
         value={Array.isArray(value) ? value : (value ? [value] : [])}
@@ -125,6 +131,7 @@ export function GenericSelectField({
         creatable={(field as any).creatable || false}
         onOpenChange={handleFieldOpen}
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
+        hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
         className={cn(
           "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
           error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
