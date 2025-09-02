@@ -361,6 +361,84 @@ export class IntegrationService {
   }
 
   /**
+   * Load integration data (for dynamic field options)
+   */
+  static async loadIntegrationData(
+    dataType: string,
+    integrationId: string,
+    params?: any,
+    forceRefresh = false
+  ): Promise<any> {
+    const { session } = await SessionManager.getSecureUserAndSession()
+
+    // The API routes expect a POST request with the data in the body
+    const body = {
+      integrationId,
+      dataType,
+      options: params || {}
+    }
+
+    // Get provider from dataType (e.g., "airtable_bases" -> "airtable")
+    let provider = ''
+    if (dataType.startsWith('airtable_') || dataType.startsWith('airtable-')) {
+      provider = 'airtable'
+    } else if (dataType.startsWith('google_') || dataType.startsWith('google-')) {
+      provider = 'google'
+    } else if (dataType.startsWith('gmail_') || dataType.startsWith('gmail-')) {
+      provider = 'gmail'
+    } else if (dataType.startsWith('discord_') || dataType.startsWith('discord-')) {
+      provider = 'discord'
+    } else if (dataType.startsWith('slack_') || dataType.startsWith('slack-')) {
+      provider = 'slack'
+    } else if (dataType.startsWith('notion_') || dataType.startsWith('notion-')) {
+      provider = 'notion'
+    } else if (dataType.startsWith('trello_') || dataType.startsWith('trello-')) {
+      provider = 'trello'
+    } else if (dataType.startsWith('hubspot_') || dataType.startsWith('hubspot-')) {
+      provider = 'hubspot'
+    } else if (dataType.startsWith('outlook_') || dataType.startsWith('outlook-')) {
+      provider = 'outlook'
+    } else if (dataType.startsWith('onedrive_') || dataType.startsWith('onedrive-')) {
+      provider = 'onedrive'
+    } else if (dataType.startsWith('onenote_') || dataType.startsWith('onenote-')) {
+      provider = 'onenote'
+    } else if (dataType.startsWith('google_sheets_') || dataType.startsWith('google-sheets-')) {
+      provider = 'google-sheets'
+    } else if (dataType.startsWith('dropbox_') || dataType.startsWith('dropbox-')) {
+      provider = 'dropbox'
+    } else if (dataType.startsWith('box_') || dataType.startsWith('box-')) {
+      provider = 'box'
+    } else if (dataType.startsWith('facebook_') || dataType.startsWith('facebook-')) {
+      provider = 'facebook'
+    } else if (dataType.startsWith('gumroad_') || dataType.startsWith('gumroad-')) {
+      provider = 'gumroad'
+    } else if (dataType.startsWith('blackbaud_') || dataType.startsWith('blackbaud-')) {
+      provider = 'blackbaud'
+    } else {
+      // Fallback: try to extract provider from dataType
+      // Handle both underscore and dash separators
+      provider = dataType.split(/[-_]/)[0]
+    }
+
+    const response = await fetch(`/api/integrations/${provider}/data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Failed to load ${dataType} data`)
+    }
+
+    const data = await response.json()
+    return data.data || data || []
+  }
+
+  /**
    * Test integration connection
    */
   static async testConnection(integrationId: string): Promise<{ success: boolean; message?: string }> {

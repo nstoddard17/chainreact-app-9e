@@ -7,7 +7,6 @@ import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
 import { PresenceProvider } from "@/components/providers/PresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
-import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
@@ -61,7 +60,6 @@ export default function RootLayout({
             <AuthInitializer />
             <PresenceProvider>
               <DiscordBotProvider />
-              <ReAuthNotification />
               <Toaster />
               {children}
             </PresenceProvider>

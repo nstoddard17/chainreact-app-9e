@@ -67,8 +67,8 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
           </div>
         )}
 
-        {/* Social Proof */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-blue-200 mt-4">
+        {/* Social Proof - Hidden until we have real stats */}
+        {/* <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-blue-200 mt-4">
           <div className="flex items-center">
             <div className="flex space-x-0.5 mr-3">
               {[...Array(5)].map((_, i) => (
@@ -83,7 +83,7 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
           <div className="text-sm">
             🚀 <strong>99.9%</strong> uptime
           </div>
-        </div>
+        </div> */}
       </div>
     </section>
   )
