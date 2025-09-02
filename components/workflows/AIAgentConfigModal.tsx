@@ -433,9 +433,13 @@ export function AIAgentConfigModal({
     ).forEach(node => {
       const providerId = node.providerId || node.type.split('-')[0]
       if (!integrationMap.has(providerId)) {
+        // Get the proper integration name from INTEGRATION_CONFIGS
+        const integrationConfig = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
+        const integrationName = integrationConfig?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
+        
         integrationMap.set(providerId, {
           id: providerId,
-          name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
+          name: integrationName,
           actions: []
         })
       }

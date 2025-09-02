@@ -146,6 +146,7 @@ export function AIAgentModal({
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [chains, setChains] = useState<any[]>(initialConfig.chains || [])
+  const [chainsLayoutData, setChainsLayoutData] = useState<any>(null)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
 
@@ -266,7 +267,19 @@ export function AIAgentModal({
       return
     }
 
-    onSave({ ...config, chains })
+    // Use the layout data if available, otherwise just the chains array
+    const chainsToSave = chainsLayoutData || chains
+    
+    // Log what we're saving for debugging
+    const saveData = { ...config, chains: chainsToSave }
+    console.log('🔄 [AIAgentModal] Saving configuration:', {
+      hasChains: chains?.length > 0,
+      chainsCount: chains?.length || 0,
+      chainsStructure: chainsToSave,
+      hasLayoutData: !!chainsLayoutData
+    })
+    
+    onSave(saveData)
     onClose()
   }
 
@@ -685,11 +698,15 @@ export function AIAgentModal({
               <TabsContent value="chains" className="h-[500px] p-0 overflow-hidden">
                 <AIAgentVisualChainBuilder
                   chains={chains}
-                  onChainsChange={(newChains) => {
-                    setChains(newChains)
-                    // Propagate changes to parent for real-time sync
+                  onChainsChange={(newChainsData) => {
+                    // Extract the chains array from the data object
+                    const chainsArray = newChainsData?.chains || newChainsData
+                    setChains(chainsArray)
+                    // Store the full layout data for saving
+                    setChainsLayoutData(newChainsData)
+                    // Propagate the full data object to parent for real-time sync
                     if (onChainsUpdate) {
-                      onChainsUpdate(newChains)
+                      onChainsUpdate(newChainsData)
                     }
                   }}
                   onOpenActionDialog={() => {
