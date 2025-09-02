@@ -28,7 +28,11 @@ npm run fix-integrations           # Fix problematic integrations
 ```
 
 ### Git Workflow
-**IMPORTANT**: Do NOT push to GitHub after making changes unless explicitly asked to do so. Only commit changes locally with `git commit`. The user will handle pushing to GitHub when they are ready.
+**IMPORTANT**: Do NOT make any git commits or push to GitHub unless explicitly asked to do so. This includes:
+- No automatic `git commit` commands
+- No `git push` commands  
+- No local commits unless specifically requested
+The user will handle all git operations when they are ready.
 
 ## Architecture Overview
 
