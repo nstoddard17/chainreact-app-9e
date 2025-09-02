@@ -5,9 +5,63 @@ import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 import { createClient } from "@supabase/supabase-js"
 import { FileStorageService } from "@/lib/storage/fileStorage"
+import { google } from 'googleapis'
+
+// Import from the new registry system
 import { actionHandlerRegistry, getWaitForTimeHandler } from './actions/registry'
 import { executeGenericAction } from './actions/generic'
 import { ActionResult } from './actions'
+
+// Import AI-related functionality
+import {
+  summarizeContent,
+  extractInformation,
+  analyzeSentiment,
+  translateText,
+  generateContent,
+  classifyContent,
+} from './actions/aiDataProcessing'
+import { executeAIAgent } from './aiAgent'
+import { processAIFields, ProcessingContext } from './ai/fieldProcessor'
+
+/**
+ * Wrapper function for AI agent execution that adapts to the executeAction signature
+ */
+async function executeAIAgentWrapper(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    // Resolve any variable references in the config using the enhanced resolveValue function
+    const resolvedConfig = resolveValue(config, input)
+    
+    const result = await executeAIAgent({
+      userId,
+      config: resolvedConfig,
+      input,
+      workflowContext: {
+        nodes: [],
+        previousResults: input.nodeOutputs || {}
+      }
+    })
+    
+    return {
+      success: result.success,
+      output: {
+        output: result.output || "" // Structure matches outputSchema: { output: "AI response text" }
+      },
+      message: result.message || "AI Agent execution completed"
+    }
+  } catch (error: any) {
+    console.error("AI Agent execution error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "AI Agent execution failed"
+    }
+  }
+}
 
 /**
  * Interface for action execution parameters
@@ -121,6 +175,16 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
  */
 export async function executeAction({ node, input, userId, workflowId }: ExecuteActionParams): Promise<ActionResult> {
   const { type, config } = node.data
+  
+  // Process AI fields if needed
+  const processedConfig = await processAIFieldsIfNeeded(type, config, {
+    userId,
+    workflowId: workflowId || 'unknown',
+    executionId: input?.executionId || 'unknown',
+    nodeId: node.id || 'unknown',
+    trigger: input?.trigger,
+    previousResults: input?.previousResults
+  })
 
   // Check if environment is properly configured
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -138,7 +202,12 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   // Special handling for wait_for_time action that needs workflow context
   if (type === "wait_for_time") {
     const handler = getWaitForTimeHandler(workflowId, node.id)
-    return handler(config, userId, input)
+    return handler(processedConfig, userId, input)
+  }
+
+  // Special handling for AI agent
+  if (type === "ai_agent") {
+    return executeAIAgentWrapper(processedConfig, userId, input)
   }
 
   // Get the appropriate handler from the registry
@@ -148,7 +217,7 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   if (!handler) {
     console.log(`Using generic handler for node type: ${type}`)
     return executeGenericAction(
-      { ...config, actionType: type },
+      { ...processedConfig, actionType: type },
       userId,
       input
     )
@@ -172,6 +241,115 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     }
   }
 
-  // Execute the handler with the provided parameters
-  return handler({ config, userId, input })
+  // Execute the handler with the processed parameters
+  return handler({ config: processedConfig, userId, input })
+}
+
+/**
+ * Process AI fields in configuration if needed
+ */
+async function processAIFieldsIfNeeded(
+  nodeType: string,
+  config: any,
+  context: {
+    userId: string
+    workflowId: string
+    executionId: string
+    nodeId: string
+    trigger?: any
+    previousResults?: any
+  }
+): Promise<any> {
+  // Check if any fields need AI processing
+  const needsProcessing = Object.values(config).some(value => 
+    typeof value === 'string' && (
+      value.includes('{{AI_FIELD:') ||
+      value.includes('[') ||
+      value.includes('{{AI:')
+    )
+  )
+  
+  if (!needsProcessing && nodeType !== 'ai_router') {
+    return config // No processing needed
+  }
+  
+  // Build processing context
+  const processingContext: ProcessingContext = {
+    userId: context.userId,
+    workflowId: context.workflowId,
+    executionId: context.executionId,
+    nodeId: context.nodeId,
+    nodeType,
+    triggerData: context.trigger,
+    previousNodes: context.previousResults ? new Map(Object.entries(context.previousResults)) : undefined,
+    config,
+    availableActions: nodeType === 'ai_router' ? getAvailableActions(config) : undefined,
+    apiKey: config.customApiKey,
+    model: config.model
+  }
+  
+  try {
+    const result = await processAIFields(processingContext)
+    
+    // For AI Router, handle routing decision
+    if (nodeType === 'ai_router' && result.routing) {
+      return {
+        ...config,
+        ...result.fields,
+        _aiRouting: result.routing // Special field for routing decision
+      }
+    }
+    
+    // Return config with processed fields
+    return {
+      ...config,
+      ...result.fields
+    }
+  } catch (error) {
+    console.error('AI field processing failed:', error)
+    // Fall back to original config
+    return config
+  }
+}
+
+/**
+ * Get available actions from AI Router config
+ */
+function getAvailableActions(config: any): string[] {
+  if (!config.outputPaths) return []
+  
+  return config.outputPaths
+    .filter((path: any) => path.actionId)
+    .map((path: any) => path.actionId)
+}
+
+/**
+ * Helper function to resolve variable references in config
+ */
+function resolveValue(value: any, input: Record<string, any>): any {
+  if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+    // Extract variable references and replace them
+    return value.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+      const keys = path.split('.')
+      let result = input
+      for (const key of keys) {
+        result = result?.[key]
+      }
+      return result ?? match
+    })
+  }
+  
+  if (Array.isArray(value)) {
+    return value.map(item => resolveValue(item, input))
+  }
+  
+  if (value && typeof value === 'object') {
+    const resolved: Record<string, any> = {}
+    for (const [key, val] of Object.entries(value)) {
+      resolved[key] = resolveValue(val, input)
+    }
+    return resolved
+  }
+  
+  return value
 }

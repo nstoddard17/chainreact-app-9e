@@ -604,9 +604,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             }
             
             return {
-              value: actualValue, // This will be "recID::Name" for linked fields
+              value: record.id, // Use the actual record ID as the value
               label: label,
-              recordId: record.id // Keep the actual record ID separately
+              recordId: record.id, // Keep the actual record ID separately for reference
+              searchValue: label // Add searchable text for better filtering
             };
           });
           
@@ -1010,10 +1011,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                   if (recordIds.has(record.id) && displayField) {
                     const displayValue = record.fields[displayField];
                     if (displayValue) {
-                      // For filtering, we need to use the name, not the ID
-                      // Store as "recordId::name" so we have both
+                      // For filtering, use the record ID as the value and name as the label
                       const nameValue = String(displayValue);
-                      fieldValues.set(`${record.id}::${nameValue}`, nameValue);
+                      fieldValues.set(record.id, nameValue);
                     }
                   }
                 });
