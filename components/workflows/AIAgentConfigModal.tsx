@@ -734,6 +734,8 @@ export function AIAgentConfigModal({
                         setPendingActionCallback(() => callback)
                         setShowActionSelector(true)
                       }}
+                      workflowData={workflowData}
+                      currentNodeId={currentNodeId}
                     />
                   </div>
 
