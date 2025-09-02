@@ -20,13 +20,6 @@ export async function moveAirtableRecord(
     const destinationTableName = resolveValue(config.destinationTableName, input)
     const preserveRecordId = config.preserveRecordId || false
 
-    console.log("Resolved move record values:", { 
-      baseId, 
-      sourceTableName, 
-      recordId, 
-      destinationTableName, 
-      preserveRecordId 
-    })
 
     if (!baseId || !sourceTableName || !recordId || !destinationTableName) {
       const missingFields = []
@@ -41,7 +34,6 @@ export async function moveAirtableRecord(
     }
 
     // Step 1: Get the record from the source table
-    console.log("Fetching record from source table")
     const getRecordResponse = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sourceTableName)}/${recordId}`,
       {
@@ -58,10 +50,8 @@ export async function moveAirtableRecord(
     }
 
     const sourceRecord = await getRecordResponse.json()
-    console.log("Retrieved source record:", { id: sourceRecord.id, fields: Object.keys(sourceRecord.fields) })
 
     // Step 2: Create the record in the destination table
-    console.log("Creating record in destination table")
     const createRecordData = {
       fields: sourceRecord.fields
     }
@@ -94,10 +84,8 @@ export async function moveAirtableRecord(
     }
 
     const createdRecord = await createRecordResponse.json()
-    console.log("Created record in destination table:", { id: createdRecord.id })
 
     // Step 3: Delete the record from the source table
-    console.log("Deleting record from source table")
     const deleteRecordResponse = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sourceTableName)}/${recordId}`,
       {
@@ -115,7 +103,6 @@ export async function moveAirtableRecord(
     }
 
     const deleteResult = await deleteRecordResponse.json()
-    console.log("Deleted record from source table:", { deleted: deleteResult.deleted })
 
     return {
       success: true,
