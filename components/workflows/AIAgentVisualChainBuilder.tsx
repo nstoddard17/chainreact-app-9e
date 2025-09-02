@@ -341,13 +341,17 @@ interface AIAgentVisualChainBuilderProps {
   onChainsChange?: (chains: any[]) => void
   onOpenActionDialog?: () => void
   onActionSelect?: (callback: (actionType: string, providerId: string, config?: any) => void) => void
+  workflowData?: { nodes: any[], edges: any[] }
+  currentNodeId?: string
 }
 
 function AIAgentVisualChainBuilder({
   chains = [],
   onChainsChange = () => {},
   onOpenActionDialog,
-  onActionSelect
+  onActionSelect,
+  workflowData,
+  currentNodeId
 }: AIAgentVisualChainBuilderProps) {
   const { toast } = useToast()
   const [nodes, setNodes, onNodesChangeBase] = useNodesState([])
@@ -725,11 +729,8 @@ function AIAgentVisualChainBuilder({
   // Track if we've initialized to prevent re-initialization
   const initializedRef = React.useRef(false)
   
-  // Initialize with trigger, AI agent, and default chain - centered
-  useEffect(() => {
-    // Only initialize once
-    if (initializedRef.current) return
-    initializedRef.current = true
+  // Helper function for default initialization
+  const initializeDefaultSetup = useCallback(() => {
     const centerX = 400 // Center of typical viewport
     const defaultChainId = 'chain-default'
     
@@ -850,7 +851,103 @@ function AIAgentVisualChainBuilder({
         })
       }
     }, 100)
-  }, []) // Empty deps since we only want this to run once
+  }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect])
+  
+  // Initialize with workflow data or default setup
+  useEffect(() => {
+    // Only initialize once
+    if (initializedRef.current) return
+    initializedRef.current = true
+    
+    // If we have workflow data, use it to initialize
+    if (workflowData?.nodes && workflowData?.edges) {
+      console.log('🔄 [AIAgentVisualChainBuilder] Initializing with workflow data:', workflowData)
+      
+      // Find AI Agent node and its children from workflow data
+      const aiAgentNode = workflowData.nodes.find(n => n.id === currentNodeId || n.data?.type === 'ai_agent')
+      if (!aiAgentNode) {
+        console.warn('⚠️ [AIAgentVisualChainBuilder] No AI Agent node found in workflow data')
+        // Fall back to default initialization
+        initializeDefaultSetup()
+        return
+      }
+      
+      // Filter nodes that are part of the AI Agent's chains
+      const relevantNodes = workflowData.nodes.filter(n => {
+        // Include the AI Agent node itself
+        if (n.id === aiAgentNode.id) return true
+        // Include nodes that are children of the AI Agent
+        if (n.data?.parentAIAgentId === aiAgentNode.id) return true
+        // Include the trigger node if it exists
+        if (n.data?.isTrigger) return true
+        // Include nodes connected to AI Agent through edges
+        const hasConnectionToAIAgent = workflowData.edges.some(e => 
+          (e.source === aiAgentNode.id && e.target === n.id) ||
+          (e.target === aiAgentNode.id && e.source === n.id)
+        )
+        if (hasConnectionToAIAgent) return true
+        // Include Add Action nodes for AI Agent chains
+        if (n.type === 'addAction' && n.data?.parentAIAgentId === aiAgentNode.id) return true
+        return false
+      })
+      
+      // Map the nodes to ensure they have the correct handlers
+      const mappedNodes = relevantNodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onConfigure: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent' 
+            ? () => handleConfigureNode(node.id) 
+            : node.data?.onConfigure,
+          onDelete: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent'
+            ? () => handleDeleteNode(node.id)
+            : undefined,
+          onAddToChain: node.data?.hasAddButton 
+            ? (nodeId: string) => handleAddToChain(nodeId)
+            : undefined
+        }
+      }))
+      
+      // Filter edges that connect relevant nodes
+      const relevantEdges = workflowData.edges.filter(e => {
+        const sourceRelevant = relevantNodes.some(n => n.id === e.source)
+        const targetRelevant = relevantNodes.some(n => n.id === e.target)
+        return sourceRelevant && targetRelevant
+      })
+      
+      // Map edges to include handlers
+      const mappedEdges = relevantEdges.map(edge => ({
+        ...edge,
+        type: edge.type || 'custom',
+        data: {
+          ...edge.data,
+          onAddNode: (position: { x: number, y: number }) => {
+            handleAddNodeBetween(edge.source, edge.target, position)
+          }
+        }
+      }))
+      
+      // Set the nodes and edges from workflow data
+      setNodes(mappedNodes)
+      setEdges(mappedEdges)
+      
+      // Center view after loading
+      setTimeout(() => {
+        fitView({
+          padding: 0.2,
+          includeHiddenNodes: false,
+          duration: 400,
+          maxZoom: 1.5,
+          minZoom: 0.1
+        })
+      }, 100)
+      
+      return
+    }
+    
+    // Fall back to default initialization if no workflow data
+    initializeDefaultSetup()
+  }, [workflowData, currentNodeId, initializeDefaultSetup, setNodes, setEdges, fitView, handleConfigureNode, handleDeleteNode, handleAddToChain, handleAddNodeBetween])
 
   // Update the ref with the actual implementation
   React.useEffect(() => {
