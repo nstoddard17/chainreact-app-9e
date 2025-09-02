@@ -17,11 +17,6 @@ export async function createAirtableRecord(
     const tableName = resolveValue(config.tableName, input)
     const fields = config.fields || {}
 
-    console.log("Resolved create record values:", { 
-      baseId, 
-      tableName, 
-      fields: Object.keys(fields)
-    })
 
     if (!baseId || !tableName) {
       const missingFields = []
@@ -41,7 +36,6 @@ export async function createAirtableRecord(
       }
     }
 
-    console.log("Resolved field values:", resolvedFields)
 
     // Create the record in Airtable
     const response = await fetch(

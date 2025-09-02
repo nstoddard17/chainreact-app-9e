@@ -27,20 +27,6 @@ export async function listAirtableRecords(
     const customDateRange = resolveValue(config.customDateRange, input)
     const recordLimit = resolveValue(config.recordLimit, input)
 
-    console.log("Resolved list records values:", { 
-      baseId, 
-      tableName, 
-      maxRecords,
-      filterByFormula,
-      keywordSearch,
-      filterField,
-      filterValue,
-      sortOrder,
-      dateFilter,
-      customDateRange,
-      recordLimit
-    })
-
     if (!baseId || !tableName) {
       const missingFields = []
       if (!baseId) missingFields.push("Base ID")
@@ -64,7 +50,6 @@ export async function listAirtableRecords(
     let keywordSearchTerm = null
     if (keywordSearch && keywordSearch.trim()) {
       keywordSearchTerm = keywordSearch.trim().toLowerCase()
-      console.log("Will apply keyword search post-processing for:", keywordSearchTerm)
     }
     
     // Add field-specific filtering
@@ -73,13 +58,6 @@ export async function listAirtableRecords(
       // This indicates we're filtering by a linked record field
       const isLinkedRecordFilter = typeof filterValue === 'string' && filterValue.includes('::');
       
-      console.log("🔍 Filter Debug:", {
-        filterField,
-        filterValue,
-        isLinkedRecordFilter,
-        valueType: typeof filterValue,
-        valueLength: filterValue?.length
-      });
       
       if (isLinkedRecordFilter) {
         // Extract the record ID and name from the combined value
@@ -90,22 +68,10 @@ export async function listAirtableRecords(
         const linkedFilter = `{${filterField}} = "${recordName}"`
         
         filterConditions.push(linkedFilter)
-        console.log("📎 Added linked record filter by name:", {
-          field: filterField,
-          recordId,
-          recordName,
-          formula: linkedFilter,
-          note: "Filtering by linked record display name"
-        })
       } else {
         // For regular fields, use standard equality check
         const regularFilter = `{${filterField}} = "${filterValue}"`
         filterConditions.push(regularFilter)
-        console.log("📝 Added regular field filter:", {
-          field: filterField,
-          value: filterValue,
-          formula: regularFilter
-        })
       }
     }
     
@@ -147,14 +113,12 @@ export async function listAirtableRecords(
             const fromDate = new Date(customDateRange.from).toISOString().split('T')[0]
             const toDate = new Date(customDateRange.to).toISOString().split('T')[0]
             dateFormula = `AND(CREATED_TIME() >= '${fromDate}', CREATED_TIME() <= '${toDate}')`
-            console.log("Added custom date range filter:", fromDate, "to", toDate)
           }
           break
       }
       
       if (dateFormula) {
         filterConditions.push(dateFormula)
-        console.log("Added date filter for:", dateFilter)
       }
     }
     
@@ -166,11 +130,6 @@ export async function listAirtableRecords(
         : `AND(${filterConditions.join(', ')})`
     }
     
-    console.log("🔧 Final Filter Formula:", {
-      conditions: filterConditions,
-      combinedFilter,
-      hasFilter: !!combinedFilter
-    });
 
     // Build the URL with query parameters
     const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`)
@@ -209,7 +168,6 @@ export async function listAirtableRecords(
     
     if (combinedFilter) {
       url.searchParams.append('filterByFormula', combinedFilter)
-      console.log("Applied combined filter formula:", combinedFilter)
     }
     
     // Add sorting based on sort order option
@@ -241,10 +199,8 @@ export async function listAirtableRecords(
       
       url.searchParams.append('sort[0][field]', sortField)
       url.searchParams.append('sort[0][direction]', sortDirection)
-      console.log(`Added sorting: ${sortField} ${sortDirection}`)
     }
 
-    console.log("Fetching records from URL:", url.toString())
 
     // Fetch the records from Airtable
     const response = await fetch(url.toString(), {
@@ -262,36 +218,10 @@ export async function listAirtableRecords(
 
     const result = await response.json()
     
-    console.log("📊 Airtable API Response:", {
-      totalRecords: result.records?.length || 0,
-      hasOffset: !!result.offset,
-      sampleRecord: result.records?.[0] ? {
-        id: result.records[0].id,
-        fields: Object.keys(result.records[0].fields || {})
-      } : null
-    });
-    
-    // Log the first few records to see the actual data structure
-    if (result.records?.length > 0) {
-      console.log("🔍 First record details:", JSON.stringify(result.records[0], null, 2));
-      
-      // Specifically check for linked fields
-      const firstRecord = result.records[0];
-      if (firstRecord.fields) {
-        Object.entries(firstRecord.fields).forEach(([fieldName, fieldValue]) => {
-          // Check if this looks like a linked field (array of record IDs)
-          if (Array.isArray(fieldValue) && fieldValue.length > 0 && 
-              typeof fieldValue[0] === 'string' && fieldValue[0].startsWith('rec')) {
-            console.log(`🔗 Found linked field "${fieldName}":`, fieldValue);
-          }
-        });
-      }
-    }
 
     // Apply keyword search post-processing if needed
     let filteredRecords = result.records || []
     if (keywordSearchTerm && filteredRecords.length > 0) {
-      console.log("Applying keyword search post-processing for:", keywordSearchTerm)
       filteredRecords = filteredRecords.filter((record: any) => {
         if (!record.fields) return false
         
@@ -305,7 +235,6 @@ export async function listAirtableRecords(
         return fieldValues.includes(keywordSearchTerm)
       })
       
-      console.log(`Keyword search filtered ${result.records?.length || 0} records down to ${filteredRecords.length}`)
     }
 
     return {
