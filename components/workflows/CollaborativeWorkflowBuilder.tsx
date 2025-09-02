@@ -14,11 +14,14 @@ import {
   type Edge,
   type Node,
   type NodeTypes,
+  type EdgeTypes,
   Panel,
   BackgroundVariant,
   useReactFlow,
   ReactFlowProvider,
   type NodeProps,
+  type EdgeProps,
+  getBezierPath,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -167,6 +170,11 @@ const useWorkflowBuilderState = () => {
     custom: CustomNode,
     addAction: AddActionNode,
     insertAction: InsertActionNode,
+  }), [])
+  
+  // Memoize edge types to enable custom edges with plus buttons
+  const edgeTypes = useMemo(() => ({
+    custom: CustomEdgeWithButton,
   }), [])
 
   const [isSaving, setIsSaving] = useState(false)
@@ -715,6 +723,61 @@ const useWorkflowBuilderState = () => {
     setDeletingNode(null)
   }, [deletingNode, handleDeleteNode])
 
+  // Handle adding a node between two existing nodes
+  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
+    // Open action dialog to select what node to insert
+    setSourceAddNode({ id: sourceId, targetId })
+    setShowActionDialog(true)
+  }, [setSourceAddNode, setShowActionDialog])
+  
+  // Handle adding a new chain to an AI Agent node
+  const handleAddChain = useCallback((aiAgentNodeId: string) => {
+    const aiAgentNode = getNodes().find(n => n.id === aiAgentNodeId)
+    if (!aiAgentNode) return
+    
+    // Find the rightmost position of existing chains
+    const childNodes = getNodes().filter(n => n.data?.parentAIAgentId === aiAgentNodeId)
+    let newX = aiAgentNode.position.x + 250
+    
+    if (childNodes.length > 0) {
+      const rightmostNode = childNodes.reduce((prev, curr) => 
+        curr.position.x > prev.position.x ? curr : prev
+      )
+      newX = rightmostNode.position.x + 250
+    }
+    
+    // Create a placeholder node for the new chain
+    const newNodeId = `${aiAgentNodeId}-chain-start-${Date.now()}`
+    const newNode = {
+      id: newNodeId,
+      type: 'addAction',
+      position: { 
+        x: newX, 
+        y: aiAgentNode.position.y + 150
+      },
+      data: {
+        onAddAction: (integrationId: string, nodeType: string) => {
+          handleAddActionClick({ id: aiAgentNodeId, position: { x: newX, y: aiAgentNode.position.y + 150 } })
+        }
+      }
+    }
+    
+    setNodes(nds => [...nds, newNode])
+    
+    // Create edge from AI Agent to new chain start
+    const newEdge = {
+      id: `e${aiAgentNodeId}-${newNodeId}`,
+      source: aiAgentNodeId,
+      target: newNodeId,
+      type: 'custom',
+      animated: false,
+      style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5,5' },
+      data: { onAddNode: handleAddNodeBetween }
+    }
+    
+    setEdges(eds => [...eds, newEdge])
+  }, [getNodes, setNodes, setEdges, handleAddActionClick])
+
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
   // Debug onNodesChange to see if it's being called
@@ -875,6 +938,7 @@ const useWorkflowBuilderState = () => {
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
                 providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0],
                 // Add execution status for visual feedback
@@ -991,6 +1055,7 @@ const useWorkflowBuilderState = () => {
         onConfigure: handleConfigureNode,
         onDelete: handleDeleteNodeWithConfirmation,
         onChangeTrigger: handleChangeTrigger,
+        onAddChain: undefined,
         providerId: integration.id,
         config
       }
@@ -1221,7 +1286,8 @@ const useWorkflowBuilderState = () => {
         name: action.title || 'Unnamed Action',
         description: action.description,
         onConfigure: handleConfigureNode, 
-        onDelete: handleDeleteNodeWithConfirmation, 
+        onDelete: handleDeleteNodeWithConfirmation,
+        onAddChain: action.type === 'ai_agent' ? handleAddChain : undefined,
         providerId: integration.id, 
         config 
       },
@@ -1608,6 +1674,7 @@ const useWorkflowBuilderState = () => {
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
                 providerId: node.data.providerId || node.data.type?.split('-')[0]
               },
             };
@@ -2243,6 +2310,7 @@ const useWorkflowBuilderState = () => {
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
               onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+              onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
               providerId: node.data.providerId || node.data.type?.split('-')[0]
             },
           };
@@ -2335,6 +2403,8 @@ const useWorkflowBuilderState = () => {
     optimizedOnNodesChange,
     onEdgesChange,
     onConnect,
+    nodeTypes,
+    edgeTypes,
     workflowName,
     setWorkflowName,
     workflowDescription,
@@ -2401,8 +2471,92 @@ const useWorkflowBuilderState = () => {
     handleSaveAndNavigate,
     handleNavigateWithoutSaving,
     showDiscordConnectionModal,
-    setShowDiscordConnectionModal
+    setShowDiscordConnectionModal,
+    handleAddNodeBetween
   }
+}
+
+// Custom Edge with Plus Button for adding actions between nodes
+const CustomEdgeWithButton = ({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  data
+}: EdgeProps) => {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  })
+  
+  const [isHovered, setIsHovered] = React.useState(false)
+  
+  // Handle adding node between source and target
+  // Note: onAddNode might not be available for programmatically created edges
+  const onAddNode = data?.onAddNode
+  
+  return (
+    <g 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: onAddNode ? 'pointer' : 'default' }}
+    >
+      {/* Invisible wider path for better hover detection */}
+      <path
+        d={edgePath}
+        fill="none"
+        strokeWidth={20}
+        stroke="transparent"
+        style={{ pointerEvents: 'stroke' }}
+      />
+      
+      {/* Visible edge path */}
+      <path
+        id={id}
+        style={style}
+        className="react-flow__edge-path"
+        d={edgePath}
+        fill="none"
+        strokeWidth={2}
+        stroke={style?.stroke || '#d1d5db'}
+      />
+      
+      {/* Plus button in the middle of the edge */}
+      {onAddNode && (isHovered || data?.alwaysShowButton) && (
+        <foreignObject
+          width={30}
+          height={30}
+          x={labelX - 15}
+          y={labelY - 15}
+          style={{ overflow: 'visible', pointerEvents: 'all' }}
+        >
+          <div 
+            className="flex items-center justify-center"
+            style={{ width: '30px', height: '30px' }}
+          >
+            <button
+              className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center shadow-md transition-all hover:scale-110"
+              onClick={(e) => {
+                e.stopPropagation()
+                const [sourceId, targetId] = id.replace('e', '').split('-')
+                onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+              }}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </foreignObject>
+      )}
+    </g>
+  )
 }
 
 export default function CollaborativeWorkflowBuilder() {
@@ -2419,15 +2573,31 @@ function WorkflowBuilderContent() {
   const { setCurrentWorkflow } = useWorkflowStore()
   
   const {
-    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
-    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow, handleAddNodeBetween
   } = useWorkflowBuilderState()
+
+  // Add handleAddNodeBetween to all custom edges
+  const processedEdges = useMemo(() => {
+    return edges.map(edge => {
+      if (edge.type === 'custom') {
+        return {
+          ...edge,
+          data: {
+            ...edge.data,
+            onAddNode: handleAddNodeBetween
+          }
+        }
+      }
+      return edge
+    })
+  }, [edges, handleAddNodeBetween])
 
   const categories = useMemo(() => {
     const allCategories = availableIntegrations
@@ -2615,10 +2785,12 @@ function WorkflowBuilderContent() {
         <>
           <ReactFlow 
           nodes={nodes} 
-          edges={edges} 
+          edges={processedEdges} 
           onNodesChange={optimizedOnNodesChange} 
           onEdgesChange={onEdgesChange} 
           onConnect={onConnect} 
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodeDrag={(event, node) => {
             // Track position changes during drag
             setHasUnsavedChanges(true)
@@ -3109,10 +3281,405 @@ function WorkflowBuilderContent() {
                 setPendingNode(null);
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
+              onChainsUpdate={(chainsData) => {
+                // Real-time update of chains in the main workflow
+                console.log('🔄 [WorkflowBuilder] Real-time chains update:', chainsData);
+                
+                // Process chains immediately for real-time sync
+                const chains = chainsData?.chains || chainsData;
+                const aiAgentPosition = chainsData?.aiAgentPosition;
+                
+                if (chains && chains.length > 0) {
+                  const aiAgentNodeId = configuringNode.id;
+                  
+                  setNodes((currentNodes) => {
+                    // Find the AI Agent node
+                    let aiAgentNode;
+                    if (aiAgentNodeId === 'pending-action') {
+                      aiAgentNode = currentNodes
+                        .filter(n => n.data?.type === 'ai_agent')
+                        .sort((a, b) => {
+                          const aTime = parseInt(a.id.split('-')[1] || '0');
+                          const bTime = parseInt(b.id.split('-')[1] || '0');
+                          return bTime - aTime;
+                        })[0];
+                    } else {
+                      aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId);
+                    }
+                    
+                    if (!aiAgentNode) return currentNodes;
+                    
+                    // Remove existing AI Agent child nodes and related Add Action nodes
+                    const filteredNodes = currentNodes.filter(n => {
+                      // Remove AI Agent child nodes
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentNode.id) return false;
+                      // Remove nodes with rt-chain in ID
+                      if (n.id.includes('-rt-chain')) return false;
+                      // Remove Add Action nodes that belong to AI Agent chains
+                      if (n.type === 'addAction' && (n.id.includes('add-action-' + aiAgentNode.id) || n.id.includes('-rt-chain'))) return false;
+                      return true;
+                    });
+                    
+                    // Create new nodes from chains with Add Action nodes
+                    const newNodes = [];
+                    const nodeIdMap = {};  // Store node IDs for edge creation
+                    
+                    chains.forEach((chain, chainIndex) => {
+                      if (Array.isArray(chain) && chain.length > 0) {
+                        let lastNodeId = null;
+                        let lastPosition = null;
+                        const chainTimestamp = Date.now() + chainIndex; // Ensure unique timestamps per chain
+                        
+                        chain.forEach((action, actionIndex) => {
+                          const newNodeId = `${aiAgentNode.id}-rt-chain${chainIndex}-action${actionIndex}-${chainTimestamp}`;
+                          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === action.type);
+                          
+                          // Store node ID for edge creation
+                          if (!nodeIdMap[chainIndex]) nodeIdMap[chainIndex] = [];
+                          nodeIdMap[chainIndex].push(newNodeId);
+                          
+                          let nodePosition;
+                          if (action.position) {
+                            nodePosition = { x: action.position.x, y: action.position.y };
+                          } else {
+                            const baseX = aiAgentNode.position.x + (chainIndex + 1) * 250;
+                            const baseY = aiAgentNode.position.y + 150;
+                            nodePosition = { x: baseX, y: baseY + (actionIndex * 120) };
+                          }
+                          
+                          newNodes.push({
+                            id: newNodeId,
+                            type: 'custom',
+                            position: nodePosition,
+                            data: {
+                              title: action.title || actionComponent?.title || action.type,
+                              description: action.description || actionComponent?.description || '',
+                              type: action.type,
+                              providerId: action.providerId,
+                              config: action.config || {},
+                              onConfigure: (id) => handleConfigureNode(id),
+                              onDelete: (id) => handleDeleteNode(id),
+                              onAddChain: undefined,
+                              isAIAgentChild: true,
+                              parentAIAgentId: aiAgentNode.id,
+                              parentChainIndex: chainIndex
+                            }
+                          });
+                          
+                          lastNodeId = newNodeId;
+                          lastPosition = nodePosition;
+                        });
+                        
+                        // Add an "Add Action" node at the end of each chain
+                        if (lastNodeId && lastPosition) {
+                          const addActionId = `add-action-${aiAgentNode.id}-chain${chainIndex}-${chainTimestamp}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { 
+                              x: lastPosition.x, 
+                              y: lastPosition.y + 160 
+                            },
+                            data: {
+                              parentId: lastNodeId,
+                              isAIAgentChild: true,
+                              parentAIAgentId: aiAgentNode.id,
+                              parentChainIndex: chainIndex,
+                              onAddAction: () => {
+                                // Open action selection modal for this chain
+                                handleAddActionClick({ 
+                                  id: lastNodeId, 
+                                  position: { x: lastPosition.x, y: lastPosition.y } 
+                                })
+                              }
+                            }
+                          };
+                          newNodes.push(addActionNode);
+                          
+                          // Store the add action node ID
+                          if (!nodeIdMap[chainIndex]) nodeIdMap[chainIndex] = [];
+                          nodeIdMap[chainIndex].push(addActionId);
+                        }
+                      }
+                    });
+                    
+                    // Store node map for edge creation
+                    window._rtNodeIdMap = nodeIdMap;
+                    
+                    return [...filteredNodes, ...newNodes];
+                  });
+                  
+                  // Update edges - use stored node IDs
+                  setTimeout(() => {
+                    setEdges((eds) => {
+                      const currentNodes = getNodes();
+                      const nodeIdMap = window._rtNodeIdMap || {};
+                      // Get the AI Agent node ID
+                      const aiAgentId = configuringNode.id === 'pending-action' ?
+                        currentNodes.find(n => n.data?.type === 'ai_agent')?.id :
+                        configuringNode.id;
+                      
+                      // Filter out edges related to AI Agent chains
+                      const filteredEdges = eds.filter(e => {
+                        // Remove edges with rt-chain in ID
+                        if (e.id.includes('-rt-chain')) return false;
+                        // Remove edges starting with edge-rt-
+                        if (e.id.startsWith('edge-rt-')) return false;
+                        // Remove edges to/from Add Action nodes that belong to AI Agent
+                        if (e.source.includes('add-action-' + aiAgentId) || e.target.includes('add-action-' + aiAgentId)) return false;
+                        // Remove edges to/from nodes that are AI Agent children
+                        const sourceNode = currentNodes.find(n => n.id === e.source);
+                        const targetNode = currentNodes.find(n => n.id === e.target);
+                        if (sourceNode?.data?.parentAIAgentId === aiAgentId || targetNode?.data?.parentAIAgentId === aiAgentId) return false;
+                        return true;
+                      });
+                      
+                      const newEdges = [];
+                      
+                      Object.keys(nodeIdMap).forEach(chainIndex => {
+                        const chainNodes = nodeIdMap[chainIndex];
+                        if (chainNodes && chainNodes.length > 0) {
+                          // Connect first node to AI Agent
+                          if (chainNodes[0] && !chainNodes[0].includes('add-action')) {
+                            newEdges.push({
+                              id: `edge-rt-aiagent-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                              source: aiAgentId,
+                              target: chainNodes[0],
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {}
+                            });
+                          }
+                          
+                          // Connect nodes in chain
+                          for (let i = 0; i < chainNodes.length - 1; i++) {
+                            const currentNode = chainNodes[i];
+                            const nextNode = chainNodes[i + 1];
+                            
+                            if (nextNode.includes('add-action')) {
+                              // Dashed edge to Add Action node
+                              newEdges.push({
+                                id: `${currentNode}-${nextNode}`,
+                                source: currentNode,
+                                target: nextNode,
+                                animated: false,
+                                style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5,5' }
+                              });
+                            } else {
+                              // Regular edge between action nodes
+                              newEdges.push({
+                                id: `edge-rt-chain${chainIndex}-link${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                source: currentNode,
+                                target: nextNode,
+                                type: 'custom',
+                                animated: true,
+                                style: { stroke: '#94a3b8', strokeWidth: 2 },
+                                data: {}
+                              });
+                            }
+                          }
+                        }
+                      });
+                      
+                      return [...filteredEdges, ...newEdges];
+                    });
+                  }, 50); // Small delay to ensure nodes are created first
+                }
+              }}
               onSave={async (config) => {
                 console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
                 console.log('🤖 [WorkflowBuilder] ConfiguringNode:', configuringNode);
+                console.log('🤖 [WorkflowBuilder] AI Agent chains:', config.chains);
+                console.log('🤖 [WorkflowBuilder] Chains detail:', JSON.stringify(config.chains, null, 2));
+                
+                // Save the AI Agent configuration
                 await handleSaveConfiguration(configuringNode, config);
+                
+                // Process chains after a small delay to ensure state is updated
+                setTimeout(() => {
+                  // Check if we have the new format with layout info or old format
+                  const chainsData = config.chains?.chains || config.chains;
+                  const aiAgentPosition = config.chains?.aiAgentPosition;
+                  
+                  // If there are chains, create nodes for them in the main workflow
+                  if (chainsData && chainsData.length > 0) {
+                  console.log('🔄 [WorkflowBuilder] Processing chains to create workflow nodes');
+                  console.log('🔄 [WorkflowBuilder] AI Agent position:', aiAgentPosition);
+                  const aiAgentNodeId = configuringNode.id;
+                  
+                  // Collect all new nodes and edges first
+                  const newNodesToAdd = [];
+                  const newEdgesToAdd = [];
+                  
+                  // Use setNodes to access current state and find the AI Agent node
+                  setNodes((currentNodes) => {
+                    // If configuringNode.id is "pending-action", find the AI Agent node by type
+                    let aiAgentNode;
+                    if (aiAgentNodeId === 'pending-action') {
+                      // Find the most recently added AI Agent node
+                      aiAgentNode = currentNodes
+                        .filter(n => n.data?.type === 'ai_agent')
+                        .sort((a, b) => {
+                          // Sort by ID (assuming IDs are like "node-timestamp")
+                          const aTime = parseInt(a.id.split('-')[1] || '0');
+                          const bTime = parseInt(b.id.split('-')[1] || '0');
+                          return bTime - aTime; // Most recent first
+                        })[0];
+                      console.log('🔄 [WorkflowBuilder] Found AI Agent node by type:', aiAgentNode?.id);
+                    } else {
+                      aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId);
+                    }
+                    
+                    console.log('🔄 [WorkflowBuilder] Looking for AI Agent node with ID:', aiAgentNodeId);
+                    console.log('🔄 [WorkflowBuilder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.data?.type })));
+                    console.log('🔄 [WorkflowBuilder] AI Agent node found:', aiAgentNode);
+                    
+                    if (!aiAgentNode) {
+                      console.log('❌ [WorkflowBuilder] AI Agent node not found, skipping chain creation');
+                      return currentNodes; // Return unchanged nodes
+                    }
+                    // For each chain, create the action nodes
+                    chainsData.forEach((chain, chainIndex) => {
+                      console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex}:`, chain);
+                      if (Array.isArray(chain) && chain.length > 0) {
+                        // Create separate chain with proper connection to AI Agent
+                        const actualAIAgentId = aiAgentNode.id; // Use the actual found node ID
+                        let previousNodeId = null;
+                        
+                        // Create nodes for each action in the chain
+                        chain.forEach((action, actionIndex) => {
+                          const timestamp = Date.now();
+                          const newNodeId = `${actualAIAgentId}-chain${chainIndex}-action${actionIndex}-${timestamp}-${actionIndex}`;
+                          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === action.type);
+                          
+                          // Use the position from the AI Agent builder if available
+                          let nodePosition;
+                          if (action.position) {
+                            // Use exact position from AI Agent builder
+                            nodePosition = {
+                              x: action.position.x,
+                              y: action.position.y
+                            };
+                          } else {
+                            // Fallback to calculated position
+                            const baseX = aiAgentNode.position.x + (chainIndex + 1) * 250;
+                            const baseY = aiAgentNode.position.y + 150;
+                            nodePosition = {
+                              x: baseX,
+                              y: baseY + (actionIndex * 120)
+                            };
+                          }
+                          
+                          const newNode = {
+                            id: newNodeId,
+                            type: 'custom',
+                            position: nodePosition,
+                            data: {
+                              title: action.title || actionComponent?.title || action.type,
+                              description: action.description || actionComponent?.description || '',
+                              type: action.type,
+                              providerId: action.providerId,
+                              config: action.config || {},
+                              onConfigure: (id) => handleConfigureNode(id),
+                              onDelete: (id) => handleDeleteNode(id),
+                              onAddChain: undefined,
+                              isAIAgentChild: true,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex
+                            }
+                          };
+                          
+                          console.log(`🔄 [WorkflowBuilder] Creating node for action:`, action, 'as node:', newNode);
+                          newNodesToAdd.push(newNode);
+                          
+                          // Create edge - first node connects to AI Agent, rest connect to previous
+                          if (actionIndex === 0) {
+                            // First action in chain connects to AI Agent
+                            // Use a more unique ID with chain index, action index, timestamp and random component
+                            const edgeId = `edge-aiagent-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newEdge = {
+                              id: edgeId,
+                              source: actualAIAgentId,
+                              target: newNodeId,
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {}  // onAddNode will be added dynamically when edges are rendered
+                            };
+                            newEdgesToAdd.push(newEdge);
+                          } else if (previousNodeId) {
+                            // Subsequent actions connect to previous action
+                            const edgeId = `edge-chain${chainIndex}-link${actionIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newEdge = {
+                              id: edgeId,
+                              source: previousNodeId,
+                              target: newNodeId,
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {}  // onAddNode will be added dynamically when edges are rendered
+                            };
+                            newEdgesToAdd.push(newEdge);
+                          }
+                          
+                          previousNodeId = newNodeId;
+                        });
+                      }
+                    });
+                    
+                    // Update nodes - remove existing AI Agent children and add new ones
+                    console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
+                    
+                    // First remove any existing AI Agent child nodes
+                    const filteredNodes = currentNodes.filter(n => !n.data?.isAIAgentChild || n.data?.parentAIAgentId !== aiAgentNodeId);
+                    console.log(`🔄 [WorkflowBuilder] Filtered ${currentNodes.length - filteredNodes.length} existing AI Agent child nodes`);
+                    // Then add new nodes
+                    const updatedNodes = [...filteredNodes, ...newNodesToAdd];
+                    console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length}`);
+                    
+                    // Store edges to add them after nodes are updated
+                    if (newEdgesToAdd.length > 0) {
+                      setTimeout(() => {
+                        setEdges((eds) => {
+                          // First remove any existing AI Agent chain edges
+                          const filteredEdges = eds.filter(e => !e.id.startsWith('edge-chain') && !e.id.startsWith('edge-aiagent-chain'));
+                          // Then add new edges
+                          console.log(`🔄 [WorkflowBuilder] Adding ${newEdgesToAdd.length} edges to workflow`);
+                          console.log(`🔄 [WorkflowBuilder] New edge IDs:`, newEdgesToAdd.map(e => e.id));
+                          return [...filteredEdges, ...newEdgesToAdd];
+                        });
+                      }, 100);
+                    }
+                    
+                    return updatedNodes;
+                  }); // End of setNodes
+                    
+                  // Mark as having unsaved changes and update view after state updates
+                  setTimeout(() => {
+                    setHasUnsavedChanges(true);
+                    
+                    // Fit view to show all nodes with proper settings
+                    try {
+                      fitView({ 
+                        padding: 0.2,
+                        includeHiddenNodes: false,
+                        duration: 400,
+                        maxZoom: 1,
+                        minZoom: 0.1
+                      });
+                    } catch (error) {
+                      console.log('❌ [WorkflowBuilder] Error fitting view:', error);
+                    }
+                    
+                    toast({
+                      title: "AI Agent Chains Added",
+                      description: `${config.chains.length} chain(s) have been added to the workflow`
+                    });
+                  }, 300);
+                  }
+                }, 500); // Longer delay to ensure node is added to state
+                
                 // Close the modal after successful save
                 setConfiguringNode(null);
                 setPendingNode(null);

@@ -264,10 +264,27 @@ const CustomEdgeWithButton = ({
   })
 
   const onAddNode = data?.onAddNode
+  const [isHovered, setIsHovered] = React.useState(false)
 
   return (
-    <>
+    <g 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: onAddNode ? 'pointer' : 'default' }}
+    >
+      {/* Invisible wider path for better hover detection */}
+      <path
+        d={edgePath}
+        fill="none"
+        strokeWidth={20}
+        stroke="transparent"
+        style={{ pointerEvents: 'stroke' }}
+      />
+      
+      {/* Visible edge */}
       <BaseEdge path={edgePath} style={style} />
+      
+      {/* Plus button that appears on hover */}
       {onAddNode && (
         <EdgeLabelRenderer>
           <div
@@ -275,24 +292,25 @@ const CustomEdgeWithButton = ({
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
+              opacity: isHovered ? 1 : 0,
+              transition: 'opacity 200ms'
             }}
-            className="group"
           >
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       size="icon"
                       variant="outline"
-                      className="h-6 w-6 rounded-full bg-background border-muted-foreground/20 hover:border-primary hover:bg-primary/10 shadow-sm"
+                      className="h-7 w-7 rounded-full bg-white border-2 border-blue-500 hover:border-blue-600 hover:bg-blue-50 shadow-md transition-all"
                       onClick={(e) => {
                         e.stopPropagation()
                         onAddNode({ x: labelX, y: labelY })
                       }}
                       aria-label="Insert node between connections"
                     >
-                      <Plus className="w-3 h-3 text-muted-foreground" />
+                      <Plus className="w-4 h-4 text-blue-600" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -304,7 +322,7 @@ const CustomEdgeWithButton = ({
           </div>
         </EdgeLabelRenderer>
       )}
-    </>
+    </g>
   )
 }
 
@@ -336,13 +354,83 @@ function AIAgentVisualChainBuilder({
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const { fitView, getZoom, setViewport } = useReactFlow()
   
+  // Store previous chains to prevent unnecessary updates
+  const previousChainsRef = React.useRef<string>('')
+  
+  // Convert nodes and edges to chains format for parent component
+  const syncChainsToParent = useCallback(() => {
+    // Extract chains from the current node/edge structure
+    const extractedChains = []
+    const processedNodes = new Set()
+    
+    // Find all chain start nodes (connected directly to AI agent)
+    const aiAgentEdges = edges.filter(e => e.source === 'ai-agent')
+    
+    aiAgentEdges.forEach(edge => {
+      const chain = []
+      let currentNodeId = edge.target
+      
+      // Walk through the chain
+      while (currentNodeId && !processedNodes.has(currentNodeId)) {
+        const node = nodes.find(n => n.id === currentNodeId)
+        if (!node || node.type === 'addAction') break
+        
+        // Skip chain placeholder nodes - only include actual actions
+        if (node.data?.type !== 'chain_placeholder') {
+          chain.push({
+            id: node.id,
+            type: node.data?.type,
+            providerId: node.data?.providerId,
+            config: node.data?.config || {},
+            title: node.data?.title,
+            description: node.data?.description,
+            // Include position information for exact placement
+            position: {
+              x: node.position.x,
+              y: node.position.y
+            }
+          })
+        }
+        
+        processedNodes.add(currentNodeId)
+        
+        // Find next node in chain
+        const nextEdge = edges.find(e => e.source === currentNodeId && !e.target.includes('add-action'))
+        currentNodeId = nextEdge?.target || null
+      }
+      
+      if (chain.length > 0) {
+        extractedChains.push(chain)
+      }
+    })
+    
+    // Get AI Agent node position for reference
+    const aiAgentNode = nodes.find(n => n.id === 'ai-agent')
+    
+    // Include layout information with chains
+    const chainsWithLayout = {
+      chains: extractedChains,
+      aiAgentPosition: aiAgentNode ? {
+        x: aiAgentNode.position.x,
+        y: aiAgentNode.position.y
+      } : { x: 250, y: 200 }
+    }
+    
+    // Only update if chains actually changed
+    const chainsString = JSON.stringify(chainsWithLayout)
+    if (chainsString !== previousChainsRef.current) {
+      previousChainsRef.current = chainsString
+      onChainsChange(chainsWithLayout)
+    }
+  }, [nodes, edges, onChainsChange])
+  
   // Custom onNodesChange to handle Add Action nodes following their parent
   const onNodesChange = useCallback((changes: any) => {
     // Apply the base changes first
     onNodesChangeBase(changes)
     
-    // Check if any position changes occurred
-    const positionChanges = changes.filter((change: any) => change.type === 'position' && change.dragging === false)
+    // Check if any position changes occurred (both during and after dragging)
+    const positionChanges = changes.filter((change: any) => change.type === 'position')
     
     if (positionChanges.length > 0) {
       setNodes((nds) => {
@@ -350,18 +438,29 @@ function AIAgentVisualChainBuilder({
         
         // For each position change, update connected Add Action nodes
         positionChanges.forEach((change: any) => {
-          const parentNode = updatedNodes.find(n => n.id === change.id)
-          if (parentNode) {
-            // Find Add Action nodes that should follow this parent
-            const connectedAddActionNode = updatedNodes.find(n => 
+          const parentNodeIndex = updatedNodes.findIndex(n => n.id === change.id)
+          if (parentNodeIndex !== -1) {
+            // Update the parent node's position
+            if (change.position) {
+              updatedNodes[parentNodeIndex] = {
+                ...updatedNodes[parentNodeIndex],
+                position: change.position
+              }
+            }
+            
+            // Find and update Add Action nodes that should follow this parent
+            const addActionIndex = updatedNodes.findIndex(n => 
               n.type === 'addAction' && n.data?.parentId === change.id
             )
             
-            if (connectedAddActionNode) {
+            if (addActionIndex !== -1 && change.position) {
               // Update Add Action node position to follow parent
-              connectedAddActionNode.position = {
-                x: parentNode.position.x,
-                y: parentNode.position.y + 160
+              updatedNodes[addActionIndex] = {
+                ...updatedNodes[addActionIndex],
+                position: {
+                  x: change.position.x,
+                  y: change.position.y + 160
+                }
               }
             }
           }
@@ -372,52 +471,262 @@ function AIAgentVisualChainBuilder({
     }
   }, [onNodesChangeBase, setNodes])
 
-  // Declare handleDeleteNode early for use in initialization
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    // When deleting a node, check if we need to update isLastInChain for other nodes
-    const edgesFromNode = edges.filter(e => e.source === nodeId)
-    const edgesToNode = edges.filter(e => e.target === nodeId)
+  // Sync chains whenever nodes or edges change - with debouncing to prevent infinite loops
+  React.useEffect(() => {
+    // Only sync if we have meaningful nodes (not just AI agent and placeholders)
+    const hasActualActions = nodes.some(n => 
+      n.id !== 'ai-agent' && 
+      n.type !== 'addAction' && 
+      n.data?.type !== 'chain_placeholder'
+    )
     
-    // If this node was in the middle of a chain, the previous node becomes last
-    if (edgesFromNode.length === 0 && edgesToNode.length > 0) {
-      const previousNodeId = edgesToNode[0].source
-      setNodes((nds) => nds.map(n => 
-        n.id === previousNodeId 
-          ? { ...n, data: { ...n.data, isLastInChain: true } }
-          : n
-      ).filter(n => n.id !== nodeId))
-    } else {
-      setNodes((nds) => nds.filter(n => n.id !== nodeId))
-    }
+    // Use a timeout to debounce rapid changes
+    const timeoutId = setTimeout(() => {
+      if (hasActualActions || nodes.length > 1) {
+        syncChainsToParent()
+      }
+    }, 100)
     
-    setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
-  }, [edges])
+    return () => clearTimeout(timeoutId)
+  }, [nodes.length, edges.length, syncChainsToParent]) // Use lengths to avoid deep comparison issues
 
+  // Forward declare refs to avoid circular dependencies
+  const handleAddToChainRef = React.useRef<(nodeId: string) => void>()
+  const handleAddActionToChainRef = React.useRef<(chainId: string, actionType: string, providerId: string, config?: any) => void>()
+  const handleDeleteNodeRef = React.useRef<(nodeId: string) => void>()
+  const handleAddNodeBetweenRef = React.useRef<(sourceId: string, targetId: string, position: { x: number, y: number }) => void>()
+  
+  // Forward declare handleConfigureNode
   const handleConfigureNode = useCallback((nodeId: string) => {
     toast({
       title: "Configure Node",
       description: `Configure settings for node ${nodeId}`
     })
   }, [toast])
+  
+  // Declare handleAddNodeBetween before handleDeleteNode to avoid initialization error
+  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
+    // Open action dialog to select a node to add
+    if (onOpenActionDialog) {
+      onOpenActionDialog()
+      if (onActionSelect) {
+        onActionSelect((actionType: string, providerId: string, config?: any) => {
+          const newNodeId = `node-${Date.now()}`
+          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
+          const newNode: Node = {
+            id: newNodeId,
+            type: 'custom',
+            position,
+            data: {
+              title: actionComponent?.title || actionType,
+              description: actionComponent?.description || '',
+              type: actionType,
+              providerId: providerId,
+              config: config || {},
+              onConfigure: () => handleConfigureNode(newNodeId),
+              onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
+              onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
+              isLastInChain: false
+            }
+          }
 
-  // Declare placeholder for handleAddToChain - will be defined later but needed in initialization
-  const handleAddToChainRef = React.useRef<(nodeId: string) => void>()
+          // Add the new node
+          setNodes((nds) => [...nds, newNode])
+
+          // Update edges to insert the new node between source and target
+          setEdges((eds) => {
+            const updatedEdges = eds.filter(e => !(e.source === sourceId && e.target === targetId))
+            return [
+              ...updatedEdges,
+              {
+                id: `e-${sourceId}-${newNodeId}`,
+                source: sourceId,
+                target: newNodeId,
+                type: 'custom',
+                style: { 
+                  stroke: '#94a3b8',
+                  strokeWidth: 2 
+                },
+                data: {
+                  onAddNode: (pos: { x: number, y: number }) => {
+                    handleAddNodeBetween(sourceId, newNodeId, pos)
+                  }
+                }
+              },
+              {
+                id: `e-${newNodeId}-${targetId}`,
+                source: newNodeId,
+                target: targetId,
+                type: 'custom',
+                style: { 
+                  stroke: '#94a3b8',
+                  strokeWidth: 2 
+                },
+                data: {
+                  onAddNode: (pos: { x: number, y: number }) => {
+                    handleAddNodeBetween(newNodeId, targetId, pos)
+                  }
+                }
+              }
+            ]
+          })
+          
+          // Auto-center the view to show all nodes after adding the node
+          setTimeout(() => {
+            fitView({ 
+              padding: 0.2, 
+              includeHiddenNodes: false,
+              duration: 400,
+              maxZoom: 1.5,
+              minZoom: 0.1
+            })
+          }, 150)
+        })
+      }
+    }
+  }, [onOpenActionDialog, onActionSelect, fitView, setNodes, setEdges, handleConfigureNode])
+  
+  // Set the ref after the function is defined
+  React.useEffect(() => {
+    handleAddNodeBetweenRef.current = handleAddNodeBetween
+  }, [handleAddNodeBetween])
+
+  // Now declare handleDeleteNode which can safely reference handleAddNodeBetween
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    // Find edges connected to this node
+    const edgesFromNode = edges.filter(e => e.source === nodeId)
+    const edgesToNode = edges.filter(e => e.target === nodeId)
+    
+    // Check if this is an Add Action node - if so, just remove it
+    const nodeToDelete = nodes.find(n => n.id === nodeId)
+    if (nodeToDelete?.type === 'addAction') {
+      setNodes((nds) => nds.filter(n => n.id !== nodeId))
+      setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
+      return
+    }
+    
+    // If the node is in the middle of a chain, reconnect the chain
+    if (edgesFromNode.length > 0 && edgesToNode.length > 0) {
+      const previousNodeId = edgesToNode[0].source
+      const nextNodeId = edgesFromNode[0].target
+      
+      // Create new edge to reconnect the chain
+      const newEdge: Edge = {
+        id: `e-${previousNodeId}-${nextNodeId}`,
+        source: previousNodeId,
+        target: nextNodeId,
+        type: 'custom',
+        style: { 
+          stroke: '#94a3b8',
+          strokeWidth: 2 
+        },
+        data: {
+          onAddNode: (pos: { x: number, y: number }) => {
+            handleAddNodeBetween(previousNodeId, nextNodeId, pos)
+          }
+        }
+      }
+      
+      // Update edges - remove old ones and add the reconnection
+      setEdges((eds) => [
+        ...eds.filter(e => e.source !== nodeId && e.target !== nodeId),
+        newEdge
+      ])
+      
+      // Remove the node
+      setNodes((nds) => nds.filter(n => n.id !== nodeId))
+    } else {
+      // Node is at the end or beginning of chain
+      if (edgesFromNode.length === 0 && edgesToNode.length > 0) {
+        // This was the last node in a chain
+        const previousNodeId = edgesToNode[0].source
+        
+        // Check if previous node should have an Add Action node
+        const previousNode = nodes.find(n => n.id === previousNodeId)
+        if (previousNode && previousNode.type !== 'ai_agent' && previousNode.type !== 'trigger') {
+          // Create Add Action node after the previous node
+          const addActionNodeId = `add-action-${previousNodeId}`
+          const addActionNode: Node = {
+            id: addActionNodeId,
+            type: 'addAction',
+            position: { 
+              x: previousNode.position.x, 
+              y: previousNode.position.y + 160 
+            },
+            data: {
+              parentId: previousNodeId,
+              onClick: () => {
+                handleAddToChainRef.current?.(previousNodeId)
+              }
+            }
+          }
+          
+          // Update nodes - remove deleted node, mark previous as last, add Add Action
+          setNodes((nds) => [
+            ...nds.filter(n => n.id !== nodeId).map(n => 
+              n.id === previousNodeId 
+                ? { ...n, data: { ...n.data, isLastInChain: true } }
+                : n
+            ),
+            addActionNode
+          ])
+          
+          // Add edge to Add Action node
+          const newEdge: Edge = {
+            id: `e-${previousNodeId}-${addActionNodeId}`,
+            source: previousNodeId,
+            target: addActionNodeId,
+            type: 'straight',
+            animated: true,
+            style: { 
+              stroke: '#b1b1b7', 
+              strokeWidth: 2, 
+              strokeDasharray: '5,5' 
+            }
+          }
+          
+          setEdges((eds) => [
+            ...eds.filter(e => e.source !== nodeId && e.target !== nodeId),
+            newEdge
+          ])
+        } else {
+          // Just remove the node and edges
+          setNodes((nds) => nds.filter(n => n.id !== nodeId))
+          setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
+        }
+      } else {
+        // Node is at the beginning or isolated - just remove it
+        setNodes((nds) => nds.filter(n => n.id !== nodeId))
+        setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
+      }
+    }
+  }, [edges, nodes, handleAddNodeBetween, setNodes, setEdges])
+  
+  // Set the ref after the function is defined
+  React.useEffect(() => {
+    handleDeleteNodeRef.current = handleDeleteNode
+  }, [handleDeleteNode])
+
+  // Wrapper functions for refs
   const handleAddToChain = useCallback((nodeId: string) => {
     if (handleAddToChainRef.current) {
       handleAddToChainRef.current(nodeId)
     }
   }, [])
-
-  // Declare placeholder for handleAddActionToChain
-  const handleAddActionToChainRef = React.useRef<(chainId: string, actionType: string, providerId: string, config?: any) => void>()
   const handleAddActionToChain = useCallback((chainId: string, actionType: string, providerId: string, config?: any) => {
     if (handleAddActionToChainRef.current) {
       handleAddActionToChainRef.current(chainId, actionType, providerId, config)
     }
   }, [])
 
+  // Track if we've initialized to prevent re-initialization
+  const initializedRef = React.useRef(false)
+  
   // Initialize with trigger, AI agent, and default chain - centered
   useEffect(() => {
+    // Only initialize once
+    if (initializedRef.current) return
+    initializedRef.current = true
     const centerX = 400 // Center of typical viewport
     const defaultChainId = 'chain-default'
     
@@ -472,14 +781,14 @@ function AIAgentVisualChainBuilder({
               onOpenActionDialog()
             }
           },
-          onDelete: () => handleDeleteNode(defaultChainId),
-          onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+          onDelete: () => handleDeleteNodeRef.current?.(defaultChainId),
+          onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
           onAddAction: () => {
             if (onOpenActionDialog) {
               onOpenActionDialog()
               if (onActionSelect) {
                 onActionSelect((actionType: string, providerId: string, config?: any) => {
-                  handleAddActionToChain(defaultChainId, actionType, providerId, config)
+                  handleAddActionToChainRef.current?.(defaultChainId, actionType, providerId, config)
                 })
               }
             }
@@ -502,7 +811,7 @@ function AIAgentVisualChainBuilder({
         },
         data: {
           onAddNode: (position: { x: number, y: number }) => {
-            handleAddNodeBetween('trigger', 'ai-agent', position)
+            handleAddNodeBetweenRef.current?.('trigger', 'ai-agent', position)
           }
         }
       },
@@ -517,7 +826,7 @@ function AIAgentVisualChainBuilder({
         },
         data: {
           onAddNode: (position: { x: number, y: number }) => {
-            handleAddNodeBetween('ai-agent', defaultChainId, position)
+            handleAddNodeBetweenRef.current?.('ai-agent', defaultChainId, position)
           }
         }
       }
@@ -528,14 +837,17 @@ function AIAgentVisualChainBuilder({
     
     // Center view after initial load to show all nodes
     setTimeout(() => {
-      fitView({ 
-        padding: 0.1, 
-        duration: 400,
-        minZoom: 0.5,
-        maxZoom: 1
-      })
+      if (fitView) {
+        fitView({ 
+          padding: 0.2, 
+          includeHiddenNodes: false,
+          duration: 400,
+          maxZoom: 1.5,
+          minZoom: 0.1
+        })
+      }
     }, 100)
-  }, [fitView])
+  }, []) // Empty deps since we only want this to run once
 
   // Update the ref with the actual implementation
   React.useEffect(() => {
@@ -627,95 +939,15 @@ function AIAgentVisualChainBuilder({
       // Auto-center the view to show all nodes after adding the action
       setTimeout(() => {
         fitView({ 
-          padding: 0.1, 
+          padding: 0.2, 
+          includeHiddenNodes: false,
           duration: 400,
-          minZoom: 0.5,
-          maxZoom: 1
+          maxZoom: 1.5,
+          minZoom: 0.1
         })
       }, 150)
     }
   }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView])
-
-  // Forward declare these functions to avoid circular dependencies
-  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
-    // Open action dialog to select a node to add
-    if (onOpenActionDialog) {
-      onOpenActionDialog()
-      if (onActionSelect) {
-        onActionSelect((actionType: string, providerId: string, config?: any) => {
-          const newNodeId = `node-${Date.now()}`
-          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
-          const newNode: Node = {
-            id: newNodeId,
-            type: 'custom',
-            position,
-            data: {
-              title: actionComponent?.title || actionType,
-              description: actionComponent?.description || '',
-              type: actionType,
-              providerId: providerId,
-              config: config || {},
-              onConfigure: () => handleConfigureNode(newNodeId),
-              onDelete: () => handleDeleteNode(newNodeId),
-              onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
-              isLastInChain: false
-            }
-          }
-
-          // Add the new node
-          setNodes((nds) => [...nds, newNode])
-
-          // Update edges to insert the new node between source and target
-          setEdges((eds) => {
-            const updatedEdges = eds.filter(e => !(e.source === sourceId && e.target === targetId))
-            return [
-              ...updatedEdges,
-              {
-                id: `e-${sourceId}-${newNodeId}`,
-                source: sourceId,
-                target: newNodeId,
-                type: 'custom',
-                style: { 
-                  stroke: '#94a3b8',
-                  strokeWidth: 2 
-                },
-                data: {
-                  onAddNode: (pos: { x: number, y: number }) => {
-                    handleAddNodeBetween(sourceId, newNodeId, pos)
-                  }
-                }
-              },
-              {
-                id: `e-${newNodeId}-${targetId}`,
-                source: newNodeId,
-                target: targetId,
-                type: 'custom',
-                style: { 
-                  stroke: '#94a3b8',
-                  strokeWidth: 2 
-                },
-                data: {
-                  onAddNode: (pos: { x: number, y: number }) => {
-                    handleAddNodeBetween(newNodeId, targetId, pos)
-                  }
-                }
-              }
-            ]
-          })
-          
-          // Auto-center the view to show all nodes after adding the node
-          setTimeout(() => {
-            fitView({ 
-              padding: 0.1, 
-              duration: 400,
-              minZoom: 0.5,
-              maxZoom: 1
-            })
-          }, 150)
-        })
-      }
-    }
-  }, [onOpenActionDialog, onActionSelect, fitView])
 
   const onConnect = useCallback((params: Connection) => {
     const newEdge: Edge = {
@@ -767,8 +999,8 @@ function AIAgentVisualChainBuilder({
               providerId: providerId,
               config: config || {},
               onConfigure: () => handleConfigureNode(newNodeId),
-              onDelete: () => handleDeleteNode(newNodeId),
-              onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+              onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
+              onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
               isLastInChain: true
             }
           }
@@ -835,10 +1067,11 @@ function AIAgentVisualChainBuilder({
           // Auto-center the view to show all nodes after adding the action
           setTimeout(() => {
             fitView({ 
-              padding: 0.1, 
+              padding: 0.2, 
+              includeHiddenNodes: false,
               duration: 400,
-              minZoom: 0.5,
-              maxZoom: 1
+              maxZoom: 1.5,
+              minZoom: 0.1
             })
           }, 150)
         })
@@ -861,27 +1094,30 @@ function AIAgentVisualChainBuilder({
       n.data?.type === 'chain_placeholder'
     )
     
-    // Calculate position - place chains in a horizontal row below AI agent
-    const horizontalSpacing = 300  // Increased spacing to avoid overlap
-    const verticalSpacing = 250
-    const chainIndex = chainPlaceholders.length
+    // Find the farthest right node of ANY type (not just chain placeholders)
+    const allNonAIAgentNodes = nodes.filter(n => n.id !== 'ai-agent' && n.type !== 'addAction')
     
-    // Position calculation - place new chains to the right of existing ones
+    // Calculate position - place chains with proper spacing
+    const horizontalSpacing = 150  // Further reduced spacing between chains (was 250, originally 500)
     const baseY = aiAgentNode.position.y + 200
     let newX: number
     let newY: number
     
-    if (chainIndex === 0) {
+    if (allNonAIAgentNodes.length === 0) {
       // First chain - directly below AI agent
       newX = aiAgentNode.position.x
       newY = baseY
     } else {
-      // Find the rightmost chain to place new chain next to it
-      const rightmostChain = chainPlaceholders.reduce((rightmost, chain) => 
-        chain.position.x > rightmost.position.x ? chain : rightmost
-      )
-      newX = rightmostChain.position.x + horizontalSpacing
-      newY = rightmostChain.position.y  // Keep same Y level
+      // Find the absolute farthest right node
+      const rightmostNode = allNonAIAgentNodes.reduce((rightmost, node) => {
+        const rightmostRight = rightmost.position.x + (rightmost.width || 400)
+        const nodeRight = node.position.x + (node.width || 400)
+        return nodeRight > rightmostRight ? node : rightmost
+      })
+      
+      // Place new chain to the right of the farthest node with more reasonable spacing
+      newX = rightmostNode.position.x + (rightmostNode.width || 400) + horizontalSpacing
+      newY = baseY  // Keep consistent Y level for chain starts
     }
     
     // Create a placeholder chain start node
@@ -939,10 +1175,11 @@ function AIAgentVisualChainBuilder({
     // Auto-zoom to show all nodes with animation
     setTimeout(() => {
       fitView({ 
-        padding: 0.1, 
+        padding: 0.2, 
+        includeHiddenNodes: false,
         duration: 400,
-        maxZoom: 1,
-        minZoom: 0.5
+        maxZoom: 1.5,
+        minZoom: 0.1
       })
     }, 50)
 

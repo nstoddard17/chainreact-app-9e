@@ -56,12 +56,14 @@ import { useAIVariables } from '@/hooks/useAIVariables'
 import { AIFieldControl } from './AIFieldControl'
 import { cn } from '@/lib/utils'
 import { AIAgentFlowBuilder } from './AIAgentFlowBuilder'
-import { AIAgentSimpleFlowBuilder } from './AIAgentSimpleFlowBuilder'
+import AIAgentVisualChainBuilder from './AIAgentVisualChainBuilder'
+import { ChainActionConfigModal } from './ChainActionConfigModal'
 
 interface AIAgentModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (config: any) => void
+  onChainsUpdate?: (chains: any) => void
   initialConfig?: any
   nodes: any[]
   currentNodeId?: string
@@ -111,6 +113,7 @@ export function AIAgentModal({
   isOpen,
   onClose,
   onSave,
+  onChainsUpdate,
   initialConfig = {},
   nodes,
   currentNodeId,
@@ -143,6 +146,8 @@ export function AIAgentModal({
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [chains, setChains] = useState<any[]>(initialConfig.chains || [])
+  const [showActionDialog, setShowActionDialog] = useState(false)
+  const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
 
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const instructionsRef = useRef<HTMLTextAreaElement>(null)
@@ -678,9 +683,23 @@ export function AIAgentModal({
 
               {/* Chains Tab - New Visual Builder */}
               <TabsContent value="chains" className="h-[500px] p-0 overflow-hidden">
-                <AIAgentSimpleFlowBuilder
+                <AIAgentVisualChainBuilder
                   chains={chains}
-                  onChainsChange={setChains}
+                  onChainsChange={(newChains) => {
+                    setChains(newChains)
+                    // Propagate changes to parent for real-time sync
+                    if (onChainsUpdate) {
+                      onChainsUpdate(newChains)
+                    }
+                  }}
+                  onOpenActionDialog={() => {
+                    // Open action selection modal
+                    setShowActionDialog(true)
+                  }}
+                  onActionSelect={(callback) => {
+                    // Set the callback for when an action is selected
+                    setAiAgentActionCallback(() => callback)
+                  }}
                 />
               </TabsContent>
 
@@ -904,6 +923,24 @@ export function AIAgentModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Action Selection Modal for AI Agent Chains */}
+      {showActionDialog && (
+        <ChainActionConfigModal
+          isOpen={showActionDialog}
+          onClose={() => {
+            setShowActionDialog(false)
+            setAiAgentActionCallback(null)
+          }}
+          onSave={(actionType, providerId, config) => {
+            if (aiAgentActionCallback) {
+              aiAgentActionCallback(actionType, providerId, config)
+            }
+            setShowActionDialog(false)
+            setAiAgentActionCallback(null)
+          }}
+        />
+      )}
     </TooltipProvider>
   )
 }
