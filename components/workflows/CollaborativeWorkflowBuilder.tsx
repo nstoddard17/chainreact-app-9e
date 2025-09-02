@@ -203,6 +203,7 @@ const useWorkflowBuilderState = () => {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isRebuildingAfterSave, setIsRebuildingAfterSave] = useState(false)
   const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
+  const isProcessingChainsRef = useRef(false)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -478,43 +479,112 @@ const useWorkflowBuilderState = () => {
     const nodeToRemove = allNodes.find((n) => n.id === nodeId)
     if (!nodeToRemove) return
     
-    // Clear configuration preferences for the deleted node
-    const clearNodePreferences = async () => {
-      try {
-        const nodeType = nodeToRemove.data.type
-        const providerId = nodeToRemove.data.providerId
-        const nodeId = nodeToRemove.id
+    // Check if this is an AI Agent node
+    const isAIAgent = nodeToRemove.data?.type === 'ai_agent'
+    
+    // If it's an AI Agent, collect all child nodes to delete
+    let nodesToDelete = [nodeId]
+    if (isAIAgent) {
+      console.log('🗑️ [WorkflowBuilder] Deleting AI Agent node and all its chains')
+      console.log('  - AI Agent ID:', nodeId)
+      console.log('  - Total nodes to check:', allNodes.length)
+      
+      // First, let's log all Add Action nodes to see what we have
+      const allAddActionNodes = allNodes.filter(n => n.type === 'addAction')
+      console.log('  - All Add Action nodes in workflow:', allAddActionNodes.map(n => ({
+        id: n.id,
+        parentAIAgentId: n.data?.parentAIAgentId,
+        parentId: n.data?.parentId,
+        chainIndex: n.data?.parentChainIndex
+      })))
+      
+      // Find all nodes that are children of this AI Agent
+      const childNodes = allNodes.filter(n => {
+        // Don't delete the AI Agent itself (already in list)
+        if (n.id === nodeId) return false
         
-        // Clear our enhanced config persistence data
-        if (currentWorkflow?.id && nodeId && nodeType) {
-          try {
-            console.log('🔄 [WorkflowBuilder] Clearing saved node config:', {
-              workflowId: currentWorkflow.id,
-              nodeId: nodeId,
-              nodeType: nodeType
-            });
-            
-            await clearNodeConfig(currentWorkflow.id, nodeId, nodeType)
-            
-            console.log('✅ [WorkflowBuilder] Node configuration cleared from persistence layer');
-          } catch (configError) {
-            console.error('❌ [WorkflowBuilder] Failed to clear node configuration from persistence layer:', configError);
+        // Check if it's a direct child of the AI Agent (has parentAIAgentId)
+        if (n.data?.parentAIAgentId === nodeId) {
+          console.log(`  - Found child via parentAIAgentId: ${n.id}`)
+          return true
+        }
+        
+        // Only delete Add Action nodes that are specifically part of AI Agent chains
+        // Don't delete regular workflow plus buttons that might be after the AI agent
+        if (n.type === 'addAction') {
+          // Only delete if it has the AI Agent as parent via data field
+          // This ensures it's actually a chain plus button, not a regular workflow plus button
+          if (n.data?.parentAIAgentId === nodeId && n.data?.isAIAgentChild) {
+            console.log(`  - Found chain Add Action via parentAIAgentId: ${n.id}`)
+            return true
+          }
+          // Also check if the parentId points to a node that's a child of this AI Agent
+          const parentNode = allNodes.find(pn => pn.id === n.data?.parentId)
+          if (parentNode?.data?.isAIAgentChild && parentNode?.data?.parentAIAgentId === nodeId) {
+            console.log(`  - Found Add Action via parent node: ${n.id}`)
+            return true
           }
         }
         
-        if (nodeType && providerId) {
+        // Check if it's part of an AI Agent chain (has the AI Agent ID in its ID)
+        if (n.id.includes(`${nodeId}-chain`) || n.id.includes(`${nodeId}-rt-chain`)) {
+          console.log(`  - Found chain node via ID pattern: ${n.id}`)
+          return true
+        }
+        
+        return false
+      })
+      
+      // Add all child nodes to the delete list
+      childNodes.forEach(child => {
+        nodesToDelete.push(child.id)
+        console.log(`  ✓ Will delete: ${child.id} (${child.data?.title || child.data?.type || 'Add Action'})`)
+      })
+      
+      console.log(`🗑️ [WorkflowBuilder] Total nodes to delete: ${nodesToDelete.length}`)
+    }
+    
+    // Clear configuration preferences for all deleted nodes
+    const clearNodePreferences = async () => {
+      try {
+        // Clear configurations for all nodes being deleted
+        for (const deletingNodeId of nodesToDelete) {
+          const nodeToClear = allNodes.find(n => n.id === deletingNodeId)
+          if (!nodeToClear) continue
           
-          // Since we can't easily identify which preferences belong to which node,
-          // we'll clear ALL preferences for this node type and provider
-          // This is a temporary solution until we implement proper node isolation
-          const response = await fetch(`/api/user/config-preferences?nodeType=${encodeURIComponent(nodeType)}&providerId=${encodeURIComponent(providerId)}`, {
-            method: "DELETE"
-          })
+          const nodeType = nodeToClear.data.type
+          const providerId = nodeToClear.data.providerId
           
-          if (response.ok) {
-            console.log('✅ [WorkflowBuilder] Node preferences cleared');
-          } else {
-            console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
+          // Clear our enhanced config persistence data
+          if (currentWorkflow?.id && deletingNodeId && nodeType) {
+            try {
+              console.log('🔄 [WorkflowBuilder] Clearing saved node config:', {
+                workflowId: currentWorkflow.id,
+                nodeId: deletingNodeId,
+                nodeType: nodeType
+              });
+              
+              await clearNodeConfig(currentWorkflow.id, deletingNodeId, nodeType)
+              
+              console.log('✅ [WorkflowBuilder] Node configuration cleared from persistence layer');
+            } catch (configError) {
+              console.error('❌ [WorkflowBuilder] Failed to clear node configuration from persistence layer:', configError);
+            }
+          }
+          
+          if (nodeType && providerId) {
+            // Since we can't easily identify which preferences belong to which node,
+            // we'll clear ALL preferences for this node type and provider
+            // This is a temporary solution until we implement proper node isolation
+            const response = await fetch(`/api/user/config-preferences?nodeType=${encodeURIComponent(nodeType)}&providerId=${encodeURIComponent(providerId)}`, {
+              method: "DELETE"
+            })
+            
+            if (response.ok) {
+              console.log('✅ [WorkflowBuilder] Node preferences cleared');
+            } else {
+              console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
+            }
           }
         }
       } catch (error) {
@@ -559,14 +629,23 @@ const useWorkflowBuilderState = () => {
     // Find nodes that come after the deleted node
     const outgoingEdges = allEdges.filter(e => e.source === nodeId)
     
-    // Remove the node and all related edges
-    const nodesAfterRemoval = allNodes.filter((n: Node) => n.id !== nodeId)
-    const edgesAfterRemoval = allEdges.filter((e: Edge) => e.source !== nodeId && e.target !== nodeId)
-    
-    // Remove any add action nodes that were connected to this node
-    const cleanedNodes = nodesAfterRemoval.filter((n: Node) => 
-      !(n.type === "addAction" && n.data.parentId === nodeId)
+    // Remove all nodes in the delete list and their related edges
+    const nodesAfterRemoval = allNodes.filter((n: Node) => !nodesToDelete.includes(n.id))
+    const edgesAfterRemoval = allEdges.filter((e: Edge) => 
+      !nodesToDelete.includes(e.source) && !nodesToDelete.includes(e.target)
     )
+    
+    // Remove any add action nodes that were connected to deleted nodes
+    const cleanedNodes = nodesAfterRemoval.filter((n: Node) => {
+      // Check if this is an add action node connected to any deleted node
+      if (n.type === "addAction") {
+        const parentId = n.data.parentId
+        if (parentId && nodesToDelete.includes(parentId)) {
+          return false
+        }
+      }
+      return true
+    })
     
     // If there was a previous node, reconnect it to the nodes that were after the deleted node
     let updatedEdges = edgesAfterRemoval
@@ -588,21 +667,30 @@ const useWorkflowBuilderState = () => {
     setNodes(cleanedNodes)
     setEdges(updatedEdges)
     
-    // Remove the node from the workflow store
-    removeNode(nodeId)
+    // Remove all deleted nodes from the workflow store
+    nodesToDelete.forEach(deletedNodeId => {
+      removeNode(deletedNodeId)
+    })
     
     // Now rebuild the add action button logic
     setTimeout(() => {
       const currentNodes = getNodes()
       const currentEdges = getEdges()
-      const remainingCustomNodes = currentNodes.filter((n: Node) => n.type === "custom")
+      // Only filter out nodes that are being deleted
+      const remainingCustomNodes = currentNodes.filter((n: Node) => 
+        n.type === "custom" && 
+        !nodesToDelete.includes(n.id)
+      )
       
       if (remainingCustomNodes.length === 0) {
         return
       }
       
       // Remove all existing add action nodes and their edges
-      const nodesWithoutAddActions = currentNodes.filter((n: Node) => n.type !== "addAction")
+      const nodesWithoutAddActions = currentNodes.filter((n: Node) => 
+        n.type !== "addAction" && 
+        !nodesToDelete.includes(n.id)
+      )
       const edgesWithoutAddActions = currentEdges.filter((e: Edge) => {
         const targetNode = currentNodes.find((n: Node) => n.id === e.target)
         const sourceNode = currentNodes.find((n: Node) => n.id === e.source)
@@ -610,11 +698,15 @@ const useWorkflowBuilderState = () => {
       })
       
       // Sort remaining custom nodes by Y position to maintain proper order
-      const sortedNodes = remainingCustomNodes.sort((a, b) => a.position.y - b.position.y)
+      // Exclude AI Agent child nodes from being considered as last node
+      const sortedNodes = remainingCustomNodes
+        .filter(n => !n.data?.isAIAgentChild)
+        .sort((a, b) => a.position.y - b.position.y)
       
-      // Find the actual last node in the workflow chain
+      // Find the actual last node in the main workflow chain (not AI Agent chains)
       const lastNode = sortedNodes.find(node => {
         // A node is the last node if no other custom node has it as a source
+        // and it's not an AI Agent child node
         return !edgesWithoutAddActions.some(edge => 
           edge.source === node.id && 
           sortedNodes.some(n => n.id === edge.target)
@@ -657,8 +749,17 @@ const useWorkflowBuilderState = () => {
       try {
         if (currentWorkflow?.id) {
           // Get current nodes and edges from React Flow (same as handleSave)
-          const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-          const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+          // Only filter out the nodes that are being deleted
+          const reactFlowNodes = getNodes().filter((n: Node) => 
+            n.type === 'custom' && 
+            !nodesToDelete.includes(n.id)
+          )
+          const reactFlowEdges = getEdges().filter((e: Edge) => 
+            reactFlowNodes.some((n: Node) => n.id === e.source) && 
+            reactFlowNodes.some((n: Node) => n.id === e.target) &&
+            !nodesToDelete.includes(e.source) &&
+            !nodesToDelete.includes(e.target)
+          )
 
           // Map to database format (same as handleSave)
           const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
@@ -1275,6 +1376,20 @@ const useWorkflowBuilderState = () => {
     const parentNode = getNodes().find((n) => n.id === sourceNodeInfo.parentId)
     if (!parentNode) return null
     
+    // Check if this is an AI Agent with chains
+    const isAIAgent = action.type === 'ai_agent';
+    const chainsArray = Array.isArray(config?.chains) ? config.chains : config?.chains?.chains;
+    const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0;
+    
+    if (isAIAgent) {
+      console.log('🤖 [WorkflowBuilder] Creating AI Agent node:', {
+        nodeId: `node-${Date.now()}`,
+        hasChains,
+        chainsCount: chainsArray?.length || 0,
+        configStructure: config?.chains
+      });
+    }
+    
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, 
@@ -1287,9 +1402,13 @@ const useWorkflowBuilderState = () => {
         description: action.description,
         onConfigure: handleConfigureNode, 
         onDelete: handleDeleteNodeWithConfirmation,
-        onAddChain: action.type === 'ai_agent' ? handleAddChain : undefined,
+        // Only show Add Chain button if it's an AI Agent without chains
+        onAddChain: isAIAgent && !hasChains ? handleAddChain : undefined,
         providerId: integration.id, 
-        config 
+        config,
+        // Set hasChains flag for AI Agents
+        hasChains: isAIAgent ? hasChains : undefined,
+        chainCount: isAIAgent && hasChains ? chainsArray.length : undefined
       },
     }
     
@@ -1454,7 +1573,16 @@ const useWorkflowBuilderState = () => {
         if (node.id === context.id) {
           // Check if this is an AI Agent node with chains
           const isAIAgent = node.data?.type === 'ai_agent';
-          const hasChains = newConfig?.chains && Array.isArray(newConfig.chains) && newConfig.chains.length > 0;
+          // Handle both formats: newConfig.chains (array) or newConfig.chains.chains (nested)
+          const chainsArray = Array.isArray(newConfig?.chains) ? newConfig.chains : newConfig?.chains?.chains;
+          const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0;
+          
+          console.log('🔄 [WorkflowBuilder] Updating AI Agent node:', {
+            nodeId: node.id,
+            isAIAgent,
+            hasChains,
+            chainsCount: chainsArray?.length || 0
+          });
           
           // Build updated node data
           const updatedData = {
@@ -1466,7 +1594,12 @@ const useWorkflowBuilderState = () => {
           if (isAIAgent && hasChains) {
             updatedData.onAddChain = undefined;
             updatedData.hasChains = true;
-            updatedData.chainCount = newConfig.chains.length;
+            updatedData.chainCount = chainsArray.length;
+            console.log('✅ [WorkflowBuilder] Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
+          } else if (isAIAgent) {
+            // Ensure we preserve the hasChains state even if config doesn't have chains
+            updatedData.hasChains = node.data.hasChains || false;
+            updatedData.chainCount = node.data.chainCount || 0;
           }
           
           const updatedNode = { ...node, data: updatedData };
@@ -1589,7 +1722,9 @@ const useWorkflowBuilderState = () => {
             providerId: n.data.providerId as string | undefined,
             isTrigger: n.data.isTrigger as boolean | undefined,
             title: n.data.title as string | undefined,
-            description: n.data.description as string | undefined
+            description: n.data.description as string | undefined,
+            hasChains: n.data.hasChains as boolean | undefined,
+            chainCount: n.data.chainCount as number | undefined
           },
         };
       })
@@ -2489,7 +2624,8 @@ const useWorkflowBuilderState = () => {
     handleNavigateWithoutSaving,
     showDiscordConnectionModal,
     setShowDiscordConnectionModal,
-    handleAddNodeBetween
+    handleAddNodeBetween,
+    isProcessingChainsRef
   }
 }
 
@@ -2597,7 +2733,7 @@ function WorkflowBuilderContent() {
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
-    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow, handleAddNodeBetween
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow, handleAddNodeBetween, isProcessingChainsRef
   } = useWorkflowBuilderState()
 
   // Add handleAddNodeBetween to all custom edges
@@ -3299,6 +3435,12 @@ function WorkflowBuilderContent() {
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
               onChainsUpdate={(chainsData) => {
+                // DISABLED: Real-time update to prevent duplicate chain processing
+                // Chains will be added when the modal is saved via onSave callback
+                console.log('🔄 [WorkflowBuilder] Chains update received (will process on save):', chainsData);
+                return; // Exit early to prevent duplicate processing
+                
+                /* DISABLED TO PREVENT DUPLICATE PROCESSING
                 // Real-time update of chains in the main workflow
                 console.log('🔄 [WorkflowBuilder] Real-time chains update:', chainsData);
                 
@@ -3333,7 +3475,13 @@ function WorkflowBuilderContent() {
                       // Remove nodes with rt-chain in ID
                       if (n.id.includes('-rt-chain')) return false;
                       // Remove Add Action nodes that belong to AI Agent chains
-                      if (n.type === 'addAction' && (n.id.includes('add-action-' + aiAgentNode.id) || n.id.includes('-rt-chain'))) return false;
+                      if (n.type === 'addAction') {
+                        if (n.id.includes('add-action-' + aiAgentNode.id) || n.id.includes('-rt-chain')) return false;
+                        if (n.data?.parentAIAgentId === aiAgentNode.id) return false;
+                        // Also check if the Add Action's parent is a child of this AI Agent
+                        const parentNode = currentNodes.find(pn => pn.id === n.data?.parentId);
+                        if (parentNode?.data?.parentAIAgentId === aiAgentNode.id) return false;
+                      }
                       return true;
                     });
                     
@@ -3482,7 +3630,11 @@ function WorkflowBuilderContent() {
                               type: 'custom',
                               animated: true,
                               style: { stroke: '#94a3b8', strokeWidth: 2 },
-                              data: {}
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(aiAgentId, chainNodes[0], pos);
+                                }
+                              }
                             });
                           }
                           
@@ -3501,7 +3653,7 @@ function WorkflowBuilderContent() {
                                 style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5,5' }
                               });
                             } else {
-                              // Regular edge between action nodes
+                              // Regular edge between action nodes with plus button
                               newEdges.push({
                                 id: `edge-rt-chain${chainIndex}-link${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                                 source: currentNode,
@@ -3509,7 +3661,11 @@ function WorkflowBuilderContent() {
                                 type: 'custom',
                                 animated: true,
                                 style: { stroke: '#94a3b8', strokeWidth: 2 },
-                                data: {}
+                                data: {
+                                  onAddNode: (pos: { x: number, y: number }) => {
+                                    handleAddNodeBetween(currentNode, nextNode, pos);
+                                  }
+                                }
                               });
                             }
                           }
@@ -3520,6 +3676,7 @@ function WorkflowBuilderContent() {
                     });
                   }, 50); // Small delay to ensure nodes are created first
                 }
+                */
               }}
               onSave={async (config) => {
                 console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
@@ -3530,8 +3687,17 @@ function WorkflowBuilderContent() {
                 // Save the AI Agent configuration
                 await handleSaveConfiguration(configuringNode, config);
                 
+                // Prevent duplicate chain processing - check and set flag immediately
+                if (isProcessingChainsRef.current) {
+                  console.log('⚠️ [WorkflowBuilder] Already processing chains, skipping duplicate call');
+                  return;
+                }
+                
+                isProcessingChainsRef.current = true;
+                
                 // Process chains after a small delay to ensure state is updated
                 setTimeout(() => {
+                  
                   // Check if we have the new format with layout info or old format
                   const chainsData = config.chains?.chains || config.chains;
                   const aiAgentPosition = config.chains?.aiAgentPosition;
@@ -3573,13 +3739,19 @@ function WorkflowBuilderContent() {
                       console.log('❌ [WorkflowBuilder] AI Agent node not found, skipping chain creation');
                       return currentNodes; // Return unchanged nodes
                     }
+                    
+                    // Use the actual found node ID consistently throughout
+                    const actualAIAgentId = aiAgentNode.id;
+                    console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
+                    
                     // For each chain, create the action nodes
+                    console.log(`🔄 [WorkflowBuilder] Processing ${chainsData.length} chains`);
                     chainsData.forEach((chain, chainIndex) => {
-                      console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex}:`, chain);
+                      console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex} with ${chain?.length || 0} actions:`, chain);
                       if (Array.isArray(chain) && chain.length > 0) {
                         // Create separate chain with proper connection to AI Agent
-                        const actualAIAgentId = aiAgentNode.id; // Use the actual found node ID
-                        let previousNodeId = null;
+                        let previousNodeId: string | null = null;
+                        let lastPosition: { x: number; y: number } | null = null;
                         
                         // Create nodes for each action in the chain
                         chain.forEach((action, actionIndex) => {
@@ -3588,7 +3760,7 @@ function WorkflowBuilderContent() {
                           const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === action.type);
                           
                           // Use the position from the AI Agent builder if available
-                          let nodePosition;
+                          let nodePosition: { x: number; y: number };
                           if (action.position) {
                             // Use exact position from AI Agent builder
                             nodePosition = {
@@ -3639,7 +3811,11 @@ function WorkflowBuilderContent() {
                               type: 'custom',
                               animated: true,
                               style: { stroke: '#94a3b8', strokeWidth: 2 },
-                              data: {}  // onAddNode will be added dynamically when edges are rendered
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(actualAIAgentId, newNodeId, pos);
+                                }
+                              }
                             };
                             newEdgesToAdd.push(newEdge);
                           } else if (previousNodeId) {
@@ -3652,17 +3828,21 @@ function WorkflowBuilderContent() {
                               type: 'custom',
                               animated: true,
                               style: { stroke: '#94a3b8', strokeWidth: 2 },
-                              data: {}  // onAddNode will be added dynamically when edges are rendered
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(previousNodeId, newNodeId, pos);
+                                }
+                              }
                             };
                             newEdgesToAdd.push(newEdge);
                           }
                           
                           previousNodeId = newNodeId;
+                          lastPosition = nodePosition;
                         });
                         
                         // Add an "Add Action" node at the end of each chain
-                        if (previousNodeId) {
-                          const lastNode = newNodesToAdd[newNodesToAdd.length - 1];
+                        if (previousNodeId && lastPosition) {
                           const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
                           const randomId = Math.random().toString(36).substr(2, 9);
                           const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
@@ -3670,19 +3850,19 @@ function WorkflowBuilderContent() {
                             id: addActionId,
                             type: 'addAction',
                             position: { 
-                              x: lastNode.position.x, 
-                              y: lastNode.position.y + 160 
+                              x: lastPosition.x, 
+                              y: lastPosition.y + 160 
                             },
                             data: {
                               parentId: previousNodeId,
                               isAIAgentChild: true,
                               parentAIAgentId: actualAIAgentId,
                               parentChainIndex: chainIndex,
-                              onClick: () => handleAddActionClick({ id: previousNodeId, position: lastNode.position })
+                              onClick: () => handleAddActionClick(addActionId, previousNodeId)
                             }
                           };
                           newNodesToAdd.push(addActionNode);
-                          console.log(`🔄 [WorkflowBuilder] Added Add Action node for chain ${chainIndex}`);
+                          console.log(`🔄 [WorkflowBuilder] Created Add Action node for chain ${chainIndex}: ${addActionId} with parent AI Agent: ${actualAIAgentId}`);
                           
                           // Add edge to Add Action node - use unique timestamp and random for edge ID
                           const edgeRandomId = Math.random().toString(36).substr(2, 9);
@@ -3703,30 +3883,64 @@ function WorkflowBuilderContent() {
                       }
                     });
                     
+                    // Log summary of what was created
+                    const addActionNodesCreated = newNodesToAdd.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] Created ${addActionNodesCreated.length} Add Action nodes for ${chainsData.length} chains`);
+                    addActionNodesCreated.forEach(n => {
+                      console.log(`  - Add Action node: ${n.id} for chain ${n.data.parentChainIndex}`);
+                    });
+                    
                     // Update nodes - remove existing AI Agent children and add new ones
                     console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
                     
                     // First remove any existing AI Agent child nodes and Add Action nodes
+                    // Use the actual AI Agent node ID found above
+                    console.log(`🔄 [WorkflowBuilder] Filtering nodes for AI Agent: ${actualAIAgentId}`);
+                    
+                    // Log all Add Action nodes before filtering
+                    const allAddActionNodes = currentNodes.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] All Add Action nodes before filtering:`, allAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      parentId: n.data?.parentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
+                    const removedNodes = [];
                     const filteredNodes = currentNodes.filter(n => {
-                      // Remove AI Agent child nodes
-                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentNodeId) return false;
-                      // Remove Add Action nodes that belong to this AI Agent
-                      if (n.type === 'addAction' && n.id.includes(`add-action-${aiAgentNodeId}`)) return false;
+                      // Remove AI Agent child nodes EXCEPT Add Action nodes (plus buttons)
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === actualAIAgentId && n.type !== 'addAction') {
+                        removedNodes.push({ id: n.id, type: 'AI Agent child' });
+                        return false;
+                      }
+                      // Keep ALL Add Action nodes (plus buttons) - don't remove any
                       return true;
                     });
+                    console.log(`🔄 [WorkflowBuilder] Removed ${removedNodes.length} nodes:`, removedNodes);
                     
-                    // Update the AI Agent node to remove onAddChain - use the actual found node ID
-                    const actualAIAgentId = aiAgentNode.id;
+                    // Log the Add Action nodes we're about to add
+                    const newAddActionNodes = newNodesToAdd.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] New Add Action nodes to add:`, newAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      parentId: n.data?.parentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
+                    // Update the AI Agent node to remove onAddChain
                     const updatedFilteredNodes = filteredNodes.map(node => {
                       if (node.id === actualAIAgentId) {
                         console.log(`🔄 [WorkflowBuilder] Updating AI Agent node ${actualAIAgentId} to remove onAddChain`);
+                        // Preserve any existing hasChains flag from handleSaveConfiguration
                         return {
                           ...node,
                           data: {
                             ...node.data,
                             onAddChain: undefined,  // Remove the Add Chain button
                             hasChains: true,
-                            chainCount: chainsData.length
+                            chainCount: chainsData.length,
+                            // Preserve the config that was saved
+                            config: node.data?.config
                           }
                         };
                       }
@@ -3738,16 +3952,46 @@ function WorkflowBuilderContent() {
                     const updatedNodes = [...updatedFilteredNodes, ...newNodesToAdd];
                     console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length}`);
                     
+                    // Log final Add Action nodes in the updated nodes
+                    const finalAddActionNodes = updatedNodes.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] Final Add Action nodes in workflow:`, finalAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
                     // Store edges to add them after nodes are updated
                     if (newEdgesToAdd.length > 0) {
                       setTimeout(() => {
                         setEdges((eds) => {
-                          // First remove any existing AI Agent chain edges and Add Action edges
-                          const filteredEdges = eds.filter(e => 
-                            !e.id.startsWith('edge-chain') && 
-                            !e.id.startsWith('edge-aiagent-chain') &&
-                            !e.id.startsWith('edge-to-addaction')
-                          );
+                          // Remove existing edges connected to AI Agent child nodes being removed
+                          // But KEEP edges to/from Add Action nodes (plus buttons)
+                          const filteredEdges = eds.filter(e => {
+                            const sourceNode = currentNodes.find(n => n.id === e.source);
+                            const targetNode = currentNodes.find(n => n.id === e.target);
+                            
+                            // Keep edges to/from Add Action nodes
+                            if (sourceNode?.type === 'addAction' || targetNode?.type === 'addAction') {
+                              return true;
+                            }
+                            
+                            // Remove edges between AI agent child nodes (non-Add Action)
+                            if (sourceNode?.data?.isAIAgentChild && sourceNode?.data?.parentAIAgentId === actualAIAgentId &&
+                                targetNode?.data?.isAIAgentChild && targetNode?.data?.parentAIAgentId === actualAIAgentId) {
+                              console.log(`🔄 [WorkflowBuilder] Removing edge between AI Agent children: ${e.id}`);
+                              return false;
+                            }
+                            
+                            // Remove edge from AI agent to its child nodes (non-Add Action)
+                            if (sourceNode?.id === actualAIAgentId && 
+                                targetNode?.data?.isAIAgentChild && 
+                                targetNode?.data?.parentAIAgentId === actualAIAgentId) {
+                              console.log(`🔄 [WorkflowBuilder] Removing edge from AI Agent to child: ${e.id}`);
+                              return false;
+                            }
+                            
+                            return true;
+                          });
                           
                           // Deduplicate new edges before adding
                           const edgeIdSet = new Set(filteredEdges.map(e => e.id));
@@ -3770,9 +4014,16 @@ function WorkflowBuilderContent() {
                     return updatedNodes;
                   }); // End of setNodes
                     
-                  // Mark as having unsaved changes and update view after state updates
-                  setTimeout(() => {
-                    setHasUnsavedChanges(true);
+                  // Auto-save after chains are added and update view
+                  setTimeout(async () => {
+                    // Auto-save the workflow with the chains
+                    try {
+                      await handleSave();
+                      console.log('✅ [WorkflowBuilder] Workflow saved after adding AI Agent chains');
+                    } catch (error) {
+                      console.error('❌ [WorkflowBuilder] Failed to save workflow after adding chains:', error);
+                      setHasUnsavedChanges(true);
+                    }
                     
                     // Fit view to show all nodes with proper settings
                     try {
@@ -3796,13 +4047,24 @@ function WorkflowBuilderContent() {
                       title: "AI Agent Chains Added",
                       description: `${chainCount} chain(s) have been added to the workflow`
                     });
+                    
+                    // Reset the processing flag
+                    isProcessingChainsRef.current = false;
                   }, 300);
+                  } else {
+                    // Reset flag if no chains to process
+                    isProcessingChainsRef.current = false;
                   }
                 }, 500); // Longer delay to ensure node is added to state
                 
                 // Close the modal after successful save
                 setConfiguringNode(null);
                 setPendingNode(null);
+                
+                // Ensure flag is reset after processing completes or if we exit early
+                setTimeout(() => {
+                  isProcessingChainsRef.current = false;
+                }, 1000); // Reset after all processing should be complete
               }}
               onUpdateConnections={(sourceNodeId, targetNodeId) => {
                 // Create or update the edge between the selected input node and the AI Agent
