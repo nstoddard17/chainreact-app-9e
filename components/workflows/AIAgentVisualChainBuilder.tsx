@@ -276,7 +276,7 @@ const CustomEdgeWithButton = ({
       <path
         d={edgePath}
         fill="none"
-        strokeWidth={20}
+        strokeWidth={40}
         stroke="transparent"
         style={{ pointerEvents: 'stroke' }}
       />
@@ -734,8 +734,35 @@ function AIAgentVisualChainBuilder({
     const centerX = 400 // Center of typical viewport
     const defaultChainId = 'chain-default'
     
-    const initialNodes: Node[] = [
-      {
+    // Try to get trigger from workflow data if available
+    let triggerNode = null
+    if (workflowData?.nodes) {
+      const workflowTrigger = workflowData.nodes.find(n => n.data?.isTrigger)
+      if (workflowTrigger) {
+        // Use the actual trigger from the workflow
+        const triggerComponent = ALL_NODE_COMPONENTS.find(c => c.type === workflowTrigger.data?.type)
+        triggerNode = {
+          id: 'trigger',
+          type: 'custom',
+          position: { x: centerX, y: 50 },
+          data: {
+            ...workflowTrigger.data,
+            title: triggerComponent?.title || workflowTrigger.data?.title || 'Trigger',
+            description: triggerComponent?.description || workflowTrigger.data?.description || 'When workflow starts',
+            onConfigure: () => {
+              toast({
+                title: "Trigger Configuration",
+                description: "Trigger is configured in the main workflow"
+              })
+            }
+          }
+        }
+      }
+    }
+    
+    // Default trigger if none found
+    if (!triggerNode) {
+      triggerNode = {
         id: 'trigger',
         type: 'custom',
         position: { x: centerX, y: 50 },
@@ -751,7 +778,11 @@ function AIAgentVisualChainBuilder({
             })
           }
         }
-      },
+      }
+    }
+    
+    const initialNodes: Node[] = [
+      triggerNode,
       {
         id: 'ai-agent',
         type: 'custom',
@@ -851,7 +882,7 @@ function AIAgentVisualChainBuilder({
         })
       }
     }, 100)
-  }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect])
+  }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect, workflowData])
   
   // Initialize with workflow data or default setup
   useEffect(() => {
