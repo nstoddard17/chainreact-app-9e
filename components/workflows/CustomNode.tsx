@@ -3,7 +3,7 @@
 import React, { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Loader2 } from "lucide-react"
+import { Settings, Trash2, TestTube, Loader2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
@@ -18,6 +18,7 @@ interface CustomNodeData {
   config?: Record<string, any>
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
+  onAddChain?: (nodeId: string) => void
   error?: string
   executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
   isActiveExecution?: boolean
@@ -36,6 +37,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     config,
     onConfigure,
     onDelete,
+    onAddChain,
     error,
     executionStatus,
     isActiveExecution,
@@ -236,6 +238,26 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {type === 'ai_agent' && onAddChain && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAddChain(id)
+                      }}
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    >
+                      <Plus />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Add New Chain</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {nodeHasConfiguration() && (
               <TooltipProvider>
                 <Tooltip>
