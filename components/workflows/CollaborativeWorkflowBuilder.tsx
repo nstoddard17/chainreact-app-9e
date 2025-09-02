@@ -2513,7 +2513,7 @@ const CustomEdgeWithButton = ({
       <path
         d={edgePath}
         fill="none"
-        strokeWidth={20}
+        strokeWidth={40}
         stroke="transparent"
         style={{ pointerEvents: 'stroke' }}
       />
@@ -3406,7 +3406,24 @@ function WorkflowBuilderContent() {
                     // Store node map for edge creation
                     window._rtNodeIdMap = nodeIdMap;
                     
-                    return [...filteredNodes, ...newNodes];
+                    // Update the AI Agent node to remove onAddChain when it has chains
+                    const updatedNodes = filteredNodes.map(node => {
+                      if (node.id === aiAgentNode.id && newNodes.length > 0) {
+                        // AI Agent has chains, remove the Add Chain button
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            onAddChain: undefined,  // Remove the Add Chain button
+                            hasChains: true,
+                            chainCount: Object.keys(nodeIdMap).length
+                          }
+                        };
+                      }
+                      return node;
+                    });
+                    
+                    return [...updatedNodes, ...newNodes];
                   });
                   
                   // Update edges - use stored node IDs
