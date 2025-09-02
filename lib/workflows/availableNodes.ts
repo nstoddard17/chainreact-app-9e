@@ -1451,7 +1451,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value",
         placeholder: "Value to search for",
         description: "The value to look for in the search column",
-        helpText: "Enter the exact value you want to find. For example, 'john@example.com' if searching in an email column. The row containing this value will be deleted."
+        helpText: "Enter the exact value you want to find. For example, 'john@example.com' if searching in an email column."
+      },
+      {
+        name: "deleteAll",
+        label: "Delete All Matches",
+        type: "boolean",
+        required: false,
+        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value" && values.deleteSearchValue,
+        defaultValue: false,
+        description: "Delete all rows that match the criteria",
+        helpText: "When enabled, ALL rows matching your search criteria will be deleted. When disabled, only the FIRST matching row will be deleted. Use with caution!"
       },
       {
         name: "deleteConditions",

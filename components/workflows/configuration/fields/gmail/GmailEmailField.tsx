@@ -84,7 +84,18 @@ export function GmailEmailField({
 
   // Handle dropdown opening to load data
   const handleDropdownOpen = (isOpen: boolean) => {
+    console.log('📧 [GmailEmailField] Dropdown opened:', {
+      isOpen,
+      fieldName: field.name,
+      fieldDynamic: field.dynamic,
+      suggestionsLength: suggestions.length,
+      hasOnDynamicLoad: !!onDynamicLoad,
+      isLoading,
+      willCallDynamicLoad: isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading
+    });
+    
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
+      console.log('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };

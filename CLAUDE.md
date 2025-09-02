@@ -153,6 +153,8 @@ When implementing significant features, fixes, or architectural changes, ALWAYS 
   - Use date headers (e.g., "## August 29, 2025") only ONCE per day
   - If multiple updates on the same day, add them to the existing date section
   - Include brief summary of changes made
+  - Use paragraph form to write the entries. This is for posts for Twitter
+  - Delete entries that are older than 8 days
   - This is REQUIRED for tracking progress and communication
 - Component templates in `/learning/templates/` if creating reusable patterns
 
@@ -160,13 +162,41 @@ This ensures knowledge is captured for future development work and team collabor
 
 ## Integration Development
 
-When adding new integrations:
-1. Create OAuth configuration in `/lib/integrations/oauthConfig.ts`
-2. Implement API client in `/lib/integrations/[provider].ts`
-3. Add workflow actions in `/lib/workflows/actions/[provider]/`
-4. Create UI components for configuration
-5. Add webhook support if available
-6. Update available integrations list
+### New Modular Architecture (After September 2025 Refactoring)
+
+When adding new integrations, follow the modular pattern established in the useDynamicOptions refactoring:
+
+1. **Define Integration in availableNodes.ts**
+   - Add actions/triggers with proper field definitions
+   - Mark dynamic fields with `dynamic: true`
+   - Include Zod schemas for validation
+
+2. **Add Field Mappings** in `/components/workflows/configuration/config/fieldMappings.ts`
+   - Map field names to resource types
+   - Group by provider for organization
+
+3. **Create Provider Options Loader** in `/components/workflows/configuration/providers/[provider]/`
+   - Use the template at `/learning/templates/provider-options-loader.template.ts`
+   - Implement `ProviderOptionsLoader` interface
+   - Handle field dependencies properly
+
+4. **Register Provider** in `/components/workflows/configuration/providers/registry.ts`
+   - Import and register your loader
+   - Provider will automatically be used by the refactored hook
+
+5. **Create API Data Handler** at `/app/api/integrations/[provider]/data/route.ts`
+   - Handle different data types for your provider
+   - Return formatted data for dropdowns
+
+6. **Implement Action Handlers** in `/lib/workflows/actions/[provider]/`
+   - Create handler functions for each action
+   - Register in `executeNode.ts`
+
+7. **Add OAuth Configuration** if needed in `/lib/integrations/oauthConfig.ts`
+
+**Time Estimate**: 30 minutes for simple providers, 2-4 hours for complex ones
+
+For detailed instructions, see `/learning/docs/integration-development-guide.md`
 
 ## Workflow Node Development
 

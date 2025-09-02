@@ -21,7 +21,9 @@
       "Bash(mkdir:*)",
       "Bash(tar:*)",
       "Bash(rg:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(sed:*)",
+      "Read(c:\\Users\\marcu\\OneDrive\\Pictures\\ChainReact\\New folder/**)"
     ],
     "defaultMode": "acceptEdits"
   }
