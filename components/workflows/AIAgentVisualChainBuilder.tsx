@@ -446,6 +446,9 @@ function AIAgentVisualChainBuilder({
                 ...updatedNodes[parentNodeIndex],
                 position: change.position
               }
+              
+              // Trigger immediate sync for position changes
+              setTimeout(() => syncChainsToParent(), 0)
             }
             
             // Find and update Add Action nodes that should follow this parent
@@ -469,9 +472,9 @@ function AIAgentVisualChainBuilder({
         return updatedNodes
       })
     }
-  }, [onNodesChangeBase, setNodes])
+  }, [onNodesChangeBase, setNodes, syncChainsToParent])
 
-  // Sync chains whenever nodes or edges change - with debouncing to prevent infinite loops
+  // Sync chains whenever nodes or edges change - with minimal debouncing for real-time updates
   React.useEffect(() => {
     // Only sync if we have meaningful nodes (not just AI agent and placeholders)
     const hasActualActions = nodes.some(n => 
@@ -480,15 +483,15 @@ function AIAgentVisualChainBuilder({
       n.data?.type !== 'chain_placeholder'
     )
     
-    // Use a timeout to debounce rapid changes
+    // Use a very short timeout to prevent infinite loops but keep it responsive
     const timeoutId = setTimeout(() => {
       if (hasActualActions || nodes.length > 1) {
         syncChainsToParent()
       }
-    }, 100)
+    }, 10) // Reduced from 100ms to 10ms for near real-time updates
     
     return () => clearTimeout(timeoutId)
-  }, [nodes.length, edges.length, syncChainsToParent]) // Use lengths to avoid deep comparison issues
+  }, [nodes, edges, syncChainsToParent]) // Watch actual arrays, not just lengths
 
   // Forward declare refs to avoid circular dependencies
   const handleAddToChainRef = React.useRef<(nodeId: string) => void>()
@@ -909,6 +912,8 @@ function AIAgentVisualChainBuilder({
         newNode,
         addActionNode
       ])
+      // Trigger immediate sync for real-time updates
+      setTimeout(() => syncChainsToParent(), 0)
       
       // Update edges to point to the new node and connect to Add Action node
       setEdges((eds) => [
@@ -947,7 +952,7 @@ function AIAgentVisualChainBuilder({
         })
       }, 150)
     }
-  }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView])
+  }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView, syncChainsToParent])
 
   const onConnect = useCallback((params: Connection) => {
     const newEdge: Edge = {
@@ -1032,6 +1037,8 @@ function AIAgentVisualChainBuilder({
             newNode,
             addActionNode
           ])
+          // Trigger immediate sync for real-time updates
+          setTimeout(() => syncChainsToParent(), 0)
 
           // Connect from last node to new node and from new node to Add Action
           setEdges((eds) => [...eds, 
@@ -1078,7 +1085,7 @@ function AIAgentVisualChainBuilder({
       }
     }
     }
-  }, [nodes, onOpenActionDialog, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView])
+  }, [nodes, onOpenActionDialog, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView, syncChainsToParent])
 
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {
@@ -1187,7 +1194,7 @@ function AIAgentVisualChainBuilder({
       title: "New Chain Added",
       description: "Click the + button on connections to add actions to your chain"
     })
-  }, [nodes, edges, setNodes, setEdges, handleDeleteNode, handleAddToChain, handleAddNodeBetween, fitView, toast])
+  }, [nodes, edges, setNodes, setEdges, handleDeleteNode, handleAddToChain, handleAddNodeBetween, fitView, toast, syncChainsToParent])
 
   return (
     <div className="h-[calc(95vh-400px)] min-h-[400px] w-full bg-slate-50 rounded-lg border relative">
