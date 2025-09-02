@@ -1,0 +1,350 @@
+/**
+ * Field to Resource Type Mappings
+ * Maps field names to their corresponding resource types for dynamic data loading
+ */
+
+export interface FieldMapping {
+  [fieldName: string]: string;
+}
+
+export interface NodeFieldMappings {
+  [nodeType: string]: FieldMapping;
+}
+
+// Gmail field mappings
+const gmailMappings: Record<string, FieldMapping> = {
+  gmail_trigger_new_email: {
+    from: "gmail-recent-recipients",
+    to: "gmail-recent-recipients",
+    labelIds: "gmail_labels",
+  },
+  gmail_trigger_new_attachment: {
+    from: "gmail-recent-recipients",
+    to: "gmail-recent-recipients",
+  },
+  gmail_action_send_email: {
+    to: "gmail-recent-recipients",
+    cc: "gmail-recent-recipients",
+    bcc: "gmail-recent-recipients",
+    messageId: "gmail-recent-recipients",
+    labelIds: "gmail_labels",
+  },
+  gmail_action_add_label: {
+    email: "gmail-recent-recipients",
+    labelIds: "gmail_labels",
+  },
+  gmail_action_search_email: {
+    labels: "gmail_labels",
+    labelFilters: "gmail_labels",
+    emailAddress: "gmail-recent-recipients",
+  },
+};
+
+// Discord field mappings
+const discordMappings: Record<string, FieldMapping> = {
+  discord_trigger_new_message: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    filterAuthor: "discord_members",
+  },
+  discord_action_send_message: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+  },
+  discord_action_add_reaction: {
+    channelId: "discord_channels",
+    messageId: "discord_messages",
+  },
+  discord_action_edit_message: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    messageId: "discord_messages",
+  },
+  discord_action_delete_message: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    messageId: "discord_messages",
+  },
+  discord_action_create_channel: {
+    guildId: "discord_guilds",
+  },
+  discord_action_create_category: {
+    guildId: "discord_guilds",
+  },
+  discord_action_fetch_messages: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    filterAuthor: "discord_members",
+  },
+  discord_action_remove_reaction: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    messageId: "discord_messages",
+  },
+  discord_action_update_channel: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    parentId: "discord_categories",
+  },
+  discord_action_delete_channel: {
+    channelId: "discord_channels",
+    guildId: "discord_guilds",
+    parentCategory: "discord_categories",
+  },
+  discord_action_delete_category: {
+    guildId: "discord_guilds",
+    categoryId: "discord_categories",
+  },
+  discord_action_fetch_guild_members: {
+    guildId: "discord_guilds",
+    roleFilter: "discord_roles",
+  },
+  discord_action_assign_role: {
+    guildId: "discord_guilds",
+    userId: "discord_members",
+    roleId: "discord_roles",
+  },
+  discord_action_remove_role: {
+    guildId: "discord_guilds",
+    userId: "discord_members",
+    roleId: "discord_roles",
+  },
+  discord_action_kick_member: {
+    guildId: "discord_guilds",
+    userId: "discord_members",
+  },
+  discord_action_ban_member: {
+    guildId: "discord_guilds",
+    userId: "discord_members",
+  },
+  discord_action_unban_member: {
+    guildId: "discord_guilds",
+    userId: "discord_banned_users",
+  },
+};
+
+// Slack field mappings
+const slackMappings: Record<string, FieldMapping> = {
+  slack_action_create_channel: {
+    workspaceId: "slack_workspaces",
+  },
+};
+
+// Trello field mappings
+const trelloMappings: Record<string, FieldMapping> = {
+  trello_trigger_new_card: {
+    boardId: "trello_boards",
+    listId: "trello_lists",
+  },
+  trello_trigger_card_updated: {
+    boardId: "trello_boards",
+    listId: "trello_lists",
+  },
+  trello_trigger_card_moved: {
+    boardId: "trello_boards",
+  },
+  trello_trigger_comment_added: {
+    boardId: "trello_boards",
+  },
+  trello_trigger_member_changed: {
+    boardId: "trello_boards",
+  },
+  trello_action_create_card: {
+    boardId: "trello_boards",
+    listId: "trello_lists",
+    template: "trello-card-templates",
+  },
+  trello_action_create_list: {
+    boardId: "trello_boards",
+  },
+  trello_action_move_card: {
+    boardId: "trello_boards",
+    cardId: "trello_cards",
+    listId: "trello_lists",
+  },
+};
+
+// Google Calendar field mappings
+const googleCalendarMappings: Record<string, FieldMapping> = {
+  google_calendar_action_create_event: {
+    calendarId: "google-calendars",
+    attendees: "gmail-recent-recipients",
+  },
+};
+
+// Google Sheets field mappings
+const googleSheetsMappings: Record<string, FieldMapping> = {
+  google_sheets_unified_action: {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  "google-sheets_action_create_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  "google-sheets_action_update_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+    matchColumn: "google-sheets_columns",
+  },
+  "google-sheets_action_delete_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+    matchColumn: "google-sheets_columns",
+  },
+  "google-sheets_action_list_rows": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+    filterColumn: "google-sheets_columns",
+    filterValue: "google-sheets_column_values",
+    sortColumn: "google-sheets_columns",
+    dateColumn: "google-sheets_columns",
+  },
+};
+
+// Google Drive field mappings
+const googleDriveMappings: Record<string, FieldMapping> = {
+  "google-drive:new_file_in_folder": {
+    folderId: "google-drive-folders",
+  },
+  "google-drive:new_folder_in_folder": {
+    folderId: "google-drive-folders",
+    parentFolderId: "google-drive-folders",
+  },
+  "google-drive:upload_file": {
+    folderId: "google-drive-folders",
+  },
+  "google-drive:create_folder": {
+    parentFolderId: "google-drive-folders",
+  },
+  "google-drive:create_file": {
+    folderId: "google-drive-folders",
+  },
+  "google-drive:file_updated": {
+    folderId: "google-drive-folders",
+  },
+  google_drive_action_upload_file: {
+    folderId: "google-drive-folders",
+  },
+};
+
+// Google Docs field mappings
+const googleDocsMappings: Record<string, FieldMapping> = {
+  google_docs_action_create_document: {
+    folderId: "google-drive-folders",
+  },
+  google_docs_action_update_document: {
+    documentId: "google-docs-documents",
+  },
+  google_docs_action_share_document: {
+    documentId: "google-docs-documents",
+  },
+  google_docs_action_get_document: {
+    documentId: "google-docs-documents",
+  },
+  google_docs_action_export_document: {
+    documentId: "google-docs-documents",
+    driveFolder: "google-drive-folders",
+  },
+  google_docs_trigger_document_modified: {
+    documentId: "google-docs-documents",
+  },
+  google_docs_trigger_document_updated: {
+    documentId: "google-docs-documents",
+  },
+};
+
+// Airtable field mappings
+const airtableMappings: Record<string, FieldMapping> = {
+  airtable_action_create_record: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+  },
+  airtable_action_update_record: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+  },
+  airtable_action_list_records: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+    filterField: "airtable_fields",
+    filterValue: "airtable_field_values",
+  },
+};
+
+// Microsoft Outlook field mappings
+const outlookMappings: Record<string, FieldMapping> = {
+  "microsoft-outlook_action_send_email": {
+    to: "outlook-enhanced-recipients",
+    cc: "outlook-enhanced-recipients",
+    bcc: "outlook-enhanced-recipients",
+  },
+  "microsoft-outlook_action_forward_email": {
+    to: "outlook-enhanced-recipients",
+    cc: "outlook-enhanced-recipients",
+    bcc: "outlook-enhanced-recipients",
+    messageId: "outlook_messages",
+  },
+  "microsoft-outlook_action_create_meeting": {
+    attendees: "outlook-enhanced-recipients",
+  },
+  "microsoft-outlook_action_create_calendar_event": {
+    attendees: "outlook-enhanced-recipients",
+  },
+};
+
+// Microsoft Teams field mappings
+const teamsMappings: Record<string, FieldMapping> = {
+  "microsoft-teams_action_add_team_member": {
+    userEmail: "outlook-enhanced-recipients",
+    teamId: "teams_teams",
+  },
+};
+
+// Default field mappings for unmapped fields
+const defaultMappings: FieldMapping = {
+  channelId: "channels",
+  folderId: "folders",
+  fileId: "files",
+  documentId: "documents",
+  databaseId: "databases",
+  from: "gmail-recent-recipients",
+  to: "gmail-recent-recipients",
+  attendees: "gmail-recent-recipients",
+  labelIds: "gmail_labels",
+};
+
+// Combine all mappings
+export const fieldToResourceMap: NodeFieldMappings = {
+  ...gmailMappings,
+  ...discordMappings,
+  ...slackMappings,
+  ...trelloMappings,
+  ...googleCalendarMappings,
+  ...googleSheetsMappings,
+  ...googleDriveMappings,
+  ...googleDocsMappings,
+  ...airtableMappings,
+  ...outlookMappings,
+  ...teamsMappings,
+  default: defaultMappings,
+};
+
+/**
+ * Get resource type for a field in a specific node
+ */
+export function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
+  // First check node-specific mapping
+  const nodeMapping = fieldToResourceMap[nodeType];
+  if (nodeMapping && nodeMapping[fieldName]) {
+    return nodeMapping[fieldName];
+  }
+
+  // Fall back to default mapping
+  if (fieldToResourceMap.default[fieldName]) {
+    return fieldToResourceMap.default[fieldName];
+  }
+
+  // No mapping found
+  return null;
+}

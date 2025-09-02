@@ -5,6 +5,8 @@ import { useIntegrationStore } from "@/stores/integrationStore";
 import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore'
 import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore'
 import { DynamicOptionsState } from '../utils/types';
+import { getResourceTypeForField } from '../config/fieldMappings';
+import { formatOptionsForField } from '../utils/fieldFormatters';
 
 interface UseDynamicOptionsProps {
   nodeType?: string;
@@ -60,12 +62,27 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
+    console.log(`📍 [loadOptions] Called for field:`, { 
+      fieldName, 
+      nodeType, 
+      providerId, 
+      dependsOn, 
+      dependsOnValue, 
+      forceRefresh, 
+      silent,
+      hasNodeType: !!nodeType,
+      hasProviderId: !!providerId
+    });
+    
     // Add specific logging for troubleshooting
     if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
       console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, silent, timestamp: new Date().toISOString() });
     }
     
-    if (!nodeType || !providerId) return;
+    if (!nodeType || !providerId) {
+      console.warn('⚠️ [loadOptions] Missing nodeType or providerId, returning early');
+      return;
+    }
     
     // Auto-detect dependencies for certain fields
     if (fieldName === 'messageId' && !dependsOn) {
@@ -303,8 +320,20 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Get integration for other providers
       integration = getIntegrationByProvider(providerId);
+      console.log(`🔍 [useDynamicOptions] Looking for integration:`, {
+        providerId,
+        fieldName,
+        integrationFound: !!integration,
+        integrationId: integration?.id,
+        integrationStatus: integration?.status
+      });
+      
       if (!integration) {
-        console.warn(`No integration found for provider: ${providerId}`);
+        console.warn(`❌ No integration found for provider: ${providerId}`, {
+          fieldName,
+          resourceType,
+          nodeType
+        });
         // Only clear loading if this is still the current request
         if (activeRequestIds.current.get(cacheKey) === requestId) {
           loadingFields.current.delete(cacheKey);
@@ -320,7 +349,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         
         // Get the form values to find the base and linked table info
         const formValues = getFormValues?.() || {};
-        const baseId = formValues.baseId;
+        const baseId = extraOptions?.baseId || formValues.baseId;
         
         if (!baseId) {
           console.log('🔍 [useDynamicOptions] No baseId available for linked record loading');
@@ -337,14 +366,21 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           return;
         }
         
-        // Extract field info from the selected table's fields
-        const selectedTable = optionsCache.current.tableName?.find((table: any) => 
-          table.value === formValues.tableName
-        ) || dynamicOptions?.tableName?.find((table: any) => 
-          table.value === formValues.tableName
-        );
+        // Use tableFields from extraOptions if provided, otherwise try to get from cache
+        let tableFields = extraOptions?.tableFields;
         
-        if (!selectedTable?.fields) {
+        if (!tableFields) {
+          // Fallback to trying to get from cache
+          const selectedTable = optionsCache.current.tableName?.find((table: any) => 
+            table.value === formValues.tableName
+          ) || dynamicOptions?.tableName?.find((table: any) => 
+            table.value === formValues.tableName
+          );
+          
+          tableFields = selectedTable?.fields;
+        }
+        
+        if (!tableFields) {
           console.log('🔍 [useDynamicOptions] No table fields found for linked record loading');
           setDynamicOptions(prev => ({
             ...prev,
@@ -359,9 +395,17 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           return;
         }
         
-        // Find the field configuration
-        const fieldId = fieldName.replace('airtable_field_', '');
-        const tableField = selectedTable.fields.find((f: any) => f.id === fieldId);
+        // Find the field configuration by name (not ID)
+        // The field name is "airtable_field_Associated Project" so we extract "Associated Project"
+        const actualFieldName = fieldName.replace('airtable_field_', '');
+        const tableField = tableFields.find((f: any) => f.name === actualFieldName);
+        
+        console.log('🔍 [useDynamicOptions] Looking for field:', {
+          fieldName,
+          actualFieldName,
+          availableFields: tableFields.map((f: any) => ({ name: f.name, type: f.type, id: f.id })),
+          foundField: tableField
+        });
         
         if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
           console.log('🔍 [useDynamicOptions] Field is not a linked record field:', tableField?.type);
@@ -384,6 +428,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           // Try to guess the linked table name from the field name
           const fieldNameLower = (tableField.name || '').toLowerCase();
+          
+          // Check for common patterns
           if (fieldNameLower.includes('project')) {
             linkedTableName = 'Projects';
           } else if (fieldNameLower.includes('task')) {
@@ -394,24 +440,29 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             linkedTableName = 'Users';
           } else if (fieldNameLower.includes('customer') || fieldNameLower.includes('client')) {
             linkedTableName = 'Customers';
-          }
-          
-          if (!linkedTableName) {
-            console.log('🔍 [useDynamicOptions] Could not determine linked table name from field name');
-            setDynamicOptions(prev => ({
-              ...prev,
-              [fieldName]: []
-            }));
-            // Only clear loading if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
-              setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
+          } else if (fieldNameLower.includes('team')) {
+            linkedTableName = 'Teams';
+          } else if (fieldNameLower.includes('company') || fieldNameLower.includes('organization')) {
+            linkedTableName = 'Companies';
+          } else {
+            // Default fallback: Try to make it plural
+            // Remove common suffixes and add 's'
+            let baseName = tableField.name
+              .replace(/^Associated\s*/i, '')  // Remove "Associated" prefix
+              .replace(/\s*Links?$/i, '')      // Remove "Link" or "Links" suffix
+              .replace(/\s*Records?$/i, '');   // Remove "Record" or "Records" suffix
+            
+            // Make it plural if not already
+            if (!baseName.match(/s$/i)) {
+              linkedTableName = baseName + 's';
+            } else {
+              linkedTableName = baseName;
             }
-            return;
+            
+            console.log('🔍 [useDynamicOptions] Guessed table name from field name:', tableField.name, '->', linkedTableName);
           }
           
-          console.log('🔍 [useDynamicOptions] Guessed linked table name:', linkedTableName);
+          console.log('🔍 [useDynamicOptions] Will try linked table name:', linkedTableName);
         }
         
         console.log('🔍 [useDynamicOptions] Loading records from linked table:', linkedTableId);
@@ -524,7 +575,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               const value = records[0].fields[field];
               return value && (typeof value === 'string' || typeof value === 'number') && 
                      !Array.isArray(value);
-            });
+            }) || null;
             
             console.log(`🔍 [useDynamicOptions] Using field "${displayField}" as display field for linked records`);
           }
@@ -557,6 +608,16 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               label: label,
               recordId: record.id // Keep the actual record ID separately
             };
+          });
+          
+          console.log('🟡 [LINKED RECORDS] Formatted options for linked field:', {
+            fieldName,
+            optionsCount: formattedOptions.length,
+            firstThreeOptions: formattedOptions.slice(0, 3).map(opt => ({
+              value: opt.value,
+              label: opt.label,
+              hasDoubleColon: opt.value.includes('::')
+            }))
           });
           
           // Check if this is still the current request
@@ -858,7 +919,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const fieldValues = new Map<string, string>(); // Use Map to store value -> label
           const recordIds = new Set<string>(); // Track unique record IDs for linked fields
           
-          records.forEach(record => {
+          records.forEach((record: any) => {
             const value = record.fields?.[dependsOnValue];
             if (value != null) {
               // Handle different field types
@@ -945,7 +1006,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 }
                 
                 // Map record IDs to their display names
-                linkedRecords.forEach(record => {
+                linkedRecords.forEach((record: any) => {
                   if (recordIds.has(record.id) && displayField) {
                     const displayValue = record.fields[displayField];
                     if (displayValue) {
@@ -1141,33 +1202,18 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   useEffect(() => {
     if (!nodeType || !providerId) return;
 
-    // Set initial loading state for Airtable
-    if (providerId === 'airtable') {
-      setIsInitialLoading(true);
-    }
-
     // Preload fields that don't depend on other fields
     // Note: Exclude email fields (like 'email') since they should load on-demand only
     // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
     const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
     
-    let loadingPromises: Promise<void>[] = [];
-    
     independentFields.forEach(fieldName => {
       // Check if this field exists for this node type
       const resourceType = getResourceTypeForField(fieldName, nodeType);
       if (resourceType) {
-        const promise = loadOptions(fieldName);
-        loadingPromises.push(promise);
+        loadOptions(fieldName);
       }
     });
-    
-    // Wait for all preloading to complete for Airtable
-    if (providerId === 'airtable' && loadingPromises.length > 0) {
-      Promise.all(loadingPromises).finally(() => {
-        setIsInitialLoading(false);
-      });
-    }
     
     // Cleanup function when component unmounts
     return () => {
@@ -1205,434 +1251,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   };
 };
 
-/**
- * Helper function to determine resource type based on field name and node type
- */
-function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
-  console.log(`🔍 [getResourceTypeForField] Called with:`, { fieldName, nodeType });
-  
-  // Map field names to resource types
-  const fieldToResourceMap: Record<string, Record<string, string>> = {
-    // Gmail fields
-    gmail_trigger_new_email: {
-      from: "gmail-recent-recipients",
-      to: "gmail-recent-recipients",
-      labelIds: "gmail_labels",
-    },
-    gmail_trigger_new_attachment: {
-      from: "gmail-recent-recipients",
-      to: "gmail-recent-recipients",
-    },
-    gmail_action_send_email: {
-      to: "gmail-recent-recipients",
-      cc: "gmail-recent-recipients", 
-      bcc: "gmail-recent-recipients",
-      messageId: "gmail-recent-recipients",
-      labelIds: "gmail_labels",
-    },
-    gmail_action_add_label: {
-      email: "gmail-recent-recipients",
-      labelIds: "gmail_labels",
-    },
-    gmail_action_search_email: {
-      labels: "gmail_labels",
-      labelFilters: "gmail_labels",
-      emailAddress: "gmail-recent-recipients",
-    },
-    // Discord fields
-    discord_trigger_new_message: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      filterAuthor: "discord_members",
-    },
-    discord_action_send_message: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-    },
-    discord_action_add_reaction: {
-      channelId: "discord_channels",
-      messageId: "discord_messages",
-    },
-    discord_action_edit_message: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      messageId: "discord_messages",
-    },
-    discord_action_delete_message: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      messageId: "discord_messages",
-    },
-    discord_action_create_channel: {
-      guildId: "discord_guilds",
-    },
-    discord_action_create_category: {
-      guildId: "discord_guilds",
-    },
-    discord_action_fetch_messages: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      filterAuthor: "discord_members",
-    },
-    discord_action_remove_reaction: {
-      channelId: "discord_channels", 
-      guildId: "discord_guilds",
-      messageId: "discord_messages",
-    },
-    discord_action_update_channel: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      parentId: "discord_categories",
-    },
-    discord_action_delete_channel: {
-      channelId: "discord_channels",
-      guildId: "discord_guilds",
-      parentCategory: "discord_categories",
-    },
-    discord_action_delete_category: {
-      guildId: "discord_guilds",
-      categoryId: "discord_categories",
-    },
-    discord_action_fetch_guild_members: {
-      guildId: "discord_guilds",
-      roleFilter: "discord_roles",
-    },
-    discord_action_assign_role: {
-      guildId: "discord_guilds",
-      userId: "discord_members",
-      roleId: "discord_roles",
-    },
-    discord_action_remove_role: {
-      guildId: "discord_guilds",
-      userId: "discord_members",
-      roleId: "discord_roles",
-    },
-    discord_action_kick_member: {
-      guildId: "discord_guilds",
-      userId: "discord_members",
-    },
-    discord_action_ban_member: {
-      guildId: "discord_guilds",
-      userId: "discord_members",
-    },
-    discord_action_unban_member: {
-      guildId: "discord_guilds",
-      userId: "discord_banned_users",
-    },
-    // Slack fields
-    slack_action_create_channel: {
-      workspaceId: "slack_workspaces",
-    },
-    // Trello fields
-    trello_trigger_new_card: {
-      boardId: "trello_boards",
-      listId: "trello_lists",
-    },
-    trello_trigger_card_updated: {
-      boardId: "trello_boards",
-      listId: "trello_lists",
-    },
-    trello_trigger_card_moved: {
-      boardId: "trello_boards",
-    },
-    trello_trigger_comment_added: {
-      boardId: "trello_boards",
-    },
-    trello_trigger_member_changed: {
-      boardId: "trello_boards",
-    },
-    trello_action_create_card: {
-      boardId: "trello_boards",
-      listId: "trello_lists",
-      template: "trello-card-templates",
-    },
-    trello_action_create_list: {
-      boardId: "trello_boards",
-    },
-    trello_action_move_card: {
-      boardId: "trello_boards",
-      cardId: "trello_cards",
-      listId: "trello_lists",
-    },
-    // Google Calendar fields
-    google_calendar_action_create_event: {
-      calendarId: "google-calendars",
-      attendees: "gmail-recent-recipients",
-    },
-    // Google Sheets fields
-    google_sheets_unified_action: {
-      spreadsheetId: "google-sheets_spreadsheets",
-      sheetName: "google-sheets_sheets",
-    },
-    "google-sheets_action_create_row": {
-      spreadsheetId: "google-sheets_spreadsheets",
-      sheetName: "google-sheets_sheets",
-    },
-    "google-sheets_action_update_row": {
-      spreadsheetId: "google-sheets_spreadsheets",
-      sheetName: "google-sheets_sheets",
-      matchColumn: "google-sheets_columns",
-    },
-    "google-sheets_action_delete_row": {
-      spreadsheetId: "google-sheets_spreadsheets",
-      sheetName: "google-sheets_sheets",
-      matchColumn: "google-sheets_columns",
-    },
-    "google-sheets_action_list_rows": {
-      spreadsheetId: "google-sheets_spreadsheets",
-      sheetName: "google-sheets_sheets",
-      filterColumn: "google-sheets_columns",
-      filterValue: "google-sheets_column_values",
-      sortColumn: "google-sheets_columns",
-      dateColumn: "google-sheets_columns",
-    },
-    // Google Drive fields
-    "google-drive:new_file_in_folder": {
-      folderId: "google-drive-folders",
-    },
-    "google-drive:new_folder_in_folder": {
-      folderId: "google-drive-folders",
-      parentFolderId: "google-drive-folders",
-    },
-    "google-drive:upload_file": {
-      folderId: "google-drive-folders",
-    },
-    "google-drive:create_folder": {
-      parentFolderId: "google-drive-folders",
-    },
-    "google-drive:create_file": {
-      folderId: "google-drive-folders",
-    },
-    "google-drive:file_updated": {
-      folderId: "google-drive-folders",
-    },
-    google_drive_action_upload_file: {
-      folderId: "google-drive-folders",
-    },
-    // Google Docs fields
-    google_docs_action_create_document: {
-      folderId: "google-drive-folders",
-    },
-    google_docs_action_update_document: {
-      documentId: "google-docs-documents",
-    },
-    google_docs_action_share_document: {
-      documentId: "google-docs-documents",
-    },
-    google_docs_action_get_document: {
-      documentId: "google-docs-documents",
-    },
-    google_docs_action_export_document: {
-      documentId: "google-docs-documents",
-      driveFolder: "google-drive-folders",
-    },
-    google_docs_trigger_document_modified: {
-      documentId: "google-docs-documents",
-    },
-    google_docs_trigger_document_updated: {
-      documentId: "google-docs-documents",
-    },
-    // Airtable fields
-    airtable_action_create_record: {
-      baseId: "airtable_bases",
-      tableName: "airtable_tables",
-    },
-    airtable_action_update_record: {
-      baseId: "airtable_bases",
-      tableName: "airtable_tables",
-    },
-    airtable_action_list_records: {
-      baseId: "airtable_bases",
-      tableName: "airtable_tables",
-      filterField: "airtable_fields",
-      filterValue: "airtable_field_values"
-    },
-    // Microsoft Outlook fields
-    "microsoft-outlook_action_send_email": {
-      to: "outlook-enhanced-recipients",
-      cc: "outlook-enhanced-recipients", 
-      bcc: "outlook-enhanced-recipients",
-    },
-    "microsoft-outlook_action_forward_email": {
-      to: "outlook-enhanced-recipients",
-      cc: "outlook-enhanced-recipients", 
-      bcc: "outlook-enhanced-recipients",
-      messageId: "outlook_messages",
-    },
-    "microsoft-outlook_action_create_meeting": {
-      attendees: "outlook-enhanced-recipients",
-    },
-    "microsoft-outlook_action_create_calendar_event": {
-      attendees: "outlook-enhanced-recipients",
-    },
-    "microsoft-teams_action_add_team_member": {
-      userEmail: "outlook-enhanced-recipients",
-      teamId: "teams_teams",
-    },
-    // Default case for unmapped fields
-    default: {
-      channelId: "channels",
-      folderId: "folders", 
-      fileId: "files",
-      documentId: "documents",
-      databaseId: "databases",
-      from: "gmail-recent-recipients",
-      to: "gmail-recent-recipients",
-      attendees: "gmail-recent-recipients",
-      labelIds: "gmail_labels",
-    }
-  };
-  
-  // First check node-specific mapping
-  const nodeMapping = fieldToResourceMap[nodeType];
-  console.log(`🔍 [getResourceTypeForField] Node mapping for '${nodeType}':`, nodeMapping);
-  
-  if (nodeMapping && nodeMapping[fieldName]) {
-    const result = nodeMapping[fieldName];
-    console.log(`🔍 [getResourceTypeForField] Found node-specific mapping: '${fieldName}' -> '${result}'`);
-    return result;
-  }
-  
-  // Fall back to default mapping
-  if (fieldToResourceMap.default[fieldName]) {
-    const result = fieldToResourceMap.default[fieldName];
-    console.log(`🔍 [getResourceTypeForField] Using default mapping: '${fieldName}' -> '${result}'`);
-    return result;
-  }
-  
-  // If no mapping found
-  console.log(`🔍 [getResourceTypeForField] No mapping found for '${fieldName}' in node '${nodeType}'`);
-  return null;
-}
-
-/**
- * Helper function to format API response into options
- */
-function formatOptionsForField(fieldName: string, data: any): { value: string; label: string; fields?: any[] }[] {
-  if (!data || !Array.isArray(data)) {
-    return [];
-  }
-  
-  // Format based on field name
-  switch (fieldName) {
-    case "from":
-    case "to":
-    case "cc":
-    case "bcc":
-    case "email":
-    case "attendees":
-      return data.map((item: any) => ({
-        value: item.email || item.value || item.id || item,
-        label: item.label || (item.name ? `${item.name} <${item.email || item.value}>` : item.email || item.value || item.id || item),
-        email: item.email || item.value,
-        name: item.name,
-        type: item.type,
-        isGroup: item.isGroup,
-        groupId: item.groupId,
-        members: item.members
-      }));
-      
-    case "labelIds":
-      return data.map((item: any) => ({
-        value: item.id || item,
-        label: item.name || item.id || item,
-      }));
-      
-    case "channelId":
-      return data.map((item: any) => ({
-        value: item.id || item.value,
-        label: item.name || item.label || item.id,
-      }));
-      
-    case "filterAuthor":
-      return data.map((item: any) => ({
-        value: item.id || item.value,
-        label: item.username || item.name || item.label || item.id,
-      }));
-      
-    case "messageId":
-      return data.map((item: any) => {
-        const baseLabel = item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`;
-        const reactions = item.reactions || [];
-        const hasReactions = reactions.length > 0;
-        const reactionCount = hasReactions ? reactions.reduce((total: number, reaction: any) => total + reaction.count, 0) : 0;
-        const label = hasReactions ? `${baseLabel} [${reactionCount} reactions]` : baseLabel;
-        
-        return {
-          id: item.id,
-          value: item.id,
-          label,
-          content: item.content,
-          author: item.author,
-          timestamp: item.timestamp,
-          type: item.type,
-          reactions: reactions
-        };
-      });
-      
-    case "boardId":
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.name || item.id,
-      }));
-      
-    case "listId":
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.name || item.id,
-      }));
-      
-    case "databaseId":
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.title || item.name || item.id,
-        fields: item.fields || item.properties,
-        isExisting: true,
-      }));
-      
-    case "baseId":
-      return data.map((item: any) => ({
-        value: item.id || item.value,  // Keep ID as value for API calls
-        label: item.name || item.label || item.id,  // Show name in UI
-      }));
-      
-    case "tableName":
-      return data.map((item: any) => ({
-        value: item.name || item.id || item.value,  // Use name as value (tables are referenced by name in Airtable API)
-        label: item.name || item.label || item.id,  // Show name in UI
-        fields: item.fields,
-        description: item.description
-      }));
-      
-    case "sheetName":
-      return data.map((item: any) => ({
-        value: item.value || item.name || item.id,
-        label: item.name || item.label || item.value || item.id,
-      }));
-      
-    case "filterField":
-      return data.map((item: any) => ({
-        value: item.value || item.name,
-        label: item.label || item.name,
-        type: item.type,
-        id: item.id
-      }));
-      
-    case "filterValue":
-      return data.map((item: any) => ({
-        value: item.value,
-        label: item.label + (item.count ? ` (${item.count})` : ''),
-        count: item.count
-      }));
-      
-    // Default format for other fields
-    default:
-      return data.map((item: any) => ({
-        value: item.id,
-        label: item.name || item.title || item.id,
-      }));
-  }
-}
+// Removed getResourceTypeForField - now imported from fieldMappings
+// Removed formatOptionsForField - now imported from fieldFormatters
 
 /**
  * Helper to truncate long messages

@@ -3,6 +3,31 @@
 ## Overview
 This guide provides comprehensive instructions for refactoring large files and modules in the ChainReact codebase. It ensures consistent practices, proper cleanup of legacy code, and maintains functionality while improving code organization.
 
+## Recent Successful Refactorings
+
+### useDynamicOptions Hook Refactoring (September 2025)
+**Achievement**: Reduced from 1,657 lines to 343 lines (72% reduction)
+
+**Key Lessons Learned**:
+1. **Extract Configuration First**: Start with the lowest-risk items (mappings, constants)
+2. **Create Abstractions**: Build interfaces before implementing providers
+3. **Use Manager Pattern**: RequestManager and CacheManager handle cross-cutting concerns
+4. **Provider Pattern Works**: Each provider is self-contained and testable
+5. **Maintain Backward Compatibility**: Keep the same API surface during refactoring
+6. **Document As You Go**: Create migration guides immediately
+
+**Pattern Applied**:
+```
+Original Hook (1,657 lines)
+├── Configuration (270 lines) → config/fieldMappings.ts
+├── Formatting (180 lines) → utils/fieldFormatters.ts  
+├── Request Logic (200 lines) → utils/requestManager.ts
+├── Caching (150 lines) → utils/cacheManager.ts
+├── Discord Logic (250 lines) → providers/discord/
+├── Airtable Logic (400 lines) → providers/airtable/
+└── Core Hook (343 lines) → useDynamicOptionsRefactored.ts
+```
+
 ## Pre-Refactoring Checklist
 
 ### 1. Dependency Analysis
@@ -123,6 +148,56 @@ Group related functionality into these categories:
    import { useNewHook } from '@/lib/newModule/hooks';
    ```
 
+## Provider-Specific Component Refactoring Patterns
+
+### Lesson Learned: Provider-First Architecture (December 2024)
+When refactoring large configuration forms with multiple providers:
+
+1. **Issue**: Provider-specific functions were being called regardless of active provider
+   - Functions like `fetchAirtableTableSchema` would run even for Google Sheets nodes
+   - This caused "X is not defined" reference errors
+
+2. **Solution**: Implement provider-first routing
+   ```typescript
+   // Check provider FIRST, then route to specific component
+   const provider = nodeInfo?.providerId || '';
+   
+   switch(provider) {
+     case 'airtable':
+       return <AirtableConfiguration {...props} />;
+     case 'google-sheets':
+       return <GoogleSheetsConfiguration {...props} />;
+     // etc...
+   }
+   ```
+
+3. **Key Principles**:
+   - Each provider gets its own component file
+   - Provider-specific logic is completely isolated
+   - Shared utilities go in separate helper files
+   - Props must include both `nodeType` AND `providerId` for proper routing
+
+### Component Order and Visibility Patterns
+
+1. **Dynamic Section Ordering**: When sections need specific order (e.g., delete confirmations)
+   - Don't rely on React fragment order within conditionals
+   - Structure components so sections appear in the correct DOM order
+   - Use "FIRST/THEN/LAST" comments to clarify intended order
+
+2. **Field Visibility with Dependencies**:
+   ```typescript
+   // Hide fields that are handled by custom components
+   if (field.name === 'columnMapping' && values.action === 'add') return false;
+   
+   // Check dependencies before showing
+   if (field.dependsOn && !values[field.dependsOn]) return false;
+   ```
+
+3. **Accessibility in Highlighted Rows**:
+   - When rows have background colors (bg-blue-50, bg-blue-100)
+   - Always adjust text color for contrast: `text-black` for highlighted rows
+   - Use conditional classes: `${isChecked ? 'text-black' : 'text-slate-600'}`
+
 ## Common Pitfalls and Solutions
 
 ### Pitfall 1: Broken Circular Dependencies
@@ -197,6 +272,88 @@ rg "from.*oldFileName" --type ts --type tsx
 - [ ] Verify API routes are properly exported
 - [ ] Confirm webhook handlers are registered
 - [ ] Validate event listeners are attached
+
+### 6. Legacy File Management
+**CRITICAL**: Do not delete old/deprecated files immediately after refactoring.
+
+#### Create Legacy Folder Structure
+```
+components/
+├── MyComponent.tsx (new refactored version)
+└── legacy/
+    ├── README.md
+    ├── MyComponent.backup.tsx
+    └── MyComponent.deprecated.ts
+
+hooks/
+├── useMyHook.ts (new version)
+└── legacy/
+    ├── README.md
+    └── useMyHook.deprecated.ts
+```
+
+#### Legacy Folder README Template
+```markdown
+# Legacy [Component/Hook/Module] Files
+
+This folder contains deprecated files from the [describe refactoring] refactoring effort.
+
+## Files in this folder
+
+### [FileName].deprecated.ts
+- **Deprecated on**: [Date]
+- **Replaced by**: [New file path]
+- **Reason**: [Why it was deprecated]
+- **Original purpose**: [What it did]
+- **Lines of code**: [Number]
+
+## Migration Path
+
+If you find code still using these deprecated files:
+
+1. Replace imports:
+\`\`\`typescript
+// OLD
+import { something } from './legacy/oldFile';
+
+// NEW
+import { something } from './newFile';
+\`\`\`
+
+2. Update usage:
+[Specific migration instructions]
+
+## Why These Files Are Kept
+
+1. **Historical reference**: Shows evolution of the codebase
+2. **Emergency rollback**: Temporary fallback if issues arise
+3. **Learning**: Documents what approaches didn't work
+4. **Debugging**: Compare old vs new behavior if bugs appear
+
+## Deletion Timeline
+
+These files should be permanently deleted after:
+- ✅ All features tested and working
+- ⏳ No issues reported for 2 weeks (Target: [Date])
+- ⏳ Team sign-off received
+
+**DO NOT USE THESE FILES IN NEW CODE!**
+```
+
+#### File Naming Conventions
+- `.deprecated.ts` - For files that were replaced by new implementations
+- `.backup.tsx` - For backup copies of large refactored files
+- `.unused.ts` - For files that were created but never integrated
+- `.legacy.ts` - For old implementations kept for compatibility
+
+#### Verification Steps
+- [ ] Move all old files to legacy folder
+- [ ] Add clear `.deprecated` or `.backup` suffix
+- [ ] Create comprehensive README in legacy folder
+- [ ] Document migration path
+- [ ] Set deletion timeline (typically 2 weeks)
+- [ ] Verify no active code references legacy files
+- [ ] Update imports if any legacy references found
 
 ## Specific Refactoring Patterns
 

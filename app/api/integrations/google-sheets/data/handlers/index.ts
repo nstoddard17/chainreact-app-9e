@@ -13,4 +13,9 @@ export const googleSheetsHandlers: Record<string, GoogleSheetsDataHandler> = {
   'google_sheets_spreadsheets': getGoogleSheetsSpreadsheets,
   'google_sheets_sheets': getGoogleSheetsSheets,
   'google_sheets_columns': getGoogleSheetsColumns,
+  // Also support hyphenated versions for consistency
+  'google-sheets_records': getGoogleSheetsRecords,
+  'google-sheets_spreadsheets': getGoogleSheetsSpreadsheets,
+  'google-sheets_sheets': getGoogleSheetsSheets,
+  'google-sheets_columns': getGoogleSheetsColumns,
 }

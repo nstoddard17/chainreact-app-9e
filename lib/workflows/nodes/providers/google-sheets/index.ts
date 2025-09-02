@@ -250,20 +250,9 @@ export const googleSheetsNodes: NodeComponent[] = [
         helpText: "This shows you the first few rows of your sheet to help you understand the column structure and data types."
       },
       
-      // Column selection for delete is now handled in the UI below the grid
+      // Column selection for delete is handled in the GoogleSheetsDeleteConfirmation component
       
-      // Delete All field comes AFTER the data preview and column selection UI
-      {
-        name: "deleteAll",
-        label: "Delete All Matching Rows",
-        type: "boolean",
-        required: false,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value" && values.deleteColumn && values.deleteValue,
-        defaultValue: false,
-        description: "Choose whether to delete ALL matching rows or just the first one found",
-        helpText: "⚠️ IMPORTANT:\n• UNCHECKED (default): Only the FIRST matching row found will be deleted\n• CHECKED: ALL rows matching your criteria will be deleted\n\nIf you don't check this box, the system will search from top to bottom and delete only the first row it finds that matches your criteria."
-      },
+      // Delete fields (deleteSearchColumn, deleteSearchValue, deleteAll) are handled in GoogleSheetsDeleteConfirmation component
       
       {
         name: "deleteConditions",
@@ -310,17 +299,6 @@ export const googleSheetsNodes: NodeComponent[] = [
         description: "Last row to delete in range",
         min: 2,
         helpText: "The last row number in the range to delete (inclusive)"
-      },
-      {
-        name: "confirmDelete",
-        label: "Confirm Delete",
-        type: "boolean",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete",
-        defaultValue: false,
-        description: "Confirm that you want to permanently delete the row(s)",
-        helpText: "You must check this box to confirm the delete operation. This action cannot be undone!"
       }
     ],
   },
