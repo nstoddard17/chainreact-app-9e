@@ -938,7 +938,7 @@ const useWorkflowBuilderState = () => {
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
-                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
+                onAddChain: node.data.type === 'ai_agent' && !node.data?.hasChains ? handleAddChain : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
                 providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0],
                 // Add execution status for visual feedback
@@ -1691,7 +1691,7 @@ const useWorkflowBuilderState = () => {
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
-                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
+                onAddChain: node.data.type === 'ai_agent' && !node.data?.hasChains ? handleAddChain : undefined,
                 providerId: node.data.providerId || node.data.type?.split('-')[0]
               },
             };
@@ -3663,7 +3663,8 @@ function WorkflowBuilderContent() {
                         // Add an "Add Action" node at the end of each chain
                         if (previousNodeId) {
                           const lastNode = newNodesToAdd[newNodesToAdd.length - 1];
-                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}`;
+                          const timestamp = Date.now() + chainIndex; // Add chainIndex to ensure uniqueness
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
                           const addActionNode = {
                             id: addActionId,
                             type: 'addAction',
@@ -3682,9 +3683,9 @@ function WorkflowBuilderContent() {
                           newNodesToAdd.push(addActionNode);
                           console.log(`🔄 [WorkflowBuilder] Added Add Action node for chain ${chainIndex}`);
                           
-                          // Add edge to Add Action node
+                          // Add edge to Add Action node - ensure unique ID
                           const edgeToAddAction = {
-                            id: `edge-to-addaction-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
                             source: previousNodeId,
                             target: addActionId,
                             type: 'straight',
