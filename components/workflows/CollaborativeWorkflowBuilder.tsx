@@ -3659,17 +3659,78 @@ function WorkflowBuilderContent() {
                           
                           previousNodeId = newNodeId;
                         });
+                        
+                        // Add an "Add Action" node at the end of each chain
+                        if (previousNodeId) {
+                          const lastNode = newNodesToAdd[newNodesToAdd.length - 1];
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { 
+                              x: lastNode.position.x, 
+                              y: lastNode.position.y + 160 
+                            },
+                            data: {
+                              parentId: previousNodeId,
+                              isAIAgentChild: true,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              onClick: () => handleAddActionClick({ id: previousNodeId, position: lastNode.position })
+                            }
+                          };
+                          newNodesToAdd.push(addActionNode);
+                          console.log(`🔄 [WorkflowBuilder] Added Add Action node for chain ${chainIndex}`);
+                          
+                          // Add edge to Add Action node
+                          const edgeToAddAction = {
+                            id: `edge-to-addaction-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            source: previousNodeId,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: true,
+                            style: { 
+                              stroke: '#b1b1b7', 
+                              strokeWidth: 2, 
+                              strokeDasharray: '5,5' 
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
+                        }
                       }
                     });
                     
                     // Update nodes - remove existing AI Agent children and add new ones
                     console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
                     
-                    // First remove any existing AI Agent child nodes
-                    const filteredNodes = currentNodes.filter(n => !n.data?.isAIAgentChild || n.data?.parentAIAgentId !== aiAgentNodeId);
+                    // First remove any existing AI Agent child nodes and Add Action nodes
+                    const filteredNodes = currentNodes.filter(n => {
+                      // Remove AI Agent child nodes
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentNodeId) return false;
+                      // Remove Add Action nodes that belong to this AI Agent
+                      if (n.type === 'addAction' && n.id.includes(`add-action-${aiAgentNodeId}`)) return false;
+                      return true;
+                    });
+                    
+                    // Update the AI Agent node to remove onAddChain
+                    const updatedFilteredNodes = filteredNodes.map(node => {
+                      if (node.id === aiAgentNodeId) {
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            onAddChain: undefined,  // Remove the Add Chain button
+                            hasChains: true,
+                            chainCount: chainsData.length
+                          }
+                        };
+                      }
+                      return node;
+                    });
+                    
                     console.log(`🔄 [WorkflowBuilder] Filtered ${currentNodes.length - filteredNodes.length} existing AI Agent child nodes`);
                     // Then add new nodes
-                    const updatedNodes = [...filteredNodes, ...newNodesToAdd];
+                    const updatedNodes = [...updatedFilteredNodes, ...newNodesToAdd];
                     console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length}`);
                     
                     // Store edges to add them after nodes are updated
@@ -3695,13 +3756,17 @@ function WorkflowBuilderContent() {
                     
                     // Fit view to show all nodes with proper settings
                     try {
-                      fitView({ 
-                        padding: 0.2,
-                        includeHiddenNodes: false,
-                        duration: 400,
-                        maxZoom: 1,
-                        minZoom: 0.1
-                      });
+                      if (typeof fitView === 'function') {
+                        fitView({ 
+                          padding: 0.2,
+                          includeHiddenNodes: false,
+                          duration: 400,
+                          maxZoom: 1,
+                          minZoom: 0.1
+                        });
+                      } else {
+                        console.log('⚠️ [WorkflowBuilder] fitView is not available');
+                      }
                     } catch (error) {
                       console.log('❌ [WorkflowBuilder] Error fitting view:', error);
                     }
