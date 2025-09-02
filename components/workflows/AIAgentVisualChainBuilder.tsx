@@ -946,8 +946,19 @@ function AIAgentVisualChainBuilder({
         return sourceRelevant && targetRelevant
       })
       
+      // Deduplicate edges by keeping only the first occurrence of each ID
+      const seenEdgeIds = new Set()
+      const uniqueEdges = relevantEdges.filter(edge => {
+        if (seenEdgeIds.has(edge.id)) {
+          console.log(`⚠️ [AIAgentVisualChainBuilder] Filtering duplicate edge: ${edge.id}`)
+          return false
+        }
+        seenEdgeIds.add(edge.id)
+        return true
+      })
+      
       // Map edges to include handlers
-      const mappedEdges = relevantEdges.map(edge => ({
+      const mappedEdges = uniqueEdges.map(edge => ({
         ...edge,
         type: edge.type || 'custom',
         data: {

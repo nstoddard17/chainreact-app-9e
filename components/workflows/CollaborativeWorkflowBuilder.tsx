@@ -3713,9 +3713,11 @@ function WorkflowBuilderContent() {
                       return true;
                     });
                     
-                    // Update the AI Agent node to remove onAddChain
+                    // Update the AI Agent node to remove onAddChain - use the actual found node ID
+                    const actualAIAgentId = aiAgentNode.id;
                     const updatedFilteredNodes = filteredNodes.map(node => {
-                      if (node.id === aiAgentNodeId) {
+                      if (node.id === actualAIAgentId) {
+                        console.log(`🔄 [WorkflowBuilder] Updating AI Agent node ${actualAIAgentId} to remove onAddChain`);
                         return {
                           ...node,
                           data: {
@@ -3772,9 +3774,10 @@ function WorkflowBuilderContent() {
                       console.log('❌ [WorkflowBuilder] Error fitting view:', error);
                     }
                     
+                    const chainCount = chainsData?.length || 0;
                     toast({
                       title: "AI Agent Chains Added",
-                      description: `${config.chains.length} chain(s) have been added to the workflow`
+                      description: `${chainCount} chain(s) have been added to the workflow`
                     });
                   }, 300);
                   }
