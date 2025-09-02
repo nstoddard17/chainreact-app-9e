@@ -1452,7 +1452,24 @@ const useWorkflowBuilderState = () => {
       
       setNodes((nds) => nds.map((node) => {
         if (node.id === context.id) {
-          const updatedNode = { ...node, data: { ...node.data, config: newConfig } };
+          // Check if this is an AI Agent node with chains
+          const isAIAgent = node.data?.type === 'ai_agent';
+          const hasChains = newConfig?.chains && Array.isArray(newConfig.chains) && newConfig.chains.length > 0;
+          
+          // Build updated node data
+          const updatedData = {
+            ...node.data,
+            config: newConfig
+          };
+          
+          // If it's an AI Agent with chains, remove the onAddChain button
+          if (isAIAgent && hasChains) {
+            updatedData.onAddChain = undefined;
+            updatedData.hasChains = true;
+            updatedData.chainCount = newConfig.chains.length;
+          }
+          
+          const updatedNode = { ...node, data: updatedData };
           console.log('  - Updated node:', updatedNode);
           return updatedNode;
         }
