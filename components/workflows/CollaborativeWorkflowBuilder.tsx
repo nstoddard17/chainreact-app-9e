@@ -513,9 +513,8 @@ const useWorkflowBuilderState = () => {
         // Only delete Add Action nodes that are specifically part of AI Agent chains
         // Don't delete regular workflow plus buttons that might be after the AI agent
         if (n.type === 'addAction') {
-          // Only delete if it has the AI Agent as parent via data field
-          // This ensures it's actually a chain plus button, not a regular workflow plus button
-          if (n.data?.parentAIAgentId === nodeId && n.data?.isAIAgentChild) {
+          // Delete chain Add Action nodes (marked with isChainAddAction)
+          if (n.data?.parentAIAgentId === nodeId && n.data?.isChainAddAction) {
             console.log(`  - Found chain Add Action via parentAIAgentId: ${n.id}`)
             return true
           }
@@ -3842,8 +3841,11 @@ function WorkflowBuilderContent() {
                           lastPosition = nodePosition;
                         });
                         
+                        // Step 3: For each chain's final action node, verify an AddAction node exists
                         // Add an "Add Action" node at the end of each chain
                         if (previousNodeId && lastPosition) {
+                          console.log(`🔄 [WorkflowBuilder] Creating Add Action for chain ${chainIndex}, last node: ${previousNodeId}`);
+                          
                           const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
                           const randomId = Math.random().toString(36).substr(2, 9);
                           const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
@@ -3856,10 +3858,18 @@ function WorkflowBuilderContent() {
                             },
                             data: {
                               parentId: previousNodeId,
-                              isAIAgentChild: true,
+                              // Don't mark Add Action nodes as AI agent children so they don't get filtered out
+                              // isAIAgentChild: true,  // REMOVED - this causes them to be deleted on next save
                               parentAIAgentId: actualAIAgentId,
                               parentChainIndex: chainIndex,
-                              onClick: () => handleAddActionClick(addActionId, previousNodeId)
+                              isChainAddAction: true,  // Mark this as a chain Add Action for identification
+                              onClick: () => {
+                                // Get the parent node to pass its position
+                                const parentNode = nodes.find(n => n.id === previousNodeId);
+                                if (parentNode) {
+                                  handleAddActionClick({ id: previousNodeId, position: parentNode.position });
+                                }
+                              }
                             }
                           };
                           newNodesToAdd.push(addActionNode);
@@ -3884,12 +3894,26 @@ function WorkflowBuilderContent() {
                       }
                     });
                     
-                    // Log summary of what was created
+                    // Log summary and verify we have one Add Action per chain
                     const addActionNodesCreated = newNodesToAdd.filter(n => n.type === 'addAction');
                     console.log(`🔄 [WorkflowBuilder] Created ${addActionNodesCreated.length} Add Action nodes for ${chainsData.length} chains`);
+                    
+                    // Verify each chain has exactly one Add Action node
+                    const chainAddActionCounts = {};
                     addActionNodesCreated.forEach(n => {
-                      console.log(`  - Add Action node: ${n.id} for chain ${n.data.parentChainIndex}`);
+                      const chainIdx = n.data.parentChainIndex;
+                      chainAddActionCounts[chainIdx] = (chainAddActionCounts[chainIdx] || 0) + 1;
+                      console.log(`  - Add Action node: ${n.id} for chain ${chainIdx}`);
                     });
+                    
+                    // Check if any chain is missing an Add Action node
+                    for (let i = 0; i < chainsData.length; i++) {
+                      if (!chainAddActionCounts[i]) {
+                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} is missing an Add Action node!`);
+                      } else if (chainAddActionCounts[i] > 1) {
+                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} has ${chainAddActionCounts[i]} Add Action nodes (should be 1)`);
+                      }
+                    }
                     
                     // Update nodes - remove existing AI Agent children and add new ones
                     console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
@@ -3909,12 +3933,19 @@ function WorkflowBuilderContent() {
                     
                     const removedNodes = [];
                     const filteredNodes = currentNodes.filter(n => {
-                      // Remove AI Agent child nodes EXCEPT Add Action nodes (plus buttons)
-                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === actualAIAgentId && n.type !== 'addAction') {
+                      // Remove AI Agent child nodes but NOT Add Action nodes
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === actualAIAgentId) {
+                        // Remove all AI agent children
                         removedNodes.push({ id: n.id, type: 'AI Agent child' });
                         return false;
                       }
-                      // Keep ALL Add Action nodes (plus buttons) - don't remove any
+                      // Remove stale chain Add Action nodes from previous saves
+                      // These have parentAIAgentId and isChainAddAction set
+                      if (n.type === 'addAction' && n.data?.parentAIAgentId === actualAIAgentId && n.data?.isChainAddAction) {
+                        removedNodes.push({ id: n.id, type: 'Stale chain Add Action' });
+                        return false;
+                      }
+                      // Keep all other nodes
                       return true;
                     });
                     console.log(`🔄 [WorkflowBuilder] Removed ${removedNodes.length} nodes:`, removedNodes);
