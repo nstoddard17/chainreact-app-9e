@@ -27,6 +27,9 @@ npm run refresh-tokens:batch       # Batch refresh (50 tokens, 10 per batch)
 npm run fix-integrations           # Fix problematic integrations
 ```
 
+### Git Workflow
+**IMPORTANT**: Do NOT push to GitHub after making changes unless explicitly asked to do so. Only commit changes locally with `git commit`. The user will handle pushing to GitHub when they are ready.
+
 ## Architecture Overview
 
 ### Core Structure

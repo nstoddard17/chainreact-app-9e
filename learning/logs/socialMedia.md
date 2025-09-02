@@ -12,6 +12,16 @@ The fix involved changing the import from the non-existent `decryptData` to the 
 
 ## September 1, 2025
 
+### AI Agent Workflow Builder Refinement & Performance Fix
+
+Successfully refined the AI Agent node's workflow builder to perfectly match the main Workflow Builder page design. The interface now features identical node shapes, colors, and typography with seamless drag-to-connect lines that go from dot to dot at the center of each node.
+
+Key improvements include replacing "Create Chain" with a clearer "Add New Chain" button, removing the MiniMap for a cleaner interface while keeping zoom controls, and implementing auto-centering with smart zoom that adjusts when new chains are added. Chains now appear directly below the AI agent in a clean grid layout (3 per row), and each chain shows an "Add Action" button centered in placeholder nodes for intuitive workflow building.
+
+Fixed a critical save operation timeout issue that was occurring with complex workflows containing AI Agent nodes. The save operation was timing out after 30 seconds due to complex node rebuilding logic. Optimized performance by increasing timeout to 60 seconds for complex workflows, implementing conditional rebuild logic that only rebuilds when nodes structurally change, replacing setTimeout with requestAnimationFrame for smoother UI updates, and removing unnecessary delays in the rebuild process. This optimization significantly improves save performance, especially for workflows with multiple AI Agent chains.
+
+The AI Agent action selection now opens directly from the chain nodes, showing a grid of available actions with provider icons and AI-enabled badges. Users can select actions and configure AI fields directly from the modal, creating a seamless workflow building experience that matches the polish of the main builder.
+
 ### Complete Restoration of Advanced Airtable Bubble System
 
 Successfully replicated the sophisticated bubble-based UI/UX system from the legacy Airtable implementation, restoring all the careful work that went into making Airtable record management intuitive and visual. The bubble system features visual value management where dropdown selections create visual "bubbles" instead of storing values directly, multi-select support allowing multiple bubbles to be active and toggled independently, single-select logic where one bubble stays active at a time with auto-replacement on new selection, color-coded states with active bubbles in green and inactive in blue, and click-to-toggle functionality for activating or deactivating selections.
@@ -98,53 +108,33 @@ The key benefits achieved include maintainability where each module can be under
 
 ## August 30, 2025
 
-### Complete HandleFieldChange Refactoring Achievement
+### Complete Workflow Testing System with n8n-Style Interface
 
-Successfully completed the comprehensive refactoring of the 1,300-line `handleFieldChange` function, reducing it to approximately 300 lines - a 77% reduction! This was the most complex function in the entire codebase, handling everything from provider-specific field dependencies to file uploads to bubble UI management.
+Implemented a comprehensive workflow testing system that matches n8n's sophisticated testing capabilities. The new system replaces the confusing "Listen" and "Execute" buttons with intuitive "Test" and "Enable" controls that actually make sense to users.
 
-The refactoring extracted the function into four focused, testable hooks: useFileFieldHandler with 224 lines for file and attachment handling, useAirtableBubbleHandler with 334 lines for bubble UI management, useProviderFieldHandlers with 434 lines for provider field dependencies, and the core handleFieldChange reduced to approximately 300 lines for dispatch and remaining logic. In total, 992 lines of complex, nested logic were extracted and organized into modular, reusable hooks. Each hook has a single responsibility, proper TypeScript types, and comprehensive error handling. The refactoring maintains 100% UI/UX compatibility with not a single visual element or user interaction changed.
+The Test button now works exactly like n8n - when clicked, it puts the workflow into test mode where triggers wait for real activation. For Discord triggers, it waits for an actual Discord message. For webhooks, it waits for an HTTP request. For email triggers, it waits for an email. The workflow shows visual feedback with color-coded node states: blue pulsing border for listening, yellow for running, green for completed, and red for errors.
 
-This completes the major extraction work from ConfigurationForm, transforming an unmaintainable 8,600-line component into a properly architected system with clear separation of concerns. The codebase is now significantly more maintainable, testable, and ready for future enhancements.
+Each node now has its own test capability with a dedicated Test Panel that shows input and output data side-by-side, just like n8n. The panel displays formatted JSON data with syntax highlighting, allows copying individual fields, shows execution logs, and tracks timing metrics. Users can test individual nodes or entire workflow segments, with the system executing everything up to that point and displaying the results.
 
-### Provider Field Handlers Extraction
+The Enable button (formerly Execute) now properly enables the workflow and redirects users back to the workflow dashboard, making the flow much more intuitive. When a workflow is enabled, it's marked as active in the database and ready to run automatically based on its triggers.
 
-Completed the third major extraction from handleFieldChange by consolidating all provider-specific field handling into a unified `useProviderFieldHandlers` hook. This extraction removed 434 lines of provider-specific logic that was handling field dependencies for Discord, Google Sheets, and Airtable.
+For admins and developers, we added confidence scores and detailed routing information as tooltips on the AI Router paths. Regular users see a clean interface while power users get the technical details they need. The visual execution flow shows exactly which paths were taken with animated indicators and confidence percentages.
 
-The new hook manages Discord field dependencies with the chain from guildId to channelId to messageId, Google Sheets cascading updates from spreadsheetId to sheetName, Airtable field relationships from baseId to tableName to filterField to filterValue, loading states for dependent fields, clearing child fields when parent changes, and provider-specific state management. This is particularly important because each provider has unique field dependency patterns. Discord needs bot status checks, Google Sheets needs sheet data preview, and Airtable needs table schema loading. The hook encapsulates all this complexity while maintaining a clean interface.
+### Revolutionary AI Router Node - Multi-Path Workflow Intelligence
 
-### Airtable Bubble Management Extraction
+Completely redesigned our AI Agent node into an AI Router that can intelligently route workflows through multiple output paths based on content analysis. This is a game-changer for automation - instead of complex if-then logic, users can now have AI decide which path(s) to take based on the actual content.
 
-Extracted the complex Airtable bubble management logic from handleFieldChange into a dedicated `useAirtableBubbleHandler` hook. This was the second major extraction, removing 334 lines of intricate bubble creation and management code.
+The new AI Router features pre-configured templates (Support Router, Content Moderator, Lead Qualifier, Task Dispatcher) that instantly set up common routing patterns. Each router can have up to 10 output paths, with AI analyzing incoming data and choosing which paths to trigger based on confidence scores. For example, a support message about a bug that also requests a feature can trigger both the "Bug Report" and "Feature Request" paths simultaneously.
 
-The new hook handles UPDATE RECORD bubble creation with duplicate detection, CREATE RECORD bubble management with field choices, linked record field label resolution ensuring IDs are never shown, multi-value versus single-value field logic, active bubble replacement and management, and dynamic options integration. This extraction is particularly significant because bubble management was one of the most complex parts of handleFieldChange, with deeply nested conditions for different field types and record operations. The code is now modular, testable, and maintains exact UI behavior.
+We added comprehensive API flexibility - users can either use ChainReact's API (with metered billing) or bring their own OpenAI, Anthropic, Google, or Mistral API keys. All usage is tracked regardless of source, ensuring our business model remains intact while giving power users the flexibility they need. Custom API keys are AES-256 encrypted and stored securely with budget tracking.
 
-### File Handler Extraction from HandleFieldChange
+The memory system is particularly sophisticated - routers can be stateless, remember context within a workflow run, maintain conversation history across runs, or even use vector databases (Pinecone, Weaviate) for semantic memory search. This means the AI gets smarter over time and can make better routing decisions based on historical context.
 
-Successfully extracted the file/attachment handling logic from the massive 1,300-line `handleFieldChange` function into a dedicated `useFileFieldHandler` hook. This extraction removed 224 lines of complex file handling code that was deeply nested within the main function.
+From a technical perspective, we built a complete usage tracking and rate limiting system that enforces plan limits (Free: 100/month, Pro: 1000/month, Business: 5000/month, Enterprise: unlimited) while calculating actual costs per model. The system tracks every token used and every penny spent, whether using our API or custom keys.
 
-The new hook manages file type detection including FileList, File objects, and data URLs, image preview generation with object URLs, bubble creation for file attachments, base64 conversion for API submission, and memory cleanup for object URLs. This is the first major extraction from handleFieldChange, reducing its complexity by approximately 17%. The hook provides a clean interface for file field detection and handling, making the code much more testable and maintainable. File uploads, image previews, and attachment bubbles continue to work exactly as before - pure refactoring with no UI changes.
+The visual workflow builder now shows multiple output ports from the AI Router node, with color-coded paths that make it crystal clear which routes are available. During execution, users can see exactly which path(s) were triggered and why, with full reasoning from the AI included in the output.
 
-### Discord State Management Extraction
-
-Completed the extraction of Discord-specific state management from the massive ConfigurationForm component into a dedicated `useDiscordState` hook. This refactoring removes 200+ lines of Discord-specific logic and creates a clean, reusable hook that manages bot status, channel permissions, server connections, and reaction loading.
-
-The hook consolidates 10 state variables and 8 functions that were scattered throughout the main component. Now Discord integrations have their own encapsulated state management with proper TypeScript types and clear interfaces. This makes Discord features easier to test, debug, and enhance without touching the 8,000+ line main component.
-
-### HandleFieldChange Function Analysis and Planning
-
-Documented a comprehensive refactoring plan for the 1,300-line `handleFieldChange` function - possibly one of the longest single functions in the entire codebase. This monster function handles everything from Discord field dependencies to Airtable bubble management to file uploads.
-
-Created an extraction strategy splitting it into provider-specific handlers for Discord, Airtable, and Google Sheets, separate file and attachment handling, bubble UI management, field dependency resolution, and a main dispatcher pattern. The plan maintains 100% backward compatibility while breaking this unmaintainable function into focused, testable modules. Estimated 10-14 days for complete refactoring with comprehensive testing.
-
-## August 30, 2025
-
-### Massive ConfigurationForm Refactoring Completed
-
-Successfully refactored the 8,600+ line ConfigurationForm component down to 5,596 lines - a 35% reduction! This component powers all workflow node configuration and had become unmaintainable with mixed logic for Airtable, Discord, Google Sheets, and general field rendering.
-
-The refactoring created a proper modular architecture by extracting components including `GoogleSheetsDataPreview`, `AirtableRecordSelector`, `DiscordProgressiveConfig`, and `FieldsWithTable` components, building custom hooks like `useAirtableState` and `useGoogleSheetsState` for cleaner state management, extracting helper functions into `airtableHelpers.ts` and `helpers.ts`, and eliminating the massive 2,600-line `renderFieldsWithTable` function which is now a clean 20-line component that delegates to specialized modules.
-
-The biggest win was extracting the 2,600-line `renderFieldsWithTable` function that was handling everything from Google Sheets sorting to Airtable record selection. Now each integration has its own component with focused responsibilities. The refactoring maintains 100% UI/UX compatibility with no visual or functional changes for users. This is purely about code maintainability and making the codebase easier to work with for future features.
+This transforms ChainReact from a linear automation tool into an intelligent workflow orchestrator that can make complex decisions autonomously. It's like having a smart assistant that knows exactly where to route each request based on its content.
 
 ## August 29, 2025
 
@@ -171,33 +161,3 @@ Built two critical implementation guides that will fundamentally change how we d
 Completely revamped our Google Docs workflow integration to ensure consistency across all actions. The old system had inconsistent field configurations - some actions had document previews, others didn't. Some had proper dropdowns, others were broken. We standardized everything so all Google Docs actions (update, share, export) now work identically with document selection, preview functionality, and proper backend routing.
 
 The biggest fix was discovering that field mappings were missing for certain actions, causing "Unsupported data type" errors. The share document action now has full backend implementation with features like multiple user sharing, ownership transfer, public sharing options, and custom notification messages. Now when you're building document workflows, everything just works - select a document, preview it, share it with specific permissions, and it all executes flawlessly.
-
-## August 22, 2025 - Making Email Fields Actually Work
-
-We completely rebuilt how email fields work in our workflow builder. The old system was basically broken - dropdowns wouldn't close properly, scrolling was weird, and selecting multiple emails was a nightmare. We threw it all out and built something that actually works like normal web dropdowns should.
-
-Now when you're setting up Gmail automations, the email picker feels natural and responsive. It loads your contacts properly, shows just the email addresses (not those crazy long display names), and doesn't break when you try to select multiple people. Small changes that make a huge difference in daily use.
-
-## August 21, 2025 - Fixed a Sneaky Bug That Broke Gmail
-
-Found a tricky bug where our Gmail integration was trying to load recipient data but failing silently. The problem was our internal systems were hardcoded to localhost:3000, but our development server was running on port 3001. So every time someone tried to load their Gmail contacts, it would fail and kick them out of the setup screen.
-
-Fixed it by making the system automatically detect whatever port it's running on. Now it works consistently whether you're developing locally, testing on staging, or running in production. Those kinds of environment-specific bugs are the worst because they work fine in one setup but break everywhere else.
-
-## August 21, 2025 - Cleaned Up Messy Code Architecture
-
-We had this massive 7,000+ line file that contained code for every single integration - Gmail, Discord, Slack, Google Drive, you name it. It was impossible to work with and made adding new features a nightmare. We finally broke it apart into organized, focused modules.
-
-Now each integration has its own clean folder structure with proper separation of concerns. Discord has its own files, Gmail has its own files, etc. It's so much easier to add new features and fix bugs when you're not hunting through thousands of lines of unrelated code. Good architecture pays dividends long-term.
-
-## August 19, 2025 - Performance Boost by Removing Debug Spam
-
-Our development console was completely flooded with debug messages - literally hundreds of log statements firing constantly during normal use. It was slowing things down and making actual debugging nearly impossible. We went through the entire codebase and cleaned house.
-
-Removed over 100 unnecessary console.log statements while keeping the important error logging. Now the app runs noticeably smoother and when something actually goes wrong, you can see the real error messages instead of them being buried in debug noise. Sometimes the best code improvements are about what you remove, not what you add.
-
-## August 19, 2025 - Built In-App Gmail Label Management
-
-Added the ability to create and manage Gmail labels directly inside our workflow builder instead of having to switch back and forth to Gmail's website. Sounds simple, but the technical challenge was keeping everything in sync - when you create a new label, all the dropdowns and menus need to update immediately.
-
-The tricky part was cache management. Gmail would successfully create the label, but our interface would still show the old data because it was cached. We built a smart refresh system that knows when to use cached data for speed and when to bypass it for accuracy. Now users can set up their email automations without constant tab-switching.

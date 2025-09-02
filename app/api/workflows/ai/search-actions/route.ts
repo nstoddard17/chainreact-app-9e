@@ -1,0 +1,246 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { 
+  searchActions, 
+  rankActions, 
+  findSimilarActions,
+  suggestActions,
+  extractIntent,
+  matchIntentToActions
+} from '@/lib/workflows/ai/semanticSearch'
+
+/**
+ * API endpoint for semantic action search
+ * POST /api/workflows/ai/search-actions
+ * 
+ * Used by the workflow builder to:
+ * 1. Search for actions based on query
+ * 2. Find similar actions
+ * 3. Suggest actions based on workflow context
+ * 4. Match user intent to actions
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { action } = body
+
+    // Handle different search actions
+    switch (action) {
+      case 'search':
+        return handleSearch(body)
+      
+      case 'similar':
+        return handleSimilar(body)
+      
+      case 'suggest':
+        return handleSuggest(body)
+      
+      case 'intent':
+        return handleIntent(body)
+      
+      default:
+        return NextResponse.json(
+          { error: 'Invalid action' },
+          { status: 400 }
+        )
+    }
+  } catch (error) {
+    console.error('Action search error:', error)
+    return NextResponse.json(
+      { error: 'Failed to search actions' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * Handle semantic search for actions
+ */
+async function handleSearch(params: {
+  query: string
+  availableActions: string[]
+  topK?: number
+  context?: {
+    recentlyUsed?: string[]
+    userPreferences?: string[]
+    triggerType?: string
+  }
+}) {
+  try {
+    const searchResults = await searchActions(
+      params.query,
+      params.availableActions,
+      params.topK || 5
+    )
+    
+    // Rank results based on context if provided
+    const rankedResults = params.context ? 
+      rankActions(searchResults, params.context) :
+      searchResults.map(r => ({ ...r, reasoning: 'Semantic match' }))
+    
+    return NextResponse.json({
+      success: true,
+      results: rankedResults.map(r => ({
+        actionId: r.action.id,
+        name: r.action.name,
+        description: r.action.description,
+        score: r.score,
+        reasoning: r.reasoning,
+        category: r.action.category,
+        tags: r.action.tags
+      }))
+    })
+  } catch (error) {
+    console.error('Search failed:', error)
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * Handle finding similar actions
+ */
+async function handleSimilar(params: {
+  actionId: string
+  availableActions: string[]
+  topK?: number
+}) {
+  try {
+    const similarActions = await findSimilarActions(
+      params.actionId,
+      params.availableActions,
+      params.topK || 3
+    )
+    
+    return NextResponse.json({
+      success: true,
+      results: similarActions.map(action => ({
+        actionId: action.id,
+        name: action.name,
+        description: action.description,
+        category: action.category,
+        tags: action.tags
+      }))
+    })
+  } catch (error) {
+    console.error('Similar search failed:', error)
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * Handle action suggestions based on workflow context
+ */
+async function handleSuggest(params: {
+  triggerType?: string
+  existingActions: string[]
+  workflowPurpose?: string
+  allActions: string[]
+}) {
+  try {
+    const suggestions = await suggestActions(
+      {
+        triggerType: params.triggerType,
+        existingActions: params.existingActions,
+        workflowPurpose: params.workflowPurpose
+      },
+      params.allActions
+    )
+    
+    return NextResponse.json({
+      success: true,
+      suggestions: suggestions.map(s => ({
+        actionId: s.action.id,
+        name: s.action.name,
+        description: s.action.description,
+        reason: s.reason,
+        category: s.action.category,
+        provider: s.action.provider
+      }))
+    })
+  } catch (error) {
+    console.error('Suggestion failed:', error)
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * Handle intent extraction and matching
+ */
+async function handleIntent(params: {
+  query: string
+  availableActions: string[]
+}) {
+  try {
+    // Extract intent from query
+    const intent = extractIntent(params.query)
+    
+    // Match intent to actions
+    const matches = matchIntentToActions(intent, params.availableActions)
+    
+    return NextResponse.json({
+      success: true,
+      intent: {
+        action: intent.action,
+        target: intent.target,
+        attributes: intent.attributes
+      },
+      matches: matches.map(m => ({
+        actionId: m.actionId,
+        confidence: m.confidence
+      }))
+    })
+  } catch (error) {
+    console.error('Intent matching failed:', error)
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * OPTIONS handler for CORS
+ */
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}

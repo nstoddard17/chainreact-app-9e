@@ -749,63 +749,6 @@ export class AdvancedExecutionEngine {
           }
           break;
 
-        case 'smart_ai_agent':
-          // Handle Smart AI Agent execution - automatically fills downstream action fields
-          console.log(`🧠 Executing Smart AI agent node: ${node.id}`);
-          try {
-            const { executeSmartAIAgent } = await import('@/lib/workflows/actions/smartAIAgent')
-            const smartResult = await executeSmartAIAgent({
-              userId: context.session.user_id,
-              config: node.data.config || {},
-              input: {
-                ...context.data,
-                triggerData: context.data.originalPayload || context.data,
-                workflowData: context.data
-              },
-              workflowContext: {
-                nodes: context.workflow?.nodes || [],
-                edges: context.workflow?.edges || [],
-                previousResults: context.data
-              }
-            });
-            
-            console.log(`🧠 Smart AI Agent result:`, JSON.stringify(smartResult, null, 2));
-            
-            if (smartResult && smartResult.success) {
-              result = {
-                ...context.data,
-                [node.id]: {
-                  success: true,
-                  output: {
-                    generatedFields: smartResult.generatedFields || {},
-                    fieldsCount: smartResult.fieldsCount || 0,
-                    targetActionType: smartResult.targetActionType || "",
-                    analysisContext: smartResult.analysisContext || {}
-                  },
-                  message: smartResult.message || "Smart AI Agent execution completed"
-                }
-              };
-            } else {
-              result = {
-                ...context.data,
-                [node.id]: {
-                  success: false,
-                  error: smartResult.error || "Smart AI Agent execution failed"
-                }
-              };
-            }
-          } catch (error: any) {
-            console.error(`❌ Smart AI Agent execution failed:`, error);
-            result = {
-              ...context.data,
-              [node.id]: {
-                success: false,
-                error: error.message || "Smart AI Agent execution failed"
-              }
-            };
-          }
-          break;
-
         // Other generic node types...
 
         default:
