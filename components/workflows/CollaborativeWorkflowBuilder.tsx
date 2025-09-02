@@ -3663,8 +3663,9 @@ function WorkflowBuilderContent() {
                         // Add an "Add Action" node at the end of each chain
                         if (previousNodeId) {
                           const lastNode = newNodesToAdd[newNodesToAdd.length - 1];
-                          const timestamp = Date.now() + chainIndex; // Add chainIndex to ensure uniqueness
-                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+                          const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
+                          const randomId = Math.random().toString(36).substr(2, 9);
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
                           const addActionNode = {
                             id: addActionId,
                             type: 'addAction',
@@ -3683,9 +3684,10 @@ function WorkflowBuilderContent() {
                           newNodesToAdd.push(addActionNode);
                           console.log(`🔄 [WorkflowBuilder] Added Add Action node for chain ${chainIndex}`);
                           
-                          // Add edge to Add Action node - ensure unique ID
+                          // Add edge to Add Action node - use unique timestamp and random for edge ID
+                          const edgeRandomId = Math.random().toString(36).substr(2, 9);
                           const edgeToAddAction = {
-                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${edgeRandomId}`,
                             source: previousNodeId,
                             target: addActionId,
                             type: 'straight',
@@ -3740,12 +3742,27 @@ function WorkflowBuilderContent() {
                     if (newEdgesToAdd.length > 0) {
                       setTimeout(() => {
                         setEdges((eds) => {
-                          // First remove any existing AI Agent chain edges
-                          const filteredEdges = eds.filter(e => !e.id.startsWith('edge-chain') && !e.id.startsWith('edge-aiagent-chain'));
-                          // Then add new edges
-                          console.log(`🔄 [WorkflowBuilder] Adding ${newEdgesToAdd.length} edges to workflow`);
-                          console.log(`🔄 [WorkflowBuilder] New edge IDs:`, newEdgesToAdd.map(e => e.id));
-                          return [...filteredEdges, ...newEdgesToAdd];
+                          // First remove any existing AI Agent chain edges and Add Action edges
+                          const filteredEdges = eds.filter(e => 
+                            !e.id.startsWith('edge-chain') && 
+                            !e.id.startsWith('edge-aiagent-chain') &&
+                            !e.id.startsWith('edge-to-addaction')
+                          );
+                          
+                          // Deduplicate new edges before adding
+                          const edgeIdSet = new Set(filteredEdges.map(e => e.id));
+                          const uniqueNewEdges = newEdgesToAdd.filter(edge => {
+                            if (edgeIdSet.has(edge.id)) {
+                              console.log(`⚠️ [WorkflowBuilder] Skipping duplicate edge: ${edge.id}`);
+                              return false;
+                            }
+                            edgeIdSet.add(edge.id);
+                            return true;
+                          });
+                          
+                          console.log(`🔄 [WorkflowBuilder] Adding ${uniqueNewEdges.length} edges to workflow`);
+                          console.log(`🔄 [WorkflowBuilder] New edge IDs:`, uniqueNewEdges.map(e => e.id));
+                          return [...filteredEdges, ...uniqueNewEdges];
                         });
                       }, 100);
                     }
