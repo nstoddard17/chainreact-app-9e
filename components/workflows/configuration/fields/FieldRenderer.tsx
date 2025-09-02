@@ -30,6 +30,7 @@ import { OutlookEmailField } from "./outlook/OutlookEmailField";
 import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
 import { DiscordGenericField } from "./discord/DiscordGenericField";
+import { AirtableImageField } from "./airtable/AirtableImageField";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -51,6 +52,7 @@ interface FieldProps {
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
+  parentValues?: Record<string, any>; // All form values for dependency resolution
 }
 
 /**
@@ -89,6 +91,7 @@ export function FieldRenderer({
   onDynamicLoad,
   nodeInfo,
   bubbleValues = [],
+  parentValues = {},
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -256,6 +259,50 @@ export function FieldRenderer({
       case "textarea":
       case "time":
       case "file":
+        // Special handling for Airtable image/attachment fields
+        if (integrationProvider === 'airtable' && field.name?.startsWith('airtable_field_')) {
+          const airtableFieldType = (field as any).airtableFieldType;
+          
+          // Handle attachment/image fields
+          if (airtableFieldType === 'multipleAttachments' || 
+              airtableFieldType === 'attachment' || 
+              airtableFieldType === 'image') {
+            return (
+              <AirtableImageField
+                field={field}
+                value={value}
+                onChange={onChange}
+                error={error}
+              />
+            );
+          }
+          
+          // Handle single/multiple select fields that weren't already caught
+          if (airtableFieldType === 'singleSelect' || airtableFieldType === 'multipleSelects') {
+            const selectOptions = Array.isArray(field.options) 
+              ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+              : fieldOptions;
+              
+            return (
+              <GenericSelectField
+                field={{
+                  ...field,
+                  type: airtableFieldType === 'multipleSelects' ? 'multi_select' : 'select'
+                }}
+                value={value}
+                onChange={onChange}
+                error={error}
+                options={selectOptions}
+                isLoading={loadingDynamic}
+                onDynamicLoad={onDynamicLoad}
+                nodeInfo={nodeInfo}
+                selectedValues={bubbleValues}
+                parentValues={parentValues}
+              />
+            );
+          }
+        }
+        
         return (
           <GenericTextInput
             field={field}
@@ -333,6 +380,7 @@ export function FieldRenderer({
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
                 selectedValues={bubbleValues}
+                parentValues={parentValues}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -360,6 +408,32 @@ export function FieldRenderer({
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
             selectedValues={bubbleValues}
+            parentValues={parentValues}
+          />
+        );
+
+      case "multi_select":
+        // Multi-select fields (especially for Airtable)
+        const multiSelectOptions = Array.isArray(field.options) 
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+        
+        return (
+          <GenericSelectField
+            field={{
+              ...field,
+              type: 'select', // GenericSelectField handles multi vs single based on value type
+              multiple: true
+            }}
+            value={value}
+            onChange={onChange}
+            error={error}
+            options={multiSelectOptions}
+            isLoading={loadingDynamic}
+            onDynamicLoad={onDynamicLoad}
+            nodeInfo={nodeInfo}
+            selectedValues={bubbleValues}
+            parentValues={parentValues}
           />
         );
 

@@ -13,9 +13,10 @@ interface GenericSelectFieldProps {
   error?: string;
   options: any[];
   isLoading?: boolean;
-  onDynamicLoad?: (fieldName: string) => void;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
   nodeInfo?: any;
   selectedValues?: string[]; // Values that already have bubbles
+  parentValues?: Record<string, any>; // Parent form values for dependency resolution
 }
 
 /**
@@ -32,6 +33,7 @@ export function GenericSelectField({
   onDynamicLoad,
   nodeInfo,
   selectedValues = [],
+  parentValues = {},
 }: GenericSelectFieldProps) {
   // For Airtable create record fields, we need to get the bubble values from the form
   // Since we can't pass them through easily, we'll get them from window object
@@ -53,6 +55,7 @@ export function GenericSelectField({
       open,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
+      fieldDependsOn: field.dependsOn,
       hasOnDynamicLoad: !!onDynamicLoad,
       isLoading,
       optionsLength: options?.length || 0,
@@ -61,8 +64,18 @@ export function GenericSelectField({
     });
     
     if (open && field.dynamic && onDynamicLoad && !isLoading && (options?.length === 0)) {
-      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name);
-      onDynamicLoad(field.name);
+      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
+        dependsOn: field.dependsOn,
+        dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
+      });
+      
+      // If field has dependencies, pass them
+      if (field.dependsOn && parentValues[field.dependsOn]) {
+        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn]);
+      } else {
+        // No dependencies, just load the field
+        onDynamicLoad(field.name);
+      }
     } else {
       console.log('🚫 [GenericSelectField] Dynamic load NOT triggered. Conditions:', {
         open,
