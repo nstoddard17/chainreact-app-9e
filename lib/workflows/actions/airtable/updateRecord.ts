@@ -19,13 +19,6 @@ export async function updateAirtableRecord(
     const status = resolveValue(config.status, input)
     const fields = config.fields || {}
 
-    console.log("Resolved update record values:", { 
-      baseId, 
-      tableName, 
-      recordId,
-      status,
-      fields: Object.keys(fields)
-    })
 
     if (!baseId || !tableName || !recordId) {
       const missingFields = []
@@ -51,7 +44,6 @@ export async function updateAirtableRecord(
       resolvedFields.Status = status
     }
 
-    console.log("Resolved field values:", resolvedFields)
 
     // Update the record in Airtable
     const response = await fetch(

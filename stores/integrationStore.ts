@@ -63,7 +63,7 @@ export interface IntegrationStore {
   getConnectedProviders: () => string[]
   initializeGlobalPreload: () => Promise<void>
   loadIntegrationData: (
-    providerId: string,
+    dataType: string,
     integrationId: string,
     params?: Record<string, any>,
     forceRefresh?: boolean
@@ -312,26 +312,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    loadIntegrationData: async (providerId, integrationId, params, forceRefresh = false) => {
+    loadIntegrationData: async (dataType, integrationId, params, forceRefresh = false) => {
       try {
         // Create a cache key for this specific request
-        const cacheKey = `${providerId}-${integrationId}-${JSON.stringify(params || {})}`
+        const cacheKey = `${dataType}-${integrationId}-${JSON.stringify(params || {})}`
         
         // If not forcing refresh and we have an ongoing request, return that promise
         if (!forceRefresh && ongoingRequests.has(cacheKey)) {
-          console.log(`🔄 [IntegrationStore] Using ongoing request for ${providerId}`)
+          console.log(`🔄 [IntegrationStore] Using ongoing request for ${dataType}`)
           return await ongoingRequests.get(cacheKey)!
         }
         
         // Create new request
         console.log(`🚀 [IntegrationStore] Starting new request:`, {
-          providerId,
+          dataType,
           integrationId, 
           params,
           forceRefresh,
-          message: `Calling IntegrationService.loadIntegrationData with providerId: ${providerId}`
+          message: `Calling IntegrationService.loadIntegrationData with dataType: ${dataType}`
         })
-        const requestPromise = IntegrationService.loadIntegrationData(providerId, integrationId, params, forceRefresh)
+        const requestPromise = IntegrationService.loadIntegrationData(dataType, integrationId, params, forceRefresh)
         
         // Store the promise to prevent duplicate calls
         ongoingRequests.set(cacheKey, requestPromise)
