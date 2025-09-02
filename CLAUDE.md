@@ -153,6 +153,7 @@ When implementing significant features, fixes, or architectural changes, ALWAYS 
   - Use date headers (e.g., "## August 29, 2025") only ONCE per day
   - If multiple updates on the same day, add them to the existing date section
   - Include brief summary of changes made
+  - Explain like a product changelog for customers, not like a pull request
   - Use paragraph form to write the entries. This is for posts for Twitter
   - Delete entries that are older than 8 days
   - This is REQUIRED for tracking progress and communication

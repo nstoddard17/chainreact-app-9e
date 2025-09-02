@@ -40,6 +40,7 @@ import { AddActionNode } from "./AddActionNode"
 import InsertActionNode from "./InsertActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
 import ErrorNotificationPopup from "./ErrorNotificationPopup"
+import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
@@ -4191,6 +4192,9 @@ function WorkflowBuilderContent() {
 
       {/* Error Notification Popup */}
       {workflowId && <ErrorNotificationPopup workflowId={workflowId} />}
+      
+      {/* Integration Re-auth Notification - Only on workflow builder */}
+      <ReAuthNotification />
     </div>
   )
 }

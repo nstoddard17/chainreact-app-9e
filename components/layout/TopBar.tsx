@@ -1,10 +1,12 @@
 "use client"
 
 import { useAuthStore } from "@/stores/authStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu, Settings, ChevronDown, Crown } from "lucide-react"
+import { LogOut, User, Menu, Settings, ChevronDown, Crown, Bell } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +26,43 @@ interface TopBarProps {
 
 export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarProps) {
   const { user, profile, signOut } = useAuthStore()
+  const { integrations } = useIntegrationStore()
   const router = useRouter()
+  const [hasIntegrationIssues, setHasIntegrationIssues] = useState(false)
+
+  // Check for integration issues (same logic as ReAuthNotification)
+  useEffect(() => {
+    const checkIntegrations = () => {
+      const now = new Date()
+      const hasIssues = integrations.some(integration => {
+        // Check database status first
+        if (integration.status === 'needs_reauthorization' || integration.status === 'expired') {
+          return true
+        }
+        
+        // Check if connected integration has expired based on expires_at timestamp
+        if (integration.status === 'connected' && integration.expires_at) {
+          const expiresAt = new Date(integration.expires_at)
+          const expiryTimestamp = expiresAt.getTime()
+          const nowTimestamp = now.getTime()
+          
+          // If expired (past the expiry time)
+          if (expiryTimestamp <= nowTimestamp) {
+            return true
+          }
+        }
+        
+        return false
+      })
+      setHasIntegrationIssues(hasIssues)
+    }
+
+    checkIntegrations()
+    // Check periodically
+    const interval = setInterval(checkIntegrations, 30000) // Check every 30 seconds
+    
+    return () => clearInterval(interval)
+  }, [integrations])
 
   const handleSignOut = async () => {
     try {
@@ -62,13 +100,26 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
 
       <div className="flex items-center space-x-4">
         <ThemeToggle />
+        
+        {/* Membership tier - separate and non-clickable */}
+        <div className="hidden sm:block">
+          <RoleBadgeCompact role={userRole} />
+        </div>
+        
+        {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center space-x-2">
-              <User className="w-4 h-4" />
+            <Button variant="ghost" className="flex items-center space-x-2 relative">
+              {hasIntegrationIssues ? (
+                <div className="relative">
+                  <Bell className="w-4 h-4 text-yellow-500 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                </div>
+              ) : (
+                <User className="w-4 h-4" />
+              )}
               <div className="hidden sm:flex items-center space-x-2">
                 <span>{profile?.username || profile?.full_name || "User"}</span>
-                <RoleBadgeCompact role={userRole} />
               </div>
               <ChevronDown className="w-4 h-4" />
             </Button>
@@ -79,6 +130,20 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
               <div className="text-xs text-gray-400 truncate">{user?.email}</div>
             </div>
             <DropdownMenuSeparator className="bg-gray-700" />
+            
+            {/* Show integration issues notification in dropdown */}
+            {hasIntegrationIssues && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/integrations" className="flex items-center text-yellow-400 hover:text-yellow-300 hover:bg-gray-700">
+                    <Bell className="w-4 h-4 mr-2 animate-pulse" />
+                    <span className="text-sm">Fix Integration Issues</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-gray-700" />
+              </>
+            )}
+            
             <DropdownMenuItem asChild>
               <Link href="/profile" className="flex items-center text-gray-200 hover:text-white hover:bg-gray-700">
                 <User className="w-4 h-4 mr-2" />

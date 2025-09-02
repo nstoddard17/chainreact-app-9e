@@ -2,6 +2,16 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 2, 2025
+
+### Major UI/UX Improvements and Integration Fixes
+
+We've shipped several important updates to improve the ChainReact experience. The app now provides better visibility for integration issues - when your connected services need reconnection, you'll see a pulsing bell notification in the header instead of the previous user icon. This notification system is now contextual, appearing only in the workflow builder where it's most relevant, keeping other pages clean and focused.
+
+We've also refined the Airtable update experience based on user feedback. The field selection interface is now cleaner, removing duplicate visual elements that were causing confusion. When updating Airtable records, you'll only see the green selection bubbles below each field, making it crystal clear what values you're working with. The system now properly shows the current values from your selected records, so you can see exactly what you're updating.
+
+Behind the scenes, we fixed a critical issue that was preventing dynamic fields from loading after our recent platform refactoring. This affected all integrations - from Airtable bases and tables to Gmail recipients and Google Sheets. The fix ensures that all dropdown fields now populate correctly, making workflow creation smooth and reliable again. Whether you're selecting an Airtable base, choosing email recipients, or picking a Google Sheet, everything loads instantly as expected.
+
 ## September 2, 2025
 
 ### Fixed Airtable Metadata API Encryption Error

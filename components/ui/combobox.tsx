@@ -384,11 +384,9 @@ export function MultiCombobox({
         >
           <div className="flex gap-1 flex-1 overflow-hidden">
             {hideSelectedBadges ? (
-              // When badges are hidden, just show placeholder or count
+              // When badges are hidden, just show placeholder
               <span className="text-muted-foreground">
-                {selectedOptions.length > 0 
-                  ? `${selectedOptions.length} selected`
-                  : (placeholder || "Select option(s)...")}
+                {placeholder || "Select option(s)..."}
               </span>
             ) : selectedOptions.length > 0 ? (
               <>
