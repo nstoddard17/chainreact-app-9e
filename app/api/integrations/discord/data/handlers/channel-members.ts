@@ -64,8 +64,22 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
       })
     )
 
+    // Always provide at least the "Anyone" option even if no members found
+    const anyoneOption = {
+      id: "anyone",
+      value: "anyone",
+      name: "Anyone",
+      label: "Anyone",
+      username: "anyone",
+      discriminator: "0000",
+      avatar: null,
+      isBot: false
+    };
+
     if (!membersResponse || membersResponse.length === 0) {
-      return []
+      console.log(`⚠️ [Discord Channel Members] No members found for channel ${channelId}, returning "Anyone" option only`)
+      // Return just the "Anyone" option so the field isn't completely empty
+      return [anyoneOption]
     }
 
     // Format members for dropdown
@@ -81,16 +95,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     }))
 
     // Add "Anyone" option at the beginning
-    members.unshift({
-      id: "anyone",
-      value: "anyone",
-      name: "Anyone",
-      label: "Anyone",
-      username: "anyone",
-      discriminator: "0000",
-      avatar: null,
-      isBot: false
-    })
+    members.unshift(anyoneOption)
 
     // Cache the result
     channelMembersCache.set(cacheKey, { data: members, timestamp: Date.now() })

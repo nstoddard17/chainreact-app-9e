@@ -342,9 +342,24 @@ export function DiscordGenericField({
 
   // Special case when no options are available
   if (processedOptions.length === 0 && !isLoading) {
-    // For authorFilter with channelId set, show loading state (data is probably being fetched)
+    // For authorFilter with channelId set but no members, show "No members found"
     if (field.name === 'authorFilter' && parentValues?.channelId) {
-      // Show loading spinner while waiting for data
+      // If we've attempted to load and still have no options, the channel has no members
+      if (hasAttemptedLoad.current || lastLoadedChannelId.current === parentValues.channelId) {
+        return (
+          <Select disabled>
+            <SelectTrigger 
+              className={cn(
+                "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+                error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+              )}
+            >
+              <span className="text-gray-500">No members found in this channel</span>
+            </SelectTrigger>
+          </Select>
+        );
+      }
+      // Otherwise show loading while we fetch
       return (
         <Select disabled>
           <SelectTrigger 

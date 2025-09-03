@@ -68,14 +68,26 @@ export function DiscordChannelField({
   if (value) {
     const matchingOption = processedOptions.find(opt => (opt.value || opt.id) === value);
     
-    if (!matchingOption) {
-      console.log(`📌 [DiscordChannelField] Using saved channel value:`, value);
-      // Show a nice placeholder while the actual data loads in background
+    if (!matchingOption && options.length > 0) {
+      // Channel was saved but is no longer accessible (bot removed from channel)
+      console.warn(`⚠️ [DiscordChannelField] Saved channel ${value} is no longer accessible`);
+      // Clear the invalid value
+      onChange('');
+      processedOptions = [{
+        id: 'channel-not-accessible',
+        value: '',
+        label: 'Previously selected channel is no longer accessible',
+        name: 'Channel Not Accessible',
+        disabled: true
+      }];
+    } else if (!matchingOption && options.length === 0 && !isLoading) {
+      // No options loaded yet, show loading placeholder
+      console.log(`📌 [DiscordChannelField] Waiting for channel data to load for:`, value);
       processedOptions = [{
         id: value,
         value: value,
-        label: 'Selected Channel', // Generic text instead of ID
-        name: 'Selected Channel'
+        label: 'Loading channel...',
+        name: 'Loading channel...'
       }];
     }
   }
