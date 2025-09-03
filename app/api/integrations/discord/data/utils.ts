@@ -49,7 +49,7 @@ export function validateDiscordIntegration(integration: any): void {
  * Advanced Discord rate limiting with request queue
  */
 let lastDiscordRequest = 0
-const MIN_REQUEST_INTERVAL = 2000 // 2 seconds between requests (more reasonable)
+const MIN_REQUEST_INTERVAL = 100 // 100ms between requests (Discord allows 50 requests per second)
 
 // Track request counts per bucket with better management
 const bucketData = new Map<string, { 
@@ -57,8 +57,8 @@ const bucketData = new Map<string, {
   resetTime: number, 
   queue: Array<() => void> 
 }>()
-const MAX_REQUESTS_PER_BUCKET = 8 // Conservative limit (Discord allows 10)
-const BUCKET_RESET_BUFFER = 1000 // 1 second buffer after bucket reset
+const MAX_REQUESTS_PER_BUCKET = 10 // Discord allows 10 requests per bucket
+const BUCKET_RESET_BUFFER = 100 // 100ms buffer after bucket reset
 
 // Global request queue to prevent overwhelming Discord API
 const globalQueue: Array<{
@@ -71,7 +71,7 @@ let isProcessingQueue = false
 
 // Enhanced cache for Discord API responses
 const discordCache = new Map<string, { data: any, timestamp: number }>()
-const CACHE_TTL = 60000 // 60 seconds cache (longer to reduce API calls)
+const CACHE_TTL = 300000 // 5 minutes cache to significantly reduce API calls
 
 /**
  * Process the global request queue
@@ -104,8 +104,8 @@ async function processQueue(): Promise<void> {
       queueItem.reject(error)
     }
     
-    // Small delay between queue items
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Minimal delay between queue items to prevent overwhelming
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
   
   isProcessingQueue = false

@@ -4,7 +4,11 @@
  */
 
 import { DiscordIntegration, DiscordDataHandler } from '../types'
-import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
+import { fetchDiscordWithRateLimit } from '../utils'
+
+// Simple in-memory cache for channel members
+const channelMembersCache = new Map<string, { data: any[], timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export const getDiscordChannelMembers: DiscordDataHandler = async (integration: DiscordIntegration, options: any = {}) => {
   console.log("📍 [Discord Channel Members] Handler called with options:", options)
@@ -15,20 +19,21 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     return []
   }
   
+  // Check cache first
+  const cacheKey = `channel_members_${channelId}`
+  const cached = channelMembersCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`📦 [Discord Channel Members] Using cached data for channel ${channelId} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
+    return cached.data
+  }
+  
   console.log("✅ [Discord Channel Members] Loading members for channel:", channelId)
 
   try {
-    // Validate and get token
-    const tokenValidation = await validateDiscordToken(integration)
-    
-    if (!tokenValidation.success) {
-      console.warn("Token validation failed, returning empty members")
-      return []
-    }
-    
-    const botToken = tokenValidation.botToken
+    // Use bot token for fetching channel members (bot must be in the guild)
+    const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Bot token not available - returning empty members")
+      console.warn("Bot token not configured - returning empty members")
       return []
     }
 
@@ -87,7 +92,20 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
       isBot: false
     })
 
-    console.log(`✅ [Discord Channel Members] Returning ${members.length} members for channel ${channelId}`)
+    // Cache the result
+    channelMembersCache.set(cacheKey, { data: members, timestamp: Date.now() })
+    console.log(`✅ [Discord Channel Members] Cached and returning ${members.length} members for channel ${channelId}`)
+    
+    // Clean up old cache entries if cache is getting large
+    if (channelMembersCache.size > 20) {
+      const now = Date.now()
+      for (const [key, value] of channelMembersCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+          channelMembersCache.delete(key)
+        }
+      }
+    }
+    
     return members
   } catch (error: any) {
     console.error("Error fetching Discord channel members:", error)
