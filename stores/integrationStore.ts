@@ -254,10 +254,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
           providerId,
           onSuccess: (data) => {
             setLoading(`connect-${providerId}`, false)
-            setTimeout(() => {
-              fetchIntegrations(true) // Force refresh from server
-              emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-            }, 1000)
+            // Immediate refresh for better UX
+            fetchIntegrations(true) // Force refresh from server
+            emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
           },
           onError: (error) => {
             setError(error)
@@ -291,10 +290,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.connectApiKeyIntegration(providerId, apiKey)
         
         setLoading(`connect-${providerId}`, false)
-        setTimeout(() => {
-          fetchIntegrations(true)
-          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-        }, 1000)
+        // Immediate refresh for better UX  
+        fetchIntegrations(true)
+        emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
       } catch (error: any) {
         console.error("Error connecting API key integration:", error)
         setError(error.message || "Failed to connect integration")
@@ -311,9 +309,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.disconnectIntegration(integrationId)
         
         setLoading(`disconnect-${integrationId}`, false)
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 1000)
+        // Immediate refresh for better UX
+        fetchIntegrations(true)
       } catch (error: any) {
         console.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
@@ -330,9 +327,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const stats = await IntegrationService.refreshTokens()
         
         setLoading("refresh-all", false)
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 1000)
+        // Immediate refresh for better UX
+        fetchIntegrations(true)
         
         return stats
       } catch (error: any) {
@@ -398,10 +394,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
           integration,
           onSuccess: () => {
             setLoading(`reconnect-${integrationId}`, false)
-            setTimeout(() => {
-              fetchIntegrations(true)
-              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
-            }, 1000)
+            // Immediate refresh for better UX
+            fetchIntegrations(true)
+            emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
           },
           onError: (error) => {
             setError(error)
@@ -458,11 +453,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
-      // Return all integrations that exist and are usable (not just "connected" ones)
-      // This includes connected, expired, needs_reauthorization, etc. since they can be reconnected
-      // Only exclude explicitly disconnected or failed integrations
+      // Return all integrations that exist and are usable
+      // Include connected, expired, needs_reauthorization since they can be reconnected
+      // Only exclude explicitly disconnected integrations
       const connectedProviders = integrations
-        .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
+        .filter((i) => {
+          // Include if connected or needs reauth (but not disconnected)
+          const include = i.status === "connected" || i.status === "needs_reauthorization" || i.status === "expired"
+          return include && !i.disconnected_at
+        })
         .map((i) => i.provider)
       
       return connectedProviders

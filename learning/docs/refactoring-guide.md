@@ -5,6 +5,31 @@ This guide provides comprehensive instructions for refactoring large files and m
 
 ## Recent Successful Refactorings
 
+### CollaborativeWorkflowBuilder Component Refactoring (September 3, 2025 / January 3, 2025)
+**Achievement**: Reduced from 4,296 lines to 282 lines (93% reduction)
+
+**Key Lessons Learned**:
+1. **Extract Hooks for Logic**: Business logic should be in custom hooks, not components
+2. **Component Composition**: Break down large components into focused, reusable pieces
+3. **Separate Concerns**: Dialogs, toolbars, and states should be independent modules
+4. **Fix Build Issues Early**: Special characters (emojis) can break TypeScript parsing
+5. **Test Incrementally**: Build after each major extraction to catch issues early
+6. **CRITICAL - Preserve Callbacks**: When extracting logic to hooks, callback functions attached to data objects (like React Flow nodes) must be re-attached or functionality breaks
+7. **Test User Interactions**: After refactoring, manually test all interactive elements (buttons, clicks, edits) to ensure they still work
+
+**Pattern Applied**:
+```
+Original Component (4,296 lines)
+├── Execution Logic (300 lines) → hooks/workflows/useWorkflowExecution.ts
+├── Dialog Management (250 lines) → hooks/workflows/useWorkflowDialogs.ts
+├── Integration Selection (200 lines) → hooks/workflows/useIntegrationSelection.ts
+├── Node Configuration (300 lines) → hooks/workflows/useNodeConfiguration.ts
+├── Master Hook → hooks/workflows/useWorkflowBuilder.ts
+├── Toolbar Component → components/workflows/builder/WorkflowToolbar.tsx
+├── Dialog Components → components/workflows/builder/*Dialog.tsx
+└── Core Component (282 lines) → CollaborativeWorkflowBuilder.tsx
+```
+
 ### useDynamicOptions Hook Refactoring (September 2025)
 **Achievement**: Reduced from 1,657 lines to 343 lines (72% reduction)
 
@@ -199,6 +224,56 @@ When refactoring large configuration forms with multiple providers:
    - Use conditional classes: `${isChecked ? 'text-black' : 'text-slate-600'}`
 
 ## Common Pitfalls and Solutions
+
+### CRITICAL Pitfall: Lost Callback Functions in Component Refactoring
+**Problem**: When extracting logic from components into hooks, callback functions attached to data objects (like React Flow nodes) are not preserved, breaking all interactivity.
+
+**Example**: 
+```typescript
+// Original component had nodes with callbacks
+const node = {
+  id: '1',
+  data: {
+    title: 'My Node',
+    onConfigure: (id) => handleConfigure(id),  // These callbacks
+    onDelete: (id) => handleDelete(id),         // get lost during
+    onAddChain: (id) => handleAddChain(id)      // refactoring!
+  }
+}
+
+// After refactoring to hooks, nodes loaded from state lose callbacks
+const node = {
+  id: '1',
+  data: {
+    title: 'My Node'
+    // Callbacks are missing! Node is now non-interactive
+  }
+}
+```
+
+**Solution**: Create an enhancement function that re-attaches callbacks:
+```typescript
+const enhanceNodeWithCallbacks = useCallback((node: any) => {
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      onConfigure: (id: string) => { /* handler */ },
+      onDelete: (id: string) => { /* handler */ },
+      // Other callbacks as needed
+    }
+  }
+}, [dependencies])
+
+// Apply when loading nodes
+const enhancedNodes = nodes.map(node => enhanceNodeWithCallbacks(node))
+```
+
+**Key Points**:
+1. **Always check**: After refactoring, verify interactive elements still work
+2. **Enhance on load**: When loading data from state/API, re-attach callbacks
+3. **Test interactions**: Click all buttons, test all user interactions
+4. **Document callbacks**: List all callbacks that components expect
 
 ### Pitfall 1: Broken Circular Dependencies
 **Problem**: File A imports from File B, and File B imports from File A.

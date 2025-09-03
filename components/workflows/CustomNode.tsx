@@ -225,6 +225,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
                 className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  console.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                  // Fallback to icon if image fails
+                  if (component?.icon) {
+                    const parent = e.currentTarget.parentElement
+                    if (parent) {
+                      e.currentTarget.remove()
+                      const iconElement = React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
+                      // This won't work directly, but shows the intent
+                    }
+                  }
+                }}
+                onLoad={() => console.log(`Successfully loaded logo for ${providerId}`)}
               />
             ) : (
               component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })

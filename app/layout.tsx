@@ -59,9 +59,9 @@ export default function RootLayout({
             <GlobalErrorHandler />
             <AuthInitializer />
             <PresenceProviderOptimized options={{
-              heartbeatInterval: 30000,  // 30 seconds
-              idleTimeout: 300000,       // 5 minutes  
-              enableDatabase: true
+              roomId: 'global',           // Global presence room
+              enablePresence: true,       // Enable presence tracking
+              updateInterval: 30000       // Update every 30 seconds
             }}>
               <DiscordBotProvider />
               <Toaster />

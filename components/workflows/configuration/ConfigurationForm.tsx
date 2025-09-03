@@ -19,6 +19,7 @@ interface ConfigurationFormProps {
   initialData?: Record<string, any>;
   onSave: (data: Record<string, any>) => void;
   onCancel: () => void;
+  onBack?: () => void;
   isEditMode?: boolean;
   workflowData?: any;
   currentNodeId?: string;
@@ -31,6 +32,7 @@ function ConfigurationForm({
   initialData = {},
   onSave,
   onCancel,
+  onBack,
   isEditMode = false,
   workflowData,
   currentNodeId,
@@ -210,6 +212,7 @@ function ConfigurationForm({
     errors,
     onSubmit: handleSubmit,
     onCancel,
+    onBack,
     isEditMode,
     workflowData,
     currentNodeId,

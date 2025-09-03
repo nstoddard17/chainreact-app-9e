@@ -2,6 +2,7 @@
 // This will eventually replace availableNodes.ts
 
 import { NodeComponent } from "./types"
+import { automationNodes } from "./providers/automation"
 import { genericTriggers } from "./providers/generic/triggers"
 import { logicNodes } from "./providers/logic"
 import { aiNodes } from "./providers/ai"
@@ -42,6 +43,7 @@ import { miscNodes } from "./providers/misc"
 // This file now replaces the original availableNodes.ts
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
+  ...automationNodes,
   ...genericTriggers,
   ...logicNodes,
   ...aiNodes,

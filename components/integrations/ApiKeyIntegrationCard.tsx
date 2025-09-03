@@ -7,7 +7,8 @@ import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, X, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Link as LinkIcon, Link2Off, RefreshCw, X, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { cn } from '@/lib/utils'
 import { ManyChatGuide } from './guides/ManyChatGuide'
 import { BeehiivGuide } from './guides/BeehiivGuide'
@@ -144,7 +145,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   variant="outline"
                   className="flex-1"
                 >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isLoading ? <LightningLoader size="sm" className="mr-2" /> : null}
                   Disconnect
                 </Button>
                 <Button
@@ -166,7 +167,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   size="sm"
                   className="flex-1"
                 >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {isLoading ? <LightningLoader size="sm" className="mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                   Reconnect
                 </Button>
                 <Button
@@ -187,7 +188,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                 size="sm"
                 className="w-full"
               >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+                {isLoading ? <LightningLoader size="sm" className="mr-2" /> : <LinkIcon className="mr-2 h-4 w-4" />}
                 Connect
               </Button>
             )}
