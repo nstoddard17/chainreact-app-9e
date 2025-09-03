@@ -144,7 +144,22 @@ The `/learning` directory serves as the single source of truth for:
 - Caching strategies for integration data
 
 ### Testing
+
+#### Unit Testing
 Tests should be written using Jest and React Testing Library when implementing new features. Check existing test patterns in the codebase before writing new tests.
+
+#### Playwright Browser Testing
+**CRITICAL**: When performing browser automation testing with Playwright, you MUST follow the guidelines in `/PLAYWRIGHT.md`. This is mandatory for all browser testing.
+
+Key requirements from `/PLAYWRIGHT.md`:
+- **Use default system browser** - Never specify browser type
+- **Always test from scratch** - Delete existing nodes/configurations before testing
+- **Fix errors immediately** - Users will encounter the same errors you find
+- **Test with live versions** - Never create separate test pages
+- **Verify saved values** - Ensure saved configurations display actual values, not placeholders
+- **Monitor console** - Watch for and fix any console errors during testing
+
+See `/PLAYWRIGHT.md` for complete testing protocols, checklists, and step-by-step procedures.
 
 ## Documentation Requirements
 

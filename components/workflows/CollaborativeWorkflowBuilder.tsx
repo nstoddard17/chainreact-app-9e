@@ -412,12 +412,28 @@ const useWorkflowBuilderState = () => {
   }, [getNodes])
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
-    setSourceAddNode({ id: nodeId, parentId })
-    setSelectedIntegration(null)
-    setSelectedAction(null)
-    setSearchQuery("")
-    setShowActionDialog(true)
-  }, [])
+    // Check if there's already a trigger in the workflow
+    const hasTrigger = getNodes().some(node => 
+      node.id === 'trigger' || 
+      node.data?.isTrigger === true ||
+      node.data?.type?.includes('trigger')
+    )
+    
+    if (!hasTrigger && nodeId.includes('add-action-trigger')) {
+      // This is the initial add button and there's no trigger - open trigger dialog
+      setSelectedIntegration(null)
+      setSelectedTrigger(null)
+      setSearchQuery("")
+      setShowTriggerDialog(true)
+    } else {
+      // Normal action adding
+      setSourceAddNode({ id: nodeId, parentId })
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
+      setShowActionDialog(true)
+    }
+  }, [getNodes])
 
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
