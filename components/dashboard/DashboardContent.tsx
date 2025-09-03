@@ -11,8 +11,8 @@ import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import AIUsageCard from "./AIUsageCard"
-import { OnlineStatusIndicator } from "@/components/providers/PresenceProvider"
-import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
+import { PresenceIndicator } from "@/components/providers/PresenceProviderOptimized"
+import { Workflow, Puzzle } from "lucide-react"
 
 export default function DashboardContent() {
   const searchParams = useSearchParams()
@@ -71,32 +71,18 @@ export default function DashboardContent() {
   return (
     <AppLayout title="Dashboard" subtitle={`Welcome back, ${firstName}! Here's what's happening with your workflows.`}>
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <MetricCard
             title="Active Workflows"
             value={activeWorkflowsCount}
             icon={<Workflow className="w-6 h-6" />}
             color="blue"
           />
-          <MetricCard 
-            title="Hours Saved" 
-            value={metrics?.hoursSaved || 0} 
-            icon={<Clock className="w-6 h-6" />} 
-            color="green" 
-            change="+8%" 
-          />
           <MetricCard
             title="Integrations"
             value={connectedIntegrationsCount}
             icon={<Puzzle className="w-6 h-6" />}
             color="purple"
-          />
-          <MetricCard 
-            title="AI Commands" 
-            value={metrics?.aiCommands || 0} 
-            icon={<Zap className="w-6 h-6" />} 
-            color="yellow" 
-            change="+15%" 
           />
         </div>
 
@@ -110,7 +96,7 @@ export default function DashboardContent() {
           </div>
         </div>
       </div>
-      <OnlineStatusIndicator />
+      <PresenceIndicator className="fixed bottom-4 right-4 bg-gray-900/90 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm border border-gray-700" />
     </AppLayout>
   )
 }

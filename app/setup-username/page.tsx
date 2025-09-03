@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -122,7 +123,7 @@ export default function SetupUsernamePage() {
   if (profile?.username) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <LightningLoader size="lg" color="white" />
       </div>
     )
   }
@@ -165,7 +166,7 @@ export default function SetupUsernamePage() {
                 />
                 {usernameChecking && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    <LightningLoader size="sm" color="blue" />
                   </div>
                 )}
               </div>

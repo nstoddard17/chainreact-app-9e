@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertCircle, Plus, MessageSquare, Clock, CheckCircle, XCircle, AlertTriangle, Bug, Zap, Settings, CreditCard, HelpCircle, FileText } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import AppLayout from "@/components/layout/AppLayout"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -316,7 +317,7 @@ export default function SupportPage() {
           <TabsContent value="open" className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <LightningLoader size="lg" color="blue" />
               </div>
             ) : openTickets.length === 0 ? (
               <Card>
@@ -383,7 +384,7 @@ export default function SupportPage() {
           <TabsContent value="closed" className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <LightningLoader size="lg" color="blue" />
               </div>
             ) : closedTickets.length === 0 ? (
               <Card>

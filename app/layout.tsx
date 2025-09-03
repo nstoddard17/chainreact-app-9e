@@ -5,7 +5,7 @@ import { Space_Grotesk } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
-import { PresenceProvider } from "@/components/providers/PresenceProvider"
+import { PresenceProviderOptimized } from "@/components/providers/PresenceProviderOptimized"
 import { Toaster } from "@/components/ui/toaster"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
@@ -58,11 +58,15 @@ export default function RootLayout({
           <SupabaseProvider>
             <GlobalErrorHandler />
             <AuthInitializer />
-            <PresenceProvider>
+            <PresenceProviderOptimized options={{
+              heartbeatInterval: 30000,  // 30 seconds
+              idleTimeout: 300000,       // 5 minutes  
+              enableDatabase: true
+            }}>
               <DiscordBotProvider />
               <Toaster />
               {children}
-            </PresenceProvider>
+            </PresenceProviderOptimized>
           </SupabaseProvider>
         </ThemeProvider>
       </body>

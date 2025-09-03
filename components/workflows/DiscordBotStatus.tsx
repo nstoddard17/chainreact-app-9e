@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Bot, AlertCircle, CheckCircle, ExternalLink } from 'lucide-react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 
 interface DiscordBotStatusProps {
   guildId?: string
@@ -167,7 +168,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
       <Card className={`border-slate-200 ${className}`}>
         <CardContent className="p-4">
           <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <LightningLoader size="sm" color="blue" />
             <span className="text-sm text-slate-600">Checking bot status...</span>
           </div>
         </CardContent>
@@ -222,7 +223,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
             >
               {isBotConnectionInProgress ? (
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <LightningLoader size="sm" color="white" />
                   Connecting...
                 </div>
               ) : (

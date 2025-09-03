@@ -47,9 +47,9 @@ import {
   Gauge,
   Key,
   HelpCircle,
-  ArrowRight,
-  Loader2
+  ArrowRight
 } from 'lucide-react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
 import { AIVariableMenu } from './AIVariableMenu'
 import { useAIVariables } from '@/hooks/useAIVariables'
@@ -752,7 +752,7 @@ export function AIAgentModal({
                       >
                         {isDiscovering ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            <LightningLoader size="sm" className="mr-2" />
                             Discovering...
                           </>
                         ) : (

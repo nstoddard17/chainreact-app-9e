@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Mail, ArrowRight } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
@@ -179,7 +180,7 @@ export default function EmailConfirmPage() {
 
               {processing ? (
                 <div className="flex justify-center mb-6">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                  <LightningLoader size="lg" color="blue" />
                 </div>
               ) : fromEmail ? (
                 <div className="space-y-6">

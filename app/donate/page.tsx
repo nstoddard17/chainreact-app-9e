@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Heart, CreditCard, Sparkles, Coffee, Star, Crown, Zap, Shield, Globe, Rocket } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import AppLayout from "@/components/layout/AppLayout"
 import { cn } from "@/lib/utils"
 
@@ -240,7 +241,7 @@ export default function DonatePage() {
                 >
                   {isLoading ? (
                     <div className="flex items-center space-x-3">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <LightningLoader size="sm" color="white" />
                       <span>Processing...</span>
                     </div>
                   ) : (

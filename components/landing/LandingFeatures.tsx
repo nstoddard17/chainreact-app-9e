@@ -101,9 +101,6 @@ const LandingFeatures = memo(() => {
             <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">
               Connect with your favorite tools
             </h3>
-            <p className="text-lg text-blue-200 mb-8">
-              Integrate with 200+ popular applications and services
-            </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">

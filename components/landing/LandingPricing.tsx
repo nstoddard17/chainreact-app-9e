@@ -24,19 +24,19 @@ const PricingCard = memo(({
   buttonHref: string
   isPopular?: boolean
 }) => (
-  <Card className={`p-8 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105 ${isPopular ? 'ring-2 ring-blue-500' : ''}`}>
+  <Card className={`p-8 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105 flex flex-col h-full ${isPopular ? 'ring-2 ring-blue-500' : ''}`}>
     {isPopular && (
       <div className="text-center mb-4">
         <Badge className="bg-blue-600 text-white">Most Popular</Badge>
       </div>
     )}
-    <CardContent className="p-0 text-center">
+    <CardContent className="p-0 text-center flex flex-col flex-grow">
       <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
       <div className="text-4xl font-bold text-blue-400 mb-4">
         {price}
         {period && <span className="text-lg text-blue-200">{period}</span>}
       </div>
-      <ul className="space-y-3 mb-8 text-blue-200">
+      <ul className="space-y-3 mb-8 text-blue-200 flex-grow">
         {features.map((feature, index) => (
           <li key={index} className="flex items-center">
             <CheckCircle className="h-5 w-5 text-green-400 mr-2 flex-shrink-0" />
