@@ -164,7 +164,7 @@ export async function createWorkflow(name: string, description?: string): Promis
     user_id: user.id,
     status: "draft", // Add required status field
     visibility: "private", // Add default visibility
-    executions_count: 0, // Initialize executions count
+    // executions_count will be handled by database default value
   }
 
   console.log("Creating workflow with data:", newWorkflow)
@@ -185,8 +185,9 @@ export async function createWorkflow(name: string, description?: string): Promis
     })
     
     // Provide more specific error messages based on error code
-    if (error.code === '23505') { // Unique violation
-      throw new Error("A workflow with this name already exists. Please choose a different name.")
+    if (error.code === '23505') { // Unique violation - but this should not happen for workflow names
+      // Since we allow duplicate names, this would be for a different unique constraint
+      throw new Error("A unique constraint was violated. Please try again.")
     } else if (error.code === '23503') { // Foreign key violation
       throw new Error("Invalid user reference. Please try logging in again.")
     } else if (error.code === '23502') { // Not null violation

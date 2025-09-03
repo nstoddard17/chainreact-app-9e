@@ -14,17 +14,20 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Play, Pause, Settings, Trash2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2, Pencil, Check, X } from "lucide-react"
+import { Play, Pause, Settings, Trash2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2, Pencil, Clock, Calendar, User } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
 import AddToOrganizationDialog from "./AddToOrganizationDialog"
+import WorkflowDialog from "./WorkflowDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/cachedWorkflowStore"
 import { RoleGuard, PermissionGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
 import { hasOrganizationPermission } from "@/lib/utils/organizationRoles"
+import { getRelativeTime, formatDateTime } from "@/lib/utils/formatTime"
+import { createClient } from "@/utils/supabaseClient"
 
 export default function WorkflowsContent() {
   const { profile } = useAuthStore()
@@ -37,6 +40,7 @@ export default function WorkflowsContent() {
     updateWorkflowById,
     deleteWorkflowById,
   } = useWorkflows()
+  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({})
 
   // Get user's organization role
   const getUserOrgRole = () => {
@@ -53,14 +57,8 @@ export default function WorkflowsContent() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
-  const [editingWorkflow, setEditingWorkflow] = useState<{ id: string | null; field: 'name' | 'description' | null }>({
-    id: null,
-    field: null
-  })
-  const [editValues, setEditValues] = useState<{ name: string; description: string }>({
-    name: '',
-    description: ''
-  })
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [workflowToEdit, setWorkflowToEdit] = useState<Workflow | null>(null)
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; workflowId: string | null }>({
     open: false,
     workflowId: null,
@@ -93,6 +91,32 @@ export default function WorkflowsContent() {
     }
   }, [workflows, loading, loadAllWorkflows])
 
+  // Load user profiles for workflow creators
+  useEffect(() => {
+    const loadUserProfiles = async () => {
+      if (!workflows || workflows.length === 0) return
+      
+      const userIds = [...new Set(workflows.map(w => w.user_id).filter(Boolean))]
+      const supabase = createClient()
+      if (!supabase) return
+      
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, username')
+        .in('id', userIds)
+      
+      if (profiles) {
+        const profileMap = profiles.reduce((acc, profile) => {
+          acc[profile.id] = profile
+          return acc
+        }, {} as Record<string, any>)
+        setUserProfiles(profileMap)
+      }
+    }
+    
+    loadUserProfiles()
+  }, [workflows])
+
   const handleMoveToOrganization = (workflowId: string, workflowName: string) => {
     setAddToOrgDialog({
       open: true,
@@ -106,46 +130,18 @@ export default function WorkflowsContent() {
     loadAllWorkflows()
   }
 
-  const handleStartEdit = (workflowId: string, field: 'name' | 'description', currentValue: string) => {
-    setEditingWorkflow({ id: workflowId, field })
-    if (field === 'name') {
-      setEditValues({ ...editValues, name: currentValue })
-    } else {
-      setEditValues({ ...editValues, description: currentValue })
-    }
+  const handleEditWorkflow = (workflow: Workflow) => {
+    setWorkflowToEdit(workflow)
+    setEditDialogOpen(true)
   }
 
-  const handleCancelEdit = () => {
-    setEditingWorkflow({ id: null, field: null })
-    setEditValues({ name: '', description: '' })
-  }
-
-  const handleSaveEdit = async (workflowId: string, field: 'name' | 'description') => {
-    try {
-      const updateData = field === 'name' 
-        ? { name: editValues.name }
-        : { description: editValues.description }
-      
-      await updateWorkflowById(workflowId, updateData)
-      
-      toast({
-        title: "Success",
-        description: `Workflow ${field} updated successfully`,
-      })
-      
-      setEditingWorkflow({ id: null, field: null })
-      setEditValues({ name: '', description: '' })
-      
-      // Refresh workflows to show the updated data
-      await loadAllWorkflows()
-    } catch (error) {
-      console.error(`Failed to update workflow ${field}:`, error)
-      toast({
-        title: "Error",
-        description: `Failed to update workflow ${field}`,
-        variant: "destructive",
-      })
-    }
+  const handleEditSuccess = async () => {
+    toast({
+      title: "Success",
+      description: "Workflow updated successfully",
+    })
+    // Refresh workflows to show the updated data
+    await loadAllWorkflows()
   }
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
@@ -442,119 +438,33 @@ export default function WorkflowsContent() {
                   <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-200 group flex flex-col h-full">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <div className="space-y-2">
-                        {/* Workflow Name */}
-                        <div className="flex items-center gap-2">
-                          {editingWorkflow.id === workflow.id && editingWorkflow.field === 'name' ? (
-                            <div className="flex items-center gap-2 flex-1">
-                              <Input
-                                value={editValues.name}
-                                onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                                className="h-8 font-semibold text-lg"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleSaveEdit(workflow.id, 'name')
-                                  } else if (e.key === 'Escape') {
-                                    handleCancelEdit()
-                                  }
-                                }}
-                              />
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={() => handleSaveEdit(workflow.id, 'name')}
-                              >
-                                <Check className="h-3.5 w-3.5 text-green-600" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                onClick={handleCancelEdit}
-                              >
-                                <X className="h-3.5 w-3.5 text-red-600" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <CardTitle className="font-semibold text-lg text-slate-900 group-hover:text-primary transition-colors flex-1">
-                                {workflow.name}
-                              </CardTitle>
-                              <PermissionGuard permission="workflows.edit">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    handleStartEdit(workflow.id, 'name', workflow.name)
-                                  }}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              </PermissionGuard>
-                            </>
-                          )}
+                        {/* Workflow Name and Edit Button */}
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="font-semibold text-lg text-slate-900 group-hover:text-primary transition-colors">
+                            {workflow.name}
+                          </CardTitle>
+                          <PermissionGuard permission="workflows.edit">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleEditWorkflow(workflow)
+                              }}
+                              title="Edit workflow details"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </PermissionGuard>
                         </div>
                         
                         {/* Workflow Description */}
-                        <div className="flex items-start gap-2">
-                          {editingWorkflow.id === workflow.id && editingWorkflow.field === 'description' ? (
-                            <div className="flex items-start gap-2 flex-1">
-                              <Textarea
-                                value={editValues.description}
-                                onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
-                                className="min-h-[60px] text-sm resize-none"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Escape') {
-                                    handleCancelEdit()
-                                  }
-                                }}
-                              />
-                              <div className="flex flex-col gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0"
-                                  onClick={() => handleSaveEdit(workflow.id, 'description')}
-                                >
-                                  <Check className="h-3.5 w-3.5 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0"
-                                  onClick={handleCancelEdit}
-                                >
-                                  <X className="h-3.5 w-3.5 text-red-600" />
-                                </Button>
-                              </div>
-                            </div>
+                        <div>
+                          {workflow.description ? (
+                            <p className="text-sm text-slate-600">{workflow.description}</p>
                           ) : (
-                            <>
-                              <div className="flex-1">
-                                {workflow.description ? (
-                                  <p className="text-sm text-slate-600">{workflow.description}</p>
-                                ) : (
-                                  <p className="text-sm text-slate-400 italic">No description</p>
-                                )}
-                              </div>
-                              <PermissionGuard permission="workflows.edit">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    handleStartEdit(workflow.id, 'description', workflow.description || '')
-                                  }}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              </PermissionGuard>
-                            </>
+                            <p className="text-sm text-slate-400 italic">No description</p>
                           )}
                         </div>
                       </div>
@@ -647,10 +557,40 @@ export default function WorkflowsContent() {
                             )
                           })()}
                         </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs text-slate-500">
-                            {workflow.updated_at ? `Updated ${new Date(workflow.updated_at).toLocaleDateString()}` : 'Not yet updated'}
-                          </div>
+                        {/* Metadata section with dates and creator */}
+                        <div className="border-t border-slate-100 pt-2 mt-2 space-y-1">
+                          {workflow.created_at && (
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <div className="flex items-center gap-1" title={formatDateTime(workflow.created_at)}>
+                                <Calendar className="h-3 w-3" />
+                                <span>Created {getRelativeTime(workflow.created_at)}</span>
+                              </div>
+                            </div>
+                          )}
+                          {workflow.updated_at && (
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <div className="flex items-center gap-1" title={formatDateTime(workflow.updated_at)}>
+                                <Clock className="h-3 w-3" />
+                                <span>Modified {getRelativeTime(workflow.updated_at)}</span>
+                              </div>
+                            </div>
+                          )}
+                          {workflow.user_id && (
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                <span>
+                                  Created by {userProfiles[workflow.user_id]?.full_name || 
+                                             userProfiles[workflow.user_id]?.username || 
+                                             (workflow.user_id === profile?.id ? 'You' : 'Unknown')}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-2">
+                          <div></div>
                           <div className="flex items-center gap-1">
                             {updatingWorkflows.has(workflow.id) ? (
                               <Button
@@ -846,6 +786,14 @@ export default function WorkflowsContent() {
         workflowId={addToOrgDialog.workflowId || ""}
         workflowName={addToOrgDialog.workflowName}
         onMoveComplete={handleMoveComplete}
+      />
+
+      {/* Edit Workflow Dialog */}
+      <WorkflowDialog 
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        workflow={workflowToEdit}
+        onSuccess={handleEditSuccess}
       />
 
       <AIChatAssistant />
