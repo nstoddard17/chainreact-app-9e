@@ -6,9 +6,9 @@ import { useAuthStore } from "@/stores/authStore"
 import Sidebar from "./Sidebar"
 import TopBar from "./TopBar"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { Loader2 } from "lucide-react"
 import { useTheme } from "next-themes"
 import PageProtection from "@/components/auth/PageProtection"
+import { LightningLoader } from "@/components/ui/lightning-loader"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -55,7 +55,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LightningLoader size="lg" color="primary" />
       </div>
     )
   }
@@ -92,7 +92,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           {globalPreloadingData && (
             <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
               <div className="flex items-center gap-2 text-sm text-blue-700">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <LightningLoader size="sm" color="blue" />
                 <span>Loading your integration data in the background...</span>
               </div>
             </div>

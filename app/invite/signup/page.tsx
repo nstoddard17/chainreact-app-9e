@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, XCircle, Users, Crown, Shield, Eye, Mail } from "lucide-react"
+import { CheckCircle, XCircle, Users, Crown, Shield, Eye, Mail } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
 import { createClient } from "@supabase/supabase-js"
 
@@ -145,7 +146,7 @@ function InviteSignupPageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <LightningLoader size="lg" color="blue" className="mx-auto mb-4" />
           <p className="text-slate-600">Validating invitation...</p>
         </div>
       </div>
@@ -254,7 +255,7 @@ function InviteSignupPageContent() {
             >
               {signingUp ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LightningLoader size="sm" className="mr-2" />
                   Creating Account...
                 </>
               ) : (

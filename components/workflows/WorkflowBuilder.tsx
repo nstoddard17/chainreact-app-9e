@@ -31,7 +31,8 @@ import { WorkflowVersionControl } from "./WorkflowVersionControl"
 import { WorkflowDebugger } from "./WorkflowDebugger"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Save, Play, Loader2, MessageSquare, GitBranch } from "lucide-react"
+import { Save, Play, MessageSquare, GitBranch } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const nodeTypes: NodeTypes = {
@@ -396,7 +397,7 @@ export default function WorkflowBuilder() {
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
               {testing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LightningLoader size="sm" className="mr-2" />
                   Testing...
                 </>
               ) : (
@@ -415,7 +416,7 @@ export default function WorkflowBuilder() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LightningLoader size="sm" className="mr-2" />
                   Saving...
                 </>
               ) : (

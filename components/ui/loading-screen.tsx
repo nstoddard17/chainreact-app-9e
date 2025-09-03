@@ -1,6 +1,6 @@
 import React from 'react'
-import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LightningLoader } from './lightning-loader'
 
 interface LoadingScreenProps {
   title?: string
@@ -21,10 +21,10 @@ export function LoadingScreen({
     lg: 'py-16'
   }
 
-  const spinnerSizes = {
-    sm: 'w-8 h-8',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16'
+  const loaderSizes = {
+    sm: 'md' as const,
+    md: 'lg' as const,
+    lg: 'xl' as const
   }
 
   const titleSizes = {
@@ -39,12 +39,7 @@ export function LoadingScreen({
       sizeClasses[size],
       className
     )}>
-      <div className="relative">
-        <div className={cn(
-          "border-4 border-border border-t-primary rounded-full animate-spin",
-          spinnerSizes[size]
-        )}></div>
-      </div>
+      <LightningLoader size={loaderSizes[size]} color="primary" />
       <div className="text-center space-y-2">
         <h3 className={cn(
           "font-medium text-foreground",

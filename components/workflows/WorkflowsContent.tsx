@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2 } from "lucide-react"
+import { Play, Pause, Settings, Trash2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2 } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
 import AddToOrganizationDialog from "./AddToOrganizationDialog"
@@ -269,7 +270,7 @@ export default function WorkflowsContent() {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <LightningLoader size="xl" color="primary" />
         </div>
         <AIChatAssistant />
       </AppLayout>
@@ -343,7 +344,7 @@ export default function WorkflowsContent() {
                     >
                       {generatingAI ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <LightningLoader size="sm" className="mr-2" />
                           Generating...
                         </>
                       ) : (
@@ -499,7 +500,7 @@ export default function WorkflowsContent() {
                                 disabled
                                 className="h-7 w-7 p-0"
                               >
-                                <Loader2 className="h-3 w-3 text-slate-500 animate-spin" />
+                                <LightningLoader size="sm" />
                                 <span className="sr-only">Updating...</span>
                               </Button>
                             ) : (

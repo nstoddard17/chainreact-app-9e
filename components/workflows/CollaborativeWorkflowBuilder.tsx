@@ -45,7 +45,8 @@ import { ReAuthNotification } from "@/components/integrations/ReAuthNotification
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear } from "lucide-react"
+import { Save, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear } from "lucide-react"
+import { LightningLoader } from "@/components/ui/lightning-loader"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -2856,7 +2857,7 @@ function WorkflowBuilderContent() {
             )}
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
+                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <LightningLoader size="md" className="mr-2" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
                 <TooltipContent><p>Save your workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -2869,7 +2870,7 @@ function WorkflowBuilderContent() {
                     disabled={isExecuting && !listeningMode || isSaving}
                     size="sm"
                   >
-                    {isExecuting && !listeningMode ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : listeningMode ? <Ear className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                    {isExecuting && !listeningMode ? <LightningLoader size="sm" className="mr-1" /> : listeningMode ? <Ear className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
                     {listeningMode ? "Stop Listening" : "Listen"}
                   </Button>
                 </TooltipTrigger>
@@ -2880,7 +2881,7 @@ function WorkflowBuilderContent() {
             </TooltipProvider>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
+                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <LightningLoader size="md" className="mr-2" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
                 <TooltipContent><p>Execute the workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -4186,7 +4187,7 @@ function WorkflowBuilderContent() {
             <Button onClick={handleSaveAndNavigate} disabled={isSaving}>
               {isSaving ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LightningLoader size="sm" className="mr-2" />
                   Saving...
                 </>
               ) : (

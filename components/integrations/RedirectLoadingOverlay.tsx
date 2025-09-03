@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, ExternalLink } from "lucide-react"
+import { ExternalLink } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 
 interface RedirectLoadingOverlayProps {
   provider?: string
@@ -33,7 +34,7 @@ export default function RedirectLoadingOverlay({ provider, isVisible }: Redirect
         <CardContent className="p-8 text-center">
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
-              <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+              <LightningLoader size="xl" color="blue" />
               <ExternalLink className="w-4 h-4 absolute -top-1 -right-1 text-blue-600" />
             </div>
 
