@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useRouter, useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -234,7 +235,7 @@ export default function TicketDetailPage() {
     return (
       <AppLayout title="Loading Ticket..." subtitle="">
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <LightningLoader size="lg" color="blue" />
         </div>
       </AppLayout>
     )

@@ -31,11 +31,12 @@ import {
   DollarSign, Info, AlertCircle, CheckCircle, X, Plus,
   ChevronRight, ChevronDown, Variable, Lightbulb, Target,
   Wand2, BookOpen, MessageSquare, Gauge, Key, HelpCircle,
-  ArrowRight, Loader2, Save, Play, Database, Clock, Shield,
+  ArrowRight, Save, Play, Database, Clock, Shield,
   Download, Copy, GraduationCap, ToggleLeft, ToggleRight,
   FileText, Palette, Lock, Unlock, RefreshCw, TrendingUp,
   Activity, Coins, Layers, Shuffle, Workflow
 } from 'lucide-react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
 import { AIVariablePanel } from './AIVariablePanel'
 import { useAIVariables } from '@/hooks/useAIVariables'
@@ -661,7 +662,7 @@ export function AIAgentConfigModal({
                     {/* Quick Test indicator */}
                     {(tab === 'prompt' && isTestingPrompt) ||
                      (tab === 'model' && isTestingModel) ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <LightningLoader size="sm" />
                     ) : null}
                   </TabsTrigger>
                 ))}
@@ -695,7 +696,7 @@ export function AIAgentConfigModal({
                         disabled={isTestingPrompt}
                       >
                         {isTestingPrompt ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <LightningLoader size="sm" className="mr-2" />
                         ) : (
                           <Play className="w-4 h-4 mr-2" />
                         )}
@@ -1434,7 +1435,7 @@ export function AIAgentConfigModal({
                         disabled={isDiscovering}
                       >
                         {isDiscovering ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <LightningLoader size="sm" className="mr-2" />
                         ) : (
                           <Search className="w-4 h-4 mr-2" />
                         )}

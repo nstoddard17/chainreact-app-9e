@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Building2, Users, Check } from "lucide-react"
+import { Building2, Users, Check } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
 
 interface Organization {
@@ -111,7 +112,7 @@ export default function AddToOrganizationDialog({
         <div className="space-y-4">
           {fetchingOrgs ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <LightningLoader size="lg" color="blue" />
               <span className="ml-2 text-slate-600">Loading organizations...</span>
             </div>
           ) : organizations.length === 0 ? (
@@ -191,7 +192,7 @@ export default function AddToOrganizationDialog({
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <LightningLoader size="sm" className="mr-2" />
                       Moving...
                     </>
                   ) : (

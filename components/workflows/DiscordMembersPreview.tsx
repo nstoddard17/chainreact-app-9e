@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Loader2, Users, Crown, Bot, Calendar, Hash } from 'lucide-react'
+import { Users, Crown, Bot, Calendar, Hash } from 'lucide-react'
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { cn } from '@/lib/utils'
 
 interface DiscordMembersPreviewProps {
@@ -114,7 +115,7 @@ export function DiscordMembersPreview({ config, onClose }: DiscordMembersPreview
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <LightningLoader size="sm" />
             ) : (
               <Hash className="h-4 w-4" />
             )}
@@ -135,7 +136,7 @@ export function DiscordMembersPreview({ config, onClose }: DiscordMembersPreview
 
         {loading && !members.length ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <LightningLoader size="md" className="mr-2" />
             <span>Loading members...</span>
           </div>
         ) : members.length > 0 ? (

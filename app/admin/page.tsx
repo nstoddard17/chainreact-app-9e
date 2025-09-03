@@ -7,6 +7,7 @@ import { useAdminStore } from "@/stores/adminStore"
 import AppLayout from "@/components/layout/AppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
 import { Crown, Shield, Users, Settings, User, Building, Zap } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { type UserRole } from "@/lib/utils/roles"
@@ -35,7 +36,7 @@ export default function AdminPage() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LightningLoader size="lg" color="primary" />
       </div>
     )
   }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, Heart, ArrowLeft, Sparkles, Zap, Shield, Globe, Rocket } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import AppLayout from "@/components/layout/AppLayout"
 import Link from "next/link"
 
@@ -40,7 +41,7 @@ export default function DonateSuccessPage() {
       <AppLayout title="Processing..." subtitle="Setting up your donation">
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-indigo-900/30 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mx-auto mb-4"></div>
+            <LightningLoader size="xl" color="blue" className="mx-auto mb-4" />
             <p className="text-blue-200">Processing your donation...</p>
           </div>
         </div>

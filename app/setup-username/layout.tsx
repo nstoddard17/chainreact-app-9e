@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
-import { Loader2 } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useTheme } from "next-themes"
 
 interface SetupUsernameLayoutProps {
@@ -31,7 +31,7 @@ export default function SetupUsernameLayout({ children }: SetupUsernameLayoutPro
   if (loading || !initialized) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <LightningLoader size="lg" color="white" />
       </div>
     )
   }
@@ -40,7 +40,7 @@ export default function SetupUsernameLayout({ children }: SetupUsernameLayoutPro
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <LightningLoader size="lg" color="white" />
       </div>
     )
   }
