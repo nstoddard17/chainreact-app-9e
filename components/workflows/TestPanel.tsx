@@ -8,9 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
-  Play, Loader2, CheckCircle, XCircle, AlertCircle, 
+  Play, CheckCircle, XCircle, AlertCircle, 
   ArrowRight, Eye, EyeOff, Copy, RefreshCw, Terminal
 } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
@@ -100,7 +101,7 @@ export function TestPanel({
       case 'listening':
         return <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
       case 'running':
-        return <Loader2 className="w-4 h-4 animate-spin" />
+        return <LightningLoader size="sm" />
       case 'completed':
         return <CheckCircle className="w-4 h-4" />
       case 'error':
@@ -439,7 +440,7 @@ export function TestPanel({
             >
               {testStatus === 'running' || testStatus === 'listening' ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LightningLoader size="sm" className="mr-2" />
                   {testStatus === 'listening' ? 'Waiting...' : 'Testing...'}
                 </>
               ) : (

@@ -3,7 +3,8 @@
 import React, { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Loader2, Plus } from "lucide-react"
+import { Settings, Trash2, TestTube, Plus } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
@@ -101,7 +102,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       case 'running':
         return (
           <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <Loader2 className="w-4 h-4 text-yellow-600 animate-spin" />
+            <LightningLoader size="sm" color="yellow" />
           </div>
         )
       case 'completed':
@@ -115,7 +116,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       case 'pending':
         return (
           <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+            <LightningLoader size="sm" color="blue" />
           </div>
         )
       default:

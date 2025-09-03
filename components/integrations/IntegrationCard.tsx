@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react"
+import { Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useIntegrationStore, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 import {
@@ -318,7 +319,7 @@ export function IntegrationCard({
         <div className="flex w-full justify-between gap-2">
           {isLoading ? (
             <Button disabled className="w-full">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <LightningLoader size="sm" className="mr-2" />
               {status === "connected" ? "Disconnecting..." : "Connecting..."}
             </Button>
           ) : isConnected ? (

@@ -7,7 +7,8 @@ import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
 import { IntegrationCard } from "@/components/integrations/IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
-import { Loader2, RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
+import { RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
+import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
@@ -487,7 +488,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       <AppLayout title="Loading...">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <LightningLoader size="xl" color="blue" className="mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your integrations...</p>
             <p className="text-xs text-gray-500 mt-2">
               Debug: providers.length={providers.length}, loading={loading}, user={!!user}
@@ -504,7 +505,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         {loading && filteredProviders.length === 0 ? (
           <div className="col-span-full flex items-center justify-center py-12">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+              <LightningLoader size="lg" color="blue" className="mx-auto mb-2" />
               <p className="text-muted-foreground">Loading integrations...</p>
             </div>
           </div>
@@ -562,7 +563,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground flex items-center gap-2">
           Integration Status
           {loadingMetrics && (
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <LightningLoader size="sm" className="text-muted-foreground" />
           )}
         </CardTitle>
       </CardHeader>
@@ -626,7 +627,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           >
             {(loading || loadingMetrics) ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LightningLoader size="sm" className="mr-2" />
                 Refreshing...
               </>
             ) : (

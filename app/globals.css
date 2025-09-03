@@ -13,6 +13,277 @@ body {
   .tabs-trigger[data-state="active"] {
     @apply font-semibold border-b-2 border-primary text-primary;
   }
+  
+  /* Lightning to chains animation keyframes */
+  @keyframes lightning-strike {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px) scaleY(0.5);
+      filter: brightness(2);
+    }
+    15% {
+      opacity: 1;
+      transform: translateY(0) scaleY(1.2);
+      filter: brightness(3);
+    }
+    25% {
+      opacity: 1;
+      transform: translateY(0) scaleY(1);
+      filter: brightness(2.5);
+    }
+    35% {
+      opacity: 0.8;
+      transform: translateY(0) scaleX(1.1);
+      filter: brightness(2);
+    }
+    50% {
+      opacity: 0.3;
+      transform: translateY(0) scaleX(0.9);
+      filter: brightness(1.5);
+    }
+    65% {
+      opacity: 0;
+      transform: translateY(5px) scale(0.8);
+      filter: brightness(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(10px) scale(0.6);
+    }
+  }
+
+  @keyframes chain-form {
+    0%, 40% {
+      opacity: 0;
+      transform: scale(0) rotate(-180deg);
+    }
+    60% {
+      opacity: 0.5;
+      transform: scale(0.8) rotate(-90deg);
+    }
+    80% {
+      opacity: 0.8;
+      transform: scale(1.1) rotate(-45deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  @keyframes chain-shimmer {
+    0%, 100% {
+      filter: brightness(1) drop-shadow(0 0 2px currentColor);
+    }
+    50% {
+      filter: brightness(1.4) drop-shadow(0 0 6px currentColor);
+    }
+  }
+
+  @keyframes electric-pulse {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    10%, 30%, 50% {
+      opacity: 0.6;
+    }
+    20%, 40% {
+      opacity: 0.4;
+    }
+  }
+
+  @keyframes flash {
+    0%, 100% {
+      opacity: 0;
+    }
+    10%, 15% {
+      opacity: 0.6;
+    }
+  }
+
+  @keyframes link-forge-1 {
+    0%, 45% {
+      stroke-dasharray: 0 100;
+      opacity: 0;
+    }
+    60% {
+      stroke-dasharray: 50 50;
+      opacity: 0.6;
+    }
+    100% {
+      stroke-dasharray: 100 0;
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes link-forge-2 {
+    0%, 55% {
+      stroke-dasharray: 0 100;
+      opacity: 0;
+    }
+    70% {
+      stroke-dasharray: 50 50;
+      opacity: 0.6;
+    }
+    100% {
+      stroke-dasharray: 100 0;
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes impact-wave {
+    0%, 35% {
+      opacity: 0;
+      transform: scale(0);
+    }
+    40% {
+      opacity: 0.8;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(3);
+    }
+  }
+
+  @keyframes ripple {
+    0% {
+      width: 0;
+      height: 0;
+      opacity: 0;
+    }
+    40% {
+      width: 20px;
+      height: 2px;
+      opacity: 0.8;
+    }
+    100% {
+      width: 40px;
+      height: 1px;
+      opacity: 0;
+    }
+  }
+
+  @keyframes sparkle {
+    0%, 100% {
+      opacity: 0;
+    }
+    30%, 70% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes spark-1 {
+    0%, 100% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+    35% {
+      opacity: 1;
+      transform: translate(-5px, -5px) scale(1);
+    }
+    70% {
+      opacity: 0;
+      transform: translate(-10px, -10px) scale(0.5);
+    }
+  }
+
+  @keyframes spark-2 {
+    0%, 100% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translate(5px, 5px) scale(1);
+    }
+    75% {
+      opacity: 0;
+      transform: translate(10px, 10px) scale(0.5);
+    }
+  }
+
+  @keyframes spark-3 {
+    0%, 100% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+    45% {
+      opacity: 1;
+      transform: translate(-3px, 3px) scale(1);
+    }
+    80% {
+      opacity: 0;
+      transform: translate(-6px, 6px) scale(0.5);
+    }
+  }
+
+  @keyframes shimmer-overlay {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Animation classes */
+  .animate-lightning-strike {
+    animation: lightning-strike 2.5s ease-in-out infinite;
+  }
+
+  .animate-chain-form {
+    animation: chain-form 2.5s ease-in-out infinite;
+  }
+
+  .animate-electric-pulse {
+    animation: electric-pulse 0.5s ease-in-out infinite;
+  }
+
+  .animate-flash {
+    animation: flash 2.5s ease-in-out infinite;
+  }
+
+  .animate-link-forge-1 {
+    animation: link-forge-1 2.5s ease-in-out infinite;
+  }
+
+  .animate-link-forge-2 {
+    animation: link-forge-2 2.5s ease-in-out infinite;
+  }
+
+  .animate-impact-wave {
+    animation: impact-wave 2.5s ease-in-out infinite;
+  }
+
+  .animate-ripple {
+    animation: ripple 2.5s ease-in-out infinite;
+  }
+
+  .animate-sparkle {
+    animation: sparkle 2.5s ease-in-out infinite;
+  }
+
+  .animate-spark-1 {
+    animation: spark-1 2.5s ease-in-out infinite;
+  }
+
+  .animate-spark-2 {
+    animation: spark-2 2.5s ease-in-out infinite;
+  }
+
+  .animate-spark-3 {
+    animation: spark-3 2.5s ease-in-out infinite;
+  }
+
+  .animate-chain-shimmer {
+    animation: chain-shimmer 1s ease-in-out infinite;
+    animation-delay: 1.2s;
+  }
+
+  .animate-shimmer-overlay {
+    animation: shimmer-overlay 2s ease-in-out infinite;
+  }
 }
 
 @layer base {
