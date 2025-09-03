@@ -20,7 +20,7 @@ export function getBaseUrl(): string {
   } else {
     // Server-side
     if (process.env.NODE_ENV === 'development') {
-      const port = process.env.PORT || '3001'
+      const port = process.env.PORT || '3000'
       return `http://localhost:${port}`
     }
   }
@@ -45,14 +45,15 @@ export function getApiBaseUrl(): string {
   
   // In development, use localhost
   if (typeof window !== 'undefined') {
-    // Client-side
+    // Client-side - use the current window location to get the correct port
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return `${window.location.protocol}//${window.location.host}`
     }
   } else {
     // Server-side
     if (process.env.NODE_ENV === 'development') {
-      const port = process.env.PORT || '3001'
+      // Try to detect the actual port from the environment or fall back to 3000
+      const port = process.env.PORT || '3000'
       return `http://localhost:${port}`
     }
   }
@@ -95,7 +96,7 @@ export function getWebhookBaseUrl(): string {
   } else {
     // Server-side detection
     if (process.env.NODE_ENV === 'development') {
-      const port = process.env.PORT || '3001'
+      const port = process.env.PORT || '3000'
       return `http://localhost:${port}`
     }
   }

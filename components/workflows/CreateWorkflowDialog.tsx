@@ -35,14 +35,21 @@ export default function CreateWorkflowDialog() {
     setLoading(true)
     try {
       const workflow = await createNewWorkflow(name.trim(), description.trim())
+      
+      if (!workflow || !workflow.id) {
+        throw new Error("Workflow created but no ID returned")
+      }
+      
       setOpen(false)
       setName("")
       setDescription("")
       router.push(`/workflows/builder?id=${workflow.id}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create workflow:", error)
-    } finally {
-      setLoading(false)
+      // Show user-friendly error message
+      const errorMessage = error?.message || "Failed to create workflow. Please try again."
+      alert(errorMessage) // You might want to replace this with a toast notification
+      setLoading(false) // Make sure to stop loading on error
     }
   }
 

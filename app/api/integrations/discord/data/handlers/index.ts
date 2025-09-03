@@ -7,6 +7,7 @@ import { getDiscordGuilds } from './guilds'
 import { getDiscordChannels } from './channels'
 import { getDiscordCategories } from './categories'
 import { getDiscordMembers } from './members'
+import { getDiscordChannelMembers } from './channel-members'
 import { getDiscordRoles } from './roles'
 import { getDiscordMessages } from './messages'
 import { getDiscordReactions } from './reactions'
@@ -18,6 +19,7 @@ export const discordHandlers: Record<string, DiscordDataHandler> = {
   discord_channels: getDiscordChannels,
   discord_categories: getDiscordCategories,
   discord_members: getDiscordMembers,
+  discord_channel_members: getDiscordChannelMembers,
   discord_roles: getDiscordRoles,
   discord_messages: getDiscordMessages,
   discord_reactions: getDiscordReactions,
@@ -30,6 +32,7 @@ export {
   getDiscordChannels,
   getDiscordCategories,
   getDiscordMembers,
+  getDiscordChannelMembers,
   getDiscordRoles,
   getDiscordMessages,
   getDiscordReactions,

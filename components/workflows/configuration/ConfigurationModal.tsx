@@ -222,7 +222,7 @@ export function ConfigurationModal({
                 <ConfigurationForm
                   nodeInfo={nodeInfo}
                   initialData={initialData}
-                  onSubmit={handleSubmit}
+                  onSave={handleSubmit}
                   onCancel={handleClose}
                   onBack={onBack}
                   workflowData={workflowData}

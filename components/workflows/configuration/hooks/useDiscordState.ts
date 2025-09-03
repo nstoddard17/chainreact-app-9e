@@ -60,7 +60,8 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       setBotStatus(newBotStatus);
       
       // If bot is now connected with permissions, automatically load channels
-      if (newBotStatus.isInGuild && newBotStatus.hasPermissions) {
+      // BUT only if we don't already have a saved channel value
+      if (newBotStatus.isInGuild && newBotStatus.hasPermissions && !values.channelId) {
         console.log('🔍 Bot connected with permissions, loading channels for guild:', guildId);
         // Let the useDynamicOptions hook handle all loading state management
         loadOptions('channelId', 'guildId', guildId)
@@ -71,6 +72,8 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
             console.error('Failed to load channels after bot connection:', channelError);
             setChannelLoadingError('Failed to load channels after bot connection');
           });
+      } else if (newBotStatus.isInGuild && newBotStatus.hasPermissions && values.channelId) {
+        console.log('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
       }
     } catch (error) {
       console.error("Error checking Discord bot status:", error);
@@ -215,8 +218,17 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           
           // Check bot status after popup closes
           if (guildId) {
-            // Initial quick check
+            // Wait a bit for Discord to process the bot addition
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Check bot status
             await checkBotStatus(guildId);
+            
+            // Emit an event that bot connection might have changed
+            // This will trigger the channel loading in DiscordConfiguration component
+            window.dispatchEvent(new CustomEvent('discord-bot-connected', { 
+              detail: { guildId } 
+            }));
             
             // Additional checks with delays to handle Discord's eventual consistency
             setTimeout(async () => {
@@ -294,12 +306,22 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     fetchDiscordConfig();
   }, [nodeInfo?.providerId]);
   
+  // Track previous guild ID to detect actual changes
+  const [previousGuildId, setPreviousGuildId] = useState<string | null>(null);
+  
   // Check bot status when guild ID changes
   useEffect(() => {
     if (values.guildId && discordIntegration && nodeInfo?.providerId === 'discord') {
-      checkBotStatus(values.guildId);
+      // Only check if guild ID actually changed
+      if (previousGuildId !== values.guildId) {
+        console.log('🔍 Guild ID changed from', previousGuildId, 'to', values.guildId, '- checking bot status');
+        setPreviousGuildId(values.guildId);
+        checkBotStatus(values.guildId);
+      } else {
+        console.log('📌 Guild ID unchanged - skipping bot status check');
+      }
     }
-  }, [values.guildId, discordIntegration, nodeInfo?.providerId, checkBotStatus]);
+  }, [values.guildId, discordIntegration, nodeInfo?.providerId, checkBotStatus, previousGuildId]);
   
   // Check channel bot status when channel ID changes
   useEffect(() => {

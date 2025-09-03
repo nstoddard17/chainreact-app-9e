@@ -42,9 +42,19 @@ export function DiscordServerField({
     previousValue.current = value;
   }, [value]);
 
-  // Auto-load Discord servers on mount if no data exists
+  // Auto-load Discord servers on mount ONLY if no data exists AND no value is selected
   useEffect(() => {
-    if (field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+    // Skip auto-loading if we already have a selected value OR if we have options available
+    if (value || options.length > 0) {
+      console.log('📌 Skipping Discord server auto-load - value or options exist:', {
+        value,
+        optionsCount: options.length
+      });
+      hasAttemptedLoad.current = true; // Mark as attempted to prevent future loads
+      return;
+    }
+    
+    if (field.dynamic && onDynamicLoad && !isLoading && !hasAttemptedLoad.current) {
       console.log('🔍 Auto-loading Discord servers on mount for field:', field.name);
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
@@ -53,7 +63,16 @@ export function DiscordServerField({
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
+    // Don't reload if we already have a selected value OR if we have options
+    if (value || options.length > 0) {
+      console.log('📌 Skipping Discord server reload on dropdown open - value or options exist:', {
+        value,
+        optionsCount: options.length
+      });
+      return;
+    }
+    
+    if (open && field.dynamic && onDynamicLoad && !isLoading && !hasAttemptedLoad.current) {
       console.log('🔍 Loading Discord servers on dropdown open for field:', field.name);
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);

@@ -38,7 +38,21 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
-    // Validate integration status - allow both 'connected' and 'active' status
+    // Validate integration status - check for re-authorization needed
+    if (integration.status === 'needs_reauthorization') {
+      console.error('❌ [Discord API] Integration needs re-authorization:', {
+        integrationId,
+        status: integration.status
+      })
+      return NextResponse.json({
+        error: 'Discord integration needs to be re-authorized. Please reconnect your Discord account.',
+        needsReconnection: true,
+        currentStatus: integration.status,
+        data: [] // Return empty data instead of failing completely
+      }, { status: 200 }) // Return 200 with empty data so UI can handle gracefully
+    }
+    
+    // Check for other invalid statuses
     if (integration.status !== 'connected' && integration.status !== 'active') {
       console.error('❌ [Discord API] Integration not connected:', {
         integrationId,
@@ -47,14 +61,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         error: 'Discord integration is not connected. Please reconnect your account.',
         needsReconnection: true,
-        currentStatus: integration.status
-      }, { status: 400 })
+        currentStatus: integration.status,
+        data: []
+      }, { status: 200 })
     }
 
     // Get the appropriate handler
     const handler = discordHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Discord API] Unknown data type:', dataType)
+      console.error('❌ [Discord API] Unknown data type:', dataType, 'Available:', Object.keys(discordHandlers))
       return NextResponse.json({
         error: `Unknown Discord data type: ${dataType}`,
         availableTypes: Object.keys(discordHandlers)

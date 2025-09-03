@@ -1,7 +1,6 @@
 import { createCacheStore, loadOnce, registerStore } from "./cacheStore"
 import { apiClient } from "@/lib/apiClient"
 import { useIntegrationStore } from "./integrationStore"
-import { configValidator } from "@/lib/config/validator"
 import { FetchUserDataRequest } from "@/types/integration"
 
 // Define the Discord guild interface
@@ -29,51 +28,57 @@ async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
   console.log('🔍 fetchDiscordGuilds called');
   
   try {
-    // Validate Discord bot configuration first
-    configValidator.validateDiscordBotConfig()
-    console.log('✅ Discord bot config validated');
-
+    // NOTE: We don't validate Discord bot config here because fetching user's guilds
+    // only requires OAuth connection, not bot configuration
+    
     // Get the Discord integration ID
     const { getIntegrationByProvider } = useIntegrationStore.getState()
     const integration = getIntegrationByProvider("discord")
     
-    console.log('🔍 Discord integration check:', integration ? `Found: ${integration.id}` : 'Not found');
+    console.log('🔍 Discord integration check:', integration ? `Found: ${integration.id}, Status: ${integration.status}` : 'Not found');
     
     if (!integration) {
       console.warn('⚠️ No Discord integration found');
       return [];
     }
-
-    try {
-      // Create properly typed request
-      const request: FetchUserDataRequest = {
-        integrationId: integration.id,
-        dataType: "discord_guilds"
-      }
-      
-      console.log('🔍 Fetching Discord guilds with request:', request);
-
-      const response = await apiClient.post("/api/integrations/fetch-user-data", request)
-      console.log('🔍 Discord guilds API response:', response);
-
-      if (!response.success) {
-        console.error("Failed to fetch Discord guilds:", response.error)
-        return [];
-      }
-      
-      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-        console.warn('⚠️ API returned empty or invalid data');
-        return [];
-      }
-
-      console.log('✅ Successfully fetched Discord guilds:', response.data.length);
-      return response.data || []
-    } catch (error) {
-      console.error("Error fetching Discord guilds:", error)
+    
+    // Check if integration needs re-authorization
+    if (integration.status === 'needs_reauthorization') {
+      console.warn('⚠️ Discord integration needs re-authorization');
       return [];
     }
-  } catch (configError) {
-    console.error("Config validation error:", configError);
+
+    // Validate integration has required fields
+    if (!integration.id) {
+      console.error('❌ Discord integration missing ID');
+      return [];
+    }
+    
+    // Create properly typed request
+    const request: FetchUserDataRequest = {
+      integrationId: integration.id,
+      dataType: "discord_guilds"
+    }
+    
+    console.log('🔍 Fetching Discord guilds with request:', request);
+
+    const response = await apiClient.post("/api/integrations/fetch-user-data", request)
+    console.log('🔍 Discord guilds API response:', response);
+
+    if (!response.success) {
+      console.error("Failed to fetch Discord guilds:", response.error)
+      return [];
+    }
+    
+    if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      console.warn('⚠️ API returned empty or invalid data');
+      return [];
+    }
+
+    console.log('✅ Successfully fetched Discord guilds:', response.data.length);
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching Discord guilds:", error)
     return [];
   }
 }
@@ -84,6 +89,17 @@ async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
  * @returns Array of Discord guilds
  */
 export async function loadDiscordGuildsOnce(forceRefresh = false): Promise<DiscordGuild[]> {
+  // Check if we already have data in cache and it's not stale
+  if (!forceRefresh) {
+    const cachedData = useDiscordGuildsStore.getState().data
+    const isStale = useDiscordGuildsStore.getState().isStale(30 * 60 * 1000) // 30 minutes cache
+    
+    if (cachedData && !isStale) {
+      console.log('✅ [Discord Guilds] Using cached data, skipping fetch')
+      return cachedData
+    }
+  }
+  
   const result = await loadOnce({
     getter: () => useDiscordGuildsStore.getState().data,
     setter: (data) => useDiscordGuildsStore.getState().setData(data),
@@ -92,8 +108,8 @@ export async function loadDiscordGuildsOnce(forceRefresh = false): Promise<Disco
       forceRefresh,
       setLoading: (loading) => useDiscordGuildsStore.getState().setLoading(loading),
       onError: (error) => useDiscordGuildsStore.getState().setError(error.message),
-      // Consider Discord guilds stale after 10 minutes (they don't change often)
-      checkStale: () => useDiscordGuildsStore.getState().isStale(10 * 60 * 1000)
+      // Consider Discord guilds stale after 30 minutes (they don't change often)
+      checkStale: () => useDiscordGuildsStore.getState().isStale(30 * 60 * 1000)
     }
   })
 

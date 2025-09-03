@@ -132,108 +132,106 @@ export const useIntegrationStore = create<IntegrationStore>()(
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
-      const { providers } = get()
-      
-      // If providers already loaded, don't reload
-      if (providers.length > 0) {
+      const { loading } = get()
+      if (loading) {
         return
       }
-      
-      // Prevent duplicate initialization requests
-      const initKey = 'init-providers'
-      if (ongoingRequests.has(initKey)) {
-        return ongoingRequests.get(initKey)
+
+      try {
+        set({ loading: true, error: null })
+        
+        const providers = await IntegrationService.fetchProviders()
+
+        set({
+          providers,
+          loading: false,
+        })
+
+      } catch (error: any) {
+        console.error("Failed to initialize providers:", error)
+        set({
+          error: error.message || "Failed to load providers",
+          loading: false,
+          providers: [],
+        })
       }
-
-      const initPromise = (async () => {
-        try {
-          set({ loading: true, error: null })
-          
-          const providers = await IntegrationService.fetchProviders()
-
-          set({
-            providers,
-            loading: false,
-          })
-        } catch (error: any) {
-          console.error("Failed to initialize providers:", error)
-          set({
-            error: error.message || "Failed to load providers",
-            loading: false,
-            providers: [],
-          })
-        } finally {
-          ongoingRequests.delete(initKey)
-        }
-      })()
-      
-      ongoingRequests.set(initKey, initPromise)
-      return initPromise
     },
 
     fetchIntegrations: async (force = false) => {
       const { loading, currentUserId } = get()
-      
-      // Prevent multiple simultaneous fetches
-      const fetchKey = 'fetch-integrations'
-      if (ongoingRequests.has(fetchKey) && !force) {
-        return ongoingRequests.get(fetchKey)
-      }
-      
       if (loading && !force) {
         return
       }
 
-      const fetchPromise = (async () => {
-        try {
-          set({ loading: true, error: null })
-          
-          const { user } = await SessionManager.getSecureUserAndSession()
+      try {
+        set({ loading: true, error: null })
+        
+        const { user } = await SessionManager.getSecureUserAndSession()
 
-          // If currentUserId is not set, set it now
-          if (!currentUserId) {
-            set({ currentUserId: user.id })
-          } else if (user?.id !== currentUserId) {
-            set({
-              integrations: [],
-              loading: false,
-              error: "User session mismatch",
-            })
-            return
-          }
-
-          const integrations = await IntegrationService.fetchIntegrations(force)
-          
+        // If currentUserId is not set, set it now
+        if (!currentUserId) {
+          set({ currentUserId: user.id })
+        } else if (user?.id !== currentUserId) {
           set({
-            integrations,
+            integrations: [],
             loading: false,
-            lastRefreshTime: new Date().toISOString(),
-            error: null,
+            error: "User session mismatch",
           })
-          
-          emitIntegrationEvent('INTEGRATIONS_UPDATED')
-        } catch (error: any) {
-          console.error("Failed to fetch integrations:", error)
-          set({
-            error: error.message || "Failed to fetch integrations",
-            loading: false,
-          })
-          // Don't clear integrations on error - keep showing cached data
-        } finally {
-          ongoingRequests.delete(fetchKey)
+          return
         }
-      })()
-      
-      ongoingRequests.set(fetchKey, fetchPromise)
-      return fetchPromise
+
+        const integrations = await IntegrationService.fetchIntegrations(force)
+        
+        set({
+          integrations,
+          loading: false,
+          lastRefreshTime: new Date().toISOString(),
+        })
+      } catch (error: any) {
+        console.error("Failed to fetch integrations:", error)
+        set({
+          error: error.message || "Failed to fetch integrations",
+          loading: false,
+          integrations: [],
+        })
+      }
     },
 
     connectIntegration: async (providerId: string) => {
-      const { setLoading, providers, setError, fetchIntegrations, loadingStates } = get()
-      const provider = providers.find((p) => p.id === providerId)
+      const { setLoading, setError, fetchIntegrations, loadingStates, integrations } = get()
+      
+      // Check if this is a reconnection (integration exists but needs reauth)
+      const existingIntegration = integrations.find(i => i.provider === providerId)
+      const isReconnection = existingIntegration?.status === 'needs_reauthorization'
+      
+      // Ensure providers are loaded - force reload if empty
+      let { providers } = get()
+      if (!providers || providers.length === 0) {
+        console.log('🔄 Providers not loaded, initializing...')
+        try {
+          // Directly fetch providers instead of using initializeProviders which might be blocked
+          const freshProviders = await IntegrationService.fetchProviders()
+          set({ providers: freshProviders })
+          providers = freshProviders
+          console.log('✅ Providers loaded:', providers.map(p => p.id))
+        } catch (error) {
+          console.error('Failed to load providers:', error)
+          // Continue anyway for known providers
+        }
+      }
+      
+      const provider = providers?.find((p) => p.id === providerId)
 
       if (!provider) {
-        throw new Error(`Provider ${providerId} not found`)
+        console.warn(`Provider ${providerId} not found in providers list:`, providers?.map(p => p.id) || [])
+        // For Discord and other known providers, proceed anyway
+        const knownProviders = ['discord', 'gmail', 'notion', 'slack', 'trello', 'airtable', 'google-drive', 'google-sheets', 'google-calendar', 'google-docs', 'microsoft-outlook', 'microsoft-teams']
+        if (knownProviders.includes(providerId)) {
+          console.log(`📌 Proceeding with known provider: ${providerId}`)
+        } else {
+          // Don't throw error - just log and proceed
+          console.error(`Unknown provider ${providerId}, but proceeding anyway`)
+        }
       }
 
       // Check if already loading to prevent duplicate requests
@@ -242,41 +240,72 @@ export const useIntegrationStore = create<IntegrationStore>()(
         return
       }
 
-      if (!provider.isAvailable) {
-        throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
+      // Skip availability check for known providers or if provider not found
+      if (provider && !provider.isAvailable) {
+        console.warn(`⚠️ ${provider.name} may not be fully configured, but proceeding with connection attempt`)
       }
 
       setLoading(`connect-${providerId}`, true)
       setError(null)
 
       try {
-        const result = await OAuthConnectionFlow.startConnection({
-          providerId,
-          onSuccess: (data) => {
-            setLoading(`connect-${providerId}`, false)
-            // Immediate refresh for better UX
-            fetchIntegrations(true) // Force refresh from server
-            emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-          },
-          onError: (error) => {
-            setError(error)
-            setLoading(`connect-${providerId}`, false)
-          },
-          onCancel: () => {
-            setLoading(`connect-${providerId}`, false)
-            // User cancelled - don't set error
-          },
-          onInfo: (message) => {
-            setLoading(`connect-${providerId}`, false)
-            // Don't set error for info messages (like permission issues)
-          }
-        })
+        let result
+        
+        if (isReconnection && existingIntegration) {
+          // Use reconnection flow for existing integrations that need reauth
+          console.log(`🔄 Starting reconnection flow for ${providerId}`)
+          result = await OAuthConnectionFlow.startReconnection({
+            integrationId: existingIntegration.id,
+            integration: existingIntegration,
+            onSuccess: () => {
+              setLoading(`connect-${providerId}`, false)
+              setTimeout(() => {
+                fetchIntegrations(true) // Force refresh from server
+                emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
+              }, 1000)
+            },
+            onError: (error) => {
+              setError(error)
+              setLoading(`connect-${providerId}`, false)
+            },
+            onCancel: () => {
+              setLoading(`connect-${providerId}`, false)
+            }
+          })
+        } else {
+          // Use normal connection flow for new integrations
+          result = await OAuthConnectionFlow.startConnection({
+            providerId,
+            onSuccess: (data) => {
+              setLoading(`connect-${providerId}`, false)
+              setTimeout(() => {
+                fetchIntegrations(true) // Force refresh from server
+                emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+              }, 1000)
+            },
+            onError: (error) => {
+              setError(error)
+              setLoading(`connect-${providerId}`, false)
+            },
+            onCancel: () => {
+              setLoading(`connect-${providerId}`, false)
+              // User cancelled - don't set error
+            },
+            onInfo: (message) => {
+              setLoading(`connect-${providerId}`, false)
+              // Don't set error for info messages (like permission issues)
+            }
+          })
+        }
 
-        if (!result.success) {
+        if (result && !result.success) {
           throw new Error(result.message || "Connection failed")
         }
       } catch (error: any) {
-        setError(`Failed to connect to ${provider.name}: ${error.message}`)
+        const errorMessage = error?.message || "Connection failed"
+        // Only set error if we have a provider name
+        const providerName = provider?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
+        setError(`Failed to connect to ${providerName}: ${errorMessage}`)
         setLoading(`connect-${providerId}`, false)
       }
     },
@@ -290,9 +319,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.connectApiKeyIntegration(providerId, apiKey)
         
         setLoading(`connect-${providerId}`, false)
-        // Immediate refresh for better UX  
-        fetchIntegrations(true)
-        emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+        setTimeout(() => {
+          fetchIntegrations(true)
+          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+        }, 1000)
       } catch (error: any) {
         console.error("Error connecting API key integration:", error)
         setError(error.message || "Failed to connect integration")
@@ -309,8 +339,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.disconnectIntegration(integrationId)
         
         setLoading(`disconnect-${integrationId}`, false)
-        // Immediate refresh for better UX
-        fetchIntegrations(true)
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 1000)
       } catch (error: any) {
         console.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
@@ -327,8 +358,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const stats = await IntegrationService.refreshTokens()
         
         setLoading("refresh-all", false)
-        // Immediate refresh for better UX
-        fetchIntegrations(true)
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 1000)
         
         return stats
       } catch (error: any) {
@@ -394,9 +426,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
           integration,
           onSuccess: () => {
             setLoading(`reconnect-${integrationId}`, false)
-            // Immediate refresh for better UX
-            fetchIntegrations(true)
-            emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
+            setTimeout(() => {
+              fetchIntegrations(true)
+              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
+            }, 1000)
           },
           onError: (error) => {
             setError(error)
@@ -453,15 +486,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
-      // Return all integrations that exist and are usable
-      // Include connected, expired, needs_reauthorization since they can be reconnected
-      // Only exclude explicitly disconnected integrations
+      // Return all integrations that exist and are usable (not just "connected" ones)
+      // This includes connected, expired, needs_reauthorization, etc. since they can be reconnected
+      // Only exclude explicitly disconnected or failed integrations
       const connectedProviders = integrations
-        .filter((i) => {
-          // Include if connected or needs reauth (but not disconnected)
-          const include = i.status === "connected" || i.status === "needs_reauthorization" || i.status === "expired"
-          return include && !i.disconnected_at
-        })
+        .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
         .map((i) => i.provider)
       
       return connectedProviders

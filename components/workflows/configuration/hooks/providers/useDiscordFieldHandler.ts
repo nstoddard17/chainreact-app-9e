@@ -27,69 +27,63 @@ export function useDiscordFieldHandler({
   /**
    * Handle guildId (server) changes
    */
-  const handleGuildIdChange = useCallback(async (value: any) => {
-    console.log('🔍 Discord guildId changed:', value);
+  const handleGuildIdChange = useCallback(async (value: any, previousValue?: any) => {
+    console.log('🔍 Discord guildId changed:', { newValue: value, previousValue });
+    
+    // Only clear fields and reset if the value actually changed
+    if (value === previousValue) {
+      console.log('📌 Discord guildId unchanged, skipping field operations');
+      return;
+    }
     
     // Clear dependent fields
     setValue('channelId', '');
     setValue('messageId', '');
-    setValue('filterAuthor', '');
+    setValue('authorFilter', '');
     
     // Clear Discord state
     discordState?.setChannelBotStatus(null);
     discordState?.setChannelLoadingError(null);
     
-    // Set loading states for dependent fields
-    setLoadingFields((prev: Set<string>) => {
-      const newSet = new Set(prev);
-      newSet.add('channelId');
-      if (nodeInfo.configSchema?.some((f: any) => f.name === 'filterAuthor')) {
-        newSet.add('filterAuthor');
-      }
-      return newSet;
-    });
-    
     // Reset cached options
     resetOptions('channelId');
-    resetOptions('filterAuthor');
+    resetOptions('authorFilter');
     resetOptions('messageId');
     
     if (value) {
-      // Delay to ensure loading state is visible
-      setTimeout(() => {
-        // Load channels
-        loadOptions('channelId', 'guildId', value, true).finally(() => {
-          setLoadingFields((prev: Set<string>) => {
-            const newSet = new Set(prev);
-            newSet.delete('channelId');
-            return newSet;
-          });
+      // For triggers, check bot status first before loading any fields
+      if (nodeInfo?.type?.startsWith('discord_trigger_')) {
+        console.log('🤖 Checking bot status for trigger, guild:', value);
+        discordState?.checkBotStatus(value);
+        // Don't set loading states here - let the bot status check trigger the loading
+        // The DiscordConfiguration component will handle loading channels when bot is confirmed
+        return;
+      }
+      
+      // For actions, load fields immediately
+      if (nodeInfo?.type?.startsWith('discord_action_')) {
+        // Set loading states for dependent fields
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add('channelId');
+          return newSet;
         });
         
-        // Load filter authors if needed
-        if (nodeInfo.configSchema?.some((f: any) => f.name === 'filterAuthor')) {
-          loadOptions('filterAuthor', 'guildId', value, true).finally(() => {
+        // Check bot status
+        discordState?.checkBotStatus(value);
+        
+        // Delay to ensure loading state is visible
+        setTimeout(() => {
+          // Load channels
+          loadOptions('channelId', 'guildId', value, true).finally(() => {
             setLoadingFields((prev: Set<string>) => {
               const newSet = new Set(prev);
-              newSet.delete('filterAuthor');
+              newSet.delete('channelId');
               return newSet;
             });
           });
-        }
-        
-        // Check bot status (only for Discord actions, not triggers)
-        if (nodeInfo?.type?.startsWith('discord_action_')) {
-          discordState?.checkBotStatus(value);
-        }
-      }, 10);
-    } else {
-      // Clear loading states
-      setLoadingFields((prev: Set<string>) => {
-        const newSet = new Set(prev);
-        newSet.delete('channelId');
-        newSet.delete('filterAuthor');
-        return newSet;
-      });
+        }, 10);
+      }
     }
   }, [nodeInfo, setValue, setLoadingFields, resetOptions, loadOptions, discordState]);
 
@@ -99,11 +93,12 @@ export function useDiscordFieldHandler({
   const handleChannelIdChange = useCallback(async (value: any) => {
     console.log('🔍 Discord channelId changed:', value);
     
-    // Check for messageId field
+    // Check for dependent fields
     const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
+    const hasAuthorFilter = nodeInfo.configSchema?.some((field: any) => field.name === 'authorFilter');
     
+    // Clear dependent fields
     if (hasMessageField) {
-      // Clear and set loading for messageId
       setValue('messageId', '');
       setLoadingFields((prev: Set<string>) => {
         const newSet = new Set(prev);
@@ -111,6 +106,13 @@ export function useDiscordFieldHandler({
         return newSet;
       });
       resetOptions('messageId');
+    }
+    
+    if (hasAuthorFilter) {
+      console.log('🔄 Clearing authorFilter field due to channelId change');
+      setValue('authorFilter', '');
+      resetOptions('authorFilter');
+      // Don't set loading here - let the actual load handle it
     }
     
     if (value && values.guildId) {
@@ -127,15 +129,46 @@ export function useDiscordFieldHandler({
         }, 10);
       }
       
+      // Load users for authorFilter if needed (use channelId for member loading)
+      if (hasAuthorFilter && value) {
+        console.log('📥 Loading Discord users for channel:', value);
+        // Ensure we clear any existing loading state first
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add('authorFilter');
+          return newSet;
+        });
+        
+        setTimeout(() => {
+          // Pass channelId since discord_channel_members requires it
+          loadOptions('authorFilter', 'channelId', value, true)
+            .then(() => {
+              console.log('✅ Successfully loaded Discord users for authorFilter');
+            })
+            .catch((error) => {
+              console.error('❌ Failed to load Discord users for authorFilter:', error);
+            })
+            .finally(() => {
+              console.log('🔄 Clearing loading state for authorFilter');
+              setLoadingFields((prev: Set<string>) => {
+                const newSet = new Set(prev);
+                newSet.delete('authorFilter');
+                return newSet;
+              });
+            });
+        }, 10);
+      }
+      
       // Check channel bot status (only for Discord actions, not triggers)
       if (nodeInfo?.type?.startsWith('discord_action_')) {
         discordState?.checkChannelBotStatus(value, values.guildId);
       }
-    } else if (hasMessageField) {
-      // Clear loading state
+    } else {
+      // Clear loading states
       setLoadingFields((prev: Set<string>) => {
         const newSet = new Set(prev);
-        newSet.delete('messageId');
+        if (hasMessageField) newSet.delete('messageId');
+        if (hasAuthorFilter) newSet.delete('authorFilter');
         return newSet;
       });
     }
@@ -166,7 +199,8 @@ export function useDiscordFieldHandler({
 
     switch (fieldName) {
       case 'guildId':
-        await handleGuildIdChange(value);
+        // Pass the previous value to detect actual changes
+        await handleGuildIdChange(value, values.guildId);
         return true;
       
       case 'channelId':
@@ -180,7 +214,7 @@ export function useDiscordFieldHandler({
       default:
         return false;
     }
-  }, [nodeInfo, handleGuildIdChange, handleChannelIdChange, handleMessageIdChange]);
+  }, [nodeInfo, values, handleGuildIdChange, handleChannelIdChange, handleMessageIdChange]);
 
   return {
     handleFieldChange,

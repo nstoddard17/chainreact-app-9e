@@ -47,9 +47,10 @@ export const discordNodes: NodeComponent[] = [
         type: "select",
         description: "Only trigger on messages from this user (optional)",
         placeholder: "Any user",
-        dynamic: "discord_users",
-        dependsOn: "guildId",
-        hidden: true
+        dynamic: "discord_channel_members",
+        dependsOn: "channelId",
+        hidden: true,
+        required: false
       }
     ],
     outputSchema: [

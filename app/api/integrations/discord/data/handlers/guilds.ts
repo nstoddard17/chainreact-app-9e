@@ -105,7 +105,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
   }
 }
 
-export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integration: DiscordIntegration) => {
+export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integration: DiscordIntegration, options?: any) => {
   try {
     // Validate and get token
     const tokenValidation = await validateDiscordToken(integration)
@@ -137,21 +137,26 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
       approximate_presence_count: guild.approximate_presence_count,
     }))
 
-    console.log(`🔍 [Discord Guilds] Found ${guilds.length} guilds, checking bot status for each...`);
+    console.log(`🔍 [Discord Guilds] Found ${guilds.length} guilds`);
 
-    // Check if bot tokens are configured
-    const botToken = process.env.DISCORD_BOT_TOKEN;
-    const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-    
-    if (!botToken || !botClientId) {
-      console.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without bot status`);
-      return guilds.map(guild => ({
-        ...guild,
-        botInGuild: undefined,
-        hasPermissions: false,
-        botError: "Discord bot not configured"
-      }));
-    }
+    // Skip bot status checks by default for faster loading
+    // Only check bot status if explicitly requested via options
+    if (options?.checkBotStatus === true) {
+      console.log(`🔍 [Discord Guilds] Bot status check requested, checking bot status for guilds...`);
+      
+      // Check if bot tokens are configured
+      const botToken = process.env.DISCORD_BOT_TOKEN;
+      const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+      
+      if (!botToken || !botClientId) {
+        console.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without bot status`);
+        return guilds.map(guild => ({
+          ...guild,
+          botInGuild: undefined,
+          hasPermissions: false,
+          botError: "Discord bot not configured"
+        }));
+      }
 
     // Make bot status checking less aggressive to avoid rate limits
     try {
@@ -266,6 +271,11 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
         hasPermissions: false,
         botError: "Bot status unavailable"
       }));
+    }
+    } else {
+      // Return guilds immediately without bot status checks for faster loading
+      console.log(`🔍 [Discord Guilds] Skipping bot status checks for faster loading`);
+      return guilds;
     }
   } catch (error: any) {
     console.error("Error fetching Discord guilds:", error)

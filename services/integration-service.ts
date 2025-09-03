@@ -386,6 +386,8 @@ export class IntegrationService {
   ): Promise<any> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
+    console.log('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
+
     // The API routes expect a POST request with the data in the body
     const body = {
       integrationId,
@@ -435,6 +437,8 @@ export class IntegrationService {
       provider = dataType.split(/[-_]/)[0]
     }
 
+    console.log('🌐 [IntegrationService] Fetching from:', `/api/integrations/${provider}/data`, { body })
+
     const response = await fetch(`/api/integrations/${provider}/data`, {
       method: 'POST',
       headers: {
@@ -450,6 +454,12 @@ export class IntegrationService {
     }
 
     const data = await response.json()
+    console.log('✅ [IntegrationService] Response for', dataType, ':', {
+      dataType,
+      hasData: !!data.data,
+      dataLength: data.data?.length || data?.length || 0,
+      fullResponse: data
+    })
     return data.data || data || []
   }
 
