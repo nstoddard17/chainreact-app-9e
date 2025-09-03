@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 
 interface GenericConfigurationProps {
@@ -13,6 +13,7 @@ interface GenericConfigurationProps {
   errors: Record<string, string>;
   onSubmit: (values: Record<string, any>) => Promise<void>;
   onCancel: () => void;
+  onBack?: () => void;
   isEditMode?: boolean;
   workflowData?: any;
   currentNodeId?: string;
@@ -33,6 +34,7 @@ export function GenericConfiguration({
   errors,
   onSubmit,
   onCancel,
+  onBack,
   isEditMode,
   workflowData,
   currentNodeId,
@@ -193,8 +195,9 @@ export function GenericConfiguration({
       
       <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
+          <Button type="button" variant="outline" onClick={onBack || onCancel}>
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Back
           </Button>
           <Button type="submit">
             {isEditMode ? 'Update' : 'Save'} Configuration

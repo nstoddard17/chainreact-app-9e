@@ -108,6 +108,12 @@ Required for development:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - Integration-specific OAuth credentials (Google, Microsoft, etc.)
 
+### Development Server
+Required for creating the development enviroment:
+- If you need to start or refresh a development server use netstat -ano | findstr ":3000" to check
+- If there is a listening port then use taskkill /PID  /F to kill what ever is on that port
+- Then use npm run dev to run new enviroment
+
 ### Cursor Rules
 The project includes comprehensive Cursor rules in `.cursor/rules/`:
 - **howtocoderules.mdc**: Full-stack development standards

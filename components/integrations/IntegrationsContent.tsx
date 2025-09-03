@@ -94,13 +94,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   useEffect(() => {
     if (user && providers.length > 0) {
-      // Add a small delay to ensure the store is properly initialized
-      const timer = setTimeout(() => {
-        fetchIntegrations(true) // Force refresh
-        fetchMetrics()
-      }, 100)
-      
-      return () => clearTimeout(timer)
+      // Fetch immediately without delay for faster loading
+      fetchIntegrations(true) // Force refresh
+      fetchMetrics()
     }
   }, [user, providers.length]) // Remove fetchIntegrations from deps to prevent infinite loop
 
@@ -116,7 +112,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           description: "Integrations are taking longer than expected to load. Please refresh the page.",
           variant: "destructive",
         })
-      }, 20000) // 20 second timeout
+      }, 10000) // Reduced to 10 second timeout for faster error feedback
       
       return () => clearTimeout(timeout)
     }
@@ -166,7 +162,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       // Debounce metrics fetching to avoid excessive API calls
       const timeoutId = setTimeout(() => {
         fetchMetrics()
-      }, 1000) // Wait 1 second before fetching to debounce rapid changes
+      }, 300) // Reduced to 300ms for faster updates while still debouncing
       
       return () => clearTimeout(timeoutId)
     }

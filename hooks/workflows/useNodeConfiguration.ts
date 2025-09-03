@@ -1,0 +1,242 @@
+import { useState, useCallback } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from '@/lib/workflows/configPersistence'
+import type { NodeComponent } from '@/lib/workflows/nodes'
+import type { Node } from '@xyflow/react'
+
+interface IntegrationInfo {
+  id: string
+  name: string
+  description: string
+  category: string
+  color: string
+  triggers: NodeComponent[]
+  actions: NodeComponent[]
+}
+
+interface ConfiguringNode {
+  id: string
+  integration: any
+  nodeComponent: NodeComponent
+  config: Record<string, any>
+}
+
+interface PendingNode {
+  type: 'trigger' | 'action'
+  integration: IntegrationInfo
+  nodeComponent: NodeComponent
+  sourceNodeInfo?: { 
+    id: string
+    parentId: string
+    insertBefore?: string
+  }
+}
+
+export function useNodeConfiguration(
+  currentWorkflowId: string | undefined,
+  nodes: Node[],
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
+  setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  const { toast } = useToast()
+  const [configuringNode, setConfiguringNode] = useState<ConfiguringNode | null>(null)
+  const [pendingNode, setPendingNode] = useState<PendingNode | null>(null)
+  const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
+
+  const nodeNeedsConfiguration = useCallback((nodeComponent: NodeComponent): boolean => {
+    // All trigger nodes should have configuration
+    if (nodeComponent.isTrigger) {
+      return true
+    }
+    
+    // For non-trigger nodes, check if they have a configuration schema
+    const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0)
+    
+    // Node needs configuration if it has a config schema
+    return hasConfigSchema
+  }, [])
+
+  const handleSaveConfiguration = useCallback(async (
+    context: { id: string },
+    newConfig: Record<string, any>,
+    onTriggerAdd?: (integration: IntegrationInfo, nodeComponent: NodeComponent, config: Record<string, any>) => void,
+    onActionAdd?: (integration: IntegrationInfo, nodeComponent: NodeComponent, config: Record<string, any>, sourceNodeInfo: any) => string | undefined,
+    onSave?: () => Promise<void>
+  ) => {
+    if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
+      // Add trigger to workflow with configuration
+      if (onTriggerAdd) {
+        onTriggerAdd(pendingNode.integration, pendingNode.nodeComponent, newConfig)
+      }
+      
+      // Auto-save the workflow
+      setTimeout(async () => {
+        try {
+          if (onSave) {
+            await onSave()
+            console.log('New trigger saved to database automatically')
+          }
+        } catch (error) {
+          console.error(' Failed to save new trigger to database:', error)
+          toast({ 
+            title: "Save Warning", 
+            description: "Trigger added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          })
+        }
+      }, 0)
+      
+      setPendingNode(null)
+      setConfiguringNode(null)
+      toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." })
+    } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
+      // Add action to workflow with configuration
+      let newNodeId: string | undefined
+      if (onActionAdd) {
+        newNodeId = onActionAdd(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo)
+      }
+      
+      // Auto-save the workflow
+      setTimeout(async () => {
+        try {
+          if (onSave) {
+            await onSave()
+            console.log(' New action saved to database automatically')
+            
+            // Save node configuration to persistence
+            if (newNodeId && currentWorkflowId) {
+              try {
+                const nodeType = pendingNode.nodeComponent.type || 'unknown'
+                await saveNodeConfig(currentWorkflowId, newNodeId, nodeType, newConfig)
+                console.log(' New node configuration saved to persistence layer')
+              } catch (persistenceError) {
+                console.error(' Failed to save new node configuration:', persistenceError)
+              }
+            }
+          }
+        } catch (error) {
+          console.error(' Failed to save new action to database:', error)
+          toast({ 
+            title: "Save Warning", 
+            description: "Action added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          })
+        }
+      }, 0)
+      
+      setPendingNode(null)
+      setConfiguringNode(null)
+      toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." })
+    } else {
+      // Handle existing node configuration updates
+      console.log(' Updating existing node configuration')
+      
+      setNodes((nds) => nds.map((node) => {
+        if (node.id === context.id) {
+          // Check if this is an AI Agent node with chains
+          const isAIAgent = node.data?.type === 'ai_agent'
+          const chainsArray = Array.isArray(newConfig?.chains) ? newConfig.chains : newConfig?.chains?.chains
+          const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0
+          
+          // Build updated node data
+          const updatedData = {
+            ...node.data,
+            config: newConfig
+          }
+          
+          // If it's an AI Agent with chains, remove the onAddChain button
+          if (isAIAgent && hasChains) {
+            const updatedDataAny = updatedData as any;
+            updatedDataAny.onAddChain = undefined;
+            updatedDataAny.hasChains = true;
+            updatedDataAny.chainCount = chainsArray.length;
+            console.log('Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
+          } else if (isAIAgent) {
+            const updatedDataAny = updatedData as any;
+            const nodeDataAny = node.data as any;
+            updatedDataAny.hasChains = nodeDataAny.hasChains || false;
+            updatedDataAny.chainCount = nodeDataAny.chainCount || 0;
+          }
+          
+          return { ...node, data: updatedData }
+        }
+        return node
+      }))
+      
+      // Mark the workflow as having unsaved changes
+      setHasUnsavedChanges(true)
+      
+      // Show success message
+      toast({ 
+        title: "Configuration Updated", 
+        description: "Node configuration has been updated. Remember to save the workflow." 
+      })
+      
+      // Save to persistence layer
+      if (currentWorkflowId && context.id) {
+        try {
+          const currentNode = nodes.find(node => node.id === context.id)
+          const nodeType = currentNode?.data?.type || 'unknown'
+          
+          await saveNodeConfig(currentWorkflowId, context.id, nodeType as string, newConfig)
+          console.log(' Node configuration saved to persistence layer')
+        } catch (persistenceError) {
+          console.error(' Failed to save node configuration:', persistenceError)
+        }
+      }
+      
+      // Auto-save to database
+      setTimeout(async () => {
+        try {
+          if (onSave) {
+            await onSave()
+            console.log(' Updated workflow saved to database')
+          }
+        } catch (error) {
+          console.error(' Failed to save updated workflow:', error)
+        }
+      }, 100)
+      
+      setConfiguringNode(null)
+    }
+  }, [currentWorkflowId, nodes, setNodes, setHasUnsavedChanges, pendingNode, toast])
+
+  const loadNodeConfiguration = useCallback(async (nodeId: string): Promise<Record<string, any> | null> => {
+    if (!currentWorkflowId) return null
+    
+    try {
+      const node = nodes.find(n => n.id === nodeId)
+      const nodeType = node?.data?.type || 'unknown'
+      const config = await loadNodeConfig(currentWorkflowId, nodeId, nodeType as string)
+      return config
+    } catch (error) {
+      console.error('Failed to load node configuration:', error)
+      return null
+    }
+  }, [currentWorkflowId, nodes])
+
+  const clearNodeConfiguration = useCallback(async (nodeId: string) => {
+    if (!currentWorkflowId) return
+    
+    try {
+      const node = nodes.find(n => n.id === nodeId)
+      const nodeType = node?.data?.type || 'unknown'
+      await clearNodeConfig(currentWorkflowId, nodeId, nodeType as string)
+    } catch (error) {
+      console.error('Failed to clear node configuration:', error)
+    }
+  }, [currentWorkflowId, nodes])
+
+  return {
+    configuringNode,
+    setConfiguringNode,
+    pendingNode,
+    setPendingNode,
+    aiAgentActionCallback,
+    setAiAgentActionCallback,
+    nodeNeedsConfiguration,
+    handleSaveConfiguration,
+    loadNodeConfiguration,
+    clearNodeConfiguration,
+  }
+}

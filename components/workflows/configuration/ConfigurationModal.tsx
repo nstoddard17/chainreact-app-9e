@@ -110,6 +110,7 @@ export function ConfigurationModal({
   isOpen,
   onClose,
   onSave,
+  onBack,
   nodeInfo,
   integrationName,
   initialData = {},
@@ -223,6 +224,7 @@ export function ConfigurationModal({
                   initialData={initialData}
                   onSubmit={handleSubmit}
                   onCancel={handleClose}
+                  onBack={onBack}
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   integrationName={integrationName}

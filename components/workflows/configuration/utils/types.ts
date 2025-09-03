@@ -7,6 +7,7 @@ export interface ConfigurationModalProps {
   isOpen: boolean;
   onClose: (wasSaved?: boolean) => void;
   onSave: (config: Record<string, any>) => void | Promise<void>;
+  onBack?: () => void;
   nodeInfo: NodeComponent | null;
   integrationName: string;
   initialData?: Record<string, any>;
@@ -25,6 +26,7 @@ export interface ConfigFormProps {
   initialData: Record<string, any>;
   onSubmit: (config: Record<string, any>) => void;
   onCancel: () => void;
+  onBack?: () => void;
   workflowData?: { 
     nodes: any[]; 
     edges: any[]; 
