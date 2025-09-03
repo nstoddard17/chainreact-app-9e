@@ -93,13 +93,31 @@ export function GenericConfiguration({
     }
   }, [nodeInfo, values, loadOptions]);
 
+  // Helper function to check if a field should be shown based on dependencies
+  const shouldShowField = (field: any) => {
+    // Never show fields with type: 'hidden'
+    if (field.type === 'hidden') return false;
+    
+    // If field has hidden: true and dependsOn, only show if dependency is satisfied
+    if (field.hidden && field.dependsOn) {
+      const dependencyValue = values[field.dependsOn];
+      return !!dependencyValue; // Show only if dependency has a value
+    }
+    
+    // If field has hidden: true but no dependsOn, don't show it
+    if (field.hidden) return false;
+    
+    // Otherwise show the field
+    return true;
+  };
+
   // Separate fields
   const baseFields = nodeInfo?.configSchema?.filter((field: any) => 
-    !field.advanced && field.type !== 'hidden'
+    !field.advanced && shouldShowField(field)
   ) || [];
   
   const advancedFields = nodeInfo?.configSchema?.filter((field: any) => 
-    field.advanced && field.type !== 'hidden'
+    field.advanced && shouldShowField(field)
   ) || [];
 
   // Render fields helper

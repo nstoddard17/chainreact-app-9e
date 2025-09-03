@@ -362,6 +362,7 @@ export function FieldRenderer({
               isLoading={loadingDynamic}
               onDynamicLoad={onDynamicLoad}
               nodeInfo={nodeInfo}
+              parentValues={parentValues}
             />
           );
         }

@@ -43,6 +43,26 @@ export const getDiscordMembers: DiscordDataHandler<DiscordMember> = async (integ
         return []
       }
 
+      // Add "Any user" as the first option with a special value
+      const anyUserOption = {
+        id: "ANY_USER",
+        name: "Any user",
+        value: "ANY_USER",
+        user: {
+          id: "ANY_USER",
+          username: "Any user",
+          discriminator: "0000",
+          avatar: null,
+          bot: false,
+        },
+        nick: null,
+        roles: [],
+        joined_at: null,
+        premium_since: null,
+        deaf: false,
+        mute: false,
+      };
+
       const processedMembers = data
         // .filter((member: any) => !member.user?.bot) // Show all users, including bots
         .filter((member: any) => member && member.user) // Filter out invalid members
@@ -72,8 +92,11 @@ export const getDiscordMembers: DiscordDataHandler<DiscordMember> = async (integ
         })
         .filter(Boolean) // Remove any null entries from failed mappings
       
-      console.log(`✅ [Discord Members] Successfully loaded ${processedMembers.length} members for guild ${guildId}`)
-      return processedMembers
+      // Add "Any user" as the first option
+      const membersWithAnyOption = [anyUserOption, ...processedMembers];
+      
+      console.log(`✅ [Discord Members] Successfully loaded ${membersWithAnyOption.length} members for guild ${guildId} (including "Any user" option)`)
+      return membersWithAnyOption
     } catch (innerError: any) {
       // Handle specific Discord API errors from the fetch call
       console.error("❌ [Discord Members] Discord API error:", innerError)

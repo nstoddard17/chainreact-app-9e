@@ -13,8 +13,9 @@ interface DiscordGenericFieldProps {
   error?: string;
   options: any[];
   isLoading?: boolean;
-  onDynamicLoad?: (fieldName: string) => void;
+  onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any) => void;
   nodeInfo?: any; // To access node type for context-aware filtering
+  parentValues?: Record<string, any>; // All form values for dependency resolution
 }
 
 /**
@@ -30,11 +31,26 @@ export function DiscordGenericField({
   isLoading,
   onDynamicLoad,
   nodeInfo,
+  parentValues,
 }: DiscordGenericFieldProps) {
 
   // Track whether we've already attempted to load data to prevent reloading
   const hasAttemptedLoad = useRef(false);
   const previousValue = useRef(value);
+  const previousChannelId = useRef<string | null>(null);
+  
+  // Debug logging for authorFilter
+  if (field.name === 'authorFilter') {
+    console.log('🎯 [DiscordGenericField] Rendering authorFilter:', {
+      value,
+      isLoading,
+      optionsLength: options?.length || 0,
+      dependsOn: field.dependsOn,
+      channelId: parentValues?.channelId,
+      hasAttemptedLoad: hasAttemptedLoad.current,
+      previousChannelId: previousChannelId.current
+    });
+  }
 
   // Reset load attempt flag if field is intentionally cleared
   useEffect(() => {
@@ -66,6 +82,12 @@ export function DiscordGenericField({
       console.log('🔍 [DiscordGenericField] filterAuthor - skipping auto-load, waiting for form to trigger based on guildId');
     }
     
+    // Skip auto-load if we have a saved value (even for non-dependent fields when reopening)
+    if (value) {
+      console.log(`📌 [DiscordGenericField] Skipping auto-load for ${field.name} - has saved value:`, value);
+      return;
+    }
+    
     if (!isDependentField && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
@@ -74,9 +96,25 @@ export function DiscordGenericField({
 
   // Generic loading behavior for dropdown open
   const handleFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value && !hasAttemptedLoad.current) {
-      hasAttemptedLoad.current = true;
-      onDynamicLoad(field.name);
+    // Skip loading if we have a saved value - just show the saved value
+    if (value) {
+      console.log(`📌 [DiscordGenericField] Not loading on dropdown open - using saved value for ${field.name}:`, value);
+      return;
+    }
+    
+    // When dropdown is opened and we only have placeholder options, trigger a real load
+    const hasOnlyPlaceholder = processedOptions.length === 1 && (
+      processedOptions[0].label?.includes('Loading') ||
+      processedOptions[0].label === 'Any User'
+    );
+    
+    if (open && field.dynamic && onDynamicLoad && !isLoading) {
+      // Only force load if user explicitly opens and we don't have real options yet
+      if (hasOnlyPlaceholder && !hasAttemptedLoad.current) {
+        console.log(`📥 [DiscordGenericField] User opened dropdown - loading real options for ${field.name}`);
+        hasAttemptedLoad.current = true;
+        onDynamicLoad(field.name);
+      }
     }
   };
 
@@ -84,11 +122,14 @@ export function DiscordGenericField({
   const processOptions = (opts: any[]) => {
     // Remove duplicates and filter valid options
     let uniqueOptions = opts
-      .filter(opt => opt && (opt.value || opt.id))
+      .filter(opt => opt && (opt.value !== undefined || opt.id !== undefined))
       .reduce((acc: any[], option: any) => {
-        const optionId = option.value || option.id;
+        const optionId = option.value !== undefined ? option.value : option.id;
         // Check if we already have this option ID
-        if (!acc.some(existingOption => (existingOption.value || existingOption.id) === optionId)) {
+        if (!acc.some(existingOption => {
+          const existingId = existingOption.value !== undefined ? existingOption.value : existingOption.id;
+          return existingId === optionId;
+        })) {
           acc.push(option);
         }
         return acc;
@@ -141,12 +182,53 @@ export function DiscordGenericField({
     return uniqueOptions;
   };
 
-  const processedOptions = processOptions(options);
+  // If we have a value but no options (saved configuration), use the saved value
+  let processedOptions = processOptions(options);
+  
+  // Check if we have a saved value
+  if (value) {
+    const matchingOption = processedOptions.find(opt => (opt.value || opt.id) === value);
+    
+    if (!matchingOption) {
+      console.log(`📌 [DiscordGenericField] Using saved value for ${field.name}:`, value);
+      
+      // Show user-friendly placeholder text while actual data loads
+      let displayLabel = 'Selected';
+      if (field.name === 'authorFilter' || field.name === 'filterAuthor') {
+        displayLabel = value === '' ? 'Any User' : 'Selected User';
+      } else if (field.name === 'messageId') {
+        displayLabel = 'Selected Message';
+      }
+      
+      processedOptions = [{
+        id: value,
+        value: value,
+        label: displayLabel,
+        name: displayLabel
+      }];
+    }
+  }
 
+  // Add "Anyone" option for authorFilter if not already present
+  if (field.name === 'authorFilter' && processedOptions.length > 0) {
+    const hasAnyoneOption = processedOptions.some(opt => 
+      opt.value === 'anyone' || opt.value === 'ANY_USER' || opt.value === ''
+    );
+    
+    if (!hasAnyoneOption) {
+      processedOptions.unshift({
+        id: '',
+        value: '',
+        label: 'Any User',
+        name: 'Any User'
+      });
+    }
+  }
+  
   // Convert options to ComboboxOption format for message fields
   const comboboxOptions: ComboboxOption[] = processedOptions.map(option => {
-    const optionValue = option.value || option.id;
-    let optionLabel = option.label || option.name || option.value || option.id;
+    const optionValue = option.value !== undefined ? option.value : option.id;
+    let optionLabel = option.label || option.name || (option.value !== undefined ? option.value : option.id) || "";
     let searchValue = String(optionLabel); // Ensure it's a string
     
     // Special handling for message fields - show full message content
@@ -170,6 +252,45 @@ export function DiscordGenericField({
       searchValue: String(searchValue)
     };
   });
+
+  // Track last loaded channelId to prevent duplicate loads
+  const lastLoadedChannelId = useRef<string | null>(null);
+  
+  // Automatically trigger loading if we have no options and aren't already loading
+  // MUST be before any conditional returns to follow React hooks rules
+  React.useEffect(() => {
+    // For authorFilter field, auto-load when channelId changes or when no options available
+    if (field.name === 'authorFilter' && parentValues?.channelId) {
+      const channelId = parentValues.channelId;
+      const needsLoad = processedOptions.length === 0 || 
+                       (processedOptions.length === 1 && processedOptions[0].label === 'Selected User');
+      
+      // Load if channel changed or if we don't have data yet
+      if (channelId !== lastLoadedChannelId.current && needsLoad) {
+        console.log('📥 [DiscordGenericField] Auto-triggering author filter load for new channel:', {
+          fieldName: field.name,
+          channelId,
+          lastLoadedChannelId: lastLoadedChannelId.current,
+          optionsLength: processedOptions.length,
+          isLoading,
+          value
+        });
+        lastLoadedChannelId.current = channelId;
+        if (onDynamicLoad) {
+          onDynamicLoad(field.name, 'channelId', channelId);
+        }
+      }
+    }
+  }, [field.name, processedOptions.length, isLoading, onDynamicLoad, field.dynamic, parentValues?.channelId]);
+
+  // Handle special "ANY_USER" value for authorFilter field - define before any returns
+  const handleValueChange = (newValue: string) => {
+    // For authorFilter, empty string means "any user"
+    onChange(newValue);
+  };
+  
+  // For display, keep the value as is (empty string stays empty)
+  const displayValue = value ?? '';
 
   // Always show loading state when isLoading is true (even if we have cached data)
   if (field.dynamic && isLoading) {
@@ -196,6 +317,42 @@ export function DiscordGenericField({
 
   // Special case when no options are available
   if (processedOptions.length === 0 && !isLoading) {
+    // For authorFilter with channelId set, show loading state (data is probably being fetched)
+    if (field.name === 'authorFilter' && parentValues?.channelId) {
+      // Show loading spinner while waiting for data
+      return (
+        <Select disabled>
+          <SelectTrigger 
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+              <span>Loading channel members...</span>
+            </div>
+          </SelectTrigger>
+        </Select>
+      );
+    }
+    
+    // For authorFilter without channelId, show a disabled field
+    if (field.name === 'authorFilter' && !parentValues?.channelId) {
+      return (
+        <Select disabled>
+          <SelectTrigger 
+            className={cn(
+              "h-10 bg-gray-50 border-slate-200",
+              error && "border-red-500"
+            )}
+          >
+            <SelectValue placeholder="Select a channel first..." />
+          </SelectTrigger>
+        </Select>
+      );
+    }
+    
     // Special message for remove reaction actions when no messages with reactions are found
     if (field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
       return (
@@ -205,8 +362,11 @@ export function DiscordGenericField({
           <Button 
             variant="outline"
             size="sm"
+            type="button"
             className="mt-3"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               if (onDynamicLoad) {
                 onDynamicLoad(field.name);
               }
@@ -230,8 +390,11 @@ export function DiscordGenericField({
         <Button 
           variant="outline"
           size="sm"
+          type="button"
           className="mt-3"
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (onDynamicLoad) {
               onDynamicLoad(field.name);
             }
@@ -259,8 +422,8 @@ export function DiscordGenericField({
 
   return (
     <Select 
-      value={value ?? ""} 
-      onValueChange={onChange}
+      value={displayValue} 
+      onValueChange={handleValueChange}
       onOpenChange={handleFieldOpen}
     >
       <SelectTrigger 
@@ -269,7 +432,10 @@ export function DiscordGenericField({
           error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
         )}
       >
-        <SelectValue placeholder={field.placeholder || "Select an option..."} />
+        <SelectValue placeholder={
+        field.name === 'authorFilter' ? "Select a user..." :
+        field.placeholder || "Select an option..."
+      } />
       </SelectTrigger>
       <SelectContent 
         className="max-h-[200px]" 
@@ -277,8 +443,14 @@ export function DiscordGenericField({
         sideOffset={4}
       >
         {processedOptions.map((option: any, index: number) => {
-          const optionValue = option.value || option.id;
-          const optionLabel = option.label || option.name || option.value || option.id;
+          const optionValue = option.value !== undefined ? option.value : option.id;
+          const optionLabel = option.label || option.name || (option.value !== undefined ? option.value : option.id) || "";
+          
+          // Skip rendering if optionValue is empty or undefined, except for authorFilter's "Any User" option
+          if ((!optionValue && optionValue !== '') || (optionValue === '' && field.name !== 'authorFilter')) {
+            console.warn(`Skipping option with empty value:`, option);
+            return null;
+          }
           
           return (
             <SelectItem 

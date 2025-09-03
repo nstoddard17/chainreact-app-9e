@@ -9,10 +9,25 @@ interface ApiResponse<T = any> {
 }
 
 class ApiClient {
-  private baseUrl: string
-
   constructor() {
-    this.baseUrl = getApiBaseUrl()
+    // No longer store baseUrl at initialization
+  }
+
+  private getBaseUrl(): string {
+    // For client-side requests in development, always use window.location
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        const url = `${window.location.protocol}//${window.location.host}`
+        console.log('🔧 [ApiClient] Using window.location for baseUrl:', url)
+        return url
+      }
+    }
+    
+    // Otherwise use the standard function
+    const url = getApiBaseUrl()
+    console.log('🔧 [ApiClient] Getting dynamic baseUrl:', url)
+    return url
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
@@ -54,8 +69,10 @@ class ApiClient {
 
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
+      // Get base URL dynamically for each request
+      const baseUrl = this.getBaseUrl()
       // Ensure we're using the same domain to avoid CORS issues
-      const url = `${this.baseUrl}${endpoint}`
+      const url = `${baseUrl}${endpoint}`
 
       const defaultHeaders = {
         "Content-Type": "application/json",
@@ -85,7 +102,15 @@ class ApiClient {
         console.log(`🌐 API Request Body:`, config.body)
       }
 
-      const response = await fetch(url, config)
+      let response: Response;
+      try {
+        response = await fetch(url, config)
+      } catch (fetchError: any) {
+        console.error(`❌ Fetch failed for ${endpoint}:`, fetchError)
+        console.error(`❌ URL was: ${url}`)
+        console.error(`❌ Base URL: ${baseUrl}`)
+        throw new Error(`Network error: ${fetchError.message || 'Failed to fetch'}`)
+      }
 
       if (!response.ok) {
         // Try to get error details from response body
@@ -164,7 +189,15 @@ class ApiClient {
         message: data.message,
       }
     } catch (error: any) {
+      const baseUrl = this.getBaseUrl()
       console.error(`❌ API Network Error: ${endpoint}`, error)
+      console.error(`❌ Error details:`, {
+        message: error.message,
+        endpoint,
+        baseUrl: baseUrl,
+        url: `${baseUrl}${endpoint}`,
+        stack: error.stack
+      })
 
       // Return a structured error response for network errors
       return {

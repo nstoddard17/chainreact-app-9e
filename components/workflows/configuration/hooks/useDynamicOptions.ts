@@ -74,8 +74,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       hasProviderId: !!providerId
     });
     
-    // Add specific logging for troubleshooting
-    if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
+    // Add specific logging for troubleshooting Discord fields
+    if (fieldName === 'authorFilter' || fieldName === 'channelId') {
       console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, silent, timestamp: new Date().toISOString() });
     }
     
@@ -99,7 +99,14 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Cancel any existing request for this field before starting a new one
     const existingController = abortControllers.current.get(cacheKey);
     if (existingController) {
-      console.log('🚫 [loadOptions] Cancelling existing request for:', { fieldName, cacheKey, oldRequestId: activeRequestIds.current.get(cacheKey), newRequestId: requestId });
+      console.log('🚫 [loadOptions] Cancelling existing request for:', { 
+        fieldName, 
+        cacheKey, 
+        oldRequestId: activeRequestIds.current.get(cacheKey), 
+        newRequestId: requestId,
+        dependsOn,
+        dependsOnValue 
+      });
       existingController.abort();
       abortControllers.current.delete(cacheKey);
     }
@@ -133,21 +140,21 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       return;
     }
     
-    // For filterAuthor, only skip if we have data for the specific guild
-    if (!forceRefresh && fieldName === 'filterAuthor' && dependsOn === 'guildId' && dependsOnValue) {
-      const guildSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
-      if (guildSpecificData && guildSpecificData.length > 0) {
-        console.log('🚫 [loadOptions] Skipping filterAuthor - already have data for this guild:', { 
+    // For authorFilter (Discord), only skip if we have data for the specific channel
+    if (!forceRefresh && fieldName === 'authorFilter' && dependsOn === 'channelId' && dependsOnValue) {
+      const channelSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
+      if (channelSpecificData && channelSpecificData.length > 0) {
+        console.log('🚫 [loadOptions] Skipping authorFilter - already have data for this channel:', { 
           fieldName, 
-          guildId: dependsOnValue,
-          dataCount: guildSpecificData.length
+          channelId: dependsOnValue,
+          dataCount: channelSpecificData.length
         });
         return;
       }
     }
     
-    // For other fields, use simple data check
-    if (!forceRefresh && fieldName !== 'filterAuthor' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+    // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
+    if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
       console.log('🚫 [loadOptions] Skipping field - already has data:', { 
         fieldName, 
         dataCount: dynamicOptions[fieldName].length
@@ -334,11 +341,20 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           resourceType,
           nodeType
         });
+        // Clear the field data
+        setDynamicOptions(prev => ({
+          ...prev,
+          [fieldName]: []
+        }));
         // Only clear loading if this is still the current request
         if (activeRequestIds.current.get(cacheKey) === requestId) {
           loadingFields.current.delete(cacheKey);
           setLoading(false);
           activeRequestIds.current.delete(cacheKey);
+          // Clear loading state via callback
+          if (!silent) {
+            onLoadingChangeRef.current?.(fieldName, false);
+          }
         }
         return;
       }
@@ -1057,15 +1073,40 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           throw error; // Re-throw to be caught by the outer catch block
         }
       }
-      console.log('🚀 [useDynamicOptions] Calling loadIntegrationData...');
+      console.log('🚀 [useDynamicOptions] Calling loadIntegrationData...', {
+        fieldName,
+        resourceType,
+        integrationId: integration.id,
+        options,
+        forceRefresh
+      });
       const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
-      console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: result?.data?.length || 'unknown', result });
+      console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { 
+        fieldName, 
+        resourceType,
+        resultLength: result?.data?.length || result?.length || 'unknown', 
+        result 
+      });
       
       // Check if this is still the current request
       // This is crucial because loadIntegrationData might not support abort signals
       if (activeRequestIds.current.get(cacheKey) !== requestId) {
-        console.log('🚫 [loadOptions] Request superseded during processing, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
-        return; // Don't update state if this request was superseded
+        // Special handling for authorFilter - always use the data if we got it
+        if (fieldName === 'authorFilter') {
+          console.log('⚠️ [loadOptions] authorFilter - Using data despite supersession, data is valid');
+          // Continue to update state for authorFilter
+        } else {
+          console.log('🚫 [loadOptions] Request superseded during processing, not updating state for:', { 
+            fieldName, 
+            cacheKey, 
+            requestId, 
+            currentId: activeRequestIds.current.get(cacheKey),
+            resourceType,
+            dependsOn,
+            dependsOnValue
+          });
+          return; // Don't update state if this request was superseded for other fields
+        }
       }
       
       // Format the results - extract data array from response object if needed
@@ -1092,8 +1133,22 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }));
       
       // Clear loading state on successful completion
-      // IMPORTANT: Only clear if this is still the current request
-      if (activeRequestIds.current.get(cacheKey) === requestId) {
+      // For authorFilter, always clear the loading state when we have data
+      if (fieldName === 'authorFilter') {
+        console.log('✅ [loadOptions] Clearing loading state for authorFilter after successful load');
+        loadingFields.current.delete(cacheKey);
+        setLoading(false);
+        
+        // Clean up the abort controller and request ID
+        abortControllers.current.delete(cacheKey);
+        activeRequestIds.current.delete(cacheKey);
+        
+        // Clear loading state via callback
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false);
+        }
+      } else if (activeRequestIds.current.get(cacheKey) === requestId) {
+        // For other fields, only clear if this is still the current request
         loadingFields.current.delete(cacheKey);
         setLoading(false);
         

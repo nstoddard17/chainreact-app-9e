@@ -173,6 +173,12 @@ export function useFieldChangeHandler({
     if (fieldName === 'guildId') {
       console.log('🔍 Discord guildId changed:', value);
       
+      // Only proceed if value actually changed
+      if (value === values.guildId) {
+        console.log('📌 Discord guildId unchanged, skipping field operations');
+        return true;
+      }
+      
       // Clear dependent fields
       setValue('channelId', '');
       setValue('messageId', '');
@@ -198,33 +204,12 @@ export function useFieldChangeHandler({
       resetOptions('messageId');
       
       if (value) {
-        // Delay to ensure loading state is visible
-        setTimeout(() => {
-          // Load channels
-          loadOptions('channelId', 'guildId', value, true).finally(() => {
-            setLoadingFields((prev: Set<string>) => {
-              const newSet = new Set(prev);
-              newSet.delete('channelId');
-              return newSet;
-            });
-          });
-          
-          // Load filter authors if needed
-          if (nodeInfo.configSchema?.some((f: any) => f.name === 'filterAuthor')) {
-            loadOptions('filterAuthor', 'guildId', value, true).finally(() => {
-              setLoadingFields((prev: Set<string>) => {
-                const newSet = new Set(prev);
-                newSet.delete('filterAuthor');
-                return newSet;
-              });
-            });
-          }
-          
-          // Check bot status (only for Discord actions, not triggers)
-          if (nodeInfo?.type?.startsWith('discord_action_')) {
-            discordState?.checkBotStatus(value);
-          }
-        }, 10);
+        // Always check bot status when a guild is selected (for both actions and triggers)
+        console.log('🤖 Checking bot status for guild:', value);
+        discordState?.checkBotStatus(value);
+        
+        // Don't load channels immediately - they will be loaded after bot status is confirmed
+        // The DiscordConfiguration component will handle loading channels when bot is connected
       } else {
         // Clear loading states
         setLoadingFields((prev: Set<string>) => {

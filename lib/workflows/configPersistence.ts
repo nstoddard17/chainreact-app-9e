@@ -69,12 +69,13 @@ export const saveNodeConfig = async (
       timestamp: Date.now()
     }
 
-    // Update the node's data
+    // Update the node's data - store both in config and savedConfig
     nodes[nodeIndex] = {
       ...nodes[nodeIndex],
       data: {
         ...nodes[nodeIndex].data,
-        savedConfig: savedConfigData
+        config: config,  // Store the actual config for immediate use
+        savedConfig: savedConfigData  // Store the full data with timestamp
       }
     }
 
@@ -228,9 +229,20 @@ export const loadNodeConfig = async (
     const nodes = workflow.nodes || []
     const node = nodes.find((n: any) => n.id === nodeId)
     
-    if (node && node.data && node.data.savedConfig) {
-      console.log(`✅ [ConfigPersistence] Successfully loaded configuration from Supabase for node ${nodeId}`);
-      return node.data.savedConfig as SavedNodeConfig
+    if (node && node.data) {
+      // Check for savedConfig first (has timestamp and dynamic options)
+      if (node.data.savedConfig) {
+        console.log(`✅ [ConfigPersistence] Successfully loaded savedConfig from Supabase for node ${nodeId}`);
+        return node.data.savedConfig as SavedNodeConfig
+      }
+      // Fall back to config field if savedConfig doesn't exist
+      else if (node.data.config) {
+        console.log(`✅ [ConfigPersistence] Successfully loaded config from Supabase for node ${nodeId} (no savedConfig, using config field)`);
+        return {
+          config: node.data.config,
+          timestamp: Date.now()
+        } as SavedNodeConfig
+      }
     }
     
     console.log(`🔍 [ConfigPersistence] No saved configuration found for node ${nodeId}`);

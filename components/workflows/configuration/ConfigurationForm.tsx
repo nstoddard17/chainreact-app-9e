@@ -60,7 +60,7 @@ function ConfigurationForm({
   const [airtableRecords, setAirtableRecords] = useState<any[]>([]);
   const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
   
-  const { getIntegrationByProvider, connectIntegration } = useIntegrationStore();
+  const { getIntegrationByProvider, connectIntegration, fetchIntegrations } = useIntegrationStore();
   const { currentWorkflow } = useWorkflowStore();
 
   // Extract provider and node type (safe even if nodeInfo is null)
@@ -69,7 +69,7 @@ function ConfigurationForm({
   
   // Check integration connection
   const integration = provider ? getIntegrationByProvider(provider) : null;
-  const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && !integration;
+  const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
   const integrationName = nodeInfo?.label?.split(' ')[0] || provider;
 
   // Dynamic options hook
@@ -151,6 +151,13 @@ function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
     
+    console.log('🔄 [ConfigForm] Initializing form values:', {
+      nodeType: nodeInfo?.type,
+      initialData,
+      hasInitialData: !!initialData && Object.keys(initialData).length > 0,
+      initialDataKeys: initialData ? Object.keys(initialData) : []
+    });
+    
     const initialValues: Record<string, any> = {};
     
     // Set initial data first
@@ -169,9 +176,30 @@ function ConfigurationForm({
       }
     });
     
+    console.log('🔄 [ConfigForm] Setting form values to:', initialValues);
     setValues(initialValues);
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
+  
+  // Listen for integration reconnection events to refresh integration status
+  useEffect(() => {
+    const handleReconnection = (event: CustomEvent) => {
+      console.log('🔄 [ConfigForm] Integration reconnection event received:', event.detail);
+      
+      // Refresh integrations list to get updated status
+      if (event.detail?.provider) {
+        console.log('✅ [ConfigForm] Refreshing integrations after reconnection...');
+        fetchIntegrations(true); // Force refresh
+      }
+    };
+    
+    // Listen for the reconnection event
+    window.addEventListener('integration-reconnected', handleReconnection as EventListener);
+    
+    return () => {
+      window.removeEventListener('integration-reconnected', handleReconnection as EventListener);
+    };
+  }, [fetchIntegrations]);
 
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
@@ -190,6 +218,14 @@ function ConfigurationForm({
     if (!provider) return;
     try {
       await connectIntegration(provider);
+      // After successful connection, reload options for dynamic fields
+      if (nodeInfo?.configSchema) {
+        for (const field of nodeInfo.configSchema) {
+          if (field.dynamic) {
+            loadOptions(field.name, undefined, undefined, true); // Force refresh
+          }
+        }
+      }
     } catch (error) {
       console.error('Error connecting integration:', error);
     }

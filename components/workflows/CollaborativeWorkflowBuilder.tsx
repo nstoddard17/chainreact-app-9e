@@ -1,100 +1,2640 @@
 "use client"
 
-import React from "react"
-import { ReactFlow, Background, Controls, Panel, BackgroundVariant, ReactFlowProvider } from "@xyflow/react"
+import React, { useEffect, useCallback, useState, useMemo, useRef, startTransition } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeTypes,
+  type EdgeTypes,
+  Panel,
+  BackgroundVariant,
+  useReactFlow,
+  ReactFlowProvider,
+  type NodeProps,
+  type EdgeProps,
+  getBezierPath,
+} from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
-// Custom hooks
-import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
-
-// Components
-import { CollaboratorCursors } from "./CollaboratorCursors"
+import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnection } from "@/stores/workflowStore"
+import { useCollaborationStore } from "@/stores/collaborationStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
+import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
+import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
+import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import { AIAgentConfigModal } from "./AIAgentConfigModal"
+import CustomNode from "./CustomNode"
+import { AddActionNode } from "./AddActionNode"
+import InsertActionNode from "./InsertActionNode"
+import { CollaboratorCursors } from "./CollaboratorCursors"
 import ErrorNotificationPopup from "./ErrorNotificationPopup"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
-import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
-import { WorkflowToolbar } from "./builder/WorkflowToolbar"
-import { TriggerSelectionDialog } from "./builder/TriggerSelectionDialog"
-import { ActionSelectionDialog } from "./builder/ActionSelectionDialog"
-import { EmptyWorkflowState } from "./builder/EmptyWorkflowState"
-import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
-import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 
-// UI Components
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/nodes"
+import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { useToast } from "@/hooks/use-toast"
+import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from "@/lib/workflows/configPersistence"
+import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
+import { Card } from "@/components/ui/card"
+import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 
-function WorkflowBuilderContent() {
-  const {
-    // React Flow state
+type IntegrationInfo = {
+  id: string
+  name: string
+  description: string
+  category: string
+  color: string
+  triggers: NodeComponent[]
+  actions: NodeComponent[]
+}
+
+const getIntegrationsFromNodes = (): IntegrationInfo[] => {
+  const integrationMap: Record<string, IntegrationInfo> = {}
+  
+  // Add Core integration for built-in triggers
+  integrationMap['core'] = {
+    id: 'core',
+    name: 'Core',
+    description: 'Built-in workflow triggers and utilities',
+    category: 'Core',
+    color: '#6B7280',
+    triggers: [],
+    actions: [],
+  }
+  
+  // Add Logic integration for control flow
+  integrationMap['logic'] = {
+    id: 'logic',
+    name: 'Logic',
+    description: 'Control flow and data manipulation',
+    category: 'Core',
+    color: '#6B7280',
+    triggers: [],
+    actions: [],
+  }
+  
+  // Add AI Agent as a separate integration
+  integrationMap['ai'] = {
+    id: 'ai',
+    name: 'AI Agent',
+    description: 'Intelligent automation with AI-powered decision making and task execution',
+    category: 'ai',
+    color: '#8B5CF6',
+    triggers: [],
+    actions: [],
+  }
+  
+  // Add other integrations from configs
+  for (const integrationId in INTEGRATION_CONFIGS) {
+    const config = INTEGRATION_CONFIGS[integrationId]
+    if (config) {
+      integrationMap[integrationId] = {
+        id: config.id,
+        name: config.name,
+        description: config.description,
+        category: config.category,
+        color: config.color,
+        triggers: [],
+        actions: [],
+      }
+    }
+  }
+  
+  ALL_NODE_COMPONENTS.forEach((node) => {
+    // Handle core triggers (webhook, schedule, manual) that don't have providerId
+    if (!node.providerId && (node.type === 'webhook' || node.type === 'schedule' || node.type === 'manual')) {
+      integrationMap['core'].triggers.push(node)
+    }
+    // Handle nodes with providerId
+    else if (node.providerId && integrationMap[node.providerId]) {
+      if (node.isTrigger) {
+        integrationMap[node.providerId].triggers.push(node)
+      } else {
+        integrationMap[node.providerId].actions.push(node)
+      }
+    }
+  })
+  const integrations = Object.values(integrationMap)
+  
+  // Sort integrations to put core first, then logic, then AI Agent, then alphabetically
+  return integrations.sort((a, b) => {
+    if (a.id === 'core') return -1
+    if (b.id === 'core') return 1
+    if (a.id === 'logic') return -1
+    if (b.id === 'logic') return 1
+    if (a.id === 'ai') return -1
+    if (b.id === 'ai') return 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+const nodeTypes: NodeTypes = {
+  custom: CustomNode as React.ComponentType<NodeProps>,
+  addAction: AddActionNode as React.ComponentType<NodeProps>,
+}
+
+// Add concurrent state updates for better UX
+const useConcurrentStateUpdates = () => {
+  const updateWithTransition = useCallback((updateFn: () => void) => {
+    startTransition(() => {
+      updateFn()
+    })
+  }, [])
+  
+  return { updateWithTransition }
+}
+
+const useWorkflowBuilderState = () => {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const workflowId = searchParams.get("id")
+
+  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
+  const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
+  const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
+  const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
+  
+  // Use cached stores for workflows and integrations
+  const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
+  const { data: integrations, loading: integrationsCacheLoading } = useIntegrationsStore()
+  
+  // Helper to get current user ID for integrations
+  const getCurrentUserId = useCallback(async (): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id || null
+  }, [])
+  
+  // Use cached data with fallbacks
+  const workflowsData = workflows || []
+  const integrationsData = integrations || []
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const { fitView, getNodes, getEdges } = useReactFlow()
+
+  // Memoize node types to prevent unnecessary re-renders
+  const nodeTypes = useMemo(() => ({
+    custom: CustomNode,
+    addAction: AddActionNode,
+    insertAction: InsertActionNode,
+  }), [])
+  
+  // Memoize edge types to enable custom edges with plus buttons
+  const edgeTypes = useMemo(() => ({
+    custom: CustomEdgeWithButton,
+  }), [])
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [activeExecutionNodeId, setActiveExecutionNodeId] = useState<string | null>(null)
+  const [executionResults, setExecutionResults] = useState<Record<string, { status: 'pending' | 'running' | 'completed' | 'error', timestamp: number, error?: string }>>({})
+  const [workflowName, setWorkflowName] = useState("")
+  const [workflowDescription, setWorkflowDescription] = useState("")
+  const [showTriggerDialog, setShowTriggerDialog] = useState(false)
+  const [showActionDialog, setShowActionDialog] = useState(false)
+  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
+  const [selectedTrigger, setSelectedTrigger] = useState<NodeComponent | null>(null)
+  const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filterCategory, setFilterCategory] = useState("all")
+  const [showConnectedOnly, setShowConnectedOnly] = useState(true) // Not used anymore but kept for compatibility
+  const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
+  const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
+  const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
+  const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
+  const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
+  const [listeningMode, setListeningMode] = useState(false)
+  const [hasShownLoading, setHasShownLoading] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  const [isRebuildingAfterSave, setIsRebuildingAfterSave] = useState(false)
+  const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
+  const isProcessingChainsRef = useRef(false)
+
+  const { toast } = useToast()
+  const { trackWorkflowEmails } = useWorkflowEmailTracking()
+  const { updateWithTransition } = useConcurrentStateUpdates()
+  
+  const availableIntegrations = useMemo(() => {
+    const integrations = getIntegrationsFromNodes()
+    return integrations
+  }, [])
+
+  const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
+    // All trigger nodes should have configuration
+    if (nodeComponent.isTrigger) {
+      return true;
+    }
+    
+    // For non-trigger nodes, check if they have a configuration schema
+    const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0);
+    
+    // Node needs configuration if it has a config schema
+    return hasConfigSchema;
+  }
+
+  // Helper function to get the current workflow's trigger
+  const getWorkflowTrigger = () => {
+    const triggerNode = getNodes().find(node => node.data?.isTrigger)
+    return triggerNode
+  }
+
+  // Helper function to check if action should be available based on trigger
+  const isActionCompatibleWithTrigger = (action: NodeComponent): boolean => {
+    const trigger = getWorkflowTrigger()
+    
+    // If no trigger yet, allow all actions
+    if (!trigger) return true
+    
+    // Show all actions regardless of trigger
+    return true
+  }
+
+  // Helper function to check if AI Agent can be used after a specific node
+  const canUseAIAgentAfterNode = (parentNode: Node): boolean => {
+    // Find the node component definition
+    const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === parentNode.data.type)
+    
+    // AI Agent can only be used after nodes that produce outputs
+    return nodeComponent?.producesOutput === true
+  }
+
+  // Helper function to filter actions based on compatibility
+  const getCompatibleActions = (actions: NodeComponent[]): NodeComponent[] => {
+    const trigger = getNodes().find(node => node.data?.isTrigger)
+    
+    return actions.filter(action => {
+      // AI Agent can only be used after nodes that produce outputs
+      if (action.type === 'ai_agent' && sourceAddNode) {
+        const parentNode = getNodes().find(n => n.id === sourceAddNode.parentId)
+        if (parentNode && !canUseAIAgentAfterNode(parentNode)) {
+          return false
+        }
+      }
+      
+      return true
+    })
+  }
+
+  const isIntegrationConnected = useCallback((integrationId: string): boolean => {
+    // Core integration is always "connected" since it's built-in
+    if (integrationId === 'core') return true;
+    
+    // Logic integration is always "connected" since it doesn't require authentication
+    if (integrationId === 'logic') return true;
+    
+    // AI Agent is always "connected" since it doesn't require external authentication
+    if (integrationId === 'ai') return true;
+    
+    // Use the integration store to check if this integration is connected
+    const connectedProviders = getConnectedProviders();
+    const isConnected = connectedProviders.includes(integrationId);
+    
+    return isConnected;
+  }, [integrations, getConnectedProviders])
+
+
+
+  const handleChangeTrigger = useCallback(() => {
+    // Store existing action nodes (non-trigger nodes) to preserve them
+    const currentNodes = getNodes();
+    const actionNodes = currentNodes.filter(node => 
+      node.type === 'custom' && !node.data.isTrigger
+    );
+    
+    // Store the action nodes temporarily in state so we can restore them after trigger selection
+    // We'll use a ref or state to store these
+    sessionStorage.setItem('preservedActionNodes', JSON.stringify(actionNodes));
+    
+    // Clear all configuration preferences when changing trigger
+    const clearAllPreferences = async () => {
+      try {
+        
+        // Clear all preferences for this user
+        const response = await fetch(`/api/user/config-preferences`, {
+          method: "DELETE"
+        })
+        
+        if (response.ok) {
+        } else {
+          console.warn(`⚠️ Failed to clear all preferences:`, response.status)
+        }
+      } catch (error) {
+        console.error(`❌ Error clearing all preferences:`, error)
+      }
+    }
+    
+    clearAllPreferences();
+    
+    setSelectedIntegration(null);
+    setSelectedTrigger(null);
+    setSearchQuery("");
+    setShowTriggerDialog(true);
+  }, [getNodes, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
+
+  const handleConfigureNode = useCallback(async (nodeId: string) => {
+    const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
+    if (!nodeToConfigure) return
+    const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === nodeToConfigure.data.type)
+    if (!nodeComponent) return
+
+    const providerId = nodeToConfigure.data.providerId as keyof typeof INTEGRATION_CONFIGS
+    const integration = INTEGRATION_CONFIGS[providerId]
+    if (integration && nodeComponent) {
+      console.log('🔍 [WorkflowBuilder] Setting up configuration for node:');
+      console.log('  - Node ID:', nodeId);
+      console.log('  - Node Type:', nodeToConfigure.data.type);
+      console.log('  - Provider ID:', providerId);
+      console.log('  - Node Data:', nodeToConfigure.data);
+      console.log('  - Saved Config:', nodeToConfigure.data.config);
+      console.log('  - Has Config:', !!nodeToConfigure.data.config);
+      console.log('  - Config Keys:', nodeToConfigure.data.config ? Object.keys(nodeToConfigure.data.config) : []);
+      console.log('  - Config Values:', nodeToConfigure.data.config);
+      
+      // Try to load configuration from our persistence system first
+      let config = nodeToConfigure.data.config || {}
+      
+      if (typeof window !== "undefined") {
+        try {
+          // Extract workflow ID from URL
+          const pathParts = window.location.pathname.split('/')
+          const builderIndex = pathParts.indexOf('builder')
+          const workflowId = builderIndex !== -1 && pathParts.length > builderIndex + 1 ? pathParts[builderIndex + 1] : null
+          
+          if (workflowId) {
+            console.log('🔍 [WorkflowBuilder] Attempting to load from persistence system:', {
+              workflowId,
+              nodeId,
+              nodeType: nodeToConfigure.data.type
+            });
+            
+            // IMPORTANT: await the async loadNodeConfig function
+            const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type)
+            if (savedNodeData && savedNodeData.config) {
+              console.log('✅ [WorkflowBuilder] Loaded configuration from persistence system:', savedNodeData.config);
+              config = savedNodeData.config
+            } else {
+              console.log('📋 [WorkflowBuilder] No saved configuration found in persistence system, using workflow store config');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load from persistence system:', error);
+          // Fall back to workflow store config
+        }
+      }
+      
+      console.log('🔍 [WorkflowBuilder] Final config being set to configuringNode:', config);
+      setConfiguringNode({ id: nodeId, integration, nodeComponent, config })
+    }
+  }, [getNodes])
+
+  const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
+    setSourceAddNode({ id: nodeId, parentId })
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
+    setShowActionDialog(true)
+  }, [])
+
+  // Handle insert action between nodes
+  const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
+    setSourceAddNode({ 
+      id: `insert-${sourceNodeId}-${targetNodeId}`, 
+      parentId: sourceNodeId,
+      insertBefore: targetNodeId 
+    })
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
+    setShowActionDialog(true)
+  }, [])
+
+  const handleActionDialogClose = useCallback((open: boolean) => {
+    if (!open) {
+      // Always clear sourceAddNode when dialog closes to prevent reopening
+      setSourceAddNode(null)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
+    }
+    setShowActionDialog(open)
+  }, [])
+
+
+
+  // Memoize the recalculateLayout function to prevent unnecessary calls
+  const recalculateLayout = useCallback(() => {
+    const nodeList = getNodes()
+      .filter((n: Node) => n.type === "custom" || n.type === "addAction")
+      .sort((a: Node, b: Node) => a.position.y - b.position.y)
+    if (nodeList.length === 0) return
+
+    const triggerNode = nodeList.find((n: Node) => n.data?.isTrigger)
+    const basePosition = triggerNode ? { x: triggerNode.position.x, y: triggerNode.position.y } : { x: 400, y: 100 }
+    const verticalGap = 120
+    let currentY = basePosition.y
+    
+    // Use requestAnimationFrame for smoother performance
+    requestAnimationFrame(() => {
+      const newNodes = getNodes()
+        .map((n: Node) => {
+          if (n.type === "custom" || n.type === "addAction") {
+            const newY = currentY
+            currentY += verticalGap
+            return { ...n, position: { x: basePosition.x, y: newY } }
+          }
+          return n
+        })
+        .sort((a: Node, b: Node) => a.position.y - b.position.y)
+        
+      let runningNodes = newNodes
+        .filter((n: Node) => n.type === "custom" || n.type === "addAction")
+        .sort((a: Node, b: Node) => a.position.y - b.position.y)
+        
+      const newEdges: Edge[] = []
+      for (let i = 0; i < runningNodes.length - 1; i++) {
+        const source = runningNodes[i]
+        const target = runningNodes[i + 1]
+        newEdges.push({
+          id: `${source.id}-${target.id}`,
+          source: source.id,
+          target: target.id,
+          animated: false,
+          style: { 
+            stroke: "#d1d5db", 
+            strokeWidth: 1, 
+            strokeDasharray: target.type === "addAction" ? "5,5" : undefined 
+          },
+          type: "straight",
+        })
+      }
+      
+      setNodes(newNodes)
+      setEdges(newEdges)
+      
+      // Delay fitView to ensure layout is complete
+      setTimeout(() => fitView({ padding: 0.5 }), 100)
+    })
+  }, [getNodes, setNodes, setEdges, fitView])
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    const allNodes = getNodes()
+    const allEdges = getEdges()
+    const nodeToRemove = allNodes.find((n) => n.id === nodeId)
+    if (!nodeToRemove) return
+    
+    // Check if this is an AI Agent node
+    const isAIAgent = nodeToRemove.data?.type === 'ai_agent'
+    
+    // If it's an AI Agent, collect all child nodes to delete
+    let nodesToDelete = [nodeId]
+    if (isAIAgent) {
+      console.log('🗑️ [WorkflowBuilder] Deleting AI Agent node and all its chains')
+      console.log('  - AI Agent ID:', nodeId)
+      console.log('  - Total nodes to check:', allNodes.length)
+      
+      // First, let's log all Add Action nodes to see what we have
+      const allAddActionNodes = allNodes.filter(n => n.type === 'addAction')
+      console.log('  - All Add Action nodes in workflow:', allAddActionNodes.map(n => ({
+        id: n.id,
+        parentAIAgentId: n.data?.parentAIAgentId,
+        parentId: n.data?.parentId,
+        chainIndex: n.data?.parentChainIndex
+      })))
+      
+      // Find all nodes that are children of this AI Agent
+      const childNodes = allNodes.filter(n => {
+        // Don't delete the AI Agent itself (already in list)
+        if (n.id === nodeId) return false
+        
+        // Check if it's a direct child of the AI Agent (has parentAIAgentId)
+        if (n.data?.parentAIAgentId === nodeId) {
+          console.log(`  - Found child via parentAIAgentId: ${n.id}`)
+          return true
+        }
+        
+        // Only delete Add Action nodes that are specifically part of AI Agent chains
+        // Don't delete regular workflow plus buttons that might be after the AI agent
+        if (n.type === 'addAction') {
+          // Delete chain Add Action nodes (marked with isChainAddAction)
+          if (n.data?.parentAIAgentId === nodeId && n.data?.isChainAddAction) {
+            console.log(`  - Found chain Add Action via parentAIAgentId: ${n.id}`)
+            return true
+          }
+          // Also check if the parentId points to a node that's a child of this AI Agent
+          const parentNode = allNodes.find(pn => pn.id === n.data?.parentId)
+          if (parentNode?.data?.isAIAgentChild && parentNode?.data?.parentAIAgentId === nodeId) {
+            console.log(`  - Found Add Action via parent node: ${n.id}`)
+            return true
+          }
+        }
+        
+        // Check if it's part of an AI Agent chain (has the AI Agent ID in its ID)
+        if (n.id.includes(`${nodeId}-chain`) || n.id.includes(`${nodeId}-rt-chain`)) {
+          console.log(`  - Found chain node via ID pattern: ${n.id}`)
+          return true
+        }
+        
+        return false
+      })
+      
+      // Add all child nodes to the delete list
+      childNodes.forEach(child => {
+        nodesToDelete.push(child.id)
+        console.log(`  ✓ Will delete: ${child.id} (${child.data?.title || child.data?.type || 'Add Action'})`)
+      })
+      
+      console.log(`🗑️ [WorkflowBuilder] Total nodes to delete: ${nodesToDelete.length}`)
+    }
+    
+    // Clear configuration preferences for all deleted nodes
+    const clearNodePreferences = async () => {
+      try {
+        // Clear configurations for all nodes being deleted
+        for (const deletingNodeId of nodesToDelete) {
+          const nodeToClear = allNodes.find(n => n.id === deletingNodeId)
+          if (!nodeToClear) continue
+          
+          const nodeType = nodeToClear.data.type
+          const providerId = nodeToClear.data.providerId
+          
+          // Clear our enhanced config persistence data
+          if (currentWorkflow?.id && deletingNodeId && nodeType) {
+            try {
+              console.log('🔄 [WorkflowBuilder] Clearing saved node config:', {
+                workflowId: currentWorkflow.id,
+                nodeId: deletingNodeId,
+                nodeType: nodeType
+              });
+              
+              await clearNodeConfig(currentWorkflow.id, deletingNodeId, nodeType)
+              
+              console.log('✅ [WorkflowBuilder] Node configuration cleared from persistence layer');
+            } catch (configError) {
+              console.error('❌ [WorkflowBuilder] Failed to clear node configuration from persistence layer:', configError);
+            }
+          }
+          
+          if (nodeType && providerId) {
+            // Since we can't easily identify which preferences belong to which node,
+            // we'll clear ALL preferences for this node type and provider
+            // This is a temporary solution until we implement proper node isolation
+            const response = await fetch(`/api/user/config-preferences?nodeType=${encodeURIComponent(nodeType)}&providerId=${encodeURIComponent(providerId)}`, {
+              method: "DELETE"
+            })
+            
+            if (response.ok) {
+              console.log('✅ [WorkflowBuilder] Node preferences cleared');
+            } else {
+              console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error clearing preferences for deleted node:`, error)
+      }
+    }
+    
+    // Clear preferences immediately
+    clearNodePreferences()
+    
+    // If we're deleting the trigger or this is the last custom node, reset the workflow
+    const customNodes = allNodes.filter((n: Node) => n.type === "custom")
+    if (nodeToRemove.data.isTrigger || customNodes.length <= 1) {
+      // Clear all configuration preferences when resetting the workflow
+      const clearAllPreferences = async () => {
+        try {
+          
+          // Clear all preferences for this user
+          const response = await fetch(`/api/user/config-preferences`, {
+            method: "DELETE"
+          })
+          
+          if (response.ok) {
+          } else {
+            console.warn(`⚠️ Failed to clear all preferences:`, response.status)
+          }
+        } catch (error) {
+          console.error(`❌ Error clearing all preferences:`, error)
+        }
+      }
+      
+      clearAllPreferences()
+      setNodes([])
+      setEdges([])
+      return
+    }
+    
+    // Find the node before the deleted node (by following edges)
+    const incomingEdge = allEdges.find(e => e.target === nodeId)
+    const previousNodeId = incomingEdge?.source
+    
+    // Find nodes that come after the deleted node
+    const outgoingEdges = allEdges.filter(e => e.source === nodeId)
+    
+    // Remove all nodes in the delete list and their related edges
+    const nodesAfterRemoval = allNodes.filter((n: Node) => !nodesToDelete.includes(n.id))
+    const edgesAfterRemoval = allEdges.filter((e: Edge) => 
+      !nodesToDelete.includes(e.source) && !nodesToDelete.includes(e.target)
+    )
+    
+    // Remove any add action nodes that were connected to deleted nodes
+    const cleanedNodes = nodesAfterRemoval.filter((n: Node) => {
+      // Check if this is an add action node connected to any deleted node
+      if (n.type === "addAction") {
+        const parentId = n.data.parentId
+        if (parentId && nodesToDelete.includes(parentId)) {
+          return false
+        }
+      }
+      return true
+    })
+    
+    // If there was a previous node, reconnect it to the nodes that were after the deleted node
+    let updatedEdges = edgesAfterRemoval
+    if (previousNodeId && outgoingEdges.length > 0) {
+      // Connect the previous node to the next nodes
+      outgoingEdges.forEach(outgoingEdge => {
+        updatedEdges.push({
+          id: `${previousNodeId}-${outgoingEdge.target}`,
+          source: previousNodeId,
+          target: outgoingEdge.target,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 },
+          type: "straight"
+        })
+      })
+    }
+    
+    // Update the nodes and edges state
+    setNodes(cleanedNodes)
+    setEdges(updatedEdges)
+    
+    // Remove all deleted nodes from the workflow store
+    nodesToDelete.forEach(deletedNodeId => {
+      removeNode(deletedNodeId)
+    })
+    
+    // Now rebuild the add action button logic
+    setTimeout(() => {
+      const currentNodes = getNodes()
+      const currentEdges = getEdges()
+      // Only filter out nodes that are being deleted
+      const remainingCustomNodes = currentNodes.filter((n: Node) => 
+        n.type === "custom" && 
+        !nodesToDelete.includes(n.id)
+      )
+      
+      if (remainingCustomNodes.length === 0) {
+        return
+      }
+      
+      // Remove all existing add action nodes and their edges
+      const nodesWithoutAddActions = currentNodes.filter((n: Node) => 
+        n.type !== "addAction" && 
+        !nodesToDelete.includes(n.id)
+      )
+      const edgesWithoutAddActions = currentEdges.filter((e: Edge) => {
+        const targetNode = currentNodes.find((n: Node) => n.id === e.target)
+        const sourceNode = currentNodes.find((n: Node) => n.id === e.source)
+        return targetNode?.type !== "addAction" && sourceNode?.type !== "addAction"
+      })
+      
+      // Sort remaining custom nodes by Y position to maintain proper order
+      // Exclude AI Agent child nodes from being considered as last node
+      const sortedNodes = remainingCustomNodes
+        .filter(n => !n.data?.isAIAgentChild)
+        .sort((a, b) => a.position.y - b.position.y)
+      
+      // Find the actual last node in the main workflow chain (not AI Agent chains)
+      const lastNode = sortedNodes.find(node => {
+        // A node is the last node if no other custom node has it as a source
+        // and it's not an AI Agent child node
+        return !edgesWithoutAddActions.some(edge => 
+          edge.source === node.id && 
+          sortedNodes.some(n => n.id === edge.target)
+        )
+      }) || sortedNodes[sortedNodes.length - 1] // fallback to position-based last node
+      
+      if (lastNode) {
+        // Add new add action node after the actual last custom node
+        const addActionId = `add-action-${Date.now()}`
+        const addActionNode: Node = {
+          id: addActionId,
+          type: "addAction",
+          position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
+          data: { 
+            parentId: lastNode.id, 
+            onClick: () => handleAddActionClick(addActionId, lastNode.id) 
+          }
+        }
+        
+        // Add edge from last node to add action button
+        const addActionEdge: Edge = {
+          id: `${lastNode.id}-${addActionId}`,
+          source: lastNode.id,
+          target: addActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+          type: "straight"
+        }
+        
+        setNodes([...nodesWithoutAddActions, addActionNode])
+        setEdges([...edgesWithoutAddActions, addActionEdge])
+      }
+      
+      // Fit view to show the updated workflow
+      setTimeout(() => fitView({ padding: 0.5 }), 100)
+    }, 50)
+    
+    // Save the workflow after node deletion
+    setTimeout(async () => {
+      try {
+        if (currentWorkflow?.id) {
+          // Get current nodes and edges from React Flow (same as handleSave)
+          // Only filter out the nodes that are being deleted
+          const reactFlowNodes = getNodes().filter((n: Node) => 
+            n.type === 'custom' && 
+            !nodesToDelete.includes(n.id)
+          )
+          const reactFlowEdges = getEdges().filter((e: Edge) => 
+            reactFlowNodes.some((n: Node) => n.id === e.source) && 
+            reactFlowNodes.some((n: Node) => n.id === e.target) &&
+            !nodesToDelete.includes(e.source) &&
+            !nodesToDelete.includes(e.target)
+          )
+
+          // Map to database format (same as handleSave)
+          const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
+            const position = {
+              x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
+              y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
+            };
+            
+            return {
+              id: n.id, 
+              type: 'custom', 
+              position: position,
+              data: { 
+                label: n.data.label as string, 
+                type: n.data.type as string, 
+                config: n.data.config || {},
+                providerId: n.data.providerId as string | undefined,
+                isTrigger: n.data.isTrigger as boolean | undefined,
+                title: n.data.title as string | undefined,
+                description: n.data.description as string | undefined
+              },
+            };
+          })
+          
+          const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+            id: e.id, 
+            source: e.source, 
+            target: e.target, 
+            sourceHandle: e.sourceHandle ?? undefined, 
+            targetHandle: e.targetHandle ?? undefined,
+          }))
+
+          await updateWorkflow(currentWorkflow.id, { 
+            nodes: mappedNodes, 
+            connections: mappedConnections 
+          })
+          console.log('✅ [WorkflowBuilder] Workflow saved after node deletion')
+        }
+      } catch (error) {
+        console.error('❌ [WorkflowBuilder] Failed to save workflow after node deletion:', error)
+      }
+    }, 100) // Delay slightly more to ensure all state updates are complete
+  }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick, removeNode, currentWorkflow, updateWorkflow])
+
+  const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
+    const nodeToDelete = getNodes().find((n) => n.id === nodeId)
+    if (!nodeToDelete) return
+    
+    if (nodeToDelete.data.isTrigger) {
+      // For trigger nodes, we don't delete but change trigger instead
+      handleChangeTrigger()
+      return
+    }
+    
+    // For non-trigger nodes, show confirmation dialog
+    setDeletingNode({ id: nodeId, name: (nodeToDelete.data.name as string) || 'this node' })
+  }, [getNodes, handleChangeTrigger])
+
+  const confirmDeleteNode = useCallback(() => {
+    if (!deletingNode) return
+    handleDeleteNode(deletingNode.id)
+    setDeletingNode(null)
+  }, [deletingNode, handleDeleteNode])
+
+  // Handle adding a node between two existing nodes
+  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
+    // Open action dialog to select what node to insert
+    setSourceAddNode({ id: sourceId, targetId })
+    setShowActionDialog(true)
+  }, [setSourceAddNode, setShowActionDialog])
+  
+  // Handle adding a new chain to an AI Agent node
+  const handleAddChain = useCallback((aiAgentNodeId: string) => {
+    const aiAgentNode = getNodes().find(n => n.id === aiAgentNodeId)
+    if (!aiAgentNode) return
+    
+    // Find the rightmost position of existing chains
+    const childNodes = getNodes().filter(n => n.data?.parentAIAgentId === aiAgentNodeId)
+    let newX = aiAgentNode.position.x + 250
+    
+    if (childNodes.length > 0) {
+      const rightmostNode = childNodes.reduce((prev, curr) => 
+        curr.position.x > prev.position.x ? curr : prev
+      )
+      newX = rightmostNode.position.x + 250
+    }
+    
+    // Create a placeholder node for the new chain
+    const newNodeId = `${aiAgentNodeId}-chain-start-${Date.now()}`
+    const newNode = {
+      id: newNodeId,
+      type: 'addAction',
+      position: { 
+        x: newX, 
+        y: aiAgentNode.position.y + 150
+      },
+      data: {
+        onAddAction: (integrationId: string, nodeType: string) => {
+          handleAddActionClick({ id: aiAgentNodeId, position: { x: newX, y: aiAgentNode.position.y + 150 } })
+        }
+      }
+    }
+    
+    setNodes(nds => [...nds, newNode])
+    
+    // Create edge from AI Agent to new chain start
+    const newEdge = {
+      id: `e${aiAgentNodeId}-${newNodeId}`,
+      source: aiAgentNodeId,
+      target: newNodeId,
+      type: 'custom',
+      animated: false,
+      style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5,5' },
+      data: { onAddNode: handleAddNodeBetween }
+    }
+    
+    setEdges(eds => [...eds, newEdge])
+  }, [getNodes, setNodes, setEdges, handleAddActionClick])
+
+  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
+
+  // Debug onNodesChange to see if it's being called
+  const optimizedOnNodesChange = useCallback((changes: any) => {
+    onNodesChange(changes)
+  }, [onNodesChange])
+
+  useEffect(() => {
+    if (workflowId) {
+      joinCollaboration(workflowId)
+      // Set current workflow in error store
+      setErrorStoreWorkflow(workflowId)
+    }
+    return () => { 
+      if (workflowId) leaveCollaboration() 
+      // Reset loading states on cleanup
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
+  }, [workflowId]) // Remove function dependencies since Zustand functions are stable
+
+  // Debug sourceAddNode changes (trimmed for performance)
+  // useEffect(() => {
+  //   console.log('🔍 sourceAddNode changed:', sourceAddNode)
+  // }, [sourceAddNode])
+
+  // Disable cache-based workflow loading to prevent conflicts
+  // useEffect(() => {
+  //   if (!workflowsData.length && !workflowsCacheLoading) {
+  //     loadWorkflows()
+  //   }
+  // }, [workflowsData.length, workflowsCacheLoading])
+
+  useEffect(() => {
+    // Only fetch integrations once when component mounts
+    if (integrationsData.length === 0 && !integrationsCacheLoading) {
+      getCurrentUserId().then(userId => {
+        if (userId) {
+          loadIntegrationsOnce(userId)
+        }
+      })
+    }
+  }, [integrationsData.length, integrationsCacheLoading, getCurrentUserId])
+
+  // Debug listeningMode state changes
+  useEffect(() => {
+  }, [listeningMode])
+
+  useEffect(() => {
+    if (workflowId) {
+      // Clear any existing workflow data first to ensure fresh load
+      setCurrentWorkflow(null);
+      
+      // Always fetch fresh data from the API instead of using cached data
+      const loadFreshWorkflow = async () => {
+        try {
+          const response = await fetch(`/api/workflows/${workflowId}`);
+          if (response.ok) {
+            const freshWorkflow = await response.json();
+            setCurrentWorkflow(freshWorkflow);
+          } else {
+            console.error('Failed to load workflow:', response.status, response.statusText);
+            
+            // Handle specific error cases
+            if (response.status === 404) {
+              toast({
+                title: "Workflow Not Found",
+                description: "The workflow you're trying to access doesn't exist or you don't have permission to view it.",
+                variant: "destructive",
+              });
+              router.push('/workflows');
+            } else if (response.status === 401) {
+              toast({
+                title: "Authentication Required",
+                description: "Please log in to access this workflow.",
+                variant: "destructive",
+              });
+              router.push('/auth/login');
+            } else if (response.status === 500) {
+              toast({
+                title: "Server Error",
+                description: "There was an error loading the workflow. Please try again.",
+                variant: "destructive",
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error loading fresh workflow:', error);
+          toast({
+            title: "Connection Error",
+            description: "Unable to connect to the server. Please check your internet connection and try again.",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      loadFreshWorkflow();
+    }
+  }, [workflowId, setCurrentWorkflow])
+
+  // Add a ref to track if we're in a save operation
+  const isSavingRef = useRef(false)
+  
+  useEffect(() => {
+    // Don't rebuild nodes if we're currently saving (to prevent visual disruption)
+    if (isSavingRef.current) {
+      return
+    }
+    
+    if (currentWorkflow) {
+      setWorkflowName(currentWorkflow.name)
+      setWorkflowDescription(currentWorkflow.description || "")
+      
+      // Always rebuild nodes on initial load to ensure positions are loaded correctly
+      const currentNodeIds = getNodes().filter(n => n.type === 'custom').map(n => n.id).sort()
+      const workflowNodeIds = (currentWorkflow.nodes || []).map(n => n.id).sort()
+      const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
+      
+      
+      // Check positions even if node IDs haven't changed
+      let positionsChanged = false
+      if (getNodes().length > 0) {
+        const allNodes = getNodes()
+        
+        const currentPositions = allNodes.filter(n => n.type === 'custom').map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
+        const savedPositions = (currentWorkflow.nodes || []).map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
+        positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
+        
+      }
+      
+      // Always rebuild nodes on load to ensure positions are correct
+      if (true) {
+          // Log the nodes we're loading from the database to verify positions
+          
+          const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
+            // Get the component definition to ensure we have the correct title
+            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+            
+            // Ensure position is a number
+            const position = {
+              x: typeof node.position.x === 'number' ? node.position.x : parseFloat(node.position.x as unknown as string),
+              y: typeof node.position.y === 'number' ? node.position.y : parseFloat(node.position.y as unknown as string)
+            };
+            
+            
+            return {
+              id: node.id, 
+              type: "custom", 
+              position: position,
+              data: {
+                ...node.data,
+                // Use title from multiple sources in order of preference 
+                title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+                // Set name for backwards compatibility (used by UI)
+                name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+                description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
+                onConfigure: handleConfigureNode,
+                onDelete: handleDeleteNodeWithConfirmation,
+                onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+                onAddChain: node.data.type === 'ai_agent' && !node.data?.hasChains ? handleAddChain : undefined,
+                // Use the saved providerId directly, fallback to extracting from type if not available
+                providerId: node.data.providerId || node.data.type?.split(/[-_]/)[0],
+                // Add execution status for visual feedback
+                executionStatus: executionResults[node.id]?.status || null,
+                isActiveExecution: activeExecutionNodeId === node.id,
+                isListening: listeningMode,
+                error: executionResults[node.id]?.error,
+                errorMessage: getLatestErrorForNode(node.id)?.errorMessage,
+                errorTimestamp: getLatestErrorForNode(node.id)?.timestamp,
+                // Debug data
+                debugListeningMode: listeningMode,
+                debugExecutionStatus: executionResults[node.id]?.status || 'none'
+              },
+            };
+            
+            // Debug node data being passed
+          })
+
+        let allNodes: Node[] = [...customNodes]
+        
+        // Find the last action node (not the trigger) to position the add action node
+        const actionNodes = customNodes.filter(n => n.id !== 'trigger');
+        const lastActionNode = actionNodes.length > 0 
+          ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
+          : null;
+        
+        if (lastActionNode) {
+          // Add the "add action" node after the last action node
+          const addActionId = `add-action-${lastActionNode.id}`;
+          const addActionNode: Node = {
+            id: addActionId, 
+            type: 'addAction', 
+            position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 },
+            data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
+          };
+          allNodes.push(addActionNode);
+        } else {
+          // If there are no action nodes, add the "add action" node after the trigger
+          const triggerNode = customNodes.find(n => n.id === 'trigger');
+          if (triggerNode) {
+            const addActionId = `add-action-${triggerNode.id}`;
+            const addActionNode: Node = {
+              id: addActionId, 
+              type: 'addAction', 
+              position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+              data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+            };
+            allNodes.push(addActionNode);
+          }
+        }
+        
+        const initialEdges: Edge[] = (currentWorkflow.connections || []).map((conn: WorkflowConnection) => ({
+          id: conn.id, source: conn.source, target: conn.target,
+        }))
+        
+        // Add edge from the last node (action or trigger) to the add action node
+        const addActionNode = allNodes.find(n => n.type === 'addAction');
+        if (addActionNode) {
+          const sourceNode = lastActionNode || customNodes.find(n => n.id === 'trigger');
+          if (sourceNode) {
+            initialEdges.push({
+              id: `${sourceNode.id}->${addActionNode.id}`, 
+              source: sourceNode.id, 
+              target: addActionNode.id, 
+              animated: true,
+              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
+              type: 'straight'
+            });
+          }
+        }
+        
+        setNodes(allNodes)
+        setEdges(initialEdges)
+        setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100)
+      }
+    } else if (!workflowId) {
+      setNodes([])
+      setEdges([])
+      // Don't automatically show the trigger dialog, let the user click the button
+          }
+    }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes])
+
+  const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
+    if (nodeNeedsConfiguration(trigger)) {
+      // Store the pending trigger info and open configuration
+      setPendingNode({ type: 'trigger', integration, nodeComponent: trigger });
+      const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
+      
+      setConfiguringNode({ 
+        id: 'pending-trigger', 
+        integration: integrationConfig, 
+        nodeComponent: trigger, 
+        config: {} 
+      });
+      setShowTriggerDialog(false);
+    } else {
+      // Add trigger directly if no configuration needed
+      addTriggerToWorkflow(integration, trigger, {});
+    }
+  }
+
+  const addTriggerToWorkflow = (integration: IntegrationInfo, trigger: NodeComponent, config: Record<string, any>) => {
+    const triggerId = `trigger-${Date.now()}`;
+    const triggerNode: Node = {
+      id: triggerId,
+      type: "custom",
+      position: { x: 400, y: 100 },
+      data: {
+        ...trigger,
+        title: trigger.title,
+        name: trigger.title,
+        description: trigger.description,
+        isTrigger: true,
+        onConfigure: handleConfigureNode,
+        onDelete: handleDeleteNodeWithConfirmation,
+        onChangeTrigger: handleChangeTrigger,
+        onAddChain: undefined,
+        providerId: integration.id,
+        config
+      }
+    };
+    
+    // Check if we have preserved action nodes from a trigger change
+    const preservedActionNodesJson = sessionStorage.getItem('preservedActionNodes');
+    let allNodes: Node[] = [triggerNode];
+    let allEdges: Edge[] = [];
+    
+    if (preservedActionNodesJson) {
+      try {
+        const preservedActionNodes = JSON.parse(preservedActionNodesJson);
+        allNodes = [triggerNode, ...preservedActionNodes];
+        sessionStorage.removeItem('preservedActionNodes');
+      } catch (error) {
+        console.error('Error parsing preserved action nodes:', error);
+      }
+    }
+    
+    // Add the "add action" node after the trigger
+    const addActionId = `add-action-${triggerNode.id}`;
+    const addActionNode: Node = {
+      id: addActionId,
+      type: 'addAction',
+      position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+      data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+    };
+    
+    // Add edge from trigger to add action node
+    const addActionEdge: Edge = {
+      id: `${triggerNode.id}->${addActionId}`,
+      source: triggerNode.id,
+      target: addActionId,
+      animated: true,
+      style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
+      type: 'straight'
+    };
+    
+    allNodes.push(addActionNode);
+    allEdges.push(addActionEdge);
+    
+    setNodes(allNodes);
+    setEdges(allEdges);
+    setHasUnsavedChanges(true);
+    
+    // Don't auto-save when trigger is selected - let user save manually
+
+    // Webhook registration is now handled only by the Listen button or workflow activation
+  };
+
+  // Check if a trigger supports webhooks
+  const isWebhookSupportedTrigger = (triggerType: string): boolean => {
+    const webhookSupportedTriggers = [
+      'gmail_trigger_new_email',
+      'gmail_trigger_new_attachment', 
+      'gmail_trigger_new_label',
+      'google_calendar_trigger_new_event',
+      'google_calendar_trigger_event_updated',
+      'google_calendar_trigger_event_canceled',
+      'google-drive:new_file_in_folder',
+      'google-drive:new_folder_in_folder',
+      'google-drive:file_updated',
+      'google_sheets_trigger_new_row',
+      'google_sheets_trigger_new_worksheet',
+      'google_sheets_trigger_updated_row',
+      'slack_trigger_new_message',
+      'slack_trigger_channel_created',
+      'slack_trigger_user_joined',
+      'github_trigger_new_issue',
+      'github_trigger_issue_updated',
+      'github_trigger_new_pr',
+      'github_trigger_pr_updated',
+      'notion_trigger_new_page',
+      'notion_trigger_page_updated',
+      'hubspot_trigger_new_contact',
+      'hubspot_trigger_contact_updated',
+      'airtable_trigger_new_record',
+      'airtable_trigger_record_updated',
+      'discord_trigger_new_message',
+      'discord_trigger_member_joined',
+      'discord_trigger_reaction_added'
+    ];
+    
+    return webhookSupportedTriggers.includes(triggerType);
+  };
+
+  // Register webhook for trigger
+  const registerWebhookForTrigger = async (trigger: NodeComponent, providerId: string, config: Record<string, any>) => {
+    if (!workflowId) return;
+
+    try {
+      const response = await fetch('/api/workflows/webhook-registration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId,
+          triggerType: trigger.type,
+          providerId,
+          config
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Show success notification
+        toast({
+          title: "Webhook Registered",
+          description: `Webhook for ${trigger.title} has been automatically registered.`,
+          variant: "default"
+        });
+      } else {
+        const error = await response.json();
+        console.warn('⚠️ Webhook registration failed:', error);
+        
+        // Show warning notification
+        toast({
+          title: "Webhook Registration Failed",
+          description: `Could not register webhook for ${trigger.title}. You may need to configure it manually.`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error registering webhook:', error);
+      
+      toast({
+        title: "Webhook Registration Error",
+        description: `Failed to register webhook for ${trigger.title}.`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
+    // Check if trying to add an AI Agent when one already exists
+    if (action.type === 'ai_agent') {
+      const existingAIAgent = getNodes().find(n => n.data?.type === 'ai_agent')
+      if (existingAIAgent) {
+        toast({
+          title: "AI Agent Already Exists",
+          description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+          variant: "destructive"
+        })
+        // Keep the dialog open but don't proceed
+        return
+      }
+    }
+    
+    // Check if this is for an AI Agent chain
+    if (aiAgentActionCallback) {
+      // Call the callback with the action details
+      aiAgentActionCallback(action.type, integration.id, {})
+      
+      // Clear the callback and close the dialog
+      setAiAgentActionCallback(null)
+      setShowActionDialog(false)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSourceAddNode(null)
+      
+      toast({
+        title: "Action Added",
+        description: `Added ${action.title || action.type} to AI Agent chain`
+      })
+      return
+    }
+    
+    let effectiveSourceAddNode = sourceAddNode
+    
+    // Fallback: if sourceAddNode is null, try to find the last Add Action node
+    if (!effectiveSourceAddNode) {
+      const addActionNodes = getNodes().filter(n => n.type === 'addAction')
+      const lastAddActionNode = addActionNodes[addActionNodes.length - 1]
+      if (lastAddActionNode && lastAddActionNode.data?.parentId) {
+        effectiveSourceAddNode = { 
+          id: lastAddActionNode.id, 
+          parentId: lastAddActionNode.data.parentId as string
+        }
+      }
+    }
+    
+    if (!effectiveSourceAddNode) {
+      console.error('❌ sourceAddNode is null - cannot add action')
+      toast({ 
+        title: "Error", 
+        description: "Unable to add action. Please try clicking the 'Add Action' button again.", 
+        variant: "destructive" 
+      })
+      return
+    }
+    
+    if (nodeNeedsConfiguration(action)) {
+      // Store the pending action info and open configuration
+      setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: effectiveSourceAddNode });
+      const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
+      
+      const configuringNodeData = { 
+        id: 'pending-action', 
+        integration: integrationConfig, 
+        nodeComponent: action, 
+        config: {} 
+      };
+      setConfiguringNode(configuringNodeData);
+      setShowActionDialog(false);
+      // Clear sourceAddNode immediately to prevent dialog from reopening
+      setSourceAddNode(null);
+    } else {
+      // Add action directly if no configuration needed
+      addActionToWorkflow(integration, action, {}, effectiveSourceAddNode);
+    }
+  }
+
+  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string; insertBefore?: string }): string | null => {
+    const parentNode = getNodes().find((n) => n.id === sourceNodeInfo.parentId)
+    if (!parentNode) return null
+    
+    // Check if this is an AI Agent with chains
+    const isAIAgent = action.type === 'ai_agent';
+    const chainsArray = Array.isArray(config?.chains) ? config.chains : config?.chains?.chains;
+    const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0;
+    
+    if (isAIAgent) {
+      console.log('🤖 [WorkflowBuilder] Creating AI Agent node:', {
+        nodeId: `node-${Date.now()}`,
+        hasChains,
+        chainsCount: chainsArray?.length || 0,
+        configStructure: config?.chains
+      });
+    }
+    
+    const newNodeId = `node-${Date.now()}`
+    const newActionNode: Node = {
+      id: newNodeId, 
+      type: "custom", 
+      position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
+      data: { 
+        ...action, 
+        title: action.title, 
+        name: action.title || 'Unnamed Action',
+        description: action.description,
+        onConfigure: handleConfigureNode, 
+        onDelete: handleDeleteNodeWithConfirmation,
+        // Only show Add Chain button if it's an AI Agent without chains
+        onAddChain: isAIAgent && !hasChains ? handleAddChain : undefined,
+        providerId: integration.id, 
+        config,
+        // Set hasChains flag for AI Agents
+        hasChains: isAIAgent ? hasChains : undefined,
+        chainCount: isAIAgent && hasChains ? chainsArray.length : undefined
+      },
+    }
+    
+    // Handle insertion between nodes
+    if (sourceNodeInfo.insertBefore) {
+      // We're inserting between sourceNodeInfo.parentId and sourceNodeInfo.insertBefore
+      const targetNode = getNodes().find((n) => n.id === sourceNodeInfo.insertBefore)
+      
+      if (targetNode) {
+        // Position the new node between parent and target
+        newActionNode.position = {
+          x: (parentNode.position.x + targetNode.position.x) / 2,
+          y: (parentNode.position.y + targetNode.position.y) / 2
+        }
+        
+        // Update nodes
+        setNodes((prevNodes: Node[]) => [
+          ...prevNodes.filter((n: Node) => !n.id.startsWith('insert-')), // Remove insert nodes
+          newActionNode
+        ])
+        
+        // Update edges - redirect the edge from parent->target to parent->new->target
+        setEdges((prevEdges: Edge[]) => {
+          const filteredEdges = prevEdges.filter((e: Edge) => 
+            !(e.source === sourceNodeInfo.parentId && e.target === sourceNodeInfo.insertBefore)
+          )
+          
+          return [
+            ...filteredEdges,
+            {
+              id: `${parentNode.id}-${newNodeId}`,
+              source: parentNode.id,
+              target: newNodeId,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 }
+            },
+            {
+              id: `${newNodeId}-${sourceNodeInfo.insertBefore}`,
+              source: newNodeId,
+              target: sourceNodeInfo.insertBefore,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 }
+            }
+          ]
+        })
+      }
+    } else {
+      // Normal add action at the end
+      const newAddActionId = `add-action-${Date.now()}`
+      const newAddActionNode: Node = {
+        id: newAddActionId, 
+        type: "addAction", 
+        position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
+        data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
+      }
+      
+      setNodes((prevNodes: Node[]) => [
+        ...prevNodes.filter((n: Node) => n.id !== sourceNodeInfo.id), 
+        newActionNode, 
+        newAddActionNode
+      ])
+      
+      setEdges((prevEdges: Edge[]) => [
+        ...prevEdges.filter((e: Edge) => e.target !== sourceNodeInfo.id),
+        {
+          id: `${parentNode.id}-${newNodeId}`,
+          source: parentNode.id,
+          target: newNodeId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 }
+        },
+        {
+          id: `${newNodeId}-${newAddActionId}`,
+          source: newNodeId,
+          target: newAddActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+        }
+      ])
+    }
+    
+    setShowActionDialog(false)
+    setSelectedIntegration(null)
+    setSourceAddNode(null)
+    setTimeout(() => fitView({ padding: 0.5 }), 100)
+    
+    return newNodeId // Return the new node ID so we can save its config to persistence
+  }
+
+  const handleSaveConfiguration = async (context: { id: string }, newConfig: Record<string, any>) => {
+    if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
+      // Add trigger to workflow with configuration
+      addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
+      
+      // Auto-save the workflow to database after adding the new trigger
+      // Wait for React state updates to flush before saving
+      setTimeout(async () => {
+        try {
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] New trigger saved to database automatically');
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save new trigger to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Trigger added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 0);
+      
+      setPendingNode(null);
+      setConfiguringNode(null);
+      toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." });
+    } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
+      // Add action to workflow with configuration
+      const newNodeId = addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
+      
+      // Auto-save the workflow to database after adding the new action
+      // Wait for React state updates to flush before saving
+      setTimeout(async () => {
+        try {
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] New action saved to database automatically');
+          
+          // Now save node configuration to persistence system after workflow is in database
+          if (newNodeId && currentWorkflow?.id) {
+            try {
+              const nodeType = pendingNode.nodeComponent.type || 'unknown';
+              console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence after database save:', {
+                workflowId: currentWorkflow.id,
+                nodeId: newNodeId,
+                nodeType: nodeType
+              });
+              
+              await saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig);
+              console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully');
+            } catch (persistenceError) {
+              console.error('❌ [WorkflowBuilder] Failed to save new node configuration to persistence layer:', persistenceError);
+            }
+          }
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Action added but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 0);
+      
+      setPendingNode(null);
+      setConfiguringNode(null);
+      toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." });
+    } else {
+      // Handle existing node configuration updates - update local state AND save to database
+      console.log('✅ [WorkflowBuilder] Updating existing node configuration in local state');
+      console.log('  - Node ID:', context.id);
+      console.log('  - New Config:', newConfig);
+      console.log('  - Config keys:', Object.keys(newConfig));
+      console.log('  - Current nodes before update:', nodes.map(n => ({ id: n.id, type: n.type, hasConfig: !!n.data?.config })));
+      
+      setNodes((nds) => nds.map((node) => {
+        if (node.id === context.id) {
+          // Check if this is an AI Agent node with chains
+          const isAIAgent = node.data?.type === 'ai_agent';
+          // Handle both formats: newConfig.chains (array) or newConfig.chains.chains (nested)
+          const chainsArray = Array.isArray(newConfig?.chains) ? newConfig.chains : newConfig?.chains?.chains;
+          const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0;
+          
+          console.log('🔄 [WorkflowBuilder] Updating AI Agent node:', {
+            nodeId: node.id,
+            isAIAgent,
+            hasChains,
+            chainsCount: chainsArray?.length || 0
+          });
+          
+          // Build updated node data
+          const updatedData = {
+            ...node.data,
+            config: newConfig
+          };
+          
+          // If it's an AI Agent with chains, remove the onAddChain button
+          if (isAIAgent && hasChains) {
+            updatedData.onAddChain = undefined;
+            updatedData.hasChains = true;
+            updatedData.chainCount = chainsArray.length;
+            console.log('✅ [WorkflowBuilder] Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
+          } else if (isAIAgent) {
+            // Ensure we preserve the hasChains state even if config doesn't have chains
+            updatedData.hasChains = node.data.hasChains || false;
+            updatedData.chainCount = node.data.chainCount || 0;
+          }
+          
+          const updatedNode = { ...node, data: updatedData };
+          console.log('  - Updated node:', updatedNode);
+          return updatedNode;
+        }
+        return node;
+      }));
+      
+      // Mark the workflow as having unsaved changes
+      setHasUnsavedChanges(true);
+      
+      // Show success message
+      toast({ 
+        title: "Configuration Updated", 
+        description: "Node configuration has been updated. Remember to save the workflow." 
+      });
+      
+      // Save individual node configuration to persistent storage using our configPersistence system
+      if (currentWorkflow?.id && context.id) {
+        try {
+          // Determine node type from the node data
+          const currentNode = nodes.find(node => node.id === context.id)
+          const nodeType = currentNode?.data?.type || 'unknown'
+          
+          console.log('🔄 [WorkflowBuilder] Saving node configuration to persistence layer:', {
+            workflowId: currentWorkflow.id,
+            nodeId: context.id,
+            nodeType: nodeType
+          });
+          
+          // Save to our enhanced persistence system (Supabase + localStorage fallback)
+          await saveNodeConfig(currentWorkflow.id, context.id, nodeType, newConfig)
+          
+          console.log('✅ [WorkflowBuilder] Node configuration saved to persistence layer successfully');
+        } catch (persistenceError) {
+          console.error('❌ [WorkflowBuilder] Failed to save node configuration to persistence layer:', persistenceError);
+          // Don't show error toast here since we'll try the workflow save below
+        }
+      }
+      
+      // Also save to database immediately (as a backup and for workflow structure)
+      setTimeout(async () => {
+        try {
+          console.log('🔄 [WorkflowBuilder] Saving updated workflow to database...');
+          await handleSave();
+          console.log('✅ [WorkflowBuilder] Existing node configuration saved to database successfully');
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save existing node configuration to database:', error);
+          toast({ 
+            title: "Save Warning", 
+            description: "Configuration updated but failed to save to database. Please save manually.", 
+            variant: "destructive" 
+          });
+        }
+      }, 50); // Small delay to ensure React state update is applied
+      
+      setConfiguringNode(null);
+    }
+  }
+
+  const handleSave = async () => {
+    if (!currentWorkflow) return
+    
+    // Prevent multiple simultaneous save operations
+    if (isSaving) {
+      return
+    }
+    
+    setIsSaving(true)
+    isSavingRef.current = true
+    
+    // Add timeout protection - increased for complex workflows with AI Agent nodes
+    const saveTimeout = setTimeout(() => {
+      console.error("Save operation timed out")
+      setIsSaving(false)
+      isSavingRef.current = false
+      toast({ 
+        title: "Save Timeout", 
+        description: "Save operation took too long. Please try again.", 
+        variant: "destructive" 
+      })
+    }, 60000) // 60 second timeout for complex workflows
+    
+    try {
+      // Get current nodes and edges from React Flow
+      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+
+
+      // Map to database format without losing React Flow properties
+      const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
+        // Ensure position is properly captured and converted to numbers
+        const position = {
+          x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
+          y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
+        };
+        
+        // Deep clone config to avoid circular references, especially for AI Agent nodes
+        let nodeConfig = {};
+        try {
+          if (n.data.config) {
+            // Use JSON parse/stringify to create a deep clone and remove any circular references
+            nodeConfig = JSON.parse(JSON.stringify(n.data.config));
+          }
+        } catch (error) {
+          console.error(`Failed to serialize config for node ${n.id}:`, error);
+          // If serialization fails, try to extract only serializable properties
+          nodeConfig = n.data.config || {};
+        }
+        
+        return {
+          id: n.id, 
+          type: 'custom', 
+          position: position,
+          data: { 
+            label: n.data.label as string, 
+            type: n.data.type as string, 
+            config: nodeConfig,
+            providerId: n.data.providerId as string | undefined,
+            isTrigger: n.data.isTrigger as boolean | undefined,
+            title: n.data.title as string | undefined,
+            description: n.data.description as string | undefined,
+            hasChains: n.data.hasChains as boolean | undefined,
+            chainCount: n.data.chainCount as number | undefined
+          },
+        };
+      })
+      
+      const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+        id: e.id, 
+        source: e.source, 
+        target: e.target,
+        sourceHandle: e.sourceHandle ?? undefined, 
+        targetHandle: e.targetHandle ?? undefined,
+      }))
+
+
+      const updates: Partial<Workflow> = {
+        name: workflowName, 
+        description: workflowDescription,
+        nodes: mappedNodes, 
+        connections: mappedConnections, 
+        status: currentWorkflow.status,
+      }
+
+      // Log the save operation details for debugging
+      console.log("🔄 Starting save operation:", {
+        workflowId: currentWorkflow!.id,
+        nodesCount: mappedNodes.length,
+        connectionsCount: mappedConnections.length,
+        hasAIAgent: mappedNodes.some(n => n.data.type === 'ai_agent'),
+        timestamp: new Date().toISOString()
+      })
+
+      // Save to database with better error handling
+      // Clear the timeout as soon as the save completes
+      const savePromise = updateWorkflow(currentWorkflow!.id, updates);
+      
+      const result = await savePromise;
+      
+      // Clear timeout immediately after successful save
+      clearTimeout(saveTimeout);
+      
+      console.log("✅ Save operation completed successfully:", {
+        workflowId: currentWorkflow!.id,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Update the current workflow state with the new data but keep React Flow intact
+      const userId: string = typeof currentWorkflow!.user_id === "string" ? currentWorkflow!.user_id : (() => { throw new Error("user_id is missing from currentWorkflow"); })();
+      const newWorkflow: Workflow = {
+        id: currentWorkflow!.id,
+        name: workflowName,
+        description: currentWorkflow!.description || null,
+        user_id: userId as string,
+        nodes: mappedNodes,
+        connections: mappedConnections,
+        status: currentWorkflow!.status,
+        created_at: currentWorkflow!.created_at,
+        updated_at: currentWorkflow!.updated_at
+      };
+      setCurrentWorkflow(newWorkflow);
+      
+      
+      // Note: Webhook registration happens only when "Listen" button is clicked, not on save
+      toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
+      
+      // Immediately clear unsaved changes flag to prevent UI flicker
+      setHasUnsavedChanges(false);
+      
+      // Update the last save timestamp to prevent immediate change detection
+      lastSaveTimeRef.current = Date.now();
+      
+      // Update the current workflow with the saved data to avoid loading screen
+      
+      // Update the current workflow with the saved data instead of clearing it
+      setCurrentWorkflow(newWorkflow);
+      
+      // Skip rebuild if nodes haven't structurally changed - just update the workflow state
+      // This significantly speeds up save operations
+      const currentNodes = getNodes();
+      const needsRebuild = currentNodes.length !== mappedNodes.length || 
+        currentNodes.some((n: Node, i: number) => n.id !== mappedNodes[i]?.id);
+      
+      if (needsRebuild) {
+        // Force a rebuild of nodes after save to ensure positions are updated
+        setIsRebuildingAfterSave(true);
+        
+        // Use requestAnimationFrame for smoother UI updates
+        requestAnimationFrame(() => {
+          const customNodes: Node[] = (newWorkflow.nodes || []).map((node: WorkflowNode) => {
+            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+            
+            return {
+              id: node.id, 
+              type: "custom", 
+              position: node.position,
+              data: {
+                ...node.data,
+                title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+                name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+                description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
+                onConfigure: handleConfigureNode,
+                onDelete: handleDeleteNodeWithConfirmation,
+                onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+                onAddChain: node.data.type === 'ai_agent' && !node.data?.hasChains ? handleAddChain : undefined,
+                providerId: node.data.providerId || node.data.type?.split('-')[0]
+              },
+            };
+          });
+
+          let allNodes: Node[] = [...customNodes];
+          
+          // Find the last action node (not the trigger) to position the add action node
+          const actionNodes = customNodes.filter(n => n.id !== 'trigger');
+          const lastActionNode = actionNodes.length > 0 
+            ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
+            : null;
+          
+          if (lastActionNode) {
+            const addActionId = `add-action-${lastActionNode.id}`;
+            const addActionNode: Node = {
+              id: addActionId, 
+              type: 'addAction', 
+              position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 },
+              data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
+            };
+            allNodes.push(addActionNode);
+          } else {
+            const triggerNode = customNodes.find(n => n.id === 'trigger');
+            if (triggerNode) {
+              const addActionId = `add-action-${triggerNode.id}`;
+              const addActionNode: Node = {
+                id: addActionId, 
+                type: 'addAction', 
+                position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+                data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+              };
+              allNodes.push(addActionNode);
+            }
+          }
+          
+          const initialEdges: Edge[] = (newWorkflow.connections || []).map((conn: WorkflowConnection) => ({
+            id: conn.id, source: conn.source, target: conn.target,
+          }));
+          
+          // Add edge from the last node (action or trigger) to the add action node
+          const addActionNode = allNodes.find(n => n.type === 'addAction');
+          if (addActionNode) {
+            const sourceNode = lastActionNode || customNodes.find(n => n.id === 'trigger');
+            if (sourceNode) {
+              initialEdges.push({
+                id: `${sourceNode.id}->${addActionNode.id}`, 
+                source: sourceNode.id, 
+                target: addActionNode.id, 
+                animated: true,
+                style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
+                type: 'straight'
+              });
+            }
+          }
+          
+          setNodes(allNodes);
+          setEdges(initialEdges);
+          
+          // Clear flags immediately - don't need additional delay
+          setHasUnsavedChanges(false);
+          lastSaveTimeRef.current = Date.now();
+          setIsRebuildingAfterSave(false);
+        });
+      } else {
+        // No rebuild needed - just clear the unsaved changes flag
+        setHasUnsavedChanges(false);
+        lastSaveTimeRef.current = Date.now();
+      }
+    } catch (error: any) {
+      console.error("Failed to save workflow:", error)
+      
+      // Provide more specific error messages
+      let errorMessage = "Could not save your changes. Please try again."
+      if (error.message?.includes("network")) {
+        errorMessage = "Network error. Please check your connection and try again."
+      } else if (error.message?.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again."
+      } else if (error.message?.includes("unauthorized")) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      }
+      
+      toast({ 
+        title: "Error Saving Workflow", 
+        description: errorMessage, 
+        variant: "destructive" 
+      })
+    } finally {
+      // Always clear the timeout and reset loading state
+      clearTimeout(saveTimeout)
+      setIsSaving(false)
+      isSavingRef.current = false
+    }
+  }
+
+  const handleExecute = async () => { 
+    // Toggle listening mode instead of executing
+    if (isExecuting && !listeningMode) {
+      return
+    }
+    
+    try {
+      if (!currentWorkflow) {
+        throw new Error("No workflow selected")
+      }
+
+      // If we're already in listening mode, turn it off
+      if (listeningMode) {
+        setListeningMode(false)
+        setIsExecuting(false)
+        setActiveExecutionNodeId(null)
+        setExecutionResults({})
+        toast({
+          title: "Listening Mode Disabled",
+          description: "No longer listening for triggers.",
+        })
+        return
+      }
+
+      setIsExecuting(true)
+      
+      // Get all workflow nodes and edges
+      const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      
+      // Find trigger nodes
+      const triggerNodes = workflowNodes.filter(node => node.data?.isTrigger)
+      
+      if (triggerNodes.length === 0) {
+        throw new Error("No trigger nodes found in workflow")
+      }
+      
+      // Setup real-time monitoring for execution events
+      const supabaseClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      )
+      
+      // Subscribe to execution events for this workflow to track node status
+      const channel = supabaseClient
+        .channel(`execution_events_${currentWorkflow.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "live_execution_events",
+            filter: `workflow_id=eq.${currentWorkflow.id}`,
+          },
+          (payload) => {
+            const event = payload.new as any
+            
+            // Update node execution status
+            if (event.node_id) {
+              const status = event.event_type === 'node_started' ? 'running' : 
+                           event.event_type === 'node_completed' ? 'completed' :
+                           event.event_type === 'node_error' ? 'error' : 'pending'
+              
+              setExecutionResults(prev => ({
+                ...prev,
+                [event.node_id]: {
+                  status,
+                  timestamp: Date.now(),
+                  error: event.error_message || undefined
+                }
+              }))
+              
+              // Handle error state - add to error store
+              if (event.event_type === 'node_error' && event.error_message) {
+                const nodeName = getNodes().find(n => n.id === event.node_id)?.data?.title || `Node ${event.node_id}`
+                addError({
+                  workflowId: currentWorkflow.id,
+                  nodeId: event.node_id,
+                  nodeName,
+                  errorMessage: event.error_message,
+                  timestamp: new Date().toISOString(),
+                  executionSessionId: event.execution_session_id
+                })
+              }
+              
+              // Debug execution results update
+              
+              // Set active node if it's running
+              if (event.event_type === 'node_started') {
+                setActiveExecutionNodeId(event.node_id)
+              } else if (event.event_type === 'node_completed' || event.event_type === 'node_error') {
+                setActiveExecutionNodeId(null)
+                
+                // Stop listening after successful completion (not on error)
+                if (event.event_type === 'node_completed' && !getNodes().some(n => 
+                  n.id !== event.node_id && 
+                  executionResults[n.id]?.status === 'running' || 
+                  executionResults[n.id]?.status === 'pending'
+                )) {
+                  // All nodes completed successfully - stop listening mode
+                  setTimeout(() => {
+                    setIsExecuting(false)
+                    setListeningMode(false)
+                  }, 2000) // Wait 2 seconds to show success state
+                }
+              }
+            }
+          }
+        )
+        .subscribe()
+      
+      // Register webhooks for trigger nodes
+      let registeredWebhooks = 0
+      for (const triggerNode of triggerNodes) {
+        const nodeData = triggerNode.data
+        const providerId = nodeData?.providerId
+        
+        if (providerId) {
+          try {
+            
+            // Register webhook with the provider
+            const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workflowId: currentWorkflow.id,
+                nodeId: triggerNode.id,
+                providerId: providerId,
+                triggerType: nodeData.type,
+                config: nodeData.config || {}
+              })
+            })
+            
+            
+            if (webhookResponse.ok) {
+              const webhookResult = await webhookResponse.json()
+              registeredWebhooks++
+              
+              // Check for our special debug message
+              if (webhookResult.message?.includes('🚨')) {
+              }
+            } else {
+              const errorText = await webhookResponse.text()
+              console.error(`❌ Failed to register webhook for ${providerId}:`, errorText)
+              console.error(`❌ Response status: ${webhookResponse.status}`)
+            }
+          } catch (error) {
+            console.error(`❌ Error registering webhook for ${providerId}:`, error)
+          }
+        }
+      }
+      
+      // Enable listening mode
+              setListeningMode(true)
+      
+      toast({
+        title: "Listening Mode Enabled",
+        description: `Now listening for triggers. ${registeredWebhooks} webhook(s) registered. Trigger the events to see the workflow execute.`,
+      })
+      
+    } catch (error: any) {
+      console.error("Failed to setup listening mode:", error)
+      
+      let errorMessage = error.message || "Failed to setup listening mode"
+      
+      toast({ 
+        title: "Setup Failed", 
+        description: errorMessage, 
+        variant: "destructive" 
+      })
+      
+      setListeningMode(false)
+      setIsExecuting(false)
+    }
+  }
+
+  const getWorkflowStatus = (): { variant: BadgeProps["variant"]; text: string } => {
+    if (currentWorkflow?.status === 'published') return { variant: "default", text: "Published" }
+    return { variant: "secondary", text: "Draft" }
+  }
+  const renderLogo = (integrationId: string, integrationName: string) => {
+    // Handle special integrations with icons
+    if (integrationId === 'core') {
+      return (
+        <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
+          <Zap className="w-6 h-6 text-gray-600" />
+        </div>
+      )
+    }
+    if (integrationId === 'logic') {
+      return (
+        <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
+          <GitBranch className="w-6 h-6 text-gray-600" />
+        </div>
+      )
+    }
+    if (integrationId === 'ai') {
+      return (
+        <div className="w-10 h-10 flex items-center justify-center bg-purple-100 rounded-lg">
+          <Bot className="w-6 h-6 text-purple-600" />
+        </div>
+      )
+    }
+    
+    // Extract provider name from integrationId (e.g., "slack_action_send_message" -> "slack")
+    const providerId = integrationId.split('_')[0]
+    const config = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
+    return <img 
+      src={config?.logo || `/integrations/${providerId}.svg`} 
+      alt={`${integrationName} logo`} 
+      className="w-10 h-10 object-contain" 
+      style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
+    />
+  }
+
+  const filteredIntegrations = useMemo(() => {
+    // console.log('🔍 Computing filteredIntegrations:', { 
+    //   availableIntegrationsCount: availableIntegrations.length,
+    //   showConnectedOnly,
+    //   filterCategory,
+    //   searchQuery,
+    //   integrationsLoading
+    // });
+    
+    // If integrations are still loading, show all integrations to avoid empty state
+    if (integrationsLoading) {
+      // console.log('🔍 Integrations still loading, showing all integrations');
+      return availableIntegrations;
+    }
+    
+    const result = availableIntegrations
+      .filter(int => {
+        if (showConnectedOnly) {
+          const isConnected = isIntegrationConnected(int.id);
+          return isConnected;
+        }
+        return true;
+      })
+      .filter(int => {
+        if (filterCategory === 'all') return true;
+        return int.category === filterCategory;
+      })
+      .filter(int => {
+        // Filter out integrations that have no triggers
+        return int.triggers.length > 0;
+      })
+      .filter(int => {
+        const searchLower = searchQuery.toLowerCase();
+        if (searchLower === "") return true;
+        
+        // Search in integration name, description, and category
+        const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
+                                 int.description.toLowerCase().includes(searchLower) ||
+                                 int.category.toLowerCase().includes(searchLower);
+        
+        // Search in trigger names, descriptions, and types
+        const triggerMatches = int.triggers.some(t => 
+          (t.title && t.title.toLowerCase().includes(searchLower)) ||
+          (t.description && t.description.toLowerCase().includes(searchLower)) ||
+          (t.type && t.type.toLowerCase().includes(searchLower))
+        );
+        
+        return integrationMatches || triggerMatches;
+      });
+    
+    
+    return result;
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected, integrationsLoading]);
+  
+  const displayedTriggers = useMemo(() => {
+    if (!selectedIntegration) return [];
+
+    const searchLower = searchQuery.toLowerCase();
+    if (!searchLower) return selectedIntegration.triggers;
+
+    return selectedIntegration.triggers.filter((trigger) => {
+      return (trigger.title && trigger.title.toLowerCase().includes(searchLower)) ||
+             (trigger.description && trigger.description.toLowerCase().includes(searchLower)) ||
+             (trigger.type && trigger.type.toLowerCase().includes(searchLower));
+    });
+  }, [selectedIntegration, searchQuery]);
+
+  // Add global error handler to prevent stuck loading states
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      // Skip null or undefined errors
+      if (event.error === null || event.error === undefined) {
+        console.debug("🔍 Workflow builder ignoring null/undefined error event")
+        return
+      }
+      
+      console.error("Global error caught:", event.error)
+      // Reset loading states on any global error
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled promise rejection:", event.reason)
+      // Reset loading states on unhandled promise rejection
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault()
+        event.returnValue = "You have unsaved changes. Are you sure you want to leave?"
+        return "You have unsaved changes. Are you sure you want to leave?"
+      }
+    }
+
+    window.addEventListener('error', handleGlobalError)
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError)
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasUnsavedChanges])
+
+  const handleResetLoadingStates = () => {
+    setIsSaving(false)
+    setIsExecuting(false)
+    isSavingRef.current = false
+    toast({ 
+      title: "Loading States Reset", 
+      description: "All loading states have been reset.", 
+      variant: "default" 
+    })
+  }
+
+  // Track unsaved changes
+  const checkForUnsavedChanges = useCallback(() => {
+    if (!currentWorkflow) return false
+    
+    // Skip check if we're in the middle of a save or rebuild operation
+    if (isSaving || isRebuildingAfterSave) {
+      return false;
+    }
+    
+    // Get a reference to the current ReactFlow nodes and edges
+    const currentNodes = getNodes().filter((n: Node) => n.type === 'custom')
+    // Filter out UI-only edges (like the dashed "Add Action" edge) from change detection
+    const currentEdges = getEdges().filter((edge: Edge) => 
+      // Exclude edges that connect to addAction nodes (these are UI-only)
+      !edge.target.includes('addAction') && 
+      // Exclude dashed edges (these are typically UI helpers)
+      !(edge.style?.strokeDasharray)
+    )
+    
+    // If there are no nodes yet, don't mark as changed
+    if (currentNodes.length === 0) {
+      return false;
+    }
+    
+    // Compare nodes - first sort both arrays by ID to ensure consistent comparison
+    const savedNodes = [...(currentWorkflow.nodes || [])].sort((a, b) => a.id.localeCompare(b.id))
+    const sortedCurrentNodes = [...currentNodes].sort((a, b) => a.id.localeCompare(b.id))
+    
+    // Compare node counts
+    const nodeCountDiffers = sortedCurrentNodes.length !== savedNodes.length
+    
+    // Compare node properties
+    let nodePropertiesDiffer = false
+    if (!nodeCountDiffers) {
+      nodePropertiesDiffer = sortedCurrentNodes.some((node, index) => {
+        const savedNode = savedNodes[index]
+        if (!savedNode) return true
+        
+        // Compare IDs
+        if (node.id !== savedNode.id) return true
+        
+        // Compare node types
+        if (node.data.type !== savedNode.data.type) return true
+        
+        // Compare configurations (ignoring non-essential properties)
+        const nodeConfig = node.data.config || {}
+        const savedConfig = savedNode.data.config || {}
+        if (JSON.stringify(nodeConfig) !== JSON.stringify(savedConfig)) return true
+        
+        // Compare positions with tolerance for floating point precision
+        const positionDifference = 
+          Math.abs(node.position.x - savedNode.position.x) > 0.5 || 
+          Math.abs(node.position.y - savedNode.position.y) > 0.5
+        
+        return positionDifference
+      })
+    }
+    
+    const nodesChanged = nodeCountDiffers || nodePropertiesDiffer
+    
+    // Compare edges - sort by ID for consistent comparison
+    const savedEdges = [...(currentWorkflow.connections || [])].sort((a, b) => a.id.localeCompare(b.id))
+    const sortedCurrentEdges = [...currentEdges].sort((a, b) => a.id.localeCompare(b.id))
+    
+    // Compare edge counts
+    const edgeCountDiffers = sortedCurrentEdges.length !== savedEdges.length
+    
+    // Compare edge properties
+    let edgePropertiesDiffer = false
+    if (!edgeCountDiffers) {
+      edgePropertiesDiffer = sortedCurrentEdges.some((edge, index) => {
+        const savedEdge = savedEdges[index]
+        if (!savedEdge) return true
+        return edge.id !== savedEdge.id ||
+               edge.source !== savedEdge.source ||
+               edge.target !== savedEdge.target
+      })
+    }
+    
+    const edgesChanged = edgeCountDiffers || edgePropertiesDiffer
+    
+    // Compare workflow name
+    const nameChanged = workflowName !== currentWorkflow.name
+    
+    const hasChanges = nodesChanged || edgesChanged || nameChanged
+    
+    
+    // Only update the state if it's different from the current state to avoid unnecessary re-renders
+    if (hasChanges !== hasUnsavedChanges) {
+      setHasUnsavedChanges(hasChanges);
+    }
+    
+    return hasChanges;
+  }, [currentWorkflow, getNodes, getEdges, workflowName, isSaving, isRebuildingAfterSave, hasUnsavedChanges])
+
+  // Track the last time we saved to prevent immediate checks after save
+  const lastSaveTimeRef = useRef<number>(0);
+  
+  // Check for unsaved changes whenever nodes, edges, or workflow name changes
+  useEffect(() => {
+    // Skip checks during save/rebuild operations or immediately after a save
+    const now = Date.now();
+    const timeSinceLastSave = now - lastSaveTimeRef.current;
+    const recentlySaved = timeSinceLastSave < 1000; // Within 1 second of save
+    
+    if (recentlySaved) {
+      return;
+    }
+    
+    // Don't check for unsaved changes during save operations or rebuilds to prevent race condition
+    if (currentWorkflow && !isSaving && !isRebuildingAfterSave) {
+      // Add a longer delay to prevent checking during rebuilds and ensure stability
+      const timeoutId = setTimeout(() => {
+        // Double-check that we're still not in a save/rebuild state
+        if (!isSaving && !isRebuildingAfterSave) {
+          checkForUnsavedChanges();
+        }
+      }, 800);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentWorkflow, nodes, edges, workflowName, checkForUnsavedChanges, isSaving, isRebuildingAfterSave])
+
+  // Debug effect to monitor position changes
+  useEffect(() => {
+    if (currentWorkflow && nodes.length > 0) {
+      const currentPositions = nodes
+        .filter(n => n.type === 'custom')
+        .map(n => ({ id: n.id, position: n.position }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+      
+      const savedPositions = (currentWorkflow.nodes || [])
+        .map(n => ({ id: n.id, position: n.position }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+      
+      const positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
+      
+      if (positionsChanged) {
+      }
+    }
+  }, [nodes, currentWorkflow])
+
+  // Debug current workflow and nodes
+  useEffect(() => {
+  }, [currentWorkflow, nodes])
+
+  // Handle navigation with unsaved changes warning
+  const handleNavigation = useCallback((path: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(path)
+      setShowUnsavedChangesModal(true)
+    } else {
+      router.push(path)
+    }
+  }, [hasUnsavedChanges, router])
+
+  // Handle save and continue navigation
+  const handleSaveAndNavigate = async () => {
+    try {
+      await handleSave()
+      if (pendingNavigation) {
+        router.push(pendingNavigation)
+      }
+    } catch (error) {
+      console.error('Failed to save before navigation:', error)
+      toast({ 
+        title: "Save Failed", 
+        description: "Could not save your changes. Please try again.", 
+        variant: "destructive" 
+      })
+    }
+  }
+
+  // Handle navigation without saving
+  const handleNavigateWithoutSaving = () => {
+    setHasUnsavedChanges(false)
+    setPendingNavigation(null)
+    if (pendingNavigation) {
+      router.push(pendingNavigation)
+    }
+  }
+
+  // Force reload workflow from database
+  const forceReloadWorkflow = useCallback(async () => {
+    if (!workflowId) return;
+    
+    try {
+      // Use the existing API endpoint instead of direct Supabase access
+      const response = await fetch(`/api/workflows/${workflowId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workflow: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data) {
+        throw new Error('Workflow not found');
+      }
+      
+      
+      // Update the current workflow with the fresh data
+      setCurrentWorkflow(data);
+      
+      // Rebuild nodes with the fresh data
+      if (data.nodes && data.nodes.length > 0) {
+                  const customNodes = data.nodes.map((node: WorkflowNode) => {
+          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+          
+          // Ensure position is a number
+          const position = {
+            x: typeof node.position.x === 'number' ? node.position.x : parseFloat(node.position.x as unknown as string),
+            y: typeof node.position.y === 'number' ? node.position.y : parseFloat(node.position.y as unknown as string)
+          };
+          
+          
+          return {
+            id: node.id, 
+            type: 'custom', 
+            position: position,
+            data: {
+              ...node.data,
+              title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+              name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+              description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
+              onConfigure: handleConfigureNode,
+              onDelete: handleDeleteNodeWithConfirmation,
+              onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
+              onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
+              providerId: node.data.providerId || node.data.type?.split('-')[0]
+            },
+          };
+        });
+
+        let allNodes = [...customNodes];
+        
+        // Find the last action node (not the trigger) to position the add action node
+        const actionNodes = customNodes.filter((n: Node) => n.id !== 'trigger');
+        const lastActionNode = actionNodes.length > 0 
+          ? actionNodes.sort((a: Node, b: Node) => b.position.y - a.position.y)[0] 
+          : null;
+        
+        if (lastActionNode) {
+          const addActionId = `add-action-${lastActionNode.id}`;
+          const addActionNode: Node = {
+            id: addActionId, 
+            type: 'addAction', 
+            position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 },
+            data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
+          };
+          allNodes.push(addActionNode);
+        } else {
+          const triggerNode = customNodes.find((n: Node) => n.id === 'trigger');
+          if (triggerNode) {
+            const addActionId = `add-action-${triggerNode.id}`;
+            const addActionNode: Node = {
+              id: addActionId, 
+              type: 'addAction', 
+              position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+              data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+            };
+            allNodes.push(addActionNode);
+          }
+        }
+        
+        const initialEdges: Edge[] = (data.connections || []).map((conn: any) => ({
+          id: conn.id, source: conn.source, target: conn.target,
+        }));
+        
+        // Add edge from the last node (action or trigger) to the add action node
+        const addActionNode = allNodes.find((n: Node) => n.type === 'addAction');
+        if (addActionNode) {
+          const sourceNode = lastActionNode || customNodes.find((n: Node) => n.id === 'trigger');
+          if (sourceNode) {
+            initialEdges.push({
+              id: `${sourceNode.id}->${addActionNode.id}`, 
+              source: sourceNode.id, 
+              target: addActionNode.id, 
+              animated: true,
+              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
+              type: 'straight'
+            });
+          }
+        }
+        
+        setNodes(allNodes);
+        setEdges(initialEdges);
+      }
+    } catch (error) {
+      console.error('Error reloading workflow:', error);
+    }
+  }, [workflowId, handleConfigureNode, handleDeleteNodeWithConfirmation, handleChangeTrigger, handleAddActionClick, setNodes, setEdges, setCurrentWorkflow]);
+
+  // Check for Discord integration when workflow is loaded
+  useEffect(() => {
+    if (currentWorkflow && nodes.length > 0) {
+      // Check if any nodes require Discord integration
+      const hasDiscordNodes = nodes.some(node => 
+        node.data?.providerId === 'discord' || 
+        node.data?.type?.includes('discord')
+      );
+      
+      if (hasDiscordNodes) {
+        const connectedProviders = getConnectedProviders();
+        const hasDiscordIntegration = connectedProviders.includes('discord');
+        if (!hasDiscordIntegration) {
+          // For now, just log the issue - we'll handle the UI later
+        }
+      }
+    }
+  }, [currentWorkflow, nodes, getConnectedProviders]);
+
+  return {
     nodes,
     edges,
+    setNodes,
+    setEdges,
     onNodesChange,
+    optimizedOnNodesChange,
     onEdgesChange,
     onConnect,
     nodeTypes,
     edgeTypes,
-    fitView,
-    
-    // Workflow metadata
     workflowName,
     setWorkflowName,
     workflowDescription,
     setWorkflowDescription,
-    currentWorkflow,
-    
-    // Loading/saving states
     isSaving,
-    isLoading,
-    hasUnsavedChanges,
-    setHasUnsavedChanges,
-    listeningMode,
-    setListeningMode,
-    
-    // Handlers
     handleSave,
     handleExecute,
-    handleResetLoadingStates,
-    
-    // Collaboration
-    collaborators,
-    
-    // Dialogs
     showTriggerDialog,
     setShowTriggerDialog,
     showActionDialog,
     setShowActionDialog,
-    showUnsavedChangesModal,
-    setShowUnsavedChangesModal,
-    deletingNode,
-    setDeletingNode,
-    handleOpenTriggerDialog,
-    handleNavigation,
-    handleActionDialogClose,
     handleTriggerSelect,
     handleActionSelect,
-    handleAddActionClick,
-    handleAddTrigger,
-    handleAddAction,
-    
-    // Execution state
+    selectedIntegration,
+    setSelectedIntegration,
+    availableIntegrations,
+    renderLogo,
+    getWorkflowStatus,
+    currentWorkflow,
     isExecuting,
     activeExecutionNodeId,
     executionResults,
-    
-    // Configuration
     configuringNode,
     setConfiguringNode,
-    pendingNode,
     handleSaveConfiguration,
-    aiAgentActionCallback,
-    
-    // Integration selection
-    selectedIntegration,
-    setSelectedIntegration,
+    collaborators,
+    pendingNode,
+    setPendingNode,
     selectedTrigger,
     setSelectedTrigger,
     selectedAction,
@@ -105,62 +2645,380 @@ function WorkflowBuilderContent() {
     setFilterCategory,
     showConnectedOnly,
     setShowConnectedOnly,
-    availableIntegrations,
-    renderLogo,
-    categories,
+    filteredIntegrations,
+    displayedTriggers,
+    deletingNode,
+    setDeletingNode,
+    confirmDeleteNode,
     isIntegrationConnected,
-    filterIntegrations,
-    getDisplayedTriggers,
-    getDisplayedActions,
-    loadingIntegrations,
-    refreshIntegrations,
-  } = useWorkflowBuilder()
-
-  const getWorkflowStatus = () => {
-    if (isExecuting) return { text: "Executing", variant: "default" as const }
-    if (isSaving) return { text: "Saving", variant: "secondary" as const }
-    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
-    return { text: "Saved", variant: "secondary" as const }
+    integrationsLoading,
+    workflowLoading,
+    listeningMode,
+    setListeningMode,
+    handleResetLoadingStates,
+    sourceAddNode,
+    handleActionDialogClose,
+    nodeNeedsConfiguration,
+    workflows: workflowsData,
+    workflowId,
+    hasShownLoading,
+    setHasShownLoading,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showUnsavedChangesModal,
+    setShowUnsavedChangesModal,
+    pendingNavigation,
+    setPendingNavigation,
+    handleNavigation,
+    handleSaveAndNavigate,
+    handleNavigateWithoutSaving,
+    showDiscordConnectionModal,
+    setShowDiscordConnectionModal,
+    handleAddNodeBetween,
+    isProcessingChainsRef
   }
+}
+
+// Custom Edge with Plus Button for adding actions between nodes
+const CustomEdgeWithButton = ({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  data
+}: EdgeProps) => {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  })
+  
+  const [isHovered, setIsHovered] = React.useState(false)
+  
+  // Handle adding node between source and target
+  // Note: onAddNode might not be available for programmatically created edges
+  const onAddNode = data?.onAddNode
+  
+  return (
+    <g 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: onAddNode ? 'pointer' : 'default' }}
+    >
+      {/* Invisible wider path for better hover detection */}
+      <path
+        d={edgePath}
+        fill="none"
+        strokeWidth={40}
+        stroke="transparent"
+        style={{ pointerEvents: 'stroke' }}
+      />
+      
+      {/* Visible edge path */}
+      <path
+        id={id}
+        style={style}
+        className="react-flow__edge-path"
+        d={edgePath}
+        fill="none"
+        strokeWidth={2}
+        stroke={style?.stroke || '#d1d5db'}
+      />
+      
+      {/* Plus button in the middle of the edge */}
+      {onAddNode && (isHovered || data?.alwaysShowButton) && (
+        <foreignObject
+          width={30}
+          height={30}
+          x={labelX - 15}
+          y={labelY - 15}
+          style={{ overflow: 'visible', pointerEvents: 'all' }}
+        >
+          <div 
+            className="flex items-center justify-center"
+            style={{ width: '30px', height: '30px' }}
+          >
+            <button
+              className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center shadow-md transition-all hover:scale-110"
+              onClick={(e) => {
+                e.stopPropagation()
+                const [sourceId, targetId] = id.replace('e', '').split('-')
+                onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+              }}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </foreignObject>
+      )}
+    </g>
+  )
+}
+
+export default function CollaborativeWorkflowBuilder() {
+  return (
+    <div className="w-full h-full bg-background">
+      <ReactFlowProvider><WorkflowBuilderContent /></ReactFlowProvider>
+    </div>
+  )
+}
+
+function WorkflowBuilderContent() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const { setCurrentWorkflow } = useWorkflowStore()
+  
+  const {
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
+    showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
+    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, forceReloadWorkflow, handleAddNodeBetween, isProcessingChainsRef
+  } = useWorkflowBuilderState()
+
+  // Add handleAddNodeBetween to all custom edges
+  const processedEdges = useMemo(() => {
+    return edges.map(edge => {
+      if (edge.type === 'custom') {
+        return {
+          ...edge,
+          data: {
+            ...edge.data,
+            onAddNode: handleAddNodeBetween
+          }
+        }
+      }
+      return edge
+    })
+  }, [edges, handleAddNodeBetween])
+
+  const categories = useMemo(() => {
+    const allCategories = availableIntegrations
+      .map(int => int.category);
+    return ['all', ...Array.from(new Set(allCategories))];
+  }, [availableIntegrations]);
+
+  // Integrations to mark as coming soon in the trigger selection modal
+  const comingSoonIntegrations = useMemo(() => new Set([
+    'beehiiv',
+    'manychat',
+    'gumroad',
+    'kit',
+    'paypal',
+    'shopify',
+    'blackbaud',
+    'box',
+  ]), []);
+
+  const handleOpenTriggerDialog = () => {
+    setSelectedIntegration(null);
+    setSelectedTrigger(null);
+    setSearchQuery("");
+    setShowTriggerDialog(true);
+  }
+
+  // Debug loading states (reduced frequency)
+  // console.log('🔍 Loading states:', {
+  //   currentWorkflow: !!currentWorkflow,
+  //   integrationsLoading,
+  //   workflowLoading,
+  //   workflowsLength: workflows.length,
+  //   workflowId
+  // })
+
+  // Use a more robust loading condition that prevents double loading
+  // Only show loading if we're actually in a loading state AND we don't have the required data
+  const shouldShowLoading = () => {
+    // If we have a workflowId but no currentWorkflow, we're loading
+    if (workflowId && !currentWorkflow) {
+      return true
+    }
+    
+    // If integrations are loading and we don't have any workflows yet, show loading
+    if (integrationsLoading && workflows.length === 0) {
+      return true
+    }
+    
+    // If workflow is loading and we don't have the current workflow, show loading
+    if (workflowLoading && !currentWorkflow) {
+      return true
+    }
+    
+    return false
+  }
+
+  // Track if we should show loading and prevent double loading
+  const isLoading = shouldShowLoading()
+  
+  // Use useEffect to manage hasShownLoading state to prevent infinite re-renders
+  useEffect(() => {
+    if (isLoading && !hasShownLoading) {
+      setHasShownLoading(true)
+    } else if (!isLoading && hasShownLoading) {
+      setHasShownLoading(false)
+    }
+  }, [isLoading, hasShownLoading])
 
   if (isLoading) {
+    // Only log loading screen reason once per loading cycle to prevent console spam
+    if (!hasShownLoading) {
+    }
     return <WorkflowLoadingScreen />
   }
-
   return (
     <div style={{ height: "calc(100vh - 65px)", position: "relative" }}>
-      {/* Top Toolbar */}
-      <WorkflowToolbar
-        workflowName={workflowName}
-        setWorkflowName={setWorkflowName}
-        hasUnsavedChanges={hasUnsavedChanges}
-        isSaving={isSaving}
-        isExecuting={isExecuting}
-        listeningMode={listeningMode}
-        getWorkflowStatus={getWorkflowStatus}
-        handleSave={handleSave}
-        handleExecute={() => handleExecute(nodes, edges)}
-        handleResetLoadingStates={handleResetLoadingStates}
-        handleNavigation={(href) => handleNavigation(hasUnsavedChanges, href)}
-      />
+      {/* Top UI - Always visible */}
+      <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="flex justify-between items-start p-4 pointer-events-auto">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => handleNavigation("/workflows")} className="flex-shrink-0"><ArrowLeft className="w-5 h-5" /></Button>
+            <div className="flex flex-col space-y-1 flex-1 min-w-0">
+              <Input 
+                value={workflowName} 
+                onChange={(e) => setWorkflowName(e.target.value)} 
+                onBlur={handleSave} 
+                className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full" 
+                style={{ 
+                  boxShadow: "none",
+                  width: `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`
+                }}
+                placeholder="Untitled Workflow"
+                title={workflowName || "Untitled Workflow"}
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+            {hasUnsavedChanges && (
+              <Badge variant="outline" className="text-orange-600 border-orange-600">
+                Unsaved Changes
+              </Badge>
+            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
+                <TooltipContent><p>Save your workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={listeningMode ? "destructive" : "outline"} 
+                    onClick={handleExecute} 
+                    disabled={isExecuting && !listeningMode || isSaving}
+                    size="sm"
+                  >
+                    {isExecuting && !listeningMode ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : listeningMode ? <Ear className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                    {listeningMode ? "Stop Listening" : "Listen"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{listeningMode ? "Stop listening for webhook triggers" : "Listen for webhook triggers in real-time"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
+                <TooltipContent><p>Execute the workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Emergency reset button - only show if loading states are stuck */}
+            {(isSaving || isExecuting) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={handleResetLoadingStates}
+                      variant="outline" 
+                      size="sm"
+                      className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Reset
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Reset stuck loading states</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        </div>
+      </div>
 
       {nodes.length === 0 ? (
-        <EmptyWorkflowState onAddTrigger={handleOpenTriggerDialog} />
+        // Empty state outside of ReactFlow
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
+          <div className="text-center max-w-md flex flex-col items-center">
+            <div 
+              className="w-20 h-20 rounded-full border-2 border-dashed border-border flex items-center justify-center mb-6 cursor-pointer hover:border-muted-foreground hover:shadow-sm transition-all"
+              onClick={handleOpenTriggerDialog}
+            >
+              <Plus className="h-10 w-10 text-muted-foreground hover:text-foreground" />
+            </div>
+            <h2 className="text-[32px] font-bold mb-2">Start your Chain</h2>
+            <p className="text-muted-foreground mb-8 text-center leading-relaxed text-lg">
+              Chains start with a trigger – an event that kicks off<br />
+              your workflow
+            </p>
+            <button 
+              onClick={handleOpenTriggerDialog}
+              className="bg-primary text-primary-foreground px-8 py-3 rounded-md hover:bg-primary/90 transition-colors font-medium text-lg shadow-sm hover:shadow"
+            >
+              Choose a trigger
+            </button>
+          </div>
+        </div>
       ) : (
-        <ReactFlow 
+        // Regular ReactFlow when there are nodes
+        <>
+          <ReactFlow 
           nodes={nodes} 
-          edges={edges} 
-          onNodesChange={onNodesChange} 
+          edges={processedEdges} 
+          onNodesChange={optimizedOnNodesChange} 
           onEdgesChange={onEdgesChange} 
           onConnect={onConnect} 
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeDragStop={() => setHasUnsavedChanges(true)}
+          onNodeDrag={(event, node) => {
+            // Track position changes during drag
+            setHasUnsavedChanges(true)
+          }}
+          onNodeDragStop={(event, node) => {
+            // Update node position in state and mark as unsaved
+            setNodes((nds: Node[]) => 
+              nds.map((n: Node) => 
+                n.id === node.id 
+                  ? { ...n, position: node.position }
+                  : n
+              )
+            )
+            setHasUnsavedChanges(true)
+            
+            // Force a small delay to ensure position is updated
+            setTimeout(() => {
+            }, 50)
+          }}
+          nodeTypes={nodeTypes} 
           fitView 
           className="bg-background" 
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{
-            type: 'custom',
+            type: 'straight',
             style: { strokeWidth: 1, stroke: 'hsl(var(--border))' },
             animated: false
           }}
@@ -170,139 +3028,1383 @@ function WorkflowBuilderContent() {
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
         </ReactFlow>
+        </>
       )}
 
-      {/* Dialogs */}
-      <TriggerSelectionDialog
-        open={showTriggerDialog}
-        onOpenChange={setShowTriggerDialog}
-        selectedIntegration={selectedIntegration}
-        setSelectedIntegration={setSelectedIntegration}
-        selectedTrigger={selectedTrigger}
-        setSelectedTrigger={setSelectedTrigger}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filterCategory={filterCategory}
-        setFilterCategory={setFilterCategory}
-        showConnectedOnly={showConnectedOnly}
-        setShowConnectedOnly={setShowConnectedOnly}
-        availableIntegrations={availableIntegrations}
-        categories={categories}
-        renderLogo={renderLogo}
-        isIntegrationConnected={isIntegrationConnected}
-        filterIntegrations={filterIntegrations}
-        getDisplayedTriggers={getDisplayedTriggers}
-        onTriggerSelect={handleTriggerSelect}
-        loadingIntegrations={loadingIntegrations}
-        refreshIntegrations={refreshIntegrations}
-      />
+      <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    Select a Trigger
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Trigger</Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 mt-1">
+                    Choose an integration and a trigger to start your workflow.
+                  </DialogDescription>
+                </div>
+              </div>
+              {/* Rely on default Dialog close button to avoid double X */}
+            </div>
+          </DialogHeader>
+          
+          <div className="pt-3 pb-3 border-b border-slate-200">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input 
+                  placeholder="Search integrations or triggers..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="connected-apps" checked={showConnectedOnly} onCheckedChange={(checked: boolean) => setShowConnectedOnly(Boolean(checked))} />
+                <Label htmlFor="connected-apps" className="whitespace-nowrap">Show only connected apps</Label>
+              </div>
+            </div>
+          </div>
 
-      <ActionSelectionDialog
-        open={showActionDialog}
-        onOpenChange={setShowActionDialog}
-        selectedIntegration={selectedIntegration}
-        setSelectedIntegration={setSelectedIntegration}
-        selectedAction={selectedAction}
-        setSelectedAction={setSelectedAction}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filterCategory={filterCategory}
-        setFilterCategory={setFilterCategory}
-        showConnectedOnly={showConnectedOnly}
-        setShowConnectedOnly={setShowConnectedOnly}
-        availableIntegrations={availableIntegrations}
-        categories={categories}
-        renderLogo={renderLogo}
-        isIntegrationConnected={isIntegrationConnected}
-        filterIntegrations={filterIntegrations}
-        getDisplayedActions={getDisplayedActions}
-        onActionSelect={handleActionSelect}
-        handleActionDialogClose={handleActionDialogClose}
-        nodes={nodes}
-        loadingIntegrations={loadingIntegrations}
-        refreshIntegrations={refreshIntegrations}
-      />
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
+              <div className="pt-2 pb-3 pl-3 pr-5">
+              {filteredIntegrations.length === 0 && showConnectedOnly ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
+                  <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
+                </div>
+              ) : filteredIntegrations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-muted-foreground">No integrations match your search</p>
+                </div>
+              ) : (
+                filteredIntegrations.map((integration) => (
+                  <div
+                    key={integration.id}
+                    className={`flex items-center p-3 rounded-md ${
+                      comingSoonIntegrations.has(integration.id)
+                        ? 'cursor-not-allowed opacity-60'
+                        : 'cursor-pointer'
+                    } ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
+                    onClick={() => {
+                      if (comingSoonIntegrations.has(integration.id)) return
+                      setSelectedIntegration(integration)
+                    }}
+                    aria-disabled={comingSoonIntegrations.has(integration.id)}
+                  >
+                    {renderLogo(integration.id, integration.name)}
+                    <span className="font-semibold ml-4 flex-grow truncate">
+                      {integration.name}
+                    </span>
+                    {comingSoonIntegrations.has(integration.id) && (
+                      <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
+                    )}
+                    {/* Right indicator: subtle dot indicator instead of arrow */}
+                    <span className="ml-2 shrink-0 inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
+                  </div>
+                ))
+              )}
+              </div>
+            </ScrollArea>
+            <div className="w-3/5 flex-1">
+              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+                <div className="p-4">
+                {selectedIntegration ? (
+                  <div className="h-full">
+                    {displayedTriggers.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {displayedTriggers.map((trigger, index) => {
+                          const isTriggerComingSoon = Boolean((trigger as any).comingSoon) || (selectedIntegration && comingSoonIntegrations.has(selectedIntegration.id))
+                          return (
+                            <div
+                              key={`${trigger.type}-${trigger.title}-${index}`}
+                              className={`relative p-4 border rounded-lg transition-all ${
+                                isTriggerComingSoon ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                              } ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
+                              onClick={() => {
+                                if (isTriggerComingSoon) return
+                                setSelectedTrigger(trigger)
+                              }}
+                              onDoubleClick={() => {
+                                if (isTriggerComingSoon) return
+                                setSelectedTrigger(trigger)
+                                if (selectedIntegration) {
+                                  handleTriggerSelect(selectedIntegration, trigger)
+                                }
+                              }}
+                              aria-disabled={isTriggerComingSoon}
+                            >
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium flex-1 min-w-0 truncate">{trigger.title}</p>
+                                {isTriggerComingSoon && (
+                                  <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="text-muted-foreground mb-2">
+                          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">No triggers available</p>
+                        <p className="text-xs text-muted-foreground/70">
+                          {selectedIntegration.name} doesn't have any triggers defined yet
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>Select an integration to see its triggers</p>
+                  </div>
+                )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+          
+          <DialogFooter className="p-4 flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {selectedIntegration && (
+                <>
+                  <span className="font-medium">Integration:</span> {selectedIntegration.name}
+                  {selectedTrigger && <span className="ml-4"><span className="font-medium">Trigger:</span> {selectedTrigger.title}</span>}
+                </>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+              <Button 
+                disabled={!selectedTrigger || !selectedIntegration}
+                onClick={() => {
+                  if (selectedIntegration && selectedTrigger) {
+                    handleTriggerSelect(selectedIntegration, selectedTrigger)
+                  }
+                }}
+              >
+                Continue →
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Configuration Modals */}
+      <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+          <DialogHeader className="pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    Select an Action
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 mt-1">
+                    Choose an integration and an action to add to your workflow.
+                  </DialogDescription>
+                </div>
+              </div>
+              {/* Rely on default Dialog close button to avoid double X */}
+            </div>
+          </DialogHeader>
+          
+          <div className="pt-3 pb-3 border-b border-slate-200">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input 
+                  placeholder="Search integrations or actions..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
+              <div className="pt-2 pb-3 pl-3 pr-5">
+              {(() => {
+                // Filter integrations for action dialog
+                const filteredIntegrationsForActions = availableIntegrations.filter(int => {
+                  // Filter by category if selected
+                  if (filterCategory !== 'all' && int.category !== filterCategory) {
+                    return false
+                  }
+                  
+                  // Core integration only has triggers, not actions - filter it out from action dialog
+                  if (int.id === 'core') {
+                    return false
+                  }
+                  
+                  // Filter out integrations that have no compatible actions
+                  const trigger = nodes.find(node => node.data?.isTrigger)
+                  const compatibleActions = int.actions.filter(action => {
+                    // Gmail actions should only be available with Gmail triggers
+                    if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+                      return false
+                    }
+                    return true
+                  })
+                  
+                  if (compatibleActions.length === 0) {
+                    return false
+                  }
+                  
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase()
+                    const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
+                    const matchesAction = compatibleActions.some(action => 
+                      (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                    )
+                    return matchesIntegration || matchesAction
+                  }
+                  return compatibleActions.length > 0
+                });
+                
+                // Sort to put Logic and AI first
+                const sortedIntegrations = filteredIntegrationsForActions.sort((a, b) => {
+                  if (a.id === 'logic') return -1
+                  if (b.id === 'logic') return 1
+                  if (a.id === 'ai') return -1
+                  if (b.id === 'ai') return 1
+                  return a.name.localeCompare(b.name)
+                })
+
+
+                if (sortedIntegrations.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="text-muted-foreground mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-muted-foreground">No integrations match your search</p>
+                    </div>
+                  );
+                }
+
+                // Use the already filtered and sorted integrations
+                return sortedIntegrations.map((integration) => {
+                  const isConnected = isIntegrationConnected(integration.id);
+                  
+                  return (
+                    <div
+                      key={integration.id}
+                      className={`flex items-center p-3 rounded-md ${
+                        isConnected 
+                          ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
+                          : 'opacity-60'
+                      }`}
+                      onClick={() => isConnected && setSelectedIntegration(integration)}
+                    >
+                      {renderLogo(integration.id, integration.name)}
+                      <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                      {!isConnected ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mr-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle OAuth connection
+                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS];
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl;
+                            }
+                          }}
+                        >
+                          Connect
+                        </Button>
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+              </div>
+            </ScrollArea>
+            <div className="w-3/5 flex-1">
+              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+                <div className="p-4">
+                {selectedIntegration ? (
+                  <div className="h-full">
+                    {!isIntegrationConnected(selectedIntegration.id) ? (
+                      // Show message for unconnected integrations
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="text-muted-foreground mb-4">
+                          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          You need to connect your {selectedIntegration.name} account to use these actions.
+                        </p>
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS];
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl;
+                            }
+                          }}
+                        >
+                          Connect {selectedIntegration.name}
+                        </Button>
+                      </div>
+                    ) : (
+                      // Show actions for connected integrations
+                      <div className="grid grid-cols-1 gap-3">
+                        {selectedIntegration.actions
+                          .filter(action => {
+                            // AI Agent is always shown - validation happens in config modal
+                            // If no sourceAddNode, allow AI Agent to show (it will be restricted when actually adding)
+                            
+                            if (searchQuery) {
+                              const query = searchQuery.toLowerCase()
+                              return (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                            }
+                            return true
+                          })
+                          .map((action) => {
+                            const isComingSoon = action.comingSoon
+                            const existingAIAgent = nodes.find(n => n.data?.type === 'ai_agent')
+                            const isAIAgentDisabled = action.type === 'ai_agent' && existingAIAgent
+                            
+                            return (
+                              <div
+                                key={action.type}
+                                className={`p-4 border rounded-lg transition-all ${
+                                  isComingSoon || isAIAgentDisabled
+                                    ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
+                                    : selectedAction?.type === action.type 
+                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/20' 
+                                      : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
+                                }`}
+                                onClick={() => {
+                                  if (isComingSoon) return
+                                  if (isAIAgentDisabled) {
+                                    toast({
+                                      title: "AI Agent Already Exists",
+                                      description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+                                      variant: "destructive"
+                                    })
+                                    return
+                                  }
+                                  setSelectedAction(action)
+                                  // If action doesn't need configuration, add it immediately
+                                  if (selectedIntegration && !nodeNeedsConfiguration(action)) {
+                                    handleActionSelect(selectedIntegration, action)
+                                  }
+                                }}
+                              onDoubleClick={() => {
+                                if (isComingSoon) return
+                                if (isAIAgentDisabled) {
+                                  toast({
+                                    title: "AI Agent Already Exists",
+                                    description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+                                    variant: "destructive"
+                                  })
+                                  return
+                                }
+                                setSelectedAction(action)
+                                if (selectedIntegration) {
+                                  handleActionSelect(selectedIntegration, action)
+                                }
+                              }}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className={`font-medium ${isComingSoon || isAIAgentDisabled ? 'text-muted-foreground' : ''}`}>
+                                    {action.title || 'Unnamed Action'}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {action.description || 'No description available'}
+                                  </p>
+                                </div>
+                                {isComingSoon && (
+                                  <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full ml-2">
+                                    Coming Soon
+                                  </span>
+                                )}
+                                {isAIAgentDisabled && (
+                                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                                    Already Added
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                          })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>Select an integration to see its actions</p>
+                  </div>
+                )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          <div className="p-4 flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {selectedIntegration && (
+                <>
+                  <span className="font-medium">Integration:</span> {selectedIntegration.name}
+                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.title || 'Unnamed Action'}</span>}
+                </>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+              <Button 
+                disabled={!selectedAction || !selectedIntegration || selectedAction?.comingSoon}
+                onClick={() => {
+                  if (selectedIntegration && selectedAction && !selectedAction.comingSoon) {
+                    handleActionSelect(selectedIntegration, selectedAction)
+                  }
+                }}
+              >
+                Continue →
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {configuringNode && (
-        configuringNode.nodeComponent.type === 'ai_agent' ? (
-          <AIAgentConfigModal
-            isOpen={!!configuringNode}
-            onClose={() => setConfiguringNode(null)}
-            onSave={(config) => handleSaveConfiguration(
-              { id: configuringNode.id },
-              config,
-              handleAddTrigger,
-              handleAddAction,
-              handleSave
-            )}
-            currentNodeId={configuringNode.id}
-            initialData={configuringNode.config}
-            onActionSelect={aiAgentActionCallback ? (action) => aiAgentActionCallback(action.type, action.providerId, action.config) : undefined}
-          />
-        ) : (
-          <ConfigurationModal
-            isOpen={!!configuringNode}
-            onClose={() => setConfiguringNode(null)}
-            onBack={() => {
-              // Close configuration modal and reopen the appropriate selection dialog
-              const isPendingTrigger = configuringNode.id === 'pending-trigger'
-              const isPendingAction = configuringNode.id === 'pending-action'
-              setConfiguringNode(null)
-              
-              if (isPendingTrigger) {
-                setShowTriggerDialog(true)
-              } else if (isPendingAction) {
-                setShowActionDialog(true)
-              }
-            }}
-            nodeInfo={configuringNode.nodeComponent}
-            integrationName={configuringNode.integration?.name || ''}
-            initialData={configuringNode.config}
-            onSave={(config) => handleSaveConfiguration(
-              { id: configuringNode.id },
-              config,
-              handleAddTrigger,
-              handleAddAction,
-              handleSave
-            )}
-          />
-        )
+        <>
+          {/* Use AI Agent config modal for AI Agent nodes */}
+          {configuringNode.nodeComponent.type === "ai_agent" ? (
+            <AIAgentConfigModal
+              isOpen={!!configuringNode}
+              onClose={() => {
+                setConfiguringNode(null);
+                setPendingNode(null);
+                // Don't reopen the action selection modal - let the user manually add more actions if needed
+              }}
+              onChainsUpdate={(chainsData) => {
+                // DISABLED: Real-time update to prevent duplicate chain processing
+                // Chains will be added when the modal is saved via onSave callback
+                console.log('🔄 [WorkflowBuilder] Chains update received (will process on save):', chainsData);
+                return; // Exit early to prevent duplicate processing
+                
+                /* DISABLED TO PREVENT DUPLICATE PROCESSING
+                // Real-time update of chains in the main workflow
+                console.log('🔄 [WorkflowBuilder] Real-time chains update:', chainsData);
+                
+                // Process chains immediately for real-time sync
+                const chains = chainsData?.chains || chainsData;
+                const aiAgentPosition = chainsData?.aiAgentPosition;
+                
+                if (chains && chains.length > 0) {
+                  const aiAgentNodeId = configuringNode.id;
+                  
+                  setNodes((currentNodes) => {
+                    // Find the AI Agent node
+                    let aiAgentNode;
+                    if (aiAgentNodeId === 'pending-action') {
+                      aiAgentNode = currentNodes
+                        .filter(n => n.data?.type === 'ai_agent')
+                        .sort((a, b) => {
+                          const aTime = parseInt(a.id.split('-')[1] || '0');
+                          const bTime = parseInt(b.id.split('-')[1] || '0');
+                          return bTime - aTime;
+                        })[0];
+                    } else {
+                      aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId);
+                    }
+                    
+                    if (!aiAgentNode) return currentNodes;
+                    
+                    // Remove existing AI Agent child nodes and related Add Action nodes
+                    const filteredNodes = currentNodes.filter(n => {
+                      // Remove AI Agent child nodes
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentNode.id) return false;
+                      // Remove nodes with rt-chain in ID
+                      if (n.id.includes('-rt-chain')) return false;
+                      // Remove Add Action nodes that belong to AI Agent chains
+                      if (n.type === 'addAction') {
+                        if (n.id.includes('add-action-' + aiAgentNode.id) || n.id.includes('-rt-chain')) return false;
+                        if (n.data?.parentAIAgentId === aiAgentNode.id) return false;
+                        // Also check if the Add Action's parent is a child of this AI Agent
+                        const parentNode = currentNodes.find(pn => pn.id === n.data?.parentId);
+                        if (parentNode?.data?.parentAIAgentId === aiAgentNode.id) return false;
+                      }
+                      return true;
+                    });
+                    
+                    // Create new nodes from chains with Add Action nodes
+                    const newNodes = [];
+                    const nodeIdMap = {};  // Store node IDs for edge creation
+                    
+                    chains.forEach((chain, chainIndex) => {
+                      if (Array.isArray(chain) && chain.length > 0) {
+                        let lastNodeId = null;
+                        let lastPosition = null;
+                        const chainTimestamp = Date.now() + chainIndex; // Ensure unique timestamps per chain
+                        
+                        chain.forEach((action, actionIndex) => {
+                          const newNodeId = `${aiAgentNode.id}-rt-chain${chainIndex}-action${actionIndex}-${chainTimestamp}`;
+                          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === action.type);
+                          
+                          // Store node ID for edge creation
+                          if (!nodeIdMap[chainIndex]) nodeIdMap[chainIndex] = [];
+                          nodeIdMap[chainIndex].push(newNodeId);
+                          
+                          let nodePosition;
+                          if (action.position) {
+                            nodePosition = { x: action.position.x, y: action.position.y };
+                          } else {
+                            const baseX = aiAgentNode.position.x + (chainIndex + 1) * 250;
+                            const baseY = aiAgentNode.position.y + 150;
+                            nodePosition = { x: baseX, y: baseY + (actionIndex * 120) };
+                          }
+                          
+                          newNodes.push({
+                            id: newNodeId,
+                            type: 'custom',
+                            position: nodePosition,
+                            data: {
+                              title: action.title || actionComponent?.title || action.type,
+                              description: action.description || actionComponent?.description || '',
+                              type: action.type,
+                              providerId: action.providerId,
+                              config: action.config || {},
+                              onConfigure: (id) => handleConfigureNode(id),
+                              onDelete: (id) => handleDeleteNode(id),
+                              onAddChain: undefined,
+                              isAIAgentChild: true,
+                              parentAIAgentId: aiAgentNode.id,
+                              parentChainIndex: chainIndex
+                            }
+                          });
+                          
+                          lastNodeId = newNodeId;
+                          lastPosition = nodePosition;
+                        });
+                        
+                        // Add an "Add Action" node at the end of each chain
+                        if (lastNodeId && lastPosition) {
+                          const addActionId = `add-action-${aiAgentNode.id}-chain${chainIndex}-${chainTimestamp}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { 
+                              x: lastPosition.x, 
+                              y: lastPosition.y + 160 
+                            },
+                            data: {
+                              parentId: lastNodeId,
+                              isAIAgentChild: true,
+                              parentAIAgentId: aiAgentNode.id,
+                              parentChainIndex: chainIndex,
+                              onAddAction: () => {
+                                // Open action selection modal for this chain
+                                handleAddActionClick({ 
+                                  id: lastNodeId, 
+                                  position: { x: lastPosition.x, y: lastPosition.y } 
+                                })
+                              }
+                            }
+                          };
+                          newNodes.push(addActionNode);
+                          
+                          // Store the add action node ID
+                          if (!nodeIdMap[chainIndex]) nodeIdMap[chainIndex] = [];
+                          nodeIdMap[chainIndex].push(addActionId);
+                        }
+                      }
+                    });
+                    
+                    // Store node map for edge creation
+                    window._rtNodeIdMap = nodeIdMap;
+                    
+                    // Update the AI Agent node to remove onAddChain when it has chains
+                    const updatedNodes = filteredNodes.map(node => {
+                      if (node.id === aiAgentNode.id && newNodes.length > 0) {
+                        // AI Agent has chains, remove the Add Chain button
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            onAddChain: undefined,  // Remove the Add Chain button
+                            hasChains: true,
+                            chainCount: Object.keys(nodeIdMap).length
+                          }
+                        };
+                      }
+                      return node;
+                    });
+                    
+                    return [...updatedNodes, ...newNodes];
+                  });
+                  
+                  // Update edges - use stored node IDs
+                  setTimeout(() => {
+                    setEdges((eds) => {
+                      const currentNodes = getNodes();
+                      const nodeIdMap = window._rtNodeIdMap || {};
+                      // Get the AI Agent node ID
+                      const aiAgentId = configuringNode.id === 'pending-action' ?
+                        currentNodes.find(n => n.data?.type === 'ai_agent')?.id :
+                        configuringNode.id;
+                      
+                      // Filter out edges related to AI Agent chains
+                      const filteredEdges = eds.filter(e => {
+                        // Remove edges with rt-chain in ID
+                        if (e.id.includes('-rt-chain')) return false;
+                        // Remove edges starting with edge-rt-
+                        if (e.id.startsWith('edge-rt-')) return false;
+                        // Remove edges to/from Add Action nodes that belong to AI Agent
+                        if (e.source.includes('add-action-' + aiAgentId) || e.target.includes('add-action-' + aiAgentId)) return false;
+                        // Remove edges to/from nodes that are AI Agent children
+                        const sourceNode = currentNodes.find(n => n.id === e.source);
+                        const targetNode = currentNodes.find(n => n.id === e.target);
+                        if (sourceNode?.data?.parentAIAgentId === aiAgentId || targetNode?.data?.parentAIAgentId === aiAgentId) return false;
+                        return true;
+                      });
+                      
+                      const newEdges = [];
+                      
+                      Object.keys(nodeIdMap).forEach(chainIndex => {
+                        const chainNodes = nodeIdMap[chainIndex];
+                        if (chainNodes && chainNodes.length > 0) {
+                          // Connect first node to AI Agent
+                          if (chainNodes[0] && !chainNodes[0].includes('add-action')) {
+                            newEdges.push({
+                              id: `edge-rt-aiagent-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                              source: aiAgentId,
+                              target: chainNodes[0],
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(aiAgentId, chainNodes[0], pos);
+                                }
+                              }
+                            });
+                          }
+                          
+                          // Connect nodes in chain
+                          for (let i = 0; i < chainNodes.length - 1; i++) {
+                            const currentNode = chainNodes[i];
+                            const nextNode = chainNodes[i + 1];
+                            
+                            if (nextNode.includes('add-action')) {
+                              // Dashed edge to Add Action node
+                              newEdges.push({
+                                id: `${currentNode}-${nextNode}`,
+                                source: currentNode,
+                                target: nextNode,
+                                animated: false,
+                                style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5,5' }
+                              });
+                            } else {
+                              // Regular edge between action nodes with plus button
+                              newEdges.push({
+                                id: `edge-rt-chain${chainIndex}-link${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                source: currentNode,
+                                target: nextNode,
+                                type: 'custom',
+                                animated: true,
+                                style: { stroke: '#94a3b8', strokeWidth: 2 },
+                                data: {
+                                  onAddNode: (pos: { x: number, y: number }) => {
+                                    handleAddNodeBetween(currentNode, nextNode, pos);
+                                  }
+                                }
+                              });
+                            }
+                          }
+                        }
+                      });
+                      
+                      return [...filteredEdges, ...newEdges];
+                    });
+                  }, 50); // Small delay to ensure nodes are created first
+                }
+                */
+              }}
+              onSave={async (config) => {
+                console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
+                console.log('🤖 [WorkflowBuilder] ConfiguringNode:', configuringNode);
+                console.log('🤖 [WorkflowBuilder] AI Agent chains:', config.chains);
+                console.log('🤖 [WorkflowBuilder] Chains detail:', JSON.stringify(config.chains, null, 2));
+                
+                // Save the AI Agent configuration
+                await handleSaveConfiguration(configuringNode, config);
+                
+                // Prevent duplicate chain processing - check and set flag immediately
+                if (isProcessingChainsRef.current) {
+                  console.log('⚠️ [WorkflowBuilder] Already processing chains, skipping duplicate call');
+                  return;
+                }
+                
+                isProcessingChainsRef.current = true;
+                
+                // Process chains after a small delay to ensure state is updated
+                setTimeout(() => {
+                  
+                  // Check if we have the new format with layout info or old format
+                  const chainsData = config.chains?.chains || config.chains;
+                  const aiAgentPosition = config.chains?.aiAgentPosition;
+                  
+                  // If there are chains, create nodes for them in the main workflow
+                  if (chainsData && chainsData.length > 0) {
+                  console.log('🔄 [WorkflowBuilder] Processing chains to create workflow nodes');
+                  console.log('🔄 [WorkflowBuilder] AI Agent position:', aiAgentPosition);
+                  const aiAgentNodeId = configuringNode.id;
+                  
+                  // Collect all new nodes and edges first
+                  const newNodesToAdd = [];
+                  const newEdgesToAdd = [];
+                  
+                  // Use setNodes to access current state and find the AI Agent node
+                  setNodes((currentNodes) => {
+                    // If configuringNode.id is "pending-action", find the AI Agent node by type
+                    let aiAgentNode;
+                    if (aiAgentNodeId === 'pending-action') {
+                      // Find the most recently added AI Agent node
+                      aiAgentNode = currentNodes
+                        .filter(n => n.data?.type === 'ai_agent')
+                        .sort((a, b) => {
+                          // Sort by ID (assuming IDs are like "node-timestamp")
+                          const aTime = parseInt(a.id.split('-')[1] || '0');
+                          const bTime = parseInt(b.id.split('-')[1] || '0');
+                          return bTime - aTime; // Most recent first
+                        })[0];
+                      console.log('🔄 [WorkflowBuilder] Found AI Agent node by type:', aiAgentNode?.id);
+                    } else {
+                      aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId);
+                    }
+                    
+                    console.log('🔄 [WorkflowBuilder] Looking for AI Agent node with ID:', aiAgentNodeId);
+                    console.log('🔄 [WorkflowBuilder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.data?.type })));
+                    console.log('🔄 [WorkflowBuilder] AI Agent node found:', aiAgentNode);
+                    
+                    if (!aiAgentNode) {
+                      console.log('❌ [WorkflowBuilder] AI Agent node not found, skipping chain creation');
+                      return currentNodes; // Return unchanged nodes
+                    }
+                    
+                    // Use the actual found node ID consistently throughout
+                    const actualAIAgentId = aiAgentNode.id;
+                    console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
+                    
+                    // For each chain, create the action nodes
+                    console.log(`🔄 [WorkflowBuilder] Processing ${chainsData.length} chains`);
+                    chainsData.forEach((chain, chainIndex) => {
+                      console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex} with ${chain?.length || 0} actions:`, chain);
+                      if (Array.isArray(chain) && chain.length > 0) {
+                        // Create separate chain with proper connection to AI Agent
+                        let previousNodeId: string | null = null;
+                        let lastPosition: { x: number; y: number } | null = null;
+                        
+                        // Create nodes for each action in the chain
+                        chain.forEach((action, actionIndex) => {
+                          const timestamp = Date.now();
+                          const newNodeId = `${actualAIAgentId}-chain${chainIndex}-action${actionIndex}-${timestamp}-${actionIndex}`;
+                          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === action.type);
+                          
+                          // Use the position from the AI Agent builder if available
+                          let nodePosition: { x: number; y: number };
+                          if (action.position) {
+                            // Use exact position from AI Agent builder
+                            nodePosition = {
+                              x: action.position.x,
+                              y: action.position.y
+                            };
+                          } else {
+                            // Fallback to calculated position
+                            const baseX = aiAgentNode.position.x + (chainIndex + 1) * 250;
+                            const baseY = aiAgentNode.position.y + 150;
+                            nodePosition = {
+                              x: baseX,
+                              y: baseY + (actionIndex * 120)
+                            };
+                          }
+                          
+                          const newNode = {
+                            id: newNodeId,
+                            type: 'custom',
+                            position: nodePosition,
+                            data: {
+                              title: action.title || actionComponent?.title || action.type,
+                              description: action.description || actionComponent?.description || '',
+                              type: action.type,
+                              providerId: action.providerId,
+                              config: action.config || {},
+                              onConfigure: (id) => handleConfigureNode(id),
+                              onDelete: (id) => handleDeleteNode(id),
+                              onAddChain: undefined,
+                              isAIAgentChild: true,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex
+                            }
+                          };
+                          
+                          console.log(`🔄 [WorkflowBuilder] Creating node for action:`, action, 'as node:', newNode);
+                          newNodesToAdd.push(newNode);
+                          
+                          // Create edge - first node connects to AI Agent, rest connect to previous
+                          if (actionIndex === 0) {
+                            // First action in chain connects to AI Agent
+                            // Use a more unique ID with chain index, action index, timestamp and random component
+                            const edgeId = `edge-aiagent-chain${chainIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newEdge = {
+                              id: edgeId,
+                              source: actualAIAgentId,
+                              target: newNodeId,
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(actualAIAgentId, newNodeId, pos);
+                                }
+                              }
+                            };
+                            newEdgesToAdd.push(newEdge);
+                          } else if (previousNodeId) {
+                            // Subsequent actions connect to previous action
+                            const edgeId = `edge-chain${chainIndex}-link${actionIndex}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newEdge = {
+                              id: edgeId,
+                              source: previousNodeId,
+                              target: newNodeId,
+                              type: 'custom',
+                              animated: true,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {
+                                onAddNode: (pos: { x: number, y: number }) => {
+                                  handleAddNodeBetween(previousNodeId, newNodeId, pos);
+                                }
+                              }
+                            };
+                            newEdgesToAdd.push(newEdge);
+                          }
+                          
+                          previousNodeId = newNodeId;
+                          lastPosition = nodePosition;
+                        });
+                        
+                        // Step 3: For each chain's final action node, verify an AddAction node exists
+                        // Add an "Add Action" node at the end of each chain
+                        if (previousNodeId && lastPosition) {
+                          console.log(`🔄 [WorkflowBuilder] Creating Add Action for chain ${chainIndex}, last node: ${previousNodeId}`);
+                          
+                          const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
+                          const randomId = Math.random().toString(36).substr(2, 9);
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { 
+                              x: lastPosition.x, 
+                              y: lastPosition.y + 160 
+                            },
+                            data: {
+                              parentId: previousNodeId,
+                              // Don't mark Add Action nodes as AI agent children so they don't get filtered out
+                              // isAIAgentChild: true,  // REMOVED - this causes them to be deleted on next save
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              isChainAddAction: true,  // Mark this as a chain Add Action for identification
+                              onClick: () => {
+                                // Get the parent node to pass its position
+                                const parentNode = nodes.find(n => n.id === previousNodeId);
+                                if (parentNode) {
+                                  handleAddActionClick({ id: previousNodeId, position: parentNode.position });
+                                }
+                              }
+                            }
+                          };
+                          newNodesToAdd.push(addActionNode);
+                          console.log(`🔄 [WorkflowBuilder] Created Add Action node for chain ${chainIndex}: ${addActionId} with parent AI Agent: ${actualAIAgentId}`);
+                          
+                          // Add edge to Add Action node - use unique timestamp and random for edge ID
+                          const edgeRandomId = Math.random().toString(36).substr(2, 9);
+                          const edgeToAddAction = {
+                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${edgeRandomId}`,
+                            source: previousNodeId,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: true,
+                            style: { 
+                              stroke: '#b1b1b7', 
+                              strokeWidth: 2, 
+                              strokeDasharray: '5,5' 
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
+                        }
+                      }
+                    });
+                    
+                    // Log summary and verify we have one Add Action per chain
+                    const addActionNodesCreated = newNodesToAdd.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] Created ${addActionNodesCreated.length} Add Action nodes for ${chainsData.length} chains`);
+                    
+                    // Verify each chain has exactly one Add Action node
+                    const chainAddActionCounts = {};
+                    addActionNodesCreated.forEach(n => {
+                      const chainIdx = n.data.parentChainIndex;
+                      chainAddActionCounts[chainIdx] = (chainAddActionCounts[chainIdx] || 0) + 1;
+                      console.log(`  - Add Action node: ${n.id} for chain ${chainIdx}`);
+                    });
+                    
+                    // Check if any chain is missing an Add Action node
+                    for (let i = 0; i < chainsData.length; i++) {
+                      if (!chainAddActionCounts[i]) {
+                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} is missing an Add Action node!`);
+                      } else if (chainAddActionCounts[i] > 1) {
+                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} has ${chainAddActionCounts[i]} Add Action nodes (should be 1)`);
+                      }
+                    }
+                    
+                    // Update nodes - remove existing AI Agent children and add new ones
+                    console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
+                    
+                    // First remove any existing AI Agent child nodes and Add Action nodes
+                    // Use the actual AI Agent node ID found above
+                    console.log(`🔄 [WorkflowBuilder] Filtering nodes for AI Agent: ${actualAIAgentId}`);
+                    
+                    // Log all Add Action nodes before filtering
+                    const allAddActionNodes = currentNodes.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] All Add Action nodes before filtering:`, allAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      parentId: n.data?.parentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
+                    const removedNodes = [];
+                    const filteredNodes = currentNodes.filter(n => {
+                      // Remove AI Agent child nodes but NOT Add Action nodes
+                      if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === actualAIAgentId) {
+                        // Remove all AI agent children
+                        removedNodes.push({ id: n.id, type: 'AI Agent child' });
+                        return false;
+                      }
+                      // Remove stale chain Add Action nodes from previous saves
+                      // These have parentAIAgentId and isChainAddAction set
+                      if (n.type === 'addAction' && n.data?.parentAIAgentId === actualAIAgentId && n.data?.isChainAddAction) {
+                        removedNodes.push({ id: n.id, type: 'Stale chain Add Action' });
+                        return false;
+                      }
+                      // Keep all other nodes
+                      return true;
+                    });
+                    console.log(`🔄 [WorkflowBuilder] Removed ${removedNodes.length} nodes:`, removedNodes);
+                    
+                    // Log the Add Action nodes we're about to add
+                    const newAddActionNodes = newNodesToAdd.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] New Add Action nodes to add:`, newAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      parentId: n.data?.parentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
+                    // Update the AI Agent node to remove onAddChain
+                    const updatedFilteredNodes = filteredNodes.map(node => {
+                      if (node.id === actualAIAgentId) {
+                        console.log(`🔄 [WorkflowBuilder] Updating AI Agent node ${actualAIAgentId} to remove onAddChain`);
+                        // Preserve any existing hasChains flag from handleSaveConfiguration
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            onAddChain: undefined,  // Remove the Add Chain button
+                            hasChains: true,
+                            chainCount: chainsData.length,
+                            // Preserve the config that was saved
+                            config: node.data?.config
+                          }
+                        };
+                      }
+                      return node;
+                    });
+                    
+                    console.log(`🔄 [WorkflowBuilder] Filtered ${currentNodes.length - filteredNodes.length} existing AI Agent child nodes`);
+                    // Then add new nodes
+                    const updatedNodes = [...updatedFilteredNodes, ...newNodesToAdd];
+                    console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length}`);
+                    
+                    // Log final Add Action nodes in the updated nodes
+                    const finalAddActionNodes = updatedNodes.filter(n => n.type === 'addAction');
+                    console.log(`🔄 [WorkflowBuilder] Final Add Action nodes in workflow:`, finalAddActionNodes.map(n => ({
+                      id: n.id,
+                      parentAIAgentId: n.data?.parentAIAgentId,
+                      chainIndex: n.data?.parentChainIndex
+                    })));
+                    
+                    // Store edges to add them after nodes are updated
+                    if (newEdgesToAdd.length > 0) {
+                      setTimeout(() => {
+                        setEdges((eds) => {
+                          // Remove existing edges connected to AI Agent child nodes being removed
+                          // But KEEP edges to/from Add Action nodes (plus buttons)
+                          const filteredEdges = eds.filter(e => {
+                            const sourceNode = currentNodes.find(n => n.id === e.source);
+                            const targetNode = currentNodes.find(n => n.id === e.target);
+                            
+                            // Keep edges to/from Add Action nodes
+                            if (sourceNode?.type === 'addAction' || targetNode?.type === 'addAction') {
+                              return true;
+                            }
+                            
+                            // Remove edges between AI agent child nodes (non-Add Action)
+                            if (sourceNode?.data?.isAIAgentChild && sourceNode?.data?.parentAIAgentId === actualAIAgentId &&
+                                targetNode?.data?.isAIAgentChild && targetNode?.data?.parentAIAgentId === actualAIAgentId) {
+                              console.log(`🔄 [WorkflowBuilder] Removing edge between AI Agent children: ${e.id}`);
+                              return false;
+                            }
+                            
+                            // Remove edge from AI agent to its child nodes (non-Add Action)
+                            if (sourceNode?.id === actualAIAgentId && 
+                                targetNode?.data?.isAIAgentChild && 
+                                targetNode?.data?.parentAIAgentId === actualAIAgentId) {
+                              console.log(`🔄 [WorkflowBuilder] Removing edge from AI Agent to child: ${e.id}`);
+                              return false;
+                            }
+                            
+                            return true;
+                          });
+                          
+                          // Deduplicate new edges before adding
+                          const edgeIdSet = new Set(filteredEdges.map(e => e.id));
+                          const uniqueNewEdges = newEdgesToAdd.filter(edge => {
+                            if (edgeIdSet.has(edge.id)) {
+                              console.log(`⚠️ [WorkflowBuilder] Skipping duplicate edge: ${edge.id}`);
+                              return false;
+                            }
+                            edgeIdSet.add(edge.id);
+                            return true;
+                          });
+                          
+                          console.log(`🔄 [WorkflowBuilder] Adding ${uniqueNewEdges.length} edges to workflow`);
+                          console.log(`🔄 [WorkflowBuilder] New edge IDs:`, uniqueNewEdges.map(e => e.id));
+                          return [...filteredEdges, ...uniqueNewEdges];
+                        });
+                      }, 100);
+                    }
+                    
+                    return updatedNodes;
+                  }); // End of setNodes
+                    
+                  // Auto-save after chains are added and update view
+                  setTimeout(async () => {
+                    // Auto-save the workflow with the chains
+                    try {
+                      await handleSave();
+                      console.log('✅ [WorkflowBuilder] Workflow saved after adding AI Agent chains');
+                    } catch (error) {
+                      console.error('❌ [WorkflowBuilder] Failed to save workflow after adding chains:', error);
+                      setHasUnsavedChanges(true);
+                    }
+                    
+                    // Fit view to show all nodes with proper settings
+                    try {
+                      if (typeof fitView === 'function') {
+                        fitView({ 
+                          padding: 0.2,
+                          includeHiddenNodes: false,
+                          duration: 400,
+                          maxZoom: 1,
+                          minZoom: 0.1
+                        });
+                      } else {
+                        console.log('⚠️ [WorkflowBuilder] fitView is not available');
+                      }
+                    } catch (error) {
+                      console.log('❌ [WorkflowBuilder] Error fitting view:', error);
+                    }
+                    
+                    const chainCount = chainsData?.length || 0;
+                    toast({
+                      title: "AI Agent Chains Added",
+                      description: `${chainCount} chain(s) have been added to the workflow`
+                    });
+                    
+                    // Reset the processing flag
+                    isProcessingChainsRef.current = false;
+                  }, 300);
+                  } else {
+                    // Reset flag if no chains to process
+                    isProcessingChainsRef.current = false;
+                  }
+                }, 500); // Longer delay to ensure node is added to state
+                
+                // Close the modal after successful save
+                setConfiguringNode(null);
+                setPendingNode(null);
+                
+                // Ensure flag is reset after processing completes or if we exit early
+                setTimeout(() => {
+                  isProcessingChainsRef.current = false;
+                }, 1000); // Reset after all processing should be complete
+              }}
+              onUpdateConnections={(sourceNodeId, targetNodeId) => {
+                // Create or update the edge between the selected input node and the AI Agent
+                const newEdge = {
+                  id: `e${sourceNodeId}-${targetNodeId}`,
+                  source: sourceNodeId,
+                  target: targetNodeId,
+                  type: 'smoothstep'
+                };
+                
+                // Remove any existing edges to the AI Agent
+                const filteredEdges = edges.filter(edge => edge.target !== targetNodeId);
+                
+                // Add the new edge
+                setEdges([...filteredEdges, newEdge]);
+              }}
+              initialData={configuringNode.config}
+              workflowData={{ nodes, edges }}
+              currentNodeId={configuringNode.id}
+              onOpenActionDialog={() => setShowActionDialog(true)}
+              onActionSelect={(callback) => {
+                // Store the callback for when an action is selected from the main dialog
+                setAiAgentActionCallback(() => callback)
+              }}
+            />
+          ) : (
+            <ConfigurationModal
+              isOpen={!!configuringNode}
+              onClose={(wasSaved = false) => {
+                // Check if this is a pending node (hasn't been saved before)
+                const isPendingNode = configuringNode?.id === 'pending-action' || configuringNode?.id === 'pending-trigger';
+                
+                setConfiguringNode(null);
+                setPendingNode(null);
+                
+                // Only reopen the action selection modal if it was NOT saved and it's a pending node
+                if (!wasSaved && isPendingNode && pendingNode?.type === 'action') {
+                  setShowActionDialog(true);
+                } else if (!wasSaved && isPendingNode && pendingNode?.type === 'trigger') {
+                  setShowTriggerDialog(true);
+                }
+              }}
+              onSave={async (config) => await handleSaveConfiguration(configuringNode, config)}
+              nodeInfo={configuringNode.nodeComponent}
+              integrationName={configuringNode.integration.name}
+              initialData={configuringNode.config}
+              workflowData={{ nodes, edges }}
+              currentNodeId={configuringNode.id}
+            />
+          )}
+        </>
       )}
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        open={showUnsavedChangesModal}
-        onOpenChange={setShowUnsavedChangesModal}
-        onSave={() => handleSave().then(() => setShowUnsavedChangesModal(false))}
-        onDiscard={() => setShowUnsavedChangesModal(false)}
-      />
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingNode} onOpenChange={(open: boolean) => !open && setDeletingNode(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Node</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingNode?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setDeletingNode(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteNode}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Node Deletion Modal */}
-      {deletingNode && (
-        <NodeDeletionModal
-          open={!!deletingNode}
-          onOpenChange={() => setDeletingNode(null)}
-          nodeName={deletingNode.name}
-          onConfirm={() => {
-            // Handle node deletion
-            console.log('Delete node:', deletingNode.id)
-            setDeletingNode(null)
-          }}
-        />
-      )}
+      {/* Unsaved Changes Warning Modal */}
+      <Dialog open={showUnsavedChangesModal} onOpenChange={setShowUnsavedChangesModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes to your workflow. Would you like to save them before leaving?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={handleNavigateWithoutSaving}>
+              Don't Save
+            </Button>
+            <Button onClick={handleSaveAndNavigate} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Continue'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Error and Auth Notifications */}
-      <ErrorNotificationPopup workflowId={currentWorkflow?.id || ''} />
+      {/* Discord Connection Modal */}
+      <Dialog open={showDiscordConnectionModal} onOpenChange={setShowDiscordConnectionModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Discord Connection Required</DialogTitle>
+            <DialogDescription>
+              It seems like your workflow requires Discord integration, but no Discord integration has been found.
+              Please add a Discord integration to your workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDiscordConnectionModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              // Add Discord integration setup logic here
+              setShowDiscordConnectionModal(false);
+            }}>
+              Add Discord Integration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Notification Popup */}
+      {workflowId && <ErrorNotificationPopup workflowId={workflowId} />}
+      
+      {/* Integration Re-auth Notification - Only on workflow builder */}
       <ReAuthNotification />
     </div>
   )
 }
 
-export default function CollaborativeWorkflowBuilder() {
-  return (
-    <ReactFlowProvider>
-      <WorkflowBuilderContent />
-    </ReactFlowProvider>
+// Add React.memo to prevent unnecessary re-renders
+const IntegrationItem = React.memo(({ integration, selectedIntegration, onSelect, renderLogo }: {
+  integration: IntegrationInfo
+  selectedIntegration: IntegrationInfo | null
+  onSelect: (integration: IntegrationInfo) => void
+  renderLogo: (id: string, name: string) => React.ReactNode
+}) => (
+  <div
+    className={`flex items-center p-3 rounded-md cursor-pointer ${
+      selectedIntegration?.id === integration.id 
+        ? 'bg-primary/10 ring-1 ring-primary/20' 
+        : 'hover:bg-muted/50'
+    }`}
+    onClick={() => onSelect(integration)}
+  >
+    {renderLogo(integration.id, integration.name)}
+    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+  </div>
+))
+
+// Virtual scrolling component for large lists
+const VirtualIntegrationList = React.memo(({ 
+  integrations, 
+  selectedIntegration, 
+  onSelect, 
+  renderLogo 
+}: {
+  integrations: IntegrationInfo[]
+  selectedIntegration: IntegrationInfo | null
+  onSelect: (integration: IntegrationInfo) => void
+  renderLogo: (id: string, name: string) => React.ReactNode
+}) => {
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(400)
+  const itemHeight = 56 // Fixed height for each integration item
+  const bufferSize = 5 // Extra items to render for smooth scrolling
+  
+  const visibleStart = Math.max(0, Math.floor(scrollTop / itemHeight) - bufferSize)
+  const visibleEnd = Math.min(
+    integrations.length,
+    Math.ceil((scrollTop + containerHeight) / itemHeight) + bufferSize
   )
-}
+  
+  const visibleIntegrations = integrations.slice(visibleStart, visibleEnd)
+  
+  return (
+    <div
+      className="overflow-auto"
+      style={{ height: containerHeight }}
+      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+    >
+      <div style={{ height: integrations.length * itemHeight, position: 'relative' }}>
+        <div
+          style={{
+            transform: `translateY(${visibleStart * itemHeight}px)`,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+          }}
+        >
+          {visibleIntegrations.map((integration, index) => (
+            <div key={integration.id} style={{ height: itemHeight }}>
+              <IntegrationItem
+                integration={integration}
+                selectedIntegration={selectedIntegration}
+                onSelect={onSelect}
+                renderLogo={renderLogo}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})

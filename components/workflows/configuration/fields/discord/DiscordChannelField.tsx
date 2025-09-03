@@ -31,7 +31,15 @@ export function DiscordChannelField({
 
   // Discord-specific loading behavior
   const handleChannelFieldOpen = (open: boolean) => {
-    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0) {
+    // Skip loading if we have a saved value - just show the saved value
+    if (value) {
+      console.log(`📌 [DiscordChannelField] Not loading on dropdown open - using saved value:`, value);
+      return;
+    }
+    
+    // Only load if we don't have a saved value or if user explicitly opens the dropdown
+    if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value) {
+      console.log(`📥 [DiscordChannelField] Loading channels on dropdown open`);
       onDynamicLoad(field.name);
     }
   };
@@ -52,6 +60,25 @@ export function DiscordChannelField({
         return aName.localeCompare(bName);
       });
   };
+  
+  // Process the channel options
+  let processedOptions = processDiscordChannels(options);
+  
+  // If we have a saved value, check if we have the actual data or need to show placeholder
+  if (value) {
+    const matchingOption = processedOptions.find(opt => (opt.value || opt.id) === value);
+    
+    if (!matchingOption) {
+      console.log(`📌 [DiscordChannelField] Using saved channel value:`, value);
+      // Show a nice placeholder while the actual data loads in background
+      processedOptions = [{
+        id: value,
+        value: value,
+        label: 'Selected Channel', // Generic text instead of ID
+        name: 'Selected Channel'
+      }];
+    }
+  }
 
   // Discord-specific error handling
   const handleDiscordError = (error: string) => {
@@ -64,7 +91,6 @@ export function DiscordChannelField({
     return error;
   };
 
-  const processedOptions = processDiscordChannels(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
   // Show loading state for dynamic fields
@@ -87,29 +113,37 @@ export function DiscordChannelField({
   }
 
   // Special case when no Discord channels are available
-  // Don't show retry button if we have a saved value (it will load properly)
-  if (processedOptions.length === 0 && !isLoading && !value) {
+  // Automatically trigger loading if we have no options and aren't already loading
+  React.useEffect(() => {
+    // SKIP auto-load if we have a saved value
+    if (value) {
+      console.log('📌 [DiscordChannelField] Skipping auto-load - has saved value:', value);
+      return;
+    }
+    
+    if (processedOptions.length === 0 && !isLoading && !value && onDynamicLoad && field.dynamic) {
+      // Trigger loading automatically
+      console.log('📥 Auto-triggering channel load - no options available');
+      onDynamicLoad(field.name);
+    }
+  }, [processedOptions.length, isLoading, value, onDynamicLoad, field.dynamic, field.name]);
+  
+  // Always show loading state when no channels are available (they're being loaded)
+  if (processedOptions.length === 0 && !value) {
     return (
-      <div className="text-sm text-slate-500">
-        <p>No Discord channels found. You may need to:</p>
-        <ul className="list-disc list-inside mt-1 ml-2">
-          <li>Select a Discord server first</li>
-          <li>Ensure the bot is added to the selected server</li>
-          <li>Check channel permissions</li>
-        </ul>
-        <Button 
-          variant="outline"
-          size="sm"
-          className="mt-3"
-          onClick={() => {
-            if (onDynamicLoad) {
-              onDynamicLoad(field.name);
-            }
-          }}
+      <Select disabled>
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
         >
-          Retry Loading Channels
-        </Button>
-      </div>
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+            <span>Loading Discord channels...</span>
+          </div>
+        </SelectTrigger>
+      </Select>
     );
   }
 

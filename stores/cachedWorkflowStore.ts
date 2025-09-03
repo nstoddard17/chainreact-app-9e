@@ -1,6 +1,5 @@
 import { createCacheStore, loadOnce, registerStore } from "./cacheStore"
 import { createClient } from "@/utils/supabaseClient"
-import { v4 as uuidv4 } from "uuid"
 
 // Define interfaces for workflow data
 export interface WorkflowNode {
@@ -155,31 +154,60 @@ export async function createWorkflow(name: string, description?: string): Promis
     throw new Error("User not authenticated")
   }
 
-  const newWorkflow: Workflow = {
-    id: uuidv4(),
+  // Don't include ID - let the database generate it
+  // Also don't include timestamps - let the database handle them
+  const newWorkflow = {
     name,
     description: description || "",
-    nodes: [],
-    connections: [],
+    nodes: [], // Will be JSON in database
+    connections: [], // Will be JSON in database  
     user_id: user.id,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    status: "draft", // Add required status field
+    visibility: "private", // Add default visibility
+    executions_count: 0, // Initialize executions count
   }
 
-  const { error } = await supabase.from("workflows").insert(newWorkflow)
+  console.log("Creating workflow with data:", newWorkflow)
+
+  const { data, error } = await supabase
+    .from("workflows")
+    .insert(newWorkflow)
+    .select()
+    .single()
 
   if (error) {
-    throw error
+    console.error("Failed to create workflow:", error)
+    console.error("Error details:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint
+    })
+    
+    // Provide more specific error messages based on error code
+    if (error.code === '23505') { // Unique violation
+      throw new Error("A workflow with this name already exists. Please choose a different name.")
+    } else if (error.code === '23503') { // Foreign key violation
+      throw new Error("Invalid user reference. Please try logging in again.")
+    } else if (error.code === '23502') { // Not null violation
+      throw new Error("Missing required fields. Please fill in all required information.")
+    }
+    
+    throw new Error(error.message || "Failed to create workflow")
   }
 
-  // Update the workflows list store
+  if (!data) {
+    throw new Error("No data returned from workflow creation")
+  }
+
+  // Update the workflows list store with the actual saved data
   const currentWorkflows = useWorkflowsListStore.getState().data || []
-  useWorkflowsListStore.getState().setData([newWorkflow, ...currentWorkflows])
+  useWorkflowsListStore.getState().setData([data, ...currentWorkflows])
   
   // Set as current workflow
-  useCurrentWorkflowStore.getState().setData(newWorkflow)
+  useCurrentWorkflowStore.getState().setData(data)
 
-  return newWorkflow
+  return data
 }
 
 /**
@@ -294,7 +322,8 @@ export async function deleteWorkflow(id: string): Promise<void> {
     .eq("id", id)
 
   if (error) {
-    throw error
+    console.error("Failed to delete workflow:", error)
+    throw new Error(error.message || "Failed to delete workflow")
   }
 
   // Clear current workflow if it's the one being deleted
