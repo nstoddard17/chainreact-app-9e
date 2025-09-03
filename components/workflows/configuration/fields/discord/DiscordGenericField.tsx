@@ -187,43 +187,53 @@ export function DiscordGenericField({
   
   // Check if we have a saved value
   if (value) {
-    const matchingOption = processedOptions.find(opt => (opt.value || opt.id) === value);
+    // For authorFilter, do case-insensitive matching for "anyone" value
+    const matchingOption = processedOptions.find(opt => {
+      const optValue = opt.value || opt.id;
+      if (field.name === 'authorFilter' && 
+          (value.toLowerCase() === 'anyone' || optValue?.toLowerCase() === 'anyone')) {
+        return optValue?.toLowerCase() === value.toLowerCase();
+      }
+      // Also check if the value is a user ID that matches
+      return String(optValue) === String(value);
+    });
     
     if (!matchingOption) {
       console.log(`📌 [DiscordGenericField] Using saved value for ${field.name}:`, value);
       
-      // Show user-friendly placeholder text while actual data loads
+      // Determine the display label based on available data
       let displayLabel = 'Selected';
-      if (field.name === 'authorFilter' || field.name === 'filterAuthor') {
-        displayLabel = value === '' ? 'Any User' : 'Selected User';
+      
+      // Try to find a matching user in the options to get their name
+      const userMatch = processedOptions.find(opt => String(opt.value || opt.id) === String(value));
+      if (userMatch) {
+        displayLabel = userMatch.label || userMatch.name || displayLabel;
+      } else if (field.name === 'authorFilter' || field.name === 'filterAuthor') {
+        // Special handling for "anyone" value
+        if (value.toLowerCase() === 'anyone') {
+          displayLabel = 'Anyone';
+        } else {
+          displayLabel = value === '' ? 'Any User' : 'Loading user...';
+        }
       } else if (field.name === 'messageId') {
         displayLabel = 'Selected Message';
       }
       
+      // Preserve the exact saved value to prevent it from being cleared
+      // Always add the saved value as an option to ensure it's selectable
       processedOptions = [{
         id: value,
         value: value,
         label: displayLabel,
         name: displayLabel
-      }];
+      }, ...processedOptions];
+    } else {
+      console.log(`✅ [DiscordGenericField] Found matching option for ${field.name}:`, matchingOption);
     }
   }
 
-  // Add "Anyone" option for authorFilter if not already present
-  if (field.name === 'authorFilter' && processedOptions.length > 0) {
-    const hasAnyoneOption = processedOptions.some(opt => 
-      opt.value === 'anyone' || opt.value === 'ANY_USER' || opt.value === ''
-    );
-    
-    if (!hasAnyoneOption) {
-      processedOptions.unshift({
-        id: '',
-        value: '',
-        label: 'Any User',
-        name: 'Any User'
-      });
-    }
-  }
+  // Don't add duplicate "Anyone" option - it should come from the API
+  // The channel-members handler already adds it with value="anyone"
   
   // Convert options to ComboboxOption format for message fields
   const comboboxOptions: ComboboxOption[] = processedOptions.map(option => {
@@ -285,12 +295,27 @@ export function DiscordGenericField({
 
   // Handle special "ANY_USER" value for authorFilter field - define before any returns
   const handleValueChange = (newValue: string) => {
+    // Don't clear the value if we're still loading options
+    if (isLoading && !newValue && value) {
+      console.log(`🛡️ [DiscordGenericField] Preventing value clear for ${field.name} while loading`);
+      return;
+    }
     // For authorFilter, empty string means "any user"
     onChange(newValue);
   };
   
-  // For display, keep the value as is (empty string stays empty)
-  const displayValue = value ?? '';
+  // For display, ensure the value matches the option value exactly
+  // For authorFilter with "anyone" value, ensure consistency
+  let displayValue = value ?? '';
+  if (field.name === 'authorFilter' && displayValue.toLowerCase() === 'anyone') {
+    // Ensure it matches the exact value from our options
+    const anyoneOption = processedOptions.find(opt => 
+      (opt.value || opt.id)?.toLowerCase() === 'anyone'
+    );
+    if (anyoneOption) {
+      displayValue = anyoneOption.value || anyoneOption.id || 'anyone';
+    }
+  }
 
   // Always show loading state when isLoading is true (even if we have cached data)
   if (field.dynamic && isLoading) {
@@ -446,8 +471,9 @@ export function DiscordGenericField({
           const optionValue = option.value !== undefined ? option.value : option.id;
           const optionLabel = option.label || option.name || (option.value !== undefined ? option.value : option.id) || "";
           
-          // Skip rendering if optionValue is empty or undefined, except for authorFilter's "Any User" option
-          if ((!optionValue && optionValue !== '') || (optionValue === '' && field.name !== 'authorFilter')) {
+          // Skip rendering if optionValue is empty, null, or undefined
+          // Convert empty strings to null to avoid Select.Item error
+          if (!optionValue || optionValue === '') {
             console.warn(`Skipping option with empty value:`, option);
             return null;
           }
@@ -455,7 +481,7 @@ export function DiscordGenericField({
           return (
             <SelectItem 
               key={`${optionValue}-${index}`} 
-              value={optionValue}
+              value={String(optionValue)}
               className="truncate"
             >
               <span className="truncate">{optionLabel}</span>

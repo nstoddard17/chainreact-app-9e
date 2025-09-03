@@ -18,6 +18,40 @@ await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/
 // await playwright.chromium.launch() // DON'T DO THIS
 ```
 
+## Testing Environments
+
+### Local Development Testing
+By default, all tests run on the local development server:
+```javascript
+await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/builder' });
+```
+
+### Production/Live Version Testing
+When the user requests testing on the production or live version:
+- **Replace `localhost:3000` with `chainreact.app`** for all URLs
+- Test all functionality to ensure it works correctly on the live environment
+- Pay special attention to:
+  - API endpoints working correctly
+  - Authentication and authorization
+  - Integration connections
+  - Real-time features
+  - Performance differences between local and production
+
+```javascript
+// Production testing - when requested by user
+await mcp__playwright__browser_navigate({ url: 'https://chainreact.app/workflows/builder' });
+```
+
+### Important Production Testing Notes
+- The production environment may have different:
+  - Rate limits
+  - Caching mechanisms
+  - API response times
+  - Security configurations
+- Always document any differences observed between local and production behavior
+- Report any production-only issues immediately
+- Never use test data that could affect real users on production
+
 ## Testing Principles
 
 ### 1. Always Test From Scratch
