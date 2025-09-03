@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Play, Pause, Settings, Trash2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2 } from "lucide-react"
+import { Play, Pause, Settings, Trash2, Sparkles, LayoutTemplateIcon as Template, Plus, Building2, Pencil, Check, X } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
@@ -53,6 +53,14 @@ export default function WorkflowsContent() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
+  const [editingWorkflow, setEditingWorkflow] = useState<{ id: string | null; field: 'name' | 'description' | null }>({
+    id: null,
+    field: null
+  })
+  const [editValues, setEditValues] = useState<{ name: string; description: string }>({
+    name: '',
+    description: ''
+  })
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; workflowId: string | null }>({
     open: false,
     workflowId: null,
@@ -96,6 +104,48 @@ export default function WorkflowsContent() {
   const handleMoveComplete = () => {
     // Refresh workflows to reflect the changes
     loadAllWorkflows()
+  }
+
+  const handleStartEdit = (workflowId: string, field: 'name' | 'description', currentValue: string) => {
+    setEditingWorkflow({ id: workflowId, field })
+    if (field === 'name') {
+      setEditValues({ ...editValues, name: currentValue })
+    } else {
+      setEditValues({ ...editValues, description: currentValue })
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingWorkflow({ id: null, field: null })
+    setEditValues({ name: '', description: '' })
+  }
+
+  const handleSaveEdit = async (workflowId: string, field: 'name' | 'description') => {
+    try {
+      const updateData = field === 'name' 
+        ? { name: editValues.name }
+        : { description: editValues.description }
+      
+      await updateWorkflowById(workflowId, updateData)
+      
+      toast({
+        title: "Success",
+        description: `Workflow ${field} updated successfully`,
+      })
+      
+      setEditingWorkflow({ id: null, field: null })
+      setEditValues({ name: '', description: '' })
+      
+      // Refresh workflows to show the updated data
+      await loadAllWorkflows()
+    } catch (error) {
+      console.error(`Failed to update workflow ${field}:`, error)
+      toast({
+        title: "Error",
+        description: `Failed to update workflow ${field}`,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
@@ -391,14 +441,123 @@ export default function WorkflowsContent() {
                 {workflows.map((workflow) => (
                   <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-200 group flex flex-col h-full">
                     <CardHeader className="pb-3 flex-shrink-0">
-                      <CardTitle className="font-semibold text-lg text-slate-900 group-hover:text-primary transition-colors">
-                        {workflow.name}
-                      </CardTitle>
-                      {workflow.description ? (
-                        <p className="text-sm text-slate-600 mt-1">{workflow.description}</p>
-                      ) : (
-                        <p className="text-sm text-slate-400 mt-1 italic">No description</p>
-                      )}
+                      <div className="space-y-2">
+                        {/* Workflow Name */}
+                        <div className="flex items-center gap-2">
+                          {editingWorkflow.id === workflow.id && editingWorkflow.field === 'name' ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                value={editValues.name}
+                                onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                                className="h-8 font-semibold text-lg"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveEdit(workflow.id, 'name')
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEdit()
+                                  }
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => handleSaveEdit(workflow.id, 'name')}
+                              >
+                                <Check className="h-3.5 w-3.5 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={handleCancelEdit}
+                              >
+                                <X className="h-3.5 w-3.5 text-red-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <CardTitle className="font-semibold text-lg text-slate-900 group-hover:text-primary transition-colors flex-1">
+                                {workflow.name}
+                              </CardTitle>
+                              <PermissionGuard permission="workflows.edit">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleStartEdit(workflow.id, 'name', workflow.name)
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </PermissionGuard>
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Workflow Description */}
+                        <div className="flex items-start gap-2">
+                          {editingWorkflow.id === workflow.id && editingWorkflow.field === 'description' ? (
+                            <div className="flex items-start gap-2 flex-1">
+                              <Textarea
+                                value={editValues.description}
+                                onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
+                                className="min-h-[60px] text-sm resize-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') {
+                                    handleCancelEdit()
+                                  }
+                                }}
+                              />
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleSaveEdit(workflow.id, 'description')}
+                                >
+                                  <Check className="h-3.5 w-3.5 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={handleCancelEdit}
+                                >
+                                  <X className="h-3.5 w-3.5 text-red-600" />
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-1">
+                                {workflow.description ? (
+                                  <p className="text-sm text-slate-600">{workflow.description}</p>
+                                ) : (
+                                  <p className="text-sm text-slate-400 italic">No description</p>
+                                )}
+                              </div>
+                              <PermissionGuard permission="workflows.edit">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleStartEdit(workflow.id, 'description', workflow.description || '')
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </PermissionGuard>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </CardHeader>
                     
                     {/* Bottom section with status, date, actions, and edit button */}

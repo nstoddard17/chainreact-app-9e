@@ -67,9 +67,20 @@ export const CustomEdgeWithButton = ({
               className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center shadow-md transition-all hover:scale-110"
               onClick={(e) => {
                 e.stopPropagation()
-                const [sourceId, targetId] = id.replace('e', '').split('-')
+                console.log('Plus button clicked on edge:', id)
+                console.log('onAddNode function available:', typeof onAddNode)
+                
+                const edgeIdParts = id.split('-')
+                const sourceId = edgeIdParts[1]
+                const targetId = edgeIdParts.slice(2).join('-') // Handle IDs with dashes
+                
+                console.log('Parsed sourceId:', sourceId, 'targetId:', targetId)
+                
                 if (typeof onAddNode === 'function') {
+                  console.log('Calling onAddNode...')
                   onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+                } else {
+                  console.error('onAddNode is not a function:', onAddNode)
                 }
               }}
             >
