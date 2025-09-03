@@ -93,30 +93,34 @@ export function IntegrationCard({
         return {
           icon: <CheckCircle className="w-3.5 h-3.5" />,
           badgeClass: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300',
+          borderClass: 'border-green-500 dark:border-green-400',
           action: 'disconnect'
         }
       case 'expired':
         return {
           icon: <XCircle className="w-3.5 h-3.5" />,
           badgeClass: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300',
+          borderClass: 'border-red-500 dark:border-red-400',
           action: 'reconnect'
         }
       case 'expiring':
         return {
           icon: <Clock className="w-3.5 h-3.5" />,
           badgeClass: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300',
+          borderClass: 'border-yellow-500 dark:border-yellow-400',
           action: 'reconnect'
         }
       default: // disconnected
         return {
           icon: <X className="w-3.5 h-3.5" />,
           badgeClass: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300',
+          borderClass: 'border-border',
           action: 'connect'
         }
     }
   }
 
-  const { icon: statusIcon, badgeClass, action: statusAction } = getStatusUi()
+  const { icon: statusIcon, badgeClass, borderClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
     const logoPath = `/integrations/${provider.id}.svg`
@@ -197,7 +201,10 @@ export function IntegrationCard({
   const showTeamsUpgradeMessage = isTeamsIntegration && !isConnected
 
   return (
-    <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-border bg-card overflow-hidden">
+    <Card className={cn(
+      "flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border-2 bg-card overflow-hidden",
+      borderClass
+    )}>
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
         <div className="flex items-center gap-4 min-w-0 flex-1">
           {renderLogo()}

@@ -102,37 +102,59 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       
       return () => clearTimeout(timer)
     }
-  }, [user, providers.length, fetchIntegrations])
+  }, [user, providers.length]) // Remove fetchIntegrations from deps to prevent infinite loop
 
   // Add a fallback to prevent infinite loading
   useEffect(() => {
     if (loading && user) {
       const timeout = setTimeout(() => {
-        console.warn("⚠️ Integration loading timeout - forcing refresh")
+        console.warn("⚠️ Integration loading timeout - resetting state")
         setLoading("global", false)
-        fetchIntegrations(true)
-      }, 30000) // 30 second timeout
+        // Show error message to user
+        toast({
+          title: "Loading timeout",
+          description: "Integrations are taking longer than expected to load. Please refresh the page.",
+          variant: "destructive",
+        })
+      }, 20000) // 20 second timeout
       
       return () => clearTimeout(timeout)
     }
-  }, [loading, user, fetchIntegrations])
+  }, [loading, user, setLoading, toast])
 
   const fetchMetrics = async () => {
     if (!user) return
     
+    // Add timeout to prevent hanging
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    
     try {
       setLoadingMetrics(true)
-      const response = await fetch("/api/analytics/integration-metrics")
+      const response = await fetch("/api/analytics/integration-metrics", {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch integration metrics")
+        // Don't throw error, just log it
+        console.warn("Failed to fetch integration metrics:", response.status)
+        return
       }
       
       const data = await response.json()
       if (data.success && data.data) {
         setMetrics(data.data)
       }
-    } catch (error) {
-      console.error("Error fetching integration metrics:", error)
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        console.warn("Integration metrics request timeout")
+      } else {
+        console.error("Error fetching integration metrics:", error)
+      }
+      // Don't show error to user - metrics are non-critical
     } finally {
       setLoadingMetrics(false)
     }
