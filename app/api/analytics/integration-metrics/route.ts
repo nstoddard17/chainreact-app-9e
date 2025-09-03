@@ -19,15 +19,22 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    // Get all integrations for this user
-    const { data: integrations, error: integrationsError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("user_id", user.id)
+    // Get all integrations for this user with timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
-    if (integrationsError) {
-      return NextResponse.json({ error: integrationsError.message }, { status: 500 })
-    }
+    try {
+      const { data: integrations, error: integrationsError } = await supabase
+        .from("integrations")
+        .select("*")
+        .eq("user_id", user.id)
+        .abortSignal(controller.signal)
+
+      clearTimeout(timeoutId)
+
+      if (integrationsError) {
+        return NextResponse.json({ error: integrationsError.message }, { status: 500 })
+      }
 
     const availableIntegrations = detectAvailableIntegrations()
     const configuredProviders = new Set(integrations.map((i: Integration) => i.provider))
@@ -172,6 +179,20 @@ export async function GET() {
         total: integrationsToUpdate.length
       } : undefined
     })
+    } catch (timeoutError: any) {
+      clearTimeout(timeoutId)
+      if (timeoutError.name === 'AbortError') {
+        console.error("Integration metrics request timeout")
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Request timeout - please try again",
+          },
+          { status: 504 }
+        )
+      }
+      throw timeoutError
+    }
   } catch (error: any) {
     console.error("Failed to fetch integration metrics:", error)
     return NextResponse.json(

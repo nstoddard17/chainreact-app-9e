@@ -132,69 +132,100 @@ export const useIntegrationStore = create<IntegrationStore>()(
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
-      const { loading } = get()
-      if (loading) {
+      const { providers } = get()
+      
+      // If providers already loaded, don't reload
+      if (providers.length > 0) {
         return
       }
-
-      try {
-        set({ loading: true, error: null })
-        
-        const providers = await IntegrationService.fetchProviders()
-
-        set({
-          providers,
-          loading: false,
-        })
-
-      } catch (error: any) {
-        console.error("Failed to initialize providers:", error)
-        set({
-          error: error.message || "Failed to load providers",
-          loading: false,
-          providers: [],
-        })
+      
+      // Prevent duplicate initialization requests
+      const initKey = 'init-providers'
+      if (ongoingRequests.has(initKey)) {
+        return ongoingRequests.get(initKey)
       }
+
+      const initPromise = (async () => {
+        try {
+          set({ loading: true, error: null })
+          
+          const providers = await IntegrationService.fetchProviders()
+
+          set({
+            providers,
+            loading: false,
+          })
+        } catch (error: any) {
+          console.error("Failed to initialize providers:", error)
+          set({
+            error: error.message || "Failed to load providers",
+            loading: false,
+            providers: [],
+          })
+        } finally {
+          ongoingRequests.delete(initKey)
+        }
+      })()
+      
+      ongoingRequests.set(initKey, initPromise)
+      return initPromise
     },
 
     fetchIntegrations: async (force = false) => {
       const { loading, currentUserId } = get()
+      
+      // Prevent multiple simultaneous fetches
+      const fetchKey = 'fetch-integrations'
+      if (ongoingRequests.has(fetchKey) && !force) {
+        return ongoingRequests.get(fetchKey)
+      }
+      
       if (loading && !force) {
         return
       }
 
-      try {
-        set({ loading: true, error: null })
-        
-        const { user } = await SessionManager.getSecureUserAndSession()
+      const fetchPromise = (async () => {
+        try {
+          set({ loading: true, error: null })
+          
+          const { user } = await SessionManager.getSecureUserAndSession()
 
-        // If currentUserId is not set, set it now
-        if (!currentUserId) {
-          set({ currentUserId: user.id })
-        } else if (user?.id !== currentUserId) {
+          // If currentUserId is not set, set it now
+          if (!currentUserId) {
+            set({ currentUserId: user.id })
+          } else if (user?.id !== currentUserId) {
+            set({
+              integrations: [],
+              loading: false,
+              error: "User session mismatch",
+            })
+            return
+          }
+
+          const integrations = await IntegrationService.fetchIntegrations(force)
+          
           set({
-            integrations: [],
+            integrations,
             loading: false,
-            error: "User session mismatch",
+            lastRefreshTime: new Date().toISOString(),
+            error: null,
           })
-          return
+          
+          emitIntegrationEvent('INTEGRATIONS_UPDATED')
+        } catch (error: any) {
+          console.error("Failed to fetch integrations:", error)
+          set({
+            error: error.message || "Failed to fetch integrations",
+            loading: false,
+          })
+          // Don't clear integrations on error - keep showing cached data
+        } finally {
+          ongoingRequests.delete(fetchKey)
         }
-
-        const integrations = await IntegrationService.fetchIntegrations(force)
-        
-        set({
-          integrations,
-          loading: false,
-          lastRefreshTime: new Date().toISOString(),
-        })
-      } catch (error: any) {
-        console.error("Failed to fetch integrations:", error)
-        set({
-          error: error.message || "Failed to fetch integrations",
-          loading: false,
-          integrations: [],
-        })
-      }
+      })()
+      
+      ongoingRequests.set(fetchKey, fetchPromise)
+      return fetchPromise
     },
 
     connectIntegration: async (providerId: string) => {

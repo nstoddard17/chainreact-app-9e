@@ -69,21 +69,36 @@ export class IntegrationService {
   static async fetchIntegrations(force = false): Promise<Integration[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
-    const response = await fetch("/api/integrations", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      cache: force ? "no-store" : "default",
-    })
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch integrations: ${response.statusText}`)
+    try {
+      const response = await fetch("/api/integrations", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        cache: force ? "no-store" : "default",
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch integrations: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.data || []
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - please try refreshing the page')
+      }
+      throw error
     }
-
-    const data = await response.json()
-    return data.data || []
   }
 
   /**
