@@ -82,6 +82,8 @@ export function useWorkflowDialogs() {
       setShowUnsavedChangesModal(true)
       return true // Prevent default navigation
     }
+    // Navigate immediately if no unsaved changes
+    window.location.href = href
     return false // Allow navigation
   }, [])
 

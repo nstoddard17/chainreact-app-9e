@@ -50,11 +50,35 @@ export function useWorkflowBuilder() {
   // Cached data stores
   const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
   const { data: integrations, loading: integrationsCacheLoading } = useIntegrationsStore()
+  
+  // Store onClick handlers for AddActionNodes - needs to be before setNodes
+  const addActionHandlersRef = useRef<Record<string, () => void>>({})
 
   // React Flow state
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
+  
+  // Custom setNodes that preserves onClick handlers for AddActionNodes
+  const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
+    setNodesInternal(currentNodes => {
+      const newNodes = typeof updater === 'function' ? updater(currentNodes) : updater
+      
+      // Restore onClick handlers for AddActionNodes
+      return newNodes.map(node => {
+        if (node.type === 'addAction' && addActionHandlersRef.current[node.id]) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onClick: addActionHandlersRef.current[node.id]
+            }
+          }
+        }
+        return node
+      })
+    })
+  }, [])
 
   // Workflow metadata
   const [workflowName, setWorkflowName] = useState("")
@@ -96,6 +120,25 @@ export function useWorkflowBuilder() {
   // Stable callback refs - don't depend on nodes to avoid loops
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
+
+  // Handle add action button click - moved up before other callbacks to ensure it's available
+  const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
+    console.log('handleAddActionClick called with nodeId:', nodeId, 'parentId:', parentId)
+    console.log('dialogsHook available:', !!dialogsHook)
+    console.log('Current showActionDialog state before:', dialogsHook.showActionDialog)
+    
+    dialogsHook.setSourceAddNode({ id: nodeId, parentId })
+    dialogsHook.setSelectedIntegration(null)
+    dialogsHook.setSelectedAction(null)
+    dialogsHook.setSearchQuery("")
+    dialogsHook.setShowActionDialog(true)
+    
+    console.log('Called setShowActionDialog(true)')
+    // Force a check after a small delay to see if state updated
+    setTimeout(() => {
+      console.log('showActionDialog state after 100ms:', dialogsHook.showActionDialog)
+    }, 100)
+  }, [dialogsHook])
 
   const handleNodeConfigure = useCallback((id: string) => {
     const nodeToConfig = nodesRef.current.find(n => n.id === id)
@@ -193,8 +236,14 @@ export function useWorkflowBuilder() {
           const addActionNodes: Node[] = []
           const addActionEdges: any[] = []
           
-          nodesToAddAfter.forEach((node: any) => {
+          nodesToAddAfter.forEach((node: any, index: number) => {
             const addActionId = `add-action-${node.id}`
+            console.log('Creating AddActionNode:', addActionId, 'handleAddActionClick available:', !!handleAddActionClick)
+            
+            // Store the handler in ref
+            const clickHandler = () => handleAddActionClick(addActionId, node.id)
+            addActionHandlersRef.current[addActionId] = clickHandler
+            
             const addActionNode: Node = {
               id: addActionId,
               type: 'addAction',
@@ -204,12 +253,14 @@ export function useWorkflowBuilder() {
               },
               data: {
                 parentId: node.id,
-                onClick: () => handleAddActionClick(addActionId, node.id)
+                onClick: clickHandler
               }
             }
             addActionNodes.push(addActionNode)
+            // Ensure unique edge IDs by adding index if needed
+            const edgeId = `e-${node.id}-add-${Date.now()}-${index}`
             addActionEdges.push({
-              id: `e-${node.id}-${addActionId}`,
+              id: edgeId,
               source: node.id,
               target: addActionId,
               parentId: node.id
@@ -351,13 +402,21 @@ export function useWorkflowBuilder() {
             onAddNode: (sourceId: string, targetId: string, position: { x: number; y: number }) => {
               // Implementation for adding node between edges
               console.log('Add node between', sourceId, 'and', targetId)
+              console.log('Current showActionDialog state:', dialogsHook.showActionDialog)
+              console.log('Setting sourceAddNode and opening dialog...')
+              
               // This would open the action dialog with the appropriate context
               dialogsHook.setSourceAddNode({ 
                 id: `insert-${Date.now()}`,
                 parentId: sourceId,
                 insertBefore: targetId
               })
+              dialogsHook.setSelectedIntegration(null)
+              dialogsHook.setSelectedAction(null)
+              dialogsHook.setSearchQuery("")
               dialogsHook.setShowActionDialog(true)
+              
+              console.log('Dialog should now be open, showActionDialog:', dialogsHook.showActionDialog)
             }
           }
         }
@@ -439,15 +498,6 @@ export function useWorkflowBuilder() {
     dialogsHook.setShowActionDialog(false)
   }, [nodes, configHook, dialogsHook, toast])
 
-  // Handle add action button click
-  const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
-    dialogsHook.setSourceAddNode({ id: nodeId, parentId })
-    dialogsHook.setSelectedIntegration(null)
-    dialogsHook.setSelectedAction(null)
-    dialogsHook.setSearchQuery("")
-    dialogsHook.setShowActionDialog(true)
-  }, [dialogsHook])
-
   // Handle adding a trigger node
   const handleAddTrigger = useCallback((integration: any, nodeComponent: any, config: Record<string, any>) => {
     const newNodeId = `trigger-${Date.now()}`
@@ -473,13 +523,18 @@ export function useWorkflowBuilder() {
       
       // Add AddActionNode after the trigger
       const addActionId = `add-action-${newNodeId}`
+      
+      // Store the handler in ref
+      const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
+      addActionHandlersRef.current[addActionId] = clickHandler
+      
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
         position: { x: 250, y: 260 },
         data: {
           parentId: newNodeId,
-          onClick: () => handleAddActionClick(addActionId, newNodeId)
+          onClick: clickHandler
         }
       }
       
@@ -534,6 +589,11 @@ export function useWorkflowBuilder() {
       
       // Add new AddActionNode after the new action
       const addActionId = `add-action-${newNodeId}`
+      
+      // Store the handler in ref
+      const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
+      addActionHandlersRef.current[addActionId] = clickHandler
+      
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
@@ -543,7 +603,7 @@ export function useWorkflowBuilder() {
         },
         data: {
           parentId: newNodeId,
-          onClick: () => handleAddActionClick(addActionId, newNodeId)
+          onClick: clickHandler
         }
       }
       

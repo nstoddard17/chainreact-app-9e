@@ -19,7 +19,15 @@ export function AddActionNode({ data }: NodeProps) {
             <TooltipTrigger asChild>
               <button
                 className="nodrag nopan flex items-center justify-center w-12 h-12 bg-background border-2 border-dashed border-border rounded-full hover:border-primary hover:text-primary transition-colors cursor-pointer"
-                onClick={() => (data as any).onClick?.()}
+                onClick={() => {
+                  console.log('AddActionNode button clicked')
+                  console.log('data.onClick available:', !!(data as any).onClick)
+                  if ((data as any).onClick) {
+                    (data as any).onClick()
+                  } else {
+                    console.error('No onClick handler found in data:', data)
+                  }
+                }}
               >
                 <Plus className="h-6 w-6" />
               </button>
