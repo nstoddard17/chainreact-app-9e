@@ -400,66 +400,157 @@ Google Calendar Create Event (google_calendar_action_create_event):
   "attendees": ["team@company.com"]
 }
 
-AI Agent - Email Analysis (ai_agent):
+AI Agent - Modern Chain-Based Architecture (ai_agent):
+IMPORTANT: AI Agents now use a chain-based architecture where you define multiple execution chains,
+and the AI decides which chains to execute based on the input. Each chain can have multiple actions
+that are configured with AI mode (AI decides all field values at runtime).
+
 "config": {
-  "inputNodeId": "node1",
-  "memory": "all-storage",
-  "memoryIntegration": "",
-  "customMemoryIntegrations": ["gmail", "slack", "notion"],
-  "systemPrompt": "You are a helpful AI assistant that can analyze emails and take appropriate actions. When you receive an email, analyze its content and determine the best course of action.",
-  "tone": "professional",
-  "responseLength": 100,
-  "model": "gpt-4",
-  "temperature": 0.7,
-  "maxTokens": 1000,
-  "outputFormat": "text",
-  "selectedVariables": {
-    "from": true,
-    "subject": true,
-    "body": true
-  }
+  "model": "gpt-4-turbo",
+  "systemPrompt": "You are an intelligent workflow orchestrator. Analyze the input and decide which chains to execute based on the content, urgency, and context. You can execute multiple chains in parallel when appropriate.",
+  "chains": [
+    {
+      "id": "chain-1",
+      "name": "Ticket Classification",
+      "description": "Create support tickets and notify team",
+      "actions": [
+        {
+          "type": "notion_action_create_page",
+          "providerId": "notion",
+          "aiConfigured": true
+        },
+        {
+          "type": "slack_action_send_message", 
+          "providerId": "slack",
+          "aiConfigured": true
+        },
+        {
+          "type": "gmail_action_send_email",
+          "providerId": "gmail",
+          "aiConfigured": true
+        }
+      ]
+    },
+    {
+      "id": "chain-2",
+      "name": "FAQ Resolution",
+      "description": "Search knowledge base and send responses",
+      "actions": [
+        {
+          "type": "notion_action_search_pages",
+          "providerId": "notion",
+          "aiConfigured": true
+        },
+        {
+          "type": "gmail_action_send_email",
+          "providerId": "gmail",
+          "aiConfigured": true
+        }
+      ]
+    },
+    {
+      "id": "chain-3",
+      "name": "Escalation",
+      "description": "Handle high-priority issues",
+      "actions": [
+        {
+          "type": "notion_action_create_page",
+          "providerId": "notion",
+          "aiConfigured": true
+        },
+        {
+          "type": "slack_action_send_message",
+          "providerId": "slack",
+          "aiConfigured": true
+        },
+        {
+          "type": "google_calendar_action_create_event",
+          "providerId": "google-calendar",
+          "aiConfigured": true
+        }
+      ]
+    }
+  ]
 }
 
-AI Agent - Customer Support (ai_agent):
+AI Agent - Email Analysis with Chains (ai_agent):
 "config": {
-  "inputNodeId": "node1",
-  "memory": "all-storage",
-  "memoryIntegration": "",
-  "customMemoryIntegrations": ["gmail", "slack", "hubspot", "notion"],
-  "systemPrompt": "You are a customer support AI assistant. Analyze customer inquiries and provide helpful, accurate responses. Escalate complex issues appropriately.",
-  "tone": "friendly",
-  "responseLength": 150,
-  "model": "gpt-4",
-  "temperature": 0.7,
-  "maxTokens": 1500,
-  "outputFormat": "text",
-  "selectedVariables": {
-    "from": true,
-    "subject": true,
-    "body": true,
-    "receivedAt": true
-  }
+  "model": "gpt-4-turbo",
+  "systemPrompt": "Analyze incoming emails and route to appropriate support chains based on content, urgency, and keywords.",
+  "chains": [
+    {
+      "id": "chain-1",
+      "name": "Customer Response",
+      "actions": [
+        {"type": "gmail_action_send_email", "providerId": "gmail", "aiConfigured": true},
+        {"type": "discord_action_send_message", "providerId": "discord", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-2", 
+      "name": "Task Management",
+      "actions": [
+        {"type": "notion_action_create_page", "providerId": "notion", "aiConfigured": true},
+        {"type": "trello_action_create_card", "providerId": "trello", "aiConfigured": true}
+      ]
+    }
+  ]
 }
 
-AI Agent - Project Management (ai_agent):
+AI Agent - Customer Support with 6 Chains (ai_agent):
 "config": {
-  "inputNodeId": "node1",
-  "memory": "all-storage",
-  "memoryIntegration": "",
-  "customMemoryIntegrations": ["notion", "slack", "google-calendar", "github"],
-  "systemPrompt": "You are a project management AI assistant. Help organize tasks, schedule meetings, and coordinate team activities based on incoming requests.",
-  "tone": "professional",
-  "responseLength": 120,
-  "model": "gpt-4",
-  "temperature": 0.7,
-  "maxTokens": 1200,
-  "outputFormat": "text",
-  "selectedVariables": {
-    "content": true,
-    "authorName": true,
-    "channelName": true,
-    "timestamp": true
-  }
+  "model": "gpt-4-turbo",
+  "systemPrompt": "You are a comprehensive customer support AI. Analyze inquiries and execute appropriate chains: Chain 1 for ticket classification, Chain 2 for FAQ resolution, Chain 3 for escalation, Chain 4 for follow-ups, Chain 5 for feedback collection, Chain 6 for order issues.",
+  "chains": [
+    {
+      "id": "chain-1",
+      "name": "Ticket Classification",
+      "actions": [
+        {"type": "notion_action_create_page", "providerId": "notion", "aiConfigured": true},
+        {"type": "slack_action_send_message", "providerId": "slack", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-2",
+      "name": "FAQ Resolution",
+      "actions": [
+        {"type": "gmail_action_send_email", "providerId": "gmail", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-3",
+      "name": "Escalation",
+      "actions": [
+        {"type": "notion_action_create_page", "providerId": "notion", "aiConfigured": true},
+        {"type": "gmail_action_send_email", "providerId": "gmail", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-4",
+      "name": "Follow-ups",
+      "actions": [
+        {"type": "notion_action_search_pages", "providerId": "notion", "aiConfigured": true},
+        {"type": "gmail_action_send_email", "providerId": "gmail", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-5",
+      "name": "Feedback Collection",
+      "actions": [
+        {"type": "google_sheets_action_create_row", "providerId": "google-sheets", "aiConfigured": true},
+        {"type": "slack_action_send_message", "providerId": "slack", "aiConfigured": true}
+      ]
+    },
+    {
+      "id": "chain-6",
+      "name": "Order Issues",
+      "actions": [
+        {"type": "stripe_action_create_customer", "providerId": "stripe", "aiConfigured": true},
+        {"type": "hubspot_action_update_deal", "providerId": "hubspot", "aiConfigured": true},
+        {"type": "gmail_action_send_email", "providerId": "gmail", "aiConfigured": true}
+      ]
+    }
+  ]
 }
 
 AI Summarize Content (ai_action_summarize):

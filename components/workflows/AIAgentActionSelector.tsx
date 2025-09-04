@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { 
   Search, Bot, Zap, ChevronRight, Info, Sparkles, Settings,
-  Wand2
+  Wand2, LinkIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
@@ -29,6 +29,7 @@ import { NodeComponent } from '@/lib/workflows/types'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes/index'
 import { useToast } from '@/hooks/use-toast'
 import { useIntegrationStore } from '@/stores/integrationStore'
+import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 
 interface AIAgentActionSelectorProps {
   isOpen: boolean
@@ -51,6 +52,7 @@ export function AIAgentActionSelector({
 }: AIAgentActionSelectorProps) {
   const { toast } = useToast()
   const { integrations, getConnectedProviders } = useIntegrationStore()
+  const { comingSoonIntegrations } = useIntegrationSelection()
   
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -317,27 +319,52 @@ export function AIAgentActionSelector({
 
                   return filteredIntegrations.map((integration) => {
                     const isConnected = isIntegrationConnected(integration.id)
+                    const isComingSoon = comingSoonIntegrations.has(integration.id)
+                    
                     return (
                       <div
                         key={integration.id}
-                        className={`flex items-center p-3 rounded-md cursor-pointer ${
+                        className={`flex items-center p-3 rounded-md ${
+                          isComingSoon
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer'
+                        } ${
                           selectedIntegration?.id === integration.id 
                             ? 'bg-primary/10 ring-1 ring-primary/20' 
                             : 'hover:bg-muted/50'
                         }`}
                         onClick={() => {
-                          setSelectedIntegration(integration)
-                          setSelectedAction(null)
+                          if (!isComingSoon) {
+                            setSelectedIntegration(integration)
+                            setSelectedAction(null)
+                          }
                         }}
                       >
                         {renderLogo(integration.id, integration.name)}
-                        <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                        {isConnected && (
-                          <Badge variant="secondary" className="text-xs mr-2">
-                            Connected
+                        <span className="font-semibold ml-4 flex-grow truncate">
+                          {integration.name}
+                        </span>
+                        {isComingSoon ? (
+                          <Badge variant="secondary" className="ml-2 shrink-0">
+                            Coming soon
                           </Badge>
-                        )}
-                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        ) : !isConnected && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(integration.id) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-2 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
+                              if (config?.oauthUrl) {
+                                window.location.href = config.oauthUrl
+                              }
+                            }}
+                          >
+                            <LinkIcon className="w-3 h-3 mr-1" />
+                            Connect
+                          </Button>
+                        ) : null}
                       </div>
                     )
                   })
@@ -350,8 +377,34 @@ export function AIAgentActionSelector({
               <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
                   {selectedIntegration ? (
-                    <div className="h-full">
-                      <div className="grid grid-cols-1 gap-3">
+                    !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'logic' ? (
+                      // Show message for unconnected integrations
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="text-muted-foreground mb-4">
+                          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          You need to connect your {selectedIntegration.name} account to use these actions.
+                        </p>
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS]
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl
+                            }
+                          }}
+                        >
+                          <LinkIcon className="w-4 h-4 mr-2" />
+                          Connect {selectedIntegration.name}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="h-full">
+                        <div className="grid grid-cols-1 gap-3">
                         {selectedIntegration.actions
                           .filter((action: any) => {
                             if (searchQuery) {
@@ -409,8 +462,9 @@ export function AIAgentActionSelector({
                               </div>
                             )
                           })}
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       <p>Select an integration to see its actions</p>

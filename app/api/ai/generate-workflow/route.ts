@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { generateWorkflow } from "@/lib/ai/workflowAI"
+import { generateEnhancedWorkflow } from "@/lib/ai/enhancedWorkflowAI"
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Generate workflow using AI
-    const generatedWorkflow = await generateWorkflow({
+    // Generate workflow using enhanced AI
+    const generatedWorkflow = await generateEnhancedWorkflow({
       prompt,
       userId: user.id,
     })

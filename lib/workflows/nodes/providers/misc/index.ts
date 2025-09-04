@@ -1,6 +1,5 @@
 import { NodeComponent } from "../../types"
 import {
-  Mail,
   Users,
   Send,
   Edit,
@@ -11,28 +10,6 @@ import {
   Package,
   BarChart
 } from "lucide-react"
-
-// Resend Email Actions
-const resendSendEmail: NodeComponent = {
-  type: "resend_send_email",
-  title: "Send Email",
-  description: "Send professional emails using the Resend service with high deliverability.",
-  icon: Mail,
-  category: "Communication",
-  isTrigger: false,
-  producesOutput: true,
-  configSchema: [
-    { 
-      name: "to", 
-      label: "To", 
-      type: "text", 
-      required: true, 
-      placeholder: "recipient@example.com or {{email_variable}}", 
-      description: "Email recipient(s). Use variables like {{email}} for dynamic content.",
-      hasVariablePicker: true
-    }
-  ]
-}
 
 // ManyChat Nodes
 const manychatTriggerNewSubscriber: NodeComponent = {
@@ -242,9 +219,6 @@ const gumroadActionGetSalesAnalytics: NodeComponent = {
 
 // Export all miscellaneous nodes
 export const miscNodes: NodeComponent[] = [
-  // Resend (1)
-  resendSendEmail,
-  
   // ManyChat (3)
   manychatTriggerNewSubscriber,
   manychatActionSendMessage,
