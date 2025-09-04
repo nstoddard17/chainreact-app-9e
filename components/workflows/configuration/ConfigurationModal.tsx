@@ -125,6 +125,31 @@ export function ConfigurationModal({
       integrationName
     });
   }
+
+  // Check if this node is connected to an AI Agent
+  const isConnectedToAIAgent = React.useMemo(() => {
+    if (!workflowData?.edges || !workflowData?.nodes || !currentNodeId) return false;
+    
+    // Check if the current node has a parent AI Agent
+    const parentEdges = workflowData.edges.filter((edge: any) => edge.target === currentNodeId);
+    
+    for (const edge of parentEdges) {
+      const sourceNode = workflowData.nodes.find((node: any) => node.id === edge.source);
+      if (sourceNode?.data?.type === 'ai_agent') {
+        console.log('🤖 [ConfigModal] Node is connected to AI Agent:', sourceNode.id);
+        return true;
+      }
+    }
+    
+    // Also check if this node has parentAIAgentId in its data (for AI-generated workflows)
+    const currentNode = workflowData.nodes.find((node: any) => node.id === currentNodeId);
+    if (currentNode?.data?.parentAIAgentId) {
+      console.log('🤖 [ConfigModal] Node has parentAIAgentId:', currentNode.data.parentAIAgentId);
+      return true;
+    }
+    
+    return false;
+  }, [workflowData, currentNodeId]);
   
   // For Trello-specific debugging (can be removed when Trello integration is stable)
   if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
@@ -228,6 +253,7 @@ export function ConfigurationModal({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   integrationName={integrationName}
+                  isConnectedToAIAgent={isConnectedToAIAgent}
                 />
               </div>
             )}

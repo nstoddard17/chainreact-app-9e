@@ -25,6 +25,8 @@ interface ConfigurationFormProps {
   currentNodeId?: string;
   onLoadingChange?: (isLoading: boolean) => void;
   getFormValues?: () => Record<string, any>;
+  integrationName?: string;
+  isConnectedToAIAgent?: boolean;
 }
 
 function ConfigurationForm({
@@ -37,7 +39,9 @@ function ConfigurationForm({
   workflowData,
   currentNodeId,
   onLoadingChange,
-  getFormValues
+  getFormValues,
+  integrationName: integrationNameProp,
+  isConnectedToAIAgent
 }: ConfigurationFormProps) {
   // FIRST: All hooks must be called before any conditional returns
   
@@ -46,7 +50,18 @@ function ConfigurationForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [aiFields, setAiFields] = useState<Record<string, boolean>>({});
+  // Initialize AI fields based on initial data containing AI placeholders
+  const [aiFields, setAiFields] = useState<Record<string, boolean>>(() => {
+    const fields: Record<string, boolean> = {};
+    if (initialData) {
+      Object.entries(initialData).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) {
+          fields[key] = true;
+        }
+      });
+    }
+    return fields;
+  });
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
   
   // Provider-specific state
@@ -70,7 +85,7 @@ function ConfigurationForm({
   // Check integration connection
   const integration = provider ? getIntegrationByProvider(provider) : null;
   const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
-  const integrationName = nodeInfo?.label?.split(' ')[0] || provider;
+  const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
   // Dynamic options hook
   const {
@@ -261,6 +276,7 @@ function ConfigurationForm({
     onConnectIntegration: handleConnectIntegration,
     aiFields,
     setAiFields,
+    isConnectedToAIAgent,
     // Provider-specific state
     selectedRecord,
     setSelectedRecord,

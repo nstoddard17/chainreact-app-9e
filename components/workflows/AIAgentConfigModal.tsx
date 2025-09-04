@@ -34,7 +34,7 @@ import {
   ArrowRight, Save, Play, Database, Clock, Shield,
   Download, Copy, GraduationCap, ToggleLeft, ToggleRight,
   FileText, Palette, Lock, Unlock, RefreshCw, TrendingUp,
-  Activity, Coins, Layers, Shuffle, Workflow, LinkIcon
+  Activity, Coins, Layers, Shuffle, Workflow, LinkIcon, Loader2
 } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
@@ -66,11 +66,31 @@ interface AIAgentConfigModalProps {
 const MODEL_GROUPS = {
   recommended: [
     {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      provider: 'OpenAI',
+      badges: ['🚀 Latest', '🧠 Most Capable', '📚 128k Context'],
+      description: 'Most advanced model for complex reasoning and analysis',
+      costPer1k: { input: 0.005, output: 0.015 },
+      contextWindow: 128000,
+      latency: '~2-3s'
+    },
+    {
+      id: 'gpt-4o-mini',
+      name: 'GPT-4o Mini',
+      provider: 'OpenAI',
+      badges: ['⚖️ Balanced', '💰 Cost-Efficient', '📚 128k Context'],
+      description: 'Great balance of capability and cost for most tasks',
+      costPer1k: { input: 0.00015, output: 0.0006 },
+      contextWindow: 128000,
+      latency: '~1s'
+    },
+    {
       id: 'gpt-4-turbo',
       name: 'GPT-4 Turbo',
       provider: 'OpenAI',
       badges: ['⚡ Fast', '🧠 Smart', '📚 128k Context'],
-      description: 'Best for complex reasoning and long documents',
+      description: 'Previous generation, still very capable',
       costPer1k: { input: 0.01, output: 0.03 },
       contextWindow: 128000,
       latency: '~2s'
@@ -91,7 +111,7 @@ const MODEL_GROUPS = {
       id: 'gpt-3.5-turbo',
       name: 'GPT-3.5 Turbo',
       provider: 'OpenAI',
-      badges: ['💰 Cost-Efficient', '⚡ Ultra-Fast'],
+      badges: ['💰 Budget', '⚡ Ultra-Fast'],
       description: 'Good for simple tasks and high volume',
       costPer1k: { input: 0.0005, output: 0.0015 },
       contextWindow: 16000,
@@ -161,7 +181,7 @@ const QUICK_START_TEMPLATES = [
     name: 'Email Auto-Reply',
     icon: '✉️',
     prompt: 'Analyze the email in [message] and generate a helpful, professional response. Address the main points and include {{AI:next_steps}} if needed.',
-    model: 'gpt-4-turbo',
+    model: 'gpt-4o',
     tone: 'professional'
   },
   {
@@ -169,7 +189,7 @@ const QUICK_START_TEMPLATES = [
     name: 'Content Summarizer',
     icon: '📝',
     prompt: 'Review the content from {{trigger.data}} and {{AI:summarize}}. Extract key points and {{AI:assess_priority}}.',
-    model: 'claude-3-sonnet',
+    model: 'gpt-4o-mini',
     tone: 'technical'
   },
   {
@@ -177,7 +197,7 @@ const QUICK_START_TEMPLATES = [
     name: 'Task Router',
     icon: '🚦',
     prompt: 'Based on [message], determine the appropriate team/action and {{AI:categorize}}. Generate routing instructions.',
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     tone: 'technical'
   }
 ]
@@ -209,7 +229,7 @@ export function AIAgentConfigModal({
   const [config, setConfig] = useState({
     title: 'AI Agent',
     systemPrompt: '',
-    model: 'gpt-4-turbo',
+    model: 'gpt-4o-mini',
     apiSource: 'chainreact',
     customApiKey: '',
     tone: 'professional',

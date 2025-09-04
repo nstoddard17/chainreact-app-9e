@@ -8,7 +8,8 @@ import { TemplateGallery } from "@/components/templates/TemplateGallery"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -56,6 +57,7 @@ export default function WorkflowsContent() {
   const [activeTab, setActiveTab] = useState("workflows")
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
+  const [aiModel, setAiModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini')
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [workflowToEdit, setWorkflowToEdit] = useState<Workflow | null>(null)
@@ -74,6 +76,11 @@ export default function WorkflowsContent() {
     category: "",
     tags: "",
     is_public: false,
+  })
+  const [errorModal, setErrorModal] = useState<{ open: boolean; title: string; message: string }>({
+    open: false,
+    title: "",
+    message: "",
   })
   const { toast } = useToast()
 
@@ -256,6 +263,7 @@ export default function WorkflowsContent() {
         credentials: 'include', // Include session cookies for authentication
         body: JSON.stringify({
           prompt: aiPrompt,
+          model: aiModel,
         }),
       })
 
@@ -271,14 +279,29 @@ export default function WorkflowsContent() {
         setAiPrompt("")
         await loadAllWorkflows(true)
       } else {
-        throw new Error(data.error || "Failed to generate workflow")
+        // Check if it's a coming soon integration error
+        if (data.comingSoonIntegrations && data.comingSoonIntegrations.length > 0) {
+          setErrorModal({
+            open: true,
+            title: "Integration Not Available",
+            message: data.error || `The following integrations are coming soon and not yet available: ${data.comingSoonIntegrations.join(', ')}. Please try your request without these integrations.`,
+          })
+        } else {
+          // For other errors, show in modal as well
+          setErrorModal({
+            open: true,
+            title: "Workflow Generation Failed",
+            message: data.error || "Failed to generate workflow. Please try again.",
+          })
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate workflow:", error)
-      toast({
+      // Show error in modal instead of just toast
+      setErrorModal({
+        open: true,
         title: "Error",
-        description: "Failed to generate workflow with AI",
-        variant: "destructive",
+        message: error.message || "An unexpected error occurred while generating the workflow.",
       })
     } finally {
       setGeneratingAI(false)
@@ -374,7 +397,7 @@ export default function WorkflowsContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1 space-y-3">
                       <Textarea
                         placeholder="Describe your workflow... e.g., 'Send Slack notifications when new emails arrive from important clients'"
                         value={aiPrompt}
@@ -382,6 +405,31 @@ export default function WorkflowsContent() {
                         rows={3}
                         className="resize-none border-border focus:border-primary focus:ring-primary transition-all duration-200"
                       />
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor="ai-model" className="text-sm text-muted-foreground">AI Model:</Label>
+                        <Select
+                          value={aiModel}
+                          onValueChange={(value: 'gpt-4o' | 'gpt-4o-mini') => setAiModel(value)}
+                        >
+                          <SelectTrigger id="ai-model" className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gpt-4o-mini">
+                              <div className="flex flex-col items-start">
+                                <span>GPT-4o Mini</span>
+                                <span className="text-xs text-muted-foreground">Faster & cost-efficient</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="gpt-4o">
+                              <div className="flex flex-col items-start">
+                                <span>GPT-4o</span>
+                                <span className="text-xs text-muted-foreground">More capable & accurate</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <Button
                       onClick={handleGenerateWithAI}
@@ -795,6 +843,31 @@ export default function WorkflowsContent() {
         workflow={workflowToEdit}
         onSuccess={handleEditSuccess}
       />
+
+      {/* Error Modal */}
+      <AlertDialog open={errorModal.open} onOpenChange={(open) => !open && setErrorModal({ open: false, title: "", message: "" })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{errorModal.title}</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span>{errorModal.message}</span>
+              {errorModal.title === "Integration Not Available" && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-sm text-amber-800">
+                    💡 <strong>Tip:</strong> Try rephrasing your request without mentioning the unavailable integrations, 
+                    or use similar available integrations instead.
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorModal({ open: false, title: "", message: "" })}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AIChatAssistant />
     </AppLayout>

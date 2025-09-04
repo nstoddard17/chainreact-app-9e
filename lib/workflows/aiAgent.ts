@@ -424,8 +424,8 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     let currentContext = { ...context, memory: memoryContext }
 
     try {
-      // Get AI decision for single step
-      const aiDecision = await getAIDecision(prompt, currentContext, steps)
+      // Get AI decision for single step, passing the resolved config
+      const aiDecision = await getAIDecision(prompt, currentContext, steps, resolvedConfig)
       
       // Record the step
       steps.push({
@@ -760,7 +760,8 @@ Process the input data and return ONLY the JSON object with no additional text.
 async function getAIDecision(
   prompt: string, 
   context: any, 
-  steps: AIAgentStep[]
+  steps: AIAgentStep[],
+  config?: any
 ): Promise<{
   action: string
   tool?: string
@@ -776,13 +777,22 @@ async function getAIDecision(
     // Import OpenAI (dynamic import to avoid issues)
     const { OpenAI } = await import('openai')
     
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OpenAI API key not configured")
+    // Determine which API key to use
+    let apiKey = process.env.OPENAI_API_KEY
+    if (config?.apiSource === 'custom' && config?.customApiKey) {
+      apiKey = config.customApiKey
+      console.log("🔑 Using custom API key")
+    } else {
+      console.log("🔑 Using ChainReact API key")
     }
+    
+    if (!apiKey) {
+      throw new Error("No OpenAI API key available. Please configure your API key.")
+    }
+    
+    const openai = new OpenAI({
+      apiKey: apiKey,
+    })
     
     const inputData = context.input || {}
     const inputKeys = Object.keys(inputData)
@@ -801,8 +811,24 @@ async function getAIDecision(
       contextInfo = `Available data:\n${dataItems.join('\n')}\n\n`
     }
 
+    // Determine which model to use
+    let model = config?.model || 'gpt-4o-mini'
+    
+    // Map model IDs to OpenAI model names
+    const modelMapping: Record<string, string> = {
+      'gpt-4o': 'gpt-4o',
+      'gpt-4o-mini': 'gpt-4o-mini',
+      'gpt-4-turbo': 'gpt-4-turbo-preview',
+      'gpt-3.5-turbo': 'gpt-3.5-turbo',
+      'claude-3-sonnet': 'gpt-4o-mini', // Fallback for non-OpenAI models
+      'claude-3-opus': 'gpt-4o' // Fallback for non-OpenAI models
+    }
+    
+    const actualModel = modelMapping[model] || 'gpt-4o-mini'
+    console.log(`🤖 Using model: ${actualModel} (from config: ${model})`)
+    
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: actualModel,
       messages: [
         {
           role: 'system',
@@ -813,8 +839,8 @@ async function getAIDecision(
           content: `${contextInfo}Generate a JSON response in the exact format specified in the system prompt. For email actions, use "email_subject" and "email_body" fields. For Discord, use "discord_message". Return ONLY the JSON object, no explanations or extra text.`
         }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
+      max_tokens: config?.maxTokens || 1000,
+      temperature: config?.temperature || 0.7
     })
 
     const aiResponse = completion.choices[0]?.message?.content?.trim()
