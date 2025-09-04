@@ -7,10 +7,12 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Zap, Search } from 'lucide-react'
+import { Zap, Search, LinkIcon } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import type { NodeComponent } from '@/lib/workflows/nodes'
 import type { Node } from '@xyflow/react'
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 
 interface IntegrationInfo {
   id: string
@@ -74,23 +76,16 @@ export function ActionSelectionDialog({
   refreshIntegrations
 }: ActionSelectionDialogProps) {
   
-  const comingSoonIntegrations = useMemo(() => new Set([
-    'beehiiv',
-    'manychat',
-    'gumroad',
-    'kit',
-    'paypal',
-    'shopify',
-    'blackbaud',
-    'box',
-  ]), [])
+  // Get the coming soon integrations from the hook
+  const { comingSoonIntegrations } = useIntegrationSelection()
 
-  // Only refresh integrations once when dialog first opens
+  // Refresh integrations when dialog opens
   useEffect(() => {
     if (open && refreshIntegrations) {
+      console.log('ActionSelectionDialog: Refreshing integrations on open')
       refreshIntegrations()
     }
-  }, [open]) // Intentionally omit refreshIntegrations to prevent loops
+  }, [open, refreshIntegrations])
 
   const filteredIntegrationsForActions = useMemo(() => {
     const filtered = availableIntegrations.filter(int => {
@@ -98,23 +93,16 @@ export function ActionSelectionDialog({
       if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
       if (filterCategory !== 'all' && int.category !== filterCategory) return false
       
-      // Filter out integrations that have no compatible actions
-      const trigger = nodes.find(node => node.data?.isTrigger)
-      const compatibleActions = int.actions.filter(action => {
-        // Gmail actions should only be available with Gmail triggers
-        if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-          return false
-        }
-        return true
-      })
-      
-      if (compatibleActions.length === 0) return false
+      // Always show all integrations - users should be able to connect any integration
+      // even if it doesn't have compatible actions with the current trigger
+      // Once connected, they might switch triggers or the integration might have actions later
       
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
         const matchesIntegration = int.name.toLowerCase().includes(query) || 
           int.description.toLowerCase().includes(query)
-        const matchesAction = compatibleActions.some(action => 
+        // Also search in action names/descriptions if there are actions
+        const matchesAction = int.actions.some(action => 
           (action.title?.toLowerCase() || '').includes(query) || 
           (action.description?.toLowerCase() || '').includes(query)
         )
@@ -125,7 +113,7 @@ export function ActionSelectionDialog({
     })
     
     return filtered
-  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected, nodes])
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected])
 
   const displayedActions = useMemo(() => {
     if (!selectedIntegration) return []
@@ -232,36 +220,61 @@ export function ActionSelectionDialog({
                   )}
                 </div>
               ) : (
-                filteredIntegrationsForActions.map((integration) => (
-                  <div
-                    key={integration.id}
-                    className={`flex items-center p-3 rounded-md ${
-                      comingSoonIntegrations.has(integration.id)
-                        ? 'cursor-not-allowed opacity-60'
-                        : 'cursor-pointer'
-                    } ${
-                      selectedIntegration?.id === integration.id 
-                        ? 'bg-primary/10 ring-1 ring-primary/20' 
-                        : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => {
-                      if (!comingSoonIntegrations.has(integration.id)) {
-                        setSelectedIntegration(integration)
-                        setSelectedAction(null)
-                      }
-                    }}
-                  >
-                    {renderLogo(integration.id, integration.name)}
-                    <span className="font-semibold ml-4 flex-grow truncate">
-                      {integration.name}
-                    </span>
-                    {comingSoonIntegrations.has(integration.id) && (
-                      <Badge variant="secondary" className="ml-2 shrink-0">
-                        Coming soon
-                      </Badge>
-                    )}
-                  </div>
-                ))
+                filteredIntegrationsForActions.map((integration) => {
+                  const isConnected = isIntegrationConnected(integration.id)
+                  
+                  // Debug logging for Google integrations
+                  if (integration.id.includes('google') || comingSoonIntegrations.has(integration.id)) {
+                    console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
+                  }
+                  
+                  return (
+                    <div
+                      key={integration.id}
+                      className={`flex items-center p-3 rounded-md ${
+                        comingSoonIntegrations.has(integration.id)
+                          ? 'cursor-not-allowed opacity-60'
+                          : 'cursor-pointer'
+                      } ${
+                        selectedIntegration?.id === integration.id 
+                          ? 'bg-primary/10 ring-1 ring-primary/20' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => {
+                        if (!comingSoonIntegrations.has(integration.id)) {
+                          setSelectedIntegration(integration)
+                          setSelectedAction(null)
+                        }
+                      }}
+                    >
+                      {renderLogo(integration.id, integration.name)}
+                      <span className="font-semibold ml-4 flex-grow truncate">
+                        {integration.name}
+                      </span>
+                      {comingSoonIntegrations.has(integration.id) ? (
+                        <Badge variant="secondary" className="ml-2 shrink-0">
+                          Coming soon
+                        </Badge>
+                      ) : !isConnected && integration.id !== 'core' && integration.id !== 'logic' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2 shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl
+                            }
+                          }}
+                        >
+                          <LinkIcon className="w-3 h-3 mr-1" />
+                          Connect
+                        </Button>
+                      ) : null}
+                    </div>
+                  )
+                })
               )}
             </div>
           </ScrollArea>
@@ -271,11 +284,35 @@ export function ActionSelectionDialog({
             <ScrollArea className="h-full">
               <div className="p-4">
                 {selectedIntegration ? (
-                  displayedActions.length > 0 ? (
+                  !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'core' && selectedIntegration.id !== 'logic' ? (
+                    // Show message for unconnected integrations
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <div className="text-muted-foreground mb-4">
+                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        You need to connect your {selectedIntegration.name} account to use these actions.
+                      </p>
+                      <Button
+                        variant="default"
+                        onClick={() => {
+                          const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS]
+                          if (config?.oauthUrl) {
+                            window.location.href = config.oauthUrl
+                          }
+                        }}
+                      >
+                        <LinkIcon className="w-4 h-4 mr-2" />
+                        Connect {selectedIntegration.name}
+                      </Button>
+                    </div>
+                  ) : displayedActions.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3">
                       {displayedActions.map((action, index) => {
-                        const isActionComingSoon = Boolean((action as any).comingSoon) || 
-                          comingSoonIntegrations.has(selectedIntegration.id)
+                        const isActionComingSoon = Boolean((action as any).comingSoon)
                         
                         return (
                           <div
