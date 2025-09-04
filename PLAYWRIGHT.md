@@ -170,6 +170,19 @@ When testing action/trigger modals:
 3. Test the fix by starting from scratch again
 4. Ensure fix doesn't break other functionality
 
+### CRITICAL: Fix Errors During Testing
+**⚠️ IMPORTANT**: When performing browser automation testing with Playwright:
+- **STOP testing immediately when errors occur** 
+- **FIX the error in the code BEFORE continuing**
+- **DO NOT proceed with testing if errors are present**
+- **Re-run the test from the beginning after fixing**
+
+This ensures that:
+- Tests accurately reflect the user experience
+- Issues are caught and fixed immediately
+- The codebase remains stable and error-free
+- Future tests don't encounter the same problems
+
 ### Common Issues to Watch For
 - Empty value errors in Select components
 - Stuck loading states

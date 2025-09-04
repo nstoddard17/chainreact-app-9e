@@ -54,7 +54,7 @@ export function AIAgentActionSelector({
   
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
-  const [showConnectedOnly, setShowConnectedOnly] = useState(true)
+  const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Show all integrations by default
   const [selectedIntegration, setSelectedIntegration] = useState<any>(null)
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [aiAutoConfig, setAiAutoConfig] = useState(true)
@@ -202,7 +202,7 @@ export function AIAgentActionSelector({
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+        <DialogContent className="sm:max-w-[800px] max-h-[85vh] bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden">
           <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -210,19 +210,18 @@ export function AIAgentActionSelector({
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                    Add AI Agent Action
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">
-                      {chainName}
+                  <DialogTitle className="text-xl font-semibold text-slate-900">
+                    Select an Action
+                    <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700">
+                      AI Agent
                     </Badge>
                   </DialogTitle>
                   <DialogDescription className="text-sm text-slate-600 mt-1">
-                    Choose an action to add to this AI Agent chain
+                    Choose an action to add to your AI agent chain.
                   </DialogDescription>
                 </div>
               </div>
-              
-              {/* AI Auto-Configure Toggle - Positioned to right but not under X */}
+              {/* AI Auto-Configure Toggle */}
               <div className="flex items-center gap-3 p-2 bg-white rounded-lg border mr-8">
                 <div className="flex items-center gap-2">
                   {aiAutoConfig ? (
@@ -280,16 +279,7 @@ export function AIAgentActionSelector({
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="connected-apps-ai" 
-                  checked={showConnectedOnly}
-                  onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))}
-                />
-                <Label htmlFor="connected-apps-ai" className="whitespace-nowrap">
-                  Show only connected apps
-                </Label>
-              </div>
+              {/* Removed checkbox for connected apps filter */}
             </div>
           </div>
 

@@ -493,6 +493,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
         .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
         .map((i) => i.provider)
       
+      // Google services share authentication - if any Google service is connected, all are available
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail']
+      const hasAnyGoogleService = connectedProviders.some(provider => googleServices.includes(provider))
+      
+      if (hasAnyGoogleService) {
+        // Add all Google service IDs since they share authentication
+        googleServices.forEach(service => {
+          if (!connectedProviders.includes(service)) {
+            connectedProviders.push(service)
+          }
+        })
+      }
+      
       return connectedProviders
     },
 

@@ -17,25 +17,13 @@ interface IntegrationInfo {
 export function useIntegrationSelection() {
   const { getConnectedProviders, fetchIntegrations, integrations: storeIntegrations, loading } = useIntegrationStore()
   const { data: integrations } = useIntegrationsStore()
-  const [hasFetched, setHasFetched] = useState(false)
   
-  // Fetch integrations once on mount
+  // Fetch integrations once on mount - always fetch if store is empty
   useEffect(() => {
-    if (!hasFetched && !loading) {
-      console.log('Fetching integrations...')
-      setHasFetched(true)
-      fetchIntegrations()
+    if (!loading && (!storeIntegrations || storeIntegrations.length === 0)) {
+      fetchIntegrations(true) // Force fetch to ensure fresh data
     }
-  }, [hasFetched, loading, fetchIntegrations])
-  
-  // Log when integrations are loaded
-  useEffect(() => {
-    if (storeIntegrations && storeIntegrations.length > 0) {
-      console.log('Integrations loaded:', storeIntegrations.length, 'integrations')
-      const connected = getConnectedProviders()
-      console.log('Connected providers:', connected)
-    }
-  }, [storeIntegrations, getConnectedProviders])
+  }, [loading, storeIntegrations, fetchIntegrations])
 
   const getIntegrationsFromNodes = useCallback((): IntegrationInfo[] => {
     const integrationMap: Record<string, IntegrationInfo> = {}
@@ -51,7 +39,29 @@ export function useIntegrationSelection() {
       actions: [],
     }
     
-    // Add other integrations from configs
+    // Add Core integration for system triggers
+    integrationMap['core'] = {
+      id: 'core',
+      name: 'Core',
+      description: 'System-level triggers and actions',
+      category: 'system',
+      color: '#6B7280',
+      triggers: [],
+      actions: [],
+    }
+    
+    // Add Logic & Control integration
+    integrationMap['logic'] = {
+      id: 'logic',
+      name: 'Logic & Control',
+      description: 'Control flow and logic operations',
+      category: 'system',
+      color: '#6B7280',
+      triggers: [],
+      actions: [],
+    }
+    
+    // Add ALL integrations from configs, including those without nodes (Coming Soon)
     for (const integrationId in INTEGRATION_CONFIGS) {
       const config = INTEGRATION_CONFIGS[integrationId]
       if (config) {
@@ -66,6 +76,22 @@ export function useIntegrationSelection() {
         }
       }
     }
+    
+    // Also add any missing "coming soon" integrations that might not be in INTEGRATION_CONFIGS
+    const additionalComingSoonIntegrations = [
+      { id: 'beehiiv', name: 'beehiiv', description: 'Newsletter platform for creators', category: 'marketing', color: '#000000' },
+      { id: 'kit', name: 'Kit', description: 'Email marketing for creators', category: 'marketing', color: '#000000' },
+    ]
+    
+    additionalComingSoonIntegrations.forEach(integration => {
+      if (!integrationMap[integration.id]) {
+        integrationMap[integration.id] = {
+          ...integration,
+          triggers: [],
+          actions: [],
+        }
+      }
+    })
     
     // Process all node components
     ALL_NODE_COMPONENTS.forEach(node => {
@@ -85,7 +111,9 @@ export function useIntegrationSelection() {
     })
     
     // Sort integrations alphabetically by name
-    return Object.values(integrationMap).sort((a, b) => a.name.localeCompare(b.name))
+    const result = Object.values(integrationMap).sort((a, b) => a.name.localeCompare(b.name))
+    console.log('🔍 getIntegrationsFromNodes returning', result.length, 'integrations:', result.map(i => i.id))
+    return result
   }, [])
 
   const availableIntegrations = useMemo(() => {
@@ -94,16 +122,31 @@ export function useIntegrationSelection() {
   }, [getIntegrationsFromNodes])
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
-    if (integrationId === 'webhook' || integrationId === 'scheduler' || integrationId === 'ai') {
+    // Special integrations that don't require connection
+    if (['webhook', 'scheduler', 'ai', 'core', 'logic'].includes(integrationId)) {
       return true
     }
     
     const connectedProviders = getConnectedProviders()
     
-    // Direct provider match - this should work for most integrations
-    const isConnected = connectedProviders.includes(integrationId)
-    return isConnected
-  }, [getConnectedProviders])
+    // Log for Google integrations to debug
+    if (integrationId.includes('google')) {
+      console.log(`Checking ${integrationId}, connected providers:`, connectedProviders)
+      console.log(`All integrations:`, integrations)
+    }
+    
+    // Check if there's a base 'google' integration that covers all Google services
+    if (integrationId.startsWith('google-')) {
+      // Check for either the specific service or the base google provider
+      const hasSpecific = connectedProviders.includes(integrationId)
+      const hasBase = connectedProviders.includes('google')
+      console.log(`Google integration check - hasSpecific: ${hasSpecific}, hasBase: ${hasBase}`)
+      return hasSpecific || hasBase
+    }
+    
+    // Direct provider match
+    return connectedProviders.includes(integrationId)
+  }, [getConnectedProviders, integrations])
 
   const filterIntegrations = useCallback((
     integrations: IntegrationInfo[],
@@ -177,15 +220,21 @@ export function useIntegrationSelection() {
     'shopify',
     'blackbaud',
     'box',
+    'dropbox',
+    'gitlab',
+    'instagram',
+    'linkedin',
+    'teams',  // Microsoft Teams uses 'teams' as its ID
+    'stripe',
+    'tiktok',
+    'youtube',
+    'youtube-studio',
   ]), [])
 
   // Method to manually refresh integrations
-  const refreshIntegrations = useCallback(() => {
-    if (!loading) {
-      console.log('Manual integration refresh triggered')
-      fetchIntegrations()
-    }
-  }, [loading, fetchIntegrations])
+  const refreshIntegrations = useCallback(async () => {
+    await fetchIntegrations(true) // Force refresh from server
+  }, [fetchIntegrations])
 
   return {
     availableIntegrations,
