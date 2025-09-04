@@ -66,20 +66,27 @@ AVAILABLE TRIGGERS (use these exact types):
 - stripe_trigger_new_payment: New Stripe payment
 - shopify_trigger_new_order: New Shopify order
 
-AVAILABLE ACTIONS FOR CHAINS (use these exact types):
+AVAILABLE ACTIONS FOR CHAINS (use ONLY these exact types - NO CUSTOM NAMES):
 - gmail_action_send_email: Send Gmail email
-- slack_action_send_message: Send Slack message
+- slack_action_send_message: Send Slack message  
 - discord_action_send_message: Send Discord message
 - notion_action_create_page: Create Notion page
 - notion_action_search_pages: Search Notion pages
 - notion_action_update_page: Update Notion page
 - airtable_action_create_record: Create Airtable record
+- airtable_action_update_record: Update Airtable record
+- airtable_action_list_records: List Airtable records
 - google_calendar_action_create_event: Create calendar event
-- google_sheets_action_create_row: Add row to Google Sheets
+- google_sheets_unified_action: Add/update/delete rows in Google Sheets
+- google_sheets_action_read_data: Read Google Sheets data
+- google_docs_action_create_document: Create Google Doc
+- google_docs_action_update_document: Update Google Doc
 - trello_action_create_card: Create Trello card
 - stripe_action_create_customer: Create Stripe customer
 - hubspot_action_update_deal: Update HubSpot deal
 - hubspot_action_create_contact: Create HubSpot contact
+- hubspot_action_create_company: Create HubSpot company
+- hubspot_action_create_deal: Create HubSpot deal
 
 RESPONSE FORMAT:
 {
@@ -141,24 +148,70 @@ RESPONSE FORMAT:
 }
 
 CUSTOMER SUPPORT WORKFLOW TEMPLATE:
-For customer support workflows, use this pattern:
+For customer support workflows, use this EXACT pattern with ONLY valid action types:
 - Trigger: gmail_trigger_new_email
-- AI Agent with 6 chains:
+- AI Agent with 6 chains for complete coverage:
   1. Ticket Classification: notion_action_create_page + slack_action_send_message
   2. FAQ Resolution: notion_action_search_pages + gmail_action_send_email
   3. Escalation: notion_action_create_page + slack_action_send_message + google_calendar_action_create_event
   4. Follow-ups: notion_action_search_pages + gmail_action_send_email
-  5. Feedback: google_sheets_action_create_row + slack_action_send_message
-  6. Order Issues: stripe_action_create_customer + hubspot_action_update_deal + gmail_action_send_email
+  5. Feedback Collection: google_sheets_unified_action + slack_action_send_message
+  6. Order Processing: stripe_action_create_customer + hubspot_action_update_deal + gmail_action_send_email
+
+CRITICAL: ONLY use action types from the AVAILABLE ACTIONS list above. Do NOT create custom action names!
+
+AI Agent system prompt should be comprehensive and explain:
+- What each chain does
+- When to trigger each chain
+- How to analyze input to decide which chains to execute
+- That multiple chains can be executed in parallel
 
 IMPORTANT RULES:
 1. Use timestamps for IDs (e.g., trigger-1234567890, node-1234567891)
-2. AI Agent should have a detailed systemPrompt explaining its role
-3. Each chain should have a clear name and description
-4. All actions in chains should have aiConfigured: true
-5. Position nodes vertically (y: 100, 300, 500, etc.)
-6. providerId must match the service (gmail, slack, discord, notion, etc.)
-7. Return ONLY valid JSON without any markdown or explanation
+2. AI Agent should have a DETAILED systemPrompt (minimum 200 words) explaining:
+   - The AI's role and purpose
+   - Specific instructions for each chain
+   - How to analyze inputs and decide which chains to execute
+   - Examples of when to use each chain
+3. Each chain should have:
+   - Clear, descriptive name (2-3 words)
+   - Detailed description (10-20 words)
+   - 2-4 relevant actions that work together
+4. All actions in chains MUST:
+   - Use EXACT type from AVAILABLE ACTIONS list (NO CUSTOM NAMES!)
+   - Have aiConfigured: true
+   - Have label: descriptive name for the UI display
+   - Have correct providerId matching the action
+5. Position nodes: trigger at y:100, AI Agent at y:300
+6. providerId must match exactly:
+   - "gmail" for Gmail actions
+   - "slack" for Slack actions
+   - "notion" for Notion actions
+   - "google-sheets" for Google Sheets (with hyphen!)
+   - "google-calendar" for Calendar
+   - "stripe" for Stripe
+   - "hubspot" for HubSpot
+7. VALIDATION: Every action type MUST exist in the AVAILABLE ACTIONS list above
+8. Return ONLY valid JSON without any markdown or explanation
+
+EXAMPLE SYSTEM PROMPT FOR CUSTOMER SUPPORT:
+"You are an intelligent customer support AI assistant. Your role is to analyze incoming support emails and automatically execute the appropriate workflow chains based on the content, urgency, and context of each inquiry.
+
+Analyze each email for:
+- Keywords indicating the type of request
+- Sentiment and urgency level
+- Whether it's a new issue or follow-up
+- Customer tier or importance
+
+Execute chains based on these rules:
+- Chain 1 (Ticket Classification): For new support requests that need tracking
+- Chain 2 (FAQ Resolution): For common questions that can be answered automatically
+- Chain 3 (Escalation): For urgent issues, angry customers, or VIP accounts
+- Chain 4 (Follow-ups): For emails referencing existing tickets
+- Chain 5 (Feedback): For feedback, testimonials, or satisfaction surveys
+- Chain 6 (Order Issues): For payment, billing, or order-related problems
+
+You may execute multiple chains in parallel when appropriate. For example, create a ticket AND send an immediate response."
 
 Generate the workflow now.
 `
@@ -362,9 +415,8 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
       name: "Ticket Classification",
       description: "Create support tickets and notify team",
       actions: [
-        { type: "notion_action_create_page", providerId: "notion", aiConfigured: true, label: "Create Ticket" },
-        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Notify Team" },
-        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Acknowledgment" }
+        { type: "notion_action_create_page", providerId: "notion", aiConfigured: true, label: "Create Support Ticket" },
+        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Notify Support Team" }
       ]
     },
     {
@@ -373,7 +425,7 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
       description: "Search and respond with solutions",
       actions: [
         { type: "notion_action_search_pages", providerId: "notion", aiConfigured: true, label: "Search Knowledge Base" },
-        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Solution" }
+        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Response to Customer" }
       ]
     },
     {
@@ -381,10 +433,9 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
       name: "Escalation",
       description: "Handle high-priority issues",
       actions: [
-        { type: "notion_action_create_page", providerId: "notion", aiConfigured: true, label: "Create Priority Ticket" },
-        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Alert Manager" },
-        { type: "google_calendar_action_create_event", providerId: "google-calendar", aiConfigured: true, label: "Schedule Meeting" },
-        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Inform Customer" }
+        { type: "notion_action_create_page", providerId: "notion", aiConfigured: true, label: "Create Escalation Ticket" },
+        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Notify Management Team" },
+        { type: "google_calendar_action_create_event", providerId: "google-calendar", aiConfigured: true, label: "Schedule Escalation Meeting" }
       ]
     },
     {
@@ -392,26 +443,27 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
       name: "Follow-ups",
       description: "Check status and update customers",
       actions: [
-        { type: "notion_action_search_pages", providerId: "notion", aiConfigured: true, label: "Check Ticket Status" },
-        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Update" }
+        { type: "notion_action_search_pages", providerId: "notion", aiConfigured: true, label: "Track Interaction" },
+        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Follow-up Email" }
       ]
     },
     {
       id: "chain-5",
       name: "Feedback Collection",
-      description: "Log feedback and analyze sentiment",
+      description: "Log feedback and notify team",
       actions: [
-        { type: "google_sheets_action_create_row", providerId: "google-sheets", aiConfigured: true, label: "Log Feedback" },
-        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Alert if Negative" }
+        { type: "google_sheets_unified_action", providerId: "google-sheets", aiConfigured: true, label: "Record Feedback" },
+        { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Notify Feedback Team" }
       ]
     },
     {
       id: "chain-6",
-      name: "Order Issues",
-      description: "Handle payment and order problems",
+      name: "Order Processing",
+      description: "Handle order and payment issues",
       actions: [
-        { type: "airtable_action_create_record", providerId: "airtable", aiConfigured: true, label: "Log Issue" },
-        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Send Resolution" }
+        { type: "stripe_action_create_customer", providerId: "stripe", aiConfigured: true, label: "Manage Order Issue" },
+        { type: "hubspot_action_update_deal", providerId: "hubspot", aiConfigured: true, label: "Update Customer Deal" },
+        { type: "gmail_action_send_email", providerId: "gmail", aiConfigured: true, label: "Inform Customer about Order" }
       ]
     }
   ]

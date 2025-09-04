@@ -18,6 +18,7 @@ interface AIFieldWrapperProps {
   loadingDynamic?: boolean;
   nodeInfo?: any;
   onDynamicLoad?: any;
+  parentValues?: any;
   isAIEnabled?: boolean;
   onAIToggle?: (fieldName: string, enabled: boolean) => void;
   isReadOnly?: boolean;
@@ -35,18 +36,33 @@ export function AIFieldWrapper({
   loadingDynamic,
   nodeInfo,
   onDynamicLoad,
+  parentValues,
   isAIEnabled = false,
   onAIToggle,
   isReadOnly = false,
   isNonEditable = false,
 }: AIFieldWrapperProps) {
-  const [isAIMode, setIsAIMode] = useState(isAIEnabled);
+  // Initialize AI mode based on either the prop or if the value is an AI placeholder
+  const [isAIMode, setIsAIMode] = useState(
+    isAIEnabled || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'))
+  );
   
   // Check if field is the recordId field for update record
   const isRecordIdField = field.name === 'recordId' && nodeInfo?.type === 'airtable_action_update_record';
   
-  // Check if field supports AI (all fields except recordId)
-  const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable;
+  // Check if field supports AI (all fields except recordId, and only if onAIToggle is provided)
+  const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable && !!onAIToggle;
+  
+  console.log('🎯 [AIFieldWrapper] Rendering:', {
+    fieldName: field.name,
+    isAIEnabled,
+    hasOnAIToggle: !!onAIToggle,
+    isReadOnly,
+    isNonEditable,
+    supportsAI,
+    willShowButton: supportsAI && !isAIMode,
+    isAIMode
+  });
   
   // Check if field is non-editable (computed fields, auto-number, etc.)
   const isLocked = isNonEditable || field.computed || field.autoNumber || field.formula;
@@ -77,7 +93,7 @@ export function AIFieldWrapper({
       <div className="flex items-start gap-2">
         <div className="flex-1">
           {isAIMode ? (
-            // AI Mode Display
+            // AI Mode Display - styled like the reference image
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium flex items-center gap-2">
@@ -85,24 +101,21 @@ export function AIFieldWrapper({
                   {field.label || field.name}
                   {field.required && <span className="text-red-500">*</span>}
                 </label>
-                {supportsAI && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleAIToggle}
-                    className="h-6 px-2 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Cancel AI
-                  </Button>
-                )}
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-center gap-2">
-                <Bot className="h-4 w-4 text-blue-600" />
-                <span className="text-sm text-blue-700 font-medium">
-                  Defined automatically by AI
+              <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+                <Bot className="h-4 w-4 text-gray-400" />
+                <span className="text-sm flex-1">
+                  Defined automatically by the model
                 </span>
+                {supportsAI && (
+                  <button
+                    type="button"
+                    onClick={handleAIToggle}
+                    className="text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               {field.description && (
                 <p className="text-xs text-slate-500">{field.description}</p>
@@ -111,8 +124,8 @@ export function AIFieldWrapper({
           ) : (
             // Normal Field Display
             <div className="space-y-2">
-              {/* Field Label with AI Button */}
-              <div className="flex items-center justify-between">
+              {/* Field Label */}
+              <div className="flex items-center gap-2 mb-1">
                 <label className="text-sm font-medium flex items-center gap-2">
                   {isLocked && (
                     <EnhancedTooltip content={
@@ -128,17 +141,14 @@ export function AIFieldWrapper({
                   {field.required && <span className="text-red-500">*</span>}
                 </label>
                 {supportsAI && (
-                  <EnhancedTooltip content="Let AI define this value">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleAIToggle}
-                      className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
-                    >
-                      <Bot className="h-4 w-4" />
-                    </Button>
-                  </EnhancedTooltip>
+                  <button
+                    type="button"
+                    onClick={handleAIToggle}
+                    className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                    title="Use AI to fill this field"
+                  >
+                    <Bot className="h-4 w-4" />
+                  </button>
                 )}
               </div>
               
@@ -159,6 +169,7 @@ export function AIFieldWrapper({
                   loadingDynamic={loadingDynamic}
                   nodeInfo={nodeInfo}
                   onDynamicLoad={onDynamicLoad}
+                  parentValues={parentValues}
                 />
               </div>
             </div>

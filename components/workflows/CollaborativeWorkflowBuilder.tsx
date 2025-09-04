@@ -505,6 +505,26 @@ const useWorkflowBuilderState = () => {
 
 
 
+  // Handle renaming nodes
+  const handleRenameNode = useCallback((nodeId: string, newTitle: string) => {
+    setNodes((nds) => 
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              title: newTitle,
+              label: newTitle
+            }
+          }
+        }
+        return node
+      })
+    )
+    setHasUnsavedChanges(true)
+  }, [setNodes])
+
   // Memoize the recalculateLayout function to prevent unnecessary calls
   const recalculateLayout = useCallback(() => {
     const nodeList = getNodes()
@@ -1129,6 +1149,7 @@ const useWorkflowBuilderState = () => {
                 description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
+                onRename: handleRenameNode,
                 onChangeTrigger: (typeof node.data.type === 'string' && node.data.type.includes('trigger')) ? handleChangeTrigger : undefined,
                 onAddChain: node.data.type === 'ai_agent' && !(node.data as any)?.hasChains ? handleAddChain : undefined,
                 // Use the saved providerId directly, fallback to extracting from type if not available
@@ -1336,6 +1357,7 @@ const useWorkflowBuilderState = () => {
         isTrigger: true,
         onConfigure: handleConfigureNode,
         onDelete: handleDeleteNodeWithConfirmation,
+        onRename: handleRenameNode,
         onChangeTrigger: handleChangeTrigger,
         onAddChain: undefined,
         providerId: integration.id,
@@ -1583,6 +1605,7 @@ const useWorkflowBuilderState = () => {
         description: action.description,
         onConfigure: handleConfigureNode, 
         onDelete: handleDeleteNodeWithConfirmation,
+        onRename: handleRenameNode,
         // Only show Add Chain button if it's an AI Agent without chains
         onAddChain: isAIAgent && !hasChains ? handleAddChain : undefined,
         providerId: integration.id, 
@@ -2007,6 +2030,7 @@ const useWorkflowBuilderState = () => {
                 description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
                 onConfigure: handleConfigureNode,
                 onDelete: handleDeleteNodeWithConfirmation,
+                onRename: handleRenameNode,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
                 onAddChain: node.data.type === 'ai_agent' && !(node.data as any)?.hasChains ? handleAddChain : undefined,
                 providerId: node.data.providerId || node.data.type?.split('-')[0]
@@ -2650,6 +2674,7 @@ const useWorkflowBuilderState = () => {
               description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
+              onRename: handleRenameNode,
               onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
               onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
               providerId: node.data.providerId || node.data.type?.split('-')[0]
@@ -3848,6 +3873,7 @@ function WorkflowBuilderContent() {
                               config: action.config || {},
                               onConfigure: (id: string) => handleConfigureNode(id),
                               onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
+                              onRename: handleRenameNode,
                               onAddChain: undefined,
                               isAIAgentChild: true,
                               parentAIAgentId: actualAIAgentId,

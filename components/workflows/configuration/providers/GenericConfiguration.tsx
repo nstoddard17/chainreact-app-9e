@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
+import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 
 interface GenericConfigurationProps {
   nodeInfo: any;
@@ -25,6 +26,7 @@ interface GenericConfigurationProps {
   onConnectIntegration?: () => void;
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
+  isConnectedToAIAgent?: boolean;
 }
 
 export function GenericConfiguration({
@@ -46,6 +48,7 @@ export function GenericConfiguration({
   onConnectIntegration,
   aiFields = {},
   setAiFields = () => {},
+  isConnectedToAIAgent = false,
 }: GenericConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
@@ -120,25 +123,50 @@ export function GenericConfiguration({
     field.advanced && shouldShowField(field)
   ) || [];
 
+  // Handle AI field toggle
+  const handleAIToggle = useCallback((fieldName: string, enabled: boolean) => {
+    setAiFields({
+      ...aiFields,
+      [fieldName]: enabled
+    });
+  }, [aiFields, setAiFields]);
+
   // Render fields helper
   const renderFields = (fields: any[]) => {
-    return fields.map((field, index) => (
-      <React.Fragment key={`field-${field.name}-${index}`}>
-        <FieldRenderer
-          field={field}
-          value={values[field.name]}
-          onChange={(value) => setValue(field.name, value)}
-          error={errors[field.name] || validationErrors[field.name]}
-          workflowData={workflowData}
-          currentNodeId={currentNodeId}
-          dynamicOptions={dynamicOptions}
-          loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.dynamic)}
-          nodeInfo={nodeInfo}
-          onDynamicLoad={handleDynamicLoad}
-          parentValues={values}
-        />
-      </React.Fragment>
-    ));
+    return fields.map((field, index) => {
+      // Use AIFieldWrapper when connected to AI Agent, otherwise use FieldRenderer
+      const shouldUseAIWrapper = isConnectedToAIAgent === true;
+      console.log('🤖 [GenericConfig] Rendering field:', {
+        fieldName: field.name,
+        isConnectedToAIAgent,
+        shouldUseAIWrapper,
+        typeofIsConnected: typeof isConnectedToAIAgent,
+        aiFields,
+        isAIEnabled: aiFields[field.name] || false
+      });
+      const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
+      
+      return (
+        <React.Fragment key={`field-${field.name}-${index}`}>
+          <Component
+            field={field}
+            value={values[field.name]}
+            onChange={(value) => setValue(field.name, value)}
+            error={errors[field.name] || validationErrors[field.name]}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.dynamic)}
+            nodeInfo={nodeInfo}
+            onDynamicLoad={handleDynamicLoad}
+            parentValues={values}
+            // Props specific to AIFieldWrapper
+            isAIEnabled={aiFields[field.name] || false}
+            onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
+          />
+        </React.Fragment>
+      );
+    });
   };
 
   // Handle form submission

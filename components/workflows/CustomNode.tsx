@@ -1,9 +1,9 @@
 "use client"
 
-import React, { memo } from "react"
+import React, { memo, useState, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Plus } from "lucide-react"
+import { Settings, Trash2, TestTube, Plus, Edit2 } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -20,6 +20,7 @@ interface CustomNodeData {
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
+  onRename?: (id: string, newTitle: string) => void
   error?: string
   executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
   isActiveExecution?: boolean
@@ -29,6 +30,10 @@ interface CustomNodeData {
 }
 
 function CustomNode({ id, data, selected }: NodeProps) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editedTitle, setEditedTitle] = useState("")
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  
   const {
     title,
     description,
@@ -39,6 +44,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onConfigure,
     onDelete,
     onAddChain,
+    onRename,
     error,
     executionStatus,
     isActiveExecution,
@@ -56,6 +62,40 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
+  
+  // Handle title editing
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  }, [isEditingTitle])
+  
+  const handleStartEditTitle = () => {
+    setEditedTitle(title || component?.title || 'Unnamed Action')
+    setIsEditingTitle(true)
+  }
+  
+  const handleSaveTitle = () => {
+    const newTitle = editedTitle.trim()
+    if (newTitle && newTitle !== title && onRename) {
+      onRename(id, newTitle)
+    }
+    setIsEditingTitle(false)
+  }
+  
+  const handleCancelEdit = () => {
+    setIsEditingTitle(false)
+    setEditedTitle("")
+  }
+  
+  const handleTitleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveTitle()
+    } else if (e.key === 'Escape') {
+      handleCancelEdit()
+    }
+  }
   
   // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
@@ -180,7 +220,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative w-[400px] bg-card rounded-lg shadow-sm border ${
+      className={`relative w-[400px] bg-card rounded-lg shadow-sm border group ${
         selected ? "border-primary" : error ? "border-destructive" : "border-border"
       } hover:shadow-md transition-all duration-200 ${
         nodeHasConfiguration() ? "cursor-pointer" : ""
@@ -243,10 +283,36 @@ function CustomNode({ id, data, selected }: NodeProps) {
               component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
             )}
             <div className="min-w-0 flex-1">
-              <h3 className="text-xl font-medium text-foreground">
-                {title || (component && component.title) || 'Unnamed Action'}
-              </h3>
-              {description && (
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={handleTitleKeyPress}
+                  onBlur={handleSaveTitle}
+                  className="text-xl font-medium text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-medium text-foreground">
+                    {title || (component && component.title) || 'Unnamed Action'}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleStartEditTitle()
+                    }}
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {description && !isEditingTitle && (
                 <p className="text-muted-foreground">{description || (component && component.description)}</p>
               )}
             </div>
