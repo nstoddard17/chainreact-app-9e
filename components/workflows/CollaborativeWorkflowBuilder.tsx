@@ -173,7 +173,12 @@ const useWorkflowBuilderState = () => {
 
   const { currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
-  const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
+  const { 
+    getConnectedProviders, 
+    integrations: storeIntegrations,
+    fetchIntegrations,
+    loading: integrationsLoading 
+  } = useIntegrationStore()
   const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
   
   // Use cached stores for workflows and integrations
@@ -219,7 +224,7 @@ const useWorkflowBuilderState = () => {
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [showConnectedOnly, setShowConnectedOnly] = useState(true) // Not used anymore but kept for compatibility
+  const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Show all integrations including "Coming soon" ones
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
@@ -309,12 +314,53 @@ const useWorkflowBuilderState = () => {
     // AI Agent is always "connected" since it doesn't require external authentication
     if (integrationId === 'ai') return true;
     
-    // Use the integration store to check if this integration is connected
-    const connectedProviders = getConnectedProviders();
-    const isConnected = connectedProviders.includes(integrationId);
+    // Webhook and scheduler don't require authentication
+    if (integrationId === 'webhook' || integrationId === 'scheduler') return true;
     
-    return isConnected;
-  }, [integrations, getConnectedProviders])
+    // For Google services, check if ANY Google service is connected
+    // Google services share authentication, so if one is connected, all are connected
+    if (integrationId.startsWith('google-') || integrationId === 'gmail') {
+      // Check if any Google service integration exists that's properly connected
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail'];
+      const connectedGoogleService = storeIntegrations.find(i => 
+        googleServices.includes(i.provider) && 
+        i.status !== 'disconnected' && 
+        i.status !== 'failed' && 
+        i.status !== 'expired' &&
+        i.status !== 'needs_reauthorization' &&
+        !i.disconnected_at
+      );
+      
+      if (connectedGoogleService) {
+        return true;
+      }
+      
+      // Also check via getConnectedProviders which handles the grouping
+      const connectedProviders = getConnectedProviders();
+      const hasAnyGoogleConnected = googleServices.some(service => connectedProviders.includes(service));
+      if (hasAnyGoogleConnected) {
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // Check if this specific integration exists in the store
+    const integration = storeIntegrations.find(i => i.provider === integrationId);
+    if (integration) {
+      // Consider it connected if it's not explicitly disconnected or failed
+      const isConnected = integration.status !== 'disconnected' && 
+                          integration.status !== 'failed' && 
+                          integration.status !== 'expired' &&
+                          integration.status !== 'needs_reauthorization' &&
+                          !integration.disconnected_at;
+      return isConnected;
+    }
+    
+    // Use the getConnectedProviders as fallback
+    const connectedProviders = getConnectedProviders();
+    return connectedProviders.includes(integrationId);
+  }, [storeIntegrations, getConnectedProviders])
 
 
 
@@ -927,6 +973,11 @@ const useWorkflowBuilderState = () => {
   const optimizedOnNodesChange = useCallback((changes: any) => {
     onNodesChange(changes)
   }, [onNodesChange])
+
+  // Fetch integrations when component mounts
+  useEffect(() => {
+    fetchIntegrations(true) // Force fetch to ensure we have latest data
+  }, [fetchIntegrations])
 
   useEffect(() => {
     if (workflowId) {
@@ -2180,17 +2231,8 @@ const useWorkflowBuilderState = () => {
   }
 
   const filteredIntegrations = useMemo(() => {
-    // console.log('🔍 Computing filteredIntegrations:', { 
-    //   availableIntegrationsCount: availableIntegrations.length,
-    //   showConnectedOnly,
-    //   filterCategory,
-    //   searchQuery,
-    //   integrationsLoading
-    // });
-    
     // If integrations are still loading, show all integrations to avoid empty state
     if (integrationsLoading) {
-      // console.log('🔍 Integrations still loading, showing all integrations');
       return availableIntegrations;
     }
     
@@ -2205,10 +2247,6 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         if (filterCategory === 'all') return true;
         return int.category === filterCategory;
-      })
-      .filter(int => {
-        // Filter out integrations that have no triggers
-        return int.triggers.length > 0;
       })
       .filter(int => {
         const searchLower = searchQuery.toLowerCase();
@@ -2834,6 +2872,15 @@ function WorkflowBuilderContent() {
     'shopify',
     'blackbaud',
     'box',
+    'dropbox',
+    'gitlab',
+    'instagram',
+    'linkedin',
+    'teams',  // Microsoft Teams uses 'teams' as its ID
+    'stripe',
+    'tiktok',
+    'youtube',
+    'youtube-studio',
   ]), []);
 
   const handleOpenTriggerDialog = () => {
@@ -3090,27 +3137,13 @@ function WorkflowBuilderContent() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="connected-apps" checked={showConnectedOnly} onCheckedChange={(checked: boolean) => setShowConnectedOnly(Boolean(checked))} />
-                <Label htmlFor="connected-apps" className="whitespace-nowrap">Show only connected apps</Label>
-              </div>
             </div>
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
             <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
-              {filteredIntegrations.length === 0 && showConnectedOnly ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-muted-foreground mb-2">
-                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
-                  <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
-                </div>
-              ) : filteredIntegrations.length === 0 ? (
+              {filteredIntegrations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="text-muted-foreground mb-2">
                     <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3120,31 +3153,55 @@ function WorkflowBuilderContent() {
                   <p className="text-sm text-muted-foreground">No integrations match your search</p>
                 </div>
               ) : (
-                filteredIntegrations.map((integration) => (
-                  <div
-                    key={integration.id}
-                    className={`flex items-center p-3 rounded-md ${
-                      comingSoonIntegrations.has(integration.id)
-                        ? 'cursor-not-allowed opacity-60'
-                        : 'cursor-pointer'
-                    } ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
-                    onClick={() => {
-                      if (comingSoonIntegrations.has(integration.id)) return
-                      setSelectedIntegration(integration)
-                    }}
-                    aria-disabled={comingSoonIntegrations.has(integration.id)}
-                  >
-                    {renderLogo(integration.id, integration.name)}
-                    <span className="font-semibold ml-4 flex-grow truncate">
-                      {integration.name}
-                    </span>
-                    {comingSoonIntegrations.has(integration.id) && (
-                      <Badge variant="secondary" className="ml-2 shrink-0 whitespace-nowrap text-[10px] h-5 px-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide">Coming soon</Badge>
-                    )}
-                    {/* Right indicator: subtle dot indicator instead of arrow */}
-                    <span className="ml-2 shrink-0 inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
-                  </div>
-                ))
+                filteredIntegrations.map((integration) => {
+                  const isConnected = isIntegrationConnected(integration.id);
+                  const isComingSoon = comingSoonIntegrations.has(integration.id);
+                  
+                  return (
+                    <div
+                      key={integration.id}
+                      className={`flex items-center p-3 rounded-md ${
+                        isComingSoon 
+                          ? 'cursor-not-allowed opacity-60'
+                          : isConnected 
+                            ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
+                            : 'opacity-60'
+                      }`}
+                      onClick={() => !isComingSoon && isConnected && setSelectedIntegration(integration)}
+                    >
+                      {renderLogo(integration.id, integration.name)}
+                      <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                      {isComingSoon ? (
+                        <Badge variant="secondary" className="ml-2 shrink-0">
+                          Coming soon
+                        </Badge>
+                      ) : !isConnected && 
+                           integration.id !== 'core' && 
+                           integration.id !== 'logic' && 
+                           integration.id !== 'webhook' && 
+                           integration.id !== 'scheduler' && 
+                           integration.id !== 'ai' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mr-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle OAuth connection
+                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS];
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl;
+                            }
+                          }}
+                        >
+                          Connect
+                        </Button>
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                  );
+                })
               )}
               </div>
             </ScrollArea>
@@ -3153,7 +3210,31 @@ function WorkflowBuilderContent() {
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
-                    {displayedTriggers.length > 0 ? (
+                    {!isIntegrationConnected(selectedIntegration.id) ? (
+                      // Show message for unconnected integrations
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="text-muted-foreground mb-4">
+                          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          You need to connect your {selectedIntegration.name} account to use these triggers.
+                        </p>
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS];
+                            if (config?.oauthUrl) {
+                              window.location.href = config.oauthUrl;
+                            }
+                          }}
+                        >
+                          Connect {selectedIntegration.name}
+                        </Button>
+                      </div>
+                    ) : displayedTriggers.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3">
                         {displayedTriggers.map((trigger, index) => {
                           const isTriggerComingSoon = Boolean((trigger as any).comingSoon) || (selectedIntegration && comingSoonIntegrations.has(selectedIntegration.id))
@@ -3188,6 +3269,7 @@ function WorkflowBuilderContent() {
                         })}
                       </div>
                     ) : (
+                      // Show actions for connected integrations
                       <div className="flex flex-col items-center justify-center py-8 text-center">
                         <div className="text-muted-foreground mb-2">
                           <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3350,20 +3432,32 @@ function WorkflowBuilderContent() {
                 // Use the already filtered and sorted integrations
                 return sortedIntegrations.map((integration) => {
                   const isConnected = isIntegrationConnected(integration.id);
+                  const isComingSoon = comingSoonIntegrations.has(integration.id);
                   
                   return (
                     <div
                       key={integration.id}
                       className={`flex items-center p-3 rounded-md ${
-                        isConnected 
-                          ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
-                          : 'opacity-60'
+                        isComingSoon 
+                          ? 'cursor-not-allowed opacity-60'
+                          : isConnected 
+                            ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
+                            : 'opacity-60'
                       }`}
-                      onClick={() => isConnected && setSelectedIntegration(integration)}
+                      onClick={() => !isComingSoon && isConnected && setSelectedIntegration(integration)}
                     >
                       {renderLogo(integration.id, integration.name)}
                       <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                      {!isConnected ? (
+                      {isComingSoon ? (
+                        <Badge variant="secondary" className="ml-2 shrink-0">
+                          Coming soon
+                        </Badge>
+                      ) : !isConnected && 
+                           integration.id !== 'core' && 
+                           integration.id !== 'logic' && 
+                           integration.id !== 'webhook' && 
+                           integration.id !== 'scheduler' && 
+                           integration.id !== 'ai' ? (
                         <Button
                           size="sm"
                           variant="outline"
