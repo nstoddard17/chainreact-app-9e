@@ -34,7 +34,7 @@ import {
   ArrowRight, Save, Play, Database, Clock, Shield,
   Download, Copy, GraduationCap, ToggleLeft, ToggleRight,
   FileText, Palette, Lock, Unlock, RefreshCw, TrendingUp,
-  Activity, Coins, Layers, Shuffle, Workflow
+  Activity, Coins, Layers, Shuffle, Workflow, LinkIcon
 } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useToast } from '@/hooks/use-toast'
@@ -48,6 +48,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -195,6 +196,7 @@ export function AIAgentConfigModal({
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
+  const { comingSoonIntegrations, isIntegrationConnected } = useIntegrationSelection()
   
   // Progressive disclosure state
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
@@ -428,7 +430,7 @@ export function AIAgentConfigModal({
     const integrationMap = new Map()
     
     ALL_NODE_COMPONENTS.filter(node => 
-      node.type !== 'trigger' && 
+      !node.isTrigger &&  // Properly exclude triggers
       node.type !== 'ai_agent' &&
       !node.type.includes('trigger')
     ).forEach(node => {
@@ -1818,21 +1820,56 @@ export function AIAgentConfigModal({
               <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
                 <div className="pt-2 pb-3 pl-3 pr-5">
                   {/* Integration List */}
-                  {getFilteredIntegrations().map((integration) => (
-                    <div
-                      key={integration.id}
-                      className={`flex items-center p-3 rounded-md cursor-pointer ${
-                        selectedActionIntegration?.id === integration.id 
-                          ? 'bg-primary/10 ring-1 ring-primary/20' 
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => setSelectedActionIntegration(integration)}
-                    >
-                      {renderIntegrationLogo(integration.id, integration.name)}
-                      <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  ))}
+                  {getFilteredIntegrations().map((integration, index) => {
+                    const isConnected = isIntegrationConnected(integration.id)
+                    const isComingSoon = comingSoonIntegrations.has(integration.id)
+                    
+                    return (
+                      <div
+                        key={`${integration.id}-${index}`}
+                        className={`flex items-center p-3 rounded-md ${
+                          isComingSoon
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer'
+                        } ${
+                          selectedActionIntegration?.id === integration.id 
+                            ? 'bg-primary/10 ring-1 ring-primary/20' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => {
+                          if (!isComingSoon) {
+                            setSelectedActionIntegration(integration)
+                          }
+                        }}
+                      >
+                        {renderIntegrationLogo(integration.id, integration.name)}
+                        <span className="font-semibold ml-4 flex-grow truncate">
+                          {integration.name}
+                        </span>
+                        {isComingSoon ? (
+                          <Badge variant="secondary" className="ml-2 shrink-0">
+                            Coming soon
+                          </Badge>
+                        ) : !isConnected && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(integration.id) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-2 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
+                              if (config?.oauthUrl) {
+                                window.location.href = config.oauthUrl
+                              }
+                            }}
+                          >
+                            <LinkIcon className="w-3 h-3 mr-1" />
+                            Connect
+                          </Button>
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </div>
               </ScrollArea>
               
@@ -1840,9 +1877,35 @@ export function AIAgentConfigModal({
                 <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                   <div className="p-4">
                     {selectedActionIntegration ? (
-                      <div className="h-full">
-                        <div className="grid grid-cols-1 gap-3">
-                          {selectedActionIntegration.actions
+                      !isIntegrationConnected(selectedActionIntegration.id) && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(selectedActionIntegration.id) ? (
+                        // Show message for unconnected integrations
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                          <div className="text-muted-foreground mb-4">
+                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2">Connect {selectedActionIntegration.name}</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            You need to connect your {selectedActionIntegration.name} account to use these actions.
+                          </p>
+                          <Button
+                            variant="default"
+                            onClick={() => {
+                              const config = INTEGRATION_CONFIGS[selectedActionIntegration.id as keyof typeof INTEGRATION_CONFIGS]
+                              if (config?.oauthUrl) {
+                                window.location.href = config.oauthUrl
+                              }
+                            }}
+                          >
+                            <LinkIcon className="w-4 h-4 mr-2" />
+                            Connect {selectedActionIntegration.name}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="h-full">
+                          <div className="grid grid-cols-1 gap-3">
+                            {selectedActionIntegration.actions
                             .filter((action: any) => {
                               if (actionSearchQuery) {
                                 const query = actionSearchQuery.toLowerCase()
@@ -1902,8 +1965,9 @@ export function AIAgentConfigModal({
                                 </div>
                               )
                             })}
+                          </div>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted-foreground">
                         <p>Select an integration to see its actions</p>

@@ -340,6 +340,22 @@ Essential steps that MUST be completed:
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
+### Integration Selection Modal Synchronization
+**IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL three modal components:
+
+1. **Workflow Builder Action Selection Modal** (`/components/workflows/builder/ActionSelectionDialog.tsx`)
+2. **Workflow Builder Trigger Selection Modal** (`/components/workflows/builder/TriggerSelectionDialog.tsx`)
+3. **AI Agent Action Selection Modal** (`/components/workflows/AIAgentConfigModal.tsx` lines 1729-1970)
+
+Key areas that must remain synchronized:
+- **Coming Soon Labels**: Use `comingSoonIntegrations` from `useIntegrationSelection` hook
+- **Connect Buttons**: Show for unconnected integrations, exclude system integrations (logic, core, manual, schedule, webhook)
+- **Integration Status**: Use `isIntegrationConnected` from the same hook
+- **OAuth URL Handling**: Consistent pattern for constructing OAuth URLs
+- **Visual Styling**: Same classes and layout for badges and buttons
+
+When updating any integration selection behavior, search for and update all three locations to maintain consistency across the application. This ensures users have the same experience regardless of which modal they're using.
+
 ## Code Refactoring Guide
 
 **CRITICAL**: When refactoring large files or modules, ALWAYS follow `/learning/docs/refactoring-guide.md` to ensure proper cleanup of legacy code and maintain functionality.

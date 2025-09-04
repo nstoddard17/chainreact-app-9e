@@ -248,7 +248,7 @@ export default function WorkflowsContent() {
 
     setGeneratingAI(true)
     try {
-      const response = await fetch("/api/ai/workflow-generation", {
+      const response = await fetch("/api/ai/generate-workflow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

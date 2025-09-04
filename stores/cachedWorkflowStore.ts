@@ -163,7 +163,6 @@ export async function createWorkflow(name: string, description?: string): Promis
     connections: [], // Will be JSON in database  
     user_id: user.id,
     status: "draft", // Add required status field
-    visibility: "private", // Add default visibility
     // executions_count will be handled by database default value
   }
 
