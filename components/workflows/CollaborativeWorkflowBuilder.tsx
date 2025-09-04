@@ -3188,8 +3188,8 @@ function WorkflowBuilderContent() {
                             e.stopPropagation();
                             // Handle OAuth connection
                             const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.oauthUrl) {
-                              window.location.href = config.oauthUrl;
+                            if (config?.authUrl) {
+                              window.location.href = config.authUrl;
                             }
                           }}
                         >
@@ -3225,8 +3225,8 @@ function WorkflowBuilderContent() {
                           variant="default"
                           onClick={() => {
                             const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.oauthUrl) {
-                              window.location.href = config.oauthUrl;
+                            if (config?.authUrl) {
+                              window.location.href = config.authUrl;
                             }
                           }}
                         >
