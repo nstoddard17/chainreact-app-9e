@@ -11,7 +11,7 @@ type AddActionNodeData = {
 
 export function AddActionNode({ data }: NodeProps) {
   return (
-    <div className="w-[400px] flex flex-col items-center justify-center py-4">
+    <div className="nodrag nopan w-[400px] flex flex-col items-center justify-center py-4">
       <div className="flex flex-col items-center">
         <div className="w-px h-4 bg-border mb-2" />
         <TooltipProvider>
