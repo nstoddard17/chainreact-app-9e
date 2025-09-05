@@ -1,6 +1,6 @@
 "use client"
 
-import React, { memo, useCallback, useEffect, useState } from 'react'
+import React, { memo, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import {
   ArrowRight,
@@ -9,13 +9,12 @@ import {
   Settings,
   LogOut,
   Crown,
-  Bell,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { RoleBadgeCompact } from "@/components/ui/role-badge"
+import { NotificationDropdown } from "@/components/ui/notification-dropdown"
 import { type UserRole } from "@/lib/utils/roles"
-import { useIntegrationStore } from "@/stores/integrationStore"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,44 +41,6 @@ const LandingNavigation = memo(({
   onSignOut 
 }: LandingNavigationProps) => {
   const router = useRouter()
-  const { integrations } = useIntegrationStore()
-  const [hasIntegrationIssues, setHasIntegrationIssues] = useState(false)
-
-  // Check for integration issues (same as TopBar)
-  useEffect(() => {
-    if (!isAuthenticated) return
-    
-    const checkIntegrations = () => {
-      const now = new Date()
-      const hasIssues = integrations.some(integration => {
-        // Check database status first
-        if (integration.status === 'needs_reauthorization' || integration.status === 'expired') {
-          return true
-        }
-        
-        // Check if connected integration has expired based on expires_at timestamp
-        if (integration.status === 'connected' && integration.expires_at) {
-          const expiresAt = new Date(integration.expires_at)
-          const expiryTimestamp = expiresAt.getTime()
-          const nowTimestamp = now.getTime()
-          
-          // If expired (past the expiry time)
-          if (expiryTimestamp <= nowTimestamp) {
-            return true
-          }
-        }
-        
-        return false
-      })
-      setHasIntegrationIssues(hasIssues)
-    }
-
-    checkIntegrations()
-    // Check periodically
-    const interval = setInterval(checkIntegrations, 30000) // Check every 30 seconds
-    
-    return () => clearInterval(interval)
-  }, [integrations, isAuthenticated])
   
   const handleSignOut = useCallback(async () => {
     try {
@@ -172,24 +133,20 @@ const LandingNavigation = memo(({
                   </Button>
                 </Link>
                 
+                {/* Notification Bell - separate from user dropdown */}
+                <NotificationDropdown />
+                
                 {/* Membership tier - separate and non-clickable */}
                 {userRole && <RoleBadgeCompact role={userRole} />}
                 
-                {/* User dropdown with bell notification */}
+                {/* User dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
-                      className="button-animated flex items-center space-x-2 text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full text-base relative"
+                      className="button-animated flex items-center space-x-2 text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full text-base"
                     >
-                      {hasIntegrationIssues ? (
-                        <div className="relative">
-                          <Bell className="h-4 w-4 text-yellow-400 animate-pulse" />
-                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                        </div>
-                      ) : (
-                        <User className="h-4 w-4" />
-                      )}
+                      <User className="h-4 w-4" />
                       <span className="max-w-[120px] truncate">{profile?.username || profile?.full_name || "User"}</span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
@@ -200,19 +157,6 @@ const LandingNavigation = memo(({
                       <div className="text-xs text-gray-400 truncate">{user?.email}</div>
                     </div>
                     <DropdownMenuSeparator className="bg-gray-700" />
-                    
-                    {/* Show integration issues notification in dropdown */}
-                    {hasIntegrationIssues && (
-                      <>
-                        <DropdownMenuItem asChild>
-                          <Link href="/integrations" className="flex items-center text-yellow-400 hover:text-yellow-300 hover:bg-gray-700">
-                            <Bell className="mr-2 h-4 w-4 animate-pulse" />
-                            <span className="text-sm">Fix Integration Issues</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-gray-700" />
-                      </>
-                    )}
                     
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="flex items-center text-gray-200 hover:text-white hover:bg-gray-700">
@@ -303,6 +247,9 @@ const LandingNavigation = memo(({
                   </Button>
                 </Link>
                 
+                {/* Notification Bell */}
+                <NotificationDropdown />
+                
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
@@ -385,6 +332,9 @@ const LandingNavigation = memo(({
                   Dashboard
                 </Button>
               </Link>
+              
+              {/* Notification Bell */}
+              <NotificationDropdown />
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
