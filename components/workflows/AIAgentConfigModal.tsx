@@ -60,6 +60,7 @@ interface AIAgentConfigModalProps {
   currentNodeId?: string
   onOpenActionDialog?: () => void
   onActionSelect?: (action: any) => void
+  onAddActionToWorkflow?: (action: any, config: any) => void
 }
 
 // Group models by recommendation
@@ -211,12 +212,13 @@ export function AIAgentConfigModal({
   workflowData,
   currentNodeId,
   onOpenActionDialog,
-  onActionSelect
+  onActionSelect,
+  onAddActionToWorkflow
 }: AIAgentConfigModalProps) {
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
-  const { comingSoonIntegrations, isIntegrationConnected } = useIntegrationSelection()
+  const { comingSoonIntegrations, isIntegrationConnected, availableIntegrations } = useIntegrationSelection()
   
   // Progressive disclosure state
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
@@ -266,8 +268,9 @@ export function AIAgentConfigModal({
   const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
-  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string) => void) | null>(null)
+  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   
   // Loading states
   const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
@@ -306,7 +309,11 @@ export function AIAgentConfigModal({
       const originalOnActionSelect = onActionSelect
       onActionSelect = (action: any) => {
         if (pendingActionCallback && action) {
-          pendingActionCallback(action.type, action.providerId, action.config)
+          // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
+          const actualCallback = pendingActionCallback()
+          if (actualCallback) {
+            actualCallback(action.type, action.providerId, action.config)
+          }
           setPendingActionCallback(null)
         }
         originalOnActionSelect(action)
@@ -411,6 +418,9 @@ export function AIAgentConfigModal({
   }
 
   const handleSave = async () => {
+    console.log('🔵 [AIAgentConfigModal] handleSave called')
+    console.log('🔵 [AIAgentConfigModal] config.chains:', config.chains)
+    
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
     // In advanced mode, we still allow empty prompt for automatic mode
@@ -425,8 +435,10 @@ export function AIAgentConfigModal({
     setIsSaving(true)
     try {
       console.log('🤖 [AIAgentConfigModal] Saving AI Agent configuration:', config)
+      console.log('🤖 [AIAgentConfigModal] onSave function exists:', !!onSave)
       await onSave(config)
       console.log('✅ [AIAgentConfigModal] AI Agent configuration saved successfully')
+      setHasUnsavedChanges(false)
       toast({
         title: "Configuration Saved",
         description: "AI Agent settings have been updated"
@@ -532,10 +544,25 @@ export function AIAgentConfigModal({
         })
       }
       
-      // Add to chain via callback
+      // Add to chain via callback for visual builder
       if (pendingActionCallback) {
-        pendingActionCallback(action.type, action.providerId || '', aiConfig)
+        // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
+        const actualCallback = pendingActionCallback()
+        if (actualCallback) {
+          // Pass the full action object along with config
+          actualCallback(action.type, action.providerId || '', { ...aiConfig, title: action.title, description: action.description })
+        }
         setPendingActionCallback(null)
+        setHasUnsavedChanges(true)
+      }
+      
+      // Also add to the main workflow immediately
+      if (onAddActionToWorkflow) {
+        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedActionIntegration?.id))
+        onAddActionToWorkflow({
+          ...action,
+          integration: integrationInfo
+        }, aiConfig)
       }
       
       // Close dialog and reset state
@@ -546,17 +573,25 @@ export function AIAgentConfigModal({
       
       toast({
         title: "Action Added",
-        description: `${action.title} added with AI configuration`
+        description: `${action.title} added with AI configuration and added to workflow`
       })
     } else {
-      // In Manual mode, open config modal
+      // In Manual mode, we need to add the action and open config
       setShowActionSelector(false)
       
-      // TODO: Open configuration modal for manual setup
-      // This will be implemented to open the standard config modal
+      // Add to the main workflow with manual config flag
+      if (onAddActionToWorkflow) {
+        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedActionIntegration?.id))
+        onAddActionToWorkflow({
+          ...action,
+          integration: integrationInfo,
+          needsConfiguration: true
+        }, {})
+      }
+      
       toast({
         title: "Manual Configuration",
-        description: "Opening configuration modal..."
+        description: "Configure the action in the workflow builder"
       })
     }
   }
@@ -757,7 +792,7 @@ export function AIAgentConfigModal({
                       onChainsChange={(chains) => setConfig(prev => ({ ...prev, chains }))}
                       onOpenActionDialog={() => setShowActionSelector(true)}
                       onActionSelect={(callback) => {
-                        // Store the callback for when action is selected
+                        // Store the callback directly (React will wrap it automatically)
                         setPendingActionCallback(() => callback)
                         setShowActionSelector(true)
                       }}
@@ -1686,7 +1721,10 @@ export function AIAgentConfigModal({
                   </div>
                 </div>
                 <Button 
-                  onClick={handleSave} 
+                  onClick={() => {
+                    console.log('🟢 [AIAgentConfigModal] Save button clicked!')
+                    handleSave()
+                  }} 
                   disabled={isSaving}
                   className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                 >

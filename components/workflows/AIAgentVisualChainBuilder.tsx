@@ -525,8 +525,8 @@ function AIAgentVisualChainBuilder({
             type: 'custom',
             position,
             data: {
-              title: actionComponent?.title || actionType,
-              description: actionComponent?.description || '',
+              title: config?.title || actionComponent?.title || actionType,
+              description: config?.description || actionComponent?.description || '',
               type: actionType,
               providerId: providerId,
               config: config || {},
@@ -600,114 +600,162 @@ function AIAgentVisualChainBuilder({
 
   // Now declare handleDeleteNode which can safely reference handleAddNodeBetween
   const handleDeleteNode = useCallback((nodeId: string) => {
-    // Find edges connected to this node
-    const edgesFromNode = edges.filter(e => e.source === nodeId)
-    const edgesToNode = edges.filter(e => e.target === nodeId)
+    console.log('🗑️ [AIAgentVisualChainBuilder] Deleting node:', nodeId)
     
-    // Check if this is an Add Action node - if so, just remove it
-    const nodeToDelete = nodes.find(n => n.id === nodeId)
-    if (nodeToDelete?.type === 'addAction') {
-      setNodes((nds) => nds.filter(n => n.id !== nodeId))
-      setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
-      return
-    }
-    
-    // If the node is in the middle of a chain, reconnect the chain
-    if (edgesFromNode.length > 0 && edgesToNode.length > 0) {
-      const previousNodeId = edgesToNode[0].source
-      const nextNodeId = edgesFromNode[0].target
-      
-      // Create new edge to reconnect the chain
-      const newEdge: Edge = {
-        id: `e-${previousNodeId}-${nextNodeId}`,
-        source: previousNodeId,
-        target: nextNodeId,
-        type: 'custom',
-        style: { 
-          stroke: '#94a3b8',
-          strokeWidth: 2 
-        },
-        data: {
-          onAddNode: (pos: { x: number, y: number }) => {
-            handleAddNodeBetween(previousNodeId, nextNodeId, pos)
-          }
-        }
-      }
-      
-      // Update edges - remove old ones and add the reconnection
-      setEdges((eds) => [
-        ...eds.filter(e => e.source !== nodeId && e.target !== nodeId),
-        newEdge
-      ])
-      
-      // Remove the node
-      setNodes((nds) => nds.filter(n => n.id !== nodeId))
-    } else {
-      // Node is at the end or beginning of chain
-      if (edgesFromNode.length === 0 && edgesToNode.length > 0) {
-        // This was the last node in a chain
-        const previousNodeId = edgesToNode[0].source
+    // Use functional updates to get current state values
+    setNodes((currentNodes) => {
+      setEdges((currentEdges) => {
+        // Find edges connected to this node using current state
+        const edgesFromNode = currentEdges.filter(e => e.source === nodeId)
+        const edgesToNode = currentEdges.filter(e => e.target === nodeId)
         
-        // Check if previous node should have an Add Action node
-        const previousNode = nodes.find(n => n.id === previousNodeId)
-        if (previousNode && previousNode.type !== 'ai_agent' && previousNode.type !== 'trigger') {
-          // Create Add Action node after the previous node
-          const addActionNodeId = `add-action-${previousNodeId}`
-          const addActionNode: Node = {
-            id: addActionNodeId,
-            type: 'addAction',
-            position: { 
-              x: previousNode.position.x, 
-              y: previousNode.position.y + 160 
+        console.log('🗑️ [AIAgentVisualChainBuilder] Current edges:', currentEdges)
+        console.log('🗑️ [AIAgentVisualChainBuilder] Edges from node:', edgesFromNode)
+        console.log('🗑️ [AIAgentVisualChainBuilder] Edges to node:', edgesToNode)
+        
+        // Check if this is an Add Action node - if so, just remove it
+        const nodeToDelete = currentNodes.find(n => n.id === nodeId)
+        if (nodeToDelete?.type === 'addAction') {
+          // Return filtered edges
+          return currentEdges.filter(e => e.source !== nodeId && e.target !== nodeId)
+        }
+        
+        // Check if this is the last action in a chain (has an Add Action button after it)
+        const hasAddActionAfter = edgesFromNode.some(e => {
+          const targetNode = currentNodes.find(n => n.id === e.target)
+          console.log('🗑️ [AIAgentVisualChainBuilder] Checking target node:', e.target, 'type:', targetNode?.type)
+          return targetNode?.type === 'addAction'
+        })
+        
+        console.log('🗑️ [AIAgentVisualChainBuilder] Has Add Action after:', hasAddActionAfter)
+        
+        if (hasAddActionAfter) {
+          // This is the last action in the chain - remove both the action and its Add Action button
+          const addActionNodeId = edgesFromNode.find(e => {
+            const targetNode = currentNodes.find(n => n.id === e.target)
+            return targetNode?.type === 'addAction'
+          })?.target
+          
+          // If there's a previous node, we need to add an Add Action button after it
+          if (edgesToNode.length > 0) {
+            const previousNodeId = edgesToNode[0].source
+            const previousNode = currentNodes.find(n => n.id === previousNodeId)
+            
+            // Only add Add Action button if the previous node is not the AI Agent
+            if (previousNode && previousNode.id !== 'ai-agent') {
+              const newAddActionNodeId = `add-action-${previousNodeId}-${Date.now()}`
+              const addActionNode: Node = {
+                id: newAddActionNodeId,
+                type: 'addAction',
+                position: { 
+                  x: previousNode.position.x, 
+                  y: previousNode.position.y + 160 
+                },
+                data: {
+                  parentId: previousNodeId,
+                  onClick: () => {
+                    if (onOpenActionDialog) {
+                      onOpenActionDialog()
+                      if (onActionSelect) {
+                        onActionSelect((actionType: string, providerId: string, config?: any) => {
+                          handleAddToChainRef.current?.(previousNodeId)
+                        })
+                      }
+                    }
+                  }
+                }
+              }
+              
+              // Add the new Add Action node
+              setTimeout(() => {
+                setNodes((nds) => [...nds, addActionNode])
+              }, 0)
+              
+              // Return edges with the new connection
+              return [
+                ...currentEdges.filter(e => 
+                  e.source !== nodeId && 
+                  e.target !== nodeId && 
+                  e.source !== addActionNodeId && 
+                  e.target !== addActionNodeId
+                ),
+                {
+                  id: `e-${previousNodeId}-${newAddActionNodeId}`,
+                  source: previousNodeId,
+                  target: newAddActionNodeId,
+                  type: 'custom',
+                  style: { 
+                    stroke: '#b1b1b7',
+                    strokeWidth: 2,
+                    strokeDasharray: '5,5'
+                  }
+                }
+              ]
+            }
+          }
+          
+          // Just remove edges connected to deleted nodes
+          return currentEdges.filter(e => 
+            e.source !== nodeId && 
+            e.target !== nodeId && 
+            e.source !== addActionNodeId && 
+            e.target !== addActionNodeId
+          )
+        }
+        
+        // If the node is in the middle of a chain, reconnect the chain
+        if (edgesFromNode.length > 0 && edgesToNode.length > 0) {
+          const previousNodeId = edgesToNode[0].source
+          const nextNodeId = edgesFromNode[0].target
+          
+          // Create new edge to reconnect the chain
+          const newEdge: Edge = {
+            id: `e-${previousNodeId}-${nextNodeId}`,
+            source: previousNodeId,
+            target: nextNodeId,
+            type: 'custom',
+            style: { 
+              stroke: '#94a3b8',
+              strokeWidth: 2 
             },
             data: {
-              parentId: previousNodeId,
-              onClick: () => {
-                handleAddToChainRef.current?.(previousNodeId)
+              onAddNode: (pos: { x: number, y: number }) => {
+                handleAddNodeBetween(previousNodeId, nextNodeId, pos)
               }
             }
           }
           
-          // Update nodes - remove deleted node, mark previous as last, add Add Action
-          setNodes((nds) => [
-            ...nds.filter(n => n.id !== nodeId).map(n => 
-              n.id === previousNodeId 
-                ? { ...n, data: { ...n.data, isLastInChain: true } }
-                : n
-            ),
-            addActionNode
-          ])
-          
-          // Add edge to Add Action node
-          const newEdge: Edge = {
-            id: `e-${previousNodeId}-${addActionNodeId}`,
-            source: previousNodeId,
-            target: addActionNodeId,
-            type: 'straight',
-            animated: true,
-            style: { 
-              stroke: '#b1b1b7', 
-              strokeWidth: 2, 
-              strokeDasharray: '5,5' 
-            }
-          }
-          
-          setEdges((eds) => [
-            ...eds.filter(e => e.source !== nodeId && e.target !== nodeId),
+          // Return edges with reconnection
+          return [
+            ...currentEdges.filter(e => e.source !== nodeId && e.target !== nodeId),
             newEdge
-          ])
+          ]
         } else {
-          // Just remove the node and edges
-          setNodes((nds) => nds.filter(n => n.id !== nodeId))
-          setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
+          // Simply return edges without the deleted node
+          return currentEdges.filter(e => e.source !== nodeId && e.target !== nodeId)
         }
-      } else {
-        // Node is at the beginning or isolated - just remove it
-        setNodes((nds) => nds.filter(n => n.id !== nodeId))
-        setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId))
+      })
+      
+      // Return nodes without the deleted one (and possibly its Add Action button)
+      const nodeToDelete = currentNodes.find(n => n.id === nodeId)
+      if (nodeToDelete?.type === 'addAction') {
+        return currentNodes.filter(n => n.id !== nodeId)
       }
-    }
-  }, [edges, nodes, handleAddNodeBetween, setNodes, setEdges])
+      
+      // Find if there's an Add Action button connected to this node
+      const connectedAddActionNode = currentNodes.find(n => 
+        n.type === 'addAction' && edges.some(e => e.source === nodeId && e.target === n.id)
+      )
+      
+      if (connectedAddActionNode) {
+        // Remove both the node and its Add Action button
+        return currentNodes.filter(n => n.id !== nodeId && n.id !== connectedAddActionNode.id)
+      } else {
+        // Just remove the node
+        return currentNodes.filter(n => n.id !== nodeId)
+      }
+    })
+  }, [edges, handleAddNodeBetween, setNodes, setEdges])
   
   // Set the ref after the function is defined
   React.useEffect(() => {
@@ -994,91 +1042,113 @@ function AIAgentVisualChainBuilder({
   // Update the ref with the actual implementation
   React.useEffect(() => {
     handleAddActionToChainRef.current = (chainId: string, actionType: string, providerId: string, config?: any) => {
-      const chainNode = nodes.find(n => n.id === chainId)
-      if (!chainNode) return
+      console.log('🔷 [AIAgentVisualChainBuilder] handleAddActionToChain called:', { chainId, actionType, providerId })
       
+      // Generate IDs outside to use in both setNodes and setEdges
       const newNodeId = `node-${Date.now()}`
-      
-      // Find the action details from ALL_NODE_COMPONENTS
-      const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
-      
-      // Create the action node at the same position as the chain placeholder
-      const newNode: Node = {
-        id: newNodeId,
-        type: 'custom',
-        position: { ...chainNode.position },
-        data: {
-          title: actionComponent?.title || actionType,
-          description: actionComponent?.description || '',
-          type: actionType,
-          providerId: providerId,
-          config: config || {},  // Include the AI config or manual config
-          onConfigure: () => handleConfigureNode(newNodeId),
-          onDelete: () => handleDeleteNode(newNodeId),
-          onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
-          isLastInChain: true
-        }
-      }
-      
-      // Create Add Action node after the new action
       const addActionNodeId = `add-action-${newNodeId}`
-      const addActionNode: Node = {
-        id: addActionNodeId,
-        type: 'addAction',
-        position: { 
-          x: chainNode.position.x, 
-          y: chainNode.position.y + 160 
-        },
-        data: {
-          parentId: newNodeId,
-          onClick: () => {
-            if (onOpenActionDialog) {
-              onOpenActionDialog()
-              if (onActionSelect) {
-                onActionSelect((actionType: string, providerId: string, config?: any) => {
-                  // This will add the action after the current node
-                  handleAddToChainRef.current?.(newNodeId)
-                })
+      
+      // Use setNodes to access current state
+      setNodes((currentNodes) => {
+        console.log('🔷 [AIAgentVisualChainBuilder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.type })))
+        console.log('🔷 [AIAgentVisualChainBuilder] Looking for chainId:', chainId)
+        const chainNode = currentNodes.find(n => n.id === chainId)
+        if (!chainNode) {
+          console.error('❌ [AIAgentVisualChainBuilder] Chain node not found:', chainId)
+          console.error('❌ Available node IDs:', currentNodes.map(n => n.id))
+          return currentNodes
+        }
+        console.log('✅ [AIAgentVisualChainBuilder] Found chain node:', chainNode.id)
+        
+        // Find the action details from ALL_NODE_COMPONENTS
+        const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
+        
+        // Create the action node at the same position as the chain placeholder
+        const newNode: Node = {
+          id: newNodeId,
+          type: 'custom',
+          position: { ...chainNode.position },
+          data: {
+            title: actionComponent?.title || actionType,
+            description: actionComponent?.description || '',
+            type: actionType,
+            providerId: providerId,
+            config: config || {},  // Include the AI config or manual config
+            onConfigure: () => handleConfigureNode(newNodeId),
+            onDelete: () => handleDeleteNode(newNodeId),
+            onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+            isLastInChain: true
+          }
+        }
+        
+        // Create Add Action node after the new action
+        const addActionNode: Node = {
+          id: addActionNodeId,
+          type: 'addAction',
+          position: { 
+            x: chainNode.position.x, 
+            y: chainNode.position.y + 160 
+          },
+          data: {
+            parentId: newNodeId,
+            onClick: () => {
+              if (onOpenActionDialog) {
+                onOpenActionDialog()
+                if (onActionSelect) {
+                  onActionSelect((actionType: string, providerId: string, config?: any) => {
+                    // This will add the action after the current node
+                    handleAddToChainRef.current?.(newNodeId)
+                  })
+                }
               }
             }
           }
         }
-      }
-      
-      // Update nodes - replace the placeholder with the actual action and add the Add Action node
-      setNodes((nds) => [
-        ...nds.filter(n => n.id !== chainId),
-        newNode,
-        addActionNode
-      ])
+        
+        // Update nodes - replace the placeholder with the actual action and add the Add Action node
+        const updatedNodes = [
+          ...currentNodes.filter(n => n.id !== chainId),
+          newNode,
+          addActionNode
+        ]
+        console.log('✅ [AIAgentVisualChainBuilder] Returning updated nodes:', updatedNodes.map(n => ({ id: n.id, type: n.type })))
+        return updatedNodes
+      })
       // Trigger immediate sync for real-time updates
       setTimeout(() => syncChainsToParent(), 0)
       
       // Update edges to point to the new node and connect to Add Action node
-      setEdges((eds) => [
-        ...eds.map(e => {
-          if (e.target === chainId) {
-            return { ...e, target: newNodeId }
-          }
-          if (e.source === chainId) {
-            return { ...e, source: newNodeId }
-          }
-          return e
-        }),
-        // Add edge from new node to Add Action node
-        {
-          id: `e-${newNodeId}-${addActionNodeId}`,
-          source: newNodeId,
-          target: addActionNodeId,
-          type: 'straight',
-          animated: true,
-          style: { 
-            stroke: '#b1b1b7', 
-            strokeWidth: 2, 
-            strokeDasharray: '5,5' 
-          }
+      const newEdge = {
+        id: `e-${newNodeId}-${addActionNodeId}`,
+        source: newNodeId,
+        target: addActionNodeId,
+        type: 'custom',
+        animated: false,
+        style: { 
+          stroke: '#b1b1b7', 
+          strokeWidth: 2, 
+          strokeDasharray: '5,5' 
         }
-      ])
+      }
+      
+      console.log('🔗 [AIAgentVisualChainBuilder] Creating edge from action to Add Action:', newEdge)
+      
+      setEdges((eds) => {
+        const updatedEdges = [
+          ...eds.map(e => {
+            if (e.target === chainId) {
+              return { ...e, target: newNodeId }
+            }
+            if (e.source === chainId) {
+              return { ...e, source: newNodeId }
+            }
+            return e
+          }),
+          newEdge
+        ]
+        console.log('🔗 [AIAgentVisualChainBuilder] Updated edges:', updatedEdges)
+        return updatedEdges
+      })
       
       // Auto-center the view to show all nodes after adding the action
       setTimeout(() => {
@@ -1091,7 +1161,7 @@ function AIAgentVisualChainBuilder({
         })
       }, 150)
     }
-  }, [nodes, handleConfigureNode, handleDeleteNode, handleAddToChain, fitView, syncChainsToParent])
+  }, [handleConfigureNode, handleDeleteNode, handleAddToChain, fitView, syncChainsToParent, setNodes, setEdges, onOpenActionDialog, onActionSelect])
 
   const onConnect = useCallback((params: Connection) => {
     const newEdge: Edge = {
@@ -1118,64 +1188,72 @@ function AIAgentVisualChainBuilder({
   // Update the handleAddToChain ref with actual implementation
   React.useEffect(() => {
     handleAddToChainRef.current = (lastNodeId: string) => {
-    if (onOpenActionDialog) {
-      onOpenActionDialog()
       if (onActionSelect) {
+        // Set up the callback first, then open the dialog
         onActionSelect((actionType: string, providerId: string, config?: any) => {
           const newNodeId = `node-${Date.now()}`
-          const lastNode = nodes.find(n => n.id === lastNodeId)
           
-          if (!lastNode) return
-          
-          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
-          
-          const newNode: Node = {
-            id: newNodeId,
-            type: 'custom',
-            position: { 
-              x: lastNode.position.x + 200, 
-              y: lastNode.position.y 
-            },
-            data: {
-              title: actionComponent?.title || actionType,
-              description: actionComponent?.description || '',
-              type: actionType,
-              providerId: providerId,
-              config: config || {},
-              onConfigure: () => handleConfigureNode(newNodeId),
-              onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
-              onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
-              isLastInChain: true
+          // Use functional update to get current nodes state
+          setNodes((currentNodes) => {
+            const lastNode = currentNodes.find(n => n.id === lastNodeId)
+            
+            if (!lastNode) {
+              console.error('❌ [AIAgentVisualChainBuilder] Could not find last node:', lastNodeId)
+              return currentNodes
             }
-          }
-
-          // Create Add Action node after the new node
-          const addActionNodeId = `add-action-${newNodeId}`
-          const addActionNode: Node = {
-            id: addActionNodeId,
-            type: 'addAction',
-            position: { 
-              x: newNode.position.x, 
-              y: newNode.position.y + 160 
-            },
-            data: {
-              parentId: newNodeId,
-              onClick: () => {
-                handleAddToChainRef.current?.(newNodeId)
+            
+            const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
+            
+            const newNode: Node = {
+              id: newNodeId,
+              type: 'custom',
+              position: { 
+                x: lastNode.position.x + 200, 
+                y: lastNode.position.y 
+              },
+              data: {
+                title: actionComponent?.title || actionType,
+                description: actionComponent?.description || '',
+                type: actionType,
+                providerId: providerId,
+                config: config || {},
+                onConfigure: () => handleConfigureNode(newNodeId),
+                onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
+                onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
+                isLastInChain: true
               }
             }
-          }
 
-          // Update the previous last node to not be last anymore and add both new nodes
-          setNodes((nds) => [
-            ...nds.map(n => 
-              n.id === lastNodeId 
-                ? { ...n, data: { ...n.data, isLastInChain: false } }
-                : n
-            ),
-            newNode,
-            addActionNode
-          ])
+            // Create Add Action node after the new node
+            const addActionNodeId = `add-action-${newNodeId}`
+            const addActionNode: Node = {
+              id: addActionNodeId,
+              type: 'addAction',
+              position: { 
+                x: newNode.position.x, 
+                y: newNode.position.y + 160 
+              },
+              data: {
+                parentId: newNodeId,
+                onClick: () => {
+                  console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', newNodeId)
+                  handleAddToChainRef.current?.(newNodeId)
+                }
+              }
+            }
+
+            // Update the previous last node to not be last anymore and add both new nodes
+            return [
+              ...currentNodes.map(n => 
+                n.id === lastNodeId 
+                  ? { ...n, data: { ...n.data, isLastInChain: false } }
+                  : n
+              ),
+              newNode,
+              addActionNode
+            ]
+          })
+          
           // Trigger immediate sync for real-time updates
           setTimeout(() => syncChainsToParent(), 0)
 
@@ -1200,8 +1278,8 @@ function AIAgentVisualChainBuilder({
               id: `e-${newNodeId}-${addActionNodeId}`,
               source: newNodeId,
               target: addActionNodeId,
-              type: 'straight',
-              animated: true,
+              type: 'custom',
+              animated: false,
               style: { 
                 stroke: '#b1b1b7', 
                 strokeWidth: 2, 
@@ -1223,11 +1301,11 @@ function AIAgentVisualChainBuilder({
         })
       }
     }
-    }
-  }, [nodes, onOpenActionDialog, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView, syncChainsToParent])
+  }, [onActionSelect, handleConfigureNode, handleAddNodeBetween, fitView, syncChainsToParent, setNodes, setEdges])
 
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {
+    console.log('🔄 [AIAgentVisualChainBuilder] Creating new chain')
     const newChainId = `chain-${Date.now()}`
     const newNodeId = `${newChainId}-start`
     
@@ -1345,6 +1423,28 @@ function AIAgentVisualChainBuilder({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onNodeDragStop={(event, node) => {
+          // Update the position of any AddAction nodes that are children of the dragged node
+          setNodes((nds) => 
+            nds.map((n) => {
+              // Update the dragged node itself
+              if (n.id === node.id) {
+                return { ...n, position: node.position }
+              }
+              // Update any AddAction nodes that have this node as their parent
+              if (n.type === 'addAction' && n.data?.parentId === node.id) {
+                return {
+                  ...n,
+                  position: {
+                    x: node.position.x,
+                    y: node.position.y + 160
+                  }
+                }
+              }
+              return n
+            })
+          )
+        }}
         fitView
         fitViewOptions={{
           padding: 0.2,
