@@ -497,7 +497,7 @@ export function VariablePickerSidePanel({
                   ) : (
                     <Play className="h-3.5 w-3.5 mr-1" />
                   )}
-                  Listen
+                  Test
                 </Button>
               </TooltipTrigger>
               <TooltipContent>

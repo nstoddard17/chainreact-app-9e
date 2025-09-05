@@ -130,7 +130,9 @@ RESPONSE FORMAT:
         "type": "[exact_trigger_type]",
         "isTrigger": true,
         "providerId": "[provider]",
-        "config": {}
+        "config": {
+          "_allFieldsAI": true
+        }
       }
     },
     {
@@ -181,7 +183,8 @@ IMPORTANT RULES:
 5. All actions MUST use EXACT types from the lists above
 6. Every action must have aiConfigured: true and a descriptive label
 7. ONLY use the actions and triggers listed above - do NOT make up or imagine any integrations
-8. Return ONLY valid JSON without any markdown or explanation
+8. ALL nodes (triggers and actions) must have "_allFieldsAI": true in their config to enable AI-defined fields
+9. Return ONLY valid JSON without any markdown or explanation
 
 Generate the workflow now.
 `
@@ -251,6 +254,12 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
     node.data.title = nodeComponent.title
     node.data.providerId = nodeComponent.providerId || node.data.providerId
     node.data.isTrigger = nodeComponent.isTrigger
+    
+    // Ensure all fields are set to AI-defined mode for AI-generated workflows
+    if (!node.data.config) {
+      node.data.config = {}
+    }
+    node.data.config._allFieldsAI = true
 
     return node
   }).filter(node => node !== null) // Remove invalid nodes
@@ -477,7 +486,9 @@ function createDefaultWorkflow(triggerId: string, aiAgentId: string): GeneratedW
       type: gmailTrigger.type,
       isTrigger: true,
       providerId: gmailTrigger.providerId,
-      config: {}
+      config: {
+        _allFieldsAI: true
+      }
     }
   })
   

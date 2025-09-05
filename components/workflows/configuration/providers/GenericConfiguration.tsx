@@ -142,7 +142,7 @@ export function GenericConfiguration({
         shouldUseAIWrapper,
         typeofIsConnected: typeof isConnectedToAIAgent,
         aiFields,
-        isAIEnabled: aiFields[field.name] || false
+        isAIEnabled: aiFields[field.name] || aiFields._allFieldsAI || false
       });
       const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
       
@@ -161,7 +161,7 @@ export function GenericConfiguration({
             onDynamicLoad={handleDynamicLoad}
             parentValues={values}
             // Props specific to AIFieldWrapper
-            isAIEnabled={aiFields[field.name] || false}
+            isAIEnabled={aiFields[field.name] || aiFields._allFieldsAI || false}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
           />
         </React.Fragment>

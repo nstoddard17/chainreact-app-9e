@@ -584,8 +584,8 @@ function AIAgentVisualChainBuilder({
               padding: 0.2, 
               includeHiddenNodes: false,
               duration: 400,
-              maxZoom: 1.5,
-              minZoom: 0.1
+              maxZoom: 2,
+              minZoom: 0.05
             })
           }, 150)
         })
@@ -877,8 +877,8 @@ function AIAgentVisualChainBuilder({
           padding: 0.2, 
           includeHiddenNodes: false,
           duration: 400,
-          maxZoom: 1.5,
-          minZoom: 0.1
+          maxZoom: 2,
+          minZoom: 0.05
         })
       }
     }, 100)
@@ -979,8 +979,8 @@ function AIAgentVisualChainBuilder({
           padding: 0.2,
           includeHiddenNodes: false,
           duration: 400,
-          maxZoom: 1.5,
-          minZoom: 0.1
+          maxZoom: 2,
+          minZoom: 0.05
         })
       }, 100)
       
@@ -1086,8 +1086,8 @@ function AIAgentVisualChainBuilder({
           padding: 0.2, 
           includeHiddenNodes: false,
           duration: 400,
-          maxZoom: 1.5,
-          minZoom: 0.1
+          maxZoom: 2,
+          minZoom: 0.05
         })
       }, 150)
     }
@@ -1216,8 +1216,8 @@ function AIAgentVisualChainBuilder({
               padding: 0.2, 
               includeHiddenNodes: false,
               duration: 400,
-              maxZoom: 1.5,
-              minZoom: 0.1
+              maxZoom: 2,
+              minZoom: 0.05
             })
           }, 150)
         })
@@ -1324,8 +1324,8 @@ function AIAgentVisualChainBuilder({
         padding: 0.2, 
         includeHiddenNodes: false,
         duration: 400,
-        maxZoom: 1.5,
-        minZoom: 0.1
+        maxZoom: 2,
+        minZoom: 0.05
       })
     }, 50)
 
@@ -1349,8 +1349,8 @@ function AIAgentVisualChainBuilder({
         fitViewOptions={{
           padding: 0.2,
           includeHiddenNodes: false,
-          maxZoom: 1.2,
-          minZoom: 0.3,
+          maxZoom: 2,
+          minZoom: 0.05,
         }}
         snapToGrid
         snapGrid={[15, 15]}

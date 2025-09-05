@@ -4,6 +4,20 @@
 
 ## September 4, 2025
 
+### Complete AI Field Resolution Tracking and Transparency
+
+We've added comprehensive tracking and visualization for AI-generated field values in workflows. Every time the AI makes a decision about what value to use in a field - whether selecting from a dropdown or generating text content - that decision is now stored, tracked, and made visible to users. A new database table captures the original placeholder, the AI's chosen value, available options for dropdowns, the reasoning behind the choice, and metrics like token usage and cost. Users can now see exactly what the AI selected for each field through a dedicated UI component that displays all resolutions grouped by workflow node. This transparency allows users to understand AI decision-making, audit workflow behavior, debug issues, and track AI usage costs per execution. The system provides complete visibility into how AI fields are resolved at runtime, building trust and enabling better workflow optimization.
+
+### AI Field Intelligence and Automatic Value Generation
+
+We've significantly enhanced the AI field system to be truly intelligent during workflow execution. When fields are marked as "Defined automatically by the model", the AI now analyzes the workflow context - including trigger data, previous node results, and field constraints - to generate the most appropriate values. For dropdown fields, the AI strictly selects from the available options, ensuring valid data every time. This means workflows can adapt dynamically to different situations without manual configuration. The system also properly retrieves field schemas from node definitions, including dropdown options, data types, and validation rules, making the AI's decisions more accurate and contextually aware.
+
+### Improved Error Handling and AI-Powered Workflow Configuration
+
+We've made significant improvements to the workflow generator's user experience and intelligence capabilities. When users attempt to create workflows with integrations that are coming soon, like Shopify, the system now displays a friendly modal dialog instead of throwing an error in the console. The modal provides helpful suggestions about rephrasing requests or using similar available integrations, making the experience much smoother for users exploring the platform's capabilities.
+
+Additionally, all AI-generated workflows now come with fields pre-configured in AI mode by default. This means when you generate a workflow using AI, every field in every action and trigger is automatically set to "Defined automatically by the model" mode. This enhancement allows the AI to dynamically determine the best values for each field at runtime based on the workflow context, eliminating the need for manual configuration. The zoom controls in the AI agent workflow builder have also been improved to match the main workflow builder, allowing users to zoom out further for better visualization of complex multi-chain workflows.
+
 ### Enhanced AI Workflow Generator for Comprehensive Customer Support
 
 Enhanced our AI workflow generator to create truly comprehensive customer support workflows. The generator now builds workflows with intelligent multi-chain AI agents that can handle everything from ticket classification to order issues. Tested it with a complex support scenario and the AI successfully created a workflow with 6 specialized chains, each handling different types of customer inquiries. The AI agent analyzes incoming emails and automatically routes them to the right processing chain - whether that's searching a knowledge base for FAQ answers, escalating urgent issues to managers with calendar invites, or processing refunds through Stripe and updating CRM systems. Fixed issues with Google Sheets and Stripe action recognition to ensure all generated workflows work perfectly out of the box. The improved prompts now generate more detailed system instructions for AI agents, ensuring they make intelligent routing decisions based on content analysis.

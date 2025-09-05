@@ -149,7 +149,7 @@ export function AIFieldControl({
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  Defined automatically by AI
+                  Defined automatically by the model
                 </p>
                 <p className="text-xs text-gray-600">
                   This field will be populated based on context

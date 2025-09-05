@@ -29,3 +29,6 @@ next-env.d.ts
 
 # Cursor configuration with secrets
 .cursor/mcp.json
+
+# Test credentials file
+.test-credentials

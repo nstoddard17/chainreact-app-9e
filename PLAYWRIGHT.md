@@ -4,18 +4,22 @@ This document defines the standards and best practices for using Playwright to t
 
 ## Browser Configuration
 
-### Default Browser Settings
-- **ALWAYS use the default system browser** - Do not specify a specific browser unless explicitly requested
+### Chrome Browser Settings
+- **ALWAYS use Chrome browser for testing** - This ensures consistency across all tests
+- Use `channel: 'chrome'` when launching Playwright to use the installed Chrome browser
 - The user will handle authentication manually before testing begins
 - Never attempt to automate login or accept real credentials
 
-### Browser Launch Configuration
+### Chrome Launch Configuration
 ```javascript
-// Correct approach - uses default browser
-await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/builder' });
+// Correct approach - uses Chrome browser
+const browser = await chromium.launch({ 
+  headless: false,
+  channel: 'chrome' // Uses installed Chrome browser
+});
 
-// Incorrect - do not specify browser type
-// await playwright.chromium.launch() // DON'T DO THIS
+// For MCP tools
+await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/builder' });
 ```
 
 ## Testing Environments
@@ -109,9 +113,10 @@ When testing action/trigger modals:
 
 ### Before Starting Any Test
 - [ ] Ensure application is running locally
-- [ ] User has logged in manually
+- [ ] Chrome browser is installed and available
+- [ ] User has logged in manually (or use test credentials from .test-credentials file)
 - [ ] Clear any test data from previous sessions
-- [ ] Open browser developer console to monitor errors
+- [ ] Open Chrome developer console to monitor errors
 
 ### During Modal Testing
 - [ ] Delete existing nodes before testing
@@ -256,7 +261,7 @@ As new features are added, ensure testing covers:
 
 ---
 
-**Last Updated:** January 2025
+**Last Updated:** September 2025
 **Version:** 1.0
 
 **Note:** This document should be continuously updated as testing requirements evolve and new patterns are established.

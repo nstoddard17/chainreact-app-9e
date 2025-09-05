@@ -50,15 +50,22 @@ function ConfigurationForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  // Initialize AI fields based on initial data containing AI placeholders
+  // Initialize AI fields based on initial data containing AI placeholders or _allFieldsAI flag
   const [aiFields, setAiFields] = useState<Record<string, boolean>>(() => {
     const fields: Record<string, boolean> = {};
     if (initialData) {
-      Object.entries(initialData).forEach(([key, value]) => {
-        if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) {
-          fields[key] = true;
-        }
-      });
+      // Check if _allFieldsAI flag is set (for AI-generated workflows)
+      if (initialData._allFieldsAI === true) {
+        // Set all fields to AI mode by default (will be populated when fields are known)
+        fields._allFieldsAI = true;
+      } else {
+        // Check individual fields for AI placeholders
+        Object.entries(initialData).forEach(([key, value]) => {
+          if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) {
+            fields[key] = true;
+          }
+        });
+      }
     }
     return fields;
   });
@@ -177,19 +184,40 @@ function ConfigurationForm({
     
     // Set initial data first
     if (initialData && Object.keys(initialData).length > 0) {
+      // Check if _allFieldsAI is set (for AI-generated workflows)
+      const allFieldsAI = initialData._allFieldsAI === true;
+      
       Object.entries(initialData).forEach(([key, value]) => {
+        if (key === '_allFieldsAI') {
+          // Don't include the flag itself in values
+          return;
+        }
         if (value !== undefined) {
           initialValues[key] = value;
         }
       });
+      
+      // If _allFieldsAI is set, initialize all fields with AI placeholders
+      if (allFieldsAI) {
+        nodeInfo.configSchema.forEach((field: any) => {
+          // Don't set AI placeholders for non-editable fields
+          if (!field.computed && !field.autoNumber && !field.formula && !field.readOnly) {
+            if (initialValues[field.name] === undefined || initialValues[field.name] === '') {
+              initialValues[field.name] = `{{AI_FIELD:${field.name}}}`;
+            }
+          }
+        });
+      }
     }
     
-    // Set defaults for missing fields
-    nodeInfo.configSchema.forEach((field: any) => {
-      if (field.defaultValue !== undefined && initialValues[field.name] === undefined) {
-        initialValues[field.name] = field.defaultValue;
-      }
-    });
+    // Set defaults for missing fields (only if not using AI for all fields)
+    if (!initialData?._allFieldsAI) {
+      nodeInfo.configSchema.forEach((field: any) => {
+        if (field.defaultValue !== undefined && initialValues[field.name] === undefined) {
+          initialValues[field.name] = field.defaultValue;
+        }
+      });
+    }
     
     console.log('🔄 [ConfigForm] Setting form values to:', initialValues);
     setValues(initialValues);

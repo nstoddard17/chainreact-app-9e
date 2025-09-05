@@ -157,11 +157,25 @@ export const logicNodes: NodeComponent[] = [
     producesOutput: true,
     outputSchema: [
       {
-        name: "delayDuration",
-        label: "Delay Duration",
+        name: "delayDurationSeconds",
+        label: "Delay Duration (seconds)",
         type: "number",
-        description: "The duration of the delay in seconds",
+        description: "The total duration of the delay in seconds",
         example: 60
+      },
+      {
+        name: "delayDuration",
+        label: "Delay Duration (ms)",
+        type: "number",
+        description: "The total duration of the delay in milliseconds",
+        example: 60000
+      },
+      {
+        name: "delayUnit",
+        label: "Time Unit Used",
+        type: "string",
+        description: "The time unit that was used for the delay",
+        example: "minutes"
       },
       {
         name: "startTime",
@@ -186,7 +200,23 @@ export const logicNodes: NodeComponent[] = [
       }
     ],
     configSchema: [
-      { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60", description: "How long to pause the workflow in seconds" },
+      { name: "duration", label: "Duration", type: "number", placeholder: "e.g., 5", required: true, description: "How long to pause the workflow" },
+      { 
+        name: "timeUnit", 
+        label: "Time Unit", 
+        type: "select", 
+        required: true,
+        defaultValue: "seconds",
+        options: [
+          { value: "seconds", label: "Seconds" },
+          { value: "minutes", label: "Minutes" },
+          { value: "hours", label: "Hours" },
+          { value: "days", label: "Days" },
+          { value: "weeks", label: "Weeks" },
+          { value: "months", label: "Months" }
+        ],
+        description: "The unit of time for the delay duration" 
+      },
     ],
   },
   {

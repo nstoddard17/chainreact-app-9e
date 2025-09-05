@@ -4,7 +4,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Eye, RefreshCw } from "lucide-react"
+import { Eye, RefreshCw, Brain } from "lucide-react"
+import { ExecutionDetailsModal } from "./ExecutionDetailsModal"
+import { AIFieldResolutionSummary } from "./AIFieldResolutionDisplay"
 
 interface Execution {
   id: string
@@ -22,21 +24,31 @@ interface WorkflowExecutionsProps {
 export default function WorkflowExecutions({ workflowId }: WorkflowExecutionsProps) {
   const [executions, setExecutions] = useState<Execution[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
 
   const fetchExecutions = async () => {
     try {
       const response = await fetch(`/api/workflows/${workflowId}/executions`)
-      const data = await response.json()
-      setExecutions(data)
+      if (!response.ok) {
+        console.error("Failed to fetch executions:", response.status, response.statusText)
+        setExecutions([])
+      } else {
+        const data = await response.json()
+        setExecutions(Array.isArray(data) ? data : [])
+      }
     } catch (error) {
       console.error("Failed to fetch executions:", error)
+      setExecutions([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchExecutions()
+    if (workflowId) {
+      fetchExecutions()
+    }
   }, [workflowId])
 
   const getStatusColor = (status: string) => {
@@ -52,51 +64,79 @@ export default function WorkflowExecutions({ workflowId }: WorkflowExecutionsPro
     }
   }
 
+  const handleViewDetails = (executionId: string) => {
+    setSelectedExecutionId(executionId)
+    setDetailsModalOpen(true)
+  }
+
   return (
-    <Card className="bg-card rounded-2xl shadow-lg border border-border">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-semibold text-slate-900">Execution History</CardTitle>
-          <Button variant="outline" size="sm" onClick={fetchExecutions}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-              {loading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading executions...</div>
-                  ) : executions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No executions yet</div>
-        ) : (
-          <div className="space-y-4">
-            {executions.map((execution) => (
-              <div
-                key={execution.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center space-x-4">
-                  <Badge className={getStatusColor(execution.status)}>{execution.status}</Badge>
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">
-                      {new Date(execution.started_at).toLocaleString()}
-                    </div>
-                    {execution.execution_time_ms && (
-                      <div className="text-xs text-slate-500">Duration: {execution.execution_time_ms}ms</div>
-                    )}
-                    {execution.error_message && (
-                      <div className="text-xs text-red-600 mt-1">{execution.error_message}</div>
-                    )}
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Eye className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
+    <>
+      <Card className="bg-card rounded-2xl shadow-lg border border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl font-semibold text-slate-900">Execution History</CardTitle>
+            <Button variant="outline" size="sm" onClick={fetchExecutions}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent>
+                {loading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading executions...</div>
+                    ) : executions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No executions yet</div>
+          ) : (
+            <div className="space-y-4">
+              {executions.map((execution) => (
+                <div
+                  key={execution.id}
+                  className="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-4">
+                      <Badge className={getStatusColor(execution.status)}>{execution.status}</Badge>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-slate-900">
+                          {new Date(execution.started_at).toLocaleString()}
+                        </div>
+                        {execution.execution_time_ms && (
+                          <div className="text-xs text-slate-500">Duration: {execution.execution_time_ms}ms</div>
+                        )}
+                        {execution.error_message && (
+                          <div className="text-xs text-red-600 mt-1">{execution.error_message}</div>
+                        )}
+                      </div>
+                    </div>
+                    <AIFieldResolutionSummary 
+                      executionId={execution.id} 
+                      className="mt-2"
+                    />
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleViewDetails(execution.id)}
+                    title="View execution details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <ExecutionDetailsModal
+        executionId={selectedExecutionId}
+        workflowId={workflowId}
+        open={detailsModalOpen}
+        onClose={() => {
+          setDetailsModalOpen(false)
+          setSelectedExecutionId(null)
+        }}
+      />
+    </>
   )
 }
