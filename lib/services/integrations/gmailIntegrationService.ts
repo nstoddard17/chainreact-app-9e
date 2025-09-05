@@ -13,6 +13,7 @@ export class GmailIntegrationService {
 
     switch (nodeType) {
       case "gmail_action_send_email":
+      case "gmail_send":  // Handle legacy/alternative type name
         return await this.executeSendEmail(node, context)
       case "gmail_action_add_label":
         return await this.executeAddLabel(node, context)

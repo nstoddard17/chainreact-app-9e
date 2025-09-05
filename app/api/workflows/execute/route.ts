@@ -7,11 +7,21 @@ export async function POST(request: Request) {
     console.log("=== Workflow Execution Started (Refactored) ===")
     
     const body = await request.json()
-    const { workflowId, testMode = false, inputData = {}, workflowData } = body
+    const { workflowId, testMode = false, executionMode, inputData = {}, workflowData } = body
+    
+    // Determine execution mode
+    // - 'sandbox': Test mode with no external calls (testMode = true)
+    // - 'live': Execute with real external calls (testMode = false)
+    // - undefined/legacy: Use testMode as-is for backward compatibility
+    const effectiveTestMode = executionMode === 'sandbox' ? true : 
+                             executionMode === 'live' ? false : 
+                             testMode
     
     console.log("Execution parameters:", {
       workflowId,
       testMode,
+      executionMode,
+      effectiveTestMode,
       hasInputData: !!inputData,
       hasWorkflowData: !!workflowData
     })
@@ -74,14 +84,14 @@ export async function POST(request: Request) {
     }
 
     // Execute the workflow using the new service
-    console.log("Starting workflow execution with testMode:", testMode)
+    console.log("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
     
     const workflowExecutionService = new WorkflowExecutionService()
     const results = await workflowExecutionService.executeWorkflow(
       workflow, 
       inputData, 
       user.id, 
-      testMode, 
+      effectiveTestMode, 
       workflowData
     )
     

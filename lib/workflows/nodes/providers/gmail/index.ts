@@ -18,7 +18,7 @@ export const gmailNodes: NodeComponent[] = [
     triggerType: 'webhook',
     producesOutput: true,
     configSchema: [
-      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender", description: "Filter emails by sender address" },
+      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", required: true, placeholder: "Filter by sender email", description: "Filter emails by sender address" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject", description: "Filter emails by subject line" },
       { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"], defaultValue: "any", description: "Filter emails based on attachment presence" },
     ],
