@@ -260,6 +260,8 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
  * Routes to the appropriate handler based on node type
  */
 export async function executeAction({ node, input, userId, workflowId, testMode, executionMode }: ExecuteActionParams): Promise<ActionResult> {
+  console.log(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
+  
   const { type, config } = node.data
   const startTime = Date.now()
   

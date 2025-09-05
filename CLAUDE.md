@@ -325,6 +325,21 @@ Key areas to check:
 3. Backend handler implementation and registration
 4. Action handler using the field value
 
+### Workflow Execution Implementation Guide
+**CRITICAL**: When implementing workflow actions or debugging execution issues, ALWAYS consult `/learning/docs/workflow-execution-implementation-guide.md`. This guide contains:
+- Correct service architecture patterns for preserving ExecutionContext and userId
+- Common pitfalls and their solutions (localStorage errors, UI nodes in execution, method name mismatches)
+- Direct implementation pattern vs problematic "legacy" fallback pattern
+- Complete implementation checklist for new actions
+- Battle-tested examples from fixing Gmail integration
+
+**Key Lessons**:
+- Always pass `userId` from `ExecutionContext` directly to action implementations
+- Avoid "legacy" compatibility layers that lose context
+- Use `context.dataFlowManager.resolveVariable()` for dynamic values
+- Check `context.testMode` before making actual API calls
+- Filter out UI placeholder nodes (addAction, insertAction) from execution
+
 ### Action/Trigger Implementation Guide
 **CRITICAL**: When implementing new workflow actions or triggers, ALWAYS follow `/learning/docs/action-trigger-implementation-guide.md` to ensure complete end-to-end functionality and uniform structure.
 

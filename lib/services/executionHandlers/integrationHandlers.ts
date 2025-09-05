@@ -19,6 +19,8 @@ export class IntegrationNodeHandlers {
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
+    console.log(`🔌 Executing integration node: ${nodeType}`)
+    console.log(`📌 IntegrationHandlers - Context userId: ${context.userId}`)
 
     // Gmail integrations
     if (nodeType.startsWith('gmail_')) {
