@@ -230,7 +230,7 @@ export function useSingleTabPresence() {
     
     try {
       // Use a simple endpoint to update count
-      await fetch('/api/presence/update-count', {
+      const response = await fetch('/api/presence/update-count', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -239,6 +239,11 @@ export function useSingleTabPresence() {
           timestamp: new Date().toISOString()
         })
       })
+      
+      // Don't throw on non-200 responses, just log
+      if (!response.ok) {
+        console.debug(`Presence update returned ${response.status}`)
+      }
     } catch (error) {
       console.debug('Failed to update online count:', error)
     }
