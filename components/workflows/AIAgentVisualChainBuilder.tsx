@@ -75,6 +75,19 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
     error
   } = data as CustomNodeData
 
+  // Debug logging for title issues
+  if (!isTrigger && !isAIAgent && type !== 'chain_placeholder') {
+    console.log('🎨 [AIAgentCustomNode] Rendering action node:', {
+      id,
+      type,
+      title,
+      description,
+      hasTitle: !!title,
+      dataKeys: Object.keys(data),
+      fullData: data
+    })
+  }
+
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
   
@@ -206,7 +219,11 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
             size="sm"
             onClick={(e) => {
               e.stopPropagation()
-              onAddAction()
+              console.log('🟢 [AIAgentCustomNode] Add Action button clicked in chain placeholder')
+              console.log('🟢 [AIAgentCustomNode] onAddAction:', onAddAction ? 'EXISTS' : 'NULL')
+              if (onAddAction) {
+                onAddAction()
+              }
             }}
             className="gap-2 w-full max-w-[200px]"
           >
@@ -424,6 +441,8 @@ function AIAgentVisualChainBuilder({
     const chainsString = JSON.stringify(chainsWithLayout)
     if (chainsString !== previousChainsRef.current) {
       previousChainsRef.current = chainsString
+      console.log('📤 [AIAgentVisualChainBuilder] Syncing chains to parent:', chainsWithLayout)
+      console.log('📤 [AIAgentVisualChainBuilder] Chains detail:', JSON.stringify(extractedChains, null, 2))
       onChainsChange(chainsWithLayout)
     }
   }, [nodes, edges, onChainsChange])
@@ -499,7 +518,7 @@ function AIAgentVisualChainBuilder({
 
   // Forward declare refs to avoid circular dependencies
   const handleAddToChainRef = React.useRef<(nodeId: string) => void>()
-  const handleAddActionToChainRef = React.useRef<(chainId: string, actionType: string, providerId: string, config?: any) => void>()
+  const handleAddActionToChainRef = React.useRef<(chainId: string, action: any, config?: any) => void>()
   const handleDeleteNodeRef = React.useRef<(nodeId: string) => void>()
   const handleAddNodeBetweenRef = React.useRef<(sourceId: string, targetId: string, position: { x: number, y: number }) => void>()
   
@@ -513,83 +532,88 @@ function AIAgentVisualChainBuilder({
   
   // Declare handleAddNodeBetween before handleDeleteNode to avoid initialization error
   const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
-    // Open action dialog to select a node to add
-    if (onOpenActionDialog) {
-      onOpenActionDialog()
-      if (onActionSelect) {
-        onActionSelect((actionType: string, providerId: string, config?: any) => {
-          const newNodeId = `node-${Date.now()}`
-          const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
-          const newNode: Node = {
-            id: newNodeId,
-            type: 'custom',
-            position,
-            data: {
-              title: config?.title || actionComponent?.title || actionType,
-              description: config?.description || actionComponent?.description || '',
-              type: actionType,
-              providerId: providerId,
-              config: config || {},
-              onConfigure: () => handleConfigureNode(newNodeId),
-              onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
-              onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
-              isLastInChain: false
-            }
+    // Set the callback first to select a node to add
+    if (onActionSelect) {
+      onActionSelect((action: any, config?: any) => {
+        if (!action) {
+          console.warn('⚠️ [AIAgentVisualChainBuilder] handleAddNodeBetween callback invoked without action')
+          return
+        }
+        const newNodeId = `node-${Date.now()}`
+        const actionType = typeof action === 'string' ? action : action.type
+        const newNode: Node = {
+          id: newNodeId,
+          type: 'custom',
+          position,
+          data: {
+            title: action.title || config?.title || actionType,
+            description: action.description || config?.description || '',
+            type: actionType,
+            providerId: action.providerId || actionType.split('_')[0],
+            config: config || {},
+            onConfigure: () => handleConfigureNode(newNodeId),
+            onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
+            onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
+            isLastInChain: false
           }
+        }
 
-          // Add the new node
-          setNodes((nds) => [...nds, newNode])
+        // Add the new node
+        setNodes((nds) => [...nds, newNode])
 
-          // Update edges to insert the new node between source and target
-          setEdges((eds) => {
-            const updatedEdges = eds.filter(e => !(e.source === sourceId && e.target === targetId))
-            return [
-              ...updatedEdges,
-              {
-                id: `e-${sourceId}-${newNodeId}`,
-                source: sourceId,
-                target: newNodeId,
-                type: 'custom',
-                style: { 
-                  stroke: '#94a3b8',
-                  strokeWidth: 2 
-                },
-                data: {
-                  onAddNode: (pos: { x: number, y: number }) => {
-                    handleAddNodeBetween(sourceId, newNodeId, pos)
-                  }
-                }
+        // Update edges to insert the new node between source and target
+        setEdges((eds) => {
+          const updatedEdges = eds.filter(e => !(e.source === sourceId && e.target === targetId))
+          return [
+            ...updatedEdges,
+            {
+              id: `e-${sourceId}-${newNodeId}`,
+              source: sourceId,
+              target: newNodeId,
+              type: 'custom',
+              style: { 
+                stroke: '#94a3b8',
+                strokeWidth: 2 
               },
-              {
-                id: `e-${newNodeId}-${targetId}`,
-                source: newNodeId,
-                target: targetId,
-                type: 'custom',
-                style: { 
-                  stroke: '#94a3b8',
-                  strokeWidth: 2 
-                },
-                data: {
-                  onAddNode: (pos: { x: number, y: number }) => {
-                    handleAddNodeBetween(newNodeId, targetId, pos)
-                  }
+              data: {
+                onAddNode: (pos: { x: number, y: number }) => {
+                  handleAddNodeBetween(sourceId, newNodeId, pos)
                 }
               }
-            ]
-          })
-          
-          // Auto-center the view to show all nodes after adding the node
-          setTimeout(() => {
-            fitView({ 
-              padding: 0.2, 
-              includeHiddenNodes: false,
-              duration: 400,
-              maxZoom: 2,
-              minZoom: 0.05
-            })
-          }, 150)
+            },
+            {
+              id: `e-${newNodeId}-${targetId}`,
+              source: newNodeId,
+              target: targetId,
+              type: 'custom',
+              style: { 
+                stroke: '#94a3b8',
+                strokeWidth: 2 
+              },
+              data: {
+                onAddNode: (pos: { x: number, y: number }) => {
+                  handleAddNodeBetween(newNodeId, targetId, pos)
+                }
+              }
+            }
+          ]
         })
-      }
+        
+        // Auto-center the view to show all nodes after adding the node
+        setTimeout(() => {
+          fitView({ 
+            padding: 0.2, 
+            includeHiddenNodes: false,
+            duration: 400,
+            maxZoom: 2,
+            minZoom: 0.05
+          })
+        }, 150)
+      })
+    }
+    // Then open the dialog (callback will already be set)
+    if (onOpenActionDialog) {
+      onOpenActionDialog()
     }
   }, [onOpenActionDialog, onActionSelect, fitView, setNodes, setEdges, handleConfigureNode])
   
@@ -654,13 +678,19 @@ function AIAgentVisualChainBuilder({
                 data: {
                   parentId: previousNodeId,
                   onClick: () => {
+                    // Set the callback first
+                    if (onActionSelect) {
+                      onActionSelect((action: any, config?: any) => {
+                        if (action) {
+                          handleAddToChainRef.current?.(previousNodeId, action, config)
+                        } else {
+                          console.warn('⚠️ [AIAgentVisualChainBuilder] Add action callback invoked without action')
+                        }
+                      })
+                    }
+                    // Then open the dialog (callback will already be set)
                     if (onOpenActionDialog) {
                       onOpenActionDialog()
-                      if (onActionSelect) {
-                        onActionSelect((actionType: string, providerId: string, config?: any) => {
-                          handleAddToChainRef.current?.(previousNodeId)
-                        })
-                      }
                     }
                   }
                 }
@@ -768,9 +798,9 @@ function AIAgentVisualChainBuilder({
       handleAddToChainRef.current(nodeId)
     }
   }, [])
-  const handleAddActionToChain = useCallback((chainId: string, actionType: string, providerId: string, config?: any) => {
+  const handleAddActionToChain = useCallback((chainId: string, action: any, config?: any) => {
     if (handleAddActionToChainRef.current) {
-      handleAddActionToChainRef.current(chainId, actionType, providerId, config)
+      handleAddActionToChainRef.current(chainId, action, config)
     }
   }, [])
 
@@ -867,13 +897,23 @@ function AIAgentVisualChainBuilder({
           onDelete: () => handleDeleteNodeRef.current?.(defaultChainId),
           onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
           onAddAction: () => {
+            console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called')
+            if (onActionSelect) {
+              console.log('🔥 [AIAgentVisualChainBuilder] Setting callback via onActionSelect')
+              // Set the callback first - now expecting the full action object
+              onActionSelect((action: any, config?: any) => {
+                console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config)
+                if (action) {
+                  handleAddActionToChainRef.current?.(defaultChainId, action, config)
+                } else {
+                  console.warn('⚠️ [AIAgentVisualChainBuilder] Callback invoked without action')
+                }
+              })
+            }
+            // Then open the dialog (callback will already be set)
             if (onOpenActionDialog) {
+              console.log('🔥 [AIAgentVisualChainBuilder] Opening dialog via onOpenActionDialog')
               onOpenActionDialog()
-              if (onActionSelect) {
-                onActionSelect((actionType: string, providerId: string, config?: any) => {
-                  handleAddActionToChainRef.current?.(defaultChainId, actionType, providerId, config)
-                })
-              }
             }
           },
           isLastInChain: true
@@ -1041,8 +1081,21 @@ function AIAgentVisualChainBuilder({
 
   // Update the ref with the actual implementation
   React.useEffect(() => {
-    handleAddActionToChainRef.current = (chainId: string, actionType: string, providerId: string, config?: any) => {
-      console.log('🔷 [AIAgentVisualChainBuilder] handleAddActionToChain called:', { chainId, actionType, providerId })
+    handleAddActionToChainRef.current = (chainId: string, action: any, config?: any) => {
+      // Handle null/undefined action
+      if (!action) {
+        console.error('❌ [AIAgentVisualChainBuilder] handleAddActionToChain called with null/undefined action')
+        return
+      }
+      
+      console.log('🔷 [AIAgentVisualChainBuilder] handleAddActionToChain called:', { 
+        chainId, 
+        actionType: typeof action === 'string' ? action : action.type,  // Handle both object and string for backwards compatibility
+        actionTitle: typeof action === 'object' ? action.title : undefined,
+        actionProviderId: typeof action === 'object' ? action.providerId : undefined
+      })
+      console.log('🔷 [AIAgentVisualChainBuilder] Action received:', action)
+      console.log('🔷 [AIAgentVisualChainBuilder] Config received:', config)
       
       // Generate IDs outside to use in both setNodes and setEdges
       const newNodeId = `node-${Date.now()}`
@@ -1060,25 +1113,54 @@ function AIAgentVisualChainBuilder({
         }
         console.log('✅ [AIAgentVisualChainBuilder] Found chain node:', chainNode.id)
         
-        // Find the action details from ALL_NODE_COMPONENTS
-        const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
+        // Handle both action object and string for backwards compatibility
+        const actionType = typeof action === 'string' ? action : action.type
+        const actionTitle = typeof action === 'object' ? action.title : null
+        const actionDescription = typeof action === 'object' ? action.description : null
+        const actionProviderId = typeof action === 'object' ? action.providerId : null
+        
+        // Use title from action object first, then config, then lookup, then fallback
+        const title = actionTitle || config?.title || actionType
+        const description = actionDescription || config?.description || ''
+        const providerId = actionProviderId || config?.providerId || actionType.split('_')[0]
+        
+        console.log('🔷 [AIAgentVisualChainBuilder] Title resolution:', {
+          finalTitle: title,
+          actionTitle: actionTitle,
+          configTitle: config?.title,
+          actionType: actionType,
+          titleSource: actionTitle ? 'action object' : (config?.title ? 'config' : 'actionType fallback')
+        })
         
         // Create the action node at the same position as the chain placeholder
+        const nodeData = {
+          title: title,
+          description: description,
+          type: actionType,
+          providerId: providerId,
+          config: config || {},  // Include the AI config or manual config
+          onConfigure: () => handleConfigureNode(newNodeId),
+          onDelete: () => handleDeleteNode(newNodeId),
+          onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+          isLastInChain: true
+        }
+        
+        console.log('🚀 [AIAgentVisualChainBuilder] Creating new node with data:', {
+          id: newNodeId,
+          title: nodeData.title,
+          description: nodeData.description,
+          type: nodeData.type,
+          providerId: nodeData.providerId,
+          hasTitle: !!nodeData.title,
+          titleValue: nodeData.title,
+          dataKeys: Object.keys(nodeData)
+        })
+        
         const newNode: Node = {
           id: newNodeId,
           type: 'custom',
           position: { ...chainNode.position },
-          data: {
-            title: actionComponent?.title || actionType,
-            description: actionComponent?.description || '',
-            type: actionType,
-            providerId: providerId,
-            config: config || {},  // Include the AI config or manual config
-            onConfigure: () => handleConfigureNode(newNodeId),
-            onDelete: () => handleDeleteNode(newNodeId),
-            onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
-            isLastInChain: true
-          }
+          data: nodeData
         }
         
         // Create Add Action node after the new action
@@ -1092,14 +1174,20 @@ function AIAgentVisualChainBuilder({
           data: {
             parentId: newNodeId,
             onClick: () => {
+              // Set the callback first
+              if (onActionSelect) {
+                onActionSelect((action: any, config?: any) => {
+                  // This will add the action after the current node
+                  if (action) {
+                    handleAddToChainRef.current?.(newNodeId, action, config)
+                  } else {
+                    console.warn('⚠️ [AIAgentVisualChainBuilder] Chain action callback invoked without action')
+                  }
+                })
+              }
+              // Then open the dialog (callback will already be set)
               if (onOpenActionDialog) {
                 onOpenActionDialog()
-                if (onActionSelect) {
-                  onActionSelect((actionType: string, providerId: string, config?: any) => {
-                    // This will add the action after the current node
-                    handleAddToChainRef.current?.(newNodeId)
-                  })
-                }
               }
             }
           }
@@ -1188,10 +1276,15 @@ function AIAgentVisualChainBuilder({
   // Update the handleAddToChain ref with actual implementation
   React.useEffect(() => {
     handleAddToChainRef.current = (lastNodeId: string) => {
-      if (onActionSelect) {
+      if (onActionSelect && onOpenActionDialog) {
         // Set up the callback first, then open the dialog
-        onActionSelect((actionType: string, providerId: string, config?: any) => {
+        onActionSelect((action: any, config?: any) => {
+          if (!action) {
+            console.warn('⚠️ [AIAgentVisualChainBuilder] handleAddToChain callback invoked without action')
+            return
+          }
           const newNodeId = `node-${Date.now()}`
+          const actionType = typeof action === 'string' ? action : action.type
           
           // Use functional update to get current nodes state
           setNodes((currentNodes) => {
@@ -1202,8 +1295,6 @@ function AIAgentVisualChainBuilder({
               return currentNodes
             }
             
-            const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === actionType)
-            
             const newNode: Node = {
               id: newNodeId,
               type: 'custom',
@@ -1212,10 +1303,10 @@ function AIAgentVisualChainBuilder({
                 y: lastNode.position.y 
               },
               data: {
-                title: actionComponent?.title || actionType,
-                description: actionComponent?.description || '',
+                title: action.title || config?.title || actionType,
+                description: action.description || config?.description || '',
                 type: actionType,
-                providerId: providerId,
+                providerId: action.providerId || actionType.split('_')[0],
                 config: config || {},
                 onConfigure: () => handleConfigureNode(newNodeId),
                 onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
@@ -1299,9 +1390,11 @@ function AIAgentVisualChainBuilder({
             })
           }, 150)
         })
+        // Now open the dialog after the callback is set
+        onOpenActionDialog()
       }
     }
-  }, [onActionSelect, handleConfigureNode, handleAddNodeBetween, fitView, syncChainsToParent, setNodes, setEdges])
+  }, [onActionSelect, onOpenActionDialog, handleConfigureNode, handleAddNodeBetween, fitView, syncChainsToParent, setNodes, setEdges])
 
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {
@@ -1364,13 +1457,19 @@ function AIAgentVisualChainBuilder({
         onDelete: () => handleDeleteNode(newNodeId),
         onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
         onAddAction: () => {
+          // Set the callback first
+          if (onActionSelect) {
+            onActionSelect((action: any, config?: any) => {
+              if (action) {
+                handleAddActionToChain(newNodeId, action, config)
+              } else {
+                console.warn('⚠️ [AIAgentVisualChainBuilder] Create chain callback invoked without action')
+              }
+            })
+          }
+          // Then open the dialog (callback will already be set)
           if (onOpenActionDialog) {
             onOpenActionDialog()
-            if (onActionSelect) {
-              onActionSelect((actionType: string, providerId: string, config?: any) => {
-                handleAddActionToChain(newNodeId, actionType, providerId, config)
-              })
-            }
           }
         },
         isLastInChain: true

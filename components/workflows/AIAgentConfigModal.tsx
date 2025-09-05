@@ -228,23 +228,36 @@ export function AIAgentConfigModal({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   
   // Configuration state
-  const [config, setConfig] = useState({
-    title: 'AI Agent',
-    systemPrompt: '',
-    model: 'gpt-4o-mini',
-    apiSource: 'chainreact',
-    customApiKey: '',
-    tone: 'professional',
-    temperature: 0.7,
-    maxTokens: 2000,
-    outputFormat: 'text',
-    includeContext: true,
-    enableSafety: true,
-    maxRetries: 3,
-    timeout: 30000,
-    targetActions: [] as string[],
-    chains: [] as any[],
-    ...initialData
+  const [config, setConfig] = useState(() => {
+    // Build initial config, making sure chains is properly initialized
+    const baseConfig = {
+      title: 'AI Agent',
+      systemPrompt: '',
+      model: 'gpt-4o-mini',
+      apiSource: 'chainreact',
+      customApiKey: '',
+      tone: 'professional',
+      temperature: 0.7,
+      maxTokens: 2000,
+      outputFormat: 'text',
+      includeContext: true,
+      enableSafety: true,
+      maxRetries: 3,
+      timeout: 30000,
+      targetActions: [] as string[],
+      chains: [] as any[]
+    }
+    
+    if (initialData) {
+      return {
+        ...baseConfig,
+        ...initialData,
+        // Ensure chains is always an array
+        chains: initialData.chains || []
+      }
+    }
+    
+    return baseConfig
   })
 
   // UI state
@@ -268,7 +281,7 @@ export function AIAgentConfigModal({
   const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
-  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
+  const [pendingActionCallback, setPendingActionCallback] = useState<any>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   
@@ -289,9 +302,11 @@ export function AIAgentConfigModal({
     }
   }, [config.model, config.maxTokens])
   
-  // Load initial data when modal opens
+  // Load initial data when modal opens - but don't reset if we already have data
   useEffect(() => {
-    if (initialData && isOpen) {
+    // Only update config if this is the first time opening with new initialData
+    // This prevents resetting chains when the modal is re-opened
+    if (initialData && isOpen && !config.chains?.length && initialData.chains?.length) {
       setConfig(prev => ({
         ...prev,
         ...initialData,
@@ -300,26 +315,7 @@ export function AIAgentConfigModal({
     }
   }, [initialData, isOpen])
   
-  // Handle action selection from parent workflow builder
-  useEffect(() => {
-    // When onActionSelect is called from parent with an action selection
-    // and we have a pending callback, execute it
-    if (pendingActionCallback && onActionSelect) {
-      // Override the onActionSelect to call our pending callback
-      const originalOnActionSelect = onActionSelect
-      onActionSelect = (action: any) => {
-        if (pendingActionCallback && action) {
-          // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
-          const actualCallback = pendingActionCallback()
-          if (actualCallback) {
-            actualCallback(action.type, action.providerId, action.config)
-          }
-          setPendingActionCallback(null)
-        }
-        originalOnActionSelect(action)
-      }
-    }
-  }, [pendingActionCallback, onActionSelect])
+  // Note: Removed the useEffect that was overriding onActionSelect - it was causing issues with callback handling
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => {
@@ -419,7 +415,9 @@ export function AIAgentConfigModal({
 
   const handleSave = async () => {
     console.log('🔵 [AIAgentConfigModal] handleSave called')
+    console.log('🔵 [AIAgentConfigModal] Current full config:', config)
     console.log('🔵 [AIAgentConfigModal] config.chains:', config.chains)
+    console.log('🔵 [AIAgentConfigModal] Full chains data:', JSON.stringify(config.chains, null, 2))
     
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
@@ -531,6 +529,16 @@ export function AIAgentConfigModal({
   
   // Handle action selection
   const handleActionSelection = (action: any) => {
+    console.log('🎯 [AIAgentConfigModal] handleActionSelection called with action:', action)
+    console.log('🎯 [AIAgentConfigModal] Action details:', {
+      type: action.type,
+      title: action.title,
+      description: action.description,
+      providerId: action.providerId,
+      allFields: Object.keys(action)
+    })
+    console.log('🎯 [AIAgentConfigModal] pendingActionCallback status:', pendingActionCallback ? 'EXISTS' : 'NULL')
+    console.log('🎯 [AIAgentConfigModal] isAIMode:', isAIMode)
     if (isAIMode) {
       // In AI mode, add action with all fields set to AI
       const aiConfig: Record<string, any> = {}
@@ -546,11 +554,16 @@ export function AIAgentConfigModal({
       
       // Add to chain via callback for visual builder
       if (pendingActionCallback) {
-        // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
-        const actualCallback = pendingActionCallback()
+        console.log('📤 [AIAgentConfigModal] pendingActionCallback exists, type:', typeof pendingActionCallback)
+        // pendingActionCallback is now the callback itself
+        const actualCallback = pendingActionCallback
+        console.log('📤 [AIAgentConfigModal] actualCallback:', actualCallback ? 'EXISTS' : 'NULL', typeof actualCallback)
         if (actualCallback) {
           // Pass the full action object along with config
-          actualCallback(action.type, action.providerId || '', { ...aiConfig, title: action.title, description: action.description })
+          const configToPass = { ...aiConfig }
+          console.log('📤 [AIAgentConfigModal] Calling callback with action:', action, 'config:', configToPass)
+          // Pass the full action object, not just type and providerId
+          actualCallback(action, configToPass)
         }
         setPendingActionCallback(null)
         setHasUnsavedChanges(true)
@@ -578,6 +591,21 @@ export function AIAgentConfigModal({
     } else {
       // In Manual mode, we need to add the action and open config
       setShowActionSelector(false)
+      
+      // Add to chain via callback for visual builder (manual mode)
+      if (pendingActionCallback) {
+        console.log('📤 [AIAgentConfigModal] (manual) pendingActionCallback exists, getting actual callback')
+        const actualCallback = pendingActionCallback
+        console.log('📤 [AIAgentConfigModal] (manual) actualCallback:', actualCallback ? 'EXISTS' : 'NULL')
+        if (actualCallback) {
+          const manualConfig = {}
+          console.log('📤 [AIAgentConfigModal] Calling callback with (manual mode) action:', action, 'config:', manualConfig)
+          // Pass the full action object, not just type and providerId
+          actualCallback(action, manualConfig)
+        }
+        setPendingActionCallback(null)
+        setHasUnsavedChanges(true)
+      }
       
       // Add to the main workflow with manual config flag
       if (onAddActionToWorkflow) {
@@ -789,12 +817,28 @@ export function AIAgentConfigModal({
                     
                     <AIAgentVisualChainBuilderWrapper
                       chains={config.chains}
-                      onChainsChange={(chains) => setConfig(prev => ({ ...prev, chains }))}
-                      onOpenActionDialog={() => setShowActionSelector(true)}
-                      onActionSelect={(callback) => {
-                        // Store the callback directly (React will wrap it automatically)
-                        setPendingActionCallback(() => callback)
+                      onChainsChange={(chainsData) => {
+                        // chainsData contains { chains: [...], aiAgentPosition: {...} }
+                        // We need to extract just the chains array
+                        const actualChains = chainsData.chains || chainsData
+                        console.log('🔄 [AIAgentConfigModal] onChainsChange called with:', chainsData)
+                        console.log('🔄 [AIAgentConfigModal] Extracted chains:', actualChains)
+                        setConfig(prev => {
+                          const newConfig = { ...prev, chains: actualChains }
+                          console.log('🔄 [AIAgentConfigModal] Updated config with chains:', newConfig.chains)
+                          return newConfig
+                        })
+                      }}
+                      onOpenActionDialog={() => {
+                        console.log('🚀 [AIAgentConfigModal] onOpenActionDialog called')
                         setShowActionSelector(true)
+                      }}
+                      onActionSelect={(callback) => {
+                        console.log('🚀 [AIAgentConfigModal] onActionSelect called with callback:', typeof callback)
+                        // Store the callback directly without wrapping
+                        setPendingActionCallback(callback)
+                        console.log('🚀 [AIAgentConfigModal] pendingActionCallback set')
+                        // Don't open dialog here - onOpenActionDialog will handle it
                       }}
                       workflowData={workflowData}
                       currentNodeId={currentNodeId}
@@ -1989,6 +2033,14 @@ export function AIAgentConfigModal({
                                   }`}
                                   onClick={() => {
                                     if (isComingSoon) return
+                                    console.log('🎯 [AIAgentConfigModal] Action clicked:', {
+                                      type: action.type,
+                                      title: action.title,
+                                      hasTitle: !!action.title,
+                                      description: action.description,
+                                      providerId: action.providerId,
+                                      allKeys: Object.keys(action)
+                                    })
                                     setSelectedActionInModal(action)
                                     handleActionSelection(action)
                                   }}
@@ -2036,28 +2088,59 @@ export function AIAgentConfigModal({
               </div>
             </div>
             
-            {/* Footer with selection info - matching main workflow builder */}
+            {/* Footer with selection info and buttons - matching main workflow builder */}
             <div className="p-4 border-t border-slate-200 bg-slate-50/50">
               <div className="flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  {selectedActionIntegration && (
-                    <>
-                      <span className="font-medium">Integration:</span> {selectedActionIntegration.name}
-                    </>
-                  )}
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    {selectedActionIntegration && (
+                      <>
+                        <span className="font-medium">Integration:</span> {selectedActionIntegration.name}
+                        {selectedActionInModal && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span className="font-medium">Action:</span> {selectedActionInModal.title}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {isAIMode ? (
+                      <span className="text-blue-600 font-medium">
+                        <Bot className="w-3 h-3 inline mr-1" />
+                        AI will configure all fields
+                      </span>
+                    ) : (
+                      <span className="text-orange-600 font-medium">
+                        <Settings className="w-3 h-3 inline mr-1" />
+                        Manual configuration required
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {isAIMode ? (
-                    <span className="text-blue-600 font-medium">
-                      <Bot className="w-3 h-3 inline mr-1" />
-                      AI will configure all fields
-                    </span>
-                  ) : (
-                    <span className="text-orange-600 font-medium">
-                      <Settings className="w-3 h-3 inline mr-1" />
-                      Manual configuration required
-                    </span>
-                  )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowActionSelector(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={!selectedActionIntegration || !selectedActionInModal}
+                    onClick={() => {
+                      if (selectedActionIntegration && selectedActionInModal) {
+                        // Handle the action selection
+                        if (isAIMode) {
+                          handleAddActionWithAI(selectedActionInModal)
+                        } else {
+                          handleAddAction(selectedActionInModal)
+                        }
+                      }
+                    }}
+                  >
+                    Continue →
+                  </Button>
                 </div>
               </div>
             </div>
