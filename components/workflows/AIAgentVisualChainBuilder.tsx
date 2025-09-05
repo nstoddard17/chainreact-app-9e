@@ -525,8 +525,8 @@ function AIAgentVisualChainBuilder({
             type: 'custom',
             position,
             data: {
-              title: actionComponent?.title || actionType,
-              description: actionComponent?.description || '',
+              title: config?.title || actionComponent?.title || actionType,
+              description: config?.description || actionComponent?.description || '',
               type: actionType,
               providerId: providerId,
               config: config || {},
@@ -654,7 +654,14 @@ function AIAgentVisualChainBuilder({
                 data: {
                   parentId: previousNodeId,
                   onClick: () => {
-                    handleAddToChainRef.current?.(previousNodeId)
+                    if (onOpenActionDialog) {
+                      onOpenActionDialog()
+                      if (onActionSelect) {
+                        onActionSelect((actionType: string, providerId: string, config?: any) => {
+                          handleAddToChainRef.current?.(previousNodeId)
+                        })
+                      }
+                    }
                   }
                 }
               }
@@ -1049,8 +1056,8 @@ function AIAgentVisualChainBuilder({
         type: 'custom',
         position: { ...chainNode.position },
         data: {
-          title: actionComponent?.title || actionType,
-          description: actionComponent?.description || '',
+          title: config?.title || actionComponent?.title || actionType,
+          description: config?.description || actionComponent?.description || '',
           type: actionType,
           providerId: providerId,
           config: config || {},  // Include the AI config or manual config
@@ -1184,8 +1191,8 @@ function AIAgentVisualChainBuilder({
               y: lastNode.position.y 
             },
             data: {
-              title: actionComponent?.title || actionType,
-              description: actionComponent?.description || '',
+              title: config?.title || actionComponent?.title || actionType,
+              description: config?.description || actionComponent?.description || '',
               type: actionType,
               providerId: providerId,
               config: config || {},
@@ -1208,7 +1215,14 @@ function AIAgentVisualChainBuilder({
             data: {
               parentId: newNodeId,
               onClick: () => {
-                handleAddToChainRef.current?.(newNodeId)
+                if (onOpenActionDialog) {
+                  onOpenActionDialog()
+                  if (onActionSelect) {
+                    onActionSelect((actionType: string, providerId: string, config?: any) => {
+                      handleAddToChainRef.current?.(newNodeId)
+                    })
+                  }
+                }
               }
             }
           }
@@ -1270,7 +1284,7 @@ function AIAgentVisualChainBuilder({
         })
       }
     }
-  }, [nodes, onActionSelect, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView, syncChainsToParent])
+  }, [nodes, onActionSelect, onOpenActionDialog, handleConfigureNode, handleDeleteNode, handleAddNodeBetween, fitView, syncChainsToParent])
 
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {

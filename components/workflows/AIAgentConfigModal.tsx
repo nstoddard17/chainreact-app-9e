@@ -268,7 +268,7 @@ export function AIAgentConfigModal({
   const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
-  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string) => void) | null>(null)
+  const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
   
   // Loading states
@@ -308,7 +308,11 @@ export function AIAgentConfigModal({
       const originalOnActionSelect = onActionSelect
       onActionSelect = (action: any) => {
         if (pendingActionCallback && action) {
-          pendingActionCallback(action.type, action.providerId, action.config)
+          // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
+          const actualCallback = pendingActionCallback()
+          if (actualCallback) {
+            actualCallback(action.type, action.providerId, action.config)
+          }
           setPendingActionCallback(null)
         }
         originalOnActionSelect(action)
@@ -536,7 +540,12 @@ export function AIAgentConfigModal({
       
       // Add to chain via callback for visual builder
       if (pendingActionCallback) {
-        pendingActionCallback(action.type, action.providerId || '', aiConfig)
+        // pendingActionCallback is stored as () => callback, so we need to call it first to get the actual callback
+        const actualCallback = pendingActionCallback()
+        if (actualCallback) {
+          // Pass the full action object along with config
+          actualCallback(action.type, action.providerId || '', { ...aiConfig, title: action.title, description: action.description })
+        }
         setPendingActionCallback(null)
       }
       
@@ -776,7 +785,7 @@ export function AIAgentConfigModal({
                       onChainsChange={(chains) => setConfig(prev => ({ ...prev, chains }))}
                       onOpenActionDialog={() => setShowActionSelector(true)}
                       onActionSelect={(callback) => {
-                        // Store the callback for when action is selected
+                        // Store the callback directly (React will wrap it automatically)
                         setPendingActionCallback(() => callback)
                         setShowActionSelector(true)
                       }}
