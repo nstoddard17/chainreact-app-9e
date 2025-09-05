@@ -8,14 +8,10 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
-          try {
-            return cookieStore.getAll()
-          } catch (error) {
-            // Suppress cookie parsing errors - they're expected with base64 cookies
-            return []
-          }
+          return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
           try {
@@ -40,14 +36,10 @@ export async function createSupabaseServerActionClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
-          try {
-            return cookieStore.getAll()
-          } catch (error) {
-            // Suppress cookie parsing errors - they're expected with base64 cookies
-            return []
-          }
+          return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
           try {
@@ -72,14 +64,10 @@ export async function createSupabaseRouteHandlerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
-          try {
-            return cookieStore.getAll()
-          } catch (error) {
-            // Suppress cookie parsing errors - they're expected with base64 cookies
-            return []
-          }
+          return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
           try {

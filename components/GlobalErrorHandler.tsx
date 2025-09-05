@@ -8,18 +8,8 @@ export function GlobalErrorHandler() {
     const originalConsoleError = console.error
     const originalConsoleWarn = console.warn
 
-    // Override console.error to filter out known Supabase cookie errors
+    // Override console.error to filter out known errors
     console.error = (...args) => {
-      // Check if this is a cookie parsing error from Supabase
-      const isCookieError = args.some(arg => 
-        typeof arg === 'string' && (
-          arg.includes("Failed to parse cookie string") ||
-          arg.includes("Unexpected token 'b', \"base64-eyJ\"") ||
-          arg.includes("is not valid JSON") ||
-          arg.includes("SyntaxError: Unexpected token 'b'")
-        )
-      )
-
       // Check if this is an AbortController abort error (common during navigation)
       const isAbortError = args.some(arg => 
         typeof arg === 'string' && (
@@ -42,12 +32,6 @@ export function GlobalErrorHandler() {
         )
       )
 
-      if (isCookieError) {
-        // Don't log these errors - they're expected Supabase behavior
-        console.debug("🍪 Supabase cookie parsing (expected behavior):", args)
-        return
-      }
-
       if (isAbortError) {
         // Don't log abort errors - they're expected during navigation
         console.debug("🔍 AbortController abort (expected behavior):", args)
@@ -64,25 +48,8 @@ export function GlobalErrorHandler() {
       originalConsoleError.apply(console, args)
     }
 
-    // Override console.warn to filter out cookie-related warnings
-    console.warn = (...args) => {
-      // Check if this is a cookie-related warning
-      const isCookieWarning = args.some(arg => 
-        typeof arg === 'string' && (
-          arg.includes("cookie") ||
-          arg.includes("Failed to parse cookie")
-        )
-      )
-
-      if (isCookieWarning) {
-        // Don't log these warnings - they're expected
-        console.debug("🍪 Cookie-related warning (expected):", args)
-        return
-      }
-
-      // Call the original console.warn for all other warnings
-      originalConsoleWarn.apply(console, args)
-    }
+    // Restore original console.warn (no special filtering needed)
+    console.warn = originalConsoleWarn
 
     // Global error event handler
     const handleGlobalError = (event: ErrorEvent) => {
@@ -93,18 +60,6 @@ export function GlobalErrorHandler() {
         return
       }
 
-      // Check if this is a cookie parsing error
-      if (event.message && (
-        event.message.includes("Failed to parse cookie string") ||
-        event.message.includes("Unexpected token 'b', \"base64-eyJ\"") ||
-        event.message.includes("is not valid JSON") ||
-        event.message.includes("SyntaxError: Unexpected token 'b'")
-      )) {
-        // Don't log these errors - they're expected Supabase behavior
-        console.debug("🍪 Supabase cookie parsing error (expected):", event.message)
-        event.preventDefault()
-        return
-      }
       
       // Check if this is an AbortController abort error
       if (event.message && (
@@ -135,17 +90,6 @@ export function GlobalErrorHandler() {
 
     // Global unhandled rejection handler
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      // Check if this is a cookie-related rejection
-      if (event.reason && typeof event.reason === 'string' && (
-        event.reason.includes("Failed to parse cookie string") ||
-        event.reason.includes("Unexpected token 'b', \"base64-eyJ\"") ||
-        event.reason.includes("is not valid JSON")
-      )) {
-        // Don't log these rejections - they're expected
-        console.debug("🍪 Cookie-related promise rejection (expected):", event.reason)
-        event.preventDefault()
-        return
-      }
       
       // Check if this is an AbortController abort rejection
       if (event.reason && (

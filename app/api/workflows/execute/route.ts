@@ -7,11 +7,21 @@ export async function POST(request: Request) {
     console.log("=== Workflow Execution Started (Refactored) ===")
     
     const body = await request.json()
-    const { workflowId, testMode = false, inputData = {}, workflowData } = body
+    const { workflowId, testMode = false, executionMode, inputData = {}, workflowData } = body
+    
+    // Determine execution mode
+    // - 'sandbox': Test mode with no external calls (testMode = true)
+    // - 'live': Execute with real external calls (testMode = false)
+    // - undefined/legacy: Use testMode as-is for backward compatibility
+    const effectiveTestMode = executionMode === 'sandbox' ? true : 
+                             executionMode === 'live' ? false : 
+                             testMode
     
     console.log("Execution parameters:", {
       workflowId,
       testMode,
+      executionMode,
+      effectiveTestMode,
       hasInputData: !!inputData,
       hasWorkflowData: !!workflowData
     })
@@ -50,11 +60,29 @@ export async function POST(request: Request) {
     console.log("User authenticated:", user.id)
 
     // Parse workflow data
-    const nodes = workflowData?.nodes || workflow.nodes || []
-    const edges = workflowData?.edges || workflow.edges || []
+    const allNodes = workflowData?.nodes || workflow.nodes || []
+    const allEdges = workflowData?.edges || workflow.edges || []
+    
+    // Filter out UI-only nodes (AddActionNodes, InsertActionNodes)
+    const nodes = allNodes.filter((node: any) => {
+      // Skip UI placeholder nodes
+      if (node.type === 'addAction' || node.type === 'insertAction' || node.id?.startsWith('add-action-')) {
+        return false
+      }
+      return true
+    })
+    
+    // Filter edges to only include valid nodes
+    const edges = allEdges.filter((edge: any) => {
+      const sourceNode = nodes.find((n: any) => n.id === edge.source)
+      const targetNode = nodes.find((n: any) => n.id === edge.target)
+      return sourceNode && targetNode
+    })
     
     console.log("Workflow structure:", {
-      nodesCount: nodes.length,
+      originalNodesCount: allNodes.length,
+      filteredNodesCount: nodes.length,
+      skippedUINodes: allNodes.length - nodes.length,
       edgesCount: edges.length,
       nodeTypes: nodes.map((n: any) => n.data?.type).filter(Boolean)
     })
@@ -74,15 +102,24 @@ export async function POST(request: Request) {
     }
 
     // Execute the workflow using the new service
-    console.log("Starting workflow execution with testMode:", testMode)
+    console.log("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
     
     const workflowExecutionService = new WorkflowExecutionService()
+    
+    // Pass filtered workflow data with correct property names
+    const filteredWorkflowData = workflowData ? {
+      ...workflowData,
+      nodes: nodes,
+      edges: edges,
+      connections: edges // Some parts of the code use 'connections' instead of 'edges'
+    } : null
+    
     const results = await workflowExecutionService.executeWorkflow(
       workflow, 
       inputData, 
       user.id, 
-      testMode, 
-      workflowData
+      effectiveTestMode, 
+      filteredWorkflowData
     )
     
     console.log("Workflow execution completed successfully")

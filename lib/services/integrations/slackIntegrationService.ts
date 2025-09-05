@@ -162,7 +162,7 @@ export class SlackIntegrationService {
 
   private resolveValue(value: any, context: ExecutionContext): any {
     if (typeof value === 'string' && context.dataFlowManager) {
-      return context.dataFlowManager.resolveVariables(value)
+      return context.dataFlowManager.resolveVariable(value)
     }
     return value
   }

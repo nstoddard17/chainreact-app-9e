@@ -33,33 +33,35 @@ export async function GET() {
 
     // Check for expired integrations and update their status
     const now = new Date()
-    const expiredIntegrations: string[] = []
+    const expiredIntegrationIds: string[] = []
+    const expiredProviders: string[] = []
 
+    // First, identify all expired integrations
     for (const integration of integrations || []) {
       if (
         integration.status === "connected" &&
         integration.expires_at &&
         new Date(integration.expires_at) <= now
       ) {
-        expiredIntegrations.push(integration.provider)
-        
-        // Update the integration status to expired
-        await supabase
-          .from("integrations")
-          .update({
-            status: "expired",
-            updated_at: now.toISOString(),
-          })
-          .eq("id", integration.id)
-
-        // Update the integration object for the response
-        integration.status = "expired"
+        expiredIntegrationIds.push(integration.id)
+        expiredProviders.push(integration.provider)
       }
+    }
+
+    // Batch update all expired integrations at once
+    if (expiredIntegrationIds.length > 0) {
+      await supabase
+        .from("integrations")
+        .update({
+          status: "expired",
+          updated_at: now.toISOString(),
+        })
+        .in("id", expiredIntegrationIds)
     }
 
     // Update the integrations array with the corrected statuses
     const updatedIntegrations = integrations?.map((integration) => {
-      if (expiredIntegrations.includes(integration.provider)) {
+      if (expiredIntegrationIds.includes(integration.id)) {
         return { ...integration, status: "expired" }
       }
       return integration

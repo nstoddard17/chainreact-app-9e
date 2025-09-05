@@ -1,18 +1,18 @@
 import { ExecutionContext } from "../workflowExecutionService"
-import { LegacyIntegrationService } from "../legacyIntegrationService"
 
 export class GmailIntegrationService {
-  private legacyService: LegacyIntegrationService
-
   constructor() {
-    this.legacyService = new LegacyIntegrationService()
+    // No legacy service needed - we use direct implementations
   }
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
+    console.log(`📧 GmailIntegrationService - nodeType: ${nodeType}`)
+    console.log(`📌 GmailIntegrationService - Context userId: ${context.userId}`)
 
     switch (nodeType) {
       case "gmail_action_send_email":
+      case "gmail_send":  // Handle legacy/alternative type name
         return await this.executeSendEmail(node, context)
       case "gmail_action_add_label":
         return await this.executeAddLabel(node, context)
@@ -58,8 +58,17 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail send implementation directly
+    const { sendGmailEmail } = await import('@/lib/workflows/actions/gmail/sendEmail')
+    
+    // Call the Gmail send function with proper parameters
+    const result = await sendGmailEmail(
+      config,
+      context.userId,  // Pass the userId directly from context
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeAddLabel(node: any, context: ExecutionContext) {
@@ -82,8 +91,21 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Call with proper parameters
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        addLabels: [labelId],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeRemoveLabel(node: any, context: ExecutionContext) {
@@ -106,8 +128,21 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Call with proper parameters
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        removeLabels: [labelId],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeMarkRead(node: any, context: ExecutionContext) {
@@ -128,8 +163,21 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Remove UNREAD label to mark as read
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        removeLabels: ['UNREAD'],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeMarkUnread(node: any, context: ExecutionContext) {
@@ -150,8 +198,21 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Add UNREAD label to mark as unread
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        addLabels: ['UNREAD'],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeArchive(node: any, context: ExecutionContext) {
@@ -172,8 +233,21 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Remove INBOX label to archive
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        removeLabels: ['INBOX'],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeDelete(node: any, context: ExecutionContext) {
@@ -194,13 +268,26 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail implementation directly
+    const { applyGmailLabels } = await import('@/lib/workflows/actions/gmail/applyLabels')
+    
+    // Add TRASH label to move to trash
+    const result = await applyGmailLabels(
+      {
+        ...config,
+        addLabels: ['TRASH'],
+        messageId
+      },
+      context.userId,
+      context.data || {}
+    )
+    
+    return result
   }
 
   private resolveValue(value: any, context: ExecutionContext): any {
     if (typeof value === 'string' && context.dataFlowManager) {
-      return context.dataFlowManager.resolveVariables(value)
+      return context.dataFlowManager.resolveVariable(value)
     }
     return value
   }

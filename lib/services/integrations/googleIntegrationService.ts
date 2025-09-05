@@ -1,11 +1,8 @@
 import { ExecutionContext } from "../workflowExecutionService"
-import { LegacyIntegrationService } from "../legacyIntegrationService"
 
 export class GoogleIntegrationService {
-  private legacyService: LegacyIntegrationService
-
   constructor() {
-    this.legacyService = new LegacyIntegrationService()
+    // No legacy service needed - we use direct implementations
   }
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
@@ -27,7 +24,7 @@ export class GoogleIntegrationService {
     }
 
     // Google Calendar actions
-    if (nodeType.startsWith('calendar_')) {
+    if (nodeType.startsWith('calendar_') || nodeType.startsWith('google_calendar_')) {
       return await this.executeGoogleCalendarAction(node, context)
     }
 
@@ -36,6 +33,9 @@ export class GoogleIntegrationService {
 
   private async executeGoogleDriveAction(node: any, context: ExecutionContext) {
     const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    console.log(`📁 Executing Google Drive action: ${nodeType}`)
 
     switch (nodeType) {
       case "google_drive_create_file":
@@ -49,64 +49,142 @@ export class GoogleIntegrationService {
       case "google_drive_share_file":
         return await this.executeShareFile(node, context)
       default:
-        // Fallback to legacy service
-        return await this.legacyService.executeFallbackAction(node, context)
+        throw new Error(`Google Drive action '${nodeType}' is not yet implemented`)
     }
   }
 
   private async executeGoogleSheetsAction(node: any, context: ExecutionContext) {
     const nodeType = node.data.type
+    const config = node.data.config || {}
 
+    console.log(`📊 Executing Google Sheets action: ${nodeType}`)
+
+    if (context.testMode) {
+      return {
+        type: nodeType,
+        status: "success (test mode)",
+        data: []
+      }
+    }
+
+    // Import actual implementations
     switch (nodeType) {
       case "sheets_append":
-        return await this.executeSheetsAppend(node, context)
+      case "google_sheets_action_append":
+        const { createGoogleSheetsRow } = await import('@/lib/workflows/actions/googleSheets')
+        return await createGoogleSheetsRow(config, context.userId, context.data || {})
+        
       case "sheets_read":
-        return await this.executeSheetsRead(node, context)
+      case "google_sheets_action_read":
+        const { readGoogleSheetsData } = await import('@/lib/workflows/actions/googleSheets')
+        return await readGoogleSheetsData(config, context.userId, context.data || {})
+        
       case "sheets_update":
-        return await this.executeSheetsUpdate(node, context)
-      case "sheets_create_spreadsheet":
-        return await this.executeSheetsCreateSpreadsheet(node, context)
+      case "google_sheets_action_update":
+        const { updateGoogleSheetsRow } = await import('@/lib/workflows/actions/googleSheets')
+        return await updateGoogleSheetsRow(config, context.userId, context.data || {})
+        
+      case "sheets_delete":
+      case "google_sheets_action_delete":
+        const { deleteGoogleSheetsRow } = await import('@/lib/workflows/actions/googleSheets')
+        return await deleteGoogleSheetsRow(config, context.userId, context.data || {})
+        
       case "google_sheets_unified":
-        return await this.executeGoogleSheetsUnified(node, context)
+      case "google_sheets_unified_action":
+        const { executeGoogleSheetsUnifiedAction } = await import('@/lib/workflows/actions/googleSheets')
+        return await executeGoogleSheetsUnifiedAction(config, context.userId, context.data || {})
+        
       default:
-        // Fallback to legacy service
-        return await this.legacyService.executeFallbackAction(node, context)
+        throw new Error(`Google Sheets action '${nodeType}' is not yet implemented`)
     }
   }
 
   private async executeGoogleDocsAction(node: any, context: ExecutionContext) {
     const nodeType = node.data.type
+    const config = node.data.config || {}
 
+    console.log(`📝 Executing Google Docs action: ${nodeType}`)
+
+    if (context.testMode) {
+      return {
+        type: nodeType,
+        status: "success (test mode)",
+        documentId: "test-doc-id"
+      }
+    }
+
+    // Import actual implementations
     switch (nodeType) {
       case "google_docs_create":
-        return await this.executeDocsCreate(node, context)
-      case "google_docs_read":
-        return await this.executeDocsRead(node, context)
+      case "google_docs_action_create_document":
+        const { createGoogleDocument } = await import('@/lib/workflows/actions/googleDocs')
+        return await createGoogleDocument(config, context.userId, context.data || {})
+        
       case "google_docs_update":
-        return await this.executeDocsUpdate(node, context)
+      case "google_docs_action_update_document":
+        const { updateGoogleDocument } = await import('@/lib/workflows/actions/googleDocs')
+        return await updateGoogleDocument(config, context.userId, context.data || {})
+        
+      case "google_docs_share":
+      case "google_docs_action_share_document":
+        const { shareGoogleDocument } = await import('@/lib/workflows/actions/googleDocs')
+        return await shareGoogleDocument(config, context.userId, context.data || {})
+        
+      case "google_docs_export":
+      case "google_docs_action_export_document":
+        const { exportGoogleDocument } = await import('@/lib/workflows/actions/googleDocs')
+        return await exportGoogleDocument(config, context.userId, context.data || {})
+        
+      case "google_docs_read":
+      case "google_docs_action_get_document":
+        // Use the get function from googleDocs
+        const googleDocs = await import('@/lib/workflows/actions/googleDocs')
+        if ('getGoogleDocument' in googleDocs) {
+          return await googleDocs.getGoogleDocument(config, context.userId, context.data || {})
+        }
+        throw new Error("Google Docs read/get action is not yet implemented")
+        
       default:
-        // Fallback to legacy service
-        return await this.legacyService.executeFallbackAction(node, context)
+        throw new Error(`Google Docs action '${nodeType}' is not yet implemented`)
     }
   }
 
   private async executeGoogleCalendarAction(node: any, context: ExecutionContext) {
     const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    console.log(`📅 Executing Google Calendar action: ${nodeType}`)
+
+    if (context.testMode) {
+      return {
+        type: nodeType,
+        status: "success (test mode)",
+        eventId: "test-event-id"
+      }
+    }
 
     switch (nodeType) {
       case "calendar_create_event":
-        return await this.executeCalendarCreateEvent(node, context)
+      case "google_calendar_action_create_event":
+        const { createGoogleCalendarEvent } = await import('@/lib/workflows/actions/googleCalendar/createEvent')
+        return await createGoogleCalendarEvent(config, context.userId, context.data || {})
+        
       case "calendar_update_event":
-        return await this.executeCalendarUpdateEvent(node, context)
+      case "google_calendar_action_update_event":
+        // TODO: Implement when action is available
+        throw new Error("Google Calendar update event is not yet implemented")
+        
       case "calendar_delete_event":
-        return await this.executeCalendarDeleteEvent(node, context)
+      case "google_calendar_action_delete_event":
+        // TODO: Implement when action is available
+        throw new Error("Google Calendar delete event is not yet implemented")
+        
       default:
-        // Fallback to legacy service
-        return await this.legacyService.executeFallbackAction(node, context)
+        throw new Error(`Google Calendar action '${nodeType}' is not yet implemented`)
     }
   }
 
-  // Google Drive implementations
+  // Google Drive implementations (simplified - actual implementation when actions are available)
   private async executeCreateFile(node: any, context: ExecutionContext) {
     console.log("📄 Executing Google Drive create file")
     
@@ -130,15 +208,26 @@ export class GoogleIntegrationService {
       }
     }
 
-    // Use legacy service for actual Google Drive API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // TODO: Implement actual Google Drive create file
+    throw new Error("Google Drive create file is not yet implemented")
   }
 
   private async executeUploadFile(node: any, context: ExecutionContext) {
     console.log("⬆️ Executing Google Drive upload file")
     
-    // Use legacy service for actual Google Drive API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    const config = node.data.config || {}
+
+    if (context.testMode) {
+      return {
+        type: "google_drive_upload_file",
+        status: "uploaded (test mode)",
+        fileId: "test-file-id"
+      }
+    }
+
+    // Import and use actual implementation
+    const { uploadGoogleDriveFile } = await import('@/lib/workflows/actions/googleDrive/uploadFile')
+    return await uploadGoogleDriveFile(config, context.userId, context.data || {})
   }
 
   private async executeCreateFolder(node: any, context: ExecutionContext) {
@@ -162,8 +251,8 @@ export class GoogleIntegrationService {
       }
     }
 
-    // Use legacy service for actual Google Drive API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // TODO: Implement actual Google Drive create folder
+    throw new Error("Google Drive create folder is not yet implemented")
   }
 
   private async executeDeleteFile(node: any, context: ExecutionContext) {
@@ -184,8 +273,8 @@ export class GoogleIntegrationService {
       }
     }
 
-    // Use legacy service for actual Google Drive API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // TODO: Implement actual Google Drive delete file
+    throw new Error("Google Drive delete file is not yet implemented")
   }
 
   private async executeShareFile(node: any, context: ExecutionContext) {
@@ -210,93 +299,13 @@ export class GoogleIntegrationService {
       }
     }
 
-    // Use legacy service for actual Google Drive API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  // Google Sheets implementations
-  private async executeSheetsAppend(node: any, context: ExecutionContext) {
-    console.log("📊 Executing Google Sheets append")
-    
-    // Use legacy service for actual Google Sheets API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeSheetsRead(node: any, context: ExecutionContext) {
-    console.log("📖 Executing Google Sheets read")
-    
-    // Use legacy service for actual Google Sheets API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeSheetsUpdate(node: any, context: ExecutionContext) {
-    console.log("✏️ Executing Google Sheets update")
-    
-    // Use legacy service for actual Google Sheets API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeSheetsCreateSpreadsheet(node: any, context: ExecutionContext) {
-    console.log("📋 Executing Google Sheets create spreadsheet")
-    
-    // Use legacy service for actual Google Sheets API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeGoogleSheetsUnified(node: any, context: ExecutionContext) {
-    console.log("📊 Executing Google Sheets unified action")
-    
-    // Use legacy service for actual Google Sheets API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  // Google Docs implementations
-  private async executeDocsCreate(node: any, context: ExecutionContext) {
-    console.log("📝 Executing Google Docs create")
-    
-    // Use legacy service for actual Google Docs API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeDocsRead(node: any, context: ExecutionContext) {
-    console.log("📖 Executing Google Docs read")
-    
-    // Use legacy service for actual Google Docs API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeDocsUpdate(node: any, context: ExecutionContext) {
-    console.log("✏️ Executing Google Docs update")
-    
-    // Use legacy service for actual Google Docs API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  // Google Calendar implementations
-  private async executeCalendarCreateEvent(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Google Calendar create event")
-    
-    // Use legacy service for actual Google Calendar API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeCalendarUpdateEvent(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Google Calendar update event")
-    
-    // Use legacy service for actual Google Calendar API calls
-    return await this.legacyService.executeFallbackAction(node, context)
-  }
-
-  private async executeCalendarDeleteEvent(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Google Calendar delete event")
-    
-    // Use legacy service for actual Google Calendar API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // TODO: Implement actual Google Drive share file
+    throw new Error("Google Drive share file is not yet implemented")
   }
 
   private resolveValue(value: any, context: ExecutionContext): any {
     if (typeof value === 'string' && context.dataFlowManager) {
-      return context.dataFlowManager.resolveVariables(value)
+      return context.dataFlowManager.resolveVariable(value)
     }
     return value
   }

@@ -101,6 +101,31 @@ export function GenericConfiguration({
     // Never show fields with type: 'hidden'
     if (field.type === 'hidden') return false;
     
+    // Check conditionalVisibility
+    if (field.conditionalVisibility) {
+      const { field: dependentField, value: expectedValue } = field.conditionalVisibility;
+      const actualValue = values[dependentField];
+      
+      // Special handling for boolean true - check for any truthy value
+      if (expectedValue === true && typeof expectedValue === 'boolean') {
+        // Hide if actualValue is empty, null, undefined, or empty string
+        if (!actualValue || (typeof actualValue === 'string' && actualValue.trim() === '')) {
+          return false;
+        }
+      }
+      // Special handling for boolean false - check for falsy value
+      else if (expectedValue === false && typeof expectedValue === 'boolean') {
+        // Hide if actualValue is truthy
+        if (actualValue && !(typeof actualValue === 'string' && actualValue.trim() === '')) {
+          return false;
+        }
+      }
+      // For other values, check exact match
+      else if (actualValue !== expectedValue) {
+        return false;
+      }
+    }
+    
     // If field has hidden: true and dependsOn, only show if dependency is satisfied
     if (field.hidden && field.dependsOn) {
       const dependencyValue = values[field.dependsOn];
@@ -173,9 +198,9 @@ export function GenericConfiguration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate required fields
+    // Validate required fields (only for visible fields)
     const allFields = [...baseFields, ...advancedFields];
-    const requiredFields = allFields.filter(f => f.required);
+    const requiredFields = allFields.filter(f => f.required && shouldShowField(f));
     const errors: Record<string, string> = {};
     
     requiredFields.forEach(field => {

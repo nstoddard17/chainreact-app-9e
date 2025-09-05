@@ -477,9 +477,16 @@ export function formatExecutionLogEntry(entry: ExecutionLogEntry): string {
 }
 
 /**
- * Store execution logs in localStorage for persistence
+ * Store execution logs in localStorage for persistence (client-side only)
  */
 export function storeExecutionLog(workflowId: string, entry: ExecutionLogEntry) {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    // Server-side execution - skip storing logs
+    console.log('Execution log (server-side):', entry)
+    return
+  }
+  
   const key = `workflow_execution_logs_${workflowId}`
   const existing = localStorage.getItem(key)
   const logs = existing ? JSON.parse(existing) : []
@@ -494,18 +501,30 @@ export function storeExecutionLog(workflowId: string, entry: ExecutionLogEntry) 
 }
 
 /**
- * Retrieve execution logs from localStorage
+ * Retrieve execution logs from localStorage (client-side only)
  */
 export function getExecutionLogs(workflowId: string): ExecutionLogEntry[] {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    // Server-side execution - return empty array
+    return []
+  }
+  
   const key = `workflow_execution_logs_${workflowId}`
   const stored = localStorage.getItem(key)
   return stored ? JSON.parse(stored) : []
 }
 
 /**
- * Clear execution logs
+ * Clear execution logs (client-side only)
  */
 export function clearExecutionLogs(workflowId: string) {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    // Server-side execution - nothing to clear
+    return
+  }
+  
   const key = `workflow_execution_logs_${workflowId}`
   localStorage.removeItem(key)
 }
