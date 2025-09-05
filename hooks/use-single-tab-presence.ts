@@ -6,12 +6,18 @@ import { supabase } from '@/utils/supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // Broadcast channel for cross-tab communication
-const BROADCAST_CHANNEL = 'presence-tab-election'
+// Use environment-specific channel to avoid dev/prod conflicts
+const BROADCAST_CHANNEL = process.env.NODE_ENV === 'development' 
+  ? 'presence-tab-election-dev' 
+  : 'presence-tab-election'
 const LEADER_HEARTBEAT_INTERVAL = 2000 // 2 seconds (for cross-tab communication only)
 const LEADER_TIMEOUT = 5000 // 5 seconds
 const PRESENCE_HEARTBEAT_INTERVAL = 3600000 // 1 hour (for Supabase presence)
 const USER_COUNT_UPDATE_INTERVAL = 300000 // 5 minutes (how often to fetch count)
 const DB_UPDATE_INTERVAL = 3600000 // 1 hour (how often to actually update database)
+
+// In development, reduce update frequency to handle hot reloading
+const MIN_UPDATE_INTERVAL = process.env.NODE_ENV === 'development' ? 60000 : 30000 // 1 min in dev, 30s in prod
 
 interface TabMessage {
   type: 'heartbeat' | 'election' | 'resignation'
@@ -27,6 +33,9 @@ interface OnlineUser {
   last_seen: string
 }
 
+// Track mount time to detect hot reloading
+let lastMountTime = 0
+
 export function useSingleTabPresence() {
   const { user, profile } = useAuthStore()
   const [isLeaderTab, setIsLeaderTab] = useState(false)
@@ -34,6 +43,16 @@ export function useSingleTabPresence() {
   const [isConnected, setIsConnected] = useState(false)
   
   const tabId = useRef<string>(`tab-${Date.now()}-${Math.random()}`).current
+  const mountTime = useRef<number>(Date.now()).current
+  
+  // Detect hot reloading in development
+  const isHotReload = process.env.NODE_ENV === 'development' && 
+    lastMountTime > 0 && 
+    (mountTime - lastMountTime) < 1000 // Less than 1 second since last mount
+  
+  if (process.env.NODE_ENV === 'development') {
+    lastMountTime = mountTime
+  }
   const broadcastChannel = useRef<BroadcastChannel | null>(null)
   const leaderHeartbeatInterval = useRef<NodeJS.Timeout | null>(null)
   const leaderCheckInterval = useRef<NodeJS.Timeout | null>(null)
@@ -140,12 +159,12 @@ export function useSingleTabPresence() {
             }
           }, DB_UPDATE_INTERVAL)
           
-          // Do one initial update after a delay
+          // Do one initial update after a delay (longer in dev to handle hot reloading)
           setTimeout(() => {
             if (lastOnlineCount.current > 0) {
               updateOnlineCount(lastOnlineCount.current)
             }
-          }, 10000) // Wait 10 seconds for initial count to stabilize
+          }, process.env.NODE_ENV === 'development' ? 30000 : 10000) // 30s in dev, 10s in prod
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setIsConnected(false)
         }
@@ -259,16 +278,16 @@ export function useSingleTabPresence() {
   const updateOnlineCount = useCallback(async (count: number) => {
     if (!user?.id) return
     
-    // Debounce: Don't update if we've updated in the last 30 seconds
+    // Debounce: Don't update if we've updated recently
     const now = Date.now()
-    if (now - lastDbUpdateTime.current < 30000) {
+    if (now - lastDbUpdateTime.current < MIN_UPDATE_INTERVAL) {
       // Schedule an update after the debounce period
       if (pendingDbUpdate.current) {
         clearTimeout(pendingDbUpdate.current)
       }
       pendingDbUpdate.current = setTimeout(() => {
         updateOnlineCount(count)
-      }, 30000 - (now - lastDbUpdateTime.current))
+      }, MIN_UPDATE_INTERVAL - (now - lastDbUpdateTime.current))
       return
     }
     
@@ -298,6 +317,12 @@ export function useSingleTabPresence() {
   // Initialize
   useEffect(() => {
     if (!user?.id) return
+    
+    // Skip initialization during hot reload to prevent election storms
+    if (isHotReload) {
+      console.debug('Skipping presence initialization during hot reload')
+      return
+    }
     
     // Create broadcast channel for cross-tab communication
     if ('BroadcastChannel' in window) {
