@@ -130,32 +130,46 @@ export function FieldRenderer({
   /**
    * Renders the label with optional tooltip
    */
-  const renderLabel = () => (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
-          {getFieldIcon(field.name, field.type)}
+  const renderLabel = () => {
+    // Debug logging for Gmail trigger fields
+    if (field.name === 'from' && nodeInfo?.type === 'gmail_trigger_new_email') {
+      console.log('🔍 [FieldRenderer] Gmail trigger FROM field:', {
+        fieldName: field.name,
+        fieldLabel: field.label,
+        fieldRequired: field.required,
+        fieldType: field.type,
+        nodeType: nodeInfo?.type,
+        fullField: field
+      });
+    }
+    
+    return (
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
+            {getFieldIcon(field.name, field.type)}
+          </div>
+          <Label 
+            htmlFor={field.name} 
+            className={cn(
+              "text-sm font-medium text-slate-700",
+              field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
+            )}
+          >
+            {field.label || field.name}
+          </Label>
         </div>
-        <Label 
-          htmlFor={field.name} 
-          className={cn(
-            "text-sm font-medium text-slate-700",
-            field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
-          )}
-        >
-          {field.label || field.name}
-        </Label>
+        
+        {field.description && (
+          <HelpCircle className="h-4 w-4 text-muted-foreground" title={field.description} />
+        )}
+        
+        {field.required && (
+          <span className="text-xs text-red-500 font-medium">Required</span>
+        )}
       </div>
-      
-      {field.description && (
-        <HelpCircle className="h-4 w-4 text-muted-foreground" title={field.description} />
-      )}
-      
-      {field.required && (
-        <span className="text-xs text-red-500 font-medium">Required</span>
-      )}
-    </div>
-  );
+    );
+  };
 
   // Handles checkbox changes
   const handleCheckboxChange = (checked: boolean) => {

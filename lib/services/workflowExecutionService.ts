@@ -25,23 +25,57 @@ export class WorkflowExecutionService {
     const supabase = await createSupabaseRouteHandlerClient()
     
     // Use workflowData if provided (current state), otherwise fall back to saved workflow
-    const nodes = workflowData?.nodes || workflow.nodes || []
+    const allNodes = workflowData?.nodes || workflow.nodes || []
     const connections = workflowData?.connections || workflow.connections || []
 
+    // Filter out UI-only nodes and invalid nodes
+    const validNodes = allNodes.filter((node: any) => {
+      // Skip AddActionNodes - these are UI placeholders for adding new nodes
+      if (node.type === 'addAction' || node.id?.startsWith('add-action-')) {
+        console.log(`Skipping UI placeholder node: ${node.id}`)
+        return false
+      }
+      
+      // Skip InsertActionNodes - these are also UI placeholders
+      if (node.type === 'insertAction') {
+        console.log(`Skipping UI insert node: ${node.id}`)
+        return false
+      }
+      
+      // Skip nodes without proper data or type
+      if (!node.data || !node.data.type) {
+        console.warn(`Skipping invalid node ${node.id}: missing type or data`, node)
+        return false
+      }
+      
+      return true
+    })
+
+    // Also filter connections to only include valid nodes
+    const validConnections = connections.filter((conn: any) => {
+      const sourceValid = validNodes.some((n: any) => n.id === conn.source)
+      const targetValid = validNodes.some((n: any) => n.id === conn.target)
+      return sourceValid && targetValid
+    })
+
+    const nodes = validNodes
+
     console.log("Executing workflow with:", {
-      nodesCount: nodes.length,
-      connectionsCount: connections.length,
+      originalNodesCount: allNodes.length,
+      validNodesCount: nodes.length,
+      skippedNodes: allNodes.length - nodes.length,
+      connectionsCount: validConnections.length,
       usingWorkflowData: !!workflowData,
       nodeTypes: nodes.map((n: any) => n.data?.type).filter(Boolean)
     })
 
     if (nodes.length === 0) {
-      throw new Error("Workflow has no nodes")
+      throw new Error("Workflow has no valid nodes to execute")
     }
 
     // Find trigger nodes (nodes with no incoming connections)
     const triggerNodes = nodes.filter((node: any) => 
-      !connections.some((conn: any) => conn.target === node.id)
+      !validConnections.some((conn: any) => conn.target === node.id)
     )
 
     if (triggerNodes.length === 0) {
@@ -64,7 +98,7 @@ export class WorkflowExecutionService {
       const result = await this.nodeExecutionService.executeNode(
         triggerNode, 
         nodes, 
-        connections, 
+        validConnections, 
         executionContext
       )
       results.push(result)
@@ -81,6 +115,8 @@ export class WorkflowExecutionService {
     testMode: boolean, 
     supabase: any
   ): Promise<ExecutionContext> {
+    console.log(`🔧 Creating execution context with userId: ${userId}`)
+    
     // Initialize data flow manager
     const dataFlowManager = createDataFlowManager(`exec_${Date.now()}`, workflow.id, userId)
     
@@ -107,6 +143,7 @@ export class WorkflowExecutionService {
     }
 
     console.log(`📊 Loaded ${variables?.length || 0} workflow variables`)
+    console.log(`✅ Created execution context with userId: ${executionContext.userId}`)
 
     return executionContext
   }

@@ -26,6 +26,89 @@ import { executeAIAgent } from './aiAgent'
 import { processAIFields, ProcessingContext } from './ai/fieldProcessor'
 
 /**
+ * Generate mock output for sandbox mode based on action type
+ */
+function generateMockOutput(type: string, config: any): any {
+  // Generate realistic mock data based on action type
+  switch(type) {
+    case 'gmail_send':
+    case 'gmail_action_send_email':
+      return {
+        id: `mock_email_${Date.now()}`,
+        threadId: `mock_thread_${Date.now()}`,
+        labelIds: ['SENT'],
+        message: 'Email sent successfully (sandbox mode)'
+      }
+    
+    case 'slack_send_message':
+      return {
+        ok: true,
+        channel: config.channel || 'mock_channel',
+        ts: String(Date.now() / 1000),
+        message: { text: config.text || 'Mock message' }
+      }
+    
+    case 'discord_send_message':
+      return {
+        id: `mock_discord_${Date.now()}`,
+        content: config.content || 'Mock Discord message',
+        channel_id: config.channelId || 'mock_channel',
+        author: { id: 'mock_bot', username: 'Workflow Bot' }
+      }
+    
+    case 'airtable_create_record':
+      return {
+        id: `rec_mock_${Date.now()}`,
+        fields: config.fields || {},
+        createdTime: new Date().toISOString()
+      }
+    
+    default:
+      return {
+        success: true,
+        mockData: true,
+        timestamp: new Date().toISOString(),
+        action: type
+      }
+  }
+}
+
+/**
+ * Generate preview of what would be sent in sandbox mode
+ */
+function getMockPreview(type: string, config: any): any {
+  // Return a preview of what would have been sent to external services
+  switch(type) {
+    case 'gmail_send':
+    case 'gmail_action_send_email':
+      return {
+        to: config.to || 'recipient@example.com',
+        subject: config.subject || 'Test Email',
+        body: config.body || 'This email would have been sent.',
+        cc: config.cc,
+        bcc: config.bcc
+      }
+    
+    case 'slack_send_message':
+      return {
+        channel: config.channel || '#general',
+        text: config.text || 'Test message',
+        blocks: config.blocks
+      }
+    
+    case 'discord_send_message':
+      return {
+        channelId: config.channelId,
+        content: config.content || 'Test message',
+        embeds: config.embeds
+      }
+    
+    default:
+      return config
+  }
+}
+
+/**
  * Wrapper function for AI agent execution that adapts to the executeAction signature
  */
 async function executeAIAgentWrapper(
@@ -72,6 +155,8 @@ export interface ExecuteActionParams {
   input: Record<string, any>
   userId: string
   workflowId: string
+  testMode?: boolean
+  executionMode?: 'sandbox' | 'live' | 'production'
 }
 
 export async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
@@ -174,9 +259,14 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
  * Main function to execute a workflow action node
  * Routes to the appropriate handler based on node type
  */
-export async function executeAction({ node, input, userId, workflowId }: ExecuteActionParams): Promise<ActionResult> {
+export async function executeAction({ node, input, userId, workflowId, testMode, executionMode }: ExecuteActionParams): Promise<ActionResult> {
+  console.log(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
+  
   const { type, config } = node.data
   const startTime = Date.now()
+  
+  // Determine if we're in sandbox mode
+  const isSandboxMode = executionMode === 'sandbox' || (testMode === true && executionMode !== 'live')
   
   // Create initial log entry for started status
   const startLogEntry = createExecutionLogEntry(
@@ -283,6 +373,39 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
         console.log('[AI Agent Error]', formatExecutionLogEntry(errorEntry))
       }
       throw error
+    }
+  }
+
+  // SANDBOX MODE INTERCEPTION
+  // If we're in sandbox mode, return mock data instead of executing real actions
+  if (isSandboxMode) {
+    console.log(`[SANDBOX MODE] Intercepting ${type} action - no external calls will be made`)
+    
+    // Generate mock response based on action type
+    const mockOutput = generateMockOutput(type, processedConfig)
+    
+    const logEntry = createExecutionLogEntry(node, 'completed', {
+      input: { config: processedConfig, previousOutputs: input?.previousResults },
+      output: mockOutput,
+      executionTime: Date.now() - startTime,
+      sandboxMode: true
+    })
+    
+    if (workflowId) {
+      storeExecutionLog(workflowId, logEntry)
+      console.log('[SANDBOX Completed]', formatExecutionLogEntry(logEntry))
+    }
+    
+    return {
+      success: true,
+      output: mockOutput,
+      message: `[SANDBOX] ${type} executed successfully (no external calls made)`,
+      sandbox: true,
+      intercepted: {
+        type,
+        config: processedConfig,
+        wouldHaveSent: getMockPreview(type, processedConfig)
+      }
     }
   }
 

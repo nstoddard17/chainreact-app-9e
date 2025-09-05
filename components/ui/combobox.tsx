@@ -324,7 +324,18 @@ export function MultiCombobox({
     setOptions(initialOptions)
   }, [initialOptions])
 
-  const selectedOptions = options.filter((option) => value.includes(option.value))
+  // Get selected options - include saved values even if not in current options
+  const selectedOptions = React.useMemo(() => {
+    const optionsMap = new Map(options.map(opt => [opt.value, opt]));
+    return value.map(val => {
+      // If we have the option in our list, use it (for label)
+      if (optionsMap.has(val)) {
+        return optionsMap.get(val)!;
+      }
+      // Otherwise create a temporary option for the saved value
+      return { value: val, label: val };
+    });
+  }, [options, value])
 
   const handleSelect = (currentValue: string) => {
     const newValue = value.includes(currentValue)
@@ -495,8 +506,8 @@ export function MultiCombobox({
                   </div>
                 </CommandItem>
               ))}
-              {/* Show create option if inputValue is not empty, not in options, and is a valid email */}
-              {creatable && inputValue.trim() && isValidEmail(inputValue.trim()) && !options.some(option => option.value === inputValue.trim()) && (
+              {/* Show create option if inputValue is not empty and not in options */}
+              {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
                   key={"create-" + inputValue.trim()}
                   value={inputValue.trim()}
@@ -508,7 +519,7 @@ export function MultiCombobox({
                   }}
                 >
                   <div className="flex items-center">
-                    <span className="text-primary font-semibold">Invite {inputValue.trim()}</span>
+                    <span className="text-primary font-semibold">Add "{inputValue.trim()}"</span>
                     <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
                   </div>
                 </CommandItem>
