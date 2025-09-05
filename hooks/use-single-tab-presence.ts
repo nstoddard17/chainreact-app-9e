@@ -42,6 +42,8 @@ export function useSingleTabPresence() {
   const lastLeaderHeartbeat = useRef<number>(Date.now())
   const lastOnlineCount = useRef<number>(0)
   const dbUpdateInterval = useRef<NodeJS.Timeout | null>(null)
+  const lastDbUpdateTime = useRef<number>(0)
+  const pendingDbUpdate = useRef<NodeJS.Timeout | null>(null)
 
   // Send heartbeat as leader
   const sendLeaderHeartbeat = useCallback(() => {
@@ -253,9 +255,24 @@ export function useSingleTabPresence() {
     }
   }, [tabId, isLeaderTab, sendLeaderHeartbeat, resignLeader, checkLeaderAlive])
 
-  // Lightweight function to update online count in database
+  // Lightweight function to update online count in database with debouncing
   const updateOnlineCount = useCallback(async (count: number) => {
     if (!user?.id) return
+    
+    // Debounce: Don't update if we've updated in the last 30 seconds
+    const now = Date.now()
+    if (now - lastDbUpdateTime.current < 30000) {
+      // Schedule an update after the debounce period
+      if (pendingDbUpdate.current) {
+        clearTimeout(pendingDbUpdate.current)
+      }
+      pendingDbUpdate.current = setTimeout(() => {
+        updateOnlineCount(count)
+      }, 30000 - (now - lastDbUpdateTime.current))
+      return
+    }
+    
+    lastDbUpdateTime.current = now
     
     try {
       // Use a simple endpoint to update count
@@ -338,6 +355,10 @@ export function useSingleTabPresence() {
       
       if (dbUpdateInterval.current) {
         clearInterval(dbUpdateInterval.current)
+      }
+      
+      if (pendingDbUpdate.current) {
+        clearTimeout(pendingDbUpdate.current)
       }
       
       if (broadcastChannel.current) {
