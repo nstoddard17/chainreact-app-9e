@@ -10,6 +10,14 @@ We've resolved two critical bugs in the AI Agent visual chain builder that were 
 
 The root cause of the naming issue was that the action title wasn't being passed through the callback chain when actions were selected in AI mode. We fixed this by ensuring the full action metadata, including title and description, gets included in the configuration object passed to the visual builder. For the multiple action issue, the problem was that the Add Action button's click handler wasn't properly reopening the action selection dialog and setting up the callback for subsequent actions. After the first action was added, clicking the Add Action button would fail silently because it was calling the handler directly without the necessary dialog setup. We've updated all Add Action button click handlers to properly open the dialog and establish the callback chain, ensuring users can now build complex multi-step AI workflows with properly named actions that all display correctly in the visual builder.
 
+### Resolved Action Naming in AI Agent Visual Chain Builder
+
+We've fixed a bug where actions added to the AI Agent visual chain builder would display as "unnamed action" instead of their proper names. The issue occurred because the action titles and descriptions weren't being passed correctly through the configuration when actions were selected from the action selection modal. The fix ensures that when actions are added to chains in the visual builder, they now properly display their actual names like "Send Email", "Create Record", or "Post to Slack" instead of the generic "unnamed action" text. This improvement makes it much easier for users to understand and manage their AI Agent workflows at a glance.
+
+### Enhanced Action Title Resolution in AI Agent Visual Builder
+
+We've improved how action titles are displayed in the AI Agent visual chain builder to ensure actions always show their proper names. The fix addresses an issue where actions would sometimes display as "unnamed action" when the lookup in the ALL_NODE_COMPONENTS array failed. Now the system prioritizes the title passed from the action selection modal (which always has the correct name), then falls back to the component registry lookup, and only as a last resort uses the action type string. This three-tier fallback system ensures that users always see meaningful action names in their AI Agent chains, making workflows easier to understand and debug. Additionally, we've added enhanced logging to track title resolution, helping identify any edge cases where actions might not have proper metadata.
+
 ## January 7, 2025
 
 ### Fixed Critical Edge Detection Bug in AI Agent Visual Builder
