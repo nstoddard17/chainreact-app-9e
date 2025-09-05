@@ -9,7 +9,8 @@ export async function GET() {
   try {
     // Try database access
     try {
-      const supabase = createRouteHandlerClient({ cookies })
+      const cookieStore = await cookies()
+      const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
       
       // Try to get count from database first (cached value)
       const { data: stats, error } = await supabase

@@ -53,7 +53,8 @@ export async function POST(request: Request) {
     const shouldUpdateDb = Math.random() < 0.1 // 10% chance
     if (shouldUpdateDb) {
       try {
-        const supabase = createRouteHandlerClient({ cookies })
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
         
         // Try to update the database, but don't fail if auth issues
         await supabase
