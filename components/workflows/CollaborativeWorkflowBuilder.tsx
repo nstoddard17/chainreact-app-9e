@@ -2417,6 +2417,7 @@ const useWorkflowBuilderState = () => {
       setPendingNode(null);
       setConfiguringNode(null);
       toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." });
+      return null; // No node ID for triggers
     } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
       // Add action to workflow with configuration
       const newNodeId = addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
@@ -2457,6 +2458,7 @@ const useWorkflowBuilderState = () => {
       setPendingNode(null);
       setConfiguringNode(null);
       toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." });
+      return newNodeId; // Return the new node ID for AI Agent processing
     } else {
       // Handle existing node configuration updates - update local state AND save to database
       console.log('✅ [WorkflowBuilder] Updating existing node configuration in local state');
@@ -2554,6 +2556,7 @@ const useWorkflowBuilderState = () => {
       }, 50); // Small delay to ensure React state update is applied
       
       setConfiguringNode(null);
+      return null; // No new node ID for existing nodes
     }
   }
 
@@ -4188,11 +4191,23 @@ function WorkflowBuilderContent() {
           onNodeDragStop={(event, node) => {
             // Update node position in state and mark as unsaved
             setNodes((nds: Node[]) => 
-              nds.map((n: Node) => 
-                n.id === node.id 
-                  ? { ...n, position: node.position }
-                  : n
-              )
+              nds.map((n: Node) => {
+                // Update the dragged node itself
+                if (n.id === node.id) {
+                  return { ...n, position: node.position }
+                }
+                // Update any AddAction nodes that have this node as their parent
+                if (n.type === 'addAction' && n.data?.parentId === node.id) {
+                  return {
+                    ...n,
+                    position: {
+                      x: node.position.x,
+                      y: node.position.y + 160
+                    }
+                  }
+                }
+                return n
+              })
             )
             setHasUnsavedChanges(true)
             
@@ -4770,15 +4785,9 @@ function WorkflowBuilderContent() {
                 setPendingNode(null);
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
-              onAddActionToWorkflow={(action, config) => {
+              onAddActionToWorkflow={(configuringNode.id === 'pending-action' || configuringNode.id === 'pending-trigger') ? undefined : (action, config) => {
                 // Handle adding a new action from the AI Agent modal
                 console.log('🎯 [WorkflowBuilder] Adding action from AI Agent modal:', action, config);
-                
-                // If we're configuring a pending AI Agent (not yet added to workflow), skip this
-                if (configuringNode.id === 'pending-action' || configuringNode.id === 'pending-trigger') {
-                  console.log('🎯 [WorkflowBuilder] Configuring pending AI Agent - actions will be added when saved');
-                  return;
-                }
                 
                 // Find the AI Agent node
                 const aiAgentNode = nodes.find(n => n.data?.type === 'ai_agent');
@@ -4898,8 +4907,21 @@ function WorkflowBuilderContent() {
                 console.log('🤖 [WorkflowBuilder] AI Agent chains:', config.chains);
                 console.log('🤖 [WorkflowBuilder] Chains detail:', JSON.stringify(config.chains, null, 2));
                 
-                // Save the AI Agent configuration
-                await handleSaveConfiguration(configuringNode, config);
+                // Store the chains data before saving configuration
+                const chainsToProcess = config.chains;
+                
+                // Save the AI Agent configuration and get the new node ID if it's a pending node
+                let finalAIAgentNodeId = configuringNode.id;
+                if (configuringNode.id === 'pending-action' && pendingNode?.type === 'action') {
+                  // For pending nodes, addActionToWorkflow returns the new node ID
+                  const newNodeId = await handleSaveConfiguration(configuringNode, config);
+                  if (newNodeId) {
+                    finalAIAgentNodeId = newNodeId;
+                    console.log('🔄 [WorkflowBuilder] New AI Agent node created with ID:', newNodeId);
+                  }
+                } else {
+                  await handleSaveConfiguration(configuringNode, config);
+                }
                 
                 // Prevent duplicate chain processing - check and set flag immediately
                 if (isProcessingChainsRef.current) {
@@ -4909,19 +4931,23 @@ function WorkflowBuilderContent() {
                 
                 isProcessingChainsRef.current = true;
                 
-                // Process chains after a small delay to ensure state is updated
+                // Capture the final node ID for use in the setTimeout
+                const aiAgentNodeIdToUse = finalAIAgentNodeId;
+                
+                // Process chains after a longer delay to ensure the AI Agent node has been added to state
+                // This is especially important for pending nodes that are being added for the first time
                 setTimeout(() => {
                   
                   // Check if we have the new format with layout info or old format
-                  const chainsData = config.chains?.chains || config.chains;
-                  const aiAgentPosition = config.chains?.aiAgentPosition;
+                  const chainsData = chainsToProcess?.chains || chainsToProcess;
+                  const aiAgentPosition = chainsToProcess?.aiAgentPosition;
                   
                   
                   // If there are chains, create nodes for them in the main workflow
                   if (chainsData && chainsData.length > 0) {
                   console.log('🔄 [WorkflowBuilder] Processing chains to create workflow nodes');
                   console.log('🔄 [WorkflowBuilder] AI Agent position:', aiAgentPosition);
-                  const aiAgentNodeId = configuringNode.id;
+                  const aiAgentNodeId = aiAgentNodeIdToUse;
                   
                   // Use setNodes to access current state and find the AI Agent node
                   setNodes((currentNodes) => {
@@ -5004,7 +5030,7 @@ function WorkflowBuilderContent() {
                               config: action.config || {},
                               onConfigure: (id: string) => handleConfigureNode(id),
                               onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
-                              onRename: handleRenameNode,
+                              onRename: (id: string, newTitle: string) => handleRenameNode(id, newTitle),
                               onAddChain: undefined,
                               isAIAgentChild: true,
                               parentAIAgentId: actualAIAgentId,

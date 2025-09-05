@@ -270,6 +270,7 @@ export function AIAgentConfigModal({
   const [showWizard, setShowWizard] = useState(false)
   const [pendingActionCallback, setPendingActionCallback] = useState<((nodeType: string, providerId: string) => void) | null>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   
   // Loading states
   const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
@@ -413,6 +414,9 @@ export function AIAgentConfigModal({
   }
 
   const handleSave = async () => {
+    console.log('🔵 [AIAgentConfigModal] handleSave called')
+    console.log('🔵 [AIAgentConfigModal] config.chains:', config.chains)
+    
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
     // In advanced mode, we still allow empty prompt for automatic mode
@@ -427,8 +431,10 @@ export function AIAgentConfigModal({
     setIsSaving(true)
     try {
       console.log('🤖 [AIAgentConfigModal] Saving AI Agent configuration:', config)
+      console.log('🤖 [AIAgentConfigModal] onSave function exists:', !!onSave)
       await onSave(config)
       console.log('✅ [AIAgentConfigModal] AI Agent configuration saved successfully')
+      setHasUnsavedChanges(false)
       toast({
         title: "Configuration Saved",
         description: "AI Agent settings have been updated"
@@ -538,6 +544,7 @@ export function AIAgentConfigModal({
       if (pendingActionCallback) {
         pendingActionCallback(action.type, action.providerId || '', aiConfig)
         setPendingActionCallback(null)
+        setHasUnsavedChanges(true)
       }
       
       // Also add to the main workflow immediately
@@ -1705,7 +1712,10 @@ export function AIAgentConfigModal({
                   </div>
                 </div>
                 <Button 
-                  onClick={handleSave} 
+                  onClick={() => {
+                    console.log('🟢 [AIAgentConfigModal] Save button clicked!')
+                    handleSave()
+                  }} 
                   disabled={isSaving}
                   className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                 >
