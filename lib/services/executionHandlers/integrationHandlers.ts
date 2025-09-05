@@ -2,19 +2,16 @@ import { ExecutionContext } from "../workflowExecutionService"
 import { GmailIntegrationService } from "../integrations/gmailIntegrationService"
 import { SlackIntegrationService } from "../integrations/slackIntegrationService"
 import { GoogleIntegrationService } from "../integrations/googleIntegrationService"
-import { LegacyIntegrationService } from "../legacyIntegrationService"
 
 export class IntegrationNodeHandlers {
   private gmailService: GmailIntegrationService
   private slackService: SlackIntegrationService
   private googleService: GoogleIntegrationService
-  private legacyService: LegacyIntegrationService
 
   constructor() {
     this.gmailService = new GmailIntegrationService()
     this.slackService = new SlackIntegrationService()
     this.googleService = new GoogleIntegrationService()
-    this.legacyService = new LegacyIntegrationService()
   }
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
@@ -44,12 +41,12 @@ export class IntegrationNodeHandlers {
       case "send_email":
         return await this.executeSendEmail(node, context)
       case "onedrive_upload_file":
-        return await this.legacyService.executeOneDriveUpload(node, context)
+        return await this.executeOneDriveUpload(node, context)
       case "dropbox_upload_file":
-        return await this.legacyService.executeDropboxUpload(node, context)
+        return await this.executeDropboxUpload(node, context)
       default:
-        // Fallback to legacy executeAction for unknown integrations
-        return await this.legacyService.executeFallbackAction(node, context)
+        // For unknown integrations, return a descriptive error
+        throw new Error(`Integration type '${nodeType}' is not yet implemented. Please check if this action is available.`)
     }
   }
 
@@ -127,6 +124,58 @@ export class IntegrationNodeHandlers {
       body,
       status: "sent"
     }
+  }
+
+  private async executeOneDriveUpload(node: any, context: ExecutionContext) {
+    console.log("☁️ Executing OneDrive upload")
+    
+    const config = node.data.config || {}
+    const fileName = config.fileName || "file.txt"
+    const fileContent = config.fileContent || config.content
+    const folder = config.folder || "/"
+
+    if (!fileName || !fileContent) {
+      throw new Error("OneDrive upload requires 'fileName' and 'fileContent' fields")
+    }
+
+    if (context.testMode) {
+      return {
+        type: "onedrive_upload_file",
+        fileName,
+        folder,
+        status: "uploaded (test mode)",
+        fileId: "test-onedrive-file-id"
+      }
+    }
+
+    // TODO: Implement actual OneDrive upload when action is available
+    throw new Error("OneDrive upload is not yet implemented. This integration is coming soon.")
+  }
+
+  private async executeDropboxUpload(node: any, context: ExecutionContext) {
+    console.log("📦 Executing Dropbox upload")
+    
+    const config = node.data.config || {}
+    const fileName = config.fileName || "file.txt"
+    const fileContent = config.fileContent || config.content
+    const path = config.path || "/"
+
+    if (!fileName || !fileContent) {
+      throw new Error("Dropbox upload requires 'fileName' and 'fileContent' fields")
+    }
+
+    if (context.testMode) {
+      return {
+        type: "dropbox_upload_file",
+        fileName,
+        path,
+        status: "uploaded (test mode)",
+        fileId: "test-dropbox-file-id"
+      }
+    }
+
+    // TODO: Implement actual Dropbox upload when action is available
+    throw new Error("Dropbox upload is not yet implemented. This integration is coming soon.")
   }
 
 }
