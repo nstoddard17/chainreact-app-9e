@@ -449,11 +449,16 @@ export async function executeDelayAction(
   try {
     const resolvedConfig = resolveValue(config, { input })
     
-    const { duration = 1000, durationUnit = "milliseconds" } = resolvedConfig
+    // Support both timeUnit (new) and durationUnit (legacy) field names
+    const { duration = 1, timeUnit = "seconds", durationUnit } = resolvedConfig
+    const unit = timeUnit || durationUnit || "seconds"
     
     // Convert duration to milliseconds
     let delayMs = duration
-    switch (durationUnit) {
+    switch (unit) {
+      case "milliseconds":
+        delayMs = duration
+        break
       case "seconds":
         delayMs = duration * 1000
         break
@@ -466,6 +471,23 @@ export async function executeDelayAction(
       case "days":
         delayMs = duration * 24 * 60 * 60 * 1000
         break
+      case "weeks":
+        delayMs = duration * 7 * 24 * 60 * 60 * 1000
+        break
+      case "months":
+        // Approximate months as 30 days
+        delayMs = duration * 30 * 24 * 60 * 60 * 1000
+        break
+      default:
+        // Default to seconds if unknown unit
+        delayMs = duration * 1000
+    }
+    
+    // Cap maximum delay at 30 days to prevent excessive delays
+    const maxDelayMs = 30 * 24 * 60 * 60 * 1000
+    if (delayMs > maxDelayMs) {
+      delayMs = maxDelayMs
+      console.warn(`Delay capped at maximum of 30 days (requested: ${duration} ${unit})`)
     }
     
     // Wait for the specified duration
@@ -477,10 +499,12 @@ export async function executeDelayAction(
         ...input,
         delayCompleted: true,
         delayDuration: delayMs,
-        delayUnit: durationUnit,
+        delayDurationSeconds: delayMs / 1000,
+        delayUnit: unit,
+        startTime: new Date(Date.now() - delayMs).toISOString(),
         completedAt: new Date().toISOString()
       },
-      message: `Delay completed after ${duration} ${durationUnit}`
+      message: `Delay completed after ${duration} ${unit}`
     }
     
   } catch (error: any) {

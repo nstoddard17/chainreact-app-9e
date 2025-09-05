@@ -392,7 +392,7 @@ export function SimpleVariablePicker({
                     ) : (
                       <Play className="h-3.5 w-3.5" />
                     )}
-                    <span className="ml-1">Listen</span>
+                    <span className="ml-1">Test</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>

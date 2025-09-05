@@ -54,11 +54,17 @@ export async function processAIFields(
   // Build context for AI
   const aiContext = buildAIContext(context)
   
+  // Track all field resolutions for logging
+  const fieldResolutions: any[] = []
+  
   // Process each field that needs AI resolution
   for (const [fieldName, fieldValue] of Object.entries(context.config)) {
     if (typeof fieldValue === 'string') {
       // Check if field needs AI processing
       if (fieldValue.includes('{{AI_FIELD:')) {
+        // Get field metadata for tracking
+        const fieldMetadata = getFieldMetadata(context.nodeType, fieldName)
+        
         // Full AI generation for this field
         const generated = await generateFieldValue(
           fieldName,
@@ -68,6 +74,17 @@ export async function processAIFields(
         result.fields[fieldName] = generated.value
         result.cost += generated.cost
         result.tokensUsed += generated.tokens
+        
+        // Track this resolution
+        fieldResolutions.push({
+          fieldName,
+          fieldType: fieldMetadata?.type || 'text',
+          originalValue: fieldValue,
+          resolvedValue: generated.value,
+          availableOptions: fieldMetadata?.constraints?.options || null,
+          cost: generated.cost,
+          tokensUsed: generated.tokens
+        })
       } else if (fieldValue.includes('[') || fieldValue.includes('{{')) {
         // Template with variables to resolve
         const resolved = await resolveTemplate(
@@ -78,6 +95,18 @@ export async function processAIFields(
         result.fields[fieldName] = resolved.value
         result.cost += resolved.cost
         result.tokensUsed += resolved.tokens
+        
+        // Track template resolution if it used AI
+        if (resolved.cost > 0) {
+          fieldResolutions.push({
+            fieldName,
+            fieldType: 'template',
+            originalValue: fieldValue,
+            resolvedValue: resolved.value,
+            cost: resolved.cost,
+            tokensUsed: resolved.tokens
+          })
+        }
       } else {
         // Static value, no processing needed
         result.fields[fieldName] = fieldValue
@@ -99,8 +128,13 @@ export async function processAIFields(
     result.tokensUsed += routingDecision.tokens
   }
 
-  // Log AI usage for tracking
+  // Log AI usage and field resolutions
   await logAIUsage(context, result)
+  
+  // Log individual field resolutions
+  if (fieldResolutions.length > 0) {
+    await logFieldResolutions(context, fieldResolutions, aiContext)
+  }
 
   return result
 }
@@ -371,17 +405,60 @@ async function makeRoutingDecision(
  * Get field metadata from node type
  */
 function getFieldMetadata(nodeType: string, fieldName: string): any {
-  // This would lookup field definitions from availableNodes
-  // For now, return basic metadata
-  const fieldTypes: Record<string, any> = {
-    'to': { type: 'email', constraints: { required: true } },
-    'subject': { type: 'text', constraints: { maxLength: 200 } },
-    'body': { type: 'text', constraints: {} },
-    'channel': { type: 'text', constraints: { pattern: '^#.*' } },
-    'priority': { type: 'number', constraints: { min: 1, max: 10 } }
+  try {
+    // Import ALL_NODE_COMPONENTS synchronously (already imported at build time)
+    const { ALL_NODE_COMPONENTS } = require('@/lib/workflows/nodes')
+    
+    // Find the node component
+    const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === nodeType)
+    if (!nodeComponent || !nodeComponent.configSchema) {
+      return { type: 'text', constraints: {} }
+    }
+    
+    // Find the field schema
+    const fieldSchema = nodeComponent.configSchema.find((f: any) => f.name === fieldName)
+    if (!fieldSchema) {
+      return { type: 'text', constraints: {} }
+    }
+    
+    // Build constraints including dropdown options
+    const constraints: any = {
+      required: fieldSchema.required || false,
+      maxLength: fieldSchema.maxLength,
+      format: fieldSchema.format
+    }
+    
+    // Include options for dropdowns/selects
+    if (fieldSchema.options) {
+      // Static options defined in schema
+      constraints.options = fieldSchema.options.map((opt: any) => 
+        typeof opt === 'string' ? opt : opt.value
+      )
+    } else if (fieldSchema.dynamic) {
+      // For dynamic fields, mark that options need to be loaded
+      constraints.isDynamic = true
+      constraints.dataType = fieldSchema.dataType
+      // The options will be loaded at runtime from the actual dropdown values
+    }
+    
+    return {
+      type: fieldSchema.type || 'text',
+      label: fieldSchema.label || fieldName,
+      constraints
+    }
+  } catch (error) {
+    console.error(`Error getting field metadata for ${nodeType}.${fieldName}:`, error)
+    // Fallback to basic metadata
+    const fieldTypes: Record<string, any> = {
+      'to': { type: 'email', constraints: { required: true } },
+      'subject': { type: 'text', constraints: { maxLength: 200 } },
+      'body': { type: 'text', constraints: {} },
+      'channel': { type: 'text', constraints: { pattern: '^#.*' } },
+      'priority': { type: 'number', constraints: { min: 1, max: 10 } }
+    }
+    
+    return fieldTypes[fieldName] || { type: 'text', constraints: {} }
   }
-  
-  return fieldTypes[fieldName] || { type: 'text', constraints: {} }
 }
 
 /**
@@ -492,6 +569,63 @@ async function logAIUsage(
     }
   } catch (error) {
     console.error('Failed to log AI usage:', error)
+  }
+}
+
+/**
+ * Log individual field resolutions for tracking and display
+ */
+async function logFieldResolutions(
+  context: ProcessingContext,
+  resolutions: any[],
+  aiContext: Record<string, any>
+): Promise<void> {
+  try {
+    // Get node label if available
+    let nodeLabel = context.nodeType
+    try {
+      const { ALL_NODE_COMPONENTS } = require('@/lib/workflows/nodes')
+      const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === context.nodeType)
+      if (nodeComponent) {
+        nodeLabel = nodeComponent.label || nodeComponent.name || context.nodeType
+      }
+    } catch (e) {
+      // Use nodeType as fallback
+    }
+    
+    // Prepare batch insert data
+    const insertData = resolutions.map(resolution => ({
+      execution_id: context.executionId,
+      workflow_id: context.workflowId,
+      user_id: context.userId,
+      node_id: context.nodeId,
+      node_type: context.nodeType,
+      node_label: nodeLabel,
+      field_name: resolution.fieldName,
+      field_type: resolution.fieldType,
+      original_value: resolution.originalValue,
+      resolved_value: String(resolution.resolvedValue),
+      available_options: resolution.availableOptions ? { options: resolution.availableOptions } : null,
+      resolution_context: aiContext,
+      resolution_reasoning: resolution.reasoning || null,
+      tokens_used: resolution.tokensUsed || 0,
+      cost: resolution.cost || 0,
+      model: context.model || 'gpt-3.5-turbo',
+      resolved_at: new Date().toISOString()
+    }))
+    
+    // Insert all field resolutions
+    const { error } = await supabase
+      .from('ai_field_resolutions')
+      .insert(insertData)
+    
+    if (error) {
+      console.error('Failed to log field resolutions:', error)
+    } else {
+      console.log(`Logged ${resolutions.length} AI field resolutions for node ${context.nodeId}`)
+    }
+  } catch (error) {
+    console.error('Error logging field resolutions:', error)
   }
 }
 

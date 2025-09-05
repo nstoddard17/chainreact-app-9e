@@ -131,21 +131,67 @@ function containsAIVariables(text: string): boolean {
 }
 
 /**
- * Gets field schema from node configuration
- * This would need to be connected to your actual node definitions
+ * Gets field schema from node configuration including dropdown options
  */
 async function getFieldSchema(nodeType: string, fieldName: string): Promise<any> {
-  // This should look up the actual schema from your node definitions
-  // For now, returning a basic schema
-  
-  // Example implementation:
-  // const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
-  // const fieldSchema = nodeComponent?.configSchema?.find(f => f.name === fieldName)
-  
-  return {
-    type: 'text',
-    label: fieldName,
-    required: false
+  try {
+    // Import the node components registry
+    const { ALL_NODE_COMPONENTS } = await import('@/lib/workflows/nodes')
+    
+    // Find the node component
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
+    if (!nodeComponent || !nodeComponent.configSchema) {
+      return {
+        type: 'text',
+        label: fieldName,
+        required: false
+      }
+    }
+    
+    // Find the field schema
+    const fieldSchema = nodeComponent.configSchema.find((f: any) => f.name === fieldName)
+    if (!fieldSchema) {
+      return {
+        type: 'text',
+        label: fieldName,
+        required: false
+      }
+    }
+    
+    // Build the complete field schema including options for dropdowns
+    const schema: any = {
+      type: fieldSchema.type || 'text',
+      label: fieldSchema.label || fieldName,
+      required: fieldSchema.required || false,
+      maxLength: fieldSchema.maxLength,
+      format: fieldSchema.format
+    }
+    
+    // If it's a dynamic field (dropdown that loads options), we need to fetch them
+    if (fieldSchema.dynamic) {
+      // For dynamic fields, options are loaded at runtime
+      // We'll pass a flag to indicate this needs special handling
+      schema.isDynamic = true
+      schema.dataType = fieldSchema.dataType
+      
+      // TODO: Implement dynamic option loading if needed
+      // For now, the AI will be instructed to select from available options
+      schema.options = [] // Will be populated at runtime
+    } else if (fieldSchema.options) {
+      // Static options are defined in the schema
+      schema.options = fieldSchema.options.map((opt: any) => 
+        typeof opt === 'string' ? opt : opt.value
+      )
+    }
+    
+    return schema
+  } catch (error) {
+    console.error(`Error getting field schema for ${nodeType}.${fieldName}:`, error)
+    return {
+      type: 'text',
+      label: fieldName,
+      required: false
+    }
   }
 }
 
