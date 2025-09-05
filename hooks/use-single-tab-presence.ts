@@ -11,6 +11,7 @@ const LEADER_HEARTBEAT_INTERVAL = 2000 // 2 seconds (for cross-tab communication
 const LEADER_TIMEOUT = 5000 // 5 seconds
 const PRESENCE_HEARTBEAT_INTERVAL = 3600000 // 1 hour (for Supabase presence)
 const USER_COUNT_UPDATE_INTERVAL = 300000 // 5 minutes (how often to fetch count)
+const DB_UPDATE_INTERVAL = 3600000 // 1 hour (how often to actually update database)
 
 interface TabMessage {
   type: 'heartbeat' | 'election' | 'resignation'
@@ -39,6 +40,8 @@ export function useSingleTabPresence() {
   const presenceChannel = useRef<RealtimeChannel | null>(null)
   const presenceHeartbeatInterval = useRef<NodeJS.Timeout | null>(null)
   const lastLeaderHeartbeat = useRef<number>(Date.now())
+  const lastOnlineCount = useRef<number>(0)
+  const dbUpdateInterval = useRef<NodeJS.Timeout | null>(null)
 
   // Send heartbeat as leader
   const sendLeaderHeartbeat = useCallback(() => {
@@ -94,10 +97,12 @@ export function useSingleTabPresence() {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const userCount = Object.keys(state).length
-        setOnlineCount(userCount)
         
-        // Update database with user count (lightweight)
-        updateOnlineCount(userCount)
+        // Only update local state, don't call API on every sync
+        if (userCount !== lastOnlineCount.current) {
+          lastOnlineCount.current = userCount
+          setOnlineCount(userCount)
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -121,6 +126,24 @@ export function useSingleTabPresence() {
               online_at: new Date().toISOString(),
             })
           }, PRESENCE_HEARTBEAT_INTERVAL)
+          
+          // Start database update interval (separate from presence)
+          if (dbUpdateInterval.current) {
+            clearInterval(dbUpdateInterval.current)
+          }
+          dbUpdateInterval.current = setInterval(() => {
+            // Only update database once per hour
+            if (lastOnlineCount.current > 0) {
+              updateOnlineCount(lastOnlineCount.current)
+            }
+          }, DB_UPDATE_INTERVAL)
+          
+          // Do one initial update after a delay
+          setTimeout(() => {
+            if (lastOnlineCount.current > 0) {
+              updateOnlineCount(lastOnlineCount.current)
+            }
+          }, 10000) // Wait 10 seconds for initial count to stabilize
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setIsConnected(false)
         }
@@ -139,6 +162,12 @@ export function useSingleTabPresence() {
     if (leaderHeartbeatInterval.current) {
       clearInterval(leaderHeartbeatInterval.current)
       leaderHeartbeatInterval.current = null
+    }
+    
+    // Stop database update interval
+    if (dbUpdateInterval.current) {
+      clearInterval(dbUpdateInterval.current)
+      dbUpdateInterval.current = null
     }
     
     // Clean up presence channel
@@ -305,6 +334,10 @@ export function useSingleTabPresence() {
       
       if (leaderCheckInterval.current) {
         clearInterval(leaderCheckInterval.current)
+      }
+      
+      if (dbUpdateInterval.current) {
+        clearInterval(dbUpdateInterval.current)
       }
       
       if (broadcastChannel.current) {
