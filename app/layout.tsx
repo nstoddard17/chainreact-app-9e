@@ -5,7 +5,7 @@ import { Space_Grotesk } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
-import { PresenceProviderOptimized } from "@/components/providers/PresenceProviderOptimized"
+import { LightweightPresenceProvider } from "@/components/providers/LightweightPresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
@@ -58,15 +58,11 @@ export default function RootLayout({
           <SupabaseProvider>
             <GlobalErrorHandler />
             <AuthInitializer />
-            <PresenceProviderOptimized options={{
-              roomId: 'global',           // Global presence room
-              enablePresence: true,       // Enable presence tracking
-              updateInterval: 30000       // Update every 30 seconds
-            }}>
+            <LightweightPresenceProvider>
               <DiscordBotProvider />
               <Toaster />
               {children}
-            </PresenceProviderOptimized>
+            </LightweightPresenceProvider>
           </SupabaseProvider>
         </ThemeProvider>
       </body>

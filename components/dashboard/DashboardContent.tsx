@@ -11,7 +11,7 @@ import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import AIUsageCard from "./AIUsageCard"
-import { PresenceIndicator } from "@/components/providers/PresenceProviderOptimized"
+import { OnlineUsersIndicator } from "@/components/providers/LightweightPresenceProvider"
 import { Workflow, Puzzle } from "lucide-react"
 
 export default function DashboardContent() {
@@ -96,7 +96,7 @@ export default function DashboardContent() {
           </div>
         </div>
       </div>
-      <PresenceIndicator className="fixed bottom-4 right-4 bg-gray-900/90 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm border border-gray-700" />
+      <OnlineUsersIndicator className="fixed bottom-4 right-4 bg-gray-900/90 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm border border-gray-700" />
     </AppLayout>
   )
 }
