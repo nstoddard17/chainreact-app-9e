@@ -168,7 +168,8 @@ const trelloMappings: Record<string, FieldMapping> = {
 const googleCalendarMappings: Record<string, FieldMapping> = {
   google_calendar_action_create_event: {
     calendarId: "google-calendars",
-    attendees: "gmail-recent-recipients",
+    // Note: attendees is a simple email list, doesn't need dynamic loading
+    // Removed mapping to avoid dependency on Gmail integration
   },
 };
 
@@ -310,7 +311,8 @@ const defaultMappings: FieldMapping = {
   databaseId: "databases",
   from: "gmail-recent-recipients",
   to: "gmail-recent-recipients",
-  attendees: "gmail-recent-recipients",
+  // Removed attendees mapping - it shouldn't default to Gmail
+  // attendees fields should be simple text inputs for email addresses
   labelIds: "gmail_labels",
 };
 

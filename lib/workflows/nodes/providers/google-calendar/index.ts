@@ -101,7 +101,11 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Start Time",
         type: "time",
         required: true,
-        defaultValue: "next-hour"
+        defaultValue: "next-hour",
+        conditionalVisibility: {
+          field: "allDay",
+          value: false
+        }
       },
       {
         name: "endDate",
@@ -115,7 +119,11 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "End Time",
         type: "time",
         required: true,
-        defaultValue: "1-hour-after-start"
+        defaultValue: "1-hour-after-start",
+        conditionalVisibility: {
+          field: "allDay",
+          value: false
+        }
       },
       { 
         name: "timeZone", 
@@ -177,25 +185,41 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "all", label: "Send to all guests" },
           { value: "externalOnly", label: "Send to guests outside your organization" },
           { value: "none", label: "Don't send" }
-        ]
+        ],
+        conditionalVisibility: {
+          field: "attendees",
+          value: true  // Will show when attendees has any truthy value
+        }
       },
       { 
         name: "guestsCanInviteOthers", 
         label: "Guests can invite others", 
         type: "boolean", 
-        defaultValue: true
+        defaultValue: true,
+        conditionalVisibility: {
+          field: "attendees",
+          value: true  // Will show when attendees has any truthy value
+        }
       },
       { 
         name: "guestsCanSeeOtherGuests", 
         label: "Guests can see guest list", 
         type: "boolean", 
-        defaultValue: true
+        defaultValue: true,
+        conditionalVisibility: {
+          field: "attendees",
+          value: true  // Will show when attendees has any truthy value
+        }
       },
       { 
         name: "guestsCanModify", 
         label: "Guests can modify event", 
         type: "boolean", 
-        defaultValue: false
+        defaultValue: false,
+        conditionalVisibility: {
+          field: "attendees",
+          value: true  // Will show when attendees has any truthy value
+        }
       },
       { 
         name: "visibility", 

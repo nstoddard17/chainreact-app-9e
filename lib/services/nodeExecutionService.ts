@@ -181,7 +181,12 @@ export class NodeExecutionService {
       'google_drive_create_file', 'google_drive_upload_file',
       'onedrive_upload_file', 'dropbox_upload_file',
       'google_sheets_unified', 'sheets_create_spreadsheet',
-      'google_docs_create', 'google_docs_read', 'google_docs_update'
+      'google_docs_create', 'google_docs_read', 'google_docs_update',
+      'google_calendar_action_create_event', 'google_calendar_action_update_event',
+      'google_calendar_action_delete_event',
+      'google_sheets_action_create_spreadsheet', 'google_sheets_unified_action',
+      'google_sheets_action_create_row', 'google_sheets_action_update_row',
+      'google_sheets_action_delete_row', 'google_sheets_action_list_rows'
     ]
     return integrationTypes.includes(nodeType)
   }
