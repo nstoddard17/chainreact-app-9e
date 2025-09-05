@@ -2,6 +2,14 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 9, 2025
+
+### Fixed AI Agent Chain Builder Action Display Issues
+
+We've resolved two critical bugs in the AI Agent visual chain builder that were preventing users from building effective multi-step automations. The first issue caused all actions in the chain builder to display as "Unnamed Action" instead of showing their actual names like "Send Email" or "Post to Slack". The second, more severe issue prevented users from adding multiple actions to a single chain - while the first action would appear correctly, subsequent actions would trigger success notifications but never appear visually in the builder.
+
+The root cause of the naming issue was that the action title wasn't being passed through the callback chain when actions were selected in AI mode. We fixed this by ensuring the full action metadata, including title and description, gets included in the configuration object passed to the visual builder. For the multiple action issue, the problem was that the Add Action button's click handler wasn't properly reopening the action selection dialog and setting up the callback for subsequent actions. After the first action was added, clicking the Add Action button would fail silently because it was calling the handler directly without the necessary dialog setup. We've updated all Add Action button click handlers to properly open the dialog and establish the callback chain, ensuring users can now build complex multi-step AI workflows with properly named actions that all display correctly in the visual builder.
+
 ## January 7, 2025
 
 ### Fixed Critical Edge Detection Bug in AI Agent Visual Builder
