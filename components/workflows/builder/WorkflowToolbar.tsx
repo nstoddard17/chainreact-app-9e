@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { LightningLoader } from '@/components/ui/lightning-loader'
-import { Save, Play, ArrowLeft, Ear, RefreshCw } from 'lucide-react'
+import { Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause } from 'lucide-react'
 
 interface WorkflowToolbarProps {
   workflowName: string
@@ -18,6 +18,9 @@ interface WorkflowToolbarProps {
   handleExecute: () => void
   handleResetLoadingStates: () => void
   handleNavigation: (href: string) => void
+  workflowStatus?: string
+  handleToggleLive?: () => Promise<void>
+  isUpdatingStatus?: boolean
 }
 
 export function WorkflowToolbar({
@@ -32,6 +35,9 @@ export function WorkflowToolbar({
   handleExecute,
   handleResetLoadingStates,
   handleNavigation,
+  workflowStatus,
+  handleToggleLive,
+  isUpdatingStatus = false,
 }: WorkflowToolbarProps) {
   return (
     <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
@@ -82,6 +88,39 @@ export function WorkflowToolbar({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          {handleToggleLive && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleToggleLive} 
+                    disabled={isUpdatingStatus || isSaving || hasUnsavedChanges}
+                    variant={workflowStatus === 'active' ? "default" : "outline"}
+                  >
+                    {isUpdatingStatus ? (
+                      <LightningLoader size="md" className="mr-2" />
+                    ) : workflowStatus === 'active' ? (
+                      <Pause className="w-5 h-5 mr-2" />
+                    ) : (
+                      <Radio className="w-5 h-5 mr-2" />
+                    )}
+                    {workflowStatus === 'active' ? 'Pause' : 'Go Live'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {hasUnsavedChanges 
+                      ? "Save changes before activating workflow" 
+                      : workflowStatus === 'active' 
+                        ? "Pause this workflow" 
+                        : "Activate this workflow to run automatically"
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           
           <TooltipProvider>
             <Tooltip>

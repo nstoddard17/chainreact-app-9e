@@ -29,24 +29,16 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
-          try {
-            return req.cookies.getAll()
-          } catch (error) {
-            // Suppress cookie parsing errors - they're expected with base64 cookies
-            return []
-          }
+          return req.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              req.cookies.set(name, value)
-              res.cookies.set(name, value, options)
-            })
-          } catch (error) {
-            // Suppress cookie setting errors
-          }
+          cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value)
+            res.cookies.set(name, value, options)
+          })
         },
       },
     }

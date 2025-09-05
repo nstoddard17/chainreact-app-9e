@@ -152,7 +152,7 @@ export class NodeExecutionService {
 
   private isIntegrationNode(nodeType: string): boolean {
     const integrationTypes = [
-      'gmail_action_send_email', 'gmail_action_add_label',
+      'gmail_action_send_email', 'gmail_action_add_label', 'gmail_send',
       'slack_send_message', 'webhook_call', 'calendar_create_event',
       'sheets_append', 'sheets_read', 'sheets_update', 'send_email',
       'google_drive_create_file', 'google_drive_upload_file',

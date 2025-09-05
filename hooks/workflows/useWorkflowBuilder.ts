@@ -374,6 +374,67 @@ export function useWorkflowBuilder() {
     }
   }, [currentWorkflow, nodes, edges, workflowName, workflowDescription, updateWorkflow, toast])
 
+  // Handle toggling workflow live status
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  
+  const handleToggleLive = useCallback(async () => {
+    if (!currentWorkflow?.id) {
+      toast({
+        title: "Error",
+        description: "No workflow to activate",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (hasUnsavedChanges) {
+      toast({
+        title: "Save Required",
+        description: "Please save your changes before activating the workflow",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsUpdatingStatus(true)
+      
+      const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
+      
+      const { error } = await supabase
+        .from('workflows')
+        .update({ 
+          status: newStatus,
+          is_enabled: newStatus === 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentWorkflow.id)
+
+      if (error) throw error
+
+      // Update the local state
+      setCurrentWorkflow({
+        ...currentWorkflow,
+        status: newStatus
+      })
+
+      toast({
+        title: "Success",
+        description: `Workflow ${newStatus === 'active' ? 'is now live' : 'has been paused'}`,
+        variant: newStatus === 'active' ? 'default' : 'secondary',
+      })
+    } catch (error) {
+      console.error('Error updating workflow status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update workflow status",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast])
+
   // Handle node connection
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target) return
@@ -674,6 +735,8 @@ export function useWorkflowBuilder() {
     
     // Handlers
     handleSave,
+    handleToggleLive,
+    isUpdatingStatus,
     handleTriggerSelect,
     handleActionSelect,
     handleAddActionClick,

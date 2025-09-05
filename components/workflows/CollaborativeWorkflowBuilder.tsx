@@ -42,11 +42,12 @@ import ErrorNotificationPopup from "./ErrorNotificationPopup"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import WorkflowExecutions from "./WorkflowExecutions"
 import { ExecutionHistoryModal } from "./ExecutionHistoryModal"
+import { SandboxPreviewPanel } from "./SandboxPreviewPanel"
 
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -238,6 +239,8 @@ const useWorkflowBuilderState = () => {
   const [isRebuildingAfterSave, setIsRebuildingAfterSave] = useState(false)
   const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
   const [showExecutionHistory, setShowExecutionHistory] = useState(false)
+  const [showSandboxPreview, setShowSandboxPreview] = useState(false)
+  const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
   const isProcessingChainsRef = useRef(false)
 
   const { toast } = useToast()
@@ -2385,8 +2388,244 @@ const useWorkflowBuilderState = () => {
     }
   }
 
-  const handleExecute = async () => { 
-    // Toggle listening mode instead of executing
+  // Handle toggling workflow live status
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  
+  const handleToggleLive = async () => {
+    if (!currentWorkflow?.id) {
+      toast({
+        title: "Error",
+        description: "No workflow to activate",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (hasUnsavedChanges) {
+      toast({
+        title: "Save Required",
+        description: "Please save your changes before activating the workflow",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsUpdatingStatus(true)
+      
+      const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
+      
+      const { error } = await supabase
+        .from('workflows')
+        .update({ 
+          status: newStatus,
+          is_enabled: newStatus === 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentWorkflow.id)
+
+      if (error) throw error
+
+      // Update the local state
+      setCurrentWorkflow({
+        ...currentWorkflow,
+        status: newStatus
+      })
+
+      toast({
+        title: "Success",
+        description: `Workflow ${newStatus === 'active' ? 'is now live' : 'has been paused'}`,
+        variant: newStatus === 'active' ? 'default' : 'secondary',
+      })
+    } catch (error) {
+      console.error('Error updating workflow status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update workflow status",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  // Handle Test mode (sandbox) - safe testing without external calls
+  const handleTestSandbox = async () => {
+    if (isExecuting) return
+    
+    // If already in sandbox mode, stop it
+    if (listeningMode) {
+      setListeningMode(false)
+      setIsExecuting(false)
+      setSandboxInterceptedActions([]) // Clear intercepted actions when stopping
+      setShowSandboxPreview(false) // Hide preview panel
+      toast({
+        title: "Sandbox Mode Stopped",
+        description: "Test mode has been disabled.",
+      })
+      return
+    }
+    
+    try {
+      if (!currentWorkflow) {
+        throw new Error("No workflow selected")
+      }
+      
+      setIsExecuting(true)
+      setListeningMode(true)
+      
+      // Execute in sandbox mode with test data
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: true, // Legacy flag for compatibility
+          executionMode: 'sandbox', // New flag for sandbox mode
+          inputData: {
+            trigger: {
+              type: 'manual',
+              timestamp: new Date().toISOString(),
+              source: 'sandbox_test'
+            }
+          },
+          workflowData: {
+            nodes: getNodes(),
+            edges: getEdges()
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Process intercepted actions from results
+        const interceptedActions = []
+        if (result.results && Array.isArray(result.results)) {
+          const processNodeResults = (nodeResults: any, depth = 0) => {
+            for (const nodeResult of nodeResults) {
+              // Check if this node has intercepted data
+              if (nodeResult?.intercepted) {
+                interceptedActions.push({
+                  nodeId: nodeResult.nodeId || `node-${Date.now()}`,
+                  nodeName: nodeResult.nodeName || nodeResult.type,
+                  type: nodeResult.intercepted.type,
+                  timestamp: new Date().toISOString(),
+                  config: nodeResult.intercepted.config,
+                  wouldHaveSent: nodeResult.intercepted.wouldHaveSent,
+                  sandbox: true
+                })
+              }
+              
+              // Process nested results if they exist
+              if (nodeResult?.results && Array.isArray(nodeResult.results)) {
+                processNodeResults(nodeResult.results, depth + 1)
+              }
+              
+              // Also check for output that might contain intercepted data
+              if (nodeResult?.output?.intercepted) {
+                interceptedActions.push({
+                  nodeId: nodeResult.nodeId || `node-${Date.now()}`,
+                  nodeName: nodeResult.nodeName,
+                  type: nodeResult.output.intercepted.type,
+                  timestamp: new Date().toISOString(),
+                  config: nodeResult.output.intercepted.config,
+                  wouldHaveSent: nodeResult.output.intercepted.wouldHaveSent,
+                  sandbox: true
+                })
+              }
+            }
+          }
+          
+          processNodeResults(result.results)
+        }
+        
+        // Update state with intercepted actions and show preview panel
+        if (interceptedActions.length > 0) {
+          setSandboxInterceptedActions(prev => [...prev, ...interceptedActions])
+          setShowSandboxPreview(true)
+        }
+        
+        toast({
+          title: "Sandbox Test Complete",
+          description: `Workflow tested successfully. ${interceptedActions.length} action(s) intercepted.`,
+          variant: "default"
+        })
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Failed to test workflow')
+      }
+    } catch (error: any) {
+      console.error('Error testing workflow:', error)
+      toast({
+        title: "Sandbox Test Failed",
+        description: error.message || "Failed to test workflow in sandbox mode.",
+        variant: "destructive"
+      })
+      setListeningMode(false)
+    } finally {
+      setIsExecuting(false)
+    }
+  }
+
+  // Handle Execute mode (live) - one-time execution with real external calls  
+  const handleExecuteLive = async () => {
+    if (isExecuting) return
+    
+    try {
+      if (!currentWorkflow) {
+        throw new Error("No workflow selected")
+      }
+      
+      setIsExecuting(true)
+      
+      // Execute the workflow immediately with test data but REAL external calls
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: false, // This is LIVE mode - real external calls
+          executionMode: 'live', // New flag to distinguish from sandbox
+          inputData: {
+            trigger: {
+              type: 'manual',
+              timestamp: new Date().toISOString(),
+              source: 'live_test'
+            }
+          },
+          workflowData: {
+            nodes: getNodes(),
+            edges: getEdges()
+          }
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        toast({
+          title: "Live Execution Complete",
+          description: `Workflow executed with real external calls. Check your connected services for results.`,
+          variant: "default"
+        })
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Failed to execute workflow')
+      }
+    } catch (error: any) {
+      console.error('Error executing live workflow:', error)
+      toast({
+        title: "Live Execution Failed",
+        description: error.message || "Failed to execute workflow with live data.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
+
+  // Legacy handleExecute - keep for backward compatibility but will be phased out
+  const handleExecute = async () => {
     if (isExecuting && !listeningMode) {
       return
     }
@@ -3128,7 +3367,11 @@ const useWorkflowBuilderState = () => {
     setWorkflowDescription,
     isSaving,
     handleSave,
+    handleToggleLive,
+    isUpdatingStatus,
     handleExecute,
+    handleTestSandbox,
+    handleExecuteLive,
     showTriggerDialog,
     setShowTriggerDialog,
     showActionDialog,
@@ -3198,7 +3441,11 @@ const useWorkflowBuilderState = () => {
     aiAgentActionCallback,
     setAiAgentActionCallback,
     showExecutionHistory,
-    setShowExecutionHistory
+    setShowExecutionHistory,
+    showSandboxPreview,
+    setShowSandboxPreview,
+    sandboxInterceptedActions,
+    setSandboxInterceptedActions
   }
 }
 
@@ -3346,15 +3593,16 @@ function WorkflowBuilderContent() {
   const { setCurrentWorkflow } = useWorkflowStore()
   
   const {
-    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, handleSave, handleExecute, 
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
-    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
+    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
-    handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory
+    handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
+    showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions
   } = useWorkflowBuilderState()
 
   // Add handleAddNodeBetween to all custom edges
@@ -3494,17 +3742,32 @@ function WorkflowBuilderContent() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant={listeningMode ? "destructive" : "outline"} 
-                    onClick={handleExecute} 
-                    disabled={isExecuting && !listeningMode || isSaving}
-                    size="sm"
+                    onClick={handleToggleLive} 
+                    disabled={isUpdatingStatus || isSaving || hasUnsavedChanges}
+                    variant={currentWorkflow?.status === 'active' ? "destructive" : "default"}
                   >
-                    {isExecuting && !listeningMode ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : listeningMode ? <Ear className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
-                    {listeningMode ? "Stop Test" : "Test"}
+                    {isUpdatingStatus ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : currentWorkflow?.status === 'active' ? (
+                      <Pause className="w-5 h-5 mr-2" />
+                    ) : (
+                      <Radio className="w-5 h-5 mr-2" />
+                    )}
+                    {currentWorkflow?.status === 'active' ? 'Deactivate' : 'Activate Workflow'}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>{listeningMode ? "Stop testing workflow triggers" : "Test workflow with webhook triggers in real-time"}</p>
+                <TooltipContent className="max-w-sm">
+                  <p className="font-semibold mb-1">
+                    {currentWorkflow?.status === 'active' ? 'Deactivate Workflow' : 'Activate Workflow'}
+                  </p>
+                  <p className="text-xs">
+                    {hasUnsavedChanges 
+                      ? "Save your changes before activating the workflow" 
+                      : currentWorkflow?.status === 'active' 
+                        ? "Stop the workflow from running automatically on triggers" 
+                        : "Enable automatic execution when trigger events occur (e.g., new email, webhook)"
+                    }
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -3512,15 +3775,83 @@ function WorkflowBuilderContent() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    onClick={handleExecute}
-                    disabled={isSaving || (isExecuting && !listeningMode) || (!listeningMode)} 
-                    variant="default"
+                    variant={listeningMode ? "secondary" : "outline"} 
+                    onClick={handleTestSandbox} 
+                    disabled={isExecuting && !listeningMode || isSaving}
                   >
-                    {isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}
-                    Execute
+                    {isExecuting && !listeningMode ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : listeningMode ? (
+                      <Shield className="w-5 h-5 mr-2" />
+                    ) : (
+                      <FlaskConical className="w-5 h-5 mr-2" />
+                    )}
+                    {listeningMode ? "Stop Sandbox" : "Test (Sandbox)"}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Execute the workflow</p></TooltipContent>
+                <TooltipContent className="max-w-sm">
+                  <p className="font-semibold mb-1">
+                    {listeningMode ? "Stop Sandbox Mode" : "Test in Sandbox Mode"}
+                  </p>
+                  <p className="text-xs">
+                    {listeningMode 
+                      ? "Stop testing your workflow" 
+                      : "Run workflow with test data. No emails sent, no external actions performed. Perfect for testing your logic safely."
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Show preview button when in sandbox mode and have intercepted actions */}
+            {listeningMode && sandboxInterceptedActions.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={showSandboxPreview ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => setShowSandboxPreview(!showSandboxPreview)}
+                      className="relative"
+                    >
+                      <Shield className="w-5 h-5" />
+                      {sandboxInterceptedActions.length > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
+                          {sandboxInterceptedActions.length}
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-semibold">
+                      {showSandboxPreview ? "Hide" : "Show"} Sandbox Preview
+                    </p>
+                    <p className="text-xs">
+                      {sandboxInterceptedActions.length} intercepted action{sandboxInterceptedActions.length !== 1 ? 's' : ''}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleExecuteLive}
+                    disabled={isSaving || isExecuting} 
+                    variant="default"
+                  >
+                    {isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Rocket className="w-5 h-5 mr-2" />}
+                    Run Once (Live)
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  <p className="font-semibold mb-1">Run Once with Live Data</p>
+                  <p className="text-xs">
+                    Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                  </p>
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             
@@ -4747,6 +5078,15 @@ function WorkflowBuilderContent() {
         onClose={() => setShowExecutionHistory(false)}
         workflowId={workflowId || ''}
         workflowName={workflowName}
+      />
+
+      {/* Sandbox Preview Panel */}
+      <SandboxPreviewPanel
+        isOpen={showSandboxPreview}
+        onClose={() => setShowSandboxPreview(false)}
+        interceptedActions={sandboxInterceptedActions}
+        workflowName={workflowName}
+        onClearActions={() => setSandboxInterceptedActions([])}
       />
 
       {/* Error Notification Popup */}
