@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { getProviderDisplayName } from "@/lib/utils/provider-names"
 
 export function NotificationDropdown() {
   const { integrations } = useIntegrationStore()
@@ -33,15 +34,15 @@ export function NotificationDropdown() {
         if (integration.status === 'needs_reauthorization') {
           issues.push({
             id: integration.id,
-            name: integration.name || integration.provider_id || 'Unknown Integration',
-            provider: integration.provider_id || 'unknown',
+            name: getProviderDisplayName(integration.provider),
+            provider: integration.provider,
             issue: 'Needs reauthorization'
           })
         } else if (integration.status === 'expired') {
           issues.push({
             id: integration.id,
-            name: integration.name || integration.provider_id || 'Unknown Integration',
-            provider: integration.provider_id || 'unknown',
+            name: getProviderDisplayName(integration.provider),
+            provider: integration.provider,
             issue: 'Connection expired'
           })
         } else if (integration.status === 'connected' && integration.expires_at) {
@@ -54,8 +55,8 @@ export function NotificationDropdown() {
           if (expiryTimestamp <= nowTimestamp) {
             issues.push({
               id: integration.id,
-              name: integration.name || integration.provider_id || 'Unknown Integration',
-              provider: integration.provider_id || 'unknown',
+              name: getProviderDisplayName(integration.provider),
+              provider: integration.provider,
               issue: 'Token expired'
             })
           }
@@ -86,7 +87,7 @@ export function NotificationDropdown() {
           <span className="sr-only">Notifications</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700">
+      <DropdownMenuContent align="center" className="w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700">
         <div className="px-3 py-2">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
@@ -102,11 +103,11 @@ export function NotificationDropdown() {
                 href="/integrations" 
                 className="flex flex-col gap-1 px-3 py-2 text-gray-200 hover:text-white hover:bg-gray-700"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium capitalize">
-                    {(issue.name || 'Unknown').replace(/_/g, ' ')}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">
+                    {issue.name}
                   </span>
-                  <span className="text-xs text-yellow-400">
+                  <span className="text-xs text-yellow-400 whitespace-nowrap">
                     {issue.issue}
                   </span>
                 </div>
