@@ -42,6 +42,27 @@ export interface ApiResponse<T = any> {
  * Extracted from integrationStore.ts for better separation of concerns
  */
 export class IntegrationService {
+  // Cache for integrations data
+  private static integrationsCache: {
+    data: Integration[] | null
+    timestamp: number
+  } = {
+    data: null,
+    timestamp: 0
+  }
+  
+  // Cache duration in milliseconds (5 minutes)
+  private static CACHE_DURATION = 5 * 60 * 1000
+  
+  /**
+   * Clear the integrations cache
+   */
+  static clearCache() {
+    this.integrationsCache = {
+      data: null,
+      timestamp: 0
+    }
+  }
   
   /**
    * Fetch all available integration providers
@@ -64,41 +85,78 @@ export class IntegrationService {
   }
 
   /**
-   * Fetch user's connected integrations
+   * Fetch user's connected integrations with retry logic and caching
    */
   static async fetchIntegrations(force = false): Promise<Integration[]> {
+    // Check cache first (unless force refresh is requested)
+    if (!force && this.integrationsCache.data) {
+      const cacheAge = Date.now() - this.integrationsCache.timestamp
+      if (cacheAge < this.CACHE_DURATION) {
+        console.log('Using cached integrations data')
+        return this.integrationsCache.data
+      }
+    }
+
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
-    // Add timeout to prevent hanging requests
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+    // Retry logic
+    const maxRetries = 2
+    let lastError: any = null
 
-    try {
-      const response = await fetch("/api/integrations", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        cache: force ? "no-store" : "default",
-        signal: controller.signal,
-      })
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Add timeout to prevent hanging requests (increased to 25 seconds)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
 
-      clearTimeout(timeoutId)
+      try {
+        const response = await fetch("/api/integrations", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: force ? "no-store" : "default",
+          signal: controller.signal,
+        })
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch integrations: ${response.statusText}`)
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch integrations: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        const integrations = data.data || []
+        
+        // Update cache
+        this.integrationsCache = {
+          data: integrations,
+          timestamp: Date.now()
+        }
+        
+        return integrations
+      } catch (error: any) {
+        clearTimeout(timeoutId)
+        lastError = error
+        
+        // If it's a timeout and we have retries left, try again
+        if (error.name === 'AbortError' && attempt < maxRetries) {
+          console.log(`Integration fetch timeout, retrying... (attempt ${attempt + 1}/${maxRetries})`)
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          continue
+        }
+        
+        // If it's the last attempt or not a timeout, throw the error
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - please try refreshing the page')
+        }
+        throw error
       }
-
-      const data = await response.json()
-      return data.data || []
-    } catch (error: any) {
-      clearTimeout(timeoutId)
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please try refreshing the page')
-      }
-      throw error
     }
+
+    // If we get here, all retries failed
+    throw lastError || new Error('Failed to fetch integrations after multiple attempts')
   }
 
   /**

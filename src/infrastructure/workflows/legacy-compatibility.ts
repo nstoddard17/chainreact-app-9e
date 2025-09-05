@@ -51,6 +51,13 @@ export async function executeAction(params: LegacyExecuteActionParams): Promise<
   
   const { node, input, userId, workflowId } = params
   
+  console.log(`📌 legacy-compatibility received params:`, {
+    hasNode: !!params.node,
+    hasInput: !!params.input,
+    userId: params.userId,
+    workflowId: params.workflowId
+  })
+  
   try {
     // Log the deprecated usage
     await auditLogger.logEvent({

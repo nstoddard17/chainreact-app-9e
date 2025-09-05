@@ -10,6 +10,8 @@ export class GmailIntegrationService {
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
+    console.log(`📧 GmailIntegrationService - nodeType: ${nodeType}`)
+    console.log(`📌 GmailIntegrationService - Context userId: ${context.userId}`)
 
     switch (nodeType) {
       case "gmail_action_send_email":
@@ -59,8 +61,17 @@ export class GmailIntegrationService {
       }
     }
 
-    // Use legacy service for actual Gmail API calls
-    return await this.legacyService.executeFallbackAction(node, context)
+    // Import and use the actual Gmail send implementation directly
+    const { sendGmailEmail } = await import('@/lib/workflows/actions/gmail/sendEmail')
+    
+    // Call the Gmail send function with proper parameters
+    const result = await sendGmailEmail(
+      config,
+      context.userId,  // Pass the userId directly from context
+      context.data || {}
+    )
+    
+    return result
   }
 
   private async executeAddLabel(node: any, context: ExecutionContext) {
@@ -201,7 +212,7 @@ export class GmailIntegrationService {
 
   private resolveValue(value: any, context: ExecutionContext): any {
     if (typeof value === 'string' && context.dataFlowManager) {
-      return context.dataFlowManager.resolveVariables(value)
+      return context.dataFlowManager.resolveVariable(value)
     }
     return value
   }

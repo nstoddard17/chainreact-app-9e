@@ -44,7 +44,7 @@ export class NodeExecutionService {
 
       // Store result in data flow manager
       if (context.dataFlowManager && nodeResult) {
-        context.dataFlowManager.setNodeData(node.id, nodeResult)
+        context.dataFlowManager.setNodeOutput(node.id, nodeResult)
       }
 
       // Execute connected nodes
@@ -80,7 +80,22 @@ export class NodeExecutionService {
     connections: any[], 
     context: ExecutionContext
   ): Promise<any> {
+    // Validate node structure
+    if (!node || !node.data) {
+      console.error('Invalid node structure:', node)
+      throw new Error(`Invalid node structure: missing data property`)
+    }
+
     const nodeType = node.data.type
+
+    // Check if node type is defined
+    if (!nodeType) {
+      console.error('Node missing type:', {
+        nodeId: node.id,
+        nodeData: node.data
+      })
+      throw new Error(`Node ${node.id} is missing a type. Please configure the node properly.`)
+    }
 
     // Route to appropriate handler based on node type
     if (this.isTriggerNode(nodeType)) {
@@ -112,14 +127,22 @@ export class NodeExecutionService {
       .filter(Boolean)
 
     console.log(`🔗 Node ${sourceNode.id} has ${connectedNodes.length} connected nodes`)
+    console.log(`📌 Original context userId: ${context.userId}`)
 
     // Execute each connected node
     for (const connectedNode of connectedNodes) {
       if (connectedNode) {
         // Update context with data from previous node
-        const updatedContext = {
+        const updatedContext: ExecutionContext = {
           ...context,
           data: { ...context.data, ...result }
+        }
+        
+        console.log(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`)
+        
+        if (!updatedContext.userId) {
+          console.error('❌ userId lost when creating updatedContext!')
+          console.error('Original context userId:', context.userId)
         }
 
         await this.executeNode(connectedNode, allNodes, connections, updatedContext)

@@ -622,13 +622,24 @@ export function EmailRichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
-  // Initialize editor content only once to prevent cursor issues
+  // Initialize editor content and sync with value prop
   useEffect(() => {
-    if (editorRef.current && !isEditorInitialized) {
-      editorRef.current.innerHTML = value || ''
+    console.log('📧 [EmailRichTextEditor] Value prop changed:', {
+      value: value?.substring(0, 100) + (value?.length > 100 ? '...' : ''),
+      length: value?.length,
+      hasEditorRef: !!editorRef.current,
+      isInitialized: isEditorInitialized
+    })
+    
+    if (editorRef.current) {
+      // Only update if the content is different to prevent cursor jumps
+      if (editorRef.current.innerHTML !== value && !editorRef.current.contains(document.activeElement)) {
+        console.log('📧 [EmailRichTextEditor] Updating editor content')
+        editorRef.current.innerHTML = value || ''
+      }
       setIsEditorInitialized(true)
     }
-  }, [value, isEditorInitialized])
+  }, [value])
 
   // Load user's email signatures
   useEffect(() => {
@@ -760,7 +771,12 @@ export function EmailRichTextEditor({
 
   const handleContentChange = () => {
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
+      const content = editorRef.current.innerHTML
+      console.log('📧 [EmailRichTextEditor] Content changed:', {
+        content: content?.substring(0, 100) + (content?.length > 100 ? '...' : ''),
+        length: content?.length
+      })
+      onChange(content)
     }
   }
 
@@ -1045,7 +1061,6 @@ export function EmailRichTextEditor({
             }}
             data-placeholder={placeholder}
             suppressContentEditableWarning
-            {...(!isEditorInitialized && { dangerouslySetInnerHTML: { __html: value || '' } })}
           />
         )}
         
