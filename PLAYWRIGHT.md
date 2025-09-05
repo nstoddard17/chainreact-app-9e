@@ -4,30 +4,53 @@ This document defines the standards and best practices for using Playwright to t
 
 ## Browser Configuration
 
-### Chrome Browser Settings
-- **ALWAYS use Chrome browser for testing** - This ensures consistency across all tests
-- Use `channel: 'chrome'` when launching Playwright to use the installed Chrome browser
+### Google Chrome Browser Settings
+- **ALWAYS use Google Chrome browser for testing** (NOT Chromium or Chrome Test) - This ensures consistency across all tests
+- Use the stable Google Chrome installation, not Chromium or test versions
+- The Google Chrome executable is typically located at:
+  - macOS: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+  - Windows: `C:\Program Files\Google\Chrome\Application\chrome.exe`
+  - Linux: `/usr/bin/google-chrome-stable` or `/opt/google/chrome/google-chrome`
 - The user will handle authentication manually before testing begins
 - Never attempt to automate login or accept real credentials
 
 ### Chrome Launch Configuration
 ```javascript
-// Correct approach - uses Chrome browser
+// Correct approach - uses Google Chrome (NOT Chromium)
 const browser = await chromium.launch({ 
   headless: false,
-  channel: 'chrome' // Uses installed Chrome browser
+  channel: 'chrome' // This uses the installed Google Chrome, not Chromium
 });
 
-// For MCP tools
+// Alternative with explicit path to ensure Google Chrome is used
+const browser = await chromium.launch({ 
+  headless: false,
+  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' // macOS path
+  // For Windows: executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+  // For Linux: executablePath: '/usr/bin/google-chrome-stable'
+});
+
+// For MCP tools - Google Chrome will be used automatically
 await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/builder' });
 ```
 
 ## Testing Environments
 
+### Development Server
+**IMPORTANT**: The user always has a development server running. DO NOT attempt to:
+- Start a new development server with `npm run dev`
+- Check if port 3000/3001 is in use
+- Kill existing processes
+- Restart the server
+
+The development environment is already active and ready for testing.
+
 ### Local Development Testing
-By default, all tests run on the local development server:
+By default, all tests run on the local development server (usually port 3000 or 3001):
 ```javascript
 await mcp__playwright__browser_navigate({ url: 'http://localhost:3000/workflows/builder' });
+// Or if running on port 3001:
+await mcp__playwright__browser_navigate({ url: 'http://localhost:3001/workflows/builder' });
 ```
 
 ### Production/Live Version Testing
