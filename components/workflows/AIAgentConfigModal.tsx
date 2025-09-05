@@ -60,6 +60,7 @@ interface AIAgentConfigModalProps {
   currentNodeId?: string
   onOpenActionDialog?: () => void
   onActionSelect?: (action: any) => void
+  onAddActionToWorkflow?: (action: any, config: any) => void
 }
 
 // Group models by recommendation
@@ -211,12 +212,13 @@ export function AIAgentConfigModal({
   workflowData,
   currentNodeId,
   onOpenActionDialog,
-  onActionSelect
+  onActionSelect,
+  onAddActionToWorkflow
 }: AIAgentConfigModalProps) {
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
-  const { comingSoonIntegrations, isIntegrationConnected } = useIntegrationSelection()
+  const { comingSoonIntegrations, isIntegrationConnected, availableIntegrations } = useIntegrationSelection()
   
   // Progressive disclosure state
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
@@ -532,10 +534,19 @@ export function AIAgentConfigModal({
         })
       }
       
-      // Add to chain via callback
+      // Add to chain via callback for visual builder
       if (pendingActionCallback) {
         pendingActionCallback(action.type, action.providerId || '', aiConfig)
         setPendingActionCallback(null)
+      }
+      
+      // Also add to the main workflow immediately
+      if (onAddActionToWorkflow) {
+        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedActionIntegration?.id))
+        onAddActionToWorkflow({
+          ...action,
+          integration: integrationInfo
+        }, aiConfig)
       }
       
       // Close dialog and reset state
@@ -546,17 +557,25 @@ export function AIAgentConfigModal({
       
       toast({
         title: "Action Added",
-        description: `${action.title} added with AI configuration`
+        description: `${action.title} added with AI configuration and added to workflow`
       })
     } else {
-      // In Manual mode, open config modal
+      // In Manual mode, we need to add the action and open config
       setShowActionSelector(false)
       
-      // TODO: Open configuration modal for manual setup
-      // This will be implemented to open the standard config modal
+      // Add to the main workflow with manual config flag
+      if (onAddActionToWorkflow) {
+        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedActionIntegration?.id))
+        onAddActionToWorkflow({
+          ...action,
+          integration: integrationInfo,
+          needsConfiguration: true
+        }, {})
+      }
+      
       toast({
         title: "Manual Configuration",
-        description: "Opening configuration modal..."
+        description: "Configure the action in the workflow builder"
       })
     }
   }
