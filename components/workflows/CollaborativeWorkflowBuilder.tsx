@@ -41,6 +41,7 @@ import { CollaboratorCursors } from "./CollaboratorCursors"
 import ErrorNotificationPopup from "./ErrorNotificationPopup"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import WorkflowExecutions from "./WorkflowExecutions"
+import { ExecutionHistoryModal } from "./ExecutionHistoryModal"
 
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
@@ -483,6 +484,7 @@ const useWorkflowBuilderState = () => {
 
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
+    console.log('🔄 [WorkflowBuilder] handleInsertAction called:', { sourceNodeId, targetNodeId })
     setSourceAddNode({ 
       id: `insert-${sourceNodeId}-${targetNodeId}`, 
       parentId: sourceNodeId,
@@ -934,10 +936,18 @@ const useWorkflowBuilderState = () => {
 
   // Handle adding a node between two existing nodes
   const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
-    // Open action dialog to select what node to insert
-    setSourceAddNode({ id: sourceId, parentId: targetId })
+    console.log('🔄 [WorkflowBuilder] handleAddNodeBetween called:', { sourceId, targetId, position })
+    // Set up for insertion - parentId is the source, insertBefore is the target
+    setSourceAddNode({ 
+      id: `insert-${sourceId}-${targetId}`, 
+      parentId: sourceId,
+      insertBefore: targetId 
+    })
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
     setShowActionDialog(true)
-  }, [setSourceAddNode, setShowActionDialog])
+  }, [])
   
   // Handle adding a new chain to an AI Agent node
   const handleAddChain = useCallback((aiAgentNodeId: string) => {
@@ -1230,8 +1240,14 @@ const useWorkflowBuilderState = () => {
                 onRename: handleRenameNode,
                 onChangeTrigger: (typeof node.data.type === 'string' && node.data.type.includes('trigger')) ? handleChangeTrigger : undefined,
                 onAddChain: node.data.type === 'ai_agent' && !(node.data as any)?.hasChains ? handleAddChain : undefined,
-                // Use the saved providerId directly, fallback to extracting from type if not available
-                providerId: node.data.providerId || (typeof node.data.type === 'string' ? node.data.type.split(/[-_]/)[0] : undefined),
+                // Use the saved providerId directly, or look it up from the node component
+                providerId: node.data.providerId || (nodeComponent ? nodeComponent.providerId : undefined) || 
+                  // Fallback: determine providerId based on known types
+                  (['custom_script', 'if_condition', 'filter', 'loop', 'try_catch', 'switch_case'].includes(node.data.type) ? 'logic' : 
+                   node.data.type === 'ai_agent' ? 'ai' : 
+                   node.data.type === 'manual_trigger' ? 'manual' : 
+                   node.data.type === 'schedule_trigger' ? 'schedule' : 
+                   node.data.type === 'webhook_trigger' ? 'webhook' : undefined),
                 // Add execution status for visual feedback
                 executionStatus: executionResults[node.id]?.status || null,
                 isActiveExecution: activeExecutionNodeId === node.id,
@@ -1713,66 +1729,164 @@ const useWorkflowBuilderState = () => {
     
     // Handle insertion between nodes
     if (sourceNodeInfo.insertBefore) {
+      console.log('🔄 [WorkflowBuilder] Inserting node between:', { 
+        parentId: sourceNodeInfo.parentId, 
+        insertBefore: sourceNodeInfo.insertBefore,
+        newNodeId 
+      })
+      
       // We're inserting between sourceNodeInfo.parentId and sourceNodeInfo.insertBefore
       const targetNode = getNodes().find((n) => n.id === sourceNodeInfo.insertBefore)
+      const allNodes = getNodes()
       
       if (targetNode) {
-        // Position the new node between parent and target
+        // Position the new node between the parent and target
+        const parentNodePos = parentNode.position
+        const targetNodePos = targetNode.position
+        
+        // Calculate vertical spacing to ensure no overlap
+        const verticalSpacing = 180 // Increased spacing for better separation
+        const minSpaceBetweenNodes = 120 // Minimum space needed between nodes
+        
+        // Check current distance between parent and target
+        const currentDistance = targetNodePos.y - parentNodePos.y
+        
+        // If nodes are too close, we need to shift more
+        const needsExtraSpace = currentDistance < (minSpaceBetweenNodes * 2)
+        
+        // Place the new node with proper spacing from the parent
         newActionNode.position = {
-          x: (parentNode.position.x + targetNode.position.x) / 2,
-          y: (parentNode.position.y + targetNode.position.y) / 2
+          x: targetNodePos.x,
+          y: parentNodePos.y + minSpaceBetweenNodes
         }
         
-        // Update nodes
-        setNodes((prevNodes: Node[]) => [
-          ...prevNodes.filter((n: Node) => !n.id.startsWith('insert-')), // Remove insert nodes
-          newActionNode
-        ])
+        // Calculate how much to shift nodes down
+        // If nodes were too close, add extra space
+        const shiftAmount = needsExtraSpace ? verticalSpacing + minSpaceBetweenNodes : verticalSpacing
+        
+        // Find all nodes that need to be pushed down (target and everything below it)
+        const nodesToShift = allNodes.filter(n => 
+          n.position.y >= targetNode.position.y && 
+          n.id !== sourceNodeInfo.parentId &&
+          !n.id.startsWith('insert-') &&
+          n.id !== newNodeId
+        )
+        
+        console.log('🔄 [WorkflowBuilder] Nodes to shift down:', nodesToShift.map(n => n.id))
+        console.log('🔄 [WorkflowBuilder] Shift amount:', shiftAmount)
+        
+        // Update nodes - add new node and shift existing ones down
+        setNodes((prevNodes: Node[]) => {
+          const filteredNodes = prevNodes.filter((n: Node) => !n.id.startsWith('insert-'))
+          
+          const updatedNodes = filteredNodes.map(node => {
+            // Shift down nodes that are at or below the insertion point
+            if (nodesToShift.some(n => n.id === node.id)) {
+              return {
+                ...node,
+                position: {
+                  ...node.position,
+                  y: node.position.y + shiftAmount
+                }
+              }
+            }
+            return node
+          })
+          
+          // Add the new node
+          return [...updatedNodes, newActionNode]
+        })
         
         // Update edges - redirect the edge from parent->target to parent->new->target
         setEdges((prevEdges: Edge[]) => {
+          // Remove the edge between parent and target
           const filteredEdges = prevEdges.filter((e: Edge) => 
             !(e.source === sourceNodeInfo.parentId && e.target === sourceNodeInfo.insertBefore)
           )
           
+          // Add new edges: parent->new and new->target
           return [
             ...filteredEdges,
             {
-              id: `${parentNode.id}-${newNodeId}`,
-              source: parentNode.id,
+              id: `${sourceNodeInfo.parentId}-${newNodeId}`,
+              source: sourceNodeInfo.parentId,
               target: newNodeId,
               type: 'custom',
               animated: false,
-              style: { stroke: "#d1d5db", strokeWidth: 1 },
+              style: { stroke: "#94a3b8", strokeWidth: 2 },
               data: {
                 onAddNode: (sourceId: string, targetId: string, position: { x: number, y: number }) => {
-                  handleInsertAction(parentNode.id, newNodeId)
+                  handleInsertAction(sourceNodeInfo.parentId, newNodeId)
                 }
               }
             },
-            ...(sourceNodeInfo.insertBefore ? [{
+            {
               id: `${newNodeId}-${sourceNodeInfo.insertBefore}`,
               source: newNodeId,
-              target: sourceNodeInfo.insertBefore,
+              target: sourceNodeInfo.insertBefore as string,
               type: 'custom',
               animated: false,
-              style: { stroke: "#d1d5db", strokeWidth: 1 },
+              style: { stroke: "#94a3b8", strokeWidth: 2 },
               data: {
                 onAddNode: (sourceId: string, targetId: string, position: { x: number, y: number }) => {
-                  handleInsertAction(newNodeId, sourceNodeInfo.insertBefore)
+                  handleInsertAction(newNodeId, sourceNodeInfo.insertBefore as string)
                 }
               }
-            }] : [])
+            }
           ]
         })
+        
+        // Ensure the add action button at the end is preserved
+        // Find the existing add action button if it exists
+        const existingAddActionNode = allNodes.find(n => 
+          n.type === 'addAction' && 
+          !n.id.startsWith('insert-')
+        )
+        
+        if (!existingAddActionNode) {
+          // If there's no add action button, we should add one at the end
+          // Find the last action node in the chain
+          const lastActionNode = allNodes
+            .filter(n => n.type === 'custom' && n.data?.type !== 'chain_placeholder')
+            .sort((a, b) => b.position.y - a.position.y)[0]
+          
+          if (lastActionNode) {
+            const addActionId = `add-action-${Date.now()}`
+            const addActionNode: Node = {
+              id: addActionId,
+              type: 'addAction',
+              position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 240 },
+              data: { parentId: lastActionNode.id, onClick: () => handleAddActionClick(addActionId, lastActionNode.id) }
+            }
+            
+            setTimeout(() => {
+              setNodes((prevNodes: Node[]) => [...prevNodes, addActionNode])
+              setEdges((prevEdges: Edge[]) => [...prevEdges, {
+                id: `${lastActionNode.id}-${addActionId}`,
+                source: lastActionNode.id,
+                target: addActionId,
+                animated: false,
+                style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+              }])
+            }, 100)
+          }
+        }
       }
     } else {
       // Normal add action at the end
+      const verticalSpacing = 180 // Consistent spacing with insertion
       const newAddActionId = `add-action-${Date.now()}`
+      
+      // Position new action with proper spacing
+      newActionNode.position = {
+        x: parentNode.position.x,
+        y: parentNode.position.y + 120 // Standard spacing from parent
+      }
+      
       const newAddActionNode: Node = {
         id: newAddActionId, 
         type: "addAction", 
-        position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
+        position: { x: parentNode.position.x, y: parentNode.position.y + 120 + verticalSpacing },
         data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
       }
       
@@ -1811,6 +1925,19 @@ const useWorkflowBuilderState = () => {
     setSelectedIntegration(null)
     setSourceAddNode(null)
     setTimeout(() => fitView({ padding: 0.5 }), 100)
+    
+    // Auto-save after inserting action
+    if (sourceNodeInfo.insertBefore) {
+      console.log('🔄 [WorkflowBuilder] Auto-saving after node insertion')
+      setTimeout(async () => {
+        try {
+          await handleSave()
+          console.log('✅ [WorkflowBuilder] Workflow saved after node insertion')
+        } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to save after node insertion:', error)
+        }
+      }, 500) // Give React time to update state
+    }
     
     return newNodeId // Return the new node ID so we can save its config to persistence
   }
@@ -2268,23 +2395,8 @@ const useWorkflowBuilderState = () => {
       if (!currentWorkflow) {
         throw new Error("No workflow selected")
       }
-
-      // If we're already in listening mode, turn it off
-      if (listeningMode) {
-        setListeningMode(false)
-        setIsExecuting(false)
-        setActiveExecutionNodeId(null)
-        setExecutionResults({})
-        toast({
-          title: "Listening Mode Disabled",
-          description: "No longer listening for triggers.",
-        })
-        return
-      }
-
-      setIsExecuting(true)
       
-      // Get all workflow nodes and edges
+      // Get all workflow nodes and edges FIRST to check trigger type
       const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
       
       // Find trigger nodes
@@ -2293,6 +2405,92 @@ const useWorkflowBuilderState = () => {
       if (triggerNodes.length === 0) {
         throw new Error("No trigger nodes found in workflow")
       }
+      
+      // Check if we have a manual trigger
+      const hasManualTrigger = triggerNodes.some(node => 
+        node.data?.providerId === 'manual' || 
+        node.data?.type === 'manual'
+      )
+
+      // If we're already in listening mode
+      if (listeningMode) {
+        // If it's a manual trigger, execute the workflow instead of turning off listening
+        if (hasManualTrigger) {
+          // Determine if this is TEST MODE or EXECUTE MODE
+          // In listening mode, Execute button runs in TEST MODE (simulation)
+          const isTestMode = true // When in listening/test mode, always simulate
+          
+          console.log(`🔄 ${isTestMode ? 'Testing' : 'Executing'} manual trigger workflow from Execute button`)
+          
+          // Execute the workflow directly
+          try {
+            const response = await fetch('/api/workflows/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workflowId: currentWorkflow.id,
+                testMode: isTestMode,
+                inputData: {
+                  trigger: {
+                    type: 'manual',
+                    timestamp: new Date().toISOString(),
+                    source: isTestMode ? 'test_mode' : 'live_mode'
+                  }
+                },
+                workflowData: {
+                  nodes: getNodes(),
+                  edges: getEdges()
+                }
+              })
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              
+              // Different toasts for test vs execute mode
+              if (isTestMode) {
+                toast({
+                  title: "Test Run Complete",
+                  description: "Workflow simulated successfully. Check results for preview of actions.",
+                })
+              } else {
+                toast({
+                  title: "Workflow Executed",
+                  description: `Live execution completed. ID: ${result.executionId}`,
+                })
+              }
+              
+              // Don't turn off listening mode - keep it active
+              return
+            } else {
+              const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+              console.error('Failed to execute workflow:', errorData)
+              throw new Error(errorData.error || 'Failed to execute workflow')
+            }
+          } catch (error: any) {
+            console.error('Error executing manual workflow:', error)
+            toast({
+              title: isTestMode ? "Test Failed" : "Execution Failed",
+              description: error.message || "Failed to run workflow. Please check the console for details.",
+              variant: "destructive"
+            })
+            return
+          }
+        } else {
+          // For non-manual triggers, turn off listening mode
+          setListeningMode(false)
+          setIsExecuting(false)
+          setActiveExecutionNodeId(null)
+          setExecutionResults({})
+          toast({
+            title: "Listening Mode Disabled",
+            description: "No longer listening for triggers.",
+          })
+          return
+        }
+      }
+
+      setIsExecuting(true)
       
       // Setup real-time monitoring for execution events
       const supabaseClient = createClient()
@@ -2365,11 +2563,17 @@ const useWorkflowBuilderState = () => {
         )
         .subscribe()
       
-      // Register webhooks for trigger nodes
+      // Register webhooks for trigger nodes (skip manual triggers)
       let registeredWebhooks = 0
       for (const triggerNode of triggerNodes) {
         const nodeData = triggerNode.data
         const providerId = nodeData?.providerId
+        
+        // Skip webhook registration for manual triggers
+        if (providerId === 'manual' || nodeData?.type === 'manual') {
+          console.log('⏩ Skipping webhook registration for manual trigger')
+          continue
+        }
         
         if (providerId) {
           try {
@@ -3064,9 +3268,58 @@ const CustomEdgeWithButton = ({
               className="w-7 h-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center shadow-md transition-all hover:scale-110"
               onClick={(e) => {
                 e.stopPropagation()
-                const [sourceId, targetId] = id.replace('e', '').split('-')
                 if (typeof onAddNode === 'function') {
-                  onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+                  // The onAddNode function in data can have different signatures:
+                  // 1. For edges created in workflow loading: (sourceId, targetId, position) => ...
+                  // 2. For edges with bound parameters: (position) => ...
+                  // 3. For processedEdges: (sourceId, targetId, position) => ...
+                  
+                  // Try to determine the signature based on function length
+                  if (onAddNode.length <= 1) {
+                    // Function expects only position (parameters are bound via closure)
+                    onAddNode({ x: labelX, y: labelY })
+                  } else {
+                    // Function expects all three parameters
+                    // Need to parse the edge ID to get source and target
+                    // Try different ID formats
+                    let sourceId, targetId
+                    
+                    if (id.includes('->')) {
+                      // Format: "sourceId->targetId"
+                      const parts = id.split('->')
+                      sourceId = parts[0]
+                      targetId = parts[1]
+                    } else if (id.startsWith('e-')) {
+                      // Format: "e-sourceId-targetId"
+                      const parts = id.substring(2).split('-')
+                      if (parts.length >= 2) {
+                        // Take first part as source, rest as target (handles IDs with hyphens)
+                        sourceId = parts[0]
+                        targetId = parts.slice(1).join('-')
+                      }
+                    } else {
+                      // Format: "sourceId-targetId" 
+                      // Find the last occurrence of a pattern like "node-timestamp"
+                      const matches = id.match(/^(.*?)-(node-\d+)$/)
+                      if (matches) {
+                        sourceId = matches[1]
+                        targetId = matches[2]
+                      } else {
+                        // Fallback: split by first hyphen after "node"
+                        const nodeIndex = id.lastIndexOf('node-')
+                        if (nodeIndex > 0) {
+                          sourceId = id.substring(0, nodeIndex - 1)
+                          targetId = id.substring(nodeIndex)
+                        }
+                      }
+                    }
+                    
+                    if (sourceId && targetId) {
+                      onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+                    } else {
+                      console.warn('Could not parse edge ID for insertion:', id)
+                    }
+                  }
                 }
               }}
             >
@@ -3257,7 +3510,16 @@ function WorkflowBuilderContent() {
             </TooltipProvider>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleExecute}
+                    disabled={isSaving || (isExecuting && !listeningMode) || (!listeningMode)} 
+                    variant="default"
+                  >
+                    {isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}
+                    Execute
+                  </Button>
+                </TooltipTrigger>
                 <TooltipContent><p>Execute the workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -4479,20 +4741,13 @@ function WorkflowBuilderContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Execution History Dialog */}
-      <Dialog open={showExecutionHistory} onOpenChange={setShowExecutionHistory}>
-        <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Workflow Execution History</DialogTitle>
-            <DialogDescription>
-              View past executions of this workflow and their results
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 overflow-y-auto max-h-[60vh]">
-            {workflowId && <WorkflowExecutions workflowId={workflowId} />}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Enhanced Execution History with Detailed Logging */}
+      <ExecutionHistoryModal
+        open={showExecutionHistory}
+        onClose={() => setShowExecutionHistory(false)}
+        workflowId={workflowId || ''}
+        workflowName={workflowName}
+      />
 
       {/* Error Notification Popup */}
       {workflowId && <ErrorNotificationPopup workflowId={workflowId} />}

@@ -18,7 +18,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
-import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
+// Using optimized version to prevent freeze while maintaining features
+// import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
+import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
@@ -199,8 +201,8 @@ export function FieldRenderer({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             onVariableInsert={onChange}
-            guildId={workflowData?.nodes?.find(n => n.id === currentNodeId)?.data?.config?.guildId}
-            channelId={workflowData?.nodes?.find(n => n.id === currentNodeId)?.data?.config?.channelId}
+            guildId={parentValues?.guildId}
+            channelId={parentValues?.channelId}
             userId={user?.id}
             className={cn(
               error && "border-red-500"

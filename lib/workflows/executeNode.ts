@@ -11,6 +11,7 @@ import { google } from 'googleapis'
 import { actionHandlerRegistry, getWaitForTimeHandler } from './actions/registry'
 import { executeGenericAction } from './actions/generic'
 import { ActionResult } from './actions'
+import { createExecutionLogEntry, storeExecutionLog, formatExecutionLogEntry } from './execution/executionLogger'
 
 // Import AI-related functionality
 import {
@@ -175,6 +176,23 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
  */
 export async function executeAction({ node, input, userId, workflowId }: ExecuteActionParams): Promise<ActionResult> {
   const { type, config } = node.data
+  const startTime = Date.now()
+  
+  // Create initial log entry for started status
+  const startLogEntry = createExecutionLogEntry(
+    node,
+    'started',
+    {
+      trigger: node.data.isTrigger ? input?.trigger : undefined,
+      input: { config, previousOutputs: input?.previousResults }
+    }
+  )
+  
+  // Store and log the start
+  if (workflowId) {
+    storeExecutionLog(workflowId, startLogEntry)
+    console.log('[Execution Started]', formatExecutionLogEntry(startLogEntry))
+  }
   
   // Process AI fields if needed
   const processedConfig = await processAIFieldsIfNeeded(type, config, {
@@ -202,12 +220,70 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   // Special handling for wait_for_time action that needs workflow context
   if (type === "wait_for_time") {
     const handler = getWaitForTimeHandler(workflowId, node.id)
-    return handler(processedConfig, userId, input)
+    try {
+      const result = await handler(processedConfig, userId, input)
+      const executionTime = Date.now() - startTime
+      
+      const logEntry = createExecutionLogEntry(node, 'completed', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        output: result.output || result,
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, logEntry)
+        console.log('[Wait Completed]', formatExecutionLogEntry(logEntry))
+      }
+      
+      return result
+    } catch (error: any) {
+      const executionTime = Date.now() - startTime
+      const errorEntry = createExecutionLogEntry(node, 'error', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        error: { message: error.message, stack: error.stack },
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, errorEntry)
+        console.log('[Wait Error]', formatExecutionLogEntry(errorEntry))
+      }
+      throw error
+    }
   }
 
   // Special handling for AI agent
   if (type === "ai_agent") {
-    return executeAIAgentWrapper(processedConfig, userId, input)
+    try {
+      const result = await executeAIAgentWrapper(processedConfig, userId, input)
+      const executionTime = Date.now() - startTime
+      
+      const logEntry = createExecutionLogEntry(node, 'completed', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        output: result.output || result,
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, logEntry)
+        console.log('[AI Agent Completed]', formatExecutionLogEntry(logEntry))
+      }
+      
+      return result
+    } catch (error: any) {
+      const executionTime = Date.now() - startTime
+      const errorEntry = createExecutionLogEntry(node, 'error', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        error: { message: error.message, stack: error.stack },
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, errorEntry)
+        console.log('[AI Agent Error]', formatExecutionLogEntry(errorEntry))
+      }
+      throw error
+    }
   }
 
   // Get the appropriate handler from the registry
@@ -216,11 +292,40 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   // If there's no handler for this node type, try the generic handler
   if (!handler) {
     console.log(`Using generic handler for node type: ${type}`)
-    return executeGenericAction(
-      { ...processedConfig, actionType: type },
-      userId,
-      input
-    )
+    try {
+      const result = await executeGenericAction(
+        { ...processedConfig, actionType: type },
+        userId,
+        input
+      )
+      const executionTime = Date.now() - startTime
+      
+      const logEntry = createExecutionLogEntry(node, 'completed', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        output: result.output || result,
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, logEntry)
+        console.log('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
+      }
+      
+      return result
+    } catch (error: any) {
+      const executionTime = Date.now() - startTime
+      const errorEntry = createExecutionLogEntry(node, 'error', {
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        error: { message: error.message, stack: error.stack },
+        executionTime
+      })
+      
+      if (workflowId) {
+        storeExecutionLog(workflowId, errorEntry)
+        console.log('[Generic Action Error]', formatExecutionLogEntry(errorEntry))
+      }
+      throw error
+    }
   }
 
   // For encryption-dependent handlers, check if encryption key is available
@@ -242,7 +347,56 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   }
 
   // Execute the handler with the processed parameters
-  return handler({ config: processedConfig, userId, input })
+  try {
+    const result = await handler({ config: processedConfig, userId, input })
+    const executionTime = Date.now() - startTime
+    
+    // Create success log entry
+    const successLogEntry = createExecutionLogEntry(
+      node,
+      'completed',
+      {
+        trigger: node.data.isTrigger ? input?.trigger : undefined,
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        output: result.output || result,
+        executionTime
+      }
+    )
+    
+    // Store and log the success
+    if (workflowId) {
+      storeExecutionLog(workflowId, successLogEntry)
+      console.log('[Execution Completed]', formatExecutionLogEntry(successLogEntry))
+    }
+    
+    return result
+  } catch (error: any) {
+    const executionTime = Date.now() - startTime
+    
+    // Create error log entry
+    const errorLogEntry = createExecutionLogEntry(
+      node,
+      'error',
+      {
+        trigger: node.data.isTrigger ? input?.trigger : undefined,
+        input: { config: processedConfig, previousOutputs: input?.previousResults },
+        error: {
+          message: error.message || 'Unknown error',
+          details: error.details,
+          stack: error.stack
+        },
+        executionTime
+      }
+    )
+    
+    // Store and log the error
+    if (workflowId) {
+      storeExecutionLog(workflowId, errorLogEntry)
+      console.log('[Execution Error]', formatExecutionLogEntry(errorLogEntry))
+    }
+    
+    throw error
+  }
 }
 
 /**

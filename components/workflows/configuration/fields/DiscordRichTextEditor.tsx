@@ -123,44 +123,73 @@ export function DiscordRichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
-  // Load Discord guild data when guildId changes
-  useEffect(() => {
-    if (guildId && userId) {
-      loadDiscordGuildData()
-    }
-  }, [guildId, userId])
+  // Debug logging to identify freeze cause
+  console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
 
-  const loadDiscordGuildData = async () => {
+  const loadDiscordGuildData = useCallback(async () => {
+    if (!guildId || !userId) {
+      console.log('[DiscordRichTextEditor] Skipping guild data load - missing guildId or userId')
+      return;
+    }
+    
     try {
+      console.log('[DiscordRichTextEditor] Loading Discord guild data for:', { guildId, userId })
       setIsLoadingDiscordData(true)
       
-      // Load members, roles, and channels for the guild
-      const [membersResponse, rolesResponse, channelsResponse] = await Promise.all([
-        fetch(`/api/integrations/discord/members?guildId=${guildId}&userId=${userId}`),
-        fetch(`/api/integrations/discord/roles?guildId=${guildId}&userId=${userId}`),
-        fetch(`/api/integrations/discord/channels?guildId=${guildId}&userId=${userId}`)
-      ])
+      // Load members, roles, and channels for the guild with timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
       
-      if (membersResponse.ok) {
+      const [membersResponse, rolesResponse, channelsResponse] = await Promise.all([
+        fetch(`/api/integrations/discord/members?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
+        fetch(`/api/integrations/discord/roles?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
+        fetch(`/api/integrations/discord/channels?guildId=${guildId}&userId=${userId}`, { signal: controller.signal })
+      ]).catch(err => {
+        console.error('[DiscordRichTextEditor] API request failed:', err)
+        return [null, null, null]
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (membersResponse && membersResponse.ok) {
         const membersData = await membersResponse.json()
         setAvailableMembers(membersData.members || [])
       }
       
-      if (rolesResponse.ok) {
+      if (rolesResponse && rolesResponse.ok) {
         const rolesData = await rolesResponse.json()
         setAvailableRoles(rolesData.roles || [])
       }
       
-      if (channelsResponse.ok) {
+      if (channelsResponse && channelsResponse.ok) {
         const channelsData = await channelsResponse.json()
         setAvailableChannels(channelsData.channels || [])
       }
+      
+      console.log('[DiscordRichTextEditor] Successfully loaded Discord guild data')
     } catch (error) {
-      console.error('Failed to load Discord guild data:', error)
+      console.error('[DiscordRichTextEditor] Failed to load Discord guild data:', error)
+      toast({
+        title: "Failed to load Discord data",
+        description: "Could not load server members, roles, and channels",
+        variant: "destructive"
+      })
     } finally {
       setIsLoadingDiscordData(false)
     }
-  }
+  }, [guildId, userId, toast]) // Removed isLoadingDiscordData to prevent circular dependency
+
+  // Load Discord guild data when guildId changes - disabled for now to prevent freeze
+  useEffect(() => {
+    // Temporarily disabled auto-loading to prevent freeze
+    // Users can still access mentions but data won't preload
+    console.log('[DiscordRichTextEditor] Auto-load disabled - guildId present:', !!guildId)
+    /*
+    if (guildId && userId) {
+      loadDiscordGuildData()
+    }
+    */
+  }, [guildId, userId, loadDiscordGuildData])
 
   const insertMarkdown = useCallback((markdownSyntax: string) => {
     if (textareaRef.current) {
@@ -329,12 +358,7 @@ export function DiscordRichTextEditor({
     return message
   }
 
-  // Update the parent component with the complete message object
-  useEffect(() => {
-    const completeMessage = buildDiscordMessage()
-    // You might want to use a different callback for complete Discord message
-    // For now, we'll just pass the content and handle embed separately
-  }, [value, useEmbed, embed])
+  // Removed unnecessary useEffect that was causing re-renders
 
   return (
     <div className={cn("border border-slate-700 rounded-lg overflow-hidden bg-slate-900", className)}>
@@ -392,7 +416,17 @@ export function DiscordRichTextEditor({
             <>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+                    onClick={() => {
+                      // Load Discord data on demand when user clicks mentions
+                      if (!availableMembers.length && !isLoadingDiscordData) {
+                        loadDiscordGuildData()
+                      }
+                    }}
+                  >
                     <AtSign className="h-4 w-4" />
                     Users
                     <ChevronDown className="h-3 w-3" />

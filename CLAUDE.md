@@ -152,7 +152,8 @@ Tests should be written using Jest and React Testing Library when implementing n
 **CRITICAL**: When performing browser automation testing with Playwright, you MUST follow the guidelines in `/PLAYWRIGHT.md`. This is mandatory for all browser testing.
 
 Key requirements from `/PLAYWRIGHT.md`:
-- **Use default system browser** - Never specify browser type
+- **ALWAYS USE GOOGLE CHROME** - Google Chrome (not Chromium) is the required browser for all testing
+- **Never start dev server** - The user always has a dev environment running, never start a new one
 - **Always test from scratch** - Delete existing nodes/configurations before testing
 - **Fix errors immediately** - Users will encounter the same errors you find
 - **Test with live versions** - Never create separate test pages
