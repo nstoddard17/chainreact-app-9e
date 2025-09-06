@@ -2,6 +2,32 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 6, 2025
+
+### Complete AI Agent Workflow Synchronization and Chain Management
+
+We've implemented comprehensive synchronization between the AI Agent visual chain builder and the main workflow builder, ensuring that complex multi-chain AI workflows created in the visual builder are perfectly recreated in the main workflow with exact positioning and full functionality. The system now captures the complete node and edge structure from the AI Agent builder, including precise positions, connections, and layout spacing (120px vertical, 150px horizontal), and recreates this exact structure when the AI Agent configuration is saved.
+
+The implementation includes smart chain management features that maintain visual consistency across all operations. When inserting actions between existing nodes in AI Agent chains, the system now uses tighter 120px spacing and only repositions nodes within the same vertical chain, leaving parallel chains untouched. When deleting actions from AI Agent chains, nodes below automatically move up by 120px to close the gap, maintaining proper visual alignment. The system intelligently differentiates between AI Agent chains and regular workflow nodes, applying appropriate spacing and repositioning rules based on context. This ensures that AI Agent workflows remain compact and organized while regular workflows maintain their standard spacing.
+
+### Enhanced Workflow Builder with Smart Node Operations
+
+We've added sophisticated node management capabilities to the main workflow builder for handling AI Agent chains. The enhanced handleAddNodeBetween function now recognizes when you're inserting into an AI Agent chain versus a regular workflow, applying context-appropriate spacing and repositioning logic. For AI Agent chains, new nodes take the exact position of the target node they're replacing, with downstream nodes shifting by exactly 120px to maintain consistent spacing. The system only moves nodes in the same vertical chain, preserving the layout of parallel chains.
+
+The delete functionality has been upgraded with automatic node repositioning that maintains visual consistency. When deleting a node from an AI Agent chain, all nodes below it in the same chain automatically move up by 120px, closing the gap while keeping the chain properly aligned. Add Action buttons are automatically repositioned to stay at the correct distance below the last action in each chain. This intelligent repositioning ensures that workflows remain clean and organized even as users make changes, eliminating the need for manual layout adjustments after every modification.
+
+### Fixed AI Agent Chain Builder Edge Callback Issues
+
+We've resolved a critical issue in the AI Agent visual chain builder where adding actions between existing actions would incorrectly create new chains instead of properly inserting the action into the existing chain. The problem occurred when chain placeholder nodes were replaced with actual action nodes - the edge callbacks continued using the old, stale node IDs from when the edges were first created. This meant that when users clicked the "+" button between the AI Agent node and the first action in a chain, the system would look for a node ID that no longer existed after the placeholder was replaced.
+
+The fix implements dynamic node resolution in the handleAddNodeBetween function, which now intelligently finds the correct target node even when the original ID is stale. When the source is the AI Agent node and the target can't be found, the system automatically locates the first action node in the chain based on position. Additionally, all edge callbacks now use refs instead of direct function references to ensure they always call the latest version of the handler functions, preventing closure issues. This improvement ensures that users can reliably insert actions at any point in their AI workflows, whether between the AI Agent and the first action, or between any two existing actions in the chain.
+
+### Enhanced AI Agent Chain Builder with Smart Node Repositioning
+
+We've significantly improved the AI Agent visual chain builder with intelligent node repositioning when inserting actions between existing workflow steps. When users click the "+" button between two actions to add a new step, the system now automatically moves all downstream nodes downward by 160 pixels, creating perfect visual spacing for the new action. This enhancement eliminates the previous issue where nodes would overlap or appear in confusing positions when inserting actions mid-chain.
+
+The update also includes critical fixes to the callback system, switching from React state to refs for more reliable action selection, and ensuring that action metadata (title, description, providerId) flows correctly through the entire component hierarchy. These improvements mean that actions now display with their proper names instead of "unnamed action", and the handleAddNodeBetween functionality works seamlessly for building complex multi-step AI workflows. Users can now confidently build and modify their AI agent chains with actions properly positioned and clearly labeled throughout the visual builder.
+
 ## January 9, 2025
 
 ### Fixed AI Agent Chain Builder Action Display Issues
