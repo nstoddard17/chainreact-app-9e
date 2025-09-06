@@ -1419,10 +1419,78 @@ const useWorkflowBuilderState = () => {
 
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
-  // Debug onNodesChange to see if it's being called
+  // Enhanced onNodesChange to make Add Action nodes follow their parent nodes
   const optimizedOnNodesChange = useCallback((changes: any) => {
+    // First apply the base changes
     onNodesChange(changes)
-  }, [onNodesChange])
+    
+    // Check if any position changes occurred
+    const positionChanges = changes.filter((change: any) => change.type === 'position')
+    
+    if (positionChanges.length > 0) {
+      setNodes((nds) => {
+        const updatedNodes = [...nds]
+        const currentEdges = getEdges()
+        
+        // For each position change, update connected Add Action nodes
+        positionChanges.forEach((change: any) => {
+          if (!change.position) return
+          
+          const parentNodeIndex = updatedNodes.findIndex(n => n.id === change.id)
+          if (parentNodeIndex === -1) return
+          
+          // Update the parent node's position if it's being dragged
+          if (change.dragging !== false) {
+            updatedNodes[parentNodeIndex] = {
+              ...updatedNodes[parentNodeIndex],
+              position: change.position
+            }
+          }
+          
+          // Find Add Action nodes connected to this node via edges
+          const connectedAddActions = currentEdges
+            .filter(edge => edge.source === change.id)
+            .map(edge => updatedNodes.find(n => n.id === edge.target))
+            .filter(node => node && node.type === 'addAction')
+          
+          // Also check by parentId and ID patterns as fallback
+          const addActionPatterns = [
+            `add-action-${change.id}`, // Standard pattern
+            `add-action-${change.id}-`, // Pattern with additional suffixes
+          ]
+          
+          updatedNodes.forEach((node, index) => {
+            if (node.type === 'addAction') {
+              // Check if this Add Action is connected to the moved node
+              const isConnected = connectedAddActions.some(n => n?.id === node.id)
+              
+              // Also check other patterns as fallback
+              const belongsToParent = 
+                isConnected || // Primary: Check edge connection
+                node.data?.parentId === change.id || // Check parentId in data
+                addActionPatterns.some(pattern => node.id.startsWith(pattern)) // Check ID patterns
+              
+              if (belongsToParent) {
+                // For AI Agent chains, check if this is part of a chain
+                const isAIAgentChain = node.data?.parentAIAgentId || node.id.includes('-chain')
+                
+                // Update Add Action node position to follow parent
+                updatedNodes[index] = {
+                  ...updatedNodes[index],
+                  position: {
+                    x: change.position.x,
+                    y: change.position.y + 160 // Maintain 160px spacing below parent
+                  }
+                }
+              }
+            }
+          })
+        })
+        
+        return updatedNodes
+      })
+    }
+  }, [onNodesChange, setNodes, getEdges])
 
   // Fetch integrations when component mounts
   useEffect(() => {

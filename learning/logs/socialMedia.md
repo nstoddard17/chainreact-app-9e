@@ -4,6 +4,10 @@
 
 ## January 10, 2025
 
+### Enhanced Workflow Builder with Smart Add Action Button Positioning
+
+Implemented intelligent Add Action button positioning in the workflow builder that ensures the button always stays attached to the last action in any chain. When users drag workflow nodes around, the Add Action button now automatically follows its parent node, maintaining a consistent 160px spacing below it. This enhancement uses an optimized node change handler that detects position changes in real-time and updates all connected Add Action buttons accordingly. The system checks edge connections to identify which Add Action belongs to which node, then synchronizes their positions during drag operations. This creates a more intuitive workflow building experience where the Add Action button is always exactly where users expect it to be, eliminating confusion when rearranging complex workflows.
+
 ### AI Agent Chain Builder Documentation and Bug Fixes
 
 Created comprehensive technical documentation for the AI Agent visual chain builder architecture, preserving the complete working state of this sophisticated multi-chain workflow system. The documentation captures every aspect of how the visual builder integrates with the main workflow, including data structures, callback patterns, state management, and the complex synchronization between components. This detailed reference guide ensures that developers can maintain, troubleshoot, and restore the AI Agent functionality even after major refactoring efforts.
