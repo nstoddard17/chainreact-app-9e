@@ -357,7 +357,7 @@ interface AIAgentVisualChainBuilderProps {
   chains?: any[]
   onChainsChange?: (chains: any[]) => void
   onOpenActionDialog?: () => void
-  onActionSelect?: (callback: (actionType: string, providerId: string, config?: any) => void) => void
+  onActionSelect?: (callback: (action: any, config?: any) => void) => void
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
 }
@@ -526,7 +526,7 @@ function AIAgentVisualChainBuilder({
                 ...updatedNodes[addActionIndex],
                 position: {
                   x: change.position.x,
-                  y: change.position.y + 160
+                  y: change.position.y + 120  // Use consistent 120px spacing
                 }
               }
             }
@@ -598,35 +598,51 @@ function AIAgentVisualChainBuilder({
             console.log('🔍 [AIAgentVisualChainBuilder] Looking for sourceId:', sourceId, 'targetId:', targetId)
             
             // Find the source node
-            const sourceNode = currentNodes.find(n => n.id === sourceId)
+            const sourceNode = currentNodes.find(n => n.id === sourceId || (sourceId === 'ai-agent' && n.data?.type === 'ai_agent'))
             let targetNode = currentNodes.find(n => n.id === targetId)
             
-            // Special case: If source is ai-agent and target is not found (likely a stale chain ID)
+            // Special case: If source is ai-agent-like and target is not found (likely a stale chain ID)
             // Find the first action node after AI agent
-            if (sourceId === 'ai-agent' && !targetNode) {
+            if ((sourceId === 'ai-agent' || sourceNode?.data?.type === 'ai_agent') && !targetNode) {
               console.log('🔍 [AIAgentVisualChainBuilder] Source is AI agent and target not found, looking for first action')
-              // Find nodes positioned below AI agent that aren't Add Action buttons
-              const nodesBelow = currentNodes.filter(n => 
-                n.position.y > 200 && // Below AI agent
-                n.type !== 'addAction' &&
-                n.id !== 'ai-agent' &&
-                n.id !== 'trigger'
-              ).sort((a, b) => a.position.y - b.position.y) // Sort by Y position
-              
-              if (nodesBelow.length > 0) {
-                targetNode = nodesBelow[0]
-                resolvedTargetId = targetNode.id
-                console.log('🔍 [AIAgentVisualChainBuilder] Found first action node:', resolvedTargetId)
+              const aiAgentNode = sourceNode || currentNodes.find(n => n.data?.type === 'ai_agent')
+              if (aiAgentNode) {
+                // Find nodes positioned below AI agent that aren't Add Action buttons
+                const nodesBelow = currentNodes.filter(n => 
+                  n.position.y > aiAgentNode.position.y && // Below AI agent
+                  n.type !== 'addAction' &&
+                  n.id !== aiAgentNode.id &&
+                  n.id !== 'trigger' &&
+                  n.data?.type !== 'ai_agent'
+                ).sort((a, b) => a.position.y - b.position.y) // Sort by Y position
+                
+                if (nodesBelow.length > 0) {
+                  targetNode = nodesBelow[0]
+                  resolvedTargetId = targetNode.id
+                  console.log('🔍 [AIAgentVisualChainBuilder] Found first action node:', resolvedTargetId)
+                }
               }
             }
             
-            // If still no target and it looks like a chain ID, find any chain placeholder
+            // If still no target and it looks like a chain ID, find the actual node that replaced it
             if (!targetNode && targetId.includes('chain')) {
-              console.log('🔍 [AIAgentVisualChainBuilder] Target looks like a chain, searching for chain placeholder')
-              targetNode = currentNodes.find(n => n.data?.type === 'chain_placeholder')
-              if (targetNode) {
-                resolvedTargetId = targetNode.id
-                console.log('🔍 [AIAgentVisualChainBuilder] Found chain placeholder with ID:', resolvedTargetId)
+              console.log('🔍 [AIAgentVisualChainBuilder] Target looks like a chain, searching for replacement node')
+              // Find edges from source to see what it's actually connected to
+              const sourceNode = currentNodes.find(n => n.id === sourceId || (sourceId === 'ai-agent' && n.data?.type === 'ai_agent'))
+              if (sourceNode) {
+                // Find nodes directly below the source in the same chain
+                const nodesInChain = currentNodes.filter(n =>
+                  n.position.y > sourceNode.position.y &&
+                  Math.abs(n.position.x - sourceNode.position.x) < 50 && // Same vertical alignment
+                  n.type !== 'addAction' &&
+                  n.id !== 'trigger'
+                ).sort((a, b) => a.position.y - b.position.y)
+                
+                if (nodesInChain.length > 0) {
+                  targetNode = nodesInChain[0]
+                  resolvedTargetId = targetNode.id
+                  console.log('🔍 [AIAgentVisualChainBuilder] Found replacement node for chain:', resolvedTargetId)
+                }
               }
             }
             
@@ -729,16 +745,20 @@ function AIAgentVisualChainBuilder({
           setEdges((eds) => {
             console.log('🔗 [AIAgentVisualChainBuilder] Updating edges with resolvedTargetId:', resolvedTargetId)
             
+            // Find the actual source node ID (might be different from sourceId if it's 'ai-agent')
+            const actualSourceId = nodes.find(n => n.id === sourceId || (sourceId === 'ai-agent' && n.data?.type === 'ai_agent'))?.id || sourceId
+            
             // Remove any edge between source and the resolved target (or original target)
             const updatedEdges = eds.filter(e => 
+              !(e.source === actualSourceId && (e.target === targetId || e.target === resolvedTargetId)) &&
               !(e.source === sourceId && (e.target === targetId || e.target === resolvedTargetId))
             )
             
             return [
               ...updatedEdges,
               {
-                id: `e-${sourceId}-${newNodeId}`,
-                source: sourceId,
+                id: `e-${actualSourceId}-${newNodeId}`,
+                source: actualSourceId,
                 target: newNodeId,
                 type: 'custom',
                 style: { 
@@ -748,7 +768,7 @@ function AIAgentVisualChainBuilder({
                 data: {
                   onAddNode: (pos: { x: number, y: number }) => {
                     // Use ref to ensure we always have the latest version
-                    handleAddNodeBetweenRef.current?.(sourceId, newNodeId, pos)
+                    handleAddNodeBetweenRef.current?.(actualSourceId, newNodeId, pos)
                   }
                 }
               },
@@ -886,7 +906,7 @@ function AIAgentVisualChainBuilder({
                 type: 'addAction',
                 position: { 
                   x: previousNode.position.x, 
-                  y: previousNode.position.y + 160 
+                  y: previousNode.position.y + 120  // Use consistent 120px spacing 
                 },
                 data: {
                   parentId: previousNodeId,
@@ -1110,15 +1130,17 @@ function AIAgentVisualChainBuilder({
           onDelete: () => handleDeleteNodeRef.current?.(defaultChainId),
           onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
           onAddAction: () => {
-            console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called')
+            // Capture the chain ID to avoid closure issues
+            const chainId = defaultChainId
+            console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called for chain:', chainId)
             if (onActionSelect) {
               console.log('🔥 [AIAgentVisualChainBuilder] Setting callback via onActionSelect')
               // Set the callback first - now expecting the full action object
               // Wrap in a function that guards against being called immediately
               const callbackFn = (action: any, config?: any) => {
-                console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config)
+                console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config, 'for chain:', chainId)
                 if (action && action.type) {  // Ensure we have a valid action with a type
-                  handleAddActionToChainRef.current?.(defaultChainId, action, config)
+                  handleAddActionToChainRef.current?.(chainId, action, config)
                 } else {
                   console.warn('⚠️ [AIAgentVisualChainBuilder] Callback invoked without valid action')
                 }
@@ -1376,13 +1398,13 @@ function AIAgentVisualChainBuilder({
           dataKeys: Object.keys(newNode.data)
         })
         
-        // Create Add Action node after the new action
+        // Create Add Action node after the new action with consistent spacing
         const addActionNode: Node = {
           id: addActionNodeId,
           type: 'addAction',
           position: { 
             x: chainNode.position.x, 
-            y: chainNode.position.y + 160 
+            y: chainNode.position.y + 120  // Use consistent 120px spacing
           },
           data: {
             parentId: newNodeId,
@@ -1409,13 +1431,13 @@ function AIAgentVisualChainBuilder({
                         return currentNodes
                       }
                       
-                      // Create the new action node
+                      // Create the new action node with consistent spacing
                       const nextNode: Node = {
                         id: nextNodeId,
                         type: 'custom',
                         position: {
                           x: parentNode.position.x,
-                          y: parentNode.position.y + 160
+                          y: parentNode.position.y + 120  // Use consistent 120px spacing
                         },
                         data: {
                           title: action.title || config?.title || actionType,
@@ -1429,14 +1451,14 @@ function AIAgentVisualChainBuilder({
                         }
                       }
                       
-                      // Create new Add Action node
+                      // Create new Add Action node with consistent spacing
                       const nextAddActionId = `add-action-${nextNodeId}`
                       const nextAddActionNode: Node = {
                         id: nextAddActionId,
                         type: 'addAction',
                         position: {
                           x: nextNode.position.x,
-                          y: nextNode.position.y + 160
+                          y: nextNode.position.y + 120  // Use consistent 120px spacing
                         },
                         data: {
                           parentId: nextNodeId,
@@ -1620,7 +1642,7 @@ function AIAgentVisualChainBuilder({
               type: 'custom',
               position: { 
                 x: lastNode.position.x, 
-                y: lastNode.position.y + 160 
+                y: lastNode.position.y + 120  // Use consistent 120px spacing 
               },
               data: {
                 title: action.title || config?.title || actionType,
@@ -1642,7 +1664,7 @@ function AIAgentVisualChainBuilder({
               type: 'addAction',
               position: { 
                 x: newNode.position.x, 
-                y: newNode.position.y + 160 
+                y: newNode.position.y + 120  // Use consistent 120px spacing 
               },
               data: {
                 parentId: newNodeId,
@@ -1734,12 +1756,17 @@ function AIAgentVisualChainBuilder({
   // Create a new chain branching from AI Agent
   const handleCreateChain = useCallback(() => {
     console.log('🔄 [AIAgentVisualChainBuilder] Creating new chain')
+    console.log('🔄 [AIAgentVisualChainBuilder] Current nodes:', nodes.map(n => ({ id: n.id, type: n.type, dataType: n.data?.type })))
     const newChainId = `chain-${Date.now()}`
     const newNodeId = `${newChainId}-start`
     
-    // Find AI agent node position
-    const aiAgentNode = nodes.find(n => n.id === 'ai-agent')
-    if (!aiAgentNode) return
+    // Find AI agent node position - check both by id and by type
+    let aiAgentNode = nodes.find(n => n.id === 'ai-agent' || n.data?.type === 'ai_agent' || n.data?.isAIAgent)
+    if (!aiAgentNode) {
+      console.error('❌ [AIAgentVisualChainBuilder] AI Agent node not found in nodes:', nodes)
+      return
+    }
+    console.log('✅ [AIAgentVisualChainBuilder] Found AI Agent node:', aiAgentNode.id)
     
     // Find existing chain placeholder nodes only (not action nodes within chains)
     const chainPlaceholders = nodes.filter(n => 
@@ -1792,11 +1819,16 @@ function AIAgentVisualChainBuilder({
         onDelete: () => handleDeleteNode(newNodeId),
         onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
         onAddAction: () => {
+          // Capture the chain ID in a local variable to avoid closure issues
+          const chainId = newNodeId
+          console.log('🎯 [AIAgentVisualChainBuilder] Add Action clicked for chain:', chainId)
+          
           // Set the callback first
           if (onActionSelect) {
             onActionSelect((action: any, config?: any) => {
+              console.log('🎯 [AIAgentVisualChainBuilder] Action selected for chain:', chainId, 'action:', action)
               if (action) {
-                handleAddActionToChain(newNodeId, action, config)
+                handleAddActionToChainRef.current?.(chainId, action, config)
               } else {
                 console.warn('⚠️ [AIAgentVisualChainBuilder] Create chain callback invoked without action')
               }
@@ -1813,10 +1845,10 @@ function AIAgentVisualChainBuilder({
 
     setNodes((nds) => [...nds, newNode])
 
-    // Connect from AI agent to the new chain
+    // Connect from AI agent to the new chain - use the actual AI Agent node ID
     setEdges((eds) => [...eds, {
-      id: `e-ai-agent-${newNodeId}`,
-      source: 'ai-agent',
+      id: `e-${aiAgentNode.id}-${newNodeId}`,
+      source: aiAgentNode.id,
       target: newNodeId,
       type: 'custom',
       style: { 
@@ -1825,7 +1857,7 @@ function AIAgentVisualChainBuilder({
       },
       data: {
         onAddNode: (pos: { x: number, y: number }) => {
-          handleAddNodeBetweenRef.current?.('ai-agent', newNodeId, pos)
+          handleAddNodeBetweenRef.current?.(aiAgentNode.id, newNodeId, pos)
         }
       }
     }])
@@ -1871,7 +1903,7 @@ function AIAgentVisualChainBuilder({
                   ...n,
                   position: {
                     x: node.position.x,
-                    y: node.position.y + 160
+                    y: node.position.y + 120  // Use consistent 120px spacing
                   }
                 }
               }
