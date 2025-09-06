@@ -1982,6 +1982,13 @@ export function AIAgentConfigModal({
               <div className="w-3/5 flex-1">
                 <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                   <div className="p-4">
+                    {/* Add instruction for double-click */}
+                    {selectedActionIntegration && (isIntegrationConnected(selectedActionIntegration.id) || ['logic', 'core', 'manual', 'schedule', 'webhook'].includes(selectedActionIntegration.id)) && (
+                      <div className="mb-3 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+                        💡 <strong>Tip:</strong> Double-click an action to select it
+                      </div>
+                    )}
+                    
                     {selectedActionIntegration ? (
                       !isIntegrationConnected(selectedActionIntegration.id) && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(selectedActionIntegration.id) ? (
                         // Show message for unconnected integrations
@@ -2037,7 +2044,12 @@ export function AIAgentConfigModal({
                                   }`}
                                   onClick={() => {
                                     if (isComingSoon) return
-                                    console.log('🎯 [AIAgentConfigModal] Action clicked:', {
+                                    // Single click just selects the action
+                                    setSelectedActionInModal(action)
+                                  }}
+                                  onDoubleClick={() => {
+                                    if (isComingSoon) return
+                                    console.log('🎯 [AIAgentConfigModal] Action double-clicked:', {
                                       type: action.type,
                                       title: action.title,
                                       hasTitle: !!action.title,

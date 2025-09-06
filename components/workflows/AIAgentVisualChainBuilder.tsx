@@ -395,18 +395,27 @@ function AIAgentVisualChainBuilder({
     
     // Find all chain start nodes (connected directly to AI agent)
     const aiAgentEdges = edges.filter(e => e.source === aiAgentId)
+    const chainPlaceholderPositions = [] // Track placeholder positions for empty chains
     
-    aiAgentEdges.forEach(edge => {
+    aiAgentEdges.forEach((edge, index) => {
       const chain = []
       let currentNodeId = edge.target
+      let chainHasPlaceholder = false
+      let placeholderPosition = null
       
       // Walk through the chain
       while (currentNodeId && !processedNodes.has(currentNodeId)) {
         const node = nodes.find(n => n.id === currentNodeId)
         if (!node || node.type === 'addAction') break
         
-        // Skip chain placeholder nodes - only include actual actions
-        if (node.data?.type !== 'chain_placeholder') {
+        // Check if this is a placeholder
+        if (node.data?.type === 'chain_placeholder') {
+          chainHasPlaceholder = true
+          placeholderPosition = { x: node.position.x, y: node.position.y }
+          // Store placeholder position for this chain index
+          chainPlaceholderPositions[index] = placeholderPosition
+        } else {
+          // Include actual actions
           chain.push({
             id: node.id,
             type: node.data?.type,
@@ -429,7 +438,9 @@ function AIAgentVisualChainBuilder({
         currentNodeId = nextEdge?.target || null
       }
       
-      if (chain.length > 0) {
+      // Include chains even if they're empty (only have placeholders)
+      // This ensures Add Action buttons are created for all chains
+      if (chain.length > 0 || chainHasPlaceholder) {
         extractedChains.push(chain)
       }
     })
@@ -454,6 +465,7 @@ function AIAgentVisualChainBuilder({
     // Build comprehensive layout data with full node/edge structure
     const fullLayoutData = {
       chains: extractedChains,
+      chainPlaceholderPositions, // Include placeholder positions for empty chains
       nodes: actionNodes.map(n => ({
         id: n.id,
         type: n.data?.type,
@@ -607,24 +619,40 @@ function AIAgentVisualChainBuilder({
             let targetNode = currentNodes.find(n => n.id === targetId)
             
             // Special case: If source is ai-agent-like and target is not found (likely a stale chain ID)
-            // Find the first action node after AI agent
+            // Find the action node in the same chain based on click position
             if ((sourceId === 'ai-agent' || sourceNode?.data?.type === 'ai_agent') && !targetNode) {
-              console.log('🔍 [AIAgentVisualChainBuilder] Source is AI agent and target not found, looking for first action')
+              console.log('🔍 [AIAgentVisualChainBuilder] Source is AI agent and target not found, looking for action in correct chain')
+              console.log('🔍 [AIAgentVisualChainBuilder] Click position:', position)
               const aiAgentNode = sourceNode || currentNodes.find(n => n.data?.type === 'ai_agent')
               if (aiAgentNode) {
                 // Find nodes positioned below AI agent that aren't Add Action buttons
+                // Filter by X position to find nodes in the correct chain
                 const nodesBelow = currentNodes.filter(n => 
                   n.position.y > aiAgentNode.position.y && // Below AI agent
                   n.type !== 'addAction' &&
                   n.id !== aiAgentNode.id &&
                   n.id !== 'trigger' &&
                   n.data?.type !== 'ai_agent'
-                ).sort((a, b) => a.position.y - b.position.y) // Sort by Y position
+                )
                 
-                if (nodesBelow.length > 0) {
-                  targetNode = nodesBelow[0]
+                // Find the node closest to the click position's X coordinate
+                // This ensures we select a node from the correct chain
+                const nodeInCorrectChain = nodesBelow
+                  .sort((a, b) => {
+                    // First sort by distance to click X position
+                    const distA = Math.abs(a.position.x - position.x)
+                    const distB = Math.abs(b.position.x - position.x)
+                    if (Math.abs(distA - distB) > 50) { // If significantly different X positions
+                      return distA - distB
+                    }
+                    // If similar X position, sort by Y to get the first node in chain
+                    return a.position.y - b.position.y
+                  })[0]
+                
+                if (nodeInCorrectChain) {
+                  targetNode = nodeInCorrectChain
                   resolvedTargetId = targetNode.id
-                  console.log('🔍 [AIAgentVisualChainBuilder] Found first action node:', resolvedTargetId)
+                  console.log('🔍 [AIAgentVisualChainBuilder] Found action node in correct chain:', resolvedTargetId, 'at X:', targetNode.position.x)
                 }
               }
             }
@@ -632,21 +660,34 @@ function AIAgentVisualChainBuilder({
             // If still no target and it looks like a chain ID, find the actual node that replaced it
             if (!targetNode && targetId.includes('chain')) {
               console.log('🔍 [AIAgentVisualChainBuilder] Target looks like a chain, searching for replacement node')
+              console.log('🔍 [AIAgentVisualChainBuilder] Using click position for chain detection:', position)
               // Find edges from source to see what it's actually connected to
               const sourceNode = currentNodes.find(n => n.id === sourceId || (sourceId === 'ai-agent' && n.data?.type === 'ai_agent'))
               if (sourceNode) {
-                // Find nodes directly below the source in the same chain
+                // Find nodes directly below the source, considering click position for chain selection
                 const nodesInChain = currentNodes.filter(n =>
                   n.position.y > sourceNode.position.y &&
-                  Math.abs(n.position.x - sourceNode.position.x) < 50 && // Same vertical alignment
                   n.type !== 'addAction' &&
                   n.id !== 'trigger'
-                ).sort((a, b) => a.position.y - b.position.y)
+                )
                 
-                if (nodesInChain.length > 0) {
-                  targetNode = nodesInChain[0]
+                // Sort by proximity to click position to find the correct chain
+                const closestNode = nodesInChain
+                  .sort((a, b) => {
+                    // First check X distance to click position
+                    const distA = Math.abs(a.position.x - position.x)
+                    const distB = Math.abs(b.position.x - position.x)
+                    if (Math.abs(distA - distB) > 50) {
+                      return distA - distB
+                    }
+                    // If similar X, sort by Y
+                    return a.position.y - b.position.y
+                  })[0]
+                
+                if (closestNode) {
+                  targetNode = closestNode
                   resolvedTargetId = targetNode.id
-                  console.log('🔍 [AIAgentVisualChainBuilder] Found replacement node for chain:', resolvedTargetId)
+                  console.log('🔍 [AIAgentVisualChainBuilder] Found replacement node for chain:', resolvedTargetId, 'at X:', targetNode.position.x)
                 }
               }
             }
@@ -1212,8 +1253,50 @@ function AIAgentVisualChainBuilder({
           minZoom: 0.05
         })
       }
-    }, 100)
+    }, 200)
   }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect, workflowData])
+  
+  // Add a separate effect to handle fitView when component becomes visible
+  useEffect(() => {
+    // Use a timeout to ensure the component has fully rendered
+    const timeoutId = setTimeout(() => {
+      if (fitView) {
+        fitView({
+          padding: 0.2,
+          includeHiddenNodes: false,
+          duration: 400,
+          maxZoom: 2,
+          minZoom: 0.05
+        })
+      }
+    }, 150)
+    
+    return () => clearTimeout(timeoutId)
+  }, [fitView]) // Run whenever fitView changes (component mounts/remounts)
+  
+  // Also trigger fitView when nodes change significantly
+  useEffect(() => {
+    // Skip if we're in the middle of initialization
+    if (!initializedRef.current) return
+    
+    // Check if we have a meaningful number of nodes (more than just AI agent and trigger)
+    const hasSignificantNodes = nodes.length > 2
+    
+    if (hasSignificantNodes && fitView) {
+      // Use a short delay to let React Flow process the node changes
+      const timeoutId = setTimeout(() => {
+        fitView({
+          padding: 0.2,
+          includeHiddenNodes: false,
+          duration: 400,
+          maxZoom: 2,
+          minZoom: 0.05
+        })
+      }, 300)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [nodes.length, fitView]) // Trigger when number of nodes changes
   
   // Initialize with workflow data or default setup
   useEffect(() => {
@@ -1335,7 +1418,7 @@ function AIAgentVisualChainBuilder({
         setEmptiedChains(new Set(chainsLayout.emptiedChains))
       }
       
-      // Center view after loading
+      // Center view after loading with slightly longer delay for proper rendering
       setTimeout(() => {
         fitView({
           padding: 0.2,
@@ -1344,7 +1427,7 @@ function AIAgentVisualChainBuilder({
           maxZoom: 2,
           minZoom: 0.05
         })
-      }, 100)
+      }, 200)
       
       return // Exit early, we've initialized from chainsLayout
     }
@@ -1432,7 +1515,7 @@ function AIAgentVisualChainBuilder({
       setNodes(mappedNodes)
       setEdges(mappedEdges)
       
-      // Center view after loading
+      // Center view after loading with slightly longer delay for proper rendering
       setTimeout(() => {
         fitView({
           padding: 0.2,
@@ -1441,7 +1524,7 @@ function AIAgentVisualChainBuilder({
           maxZoom: 2,
           minZoom: 0.05
         })
-      }, 100)
+      }, 200)
       
       return
     }
@@ -1698,10 +1781,30 @@ function AIAgentVisualChainBuilder({
         const updatedEdges = [
           ...eds.map(e => {
             if (e.target === chainId) {
-              return { ...e, target: newNodeId }
+              // Update the target and the onAddNode callback to use new IDs
+              return { 
+                ...e, 
+                target: newNodeId,
+                data: {
+                  ...e.data,
+                  onAddNode: e.data?.onAddNode ? (position: { x: number, y: number }) => {
+                    handleAddNodeBetweenRef.current?.(e.source, newNodeId, position)
+                  } : e.data?.onAddNode
+                }
+              }
             }
             if (e.source === chainId) {
-              return { ...e, source: newNodeId }
+              // Update the source and the onAddNode callback to use new IDs
+              return { 
+                ...e, 
+                source: newNodeId,
+                data: {
+                  ...e.data,
+                  onAddNode: e.data?.onAddNode ? (position: { x: number, y: number }) => {
+                    handleAddNodeBetweenRef.current?.(newNodeId, e.target, position)
+                  } : e.data?.onAddNode
+                }
+              }
             }
             return e
           }),
@@ -1760,6 +1863,8 @@ function AIAgentVisualChainBuilder({
           }
           const newNodeId = `node-${Date.now()}`
           const actionType = typeof action === 'string' ? action : action.type
+          // Define addActionNodeId here so it's available in both callbacks
+          const addActionNodeId = `add-action-${newNodeId}`
           
           // Use functional update to get current nodes state
           setNodes((currentNodes) => {
@@ -1790,8 +1895,7 @@ function AIAgentVisualChainBuilder({
               }
             }
 
-            // Create Add Action node after the new node
-            const addActionNodeId = `add-action-${newNodeId}`
+            // Create Add Action node after the new node (using addActionNodeId defined above)
             const addActionNode: Node = {
               id: addActionNodeId,
               type: 'addAction',
@@ -1906,11 +2010,16 @@ function AIAgentVisualChainBuilder({
       n.data?.type === 'chain_placeholder'
     )
     
-    // Find the farthest right node of ANY type (not just chain placeholders)
-    const allNonAIAgentNodes = nodes.filter(n => n.id !== 'ai-agent' && n.type !== 'addAction')
+    // Find all non-AI agent and non-AddAction nodes
+    const allNonAIAgentNodes = nodes.filter(n => 
+      n.id !== 'ai-agent' && 
+      n.type !== 'addAction' &&
+      n.id !== 'trigger' &&
+      !n.data?.isTrigger
+    )
     
     // Calculate position - place chains with proper spacing
-    const horizontalSpacing = 150  // Further reduced spacing between chains (was 250, originally 500)
+    const horizontalSpacing = 550  // Increased gap between chains to prevent overlap
     const baseY = aiAgentNode.position.y + 200
     let newX: number
     let newY: number
@@ -1920,15 +2029,18 @@ function AIAgentVisualChainBuilder({
       newX = aiAgentNode.position.x
       newY = baseY
     } else {
-      // Find the absolute farthest right node
-      const rightmostNode = allNonAIAgentNodes.reduce((rightmost, node) => {
-        const rightmostRight = rightmost.position.x + (rightmost.width || 400)
-        const nodeRight = node.position.x + (node.width || 400)
-        return nodeRight > rightmostRight ? node : rightmost
+      // Find the rightmost chain by looking at the rightmost node position
+      let rightmostX = -Infinity
+      
+      // Check all nodes to find the rightmost position
+      allNonAIAgentNodes.forEach(node => {
+        if (node.position.x > rightmostX) {
+          rightmostX = node.position.x
+        }
       })
       
-      // Place new chain to the right of the farthest node with more reasonable spacing
-      newX = rightmostNode.position.x + (rightmostNode.width || 400) + horizontalSpacing
+      // Place new chain to the right of the rightmost position with spacing
+      newX = rightmostX + horizontalSpacing
       newY = baseY  // Keep consistent Y level for chain starts
     }
     

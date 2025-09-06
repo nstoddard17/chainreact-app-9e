@@ -1318,19 +1318,20 @@ const useWorkflowBuilderState = () => {
     const aiAgentNode = allNodes.find(n => n.id === aiAgentNodeId)
     if (!aiAgentNode) return
     
-    // Find all nodes that are children of this AI agent (chains and actions)
+    // Find all nodes that are children of this AI agent (excluding Add Action buttons)
     const childNodes = allNodes.filter(n => 
-      n.data?.parentAIAgentId === aiAgentNodeId || 
-      n.id.startsWith(`${aiAgentNodeId}-chain-`) ||
-      (n.data?.parentId && n.data.parentId.startsWith(`${aiAgentNodeId}-`))
+      (n.data?.parentAIAgentId === aiAgentNodeId || 
+       n.id.startsWith(`${aiAgentNodeId}-chain`) ||
+       n.id.includes(`${aiAgentNodeId}-node`)) &&
+      n.type !== 'addAction'
     )
     
     // Count existing chain placeholders to determine chain number
     const chainPlaceholders = childNodes.filter(n => n.data?.type === 'chain_placeholder')
     const newChainNumber = chainPlaceholders.length + 1
     
-    // Calculate position with proper spacing (matching AI workflow generator)
-    const horizontalSpacing = 450  // Same spacing as AI workflow generator (dynamicWorkflowAI.ts)
+    // Calculate position with proper spacing
+    const horizontalSpacing = 550  // Increased gap between chains to prevent overlap
     const baseY = aiAgentNode.position.y + 200  // Vertical offset from AI agent
     let newX: number
     
@@ -1338,37 +1339,17 @@ const useWorkflowBuilderState = () => {
       // First chain - directly below AI agent  
       newX = aiAgentNode.position.x
     } else {
-      // Find the rightmost node of any type (not just chains)
-      const rightmostNode = childNodes.reduce((rightmost, node) => {
-        const rightmostRight = rightmost.position.x + (rightmost.width || 400)
-        const nodeRight = node.position.x + (node.width || 400)
-        return nodeRight > rightmostRight ? node : rightmost
+      // Find the rightmost position of any child node
+      let rightmostX = -Infinity
+      
+      childNodes.forEach(node => {
+        if (node.position.x > rightmostX) {
+          rightmostX = node.position.x
+        }
       })
       
       // Place new chain to the right with spacing
-      newX = rightmostNode.position.x + (rightmostNode.width || 400) + horizontalSpacing
-      
-      // Now reposition existing nodes to make space if needed
-      const nodesToShift = allNodes.filter(n => 
-        n.id !== aiAgentNodeId && 
-        n.position.x >= newX - horizontalSpacing/2
-      )
-      
-      // Shift nodes to the right if they would overlap
-      if (nodesToShift.length > 0) {
-        setNodes(nds => nds.map(node => {
-          if (nodesToShift.some(n => n.id === node.id)) {
-            return {
-              ...node,
-              position: {
-                ...node.position,
-                x: node.position.x + horizontalSpacing
-              }
-            }
-          }
-          return node
-        }))
-      }
+      newX = rightmostX + horizontalSpacing
     }
     
     // Create a chain placeholder node like in AI agent builder
@@ -5647,7 +5628,14 @@ function WorkflowBuilderContent() {
                       console.log('🔗 [WorkflowBuilder] All new edges:', newEdgesToAdd);
                       
                       // Process each chain starting from nodes directly connected to AI Agent
-                      chainStartNodes.forEach(chainStartId => {
+                      // Convert chainStartNodes to array and sort by X position to ensure consistent ordering
+                      const chainStartArray = Array.from(chainStartNodes).sort((a, b) => {
+                        const nodeA = newNodesToAdd.find(n => n.id === a);
+                        const nodeB = newNodesToAdd.find(n => n.id === b);
+                        return (nodeA?.position.x || 0) - (nodeB?.position.x || 0);
+                      });
+                      
+                      chainStartArray.forEach((chainStartId, chainIndex) => {
                         if (!chainGroups.has(chainStartId)) {
                           chainGroups.set(chainStartId, []);
                         }
@@ -5659,6 +5647,8 @@ function WorkflowBuilderContent() {
                         while (currentId && !processedInChain.has(currentId)) {
                           const node = newNodesToAdd.find(n => n.id === currentId);
                           if (node && node.type !== 'addAction') {
+                            // Add parentChainIndex metadata to the node
+                            node.data.parentChainIndex = chainIndex;
                             chainNodes.push(node);
                             processedInChain.add(currentId);
                             
@@ -5687,16 +5677,17 @@ function WorkflowBuilderContent() {
                       
                       // Determine expected number of chains from the layout data
                       const expectedChainCount = chainsToProcess.chains?.length || 2;
+                      const placeholderPositions = chainsToProcess.chainPlaceholderPositions || [];
                       console.log(`🔗 [WorkflowBuilder] Expected ${expectedChainCount} chains from layout`);
+                      console.log(`🔗 [WorkflowBuilder] Placeholder positions:`, placeholderPositions);
                       
-                      let chainIndex = 0;
-                      chainGroups.forEach((chainNodes, chainStartId) => {
-                        // Update all nodes in this chain with their parentChainIndex
-                        chainNodes.forEach(node => {
-                          node.data.parentChainIndex = chainIndex;
-                        });
+                      // Process all chains, including empty ones
+                      for (let chainIndex = 0; chainIndex < expectedChainCount; chainIndex++) {
+                        // Find nodes for this chain index in chainGroups
+                        const chainNodes = Array.from(chainGroups.values())[chainIndex] || [];
                         
                         if (chainNodes.length > 0) {
+                          // Chain has actions - add Add Action after last node
                           const lastNode = chainNodes[chainNodes.length - 1];
                           const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                           
@@ -5732,59 +5723,48 @@ function WorkflowBuilderContent() {
                             }
                           };
                           newEdgesToAdd.push(edgeToAddAction);
-                        }
-                        chainIndex++;
-                      });
-                      
-                      // Create placeholder Add Action nodes for any remaining empty chains
-                      while (chainIndex < expectedChainCount) {
-                        console.log(`🔗 [WorkflowBuilder] Creating placeholder for empty chain ${chainIndex}`);
-                        
-                        // Check if this chain was intentionally emptied
-                        const emptiedChains = aiAgentNode.data?.emptiedChains || [];
-                        const wasIntentionallyEmptied = emptiedChains.includes(chainIndex);
-                        
-                        if (!wasIntentionallyEmptied) {
-                          // Position relative to AI Agent
+                        } else if (placeholderPositions[chainIndex]) {
+                          // Empty chain with placeholder position - create Add Action at placeholder position
+                          const placeholderPos = placeholderPositions[chainIndex];
                           const offsetX = aiAgentNode.position.x - (aiAgentPosition?.x || 400);
                           const offsetY = aiAgentNode.position.y - (aiAgentPosition?.y || 200);
-                          const baseX = 400 + (chainIndex * 250) + offsetX;
-                          const baseY = 200 + 200 + offsetY;
                           
-                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                          
                           const addActionNode = {
                             id: addActionId,
                             type: 'addAction',
-                            position: { x: baseX, y: baseY },
+                            position: {
+                              x: placeholderPos.x + offsetX,
+                              y: placeholderPos.y + offsetY
+                            },
                             data: {
                               parentId: actualAIAgentId,
                               parentAIAgentId: actualAIAgentId,
                               parentChainIndex: chainIndex,
                               isChainAddAction: true,
-                              isPlaceholder: true,
+                              isChainStart: true,
                               onClick: () => handleAddActionClick(addActionId, actualAIAgentId)
                             }
                           };
                           
                           newNodesToAdd.push(addActionNode);
                           
-                          // Add edge from AI Agent to placeholder
+                          // Add edge from AI Agent to Add Action
                           const edgeToAddAction = {
                             id: `e-${actualAIAgentId}-${addActionId}`,
                             source: actualAIAgentId,
                             target: addActionId,
                             type: 'straight',
-                            animated: false,
+                            animated: true,
                             style: {
-                              stroke: '#d1d5db',
-                              strokeWidth: 1,
+                              stroke: '#b1b1b7',
+                              strokeWidth: 2,
                               strokeDasharray: '5,5'
                             }
                           };
                           newEdgesToAdd.push(edgeToAddAction);
                         }
-                        
-                        chainIndex++;
                       }
                       
                       // Add all new nodes to the current nodes
@@ -5808,7 +5788,9 @@ function WorkflowBuilderContent() {
                       
                       chainsData.forEach((chain: any, chainIndex: number) => {
                       console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex} with ${chain?.length || 0} actions:`, chain);
-                      if (Array.isArray(chain) && chain.length > 0) {
+                      // Process all chains, even empty ones
+                      if (Array.isArray(chain)) {
+                        if (chain.length > 0) {
                         // Create separate chain with proper connection to AI Agent
                         let previousNodeId: string | null = null;
                         let lastPosition: { x: number; y: number } | null = null;
@@ -5939,6 +5921,55 @@ function WorkflowBuilderContent() {
                           const edgeToAddAction = {
                             id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${edgeRandomId}`,
                             source: previousNodeId,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: true,
+                            style: { 
+                              stroke: '#b1b1b7', 
+                              strokeWidth: 2, 
+                              strokeDasharray: '5,5' 
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
+                        }
+                        } else {
+                          // Empty chain - create Add Action button directly connected to AI Agent
+                          console.log(`🔄 [WorkflowBuilder] Creating Add Action for empty chain ${chainIndex}`);
+                          
+                          // Calculate position for the empty chain's Add Action
+                          const baseX = aiAgentNode.position.x + (chainIndex * 250) + 150;
+                          const baseY = aiAgentNode.position.y + 150;
+                          
+                          const addActionTimestamp = Date.now() + chainIndex * 100;
+                          const randomId = Math.random().toString(36).substr(2, 9);
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
+                          
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { 
+                              x: baseX, 
+                              y: baseY
+                            },
+                            data: {
+                              parentId: actualAIAgentId,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              isChainAddAction: true,
+                              isChainStart: true, // Mark as start of chain
+                              onClick: () => {
+                                handleAddActionClick(addActionId, actualAIAgentId);
+                              }
+                            }
+                          };
+                          newNodesToAdd.push(addActionNode);
+                          console.log(`🔄 [WorkflowBuilder] Created Add Action node for empty chain ${chainIndex}: ${addActionId}`);
+                          
+                          // Add edge from AI Agent to Add Action
+                          const edgeRandomId = Math.random().toString(36).substr(2, 9);
+                          const edgeToAddAction = {
+                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${edgeRandomId}`,
+                            source: actualAIAgentId,
                             target: addActionId,
                             type: 'straight',
                             animated: true,
