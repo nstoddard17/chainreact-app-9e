@@ -4,11 +4,51 @@
 
 ## January 9, 2025
 
+### AI Agent Chain Builder Architecture Documentation
+
+Created comprehensive technical documentation for the AI Agent visual chain builder to preserve its current working state and architecture. The documentation covers the complete system including the visual builder component, configuration modal, custom nodes, and workflow builder integration. This detailed guide includes code patterns, data structures, key functions, and recovery instructions - serving as a complete reference for maintaining and troubleshooting the AI Agent chain builder functionality. The documentation captures how the system manages multiple parallel chains, handles action insertion and deletion, maintains layout synchronization between the visual builder and main workflow, and prevents issues like duplicate nodes and missing Add Action buttons. This ensures that if any future changes break the functionality, developers can quickly restore it to the current working state by following the documented patterns and architecture.
+
+## January 6, 2025
+
+### Complete AI Agent Workflow Synchronization and Chain Management
+
+We've implemented comprehensive synchronization between the AI Agent visual chain builder and the main workflow builder, ensuring that complex multi-chain AI workflows created in the visual builder are perfectly recreated in the main workflow with exact positioning and full functionality. The system now captures the complete node and edge structure from the AI Agent builder, including precise positions, connections, and layout spacing (120px vertical, 150px horizontal), and recreates this exact structure when the AI Agent configuration is saved.
+
+The implementation includes smart chain management features that maintain visual consistency across all operations. When inserting actions between existing nodes in AI Agent chains, the system now uses tighter 120px spacing and only repositions nodes within the same vertical chain, leaving parallel chains untouched. When deleting actions from AI Agent chains, nodes below automatically move up by 120px to close the gap, maintaining proper visual alignment. The system intelligently differentiates between AI Agent chains and regular workflow nodes, applying appropriate spacing and repositioning rules based on context. This ensures that AI Agent workflows remain compact and organized while regular workflows maintain their standard spacing.
+
+### Enhanced Workflow Builder with Smart Node Operations
+
+We've added sophisticated node management capabilities to the main workflow builder for handling AI Agent chains. The enhanced handleAddNodeBetween function now recognizes when you're inserting into an AI Agent chain versus a regular workflow, applying context-appropriate spacing and repositioning logic. For AI Agent chains, new nodes take the exact position of the target node they're replacing, with downstream nodes shifting by exactly 120px to maintain consistent spacing. The system only moves nodes in the same vertical chain, preserving the layout of parallel chains.
+
+The delete functionality has been upgraded with automatic node repositioning that maintains visual consistency. When deleting a node from an AI Agent chain, all nodes below it in the same chain automatically move up by 120px, closing the gap while keeping the chain properly aligned. Add Action buttons are automatically repositioned to stay at the correct distance below the last action in each chain. This intelligent repositioning ensures that workflows remain clean and organized even as users make changes, eliminating the need for manual layout adjustments after every modification.
+
+### Fixed AI Agent Chain Builder Edge Callback Issues
+
+We've resolved a critical issue in the AI Agent visual chain builder where adding actions between existing actions would incorrectly create new chains instead of properly inserting the action into the existing chain. The problem occurred when chain placeholder nodes were replaced with actual action nodes - the edge callbacks continued using the old, stale node IDs from when the edges were first created. This meant that when users clicked the "+" button between the AI Agent node and the first action in a chain, the system would look for a node ID that no longer existed after the placeholder was replaced.
+
+The fix implements dynamic node resolution in the handleAddNodeBetween function, which now intelligently finds the correct target node even when the original ID is stale. When the source is the AI Agent node and the target can't be found, the system automatically locates the first action node in the chain based on position. Additionally, all edge callbacks now use refs instead of direct function references to ensure they always call the latest version of the handler functions, preventing closure issues. This improvement ensures that users can reliably insert actions at any point in their AI workflows, whether between the AI Agent and the first action, or between any two existing actions in the chain.
+
+### Enhanced AI Agent Chain Builder with Smart Node Repositioning
+
+We've significantly improved the AI Agent visual chain builder with intelligent node repositioning when inserting actions between existing workflow steps. When users click the "+" button between two actions to add a new step, the system now automatically moves all downstream nodes downward by 160 pixels, creating perfect visual spacing for the new action. This enhancement eliminates the previous issue where nodes would overlap or appear in confusing positions when inserting actions mid-chain.
+
+The update also includes critical fixes to the callback system, switching from React state to refs for more reliable action selection, and ensuring that action metadata (title, description, providerId) flows correctly through the entire component hierarchy. These improvements mean that actions now display with their proper names instead of "unnamed action", and the handleAddNodeBetween functionality works seamlessly for building complex multi-step AI workflows. Users can now confidently build and modify their AI agent chains with actions properly positioned and clearly labeled throughout the visual builder.
+
+## January 9, 2025
+
 ### Fixed AI Agent Chain Builder Action Display Issues
 
 We've resolved two critical bugs in the AI Agent visual chain builder that were preventing users from building effective multi-step automations. The first issue caused all actions in the chain builder to display as "Unnamed Action" instead of showing their actual names like "Send Email" or "Post to Slack". The second, more severe issue prevented users from adding multiple actions to a single chain - while the first action would appear correctly, subsequent actions would trigger success notifications but never appear visually in the builder.
 
 The root cause of the naming issue was that the action title wasn't being passed through the callback chain when actions were selected in AI mode. We fixed this by ensuring the full action metadata, including title and description, gets included in the configuration object passed to the visual builder. For the multiple action issue, the problem was that the Add Action button's click handler wasn't properly reopening the action selection dialog and setting up the callback for subsequent actions. After the first action was added, clicking the Add Action button would fail silently because it was calling the handler directly without the necessary dialog setup. We've updated all Add Action button click handlers to properly open the dialog and establish the callback chain, ensuring users can now build complex multi-step AI workflows with properly named actions that all display correctly in the visual builder.
+
+### Resolved Action Naming in AI Agent Visual Chain Builder
+
+We've fixed a bug where actions added to the AI Agent visual chain builder would display as "unnamed action" instead of their proper names. The issue occurred because the action titles and descriptions weren't being passed correctly through the configuration when actions were selected from the action selection modal. The fix ensures that when actions are added to chains in the visual builder, they now properly display their actual names like "Send Email", "Create Record", or "Post to Slack" instead of the generic "unnamed action" text. This improvement makes it much easier for users to understand and manage their AI Agent workflows at a glance.
+
+### Enhanced Action Title Resolution in AI Agent Visual Builder
+
+We've improved how action titles are displayed in the AI Agent visual chain builder to ensure actions always show their proper names. The fix addresses an issue where actions would sometimes display as "unnamed action" when the lookup in the ALL_NODE_COMPONENTS array failed. Now the system prioritizes the title passed from the action selection modal (which always has the correct name), then falls back to the component registry lookup, and only as a last resort uses the action type string. This three-tier fallback system ensures that users always see meaningful action names in their AI Agent chains, making workflows easier to understand and debug. Additionally, we've added enhanced logging to track title resolution, helping identify any edge cases where actions might not have proper metadata.
 
 ## January 7, 2025
 
