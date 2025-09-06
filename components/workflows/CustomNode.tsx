@@ -99,14 +99,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
   
   // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
-    // Comprehensive debug log for visual feedback
-    console.log(`🔍 Node ${id} (${title}) visual data:`)
-    console.log(`  - executionStatus: "${executionStatus}"`)
-    console.log(`  - isListening: ${isListening}`)
-    console.log(`  - isTrigger: ${isTrigger}`)
-    console.log(`  - debugListeningMode: ${debugListeningMode}`)
-    console.log(`  - debugExecutionStatus: "${debugExecutionStatus}"`)
-    console.log(`  - shouldShowBorder: ${!(!executionStatus && !isListening)}`)
+    // Debug log to see what status is being received
+    if (executionStatus) {
+      console.log(`Node ${id} execution status: ${executionStatus}`)
+    }
     
     if (!executionStatus && !isListening) return ""
     
@@ -116,6 +112,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       case 'running':
         cssClass = "border-2 border-yellow-500 shadow-lg shadow-yellow-200"
         break
+      case 'success':
       case 'completed':
         cssClass = "border-2 border-green-500 shadow-lg shadow-green-200"
         break
@@ -125,12 +122,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
       case 'pending':
         cssClass = "border-2 border-blue-500 shadow-lg shadow-blue-200"
         break
+      case 'waiting':
+        cssClass = "border-2 border-purple-500 shadow-lg shadow-purple-200"
+        break
       default:
-        cssClass = isListening && isTrigger ? "border-2 border-indigo-500 border-dashed animate-pulse shadow-lg shadow-indigo-200" : ""
+        cssClass = isListening && isTrigger ? "border-2 border-indigo-500 border-dashed shadow-lg shadow-indigo-200" : ""
         break
     }
     
-    console.log(`🎨 CSS class for ${id}: "${cssClass}"`)
     return cssClass
   }
   
@@ -145,12 +144,27 @@ function CustomNode({ id, data, selected }: NodeProps) {
             <LightningLoader size="sm" color="yellow" />
           </div>
         )
+      case 'success':
       case 'completed':
-        return null // No indicator for completed - just green border
+        return (
+          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
+            </div>
+          </div>
+        )
       case 'error':
         return (
           <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-red-500" />
+            <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+              <span className="text-white text-xs">✕</span>
+            </div>
+          </div>
+        )
+      case 'waiting':
+        return (
+          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-purple-500" />
           </div>
         )
       case 'pending':
@@ -162,7 +176,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       default:
         return isListening && isTrigger ? (
           <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-indigo-500" />
           </div>
         ) : null
     }

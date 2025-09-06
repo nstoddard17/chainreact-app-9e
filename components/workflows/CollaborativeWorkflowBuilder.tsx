@@ -32,6 +32,8 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
 import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
+import { useWorkflowStepExecutionStore } from "@/stores/workflowStepExecutionStore"
+import { StepExecutionPanel } from "./StepExecutionPanel"
 import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import { AIAgentConfigModal } from "./AIAgentConfigModal"
@@ -242,10 +244,29 @@ const useWorkflowBuilderState = () => {
   const [showSandboxPreview, setShowSandboxPreview] = useState(false)
   const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
   const isProcessingChainsRef = useRef(false)
+  const [isStepByStep, setIsStepByStep] = useState(false)
+  const [stepContinueCallback, setStepContinueCallback] = useState<(() => void) | null>(null)
+  const [skipCallback, setSkipCallback] = useState<(() => void) | null>(null)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
   const { updateWithTransition } = useConcurrentStateUpdates()
+  
+  // Step execution store hooks
+  const {
+    isStepMode,
+    isPaused,
+    currentNodeId,
+    nodeStatuses,
+    startStepExecution,
+    stopStepExecution,
+    setNodeStatus,
+    setNodeResult,
+    setCurrentNode,
+    addToExecutionPath,
+    pauseExecution,
+    resetExecution: resetStepExecution
+  } = useWorkflowStepExecutionStore()
   
   const availableIntegrations = useMemo(() => {
     const integrations = getIntegrationsFromNodes()
@@ -1544,6 +1565,16 @@ const useWorkflowBuilderState = () => {
       // Clear any existing workflow data first to ensure fresh load
       setCurrentWorkflow(null);
       
+      // Reset step execution state when loading a new workflow
+      const stepStore = useWorkflowStepExecutionStore.getState()
+      if (stepStore.isStepMode) {
+        console.log('Resetting step execution state when loading new workflow')
+        stepStore.resetExecution()
+        setIsStepByStep(false)
+        setListeningMode(false)
+        setIsExecuting(false)
+      }
+      
       // Always fetch fresh data from the API instead of using cached data
       const loadFreshWorkflow = async () => {
         try {
@@ -1590,6 +1621,17 @@ const useWorkflowBuilderState = () => {
       loadFreshWorkflow();
     }
   }, [workflowId, setCurrentWorkflow])
+  
+  // Clean up step execution state when component unmounts
+  useEffect(() => {
+    return () => {
+      const stepStore = useWorkflowStepExecutionStore.getState()
+      if (stepStore.isStepMode) {
+        console.log('Cleaning up step execution state on unmount')
+        stepStore.resetExecution()
+      }
+    }
+  }, [])
 
   // Add a ref to track if we're in a save operation
   const isSavingRef = useRef(false)
@@ -1661,15 +1703,15 @@ const useWorkflowBuilderState = () => {
                    node.data.type === 'schedule_trigger' ? 'schedule' : 
                    node.data.type === 'webhook_trigger' ? 'webhook' : undefined),
                 // Add execution status for visual feedback
-                executionStatus: executionResults[node.id]?.status || null,
-                isActiveExecution: activeExecutionNodeId === node.id,
+                executionStatus: nodeStatuses[node.id] || executionResults[node.id]?.status || null,
+                isActiveExecution: currentNodeId === node.id || activeExecutionNodeId === node.id,
                 isListening: listeningMode,
                 error: executionResults[node.id]?.error,
                 errorMessage: getLatestErrorForNode(node.id)?.errorMessage,
                 errorTimestamp: getLatestErrorForNode(node.id)?.timestamp,
                 // Debug data
                 debugListeningMode: listeningMode,
-                debugExecutionStatus: executionResults[node.id]?.status || 'none'
+                debugExecutionStatus: nodeStatuses[node.id] || executionResults[node.id]?.status || 'none'
               },
             };
             
@@ -3282,16 +3324,36 @@ const useWorkflowBuilderState = () => {
 
   // Handle Test mode (sandbox) - safe testing without external calls
   const handleTestSandbox = async () => {
-    if (isExecuting) return
+    if (isExecuting && !isStepMode) return
     
-    // If already in sandbox mode, stop it
-    if (listeningMode) {
+    // If already in step mode, stop it completely
+    if (isStepMode) {
       setListeningMode(false)
       setIsExecuting(false)
       setSandboxInterceptedActions([]) // Clear intercepted actions when stopping
       setShowSandboxPreview(false) // Hide preview panel
+      stopStepExecution() // Stop step execution and clear all statuses
+      setIsStepByStep(false)
+      
+      // Clear all node execution statuses to remove visual feedback
+      setNodes((nds) => 
+        nds.map((node) => {
+          if (node.type === 'custom') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                executionStatus: null,
+                isActiveExecution: false
+              }
+            }
+          }
+          return node
+        })
+      )
+      
       toast({
-        title: "Sandbox Mode Stopped",
+        title: "Test Mode Stopped",
         description: "Test mode has been disabled.",
       })
       return
@@ -3302,101 +3364,183 @@ const useWorkflowBuilderState = () => {
         throw new Error("No workflow selected")
       }
       
+      // Start step-by-step execution mode
       setIsExecuting(true)
       setListeningMode(true)
+      setIsStepByStep(true)
+      startStepExecution()
       
-      // Execute in sandbox mode with test data
-      const response = await fetch('/api/workflows/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflowId: currentWorkflow.id,
-          testMode: true, // Legacy flag for compatibility
-          executionMode: 'sandbox', // New flag for sandbox mode
-          inputData: {
-            trigger: {
-              type: 'manual',
-              timestamp: new Date().toISOString(),
-              source: 'sandbox_test'
-            }
-          },
-          workflowData: {
-            nodes: getNodes(),
-            edges: getEdges()
-          }
-        })
+      // Get all valid nodes for execution
+      const allNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      const allEdges = getEdges()
+      
+      // Find the trigger node
+      const triggerNode = allNodes.find(n => n.data?.isTrigger)
+      if (!triggerNode) {
+        throw new Error("No trigger found in workflow")
+      }
+      
+      // Show initial message
+      toast({
+        title: "Step-by-Step Test Started",
+        description: "Click 'Continue' to execute each node. The workflow will pause between nodes for inspection.",
       })
       
-      if (response.ok) {
-        const result = await response.json()
-        
-        // Process intercepted actions from results
-        const interceptedActions = []
-        if (result.results && Array.isArray(result.results)) {
-          const processNodeResults = (nodeResults: any, depth = 0) => {
-            for (const nodeResult of nodeResults) {
-              // Check if this node has intercepted data
-              if (nodeResult?.intercepted) {
-                interceptedActions.push({
-                  nodeId: nodeResult.nodeId || `node-${Date.now()}`,
-                  nodeName: nodeResult.nodeName || nodeResult.type,
-                  type: nodeResult.intercepted.type,
-                  timestamp: new Date().toISOString(),
-                  config: nodeResult.intercepted.config,
-                  wouldHaveSent: nodeResult.intercepted.wouldHaveSent,
-                  sandbox: true
-                })
-              }
-              
-              // Process nested results if they exist
-              if (nodeResult?.results && Array.isArray(nodeResult.results)) {
-                processNodeResults(nodeResult.results, depth + 1)
-              }
-              
-              // Also check for output that might contain intercepted data
-              if (nodeResult?.output?.intercepted) {
-                interceptedActions.push({
-                  nodeId: nodeResult.nodeId || `node-${Date.now()}`,
-                  nodeName: nodeResult.nodeName,
-                  type: nodeResult.output.intercepted.type,
-                  timestamp: new Date().toISOString(),
-                  config: nodeResult.output.intercepted.config,
-                  wouldHaveSent: nodeResult.output.intercepted.wouldHaveSent,
-                  sandbox: true
-                })
-              }
-            }
-          }
-          
-          processNodeResults(result.results)
-        }
-        
-        // Update state with intercepted actions and show preview panel
-        if (interceptedActions.length > 0) {
-          setSandboxInterceptedActions(prev => [...prev, ...interceptedActions])
-          setShowSandboxPreview(true)
-        }
-        
-        toast({
-          title: "Sandbox Test Complete",
-          description: `Workflow tested successfully. ${interceptedActions.length} action(s) intercepted.`,
-          variant: "default"
-        })
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || 'Failed to test workflow')
-      }
+      // Execute nodes step by step
+      await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
+      
     } catch (error: any) {
       console.error('Error testing workflow:', error)
       toast({
-        title: "Sandbox Test Failed",
-        description: error.message || "Failed to test workflow in sandbox mode.",
+        title: "Test Failed",
+        description: error.message || "Failed to test workflow.",
         variant: "destructive"
       })
       setListeningMode(false)
+      stopStepExecution()
+      setIsStepByStep(false)
     } finally {
       setIsExecuting(false)
     }
+  }
+  
+  // Execute a single node in step-by-step mode
+  const executeNodeStepByStep = async (
+    node: Node, 
+    allNodes: Node[], 
+    allEdges: Edge[], 
+    inputData: any,
+    skipCurrent: boolean = false
+  ): Promise<void> => {
+    // Update visual status
+    console.log(`[executeNodeStepByStep] Starting node ${node.id}, isPaused: ${isPaused}, isStepMode: ${isStepMode}`)
+    setCurrentNode(node.id)
+    setNodeStatus(node.id, 'waiting')
+    addToExecutionPath(node.id)
+    
+    // Check if the node was already marked as success (skipped)
+    const currentStatus = nodeStatuses[node.id]
+    let result: any = {}
+    
+    // If the node was already skipped, don't wait for user input
+    if (currentStatus === 'success') {
+      console.log(`Node ${node.id} was skipped (already marked as success), moving to next nodes without waiting`)
+      // Skip execution but continue to next nodes
+      result = { output: inputData } // Pass through input data
+    } else {
+      // Simple logic: Only wait if we're paused
+      // Initially we're paused (true), after Continue we're not paused (false)
+      // Get the current state from the store to avoid closure issues
+      const stepStore = useWorkflowStepExecutionStore.getState()
+      const currentlyPaused = stepStore.isPaused
+      
+      console.log(`Node ${node.id} - Checking pause state: ${currentlyPaused}`)
+      
+      if (currentlyPaused) {
+        console.log(`Node ${node.id} - Execution paused, waiting for continue`)
+        
+        await new Promise<void>((resolve) => {
+          const checkContinue = setInterval(() => {
+            const store = useWorkflowStepExecutionStore.getState()
+            if (!store.isPaused || !store.isStepMode) {
+              clearInterval(checkContinue)
+              console.log(`Node ${node.id} - Resuming execution`)
+              resolve()
+            }
+          }, 100)
+          
+          // Store the callback for the continue button
+          const callback = () => {
+            clearInterval(checkContinue)
+            console.log(`Node ${node.id} - Resuming via continue button`)
+            resolve()
+          }
+          setStepContinueCallback(() => callback)
+        })
+      }
+      
+      // Add a small delay between nodes for visual feedback when running
+      if (isStepByStep && !isPaused) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      
+      // Check if execution was stopped
+      if (!isStepMode) {
+        return
+      }
+      // Update to running status
+      console.log(`Setting node ${node.id} to running status`)
+      setNodeStatus(node.id, 'running')
+      
+      try {
+        // Execute the node
+        const response = await fetch('/api/workflows/execute-node', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflowId: currentWorkflow?.id,
+            nodeId: node.id,
+            nodeData: node.data,
+            inputData,
+            testMode: true,
+            executionMode: 'step'
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to execute node ${node.data.title || node.id}`)
+        }
+        
+        result = await response.json()
+        
+        // Store result
+        setNodeResult(node.id, {
+          input: inputData,
+          output: result.output,
+          error: result.error
+        })
+        
+        // Update status based on result
+        if (result.error) {
+          setNodeStatus(node.id, 'error')
+          toast({
+            title: "Node Failed",
+            description: `${node.data.title || node.id}: ${result.error}`,
+            variant: "destructive"
+          })
+          return // Stop execution on error
+        } else {
+          setNodeStatus(node.id, 'success')
+        }
+        
+      } catch (error: any) {
+          setNodeStatus(node.id, 'error')
+          setNodeResult(node.id, {
+            input: inputData,
+            error: error.message
+          })
+          throw error
+        }
+      }
+      
+      // Find connected nodes and continue execution (for both skipped and executed nodes)
+      const connectedEdges = allEdges.filter(e => e.source === node.id)
+      if (connectedEdges.length === 0) {
+        // No more nodes - workflow complete
+        toast({
+          title: "Workflow Complete",
+          description: "All nodes have been processed.",
+        })
+        // Keep the panel visible for review, user can click Test button to close
+        return
+      }
+      
+      for (const edge of connectedEdges) {
+        const targetNode = allNodes.find(n => n.id === edge.target)
+        if (targetNode && targetNode.type === 'custom') {
+          await executeNodeStepByStep(targetNode, allNodes, allEdges, result.output || inputData, false)
+        }
+      }
   }
 
   // Handle Execute mode (live) - one-time execution with real external calls  
@@ -4276,7 +4420,26 @@ const useWorkflowBuilderState = () => {
     showSandboxPreview,
     setShowSandboxPreview,
     sandboxInterceptedActions,
-    setSandboxInterceptedActions
+    setSandboxInterceptedActions,
+    // Step execution variables
+    isStepMode,
+    isPaused,
+    currentNodeId,
+    nodeStatuses,
+    isStepByStep,
+    setIsStepByStep,
+    stepContinueCallback,
+    setStepContinueCallback,
+    skipCallback,
+    setSkipCallback,
+    stopStepExecution,
+    pauseExecution,
+    executeNodeStepByStep,
+    // React Flow functions
+    getNodes,
+    getEdges,
+    // Execution state setters
+    setIsExecuting
   }
 }
 
@@ -4433,8 +4596,36 @@ function WorkflowBuilderContent() {
     sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
     handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
-    showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions
+    showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions,
+    // Step execution variables
+    isStepMode, isPaused, currentNodeId, nodeStatuses, isStepByStep, setIsStepByStep, 
+    stepContinueCallback, setStepContinueCallback, skipCallback, setSkipCallback, stopStepExecution, pauseExecution, executeNodeStepByStep,
+    // React Flow functions
+    getNodes, getEdges,
+    // Execution state setters
+    setIsExecuting
   } = useWorkflowBuilderState()
+
+  // Update nodes with execution status when nodeStatuses changes
+  useEffect(() => {
+    if (Object.keys(nodeStatuses).length > 0 || currentNodeId) {
+      setNodes((nds) => 
+        nds.map((node) => {
+          if (node.type === 'custom') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                executionStatus: nodeStatuses[node.id] || null,
+                isActiveExecution: currentNodeId === node.id
+              }
+            }
+          }
+          return node
+        })
+      )
+    }
+  }, [nodeStatuses, currentNodeId, setNodes])
 
   // Add handleAddNodeBetween to all custom edges that don't already have it
   const processedEdges = useMemo(() => {
@@ -4614,28 +4805,30 @@ function WorkflowBuilderContent() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant={listeningMode ? "secondary" : "outline"} 
+                    variant={isStepMode || listeningMode ? "secondary" : "outline"} 
                     onClick={handleTestSandbox} 
                     disabled={isExecuting && !listeningMode || isSaving}
                   >
-                    {isExecuting && !listeningMode ? (
+                    {isExecuting && !listeningMode && !isStepMode ? (
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    ) : listeningMode ? (
+                    ) : isStepMode || listeningMode ? (
                       <Shield className="w-5 h-5 mr-2" />
                     ) : (
                       <FlaskConical className="w-5 h-5 mr-2" />
                     )}
-                    {listeningMode ? "Stop Sandbox" : "Test (Sandbox)"}
+                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox" : "Test (Sandbox)"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-sm">
                   <p className="font-semibold mb-1">
-                    {listeningMode ? "Stop Sandbox Mode" : "Test in Sandbox Mode"}
+                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox Mode" : "Test in Sandbox Mode"}
                   </p>
                   <p className="text-xs">
-                    {listeningMode 
+                    {isStepMode 
+                      ? "Exit step-by-step test mode and clear all execution states"
+                      : listeningMode 
                       ? "Stop testing your workflow" 
-                      : "Run workflow with test data. No emails sent, no external actions performed. Perfect for testing your logic safely."
+                      : "Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely."
                     }
                   </p>
                 </TooltipContent>
@@ -4816,6 +5009,107 @@ function WorkflowBuilderContent() {
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
         </ReactFlow>
+        
+        {/* Step-by-step execution control panel */}
+        {isStepMode && (
+          <StepExecutionPanel
+            totalNodes={getNodes().filter((n: Node) => n.type === 'custom').length}
+            currentNodeName={currentNodeId ? getNodes().find((n: Node) => n.id === currentNodeId)?.data?.title : undefined}
+            currentNodeIsTrigger={currentNodeId ? getNodes().find((n: Node) => n.id === currentNodeId)?.data?.isTrigger : false}
+            onContinue={() => {
+              console.log(`Continue button clicked, stepContinueCallback exists: ${!!stepContinueCallback}`)
+              
+              if (stepContinueCallback) {
+                console.log('Calling stepContinueCallback')
+                stepContinueCallback()
+                setStepContinueCallback(null)
+              } else {
+                console.log('No stepContinueCallback set!')
+              }
+            }}
+            onSkip={async () => {
+              // Skip the current node and move to next
+              if (currentNodeId) {
+                console.log(`Skipping node ${currentNodeId}`)
+                
+                // Access the store functions from the outer scope
+                const stepStore = useWorkflowStepExecutionStore.getState()
+                
+                // Mark current node as success (skipped) 
+                stepStore.setNodeStatus(currentNodeId, 'success')
+                
+                // Find the next node
+                const edges = getEdges()
+                const nodes = getNodes().filter((n: Node) => n.type === 'custom')
+                const currentNode = nodes.find(n => n.id === currentNodeId)
+                const nextEdge = edges.find(e => e.source === currentNodeId)
+                
+                if (nextEdge) {
+                  const nextNode = nodes.find(n => n.id === nextEdge.target)
+                  if (nextNode) {
+                    console.log(`Moving to next node ${nextNode.id}`)
+                    
+                    // If there's a continue callback waiting, resolve it to unblock the current node
+                    if (stepContinueCallback) {
+                      stepContinueCallback()
+                      setStepContinueCallback(null)
+                    }
+                    
+                    // Get the output data from the current node (if any)
+                    const currentNodeResult = stepStore.nodeResults[currentNodeId]
+                    const outputData = currentNodeResult?.output || {}
+                    
+                    // Execute the next node in step mode
+                    await executeNodeStepByStep(nextNode as CustomNode, nodes as CustomNode[], edges, outputData, false)
+                  }
+                } else {
+                  // No more nodes, workflow complete
+                  console.log('No more nodes, workflow complete')
+                  stepStore.setCurrentNode(null)
+                  toast({
+                    title: "Workflow Complete", 
+                    description: "All nodes have been processed.",
+                  })
+                  
+                  // If there's a continue callback waiting, resolve it
+                  if (stepContinueCallback) {
+                    stepContinueCallback()
+                    setStepContinueCallback(null)
+                  }
+                }
+              }
+            }}
+            onStop={() => {
+              // Stop the entire execution and reset everything
+              const stepStore = useWorkflowStepExecutionStore.getState()
+              stepStore.stopStepExecution()
+              setIsStepByStep(false)
+              setListeningMode(false)
+              setIsExecuting(false)
+              setStepContinueCallback(null)
+              
+              // Clear all node execution statuses to reset visual states
+              const currentNodes = getNodes()
+              const resetNodes = currentNodes.map((node: Node) => ({
+                ...node,
+                data: {
+                  ...node.data,
+                  executionStatus: null,
+                  isActiveExecution: false,
+                  isListening: false,
+                  errorMessage: null,
+                  errorTimestamp: null
+                }
+              }))
+              setNodes(resetNodes)
+              
+              toast({
+                title: "Execution Stopped",
+                description: "Workflow test has been stopped and reset."
+              })
+            }}
+          />
+        )}
         </>
       )}
 
