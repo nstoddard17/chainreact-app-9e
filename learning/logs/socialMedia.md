@@ -2,6 +2,14 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 10, 2025
+
+### AI Agent Chain Builder Documentation and Bug Fixes
+
+Created comprehensive technical documentation for the AI Agent visual chain builder architecture, preserving the complete working state of this sophisticated multi-chain workflow system. The documentation captures every aspect of how the visual builder integrates with the main workflow, including data structures, callback patterns, state management, and the complex synchronization between components. This detailed reference guide ensures that developers can maintain, troubleshoot, and restore the AI Agent functionality even after major refactoring efforts.
+
+Additionally, fixed a critical bug where the "add actions between actions" button wasn't working in the main workflow builder. The issue occurred because the edge processing logic was overwriting existing onAddNode handlers with a generic function that lacked proper parameters. The fix ensures that existing handlers are preserved while only adding handlers to edges that don't have them, using the edge's actual source and target IDs for proper node insertion. This restores the ability to seamlessly insert new actions between existing workflow steps, making workflow editing more intuitive and efficient.
+
 ## January 9, 2025
 
 ### AI Agent Chain Builder Architecture Documentation
