@@ -1152,48 +1152,84 @@ const useWorkflowBuilderState = () => {
         }
       })
       
-      // Handle main workflow Add Action button (but not for AI Agent nodes or triggers)
-      const mainWorkflowNodes = remainingCustomNodes
-        .filter(n => 
-          !n.data?.isAIAgentChild && 
-          n.data?.type !== 'ai_agent' && 
-          !n.data?.isTrigger &&
-          !n.id.startsWith('trigger')
-        )
-        .sort((a, b) => a.position.y - b.position.y)
+      // Handle main workflow Add Action button (but not for AI Agent nodes)
+      // Check if there are any AI Agent nodes remaining
+      const hasAIAgentNodes = remainingCustomNodes.some(n => n.data?.type === 'ai_agent')
       
-      // Find the last node in the main workflow chain
-      const lastMainNode = mainWorkflowNodes.find(node => {
-        return !edgesWithoutRebuildingAddActions.some(edge => 
-          edge.source === node.id && 
-          mainWorkflowNodes.some(n => n.id === edge.target)
-        )
-      }) || mainWorkflowNodes[mainWorkflowNodes.length - 1]
-      
-      if (lastMainNode) {
-        // Add new add action node after the actual last custom node
-        const addActionId = `add-action-${Date.now()}`
-        const addActionNode: Node = {
-          id: addActionId,
-          type: "addAction",
-          position: { x: lastMainNode.position.x, y: lastMainNode.position.y + 160 },
-          data: { 
-            parentId: lastMainNode.id, 
-            onClick: () => handleAddActionClick(addActionId, lastMainNode.id) 
+      if (!hasAIAgentNodes) {
+        // No AI Agent nodes, so we need a main workflow Add Action
+        const mainWorkflowNodes = remainingCustomNodes
+          .filter(n => 
+            !n.data?.isAIAgentChild && 
+            n.data?.type !== 'ai_agent' && 
+            !n.data?.isTrigger &&
+            !n.id.startsWith('trigger')
+          )
+          .sort((a, b) => a.position.y - b.position.y)
+        
+        // Find the last node in the main workflow chain
+        const lastMainNode = mainWorkflowNodes.find(node => {
+          return !edgesWithoutRebuildingAddActions.some(edge => 
+            edge.source === node.id && 
+            mainWorkflowNodes.some(n => n.id === edge.target)
+          )
+        }) || mainWorkflowNodes[mainWorkflowNodes.length - 1]
+        
+        if (lastMainNode) {
+          // Add new add action node after the actual last custom node
+          const addActionId = `add-action-${Date.now()}`
+          const addActionNode: Node = {
+            id: addActionId,
+            type: "addAction",
+            position: { x: lastMainNode.position.x, y: lastMainNode.position.y + 160 },
+            data: { 
+              parentId: lastMainNode.id, 
+              onClick: () => handleAddActionClick(addActionId, lastMainNode.id) 
+            }
+          }
+          
+          nodesWithoutRebuildingAddActions.push(addActionNode)
+          
+          // Add edge from last node to add action button
+          edgesWithoutRebuildingAddActions.push({
+            id: `${lastMainNode.id}-${addActionId}`,
+            source: lastMainNode.id,
+            target: addActionId,
+            animated: false,
+            style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+            type: "straight"
+          })
+        } else {
+          // No action nodes, but we have a trigger - add Add Action after trigger
+          const triggerNode = remainingCustomNodes.find(n => 
+            n.data?.isTrigger || n.id.startsWith('trigger')
+          )
+          
+          if (triggerNode) {
+            const addActionId = `add-action-${triggerNode.id}-${Date.now()}`
+            const addActionNode: Node = {
+              id: addActionId,
+              type: "addAction",
+              position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+              data: { 
+                parentId: triggerNode.id, 
+                onClick: () => handleAddActionClick(addActionId, triggerNode.id) 
+              }
+            }
+            
+            nodesWithoutRebuildingAddActions.push(addActionNode)
+            
+            // Add edge from trigger to add action button
+            edgesWithoutRebuildingAddActions.push({
+              id: `${triggerNode.id}-${addActionId}`,
+              source: triggerNode.id,
+              target: addActionId,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+              type: "straight"
+            })
           }
         }
-        
-        nodesWithoutRebuildingAddActions.push(addActionNode)
-        
-        // Add edge from last node to add action button
-        edgesWithoutRebuildingAddActions.push({
-          id: `${lastMainNode.id}-${addActionId}`,
-          source: lastMainNode.id,
-          target: addActionId,
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
-          type: "straight"
-        })
       }
       
       // Apply the emptiedChains update to the AI Agent node if it was updated earlier
