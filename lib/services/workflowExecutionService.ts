@@ -10,6 +10,7 @@ export interface ExecutionContext {
   variables: Record<string, any>
   results: Record<string, any>
   dataFlowManager: any
+  interceptedActions?: any[]
 }
 
 export class WorkflowExecutionService {
@@ -93,6 +94,8 @@ export class WorkflowExecutionService {
 
     // Execute from each trigger node
     const results = []
+    executionContext.interceptedActions = []
+    
     for (const triggerNode of triggerNodes) {
       console.log(`🎯 Executing trigger node: ${triggerNode.id} (${triggerNode.data.type})`)
       const result = await this.nodeExecutionService.executeNode(
@@ -101,10 +104,24 @@ export class WorkflowExecutionService {
         validConnections, 
         executionContext
       )
+      
+      // Collect intercepted actions from the result tree
+      this.collectInterceptedActions(result, executionContext.interceptedActions)
+      
       results.push(result)
     }
 
     console.log("✅ Workflow execution completed successfully")
+    
+    // If in test mode and we have intercepted actions, return them separately
+    if (testMode && executionContext.interceptedActions.length > 0) {
+      console.log(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
+      return {
+        results,
+        interceptedActions: executionContext.interceptedActions
+      }
+    }
+    
     return results
   }
 
@@ -146,5 +163,29 @@ export class WorkflowExecutionService {
     console.log(`✅ Created execution context with userId: ${executionContext.userId}`)
 
     return executionContext
+  }
+
+  private collectInterceptedActions(result: any, interceptedActions: any[]) {
+    if (!result) return
+    
+    // Check if this result has intercepted data
+    if (result.intercepted) {
+      interceptedActions.push({
+        nodeId: result.intercepted.nodeId,
+        nodeName: result.intercepted.nodeName,
+        type: result.intercepted.type,
+        timestamp: new Date().toISOString(),
+        config: result.intercepted.config,
+        wouldHaveSent: result.intercepted.wouldHaveSent,
+        sandbox: true
+      })
+    }
+    
+    // Recursively check nested results
+    if (result.results && Array.isArray(result.results)) {
+      for (const nestedResult of result.results) {
+        this.collectInterceptedActions(nestedResult, interceptedActions)
+      }
+    }
   }
 }
