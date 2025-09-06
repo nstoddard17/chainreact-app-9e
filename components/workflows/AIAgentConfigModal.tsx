@@ -245,7 +245,8 @@ export function AIAgentConfigModal({
       maxRetries: 3,
       timeout: 30000,
       targetActions: [] as string[],
-      chains: [] as any[]
+      chains: [] as any[],
+      chainsLayout: null as any // Add chainsLayout to store full layout data
     }
     
     if (initialData) {
@@ -253,7 +254,9 @@ export function AIAgentConfigModal({
         ...baseConfig,
         ...initialData,
         // Ensure chains is always an array
-        chains: initialData.chains || []
+        chains: initialData.chains || [],
+        // Preserve chainsLayout if it exists
+        chainsLayout: initialData.chainsLayout || null
       }
     }
     
@@ -310,7 +313,8 @@ export function AIAgentConfigModal({
       setConfig(prev => ({
         ...prev,
         ...initialData,
-        chains: initialData.chains || []
+        chains: initialData.chains || [],
+        chainsLayout: initialData.chainsLayout || null
       }))
     }
   }, [initialData, isOpen])
@@ -416,8 +420,8 @@ export function AIAgentConfigModal({
   const handleSave = async () => {
     console.log('🔵 [AIAgentConfigModal] handleSave called')
     console.log('🔵 [AIAgentConfigModal] Current full config:', config)
-    console.log('🔵 [AIAgentConfigModal] config.chains:', config.chains)
-    console.log('🔵 [AIAgentConfigModal] Full chains data:', JSON.stringify(config.chains, null, 2))
+    console.log('🔵 [AIAgentConfigModal] config.chainsLayout:', config.chainsLayout)
+    console.log('🔵 [AIAgentConfigModal] Full layout data:', config.chainsLayout)
     
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
@@ -816,16 +820,16 @@ export function AIAgentConfigModal({
                     </div>
                     
                     <AIAgentVisualChainBuilderWrapper
-                      chains={config.chains}
+                      chains={config.chainsLayout?.chains || config.chains || []}
+                      chainsLayout={config.chainsLayout}
                       onChainsChange={(chainsData) => {
-                        // chainsData contains { chains: [...], aiAgentPosition: {...} }
-                        // We need to extract just the chains array
-                        const actualChains = chainsData.chains || chainsData
+                        // chainsData contains full layout: { chains: [...], nodes: [...], edges: [...], aiAgentPosition: {...} }
                         console.log('🔄 [AIAgentConfigModal] onChainsChange called with:', chainsData)
-                        console.log('🔄 [AIAgentConfigModal] Extracted chains:', actualChains)
+                        console.log('🔄 [AIAgentConfigModal] Full layout data:', chainsData)
                         setConfig(prev => {
-                          const newConfig = { ...prev, chains: actualChains }
-                          console.log('🔄 [AIAgentConfigModal] Updated config with chains:', newConfig.chains)
+                          // Store the full layout data, not just chains
+                          const newConfig = { ...prev, chainsLayout: chainsData, chains: chainsData.chains || [] }
+                          console.log('🔄 [AIAgentConfigModal] Updated config with full layout:', newConfig.chainsLayout)
                           return newConfig
                         })
                       }}

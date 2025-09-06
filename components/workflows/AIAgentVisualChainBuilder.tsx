@@ -355,7 +355,8 @@ const edgeTypes: EdgeTypes = {
 // Main Visual Chain Builder Component
 interface AIAgentVisualChainBuilderProps {
   chains?: any[]
-  onChainsChange?: (chains: any[]) => void
+  chainsLayout?: any // Full layout data with nodes, edges, positions
+  onChainsChange?: (chains: any) => void
   onOpenActionDialog?: () => void
   onActionSelect?: (callback: (action: any, config?: any) => void) => void
   workflowData?: { nodes: any[], edges: any[] }
@@ -364,6 +365,7 @@ interface AIAgentVisualChainBuilderProps {
 
 function AIAgentVisualChainBuilder({
   chains = [],
+  chainsLayout,
   onChainsChange = () => {},
   onOpenActionDialog,
   onActionSelect,
@@ -387,8 +389,12 @@ function AIAgentVisualChainBuilder({
     const extractedChains = []
     const processedNodes = new Set()
     
+    // Find the AI Agent node (could have different IDs)
+    const aiAgentNode = nodes.find(n => n.id === 'ai-agent' || n.data?.type === 'ai_agent' || n.data?.isAIAgent)
+    const aiAgentId = aiAgentNode?.id || 'ai-agent'
+    
     // Find all chain start nodes (connected directly to AI agent)
-    const aiAgentEdges = edges.filter(e => e.source === 'ai-agent')
+    const aiAgentEdges = edges.filter(e => e.source === aiAgentId)
     
     aiAgentEdges.forEach(edge => {
       const chain = []
@@ -431,9 +437,11 @@ function AIAgentVisualChainBuilder({
     // Get all action nodes (exclude system nodes)
     const actionNodes = nodes.filter(n => 
       n.id !== 'trigger' && 
-      n.id !== 'ai-agent' && 
+      n.id !== aiAgentId && 
       n.type !== 'addAction' &&
-      n.data?.type !== 'chain_placeholder'
+      n.data?.type !== 'chain_placeholder' &&
+      n.data?.type !== 'ai_agent' &&
+      !n.data?.isAIAgent
     )
     
     // Get all edges between action nodes (exclude edges to/from AddAction nodes)
@@ -442,9 +450,6 @@ function AIAgentVisualChainBuilder({
       !e.target.includes('add-action') &&
       e.source !== 'trigger' // Exclude trigger edges
     )
-    
-    // Get AI Agent node position for reference
-    const aiAgentNode = nodes.find(n => n.id === 'ai-agent')
     
     // Build comprehensive layout data with full node/edge structure
     const fullLayoutData = {
@@ -1216,6 +1221,134 @@ function AIAgentVisualChainBuilder({
     if (initializedRef.current) return
     initializedRef.current = true
     
+    // First check if we have chainsLayout data (full layout from saved config)
+    if (chainsLayout?.nodes && chainsLayout?.edges && chainsLayout.nodes.length > 0) {
+      console.log('🎨 [AIAgentVisualChainBuilder] Initializing with chainsLayout:', chainsLayout)
+      
+      // Recreate the exact layout from the saved data
+      const aiAgentNode: Node = {
+        id: 'ai-agent',
+        type: 'custom',
+        position: chainsLayout.aiAgentPosition || { x: 400, y: 200 },
+        data: {
+          title: 'AI Agent',
+          description: 'Intelligent decision-making agent',
+          type: 'ai_agent',
+          isAIAgent: true,
+          onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
+        }
+      }
+      
+      // Map the saved nodes with proper handlers
+      const savedNodes = chainsLayout.nodes.map((node: any) => ({
+        id: node.id,
+        type: 'custom',
+        position: node.position,
+        data: {
+          title: node.title,
+          description: node.description,
+          type: node.type,
+          providerId: node.providerId,
+          config: node.config || {},
+          onConfigure: () => handleConfigureNode(node.id),
+          onDelete: () => handleDeleteNode(node.id),
+          onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
+        }
+      }))
+      
+      // Create Add Action nodes for the last node in each chain
+      const addActionNodes: Node[] = []
+      const chainLastNodes = new Map<string, any>() // Track last node per chain
+      
+      // Group nodes by chain (based on edge connections)
+      chainsLayout.edges.forEach((edge: any) => {
+        if (edge.source === 'ai-agent') {
+          // This is a chain start
+          let currentNode = savedNodes.find((n: any) => n.id === edge.target)
+          let lastInChain = currentNode
+          
+          // Follow the chain to find the last node
+          let visited = new Set([edge.target])
+          while (currentNode) {
+            const nextEdge = chainsLayout.edges.find((e: any) => 
+              e.source === currentNode.id && !visited.has(e.target)
+            )
+            if (nextEdge) {
+              currentNode = savedNodes.find((n: any) => n.id === nextEdge.target)
+              if (currentNode) {
+                lastInChain = currentNode
+                visited.add(nextEdge.target)
+              }
+            } else {
+              break
+            }
+          }
+          
+          if (lastInChain) {
+            // Create Add Action node after the last node in the chain
+            const addActionNodeId = `add-action-${lastInChain.id}`
+            addActionNodes.push({
+              id: addActionNodeId,
+              type: 'addAction',
+              position: { 
+                x: lastInChain.position.x, 
+                y: lastInChain.position.y + 120 
+              },
+              data: {
+                parentId: lastInChain.id,
+                onClick: () => {
+                  console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastInChain.id)
+                  handleAddToChainRef.current?.(lastInChain.id)
+                }
+              }
+            })
+            
+            // Add edge to Add Action node
+            chainsLayout.edges.push({
+              id: `e-${lastInChain.id}-${addActionNodeId}`,
+              source: lastInChain.id,
+              target: addActionNodeId,
+              type: 'custom'
+            })
+          }
+        }
+      })
+      
+      // Map edges with handlers
+      const mappedEdges = chainsLayout.edges.map((edge: any) => ({
+        ...edge,
+        type: edge.type || 'custom',
+        data: {
+          ...edge.data,
+          onAddNode: (position: { x: number, y: number }) => {
+            handleAddNodeBetweenRef.current?.(edge.source, edge.target, position)
+          }
+        }
+      }))
+      
+      // Set all nodes and edges
+      setNodes([aiAgentNode, ...savedNodes, ...addActionNodes])
+      setEdges(mappedEdges)
+      
+      // Restore emptiedChains if present
+      if (chainsLayout.emptiedChains) {
+        setEmptiedChains(new Set(chainsLayout.emptiedChains))
+      }
+      
+      // Center view after loading
+      setTimeout(() => {
+        fitView({
+          padding: 0.2,
+          includeHiddenNodes: false,
+          duration: 400,
+          maxZoom: 2,
+          minZoom: 0.05
+        })
+      }, 100)
+      
+      return // Exit early, we've initialized from chainsLayout
+    }
+    
     // If we have workflow data, use it to initialize
     if (workflowData?.nodes && workflowData?.edges) {
       console.log('🔄 [AIAgentVisualChainBuilder] Initializing with workflow data:', workflowData)
@@ -1315,7 +1448,7 @@ function AIAgentVisualChainBuilder({
     
     // Fall back to default initialization if no workflow data
     initializeDefaultSetup()
-  }, [workflowData, currentNodeId, initializeDefaultSetup, setNodes, setEdges, fitView, handleConfigureNode, handleDeleteNode, handleAddToChain, handleAddNodeBetween])
+  }, [chainsLayout, workflowData, currentNodeId, initializeDefaultSetup, setNodes, setEdges, fitView, handleConfigureNode, handleDeleteNode, handleAddToChain, handleAddNodeBetween])
 
   // Update the ref with the actual implementation
   React.useEffect(() => {

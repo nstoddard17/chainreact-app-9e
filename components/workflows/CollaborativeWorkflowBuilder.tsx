@@ -2280,10 +2280,11 @@ const useWorkflowBuilderState = () => {
       }
     }
     
+    // Use consistent 120px vertical spacing like AI Agent chain builder
     const newActionNode: Node = {
       id: newNodeId, 
       type: "custom", 
-      position: { x: parentNode.position.x, y: parentNode.position.y + 200 },
+      position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
       data: newActionNodeData,
     }
     
@@ -2484,78 +2485,79 @@ const useWorkflowBuilderState = () => {
         }
       }
     } else {
-      // Normal add action at the end
-      const verticalSpacing = 180 // Consistent spacing with insertion
-      const newAddActionId = `add-action-${Date.now()}`
-      
-      // Position new action with proper spacing
-      newActionNode.position = {
-        x: parentNode.position.x,
-        y: parentNode.position.y + 200 // Increased spacing from parent
-      }
+      // Normal add action at the end - replicate AI Agent chain builder pattern
+      const newAddActionId = `add-action-${newNodeId}`
       
       // Check if the clicked Add Action button belongs to an AI Agent chain
       const clickedAddAction = getNodes().find(n => n.id === sourceNodeInfo.id)
       const isAIAgentChain = clickedAddAction?.data?.isChainAddAction
       
-      // Preserve AI Agent chain metadata if this is a chain action
-      const newAddActionData: any = {
-        parentId: newNodeId,
-        onClick: () => handleAddActionClick(newAddActionId, newNodeId)
-      }
-      
-      if (isAIAgentChain && clickedAddAction?.data) {
-        // Preserve chain metadata for AI Agent chains
-        newAddActionData.parentAIAgentId = clickedAddAction.data.parentAIAgentId
-        newAddActionData.parentChainIndex = clickedAddAction.data.parentChainIndex
-        newAddActionData.isChainAddAction = true
-      }
-      
+      // Create new Add Action node after the new action with consistent 120px spacing
       const newAddActionNode: Node = {
         id: newAddActionId, 
         type: "addAction", 
-        position: { x: parentNode.position.x, y: parentNode.position.y + 200 + verticalSpacing },
-        data: newAddActionData,
+        position: { 
+          x: newActionNode.position.x, 
+          y: newActionNode.position.y + 120  // Use consistent 120px spacing like AI Agent builder
+        },
+        data: {
+          parentId: newNodeId,
+          onClick: () => handleAddActionClick(newAddActionId, newNodeId),
+          // Preserve chain metadata for AI Agent chains
+          ...(isAIAgentChain && clickedAddAction?.data ? {
+            parentAIAgentId: clickedAddAction.data.parentAIAgentId,
+            parentChainIndex: clickedAddAction.data.parentChainIndex,
+            isChainAddAction: true
+          } : {})
+        },
       }
       
-      setNodes((prevNodes: Node[]) => [
-        ...prevNodes.filter((n: Node) => {
-          // Only remove the specific Add Action node that was clicked
-          if (n.id === sourceNodeInfo.id) return false;
-          // Keep all other Add Action nodes (for other chains)
-          if (n.type === 'addAction' && n.data?.parentAIAgentId && n.data?.isChainAddAction) {
-            // This is an Add Action for an AI Agent chain, keep it unless it's the one clicked
-            return true;
-          }
-          return true;
-        }), 
-        newActionNode, 
-        newAddActionNode
-      ])
+      // Find and remove the old Add Action node that was clicked
+      const oldAddActionId = sourceNodeInfo.id
       
-      setEdges((prevEdges: Edge[]) => [
-        ...prevEdges.filter((e: Edge) => e.target !== sourceNodeInfo.id),
-        {
-          id: `${parentNode.id}-${newNodeId}`,
-          source: parentNode.id,
-          target: newNodeId,
-          type: 'custom',
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1 },
-          data: {
-            onAddNode: (sourceId: string, targetId: string, position: { x: number, y: number }) => {
-              handleInsertAction(parentNode.id, newNodeId)
+      setNodes((prevNodes: Node[]) => {
+        // Remove old Add Action and add new nodes
+        return prevNodes
+          .filter((n: Node) => n.id !== oldAddActionId)
+          .concat([newActionNode, newAddActionNode])
+      })
+      
+      setEdges((prevEdges: Edge[]) => {
+        // Remove edge to old Add Action node
+        const filteredEdges = prevEdges.filter((e: Edge) => e.target !== oldAddActionId)
+        
+        return [
+          ...filteredEdges,
+          {
+            id: `e-${parentNode.id}-${newNodeId}`,
+            source: parentNode.id,
+            target: newNodeId,
+            type: 'custom',
+            animated: false,
+            style: { 
+              stroke: '#94a3b8',
+              strokeWidth: 2 
+            },
+            data: {
+              onAddNode: (position: { x: number, y: number }) => {
+                handleAddNodeBetween(parentNode.id, newNodeId, position)
+              }
+            }
+          },
+          {
+            id: `e-${newNodeId}-${newAddActionId}`,
+            source: newNodeId,
+            target: newAddActionId,
+            type: 'straight',
+            animated: false,
+            style: { 
+              stroke: '#b1b1b7',
+              strokeWidth: 2,
+              strokeDasharray: '5,5'
             }
           }
-        },
-        {
-          id: `${newNodeId}-${newAddActionId}`,
-          source: newNodeId,
-          target: newAddActionId,
-          animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
-        }
-      ])
+        ]
+      })
     }
     
     setShowActionDialog(false)
@@ -5431,11 +5433,11 @@ function WorkflowBuilderContent() {
               onSave={async (config) => {
                 console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
                 console.log('🤖 [WorkflowBuilder] ConfiguringNode:', configuringNode);
-                console.log('🤖 [WorkflowBuilder] AI Agent chains:', config.chains);
-                console.log('🤖 [WorkflowBuilder] Chains detail:', JSON.stringify(config.chains, null, 2));
+                console.log('🤖 [WorkflowBuilder] AI Agent layout:', config.chainsLayout);
+                console.log('🤖 [WorkflowBuilder] Layout detail:', config.chainsLayout);
                 
-                // Store the chains data before saving configuration
-                const chainsToProcess = config.chains;
+                // Store the chains layout data before saving configuration
+                const chainsToProcess = config.chainsLayout;
                 console.log('🔍 [WorkflowBuilder] chainsToProcess structure:', {
                   hasNodes: !!chainsToProcess?.nodes,
                   nodesCount: chainsToProcess?.nodes?.length || 0,
@@ -5532,12 +5534,25 @@ function WorkflowBuilderContent() {
                     const actualAIAgentId = aiAgentNode.id;
                     console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
                     
+                    // Check if this AI Agent already has chain nodes (editing existing vs new)
+                    const existingChainNodes = currentNodes.filter(n => 
+                      n.data?.parentAIAgentId === actualAIAgentId && 
+                      n.data?.isAIAgentChild
+                    );
+                    
+                    if (existingChainNodes.length > 0) {
+                      console.log(`⚠️ [WorkflowBuilder] AI Agent ${actualAIAgentId} already has ${existingChainNodes.length} chain nodes, skipping duplicate creation`);
+                      isProcessingChainsRef.current = false;
+                      return currentNodes; // Don't add duplicates
+                    }
+                    
                     // Decide which processing method to use
                     if (hasFullLayout && chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
                       // If we have full layout data, recreate the exact structure
                       console.log('🎯 [WorkflowBuilder] Using full layout data to recreate exact structure');
                       console.log('🎯 [WorkflowBuilder] Nodes to add:', chainsToProcess.nodes.length);
                       console.log('🎯 [WorkflowBuilder] Edges to add:', chainsToProcess.edges.length);
+                      console.log('🎯 [WorkflowBuilder] Full chainsToProcess data:', chainsToProcess);
                       
                       // Create nodes with exact positions from AI Agent builder
                       chainsToProcess.nodes.forEach((nodeData: any) => {
@@ -5592,9 +5607,17 @@ function WorkflowBuilderContent() {
                         nodeIdMap.set(node.data.originalNodeId, node.id);
                       });
                       
+                      // Track which nodes are first in their chains (directly connected to AI Agent)
+                      const chainStartNodes = new Set();
+                      
                       chainsToProcess.edges.forEach((edgeData: any) => {
                         const sourceId = edgeData.source === 'ai-agent' ? actualAIAgentId : nodeIdMap.get(edgeData.source);
                         const targetId = nodeIdMap.get(edgeData.target);
+                        
+                        // If source is AI Agent, mark target as chain start
+                        if (edgeData.source === 'ai-agent' && targetId) {
+                          chainStartNodes.add(targetId);
+                        }
                         
                         if (sourceId && targetId) {
                           const edgeId = `edge-${sourceId}-${targetId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -5616,50 +5639,153 @@ function WorkflowBuilderContent() {
                       });
                       
                       // Add "Add Action" nodes at the end of each chain
-                      const chainEndNodes = new Map(); // Track the last node of each chain
+                      // First, group nodes by chain based on edges from AI Agent
+                      const chainGroups = new Map(); // chainStartNodeId -> array of nodes in chain
+                      const processedInChain = new Set();
                       
-                      chainsToProcess.chains.forEach((chain: any[], chainIndex: number) => {
-                        if (chain.length > 0) {
-                          const lastAction = chain[chain.length - 1];
-                          const lastNodeId = nodeIdMap.get(lastAction.id);
-                          
-                          if (lastNodeId) {
-                            const lastNode = newNodesToAdd.find(n => n.id === lastNodeId);
-                            if (lastNode) {
-                              const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                              const addActionNode = {
-                                id: addActionId,
-                                type: 'addAction',
-                                position: {
-                                  x: lastNode.position.x,
-                                  y: lastNode.position.y + layoutConfig.verticalSpacing
-                                },
-                                data: {
-                                  parentId: lastNodeId,
-                                  onClick: () => handleAddActionClick(addActionId, lastNodeId)
-                                }
-                              };
-                              
-                              newNodesToAdd.push(addActionNode);
-                              
-                              // Add edge to Add Action node
-                              const edgeToAddAction = {
-                                id: `e-${lastNodeId}-${addActionId}`,
-                                source: lastNodeId,
-                                target: addActionId,
-                                type: 'straight',
-                                animated: true,
-                                style: {
-                                  stroke: '#b1b1b7',
-                                  strokeWidth: 2,
-                                  strokeDasharray: '5,5'
-                                }
-                              };
-                              newEdgesToAdd.push(edgeToAddAction);
-                            }
+                      console.log('🔗 [WorkflowBuilder] Chain start nodes:', Array.from(chainStartNodes));
+                      console.log('🔗 [WorkflowBuilder] All new edges:', newEdgesToAdd);
+                      
+                      // Process each chain starting from nodes directly connected to AI Agent
+                      chainStartNodes.forEach(chainStartId => {
+                        if (!chainGroups.has(chainStartId)) {
+                          chainGroups.set(chainStartId, []);
+                        }
+                        
+                        // Follow the chain from this start node
+                        let currentId = chainStartId;
+                        const chainNodes = [];
+                        
+                        while (currentId && !processedInChain.has(currentId)) {
+                          const node = newNodesToAdd.find(n => n.id === currentId);
+                          if (node && node.type !== 'addAction') {
+                            chainNodes.push(node);
+                            processedInChain.add(currentId);
+                            
+                            // Find next node in chain
+                            const nextEdge = newEdgesToAdd.find(e => 
+                              e.source === currentId && 
+                              e.target !== actualAIAgentId &&
+                              !e.target.includes('add-action')
+                            );
+                            currentId = nextEdge?.target || null;
+                          } else {
+                            break;
                           }
                         }
+                        
+                        if (chainNodes.length > 0) {
+                          chainGroups.set(chainStartId, chainNodes);
+                        }
                       });
+                      
+                      // Add Add Action button at the end of each chain
+                      console.log('🔗 [WorkflowBuilder] Chain groups found:', chainGroups.size, 'chains');
+                      chainGroups.forEach((nodes, startId) => {
+                        console.log(`  Chain starting at ${startId}: ${nodes.length} nodes`);
+                      });
+                      
+                      // Determine expected number of chains from the layout data
+                      const expectedChainCount = chainsToProcess.chains?.length || 2;
+                      console.log(`🔗 [WorkflowBuilder] Expected ${expectedChainCount} chains from layout`);
+                      
+                      let chainIndex = 0;
+                      chainGroups.forEach((chainNodes, chainStartId) => {
+                        // Update all nodes in this chain with their parentChainIndex
+                        chainNodes.forEach(node => {
+                          node.data.parentChainIndex = chainIndex;
+                        });
+                        
+                        if (chainNodes.length > 0) {
+                          const lastNode = chainNodes[chainNodes.length - 1];
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                          
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: {
+                              x: lastNode.position.x,
+                              y: lastNode.position.y + layoutConfig.verticalSpacing
+                            },
+                            data: {
+                              parentId: lastNode.id,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              isChainAddAction: true,
+                              onClick: () => handleAddActionClick(addActionId, lastNode.id)
+                            }
+                          };
+                          
+                          newNodesToAdd.push(addActionNode);
+                          
+                          // Add edge to Add Action node
+                          const edgeToAddAction = {
+                            id: `e-${lastNode.id}-${addActionId}`,
+                            source: lastNode.id,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: true,
+                            style: {
+                              stroke: '#b1b1b7',
+                              strokeWidth: 2,
+                              strokeDasharray: '5,5'
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
+                        }
+                        chainIndex++;
+                      });
+                      
+                      // Create placeholder Add Action nodes for any remaining empty chains
+                      while (chainIndex < expectedChainCount) {
+                        console.log(`🔗 [WorkflowBuilder] Creating placeholder for empty chain ${chainIndex}`);
+                        
+                        // Check if this chain was intentionally emptied
+                        const emptiedChains = aiAgentNode.data?.emptiedChains || [];
+                        const wasIntentionallyEmptied = emptiedChains.includes(chainIndex);
+                        
+                        if (!wasIntentionallyEmptied) {
+                          // Position relative to AI Agent
+                          const offsetX = aiAgentNode.position.x - (aiAgentPosition?.x || 400);
+                          const offsetY = aiAgentNode.position.y - (aiAgentPosition?.y || 200);
+                          const baseX = 400 + (chainIndex * 250) + offsetX;
+                          const baseY = 200 + 200 + offsetY;
+                          
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: { x: baseX, y: baseY },
+                            data: {
+                              parentId: actualAIAgentId,
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              isChainAddAction: true,
+                              isPlaceholder: true,
+                              onClick: () => handleAddActionClick(addActionId, actualAIAgentId)
+                            }
+                          };
+                          
+                          newNodesToAdd.push(addActionNode);
+                          
+                          // Add edge from AI Agent to placeholder
+                          const edgeToAddAction = {
+                            id: `e-${actualAIAgentId}-${addActionId}`,
+                            source: actualAIAgentId,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: false,
+                            style: {
+                              stroke: '#d1d5db',
+                              strokeWidth: 1,
+                              strokeDasharray: '5,5'
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
+                        }
+                        
+                        chainIndex++;
+                      }
                       
                       // Add all new nodes to the current nodes
                       const finalNodes = [...currentNodes, ...newNodesToAdd];
