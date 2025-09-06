@@ -250,6 +250,63 @@ Fields in workflow configuration modals can be set to use AI-generated values. W
    - The generated values will automatically slot into the appropriate fields
    - This allows for dynamic, context-aware field population based on workflow data
 
+### AI Agent Chain Builder Architecture
+
+**⚠️ CRITICAL**: The AI Agent chain builder is a complex system with intricate integration between multiple components. DO NOT modify the following files without understanding the complete architecture:
+
+#### Core Files (DO NOT MODIFY without careful consideration):
+1. **`/components/workflows/AIAgentConfigModal.tsx`** - Main configuration modal
+   - Manages chains and chainsLayout state
+   - Passes data to workflow builder via onSave callback
+   - Lines 420-445: handleSave function that passes config to parent
+
+2. **`/components/workflows/AIAgentVisualChainBuilder.tsx`** - Visual chain builder
+   - ReactFlow-based visual builder for creating chains
+   - Synchronizes chains to parent via onChainsChange
+   - Manages node positions and connections
+
+3. **`/components/workflows/CollaborativeWorkflowBuilder.tsx`** - Main workflow integration
+   - Lines 5785-6585: AI Agent onSave handler and chain processing
+   - Lines 5854-6544: Critical setNodes callback that adds chains to workflow
+   - Lines 6530-6575: Edge management for chain connections
+   - **Key variables**: `workingNodes`, `actualAIAgentId`, `chainsToProcess`
+
+#### Critical Integration Points:
+
+1. **Chain Data Flow**:
+   ```
+   AIAgentVisualChainBuilder → AIAgentConfigModal → CollaborativeWorkflowBuilder
+   ```
+   - Visual builder creates `chainsLayout` with full node/edge data
+   - Config modal passes this via `onSave(config)` where `config.chainsLayout` contains everything
+   - Workflow builder processes in lines 5792-5802 checking for `chainsToProcess`
+
+2. **Node ID Pattern for Chains**:
+   ```
+   {aiAgentId}-{originalNodeId}-{timestamp}
+   ```
+   - Example: `node-1234-node-5678-1642000000000`
+   - This pattern is critical for chain identification
+
+3. **Add Action Button Management**:
+   - Must maintain `parentAIAgentId` and `parentChainIndex` in data
+   - Position calculations use 120px spacing for chains, 160px for main workflow
+   - Lines 2579-2643: Logic for finding last node in chain when adding actions
+
+4. **Critical Checks Before Modifying**:
+   - Ensure `workingNodes` is used instead of `currentNodes` in setNodes callback
+   - Verify `getNodes()` is available when needed (from useReactFlow hook)
+   - Check that edge filtering preserves Add Action connections
+   - Maintain chain metadata (`isAIAgentChild`, `parentAIAgentId`, `parentChainIndex`)
+
+5. **Common Issues and Solutions**:
+   - **Chains not appearing**: Check `chainsToProcess` has nodes and edges
+   - **Scope issues**: Use `getNodes()` in setTimeout callbacks, not closure variables
+   - **Add Action positioning**: Ensure finding actual last node by Y position
+   - **AI Agent getting Add Action**: Filter with `n.data?.type !== 'ai_agent'`
+
+For complete architecture documentation, see `/learning/docs/ai-agent-chain-builder-architecture.md`
+
 ### Field Dependency Loading Pattern
 
 When implementing dependent fields that show "Loading options..." when their parent field changes (e.g., table field updates when base field changes), follow this exact pattern:
