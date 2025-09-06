@@ -4,6 +4,18 @@
 
 ## January 10, 2025
 
+### Critical Documentation Added for AI Agent Chain Builder
+
+Added comprehensive documentation to CLAUDE.md that clearly marks the AI Agent chain builder system as a critical component that requires careful handling. The documentation identifies the three core files involved in the integration (AIAgentConfigModal, AIAgentVisualChainBuilder, and CollaborativeWorkflowBuilder), explains the data flow from visual builder to workflow, and highlights specific line numbers where critical logic resides. This includes warnings about key variables like workingNodes and actualAIAgentId, common scope issues with closures, and solutions to frequent problems. This documentation serves as a safeguard to prevent future modifications from breaking the complex chain synchronization system that allows AI Agents to manage multiple parallel execution paths.
+
+### Fixed AI Agent Chain Processing Scope Issue
+
+Resolved a critical scope issue that was preventing AI Agent chains from being added to the workflow after saving. The problem occurred in the edge filtering logic where the code was trying to access workingNodes variable that was out of scope in the setEdges callback. The fix uses getNodes() to get the current node snapshot at the time edges are being processed, ensuring proper access to node data for filtering decisions. This restoration of proper variable scoping ensures that AI Agent chains are correctly synchronized to the main workflow when saved.
+
+### Fixed Add Action Button Positioning in AI Agent Chains
+
+Resolved two critical issues with Add Action buttons in the workflow builder. First, when adding a third or subsequent action to an AI Agent chain, the Add Action button was incorrectly repositioning itself under the first action instead of staying with the last action in the chain. The fix now ensures that when adding new actions, the system finds the actual last node in the chain by checking Y positions and properly attaches the Add Action button to it. Second, fixed an issue where AI Agent nodes themselves were incorrectly getting Add Action buttons attached directly to them. The solution filters out AI Agent nodes from the main workflow Add Action logic, ensuring they only get Add Action buttons within their designated chains. These fixes create a more intuitive workflow building experience where Add Action buttons always appear exactly where users expect them.
+
 ### Fixed AI Agent Chain Synchronization with Main Workflow
 
 Resolved a critical issue where AI Agent chains weren't being added to the main workflow after saving the AI Agent configuration. The problem occurred when editing existing AI Agent nodes - the system was detecting existing chain nodes and skipping the update process entirely, preventing any changes from being applied. The fix ensures that when an AI Agent configuration is saved, the workflow builder first removes all existing chain nodes and their associated Add Action buttons, then recreates them with the updated configuration from the visual chain builder. This restoration of the chain synchronization means users can now confidently build, modify, and save complex multi-chain AI workflows, with all actions properly appearing in the main workflow exactly as designed in the visual builder.
