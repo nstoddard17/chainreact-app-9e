@@ -281,7 +281,7 @@ export function AIAgentConfigModal({
   const [estimatedLatency, setEstimatedLatency] = useState('~1s')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
-  const [pendingActionCallback, setPendingActionCallback] = useState<any>(null)
+  const pendingActionCallbackRef = useRef<any>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   
@@ -537,7 +537,7 @@ export function AIAgentConfigModal({
       providerId: action.providerId,
       allFields: Object.keys(action)
     })
-    console.log('🎯 [AIAgentConfigModal] pendingActionCallback status:', pendingActionCallback ? 'EXISTS' : 'NULL')
+    console.log('🎯 [AIAgentConfigModal] pendingActionCallback status:', pendingActionCallbackRef.current ? 'EXISTS' : 'NULL')
     console.log('🎯 [AIAgentConfigModal] isAIMode:', isAIMode)
     if (isAIMode) {
       // In AI mode, add action with all fields set to AI
@@ -553,10 +553,10 @@ export function AIAgentConfigModal({
       }
       
       // Add to chain via callback for visual builder
-      if (pendingActionCallback) {
-        console.log('📤 [AIAgentConfigModal] pendingActionCallback exists, type:', typeof pendingActionCallback)
-        // pendingActionCallback is now the callback itself
-        const actualCallback = pendingActionCallback
+      if (pendingActionCallbackRef.current) {
+        console.log('📤 [AIAgentConfigModal] pendingActionCallback exists, type:', typeof pendingActionCallbackRef.current)
+        // pendingActionCallbackRef.current is the callback itself
+        const actualCallback = pendingActionCallbackRef.current
         console.log('📤 [AIAgentConfigModal] actualCallback:', actualCallback ? 'EXISTS' : 'NULL', typeof actualCallback)
         if (actualCallback) {
           // Pass the full action object along with config
@@ -565,7 +565,7 @@ export function AIAgentConfigModal({
           // Pass the full action object, not just type and providerId
           actualCallback(action, configToPass)
         }
-        setPendingActionCallback(null)
+        pendingActionCallbackRef.current = null
         setHasUnsavedChanges(true)
       }
       
@@ -593,9 +593,9 @@ export function AIAgentConfigModal({
       setShowActionSelector(false)
       
       // Add to chain via callback for visual builder (manual mode)
-      if (pendingActionCallback) {
+      if (pendingActionCallbackRef.current) {
         console.log('📤 [AIAgentConfigModal] (manual) pendingActionCallback exists, getting actual callback')
-        const actualCallback = pendingActionCallback
+        const actualCallback = pendingActionCallbackRef.current
         console.log('📤 [AIAgentConfigModal] (manual) actualCallback:', actualCallback ? 'EXISTS' : 'NULL')
         if (actualCallback) {
           const manualConfig = {}
@@ -603,7 +603,7 @@ export function AIAgentConfigModal({
           // Pass the full action object, not just type and providerId
           actualCallback(action, manualConfig)
         }
-        setPendingActionCallback(null)
+        pendingActionCallbackRef.current = null
         setHasUnsavedChanges(true)
       }
       
@@ -835,9 +835,9 @@ export function AIAgentConfigModal({
                       }}
                       onActionSelect={(callback) => {
                         console.log('🚀 [AIAgentConfigModal] onActionSelect called with callback:', typeof callback)
-                        // Store the callback directly without wrapping
-                        setPendingActionCallback(callback)
-                        console.log('🚀 [AIAgentConfigModal] pendingActionCallback set')
+                        // Store the callback in a ref to avoid state timing issues
+                        pendingActionCallbackRef.current = callback
+                        console.log('🚀 [AIAgentConfigModal] pendingActionCallback set in ref')
                         // Don't open dialog here - onOpenActionDialog will handle it
                       }}
                       workflowData={workflowData}
