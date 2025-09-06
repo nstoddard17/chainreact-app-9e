@@ -4,6 +4,10 @@
 
 ## January 10, 2025
 
+### Fixed AI Agent Chain Add Action Button Logic for Complex Chains
+
+Resolved two critical issues with Add Action button placement in AI Agent chains. First, fixed the logic for finding the last node in chains with 3+ actions - the previous edge-checking approach would incorrectly identify intermediate nodes as the chain end. The solution now uses Y position to reliably find the furthest node down in each chain, ensuring Add Action buttons always appear after the actual last action regardless of chain complexity. Second, prevented AI Agent nodes from incorrectly receiving Add Action buttons by adding explicit filters to exclude nodes with type 'ai_agent' from the main workflow Add Action logic. These fixes ensure proper chain structure and button placement even in complex multi-action workflows.
+
 ### Critical Documentation Added for AI Agent Chain Builder
 
 Added comprehensive documentation to CLAUDE.md that clearly marks the AI Agent chain builder system as a critical component that requires careful handling. The documentation identifies the three core files involved in the integration (AIAgentConfigModal, AIAgentVisualChainBuilder, and CollaborativeWorkflowBuilder), explains the data flow from visual builder to workflow, and highlights specific line numbers where critical logic resides. This includes warnings about key variables like workingNodes and actualAIAgentId, common scope issues with closures, and solutions to frequent problems. This documentation serves as a safeguard to prevent future modifications from breaking the complex chain synchronization system that allows AI Agents to manage multiple parallel execution paths.

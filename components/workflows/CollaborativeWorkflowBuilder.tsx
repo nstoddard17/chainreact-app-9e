@@ -1107,19 +1107,16 @@ const useWorkflowBuilderState = () => {
         const chainNodesArray = Array.from(chainNodes)
         
         if (chainNodesArray.length > 0) {
-          // Find the last node in this chain by finding the node that has no outgoing edges to other nodes in the chain
-          let lastChainNode = chainNodesArray[0]; // Default to first node if we can't determine
+          // Find the last node in this chain by Y position (furthest down)
+          // This is more reliable than checking edges for complex chains
+          let lastChainNode = chainNodesArray[0]; // Default to first node
+          let maxY = chainNodesArray[0].position.y;
           
-          // Find the node that doesn't have any edges going to other nodes in this chain
+          // Find the node with the highest Y position (furthest down in the chain)
           for (const node of chainNodesArray) {
-            const hasOutgoingEdgeToChainNode = edgesWithoutRebuildingAddActions.some(edge => 
-              edge.source === node.id && 
-              chainNodesArray.some(cn => cn.id === edge.target)
-            );
-            
-            if (!hasOutgoingEdgeToChainNode) {
+            if (node.position.y > maxY) {
+              maxY = node.position.y;
               lastChainNode = node;
-              break;
             }
           }
           
@@ -1155,9 +1152,14 @@ const useWorkflowBuilderState = () => {
         }
       })
       
-      // Handle main workflow Add Action button (but not for AI Agent nodes)
+      // Handle main workflow Add Action button (but not for AI Agent nodes or triggers)
       const mainWorkflowNodes = remainingCustomNodes
-        .filter(n => !n.data?.isAIAgentChild && n.data?.type !== 'ai_agent')
+        .filter(n => 
+          !n.data?.isAIAgentChild && 
+          n.data?.type !== 'ai_agent' && 
+          !n.data?.isTrigger &&
+          !n.id.startsWith('trigger')
+        )
         .sort((a, b) => a.position.y - b.position.y)
       
       // Find the last node in the main workflow chain
@@ -1820,21 +1822,16 @@ const useWorkflowBuilderState = () => {
               })));
               
               if (chainNodes.length > 0) {
-                // Find the last node in this chain by checking connections
-                let lastChainNode = chainNodes[0]; // Default to first node if we can't determine
+                // Find the last node in this chain by Y position (furthest down)
+                // This is more reliable than checking edges for complex chains
+                let lastChainNode = chainNodes[0]; // Default to first node
+                let maxY = chainNodes[0].position.y;
                 
-                // Find the node that doesn't have any edges going to other nodes in this chain
-                // Use the current edges from React Flow, not the saved connections
-                const currentEdges = getEdges();
+                // Find the node with the highest Y position (furthest down in the chain)
                 for (const node of chainNodes) {
-                  const hasOutgoingEdgeToChainNode = currentEdges.some(edge => 
-                    edge.source === node.id && 
-                    chainNodes.some(cn => cn.id === edge.target)
-                  );
-                  
-                  if (!hasOutgoingEdgeToChainNode) {
+                  if (node.position.y > maxY) {
+                    maxY = node.position.y;
                     lastChainNode = node;
-                    break;
                   }
                 }
                 
@@ -1928,9 +1925,15 @@ const useWorkflowBuilderState = () => {
           return childNodes.length > 0;
         });
         
-        if (!hasAIAgentChains) {
+        // Only add main workflow Add Action if there are no AI Agent nodes and no AI Agent chains
+        if (!hasAIAgentChains && aiAgentNodes.length === 0) {
           // Original logic for non-AI Agent workflows
-          const actionNodes = customNodes.filter(n => n.id !== 'trigger' && !n.data?.isAIAgentChild);
+          const actionNodes = customNodes.filter(n => 
+            n.id !== 'trigger' && 
+            !n.data?.isTrigger &&
+            !n.data?.isAIAgentChild && 
+            n.data?.type !== 'ai_agent'
+          );
           const lastActionNode = actionNodes.length > 0 
             ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
             : null;
@@ -2097,27 +2100,33 @@ const useWorkflowBuilderState = () => {
       }
     }
     
-    // Add the "add action" node after the trigger
-    const addActionId = `add-action-${triggerNode.id}`;
-    const addActionNode: Node = {
-      id: addActionId,
-      type: 'addAction',
-      position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
-      data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
-    };
+    // Only add the "add action" node if there are no preserved action nodes
+    // (preserved nodes might include AI Agent or other actions)
+    const hasPreservedActions = preservedActionNodesJson && allNodes.length > 1;
+    const hasAIAgent = allNodes.some(n => n.data?.type === 'ai_agent');
     
-    // Add edge from trigger to add action node
-    const addActionEdge: Edge = {
-      id: `${triggerNode.id}->${addActionId}`,
-      source: triggerNode.id,
-      target: addActionId,
-      animated: true,
-      style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
-      type: 'straight'
-    };
-    
-    allNodes.push(addActionNode);
-    allEdges.push(addActionEdge);
+    if (!hasPreservedActions && !hasAIAgent) {
+      const addActionId = `add-action-${triggerNode.id}`;
+      const addActionNode: Node = {
+        id: addActionId,
+        type: 'addAction',
+        position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+        data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+      };
+      
+      // Add edge from trigger to add action node
+      const addActionEdge: Edge = {
+        id: `${triggerNode.id}->${addActionId}`,
+        source: triggerNode.id,
+        target: addActionId,
+        animated: true,
+        style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
+        type: 'straight'
+      };
+      
+      allNodes.push(addActionNode);
+      allEdges.push(addActionEdge);
+    }
     
     setNodes(allNodes);
     setEdges(allEdges);
@@ -2548,9 +2557,13 @@ const useWorkflowBuilderState = () => {
         
         if (!existingAddActionNode) {
           // If there's no add action button, we should add one at the end
-          // Find the last action node in the chain
+          // Find the last action node in the chain (excluding AI Agent nodes)
           const lastActionNode = allNodes
-            .filter(n => n.type === 'custom' && n.data?.type !== 'chain_placeholder')
+            .filter(n => 
+              n.type === 'custom' && 
+              n.data?.type !== 'chain_placeholder' && 
+              n.data?.type !== 'ai_agent'
+            )
             .sort((a, b) => b.position.y - a.position.y)[0]
           
           if (lastActionNode) {
@@ -3149,20 +3162,16 @@ const useWorkflowBuilderState = () => {
                 const chainNodes = chainGroups[chainIndex] || [];
                 
                 if (chainNodes.length > 0) {
-                  // Find the last node in this chain by checking connections
-                  let lastChainNode = chainNodes[0]; // Default to first node if we can't determine
+                  // Find the last node in this chain by Y position (furthest down)
+                  // This is more reliable than checking edges for complex chains
+                  let lastChainNode = chainNodes[0]; // Default to first node
+                  let maxY = chainNodes[0].position.y;
                   
-                  // Find the node that doesn't have any edges going to other nodes in this chain
-                  const workflowConnections = newWorkflow.connections || [];
+                  // Find the node with the highest Y position (furthest down in the chain)
                   for (const node of chainNodes) {
-                    const hasOutgoingEdgeToChainNode = workflowConnections.some(conn => 
-                      conn.source === node.id && 
-                      chainNodes.some(cn => cn.id === conn.target)
-                    );
-                    
-                    if (!hasOutgoingEdgeToChainNode) {
+                    if (node.position.y > maxY) {
+                      maxY = node.position.y;
                       lastChainNode = node;
-                      break;
                     }
                   }
                   
@@ -3190,8 +3199,13 @@ const useWorkflowBuilderState = () => {
             });
           } else {
             // Only add main workflow Add Action if there are no AI Agent chains
-            // Find the last action node (not the trigger) to position the add action node
-            const actionNodes = customNodes.filter(n => n.id !== 'trigger' && !n.data?.isAIAgentChild);
+            // Find the last action node (not the trigger and not AI Agent) to position the add action node
+            const actionNodes = customNodes.filter(n => 
+              n.id !== 'trigger' && 
+              !n.data?.isTrigger &&
+              !n.data?.isAIAgentChild && 
+              n.data?.type !== 'ai_agent'
+            );
             const lastActionNode = actionNodes.length > 0 
               ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
               : null;
@@ -3206,8 +3220,10 @@ const useWorkflowBuilderState = () => {
               };
               allNodes.push(addActionNode);
             } else {
+              // Only add Add Action after trigger if there are no AI Agent nodes
+              const hasAIAgentNodes = customNodes.some(n => n.data?.type === 'ai_agent');
               const triggerNode = customNodes.find(n => n.id === 'trigger');
-              if (triggerNode) {
+              if (triggerNode && !hasAIAgentNodes) {
                 const addActionId = `add-action-${triggerNode.id}`;
                 const addActionNode: Node = {
                   id: addActionId, 
@@ -4271,8 +4287,11 @@ const useWorkflowBuilderState = () => {
 
         let allNodes = [...customNodes];
         
-        // Find the last action node (not the trigger) to position the add action node
-        const actionNodes = customNodes.filter((n: Node) => n.id !== 'trigger');
+        // Find the last action node (not the trigger and not AI Agent) to position the add action node
+        const actionNodes = customNodes.filter((n: Node) => 
+          n.id !== 'trigger' && 
+          n.data?.type !== 'ai_agent'
+        );
         const lastActionNode = actionNodes.length > 0 
           ? actionNodes.sort((a: Node, b: Node) => b.position.y - a.position.y)[0] 
           : null;
@@ -4287,8 +4306,10 @@ const useWorkflowBuilderState = () => {
           };
           allNodes.push(addActionNode);
         } else {
+          // Only add Add Action after trigger if there are no AI Agent nodes
+          const hasAIAgentNodes = customNodes.some((n: Node) => n.data?.type === 'ai_agent');
           const triggerNode = customNodes.find((n: Node) => n.id === 'trigger');
-          if (triggerNode) {
+          if (triggerNode && !hasAIAgentNodes) {
             const addActionId = `add-action-${triggerNode.id}`;
             const addActionNode: Node = {
               id: addActionId, 
