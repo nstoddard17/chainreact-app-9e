@@ -305,6 +305,27 @@ Fields in workflow configuration modals can be set to use AI-generated values. W
    - **Add Action positioning**: Ensure finding actual last node by Y position
    - **AI Agent getting Add Action**: Filter with `n.data?.type !== 'ai_agent'`
 
+#### Chain Persistence Fix (January 10, 2025):
+
+**Problem**: AI Agent chains were not persisting after save/reload because chain nodes lacked proper metadata.
+
+**Solution**: The fix ensures proper `parentChainIndex` metadata flows through the entire chain creation process:
+
+1. **Visual Builder** (`AIAgentVisualChainBuilder.tsx` lines 465-498):
+   - When syncing layout to parent, each node now includes `parentChainIndex`
+   - A `nodeChainMap` tracks which chain (0, 1, 2...) each node belongs to
+   - This metadata is included in the `fullLayoutData.nodes` array
+
+2. **Workflow Builder** (`CollaborativeWorkflowBuilder.tsx` line 6068):
+   - When creating nodes from visual builder data, `parentChainIndex` is transferred
+   - This ensures nodes have the metadata needed for chain identification on reload
+
+3. **Chain Recognition** (`CollaborativeWorkflowBuilder.tsx` lines 1792-1799):
+   - On workflow load, nodes are grouped into chains using `parentChainIndex`
+   - Fallback: If metadata is missing, chain index is extracted from node ID pattern
+
+**Key Insight**: The chain persistence depends on maintaining `parentChainIndex` metadata throughout the node lifecycle - from visual builder creation, through workflow integration, to database save/load.
+
 For complete architecture documentation, see `/learning/docs/ai-agent-chain-builder-architecture.md`
 
 ### Field Dependency Loading Pattern

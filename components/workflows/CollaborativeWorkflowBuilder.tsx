@@ -1986,7 +1986,7 @@ const useWorkflowBuilderState = () => {
             allNodes.push(addActionNode);
           } else {
             // If there are no action nodes, add the "add action" node after the trigger
-            const triggerNode = customNodes.find(n => n.id === 'trigger');
+            const triggerNode = customNodes.find(n => n.data?.isTrigger || n.id.startsWith('trigger'));
             if (triggerNode) {
               const addActionId = `add-action-${triggerNode.id}`;
               const addActionNode: Node = {
@@ -6065,6 +6065,7 @@ function WorkflowBuilderContent() {
                             onAddChain: undefined,
                             isAIAgentChild: true,
                             parentAIAgentId: actualAIAgentId,
+                            parentChainIndex: nodeData.parentChainIndex, // Include chain index from the visual builder
                             originalNodeId: nodeData.id // Keep track of original ID for edge mapping
                           }
                         };
