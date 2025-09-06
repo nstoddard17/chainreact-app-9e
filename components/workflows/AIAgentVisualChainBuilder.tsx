@@ -462,6 +462,27 @@ function AIAgentVisualChainBuilder({
       e.source !== 'trigger' // Exclude trigger edges
     )
     
+    // Create a map to track which chain each node belongs to
+    const nodeChainMap = new Map()
+    aiAgentEdges.forEach((edge, chainIndex) => {
+      let currentNodeId = edge.target
+      
+      // Walk through the chain and mark each node with its chain index
+      while (currentNodeId) {
+        const node = nodes.find(n => n.id === currentNodeId)
+        if (!node || node.type === 'addAction') break
+        
+        // Skip placeholders
+        if (node.data?.type !== 'chain_placeholder') {
+          nodeChainMap.set(node.id, chainIndex)
+        }
+        
+        // Find next node in chain
+        const nextEdge = edges.find(e => e.source === currentNodeId && !e.target.includes('add-action'))
+        currentNodeId = nextEdge?.target || null
+      }
+    })
+    
     // Build comprehensive layout data with full node/edge structure
     const fullLayoutData = {
       chains: extractedChains,
@@ -473,7 +494,8 @@ function AIAgentVisualChainBuilder({
         config: n.data?.config || {},
         title: n.data?.title,
         description: n.data?.description,
-        position: n.position
+        position: n.position,
+        parentChainIndex: nodeChainMap.get(n.id) // Add chain index for each node
       })),
       edges: actionEdges.map(e => ({
         id: e.id,

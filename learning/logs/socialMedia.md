@@ -4,6 +4,10 @@
 
 ## January 10, 2025
 
+### Fixed AI Agent Chain Persistence Issue
+
+Resolved a critical bug where AI Agent chains were not persisting correctly after being added to the workflow. The issue was that chain nodes created from the visual builder were missing the parentChainIndex metadata, which is essential for identifying which chain each node belongs to during workflow reload. The fix ensures that when the AI Agent visual builder syncs its layout to the parent component, it includes the parentChainIndex for each node, and this metadata is properly applied when creating the workflow nodes. This means AI Agent chains now persist correctly through save and reload cycles, maintaining their structure and connections exactly as designed in the visual builder.
+
 ### Fixed AI Agent Chain Add Action Button Logic for Complex Chains
 
 Resolved two critical issues with Add Action button placement in AI Agent chains. First, fixed the logic for finding the last node in chains with 3+ actions - the previous edge-checking approach would incorrectly identify intermediate nodes as the chain end. The solution now uses Y position to reliably find the furthest node down in each chain, ensuring Add Action buttons always appear after the actual last action regardless of chain complexity. Second, prevented AI Agent nodes from incorrectly receiving Add Action buttons by adding explicit filters to exclude nodes with type 'ai_agent' from the main workflow Add Action logic. These fixes ensure proper chain structure and button placement even in complex multi-action workflows.
