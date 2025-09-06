@@ -4,6 +4,10 @@
 
 ## January 10, 2025
 
+### Fixed AI Agent Chain Synchronization with Main Workflow
+
+Resolved a critical issue where AI Agent chains weren't being added to the main workflow after saving the AI Agent configuration. The problem occurred when editing existing AI Agent nodes - the system was detecting existing chain nodes and skipping the update process entirely, preventing any changes from being applied. The fix ensures that when an AI Agent configuration is saved, the workflow builder first removes all existing chain nodes and their associated Add Action buttons, then recreates them with the updated configuration from the visual chain builder. This restoration of the chain synchronization means users can now confidently build, modify, and save complex multi-chain AI workflows, with all actions properly appearing in the main workflow exactly as designed in the visual builder.
+
 ### Enhanced Workflow Builder with Smart Add Action Button Positioning
 
 Implemented intelligent Add Action button positioning in the workflow builder that ensures the button always stays attached to the last action in any chain. When users drag workflow nodes around, the Add Action button now automatically follows its parent node, maintaining a consistent 160px spacing below it. This enhancement uses an optimized node change handler that detects position changes in real-time and updates all connected Add Action buttons accordingly. The system checks edge connections to identify which Add Action belongs to which node, then synchronizes their positions during drag operations. This creates a more intuitive workflow building experience where the Add Action button is always exactly where users expect it to be, eliminating confusion when rearranging complex workflows.
