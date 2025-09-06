@@ -375,6 +375,9 @@ function AIAgentVisualChainBuilder({
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const { fitView, getZoom, setViewport } = useReactFlow()
   
+  // Track which chains have been intentionally emptied to prevent Add Action button recreation
+  const [emptiedChains, setEmptiedChains] = React.useState<number[]>([])
+  
   // Store previous chains to prevent unnecessary updates
   const previousChainsRef = React.useRef<string>('')
   
@@ -467,7 +470,8 @@ function AIAgentVisualChainBuilder({
       layout: {
         verticalSpacing: 120,  // Spacing between nodes in a chain
         horizontalSpacing: 150  // Spacing between chains
-      }
+      },
+      emptiedChains: emptiedChains  // Include the emptiedChains tracking
     }
     
     // Only update if data actually changed
@@ -837,8 +841,45 @@ function AIAgentVisualChainBuilder({
             const previousNodeId = edgesToNode[0].source
             const previousNode = currentNodes.find(n => n.id === previousNodeId)
             
-            // Only add Add Action button if the previous node is not the AI Agent
-            if (previousNode && previousNode.id !== 'ai-agent') {
+            // Check if the previous node is the AI Agent - this means we're deleting the last action in a chain
+            if (previousNode && previousNode.id === 'ai-agent') {
+              // We're deleting the last node in a chain directly connected to AI Agent
+              // Find which chain index this was by checking the edges
+              let chainIndex = 0
+              const aiAgentEdges = currentEdges.filter(e => e.source === 'ai-agent').sort((a, b) => {
+                // Sort by target node position to determine chain order
+                const nodeA = currentNodes.find(n => n.id === a.target)
+                const nodeB = currentNodes.find(n => n.id === b.target)
+                return (nodeA?.position.x || 0) - (nodeB?.position.x || 0)
+              })
+              
+              // Find the index of our edge
+              const ourEdgeIndex = aiAgentEdges.findIndex(e => e.target === nodeId)
+              if (ourEdgeIndex !== -1) {
+                chainIndex = ourEdgeIndex
+              }
+              
+              console.log('✓ [AIAgentVisualChainBuilder] Marking chain', chainIndex, 'as intentionally emptied')
+              
+              // Mark this chain as intentionally emptied
+              setEmptiedChains(prev => {
+                const newEmptied = [...prev]
+                if (!newEmptied.includes(chainIndex)) {
+                  newEmptied.push(chainIndex)
+                }
+                console.log('✓ [AIAgentVisualChainBuilder] Updated emptiedChains:', newEmptied)
+                return newEmptied
+              })
+              
+              // Don't add an Add Action button for AI Agent chains - they were intentionally emptied
+              // Just remove the edges
+              return currentEdges.filter(e => 
+                e.source !== nodeId && 
+                e.target !== nodeId && 
+                e.source !== addActionNodeId && 
+                e.target !== addActionNodeId
+              )
+            } else if (previousNode && previousNode.id !== 'ai-agent') {
               const newAddActionNodeId = `add-action-${previousNodeId}-${Date.now()}`
               const addActionNode: Node = {
                 id: newAddActionNodeId,

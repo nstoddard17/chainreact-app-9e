@@ -806,7 +806,7 @@ const useWorkflowBuilderState = () => {
         
         console.log(`🧹 [WorkflowBuilder] Chain ${chainIndex} has ${remainingChainNodes.length} remaining nodes`)
         
-        // If no nodes remain in this chain, remove its Add Action button
+        // If no nodes remain in this chain, remove its Add Action button and mark chain as emptied
         if (remainingChainNodes.length === 0) {
           console.log(`🧹 [WorkflowBuilder] No nodes left in chain ${chainIndex}, removing Add Action button completely`)
           
@@ -830,6 +830,29 @@ const useWorkflowBuilderState = () => {
             )
             console.log(`  ✓ Removed edges connected to orphaned Add Action buttons`)
           }
+          
+          // Mark this chain as intentionally emptied in the AI Agent node's data
+          cleanedNodes = cleanedNodes.map(n => {
+            if (n.id === parentAIAgentId && n.data?.type === 'ai_agent') {
+              // Initialize emptiedChains array if it doesn't exist
+              const emptiedChains = n.data.emptiedChains || []
+              if (!emptiedChains.includes(chainIndex)) {
+                emptiedChains.push(chainIndex)
+              }
+              
+              console.log(`  ✓ Marked chain ${chainIndex} as intentionally emptied in AI Agent node`)
+              console.log(`  ✓ emptiedChains is now:`, emptiedChains)
+              
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  emptiedChains: emptiedChains
+                }
+              }
+            }
+            return n
+          })
         }
       }
     }
@@ -1150,7 +1173,24 @@ const useWorkflowBuilderState = () => {
         })
       }
       
-      setNodes(nodesWithoutRebuildingAddActions)
+      // Apply the emptiedChains update to the AI Agent node if it was updated earlier
+      const finalNodes = nodesWithoutRebuildingAddActions.map(n => {
+        // Find if this node was updated with emptiedChains in cleanedNodes
+        const updatedNode = cleanedNodes.find(cn => cn.id === n.id && cn.data?.emptiedChains)
+        if (updatedNode && n.data?.type === 'ai_agent') {
+          console.log(`🔄 [WorkflowBuilder] Transferring emptiedChains to final AI Agent node ${n.id}:`, updatedNode.data.emptiedChains)
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              emptiedChains: updatedNode.data.emptiedChains
+            }
+          }
+        }
+        return n
+      })
+      
+      setNodes(finalNodes)
       setEdges(edgesWithoutRebuildingAddActions)
       
       // Fit view to show the updated workflow
@@ -1158,24 +1198,25 @@ const useWorkflowBuilderState = () => {
     }, 50)
     
     // Save the workflow after node deletion
+    // IMPORTANT: We need to get the current nodes which have the updated emptiedChains data
+    // Wait longer to ensure the state update has completed
     setTimeout(async () => {
       try {
         if (currentWorkflow?.id) {
-          // Get current nodes and edges from React Flow (same as handleSave)
-          // Only filter out the nodes that are being deleted
+          // Get the current nodes from React Flow state which should have the emptiedChains update
           const reactFlowNodes = getNodes().filter((n: Node) => 
-            n.type === 'custom' && 
-            !nodesToDelete.includes(n.id)
+            n.type === 'custom'
           )
-          const reactFlowEdges = getEdges().filter((e: Edge) => 
-            reactFlowNodes.some((n: Node) => n.id === e.source) && 
-            reactFlowNodes.some((n: Node) => n.id === e.target) &&
-            !nodesToDelete.includes(e.source) &&
-            !nodesToDelete.includes(e.target)
-          )
+          // Get the current edges
+          const reactFlowEdges = getEdges()
 
           // Map to database format (same as handleSave)
           const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
+            // Log AI Agent nodes to check emptiedChains
+            if (n.data?.type === 'ai_agent') {
+              console.log(`🔍 [WorkflowBuilder] Saving AI Agent node ${n.id} with emptiedChains:`, n.data.emptiedChains || 'undefined')
+              console.log(`🔍 [WorkflowBuilder] Full AI Agent node data:`, n.data)
+            }
             const position = {
               x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
               y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
@@ -1196,7 +1237,9 @@ const useWorkflowBuilderState = () => {
                 // Preserve AI Agent chain metadata
                 isAIAgentChild: n.data.isAIAgentChild as boolean | undefined,
                 parentAIAgentId: n.data.parentAIAgentId as string | undefined,
-                parentChainIndex: n.data.parentChainIndex as number | undefined
+                parentChainIndex: n.data.parentChainIndex as number | undefined,
+                // Preserve emptiedChains tracking for AI Agent nodes
+                emptiedChains: n.data.emptiedChains as number[] | undefined
               },
             };
           })
@@ -1218,7 +1261,7 @@ const useWorkflowBuilderState = () => {
       } catch (error) {
         console.error('❌ [WorkflowBuilder] Failed to save workflow after node deletion:', error)
       }
-    }, 100) // Delay slightly more to ensure all state updates are complete
+    }, 200) // Increased delay to ensure state updates with emptiedChains are complete
   }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick, removeNode, currentWorkflow, updateWorkflow])
 
   const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
@@ -1599,6 +1642,7 @@ const useWorkflowBuilderState = () => {
           aiAgentNodes.forEach(aiAgentNode => {
             const aiAgentId = aiAgentNode.id;
             console.log(`🔄 [WorkflowBuilder] Processing AI Agent ${aiAgentId} during load`);
+            console.log(`🔍 [WorkflowBuilder] AI Agent ${aiAgentId} emptiedChains:`, aiAgentNode.data?.emptiedChains || 'undefined');
             
             // Find all child nodes of this AI Agent
             const directChildNodes = customNodes.filter(n => {
@@ -1732,33 +1776,50 @@ const useWorkflowBuilderState = () => {
                   y: lastChainNode.position.y + 160
                 });
               } else {
-                // Chain exists but has no nodes yet - create a placeholder Add Action
-                console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} is empty, creating placeholder Add Action`);
+                // Chain exists but has no nodes yet
+                // Check if this chain was intentionally emptied
+                const emptiedChains = aiAgentNode.data?.emptiedChains || [];
+                const wasIntentionallyEmptied = emptiedChains.includes(chainIndex);
                 
-                // Position it relative to the AI Agent node
-                const baseX = aiAgentNode.position.x + (chainIndex * 250); // Offset each chain horizontally
-                const baseY = aiAgentNode.position.y + 200;
+                console.log(`🔍 [WorkflowBuilder] Checking if chain ${chainIndex} was intentionally emptied:`, {
+                  aiAgentNodeId: aiAgentNode.id,
+                  emptiedChains: emptiedChains,
+                  chainIndex: chainIndex,
+                  wasIntentionallyEmptied: wasIntentionallyEmptied,
+                  aiAgentNodeData: aiAgentNode.data
+                });
                 
-                const addActionId = `add-action-${aiAgentId}-chain${chainIndex}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                const addActionNode: Node = {
-                  id: addActionId,
-                  type: 'addAction',
-                  position: { x: baseX, y: baseY },
-                  data: {
-                    parentId: aiAgentId, // Parent is the AI Agent itself for empty chains
-                    parentAIAgentId: aiAgentId,
-                    parentChainIndex: chainIndex,
-                    isChainAddAction: true,
-                    isPlaceholder: true,
-                    onClick: () => {
-                      // For placeholder, open the action dialog for this chain
-                      handleAddActionClick(addActionId, aiAgentId);
+                if (wasIntentionallyEmptied) {
+                  console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} was intentionally emptied, NOT creating placeholder Add Action`);
+                } else {
+                  // Chain was never populated - create a placeholder Add Action
+                  console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} is empty, creating placeholder Add Action`);
+                  
+                  // Position it relative to the AI Agent node
+                  const baseX = aiAgentNode.position.x + (chainIndex * 250); // Offset each chain horizontally
+                  const baseY = aiAgentNode.position.y + 200;
+                  
+                  const addActionId = `add-action-${aiAgentId}-chain${chainIndex}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                  const addActionNode: Node = {
+                    id: addActionId,
+                    type: 'addAction',
+                    position: { x: baseX, y: baseY },
+                    data: {
+                      parentId: aiAgentId, // Parent is the AI Agent itself for empty chains
+                      parentAIAgentId: aiAgentId,
+                      parentChainIndex: chainIndex,
+                      isChainAddAction: true,
+                      isPlaceholder: true,
+                      onClick: () => {
+                        // For placeholder, open the action dialog for this chain
+                        handleAddActionClick(addActionId, aiAgentId);
+                      }
                     }
-                  }
-                };
-                
-                aiAgentAddActionNodes.push(addActionNode);
-                console.log(`🔄 [WorkflowBuilder] Created placeholder Add Action node ${addActionId} for empty chain ${chainIndex}`);
+                  };
+                  
+                  aiAgentAddActionNodes.push(addActionNode);
+                  console.log(`🔄 [WorkflowBuilder] Created placeholder Add Action node ${addActionId} for empty chain ${chainIndex}`);
+                }
               }
             }
           });
@@ -2296,6 +2357,22 @@ const useWorkflowBuilderState = () => {
           const updatedNodes = filteredNodes.map(node => {
             let updatedNode = node
             
+            // If we're adding to an AI Agent chain that was previously emptied, clear the emptiedChains flag
+            if (chainMetadata && node.data?.type === 'ai_agent' && node.id === chainMetadata.parentAIAgentId) {
+              const emptiedChains = node.data?.emptiedChains || []
+              if (emptiedChains.includes(chainMetadata.parentChainIndex)) {
+                const updatedEmptiedChains = emptiedChains.filter((idx: number) => idx !== chainMetadata.parentChainIndex)
+                updatedNode = {
+                  ...updatedNode,
+                  data: {
+                    ...updatedNode.data,
+                    emptiedChains: updatedEmptiedChains
+                  }
+                }
+                console.log(`🔄 [WorkflowBuilder] Cleared emptied flag for chain ${chainMetadata.parentChainIndex} in AI Agent`)
+              }
+            }
+            
             // Shift down nodes that are at or below the insertion point
             if (nodesToShift.some(n => n.id === node.id)) {
               updatedNode = {
@@ -2597,16 +2674,28 @@ const useWorkflowBuilderState = () => {
             config: newConfig
           };
           
-          // If it's an AI Agent with chains, remove the onAddChain button
-          if (isAIAgent && hasChains) {
-            updatedData.onAddChain = undefined;
-            updatedData.hasChains = true;
-            updatedData.chainCount = chainsArray.length;
-            console.log('✅ [WorkflowBuilder] Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
-          } else if (isAIAgent) {
-            // Ensure we preserve the hasChains state even if config doesn't have chains
-            updatedData.hasChains = (node.data as any).hasChains || false;
-            updatedData.chainCount = (node.data as any).chainCount || 0;
+          // If it's an AI Agent, handle chains data and emptiedChains tracking
+          if (isAIAgent) {
+            // Extract emptiedChains from the chains configuration
+            const emptiedChains = newConfig?.chains?.emptiedChains || [];
+            updatedData.emptiedChains = emptiedChains;
+            
+            console.log('🔍 [WorkflowBuilder] Storing emptiedChains in AI Agent node:', {
+              nodeId: node.id,
+              emptiedChains: emptiedChains,
+              emptiedChainsCount: emptiedChains.length
+            });
+            
+            if (hasChains) {
+              updatedData.onAddChain = undefined;
+              updatedData.hasChains = true;
+              updatedData.chainCount = chainsArray.length;
+              console.log('✅ [WorkflowBuilder] Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
+            } else {
+              // Ensure we preserve the hasChains state even if config doesn't have chains
+              updatedData.hasChains = (node.data as any).hasChains || false;
+              updatedData.chainCount = (node.data as any).chainCount || 0;
+            }
           }
           
           const updatedNode = { ...node, data: updatedData };
@@ -2736,7 +2825,9 @@ const useWorkflowBuilderState = () => {
             // Preserve AI Agent chain metadata
             isAIAgentChild: n.data.isAIAgentChild as boolean | undefined,
             parentAIAgentId: n.data.parentAIAgentId as string | undefined,
-            parentChainIndex: n.data.parentChainIndex as number | undefined
+            parentChainIndex: n.data.parentChainIndex as number | undefined,
+            // Preserve emptiedChains tracking for AI Agent nodes
+            emptiedChains: n.data.emptiedChains as number[] | undefined
           },
         };
       })
