@@ -4559,15 +4559,24 @@ function WorkflowBuilderContent() {
     }
   }, [nodeStatuses, currentNodeId, setNodes])
 
-  // Add handleAddNodeBetween to all custom edges
+  // Add handleAddNodeBetween to all custom edges that don't already have it
   const processedEdges = useMemo(() => {
     return edges.map(edge => {
       if (edge.type === 'custom') {
+        // If edge already has onAddNode, preserve it
+        // Otherwise, create one using the edge's source and target
+        if (edge.data?.onAddNode) {
+          return edge  // Keep existing handler
+        }
+        
         return {
           ...edge,
           data: {
             ...edge.data,
-            onAddNode: handleAddNodeBetween
+            onAddNode: (position: { x: number, y: number }) => {
+              // Use the edge's source and target directly
+              handleAddNodeBetween(edge.source, edge.target, position)
+            }
           }
         }
       }
@@ -5010,6 +5019,21 @@ function WorkflowBuilderContent() {
               setListeningMode(false)
               setIsExecuting(false)
               setStepContinueCallback(null)
+              
+              // Clear all node execution statuses to reset visual states
+              const currentNodes = getNodes()
+              const resetNodes = currentNodes.map((node: Node) => ({
+                ...node,
+                data: {
+                  ...node.data,
+                  executionStatus: null,
+                  isActiveExecution: false,
+                  isListening: false,
+                  errorMessage: null,
+                  errorTimestamp: null
+                }
+              }))
+              setNodes(resetNodes)
               
               toast({
                 title: "Execution Stopped",
