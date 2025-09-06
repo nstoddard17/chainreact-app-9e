@@ -42,6 +42,21 @@ export class NodeExecutionService {
       
       let nodeResult = await this.executeNodeByType(node, allNodes, connections, context)
 
+      // If in test mode and this is an action that would send data externally,
+      // wrap the result with intercepted metadata
+      if (context.testMode && this.isExternalAction(node.data.type) && nodeResult) {
+        nodeResult = {
+          ...nodeResult,
+          intercepted: {
+            type: node.data.type,
+            config: node.data.config || {},
+            wouldHaveSent: nodeResult,
+            nodeId: node.id,
+            nodeName: node.data.title || node.data.type
+          }
+        }
+      }
+
       // Store result in data flow manager
       if (context.dataFlowManager && nodeResult) {
         context.dataFlowManager.setNodeOutput(node.id, nodeResult)
@@ -189,5 +204,28 @@ export class NodeExecutionService {
       'google_sheets_action_delete_row', 'google_sheets_action_list_rows'
     ]
     return integrationTypes.includes(nodeType)
+  }
+
+  private isExternalAction(nodeType: string): boolean {
+    // Actions that would send data externally (should be intercepted in sandbox mode)
+    const externalActions = [
+      'gmail_action_send_email', 'gmail_action_add_label', 'gmail_action_remove_label',
+      'gmail_action_mark_read', 'gmail_action_mark_unread', 'gmail_action_archive',
+      'gmail_action_delete', 'gmail_send',
+      'slack_send_message', 'discord_send_message', 'teams_send_message',
+      'webhook_call', 'calendar_create_event',
+      'sheets_append', 'sheets_update', 'sheets_create_spreadsheet',
+      'google_drive_create_file', 'google_drive_upload_file',
+      'onedrive_upload_file', 'dropbox_upload_file',
+      'google_docs_create', 'google_docs_update',
+      'google_calendar_action_create_event', 'google_calendar_action_update_event',
+      'google_calendar_action_delete_event',
+      'google_sheets_action_create_spreadsheet', 'google_sheets_unified_action',
+      'google_sheets_action_create_row', 'google_sheets_action_update_row',
+      'google_sheets_action_delete_row',
+      'notion_create_page', 'notion_update_page', 'airtable_create_record',
+      'airtable_update_record', 'hubspot_create_contact', 'stripe_create_charge'
+    ]
+    return externalActions.includes(nodeType)
   }
 }

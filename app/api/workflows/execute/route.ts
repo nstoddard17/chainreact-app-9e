@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       connections: edges // Some parts of the code use 'connections' instead of 'edges'
     } : null
     
-    const results = await workflowExecutionService.executeWorkflow(
+    const executionResult = await workflowExecutionService.executeWorkflow(
       workflow, 
       inputData, 
       user.id, 
@@ -124,9 +124,20 @@ export async function POST(request: Request) {
     
     console.log("Workflow execution completed successfully")
 
+    // Check if we have intercepted actions (sandbox mode)
+    if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {
+      console.log(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
+      return NextResponse.json({
+        success: true,
+        results: executionResult.results,
+        interceptedActions: executionResult.interceptedActions,
+        executionTime: new Date().toISOString()
+      })
+    }
+
     return NextResponse.json({
       success: true,
-      results: results,
+      results: executionResult,
       executionTime: new Date().toISOString()
     })
 
