@@ -5853,6 +5853,9 @@ function WorkflowBuilderContent() {
                   
                   // Use setNodes to access current state and find the AI Agent node
                   setNodes((currentNodes) => {
+                    // Work with a mutable copy of nodes that we can update
+                    let workingNodes = [...currentNodes];
+                    
                     // Collect all new nodes and edges first
                     const newNodesToAdd: any[] = [];
                     const newEdgesToAdd: any[] = [];
@@ -5860,7 +5863,7 @@ function WorkflowBuilderContent() {
                     let aiAgentNode;
                     if (aiAgentNodeId === 'pending-action') {
                       // Find the most recently added AI Agent node
-                      aiAgentNode = currentNodes
+                      aiAgentNode = workingNodes
                         .filter(n => n.data?.type === 'ai_agent')
                         .sort((a, b) => {
                           // Sort by ID (assuming IDs are like "node-timestamp")
@@ -5870,11 +5873,11 @@ function WorkflowBuilderContent() {
                         })[0];
                       console.log('🔄 [WorkflowBuilder] Found AI Agent node by type:', aiAgentNode?.id);
                     } else {
-                      aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId);
+                      aiAgentNode = workingNodes.find(n => n.id === aiAgentNodeId);
                     }
                     
                     console.log('🔄 [WorkflowBuilder] Looking for AI Agent node with ID:', aiAgentNodeId);
-                    console.log('🔄 [WorkflowBuilder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.data?.type })));
+                    console.log('🔄 [WorkflowBuilder] Current nodes:', workingNodes.map(n => ({ id: n.id, type: n.data?.type })));
                     console.log('🔄 [WorkflowBuilder] AI Agent node found:', aiAgentNode);
                     
                     if (!aiAgentNode) {
@@ -5887,15 +5890,35 @@ function WorkflowBuilderContent() {
                     console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
                     
                     // Check if this AI Agent already has chain nodes (editing existing vs new)
-                    const existingChainNodes = currentNodes.filter(n => 
+                    const existingChainNodes = workingNodes.filter(n => 
                       n.data?.parentAIAgentId === actualAIAgentId && 
                       n.data?.isAIAgentChild
                     );
                     
                     if (existingChainNodes.length > 0) {
-                      console.log(`⚠️ [WorkflowBuilder] AI Agent ${actualAIAgentId} already has ${existingChainNodes.length} chain nodes, skipping duplicate creation`);
-                      isProcessingChainsRef.current = false;
-                      return currentNodes; // Don't add duplicates
+                      console.log(`🔄 [WorkflowBuilder] AI Agent ${actualAIAgentId} already has ${existingChainNodes.length} chain nodes, removing old ones before adding updated chains`);
+                      
+                      // Remove existing chain nodes and their edges
+                      const chainNodeIds = existingChainNodes.map(n => n.id);
+                      const addActionNodeIds = workingNodes
+                        .filter(n => n.type === 'addAction' && (
+                          n.data?.parentAIAgentId === actualAIAgentId ||
+                          chainNodeIds.some(id => n.id.includes(id))
+                        ))
+                        .map(n => n.id);
+                      
+                      const allNodesToRemove = [...chainNodeIds, ...addActionNodeIds];
+                      
+                      // Filter out the old chain nodes
+                      workingNodes = workingNodes.filter(n => !allNodesToRemove.includes(n.id));
+                      
+                      // Also remove edges connected to these nodes
+                      setEdges((currentEdges) => {
+                        return currentEdges.filter(e => 
+                          !allNodesToRemove.includes(e.source) && 
+                          !allNodesToRemove.includes(e.target)
+                        );
+                      });
                     }
                     
                     // Decide which processing method to use
@@ -6396,7 +6419,7 @@ function WorkflowBuilderContent() {
                     const newNodeIds = new Set(newNodesToAdd.map(n => n.id));
                     
                     const removedNodes: any[] = [];
-                    const filteredNodes = currentNodes.filter(n => {
+                    const filteredNodes = workingNodes.filter(n => {
                       // Don't remove nodes we're about to add (prevents removing nodes we just created)
                       if (newNodeIds.has(n.id)) {
                         return true;
@@ -6449,7 +6472,7 @@ function WorkflowBuilderContent() {
                       return node;
                     });
                     
-                    console.log(`🔄 [WorkflowBuilder] Filtered ${currentNodes.length - filteredNodes.length} existing AI Agent child nodes`);
+                    console.log(`🔄 [WorkflowBuilder] Filtered ${workingNodes.length - filteredNodes.length} existing AI Agent child nodes`);
                     // Then add new nodes
                     const updatedNodes = [...updatedFilteredNodes, ...newNodesToAdd];
                     console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length}`);
@@ -6469,8 +6492,8 @@ function WorkflowBuilderContent() {
                           // Remove existing edges connected to AI Agent child nodes being removed
                           // But KEEP edges to/from Add Action nodes (plus buttons)
                           const filteredEdges = eds.filter(e => {
-                            const sourceNode = currentNodes.find(n => n.id === e.source);
-                            const targetNode = currentNodes.find(n => n.id === e.target);
+                            const sourceNode = workingNodes.find(n => n.id === e.source);
+                            const targetNode = workingNodes.find(n => n.id === e.target);
                             
                             // Keep edges to/from Add Action nodes
                             if (sourceNode?.type === 'addAction' || targetNode?.type === 'addAction') {
