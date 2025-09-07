@@ -699,38 +699,52 @@ const useWorkflowBuilderState = () => {
     let repositionAmount = 0
     
     if (isAIAgentChainNode && !isAIAgent) {
-      console.log('🔄 [WorkflowBuilder] Deleting node from AI Agent chain, will reposition nodes')
-      
       // Get the chain index of the deleted node
       const deletedNodeChainIndex = nodeToRemove.data?.parentChainIndex
       const deletedNodeParentId = nodeToRemove.data?.parentAIAgentId
       
-      // Find all nodes below the deleted node in the SAME chain only
-      const deletedNodePos = nodeToRemove.position
-      const nodesBelow = allNodes.filter(n => {
-        // Must be in the same chain (same parent AI Agent and chain index)
-        const sameChain = n.data?.parentAIAgentId === deletedNodeParentId && 
-                         n.data?.parentChainIndex === deletedNodeChainIndex
-        
-        // Must be below the deleted node
-        const isBelow = n.position.y > deletedNodePos.y
-        
-        // Must not be a node that's being deleted
-        const notBeingDeleted = !nodesToDelete.includes(n.id)
-        
-        // Must not be an Add Action node (they get repositioned automatically)
-        const notAddAction = n.type !== 'addAction'
-        
-        return sameChain && isBelow && notBeingDeleted && notAddAction
+      // Count remaining nodes in this chain after deletion
+      const remainingChainNodes = allNodes.filter(n => {
+        return n.data?.parentAIAgentId === deletedNodeParentId && 
+               n.data?.parentChainIndex === deletedNodeChainIndex &&
+               !nodesToDelete.includes(n.id) &&
+               n.type !== 'addAction'
       })
       
-      // Calculate how much to move nodes up (120px for AI chains)
-      repositionAmount = -120
-      nodesToReposition = nodesBelow.map(n => n.id)
-      
-      console.log('🔄 [WorkflowBuilder] Nodes to move up (same chain only):', nodesToReposition)
-      console.log('🔄 [WorkflowBuilder] Move amount:', repositionAmount)
-      console.log('🔄 [WorkflowBuilder] Deleted node chain:', deletedNodeChainIndex, 'parent:', deletedNodeParentId)
+      // Only reposition if there are remaining nodes in the chain
+      // If the chain is empty, no repositioning is needed since nodes stay in place
+      if (remainingChainNodes.length > 0) {
+        console.log('🔄 [WorkflowBuilder] Deleting node from AI Agent chain, will reposition nodes')
+        
+        // Find all nodes below the deleted node in the SAME chain only
+        const deletedNodePos = nodeToRemove.position
+        const nodesBelow = allNodes.filter(n => {
+          // Must be in the same chain (same parent AI Agent and chain index)
+          const sameChain = n.data?.parentAIAgentId === deletedNodeParentId && 
+                           n.data?.parentChainIndex === deletedNodeChainIndex
+          
+          // Must be below the deleted node
+          const isBelow = n.position.y > deletedNodePos.y
+          
+          // Must not be a node that's being deleted
+          const notBeingDeleted = !nodesToDelete.includes(n.id)
+          
+          // Must not be an Add Action node (they get repositioned automatically)
+          const notAddAction = n.type !== 'addAction'
+          
+          return sameChain && isBelow && notBeingDeleted && notAddAction
+        })
+        
+        // Calculate how much to move nodes up (120px for AI chains)
+        repositionAmount = -120
+        nodesToReposition = nodesBelow.map(n => n.id)
+        
+        console.log('🔄 [WorkflowBuilder] Nodes to move up (same chain only):', nodesToReposition)
+        console.log('🔄 [WorkflowBuilder] Move amount:', repositionAmount)
+        console.log('🔄 [WorkflowBuilder] Deleted node chain:', deletedNodeChainIndex, 'parent:', deletedNodeParentId)
+      } else {
+        console.log('🔄 [WorkflowBuilder] Chain emptied, no repositioning needed')
+      }
     }
     
     // Clear configuration preferences for all deleted nodes
@@ -1464,9 +1478,27 @@ const useWorkflowBuilderState = () => {
       n.type !== 'addAction'
     )
     
-    // Count existing chain placeholders to determine chain number
-    const chainPlaceholders = childNodes.filter(n => n.data?.type === 'chain_placeholder')
-    const newChainNumber = chainPlaceholders.length + 1
+    // Find the highest chain index to determine the next chain number
+    // We need to check ALL child nodes, not just placeholders, since chains may have real nodes
+    let highestChainIndex = -1
+    childNodes.forEach(node => {
+      const chainIndex = node.data?.parentChainIndex
+      if (typeof chainIndex === 'number' && chainIndex > highestChainIndex) {
+        highestChainIndex = chainIndex
+      }
+    })
+    
+    // The new chain should be one more than the highest existing chain index
+    const newChainNumber = highestChainIndex + 2 // +2 because highestChainIndex is 0-based, and we want the display number
+    const newChainIndex = highestChainIndex + 1 // The actual 0-based index for this new chain
+    
+    console.log('🔄 [WorkflowBuilder] Creating new chain:', {
+      aiAgentNodeId,
+      existingChildNodes: childNodes.length,
+      highestChainIndex,
+      newChainNumber,
+      newChainIndex
+    })
     
     // Calculate position with proper spacing
     const horizontalSpacing = 550  // Increased gap between chains to prevent overlap
@@ -1493,7 +1525,7 @@ const useWorkflowBuilderState = () => {
     // Create a chain placeholder node with proper metadata and Add Action button
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substr(2, 9)
-    const newNodeId = `${aiAgentNodeId}-chain${newChainNumber - 1}-placeholder-${timestamp}-${randomId}`
+    const newNodeId = `${aiAgentNodeId}-chain${newChainIndex}-placeholder-${timestamp}-${randomId}`
     
     const newNode = {
       id: newNodeId,
@@ -1503,7 +1535,7 @@ const useWorkflowBuilderState = () => {
         y: baseY
       },
       data: {
-        title: `Chain ${newChainNumber}`,
+        title: `Chain ${newChainIndex + 1}`, // Display as 1-based (Chain 1, Chain 2, etc.)
         description: 'Click + Add Action to add your first action',
         type: 'chain_placeholder',
         providerId: 'core',
@@ -1511,7 +1543,7 @@ const useWorkflowBuilderState = () => {
         // Mark this as an AI Agent child with proper chain metadata
         isAIAgentChild: true,
         parentAIAgentId: aiAgentNodeId,
-        parentChainIndex: newChainNumber - 1, // Zero-indexed chain number
+        parentChainIndex: newChainIndex, // Use the calculated chain index
         config: {},
         onConfigure: handleConfigureNode,
         onDelete: handleDeleteNodeWithConfirmation,
@@ -1563,7 +1595,7 @@ const useWorkflowBuilderState = () => {
     
     toast({
       title: "New Chain Added",
-      description: `Chain ${newChainNumber} has been added. Click to add actions to your chain.`
+      description: `Chain ${newChainIndex + 1} has been added. Click to add actions to your chain.`
     })
   }, [getNodes, setNodes, setEdges, handleAddActionClick, handleDeleteNode, handleInsertAction, fitView, toast])
 
@@ -2556,6 +2588,24 @@ const useWorkflowBuilderState = () => {
       })
     }
     
+    // Check if we need to inherit AI Agent chain metadata
+    const parentNodeData = parentNode.data
+    const isParentInAIAgentChain = parentNodeData?.isAIAgentChild && parentNodeData?.parentAIAgentId
+    const isParentPlaceholder = parentNode.data?.type === 'chain_placeholder'
+    
+    // If the parent is a chain_placeholder or an AI Agent child, inherit the chain metadata
+    if (isParentInAIAgentChain || isParentPlaceholder) {
+      newActionNodeData.isAIAgentChild = true
+      newActionNodeData.parentAIAgentId = parentNodeData.parentAIAgentId
+      newActionNodeData.parentChainIndex = parentNodeData.parentChainIndex
+      console.log('🔄 [WorkflowBuilder] Adding AI Agent chain metadata to new node:', {
+        parentAIAgentId: parentNodeData.parentAIAgentId,
+        parentChainIndex: parentNodeData.parentChainIndex,
+        newNodeId: newNodeId,
+        isPlaceholder: isParentPlaceholder
+      })
+    }
+    
     // Handle insertion between nodes - check this BEFORE creating the node
     if (sourceNodeInfo.insertBefore) {
       console.log('🔄 [WorkflowBuilder] Preparing to insert node between:', { 
@@ -2568,19 +2618,18 @@ const useWorkflowBuilderState = () => {
       const targetNode = getNodes().find((n) => n.id === sourceNodeInfo.insertBefore)
       
       // Check if we're inserting into an AI Agent chain
-      const parentNodeData = parentNode.data
       const targetNodeData = targetNode?.data
       const isInsertingIntoAIAgentChain = 
         (parentNodeData?.isAIAgentChild && parentNodeData?.parentAIAgentId) ||
         (targetNodeData?.isAIAgentChild && targetNodeData?.parentAIAgentId)
       
-      // If inserting into an AI Agent chain, inherit the chain metadata
-      if (isInsertingIntoAIAgentChain) {
+      // If inserting into an AI Agent chain and we haven't already set metadata, inherit it
+      if (isInsertingIntoAIAgentChain && !newActionNodeData.isAIAgentChild) {
         const chainMetadata = parentNodeData?.isAIAgentChild ? parentNodeData : targetNodeData
         newActionNodeData.isAIAgentChild = true
         newActionNodeData.parentAIAgentId = chainMetadata.parentAIAgentId
         newActionNodeData.parentChainIndex = chainMetadata.parentChainIndex
-        console.log('🔄 [WorkflowBuilder] Will inherit AI Agent chain metadata:', {
+        console.log('🔄 [WorkflowBuilder] Will inherit AI Agent chain metadata from insertion:', {
           parentAIAgentId: chainMetadata.parentAIAgentId,
           parentChainIndex: chainMetadata.parentChainIndex,
           newNodeId: newNodeId
@@ -2589,7 +2638,7 @@ const useWorkflowBuilderState = () => {
     }
     
     // Check if the parent node is a chain_placeholder
-    const isReplacingPlaceholder = parentNode.data?.type === 'chain_placeholder'
+    const isReplacingPlaceholder = isParentPlaceholder
     
     // Use consistent 120px vertical spacing like AI Agent chain builder
     // If replacing a placeholder, use the placeholder's position
