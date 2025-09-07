@@ -646,15 +646,21 @@ const useWorkflowBuilderState = () => {
         
         // Check if it's a direct child of the AI Agent (has parentAIAgentId)
         if (n.data?.parentAIAgentId === nodeId) {
-          console.log(`  - Found child via parentAIAgentId: ${n.id}`)
+          console.log(`  - Found child via parentAIAgentId: ${n.id} (type: ${n.data?.type})`)
+          return true
+        }
+        
+        // Check if it's marked as an AI Agent child
+        if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === nodeId) {
+          console.log(`  - Found AI Agent child: ${n.id} (type: ${n.data?.type})`)
           return true
         }
         
         // Only delete Add Action nodes that are specifically part of AI Agent chains
         // Don't delete regular workflow plus buttons that might be after the AI agent
         if (n.type === 'addAction') {
-          // Delete chain Add Action nodes (marked with isChainAddAction)
-          if (n.data?.parentAIAgentId === nodeId && n.data?.isChainAddAction) {
+          // Delete chain Add Action nodes (marked with isChainAddAction or parentAIAgentId)
+          if (n.data?.parentAIAgentId === nodeId) {
             console.log(`  - Found chain Add Action via parentAIAgentId: ${n.id}`)
             return true
           }
@@ -667,8 +673,9 @@ const useWorkflowBuilderState = () => {
         }
         
         // Check if it's part of an AI Agent chain (has the AI Agent ID in its ID)
+        // This catches chain placeholders and other nodes created with the AI Agent ID pattern
         if (n.id.includes(`${nodeId}-chain`) || n.id.includes(`${nodeId}-rt-chain`)) {
-          console.log(`  - Found chain node via ID pattern: ${n.id}`)
+          console.log(`  - Found chain node via ID pattern: ${n.id} (type: ${n.data?.type})`)
           return true
         }
         
@@ -1852,7 +1859,7 @@ const useWorkflowBuilderState = () => {
                 onDelete: handleDeleteNodeWithConfirmation,
                 onRename: handleRenameNode,
                 onChangeTrigger: (typeof node.data.type === 'string' && node.data.type.includes('trigger')) ? handleChangeTrigger : undefined,
-                onAddChain: node.data.type === 'ai_agent' && !(node.data as any)?.hasChains ? handleAddChain : undefined,
+                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
                 // Use the saved providerId directly, or look it up from the node component
                 providerId: node.data.providerId || (nodeComponent ? nodeComponent.providerId : undefined) || 
                   // Fallback: determine providerId based on known types
@@ -2514,7 +2521,9 @@ const useWorkflowBuilderState = () => {
     
     // Check if we're adding to an AI Agent chain
     const clickedAddActionNode = getNodes().find(n => n.id === sourceNodeInfo.id)
-    const isAddingToAIAgentChain = clickedAddActionNode?.data?.isChainAddAction
+    // Check both for chain Add Action buttons and chain placeholders
+    const isAddingToAIAgentChain = clickedAddActionNode?.data?.isChainAddAction || 
+                                   (parentNode.data?.isAIAgentChild && parentNode.data?.parentAIAgentId)
     
     const newNodeId = `node-${Date.now()}`
     const newActionNodeData: any = {
@@ -2525,8 +2534,8 @@ const useWorkflowBuilderState = () => {
       onConfigure: handleConfigureNode, 
       onDelete: handleDeleteNodeWithConfirmation,
       onRename: handleRenameNode,
-      // Only show Add Chain button if it's an AI Agent without chains
-      onAddChain: isAIAgent && !hasChains ? handleAddChain : undefined,
+      // Show Add Chain button for all AI Agent nodes
+      onAddChain: isAIAgent ? handleAddChain : undefined,
       providerId: integration.id, 
       config,
       // Set hasChains flag for AI Agents
@@ -2535,10 +2544,16 @@ const useWorkflowBuilderState = () => {
     }
     
     // If adding to an AI Agent chain, preserve the chain metadata
-    if (isAddingToAIAgentChain && clickedAddActionNode?.data) {
+    if (isAddingToAIAgentChain) {
+      // Get metadata from either the clicked Add Action node or the parent node (for placeholders)
+      const metadataSource = clickedAddActionNode?.data?.parentAIAgentId ? clickedAddActionNode.data : parentNode.data
       newActionNodeData.isAIAgentChild = true
-      newActionNodeData.parentAIAgentId = clickedAddActionNode.data.parentAIAgentId
-      newActionNodeData.parentChainIndex = clickedAddActionNode.data.parentChainIndex
+      newActionNodeData.parentAIAgentId = metadataSource.parentAIAgentId
+      newActionNodeData.parentChainIndex = metadataSource.parentChainIndex
+      console.log('🔄 [WorkflowBuilder] Adding AI Agent chain metadata to new node:', {
+        parentAIAgentId: metadataSource.parentAIAgentId,
+        parentChainIndex: metadataSource.parentChainIndex
+      })
     }
     
     // Handle insertion between nodes - check this BEFORE creating the node
@@ -3286,7 +3301,7 @@ const useWorkflowBuilderState = () => {
                 onDelete: handleDeleteNodeWithConfirmation,
                 onRename: handleRenameNode,
                 onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
-                onAddChain: node.data.type === 'ai_agent' && !(node.data as any)?.hasChains ? handleAddChain : undefined,
+                onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
                 providerId: node.data.providerId || node.data.type?.split('-')[0]
               },
             };
