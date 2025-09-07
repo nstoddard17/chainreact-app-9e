@@ -388,6 +388,24 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </TooltipProvider>
           </div>
         </div>
+        
+        {/* Show Add Action button for chain placeholders below description */}
+        {type === 'chain_placeholder' && data.hasAddButton && data.onAddAction && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                data.onAddAction()
+              }}
+              className="text-muted-foreground hover:text-primary hover:border-primary flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Action
+            </Button>
+          </div>
+        )}
       </div>
 
       {!isTrigger && (
