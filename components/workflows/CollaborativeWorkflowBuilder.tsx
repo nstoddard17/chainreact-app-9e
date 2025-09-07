@@ -1809,6 +1809,12 @@ const useWorkflowBuilderState = () => {
       return
     }
     
+    // Don't rebuild if we just saved - the nodes are already correct
+    if (isRebuildingAfterSave) {
+      console.log('⏭️ [WorkflowBuilder] Skipping workflow rebuild after save')
+      return
+    }
+    
     if (currentWorkflow) {
       setWorkflowName(currentWorkflow.name)
       setWorkflowDescription(currentWorkflow.description || "")
@@ -2122,6 +2128,12 @@ const useWorkflowBuilderState = () => {
         });
         
         // Only add main workflow Add Action if there are no AI Agent nodes and no AI Agent chains
+        console.log('🔄 [WorkflowBuilder] Checking Add Action conditions:', {
+          hasAIAgentChains,
+          aiAgentNodesCount: aiAgentNodes.length,
+          willAddMainAddAction: !hasAIAgentChains && aiAgentNodes.length === 0
+        });
+        
         if (!hasAIAgentChains && aiAgentNodes.length === 0) {
           // Original logic for non-AI Agent workflows
           const actionNodes = customNodes.filter(n => 
@@ -2133,6 +2145,12 @@ const useWorkflowBuilderState = () => {
           const lastActionNode = actionNodes.length > 0 
             ? actionNodes.sort((a, b) => b.position.y - a.position.y)[0] 
             : null;
+          
+          console.log('🔄 [WorkflowBuilder] Main workflow state:', {
+            actionNodesCount: actionNodes.length,
+            hasLastActionNode: !!lastActionNode,
+            triggerExists: customNodes.some(n => n.data?.isTrigger || n.id.startsWith('trigger'))
+          });
           
           if (lastActionNode) {
             // Add the "add action" node after the last action node
@@ -2156,6 +2174,9 @@ const useWorkflowBuilderState = () => {
                 data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
               };
               allNodes.push(addActionNode);
+              console.log('🔄 [WorkflowBuilder] Added Add Action node after trigger during load');
+            } else {
+              console.log('⚠️ [WorkflowBuilder] No trigger node found to add Add Action node');
             }
           }
         }
@@ -2194,6 +2215,25 @@ const useWorkflowBuilderState = () => {
             } : undefined
           }
         })
+        
+        // Ensure at least one Add Action node exists if we have a trigger but no actions
+        if (allNodes.filter(n => n.type === 'addAction').length === 0) {
+          const triggerNode = customNodes.find(n => n.data?.isTrigger || n.id.startsWith('trigger'));
+          const nonTriggerNodes = customNodes.filter(n => !n.data?.isTrigger && !n.id.startsWith('trigger'));
+          
+          if (triggerNode && nonTriggerNodes.length === 0) {
+            // We have only a trigger, ensure it has an Add Action node
+            const addActionId = `add-action-${triggerNode.id}`;
+            const addActionNode: Node = {
+              id: addActionId, 
+              type: 'addAction', 
+              position: { x: triggerNode.position.x, y: triggerNode.position.y + 160 },
+              data: { parentId: triggerNode.id, onClick: () => handleAddActionClick(addActionId, triggerNode.id) }
+            };
+            allNodes.push(addActionNode);
+            console.log('🔄 [WorkflowBuilder] Added missing Add Action node for lone trigger');
+          }
+        }
         
         // Add edges to all Add Action nodes
         const addActionNodes = allNodes.filter(n => n.type === 'addAction');
@@ -3317,14 +3357,22 @@ const useWorkflowBuilderState = () => {
       // Update the last save timestamp to prevent immediate change detection
       lastSaveTimeRef.current = Date.now();
       
+      // Set flag to prevent rebuild in useEffect
+      isSavingRef.current = true;
+      
       // Update the current workflow with the saved data to avoid loading screen
       
       // Update the current workflow with the saved data instead of clearing it
       setCurrentWorkflow(newWorkflow);
       
+      // Clear the saving flag after a short delay to allow the useEffect to skip
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 100);
+      
       // Skip rebuild if nodes haven't structurally changed - just update the workflow state
       // This significantly speeds up save operations
-      const currentNodes = getNodes();
+      const currentNodes = getNodes().filter(n => n.type === 'custom'); // Only compare actual workflow nodes
       const needsRebuild = currentNodes.length !== mappedNodes.length || 
         currentNodes.some((n: Node, i: number) => n.id !== mappedNodes[i]?.id);
       
