@@ -6253,6 +6253,19 @@ function WorkflowBuilderContent() {
                     const actualAIAgentId = aiAgentNode.id;
                     console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
                     
+                    // Clear the emptiedChains flag when adding chains from the visual builder
+                    const aiAgentNodeIndex = workingNodes.findIndex(n => n.id === actualAIAgentId);
+                    if (aiAgentNodeIndex !== -1 && workingNodes[aiAgentNodeIndex].data?.emptiedChains) {
+                      console.log(`🔄 [WorkflowBuilder] Clearing emptiedChains for AI Agent ${actualAIAgentId}`);
+                      workingNodes[aiAgentNodeIndex] = {
+                        ...workingNodes[aiAgentNodeIndex],
+                        data: {
+                          ...workingNodes[aiAgentNodeIndex].data,
+                          emptiedChains: [] // Clear the emptiedChains array
+                        }
+                      };
+                    }
+                    
                     // Check if this AI Agent already has chain nodes (editing existing vs new)
                     const existingChainNodes = workingNodes.filter(n => 
                       n.data?.parentAIAgentId === actualAIAgentId && 
