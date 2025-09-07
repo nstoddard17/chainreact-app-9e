@@ -2777,18 +2777,41 @@ const useWorkflowBuilderState = () => {
       // Use debounced save to prevent multiple rapid saves
       debouncedSave();
       
-      // Save node configuration to persistence system
+      // Save node configuration to persistence system after workflow has been saved
+      // For inserted nodes, wait for the debounced save to complete first
       if (newNodeId && currentWorkflow?.id) {
         const nodeType = pendingNode.nodeComponent.type || 'unknown';
-        console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence:', {
-          workflowId: currentWorkflow.id,
-          nodeId: newNodeId,
-          nodeType: nodeType
-        });
         
-        saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig)
-          .then(() => console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully'))
-          .catch((persistenceError) => console.error('❌ [WorkflowBuilder] Failed to save new node configuration to persistence layer:', persistenceError));
+        // If this was an insertion (insertBefore), delay the config save until after workflow save
+        if (pendingNode.sourceNodeInfo?.insertBefore) {
+          console.log('🔄 [WorkflowBuilder] Delaying config save for inserted node until after workflow save');
+          // Wait for the debounced save to complete, then save config
+          setTimeout(async () => {
+            try {
+              console.log('🔄 [WorkflowBuilder] Saving inserted node configuration to persistence:', {
+                workflowId: currentWorkflow.id,
+                nodeId: newNodeId,
+                nodeType: nodeType
+              });
+              await saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig);
+              console.log('✅ [WorkflowBuilder] Inserted node configuration saved to persistence layer successfully');
+            } catch (persistenceError) {
+              console.warn('⚠️ [WorkflowBuilder] Could not save inserted node configuration to persistence layer:', persistenceError);
+              // This is not critical - the config is already in the node's data
+            }
+          }, 1000); // Wait 1 second to ensure workflow save has completed
+        } else {
+          // For normal additions, save immediately
+          console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence:', {
+            workflowId: currentWorkflow.id,
+            nodeId: newNodeId,
+            nodeType: nodeType
+          });
+          
+          saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig)
+            .then(() => console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully'))
+            .catch((persistenceError) => console.warn('⚠️ [WorkflowBuilder] Could not save new node configuration to persistence layer:', persistenceError));
+        }
       }
       
       setPendingNode(null);

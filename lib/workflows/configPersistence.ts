@@ -58,8 +58,13 @@ export const saveNodeConfig = async (
     const nodeIndex = nodes.findIndex((n: any) => n.id === nodeId)
     
     if (nodeIndex === -1) {
-      console.error(`❌ [ConfigPersistence] Node ${nodeId} not found in workflow ${workflowId}`);
-      throw new Error('Node not found in workflow');
+      console.warn(`⚠️ [ConfigPersistence] Node ${nodeId} not found in workflow ${workflowId} - it may be pending save`);
+      // Don't throw an error - the node might be pending save
+      // Store in localStorage as fallback
+      const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`;
+      localStorage.setItem(fallbackKey, JSON.stringify({ config, dynamicOptions, timestamp: Date.now() }));
+      console.log(`💾 [ConfigPersistence] Stored config in localStorage as fallback for node ${nodeId}`);
+      return;
     }
 
     // Prepare the saved config data
@@ -122,6 +127,10 @@ export const clearNodeConfig = async (
   if (typeof window === "undefined") return
 
   console.log(`🗑️ [ConfigPersistence] Clearing saved configuration for node ${nodeId}`);
+  
+  // Clear any localStorage fallback data
+  const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`;
+  localStorage.removeItem(fallbackKey);
 
   try {
     const supabase = createClient()
@@ -242,6 +251,21 @@ export const loadNodeConfig = async (
           config: node.data.config,
           timestamp: Date.now()
         } as SavedNodeConfig
+      }
+    }
+    
+    // Check localStorage fallback for nodes that are pending save
+    const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`;
+    const fallbackData = localStorage.getItem(fallbackKey);
+    if (fallbackData) {
+      try {
+        const parsed = JSON.parse(fallbackData);
+        console.log(`💾 [ConfigPersistence] Loaded config from localStorage fallback for node ${nodeId}`);
+        // Clean up the fallback data after loading
+        localStorage.removeItem(fallbackKey);
+        return parsed as SavedNodeConfig;
+      } catch (e) {
+        console.error(`❌ [ConfigPersistence] Failed to parse fallback config for node ${nodeId}:`, e);
       }
     }
     
