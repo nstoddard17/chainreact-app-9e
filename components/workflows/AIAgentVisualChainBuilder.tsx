@@ -30,6 +30,14 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { 
   Plus, Settings, Trash2, Bot, Zap, Workflow,
   PlusCircle, TestTube, Loader2, Layers
@@ -379,6 +387,9 @@ function AIAgentVisualChainBuilder({
   
   // Track which chains have been intentionally emptied to prevent Add Action button recreation
   const [emptiedChains, setEmptiedChains] = React.useState<number[]>([])
+  
+  // State for delete confirmation dialog
+  const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
   
   // Store previous chains to prevent unnecessary updates
   const previousChainsRef = React.useRef<string>('')
@@ -888,14 +899,22 @@ function AIAgentVisualChainBuilder({
     }
   }, [onOpenActionDialog, onActionSelect, fitView, setNodes, setEdges, handleConfigureNode])
   
-  // Set the ref after the function is defined
-  React.useEffect(() => {
+  // Set the ref in a layout effect to ensure it's set before any renders
+  React.useLayoutEffect(() => {
     handleAddNodeBetweenRef.current = handleAddNodeBetween
   }, [handleAddNodeBetween])
-
-  // Now declare handleDeleteNode which can safely reference handleAddNodeBetween
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    console.log('🗑️ [AIAgentVisualChainBuilder] Deleting node:', nodeId)
+  
+  // Create a ref for handleConfirmDelete that will be set later
+  const handleConfirmDeleteRef = React.useRef<(nodeId: string) => void>()
+  
+  // Actual deletion logic
+  const handleConfirmDelete = useCallback((nodeId: string) => {
+    console.log('🗑️ [AIAgentVisualChainBuilder] Confirming delete for node:', nodeId)
+    
+    // Clear the deleting state if it exists
+    if (deletingNode) {
+      setDeletingNode(null)
+    }
     
     // Use functional updates to get current state values
     setNodes((currentNodes) => {
@@ -939,41 +958,128 @@ function AIAgentVisualChainBuilder({
             // Check if the previous node is the AI Agent - this means we're deleting the last action in a chain
             if (previousNode && previousNode.id === 'ai-agent') {
               // We're deleting the last node in a chain directly connected to AI Agent
-              // Find which chain index this was by checking the edges
-              let chainIndex = 0
-              const aiAgentEdges = currentEdges.filter(e => e.source === 'ai-agent').sort((a, b) => {
-                // Sort by target node position to determine chain order
-                const nodeA = currentNodes.find(n => n.id === a.target)
-                const nodeB = currentNodes.find(n => n.id === b.target)
-                return (nodeA?.position.x || 0) - (nodeB?.position.x || 0)
-              })
+              // Count how many chains we currently have
+              const aiAgentEdges = currentEdges.filter(e => e.source === 'ai-agent')
+              const chainCount = aiAgentEdges.length
               
-              // Find the index of our edge
-              const ourEdgeIndex = aiAgentEdges.findIndex(e => e.target === nodeId)
-              if (ourEdgeIndex !== -1) {
-                chainIndex = ourEdgeIndex
-              }
+              console.log('🔍 [AIAgentVisualChainBuilder] Deleting last action, chain count:', chainCount)
               
-              console.log('✓ [AIAgentVisualChainBuilder] Marking chain', chainIndex, 'as intentionally emptied')
-              
-              // Mark this chain as intentionally emptied
-              setEmptiedChains(prev => {
-                const newEmptied = [...prev]
-                if (!newEmptied.includes(chainIndex)) {
-                  newEmptied.push(chainIndex)
+              // If this is the only chain, add a chain_placeholder
+              if (chainCount === 1) {
+                console.log('✨ [AIAgentVisualChainBuilder] Only chain emptied, adding chain_placeholder')
+                
+                // Create a chain placeholder node
+                const placeholderNodeId = `chain-default-${Date.now()}`
+                const deletedNodePosition = currentNodes.find(n => n.id === nodeId)?.position || { x: 400, y: 400 }
+                
+                const placeholderNode: Node = {
+                  id: placeholderNodeId,
+                  type: 'custom',
+                  position: deletedNodePosition,
+                  data: {
+                    title: 'Chain 1',
+                    description: 'Click + Add Action to add your first action',
+                    type: 'chain_placeholder',
+                    isTrigger: false,
+                    hasAddButton: true,
+                    config: {},
+                    onConfigure: () => {
+                      if (onOpenActionDialog) {
+                        onOpenActionDialog()
+                      }
+                    },
+                    onDelete: () => handleDeleteNodeRef.current?.(placeholderNodeId),
+                    onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
+                    onAddAction: () => {
+                      const chainId = placeholderNodeId
+                      console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called for chain:', chainId)
+                      if (onActionSelect) {
+                        const callbackFn = (action: any, config?: any) => {
+                          console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config, 'for chain:', chainId)
+                          if (action && action.type) {
+                            handleAddActionToChainRef.current?.(chainId, action, config)
+                          } else {
+                            console.warn('⚠️ [AIAgentVisualChainBuilder] Callback invoked without valid action')
+                          }
+                        }
+                        onActionSelect(callbackFn)
+                      }
+                      if (onOpenActionDialog) {
+                        onOpenActionDialog()
+                      }
+                    },
+                    isLastInChain: true
+                  }
                 }
-                console.log('✓ [AIAgentVisualChainBuilder] Updated emptiedChains:', newEmptied)
-                return newEmptied
-              })
-              
-              // Don't add an Add Action button for AI Agent chains - they were intentionally emptied
-              // Just remove the edges
-              return currentEdges.filter(e => 
-                e.source !== nodeId && 
-                e.target !== nodeId && 
-                e.source !== addActionNodeId && 
-                e.target !== addActionNodeId
-              )
+                
+                // Add the placeholder node
+                setTimeout(() => {
+                  setNodes((nds) => [...nds, placeholderNode])
+                }, 0)
+                
+                // Return edges with the new placeholder connected to AI Agent
+                return [
+                  ...currentEdges.filter(e => 
+                    e.source !== nodeId && 
+                    e.target !== nodeId && 
+                    e.source !== addActionNodeId && 
+                    e.target !== addActionNodeId
+                  ),
+                  {
+                    id: `e-ai-agent-${placeholderNodeId}`,
+                    source: 'ai-agent',
+                    target: placeholderNodeId,
+                    type: 'custom',
+                    style: { 
+                      stroke: '#94a3b8',
+                      strokeWidth: 2 
+                    },
+                    data: {
+                      onAddNode: (position: { x: number, y: number }) => {
+                        handleAddNodeBetweenRef.current?.('ai-agent', placeholderNodeId, position)
+                      }
+                    }
+                  }
+                ]
+              } else {
+                // Multiple chains exist, just remove this one
+                console.log('✓ [AIAgentVisualChainBuilder] Multiple chains exist, removing chain')
+                
+                // Find which chain index this was by checking the edges
+                let chainIndex = 0
+                const sortedAiAgentEdges = aiAgentEdges.sort((a, b) => {
+                  // Sort by target node position to determine chain order
+                  const nodeA = currentNodes.find(n => n.id === a.target)
+                  const nodeB = currentNodes.find(n => n.id === b.target)
+                  return (nodeA?.position.x || 0) - (nodeB?.position.x || 0)
+                })
+                
+                // Find the index of our edge
+                const ourEdgeIndex = sortedAiAgentEdges.findIndex(e => e.target === nodeId)
+                if (ourEdgeIndex !== -1) {
+                  chainIndex = ourEdgeIndex
+                }
+                
+                console.log('✓ [AIAgentVisualChainBuilder] Marking chain', chainIndex, 'as intentionally emptied')
+                
+                // Mark this chain as intentionally emptied
+                setEmptiedChains(prev => {
+                  const newEmptied = [...prev]
+                  if (!newEmptied.includes(chainIndex)) {
+                    newEmptied.push(chainIndex)
+                  }
+                  console.log('✓ [AIAgentVisualChainBuilder] Updated emptiedChains:', newEmptied)
+                  return newEmptied
+                })
+                
+                // Just remove the edges
+                return currentEdges.filter(e => 
+                  e.source !== nodeId && 
+                  e.target !== nodeId && 
+                  e.source !== addActionNodeId && 
+                  e.target !== addActionNodeId
+                )
+              }
             } else if (previousNode && previousNode.id !== 'ai-agent') {
               const newAddActionNodeId = `add-action-${previousNodeId}-${Date.now()}`
               const addActionNode: Node = {
@@ -1093,10 +1199,36 @@ function AIAgentVisualChainBuilder({
         return currentNodes.filter(n => n.id !== nodeId)
       }
     })
-  }, [edges, handleAddNodeBetween, setNodes, setEdges])
+  }, [edges, handleAddNodeBetween, setNodes, setEdges, deletingNode])
   
-  // Set the ref after the function is defined
-  React.useEffect(() => {
+  // Set the ref in a layout effect to ensure it's set before any renders
+  React.useLayoutEffect(() => {
+    handleConfirmDeleteRef.current = handleConfirmDelete
+  }, [handleConfirmDelete])
+  
+  // Now declare handleDeleteNode to show confirmation dialog
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    console.log('🗑️ [AIAgentVisualChainBuilder] Delete requested for node:', nodeId)
+    
+    // Find the node to get its name
+    const nodeToDelete = nodes.find(n => n.id === nodeId)
+    if (!nodeToDelete) return
+    
+    // Check if this is an Add Action node - if so, just remove it without confirmation
+    if (nodeToDelete.type === 'addAction') {
+      if (handleConfirmDeleteRef.current) {
+        handleConfirmDeleteRef.current(nodeId)
+      }
+      return
+    }
+    
+    // For other nodes, show confirmation dialog
+    const nodeName = nodeToDelete.data?.title || nodeToDelete.data?.name || 'this node'
+    setDeletingNode({ id: nodeId, name: nodeName })
+  }, [nodes, setDeletingNode])
+  
+  // Set the ref in a layout effect to ensure it's set before any renders
+  React.useLayoutEffect(() => {
     handleDeleteNodeRef.current = handleDeleteNode
   }, [handleDeleteNode])
 
@@ -1363,7 +1495,7 @@ function AIAgentVisualChainBuilder({
           providerId: node.providerId,
           config: node.config || {},
           onConfigure: () => handleConfigureNode(node.id),
-          onDelete: () => handleDeleteNode(node.id),
+          onDelete: () => handleDeleteNodeRef.current?.(node.id),
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
         }
       }))
@@ -1627,7 +1759,7 @@ function AIAgentVisualChainBuilder({
             providerId: providerId,
             config: config || {},  // Include the AI config or manual config
             onConfigure: () => handleConfigureNode(newNodeId),
-            onDelete: () => handleDeleteNode(newNodeId),
+            onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
             onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
             isLastInChain: true
           }
@@ -2090,7 +2222,7 @@ function AIAgentVisualChainBuilder({
             onOpenActionDialog()
           }
         },
-        onDelete: () => handleDeleteNode(newNodeId),
+        onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
         onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
         onAddAction: () => {
           // Capture the chain ID in a local variable to avoid closure issues
@@ -2236,6 +2368,33 @@ function AIAgentVisualChainBuilder({
           </div>
         </Panel>
       </ReactFlow>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingNode} onOpenChange={(open: boolean) => !open && setDeletingNode(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Action</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingNode?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setDeletingNode(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deletingNode && handleConfirmDeleteRef.current) {
+                  handleConfirmDeleteRef.current(deletingNode.id)
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
