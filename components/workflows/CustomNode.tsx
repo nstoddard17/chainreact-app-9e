@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Plus, Edit2 } from "lucide-react"
+import { Settings, Trash2, TestTube, Plus, Edit2, Layers } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -274,7 +274,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <div className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {providerId ? (
+            {type === 'chain_placeholder' ? (
+              <Layers className="h-8 w-8 text-muted-foreground" />
+            ) : providerId ? (
               <img
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
