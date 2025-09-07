@@ -223,6 +223,8 @@ const useWorkflowBuilderState = () => {
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
+  const pendingSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedTrigger, setSelectedTrigger] = useState<NodeComponent | null>(null)
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -1780,8 +1782,8 @@ const useWorkflowBuilderState = () => {
                 return true;
               }
               // Fallback: Check if this node ID indicates it's a chain child of this AI agent
-              // Pattern: {aiAgentId}-chain{chainIndex}-action{actionIndex}-...
-              return n.id.startsWith(`${aiAgentId}-chain`) && n.id.includes('-action');
+              // Pattern: {aiAgentId}-chain... (for both action nodes and chain placeholders)
+              return n.id.startsWith(`${aiAgentId}-chain`);
             });
             
             // Group children by chain, including nodes connected to chain nodes
@@ -2747,14 +2749,8 @@ const useWorkflowBuilderState = () => {
     // Auto-save after inserting action
     if (sourceNodeInfo.insertBefore) {
       console.log('🔄 [WorkflowBuilder] Auto-saving after node insertion')
-      setTimeout(async () => {
-        try {
-          await handleSave()
-          console.log('✅ [WorkflowBuilder] Workflow saved after node insertion')
-        } catch (error) {
-          console.error('❌ [WorkflowBuilder] Failed to save after node insertion:', error)
-        }
-      }, 500) // Give React time to update state
+      // Use debounced save to prevent multiple rapid saves
+      debouncedSave()
     }
     
     return newNodeId // Return the new node ID so we can save its config to persistence
@@ -2766,20 +2762,8 @@ const useWorkflowBuilderState = () => {
       addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
       
       // Auto-save the workflow to database after adding the new trigger
-      // Wait for React state updates to flush before saving
-      setTimeout(async () => {
-        try {
-          await handleSave();
-          console.log('✅ [WorkflowBuilder] New trigger saved to database automatically');
-        } catch (error) {
-          console.error('❌ [WorkflowBuilder] Failed to save new trigger to database:', error);
-          toast({ 
-            title: "Save Warning", 
-            description: "Trigger added but failed to save to database. Please save manually.", 
-            variant: "destructive" 
-          });
-        }
-      }, 0);
+      // Use debounced save to prevent multiple rapid saves
+      debouncedSave();
       
       setPendingNode(null);
       setConfiguringNode(null);
@@ -2790,37 +2774,22 @@ const useWorkflowBuilderState = () => {
       const newNodeId = addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
       
       // Auto-save the workflow to database after adding the new action
-      // Wait for React state updates to flush before saving
-      setTimeout(async () => {
-        try {
-          await handleSave();
-          console.log('✅ [WorkflowBuilder] New action saved to database automatically');
-          
-          // Now save node configuration to persistence system after workflow is in database
-          if (newNodeId && currentWorkflow?.id) {
-            try {
-              const nodeType = pendingNode.nodeComponent.type || 'unknown';
-              console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence after database save:', {
-                workflowId: currentWorkflow.id,
-                nodeId: newNodeId,
-                nodeType: nodeType
-              });
-              
-              await saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig);
-              console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully');
-            } catch (persistenceError) {
-              console.error('❌ [WorkflowBuilder] Failed to save new node configuration to persistence layer:', persistenceError);
-            }
-          }
-        } catch (error) {
-          console.error('❌ [WorkflowBuilder] Failed to save new action to database:', error);
-          toast({ 
-            title: "Save Warning", 
-            description: "Action added but failed to save to database. Please save manually.", 
-            variant: "destructive" 
-          });
-        }
-      }, 0);
+      // Use debounced save to prevent multiple rapid saves
+      debouncedSave();
+      
+      // Save node configuration to persistence system
+      if (newNodeId && currentWorkflow?.id) {
+        const nodeType = pendingNode.nodeComponent.type || 'unknown';
+        console.log('🔄 [WorkflowBuilder] Saving new node configuration to persistence:', {
+          workflowId: currentWorkflow.id,
+          nodeId: newNodeId,
+          nodeType: nodeType
+        });
+        
+        saveNodeConfig(currentWorkflow.id, newNodeId, nodeType, newConfig)
+          .then(() => console.log('✅ [WorkflowBuilder] New node configuration saved to persistence layer successfully'))
+          .catch((persistenceError) => console.error('❌ [WorkflowBuilder] Failed to save new node configuration to persistence layer:', persistenceError));
+      }
       
       setPendingNode(null);
       setConfiguringNode(null);
@@ -2918,21 +2887,9 @@ const useWorkflowBuilderState = () => {
         }
       }
       
-      // Also save to database immediately (as a backup and for workflow structure)
-      setTimeout(async () => {
-        try {
-          console.log('🔄 [WorkflowBuilder] Saving updated workflow to database...');
-          await handleSave();
-          console.log('✅ [WorkflowBuilder] Existing node configuration saved to database successfully');
-        } catch (error) {
-          console.error('❌ [WorkflowBuilder] Failed to save existing node configuration to database:', error);
-          toast({ 
-            title: "Save Warning", 
-            description: "Configuration updated but failed to save to database. Please save manually.", 
-            variant: "destructive" 
-          });
-        }
-      }, 50); // Small delay to ensure React state update is applied
+      // Also save to database using debounced save
+      console.log('🔄 [WorkflowBuilder] Triggering debounced save for configuration update');
+      debouncedSave();
       
       setConfiguringNode(null);
       return null; // No new node ID for existing nodes
@@ -2943,18 +2900,26 @@ const useWorkflowBuilderState = () => {
     if (!currentWorkflow) return
     
     // Prevent multiple simultaneous save operations
-    if (isSaving) {
+    if (isSaving || isSavingRef.current) {
+      console.log("⚠️ Save already in progress, skipping duplicate save request")
       return
+    }
+    
+    // Clear any existing save timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
     }
     
     setIsSaving(true)
     isSavingRef.current = true
     
     // Add timeout protection - increased for complex workflows with AI Agent nodes
-    const saveTimeout = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(() => {
       console.error("Save operation timed out")
       setIsSaving(false)
       isSavingRef.current = false
+      saveTimeoutRef.current = null
       toast({ 
         title: "Save Timeout", 
         description: "Save operation took too long. Please try again.", 
@@ -3046,7 +3011,10 @@ const useWorkflowBuilderState = () => {
       const result = await savePromise;
       
       // Clear timeout immediately after successful save
-      clearTimeout(saveTimeout);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
       
       console.log("✅ Save operation completed successfully:", {
         workflowId: currentWorkflow!.id,
@@ -3346,11 +3314,29 @@ const useWorkflowBuilderState = () => {
       })
     } finally {
       // Always clear the timeout and reset loading state
-      clearTimeout(saveTimeout)
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
       setIsSaving(false)
       isSavingRef.current = false
     }
   }
+  
+  // Debounced save function to prevent multiple rapid save calls
+  const debouncedSave = useCallback(() => {
+    // Clear any pending save timeout
+    if (pendingSaveTimeoutRef.current) {
+      clearTimeout(pendingSaveTimeoutRef.current)
+    }
+    
+    // Set a new timeout for the save operation
+    pendingSaveTimeoutRef.current = setTimeout(async () => {
+      console.log("🔄 Executing debounced save operation")
+      await handleSave()
+      pendingSaveTimeoutRef.current = null
+    }, 500) // 500ms debounce delay
+  }, [])
 
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -5940,8 +5926,11 @@ function WorkflowBuilderContent() {
                     willProcessFallback: !hasFullLayout && chainsData && Array.isArray(chainsData) && chainsData.length > 0
                   });
                   
-                  // Check if there are any chains to process
-                  if ((hasFullLayout && chainsToProcess.nodes && chainsToProcess.nodes.length > 0) || 
+                  // Check if there are any chains to process (including empty chains with placeholders)
+                  if ((hasFullLayout && (
+                        (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) || 
+                        (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
+                      )) || 
                       (chainsData && Array.isArray(chainsData) && chainsData.length > 0)) {
                     console.log('🔄 [WorkflowBuilder] Processing chains from AI Agent');
                     
@@ -6018,15 +6007,20 @@ function WorkflowBuilderContent() {
                     }
                     
                     // Decide which processing method to use
-                    if (hasFullLayout && chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
+                    if (hasFullLayout && (
+                          (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) || 
+                          (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
+                        )) {
                       // If we have full layout data, recreate the exact structure
                       console.log('🎯 [WorkflowBuilder] Using full layout data to recreate exact structure');
-                      console.log('🎯 [WorkflowBuilder] Nodes to add:', chainsToProcess.nodes.length);
-                      console.log('🎯 [WorkflowBuilder] Edges to add:', chainsToProcess.edges.length);
+                      console.log('🎯 [WorkflowBuilder] Nodes to add:', chainsToProcess.nodes?.length || 0);
+                      console.log('🎯 [WorkflowBuilder] Edges to add:', chainsToProcess.edges?.length || 0);
+                      console.log('🎯 [WorkflowBuilder] Placeholder positions:', chainsToProcess.chainPlaceholderPositions?.length || 0);
                       console.log('🎯 [WorkflowBuilder] Full chainsToProcess data:', chainsToProcess);
                       
-                      // Create nodes with exact positions from AI Agent builder
-                      chainsToProcess.nodes.forEach((nodeData: any) => {
+                      // Create nodes with exact positions from AI Agent builder (if any)
+                      if (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
+                        chainsToProcess.nodes.forEach((nodeData: any) => {
                         const timestamp = Date.now();
                         const newNodeId = `${actualAIAgentId}-${nodeData.id}-${timestamp}`;
                         const actionComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeData.type);
@@ -6072,8 +6066,9 @@ function WorkflowBuilderContent() {
                         
                         newNodesToAdd.push(newNode);
                       });
+                      }
                       
-                      // Create edges based on the original edge structure
+                      // Create edges based on the original edge structure (if any)
                       const nodeIdMap = new Map();
                       newNodesToAdd.forEach(node => {
                         nodeIdMap.set(node.data.originalNodeId, node.id);
@@ -6082,7 +6077,8 @@ function WorkflowBuilderContent() {
                       // Track which nodes are first in their chains (directly connected to AI Agent)
                       const chainStartNodes = new Set();
                       
-                      chainsToProcess.edges.forEach((edgeData: any) => {
+                      if (chainsToProcess.edges && chainsToProcess.edges.length > 0) {
+                        chainsToProcess.edges.forEach((edgeData: any) => {
                         const sourceId = edgeData.source === 'ai-agent' ? actualAIAgentId : nodeIdMap.get(edgeData.source);
                         const targetId = nodeIdMap.get(edgeData.target);
                         
@@ -6109,6 +6105,7 @@ function WorkflowBuilderContent() {
                           newEdgesToAdd.push(newEdge);
                         }
                       });
+                      }
                       
                       // Add "Add Action" nodes at the end of each chain
                       // First, group nodes by chain based on edges from AI Agent
@@ -6644,15 +6641,10 @@ function WorkflowBuilderContent() {
                 }); // End of setNodes
                     
                   // Auto-save after chains are added and update view
-                  setTimeout(async () => {
-                    // Auto-save the workflow with the chains
-                    try {
-                      await handleSave();
-                      console.log('✅ [WorkflowBuilder] Workflow saved after adding AI Agent chains');
-                    } catch (error) {
-                      console.error('❌ [WorkflowBuilder] Failed to save workflow after adding chains:', error);
-                      setHasUnsavedChanges(true);
-                    }
+                  setTimeout(() => {
+                    // Auto-save the workflow with the chains using debounced save
+                    console.log('🔄 [WorkflowBuilder] Triggering debounced save after adding AI Agent chains');
+                    debouncedSave();
                     
                     // Fit view to show all nodes with proper settings
                     try {
