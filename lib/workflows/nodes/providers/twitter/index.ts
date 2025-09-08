@@ -154,15 +154,16 @@ export const twitterNodes: NodeComponent[] = [
     requiredScopes: ["tweet.write"],
     category: "Social",
     isTrigger: false,
-    comingSoon: true,
     configSchema: [
+      // Basic Tab - Essential tweet features
       { 
         name: "text", 
         label: "Tweet Text", 
         type: "textarea", 
         required: true, 
         placeholder: "What's happening?",
-        description: "The text content of your tweet (max 280 characters)"
+        description: "The text content of your tweet (max 280 characters)",
+        uiTab: "basic"
       },
       { 
         name: "mediaFiles", 
@@ -170,17 +171,39 @@ export const twitterNodes: NodeComponent[] = [
         type: "file", 
         required: false, 
         accept: "image/*,video/*,.gif",
-        maxSize: 5 * 1024 * 1024, // 5MB limit
+        maxSize: 512 * 1024 * 1024, // 512MB for videos
         placeholder: "Upload images, videos, or GIFs",
-        description: "Upload up to 4 media files (images, videos, or GIFs)"
+        description: "Upload up to 4 media files (images: 5MB, GIFs: 15MB, videos: 512MB)",
+        uiTab: "basic"
       },
+      { 
+        name: "replyToTweetId", 
+        label: "Reply to Tweet ID", 
+        type: "text", 
+        required: false, 
+        placeholder: "Enter tweet ID to reply to (optional)",
+        description: "Make this tweet a reply to another tweet",
+        uiTab: "basic"
+      },
+      { 
+        name: "scheduledTime", 
+        label: "Schedule Tweet", 
+        type: "datetime", 
+        required: false, 
+        placeholder: "Select date and time",
+        description: "Schedule your tweet for a future time",
+        uiTab: "basic"
+      },
+      
+      // Advanced Tab - Additional features
       { 
         name: "altTexts", 
         label: "Alt Text for Media", 
         type: "textarea", 
         required: false, 
         placeholder: "Describe your media for accessibility (one description per line)",
-        description: "Provide alt text descriptions for each media file, one per line"
+        description: "Provide alt text descriptions for each media file, one per line",
+        uiTab: "advanced"
       },
       { 
         name: "pollQuestion", 
@@ -188,7 +211,8 @@ export const twitterNodes: NodeComponent[] = [
         type: "text", 
         required: false, 
         placeholder: "Ask a question for your poll",
-        description: "Create a poll with your tweet"
+        description: "Create a poll with your tweet",
+        uiTab: "advanced"
       },
       { 
         name: "pollOptions", 
@@ -196,7 +220,8 @@ export const twitterNodes: NodeComponent[] = [
         type: "textarea", 
         required: false, 
         placeholder: "Option 1\nOption 2\nOption 3\nOption 4",
-        description: "Enter 2-4 poll options, one per line"
+        description: "Enter 2-4 poll options, one per line",
+        uiTab: "advanced"
       },
       { 
         name: "pollDuration", 
@@ -205,12 +230,25 @@ export const twitterNodes: NodeComponent[] = [
         required: false, 
         options: [
           { value: "5", label: "5 minutes" },
+          { value: "10", label: "10 minutes" },
           { value: "15", label: "15 minutes" },
           { value: "30", label: "30 minutes" },
-          { value: "60", label: "60 minutes" }
+          { value: "60", label: "1 hour" },
+          { value: "120", label: "2 hours" },
+          { value: "180", label: "3 hours" },
+          { value: "360", label: "6 hours" },
+          { value: "720", label: "12 hours" },
+          { value: "1440", label: "1 day" },
+          { value: "2880", label: "2 days" },
+          { value: "4320", label: "3 days" },
+          { value: "5760", label: "4 days" },
+          { value: "7200", label: "5 days" },
+          { value: "8640", label: "6 days" },
+          { value: "10080", label: "7 days" }
         ],
-        defaultValue: "15",
-        description: "How long should the poll run?"
+        defaultValue: "1440",
+        description: "How long should the poll run?",
+        uiTab: "advanced"
       },
       { 
         name: "location", 
@@ -218,7 +256,17 @@ export const twitterNodes: NodeComponent[] = [
         type: "location-autocomplete", 
         required: false, 
         placeholder: "Search for a location",
-        description: "Add a location to your tweet"
+        description: "Add a location tag to your tweet",
+        uiTab: "advanced"
+      },
+      { 
+        name: "quoteTweetId", 
+        label: "Quote Tweet ID", 
+        type: "text", 
+        required: false, 
+        placeholder: "Enter tweet ID to quote",
+        description: "Quote another tweet in your post",
+        uiTab: "advanced"
       },
       { 
         name: "sensitiveMedia", 
@@ -226,15 +274,85 @@ export const twitterNodes: NodeComponent[] = [
         type: "boolean", 
         required: false, 
         defaultValue: false,
-        description: "Check if your media contains sensitive content"
+        description: "Mark your media as potentially sensitive content",
+        uiTab: "advanced"
       },
       { 
-        name: "scheduledTime", 
-        label: "Schedule Tweet", 
-        type: "datetime", 
+        name: "replySettings", 
+        label: "Who Can Reply", 
+        type: "select", 
         required: false, 
-        placeholder: "Select date and time",
-        description: "Schedule your tweet for a future time"
+        options: [
+          { value: "everyone", label: "Everyone" },
+          { value: "following", label: "People you follow" },
+          { value: "mentioned", label: "Only people mentioned" }
+        ],
+        defaultValue: "everyone",
+        description: "Control who can reply to your tweet",
+        uiTab: "advanced"
+      },
+      { 
+        name: "forSuperFollowersOnly", 
+        label: "Super Followers Only", 
+        type: "boolean", 
+        required: false, 
+        defaultValue: false,
+        description: "Make this tweet visible only to Super Followers",
+        uiTab: "advanced"
+      },
+      { 
+        name: "circleTweetId", 
+        label: "Twitter Circle", 
+        type: "boolean", 
+        required: false, 
+        defaultValue: false,
+        description: "Share this tweet only with your Twitter Circle",
+        uiTab: "advanced"
+      },
+      { 
+        name: "cardUrl", 
+        label: "Card URL", 
+        type: "text", 
+        required: false, 
+        placeholder: "https://example.com",
+        description: "Add a Twitter Card with link preview",
+        uiTab: "advanced"
+      },
+      { 
+        name: "communityId", 
+        label: "Community ID", 
+        type: "text", 
+        required: false, 
+        placeholder: "Enter community ID",
+        description: "Post to a specific Twitter Community",
+        uiTab: "advanced"
+      },
+      { 
+        name: "excludeReplyUserIds", 
+        label: "Exclude Reply User IDs", 
+        type: "textarea", 
+        required: false, 
+        placeholder: "Enter user IDs to exclude from reply (one per line)",
+        description: "Exclude specific users from being able to reply",
+        uiTab: "advanced"
+      },
+      { 
+        name: "mediaTagUserIds", 
+        label: "Tag Users in Media", 
+        type: "textarea", 
+        required: false, 
+        placeholder: "Enter user IDs to tag in media (one per line)",
+        description: "Tag up to 10 users in your media",
+        uiTab: "advanced"
+      },
+      { 
+        name: "directMessageDeepLink", 
+        label: "Direct Message Deep Link", 
+        type: "text", 
+        required: false, 
+        placeholder: "Enter deep link URL",
+        description: "Add a direct message deep link to your tweet",
+        uiTab: "advanced"
       }
     ]
   },
