@@ -18,9 +18,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
-// Using optimized version to prevent freeze while maintaining features
-// import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
-import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
+// Use the full featured Discord rich text editor
+import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
+// import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
@@ -336,8 +336,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Special handling for Discord guild/server fields
-        if (field.name === 'guildId' && integrationProvider === 'discord') {
+        // Special handling for Discord fields - render them without nested conditionals
+        if (integrationProvider === 'discord' && field.name === 'guildId') {
           return (
             <DiscordServerField
               field={field}
@@ -350,9 +350,8 @@ export function FieldRenderer({
             />
           );
         }
-
-        // Special handling for Discord channel fields
-        if (field.name === 'channelId' && integrationProvider === 'discord') {
+        
+        if (integrationProvider === 'discord' && field.name === 'channelId') {
           return (
             <DiscordChannelField
               field={field}
@@ -366,8 +365,7 @@ export function FieldRenderer({
           );
         }
         
-        // Special handling for all other Discord dynamic fields
-        if (field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
+        if (integrationProvider === 'discord' && field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_')) {
           return (
             <DiscordGenericField
               field={field}
@@ -674,11 +672,14 @@ export function FieldRenderer({
     }
   };
 
+  // Render the field content
+  const fieldContent = renderFieldByType();
+  
   return (
     <Card className="transition-all duration-200">
       <CardContent className="p-4">
         {field.type !== "button-toggle" && renderLabel()}
-        {renderFieldByType()}
+        {fieldContent}
         {error && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />

@@ -177,7 +177,7 @@ export function OneNoteSelector({
     return (
       <div className="space-y-2">
         {label && <Label>{label}</Label>}
-        <Select disabled>
+        <Select disabled value={value ?? ""}>
           <SelectTrigger>
             <SelectValue placeholder={`No ${type}s available`} />
           </SelectTrigger>

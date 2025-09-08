@@ -70,7 +70,15 @@ function formatAuthorField(data: any[]): FormattedOption[] {
  */
 function formatMessageField(data: any[]): FormattedOption[] {
   return data.map((item: any) => {
-    const baseLabel = item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`;
+    // Use the formatted name from backend if available (includes author, date, and preview)
+    let baseLabel = item.name || item.label;
+    
+    // Fall back to creating our own format if backend doesn't provide one
+    if (!baseLabel) {
+      baseLabel = item.content || `Message by ${item.author?.username || 'Unknown'} (${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown time'})`;
+    }
+    
+    // Add reaction count if there are reactions
     const reactions = item.reactions || [];
     const hasReactions = reactions.length > 0;
     const reactionCount = hasReactions ? reactions.reduce((total: number, reaction: any) => total + reaction.count, 0) : 0;

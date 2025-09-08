@@ -49,7 +49,7 @@ export function validateDiscordIntegration(integration: any): void {
  * Advanced Discord rate limiting with request queue
  */
 let lastDiscordRequest = 0
-const MIN_REQUEST_INTERVAL = 100 // 100ms between requests (Discord allows 50 requests per second)
+const MIN_REQUEST_INTERVAL = 250 // 250ms between requests (more conservative to avoid rate limits)
 
 // Track request counts per bucket with better management
 const bucketData = new Map<string, { 
@@ -57,8 +57,8 @@ const bucketData = new Map<string, {
   resetTime: number, 
   queue: Array<() => void> 
 }>()
-const MAX_REQUESTS_PER_BUCKET = 10 // Discord allows 10 requests per bucket
-const BUCKET_RESET_BUFFER = 100 // 100ms buffer after bucket reset
+const MAX_REQUESTS_PER_BUCKET = 5 // More conservative limit to avoid rate limits
+const BUCKET_RESET_BUFFER = 500 // 500ms buffer after bucket reset
 
 // Global request queue to prevent overwhelming Discord API
 const globalQueue: Array<{
@@ -71,7 +71,10 @@ let isProcessingQueue = false
 
 // Enhanced cache for Discord API responses
 const discordCache = new Map<string, { data: any, timestamp: number }>()
-const CACHE_TTL = 300000 // 5 minutes cache to significantly reduce API calls
+const CACHE_TTL = 600000 // 10 minutes cache to significantly reduce API calls
+
+// Request deduplication map to prevent duplicate concurrent requests
+const pendingRequests = new Map<string, Promise<any>>()
 
 /**
  * Process the global request queue
@@ -104,8 +107,8 @@ async function processQueue(): Promise<void> {
       queueItem.reject(error)
     }
     
-    // Minimal delay between queue items to prevent overwhelming
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // More conservative delay between queue items to prevent overwhelming
+    await new Promise(resolve => setTimeout(resolve, 100))
   }
   
   isProcessingQueue = false
@@ -229,6 +232,9 @@ export async function makeDiscordApiRequest<T = any>(
   options: RequestInit = {},
   useCache: boolean = true
 ): Promise<T> {
+  // Create a unique request key for deduplication
+  const requestKey = `${url}:${accessToken.slice(-8)}:${JSON.stringify(options.body || '')}`
+  
   // Check cache for GET requests with more aggressive caching
   if (useCache && (!options.method || options.method === 'GET')) {
     const cacheKey = `${url}:${accessToken.slice(-8)}` // Use last 8 chars of token as part of key
@@ -238,6 +244,13 @@ export async function makeDiscordApiRequest<T = any>(
       console.log(`📦 Using cached Discord data for ${url} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
       return cached.data
     }
+    
+    // Check if there's already a pending request for this exact same data
+    const pendingRequest = pendingRequests.get(requestKey)
+    if (pendingRequest) {
+      console.log(`🔄 Reusing pending Discord request for ${url}`)
+      return pendingRequest
+    }
   }
 
   // Determine if this is a bot token or user token
@@ -245,7 +258,8 @@ export async function makeDiscordApiRequest<T = any>(
 
   console.log(`🔍 Making Discord API request to: ${url}`)
   
-  const data = await fetchDiscordWithRateLimit<T>(() => 
+  // Create the request promise and store it for deduplication
+  const requestPromise = fetchDiscordWithRateLimit<T>(() => 
     fetch(url, {
       ...options,
       headers: {
@@ -256,29 +270,28 @@ export async function makeDiscordApiRequest<T = any>(
     })
   )
   
-  // Cache successful GET requests
+  // Store the pending request for deduplication
   if (useCache && (!options.method || options.method === 'GET')) {
-    const cacheKey = `${url}:${accessToken.slice(-8)}`
-    discordCache.set(cacheKey, { data, timestamp: Date.now() })
-    console.log(`📦 Cached Discord response for ${url}`)
-    
-    // Clean up old cache entries periodically (more aggressive cleanup)
-    if (discordCache.size > 50) {
-      const now = Date.now()
-      let cleanedCount = 0
-      for (const [key, value] of discordCache.entries()) {
-        if (now - value.timestamp > CACHE_TTL) {
-          discordCache.delete(key)
-          cleanedCount++
-        }
-      }
-      if (cleanedCount > 0) {
-        console.log(`🧹 Cleaned ${cleanedCount} expired cache entries`)
-      }
-    }
+    pendingRequests.set(requestKey, requestPromise)
   }
   
-  return data
+  try {
+    const data = await requestPromise
+    
+    // Cache successful GET requests
+    if (useCache && (!options.method || options.method === 'GET')) {
+      const cacheKey = `${url}:${accessToken.slice(-8)}`
+      discordCache.set(cacheKey, { data, timestamp: Date.now() })
+      console.log(`📦 Cached Discord response for ${url}`)
+    }
+    
+    return data
+  } finally {
+    // Clean up pending request
+    if (useCache && (!options.method || options.method === 'GET')) {
+      pendingRequests.delete(requestKey)
+    }
+  }
 }
 
 /**

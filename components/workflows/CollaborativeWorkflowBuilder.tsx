@@ -1946,6 +1946,8 @@ const useWorkflowBuilderState = () => {
         // Track all Add Action nodes for AI Agent chains
         const aiAgentAddActionNodes: Node[] = [];
         const aiAgentAddActionEdges: Edge[] = [];
+        // Track nodes that need their chainIndex updated
+        const nodesToUpdate: Array<{id: string, chainIndex: number}> = [];
         
         if (aiAgentNodes.length > 0) {
           // Always add Add Action nodes for AI Agent chains, including AI-generated workflows
@@ -1960,9 +1962,10 @@ const useWorkflowBuilderState = () => {
             // Find all child nodes of this AI Agent
             // First try by metadata, then by ID pattern, then by edges
             let directChildNodes = customNodes.filter(n => {
-              // Check if this node is marked as a child of this AI agent
-              if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentId) {
-                console.log(`✅ [WorkflowBuilder] Found chain child by metadata: ${n.id}`);
+              // Check if this node has parentAIAgentId pointing to this AI agent
+              // Don't require isAIAgentChild as it might be missing
+              if (n.data?.parentAIAgentId === aiAgentId) {
+                console.log(`✅ [WorkflowBuilder] Found chain child by parentAIAgentId: ${n.id}`);
                 return true;
               }
               // Fallback: Check if this node ID indicates it's a chain child of this AI agent
@@ -2006,6 +2009,7 @@ const useWorkflowBuilderState = () => {
             directChildNodes.forEach((child, index) => {
               // Use the parentChainIndex metadata if available
               let chainIndex = child.data?.parentChainIndex;
+              let needsUpdate = false;
               
               // Fallback: Extract chain index from ID pattern: ...-chain{index}-...
               if (chainIndex === undefined || chainIndex === null) {
@@ -2019,12 +2023,25 @@ const useWorkflowBuilderState = () => {
                   chainIndex = index % expectedChainCount;
                   console.log(`📊 [WorkflowBuilder] Assigning node ${child.id} to chain ${chainIndex} (distributed)`);
                 }
+                needsUpdate = true;
+                nodesToUpdate.push({id: child.id, chainIndex});
               }
               
               if (!chainGroups[chainIndex]) {
                 chainGroups[chainIndex] = [];
               }
-              chainGroups[chainIndex].push(child);
+              
+              // Update the child node with chain index for proper grouping
+              const updatedChild = needsUpdate ? {
+                ...child,
+                data: {
+                  ...child.data,
+                  parentChainIndex: chainIndex,
+                  isAIAgentChild: true
+                }
+              } : child;
+              
+              chainGroups[chainIndex].push(updatedChild);
             });
             
             // Now find any nodes connected to chain nodes that aren't already included
@@ -2325,8 +2342,26 @@ const useWorkflowBuilderState = () => {
           return true;
         });
         
-        // Ensure Add Action nodes are properly positioned after their parent nodes
+        // Ensure Add Action nodes are properly positioned and nodes have proper metadata
         const finalNodes = uniqueNodes.map(node => {
+          // Update nodes that need chain indices
+          if (node.data?.parentAIAgentId && (node.data?.parentChainIndex === undefined || node.data?.parentChainIndex === null)) {
+            // Find this node in the nodesToUpdate array to get its assigned chain index
+            const updateInfo = nodesToUpdate.find(n => n.id === node.id);
+            if (updateInfo) {
+              console.log(`📝 [WorkflowBuilder] Updating node ${node.id} with chainIndex ${updateInfo.chainIndex}`);
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  parentChainIndex: updateInfo.chainIndex,
+                  isAIAgentChild: true
+                }
+              };
+            }
+          }
+          
+          // Position Add Action nodes correctly
           if (node.type === 'addAction' && node.data?.parentId) {
             const parentNode = uniqueNodes.find(n => n.id === node.data.parentId);
             if (parentNode) {

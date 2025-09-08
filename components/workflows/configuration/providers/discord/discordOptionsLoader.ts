@@ -7,6 +7,10 @@ import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../ty
 import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore';
 import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore';
 
+// Debounce map to prevent rapid consecutive calls
+const debounceTimers = new Map<string, NodeJS.Timeout>();
+const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
+
 export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'guildId',
@@ -27,33 +31,83 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, dependsOnValue, forceRefresh, signal } = params;
-
-    switch (fieldName) {
-      case 'guildId':
-        return this.loadGuilds(forceRefresh);
-      
-      case 'channelId':
-        return this.loadChannels(dependsOnValue, forceRefresh);
-      
-      case 'messageId':
-        return this.loadMessages(params);
-      
-      case 'filterAuthor':
-      case 'userId':
-        return this.loadMembers(params);
-      
-      case 'roleId':
-      case 'roleFilter':
-        return this.loadRoles(params);
-      
-      case 'parentId':
-      case 'categoryId':
-      case 'parentCategory':
-        return this.loadCategories(params);
-      
-      default:
-        return [];
+    
+    // Create a unique key for this request
+    const requestKey = `${fieldName}:${dependsOnValue || 'none'}:${forceRefresh}`;
+    
+    // Check if there's already a pending promise for this exact request
+    const pendingPromise = pendingPromises.get(requestKey);
+    if (pendingPromise) {
+      console.log(`🔄 [Discord] Reusing pending request for ${fieldName}`);
+      return pendingPromise;
     }
+    
+    // Clear any existing debounce timer for this field
+    const existingTimer = debounceTimers.get(fieldName);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      debounceTimers.delete(fieldName);
+    }
+    
+    // Create a new promise for this request
+    const loadPromise = new Promise<FormattedOption[]>((resolve) => {
+      // Add a small debounce delay to batch rapid consecutive calls
+      const timer = setTimeout(async () => {
+        debounceTimers.delete(fieldName);
+        
+        try {
+          let result: FormattedOption[] = [];
+          
+          switch (fieldName) {
+            case 'guildId':
+              result = await this.loadGuilds(forceRefresh);
+              break;
+            
+            case 'channelId':
+              result = await this.loadChannels(dependsOnValue, forceRefresh);
+              break;
+            
+            case 'messageId':
+              result = await this.loadMessages(params);
+              break;
+            
+            case 'filterAuthor':
+            case 'userId':
+              result = await this.loadMembers(params);
+              break;
+            
+            case 'roleId':
+            case 'roleFilter':
+              result = await this.loadRoles(params);
+              break;
+            
+            case 'parentId':
+            case 'categoryId':
+            case 'parentCategory':
+              result = await this.loadCategories(params);
+              break;
+            
+            default:
+              result = [];
+          }
+          
+          resolve(result);
+        } catch (error) {
+          console.error(`❌ [Discord] Error loading ${fieldName}:`, error);
+          resolve([]);
+        } finally {
+          // Clean up the pending promise
+          pendingPromises.delete(requestKey);
+        }
+      }, 100); // 100ms debounce delay
+      
+      debounceTimers.set(fieldName, timer);
+    });
+    
+    // Store the pending promise
+    pendingPromises.set(requestKey, loadPromise);
+    
+    return loadPromise;
   }
 
   private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
@@ -89,6 +143,9 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     }
 
     try {
+      // Add a small delay to prevent rapid consecutive calls
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       const channels = await loadDiscordChannelsOnce(guildId, forceRefresh || false);
       
       if (!channels || channels.length === 0) {
@@ -152,12 +209,21 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       const messages = result.data || [];
 
       return messages.map((msg: any) => {
-        const baseLabel = msg.content || 
-          `Message by ${msg.author?.username || 'Unknown'} (${msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'Unknown time'})`;
+        // Use the formatted name from the backend which includes author, date, and preview
+        let label = msg.name || msg.label;
         
+        // If no formatted name from backend, fall back to creating one
+        if (!label) {
+          label = msg.content || 
+            `Message by ${msg.author?.username || 'Unknown'} (${msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'Unknown time'})`;
+        }
+        
+        // Add reaction count if there are reactions
         const reactions = msg.reactions || [];
-        const reactionCount = reactions.reduce((total: number, r: any) => total + r.count, 0);
-        const label = reactions.length > 0 ? `${baseLabel} [${reactionCount} reactions]` : baseLabel;
+        if (reactions.length > 0) {
+          const reactionCount = reactions.reduce((total: number, r: any) => total + r.count, 0);
+          label = `${label} [${reactionCount} reactions]`;
+        }
         
         return {
           id: msg.id,

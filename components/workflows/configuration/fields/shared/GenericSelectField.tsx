@@ -185,11 +185,12 @@ export function GenericSelectField({
             processedOptions.map((option: any, index: number) => {
               const optionValue = option.value || option.id;
               const optionLabel = option.label || option.name || option.value || option.id;
+              if (!optionValue) return null;
               
               return (
                 <SelectItem 
-                  key={`${optionValue}-${index}`} 
-                  value={optionValue}
+                  key={String(optionValue)} 
+                  value={String(optionValue)}
                 >
                   {optionLabel}
                 </SelectItem>
