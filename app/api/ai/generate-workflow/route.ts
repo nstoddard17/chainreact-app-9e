@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { prompt, model } = await request.json()
+    const { prompt, model, debug, strict } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
@@ -56,11 +56,59 @@ export async function POST(request: NextRequest) {
     const selectedModel = model && validModels.includes(model) ? model : 'gpt-4o-mini'
 
     // Generate workflow using dynamic AI with actual node registry
-    const generatedWorkflow = await generateDynamicWorkflow({
+    const result = await generateDynamicWorkflow({
       prompt,
       userId: user.id,
       model: selectedModel as 'gpt-4o' | 'gpt-4o-mini',
+      debug: !!debug,
+      strict: !!strict,
     })
+    const generatedWorkflow = result.workflow
+
+    // Process nodes to add proper metadata
+    const aiGeneratedNodes = generatedWorkflow.nodes.map(node => {
+      // Check if this node is part of an AI Agent chain
+      const nodeIdParts = node.id.split('-');
+      const isChainNode = node.id.includes('-chain') && node.id.includes('-action');
+      
+      let additionalData: any = {
+        isAIGenerated: true
+      };
+      
+      // If this is a chain action node, extract and add chain metadata
+      if (isChainNode) {
+        // Pattern: {aiAgentId}-chain{index}-action{num}
+        const chainMatch = node.id.match(/^(node-\d+)-chain(\d+)-action/);
+        if (chainMatch) {
+          const parentAIAgentId = chainMatch[1];
+          const chainIndex = parseInt(chainMatch[2]);
+          additionalData = {
+            ...additionalData,
+            isAIAgentChild: true,
+            parentAIAgentId: parentAIAgentId,
+            parentChainIndex: chainIndex
+          };
+          console.log(`Setting chain metadata for ${node.id}:`, { parentAIAgentId, chainIndex });
+        }
+      }
+      
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          ...additionalData
+        }
+      };
+    })
+    
+    // If strict mode rejected the output, return 422 without saving
+    if (debug && result.debug?.rejected) {
+      return NextResponse.json({
+        success: false,
+        error: 'Generation rejected by strict mode due to validation issues.',
+        debug: result.debug
+      }, { status: 422 })
+    }
 
     // Save the generated workflow to the database
     const { data: workflow, error: dbError } = await supabase
@@ -69,9 +117,9 @@ export async function POST(request: NextRequest) {
         name: generatedWorkflow.name,
         description: generatedWorkflow.description,
         user_id: user.id,
-        nodes: generatedWorkflow.nodes,
+        nodes: aiGeneratedNodes,
         connections: generatedWorkflow.connections,
-        status: "draft",
+        status: "draft"
       })
       .select()
       .single()
@@ -88,22 +136,34 @@ export async function POST(request: NextRequest) {
       generated_workflow: generatedWorkflow,
       confidence_score: 0.8,
       status: "generated",
-      metadata: { model: selectedModel },
+      metadata: { model: selectedModel, debug: !!debug },
     })
 
     return NextResponse.json({
       success: true,
       workflow,
       generated: generatedWorkflow,
+      debug: debug ? result.debug : undefined,
     })
   } catch (error: any) {
     console.error("Error generating workflow:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to generate workflow",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    const msg: string = error?.message || ''
+    if (msg.startsWith('VALIDATION_FAILED')) {
+      let errors: string[] = []
+      try {
+        const jsonStart = msg.indexOf(':') + 1
+        if (jsonStart > 0) errors = JSON.parse(msg.slice(jsonStart).trim())
+      } catch {}
+      return NextResponse.json({
+        success: false,
+        error: 'AI generation failed validation. If it fails again, please try creating the workflow manually.',
+        debug: debug ? { errors, rejected: true } : undefined,
+      }, { status: 422 })
+    }
+    return NextResponse.json({
+      success: false,
+      error: 'AI generation failed. If it fails again, please try creating the workflow manually.',
+      details: error?.message,
+    }, { status: 500 })
   }
 }

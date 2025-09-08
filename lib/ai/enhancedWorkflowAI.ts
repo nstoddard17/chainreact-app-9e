@@ -117,7 +117,7 @@ RESPONSE FORMAT:
         "isTrigger": false,
         "providerId": "ai",
         "config": {
-          "model": "gpt-4-turbo",
+          "model": "gpt-4o-mini",
           "systemPrompt": "[Comprehensive prompt explaining what the AI should do]",
           "chains": [
             {
@@ -339,7 +339,7 @@ export async function generateEnhancedWorkflow(request: WorkflowGenerationReques
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -480,7 +480,7 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
       isTrigger: false,
       providerId: "ai",
       config: {
-        model: "gpt-4-turbo",
+        model: "gpt-4o-mini",
         systemPrompt: "You are a comprehensive customer support AI. Analyze incoming emails and execute appropriate chains based on content:\n\n- Chain 1: Ticket Classification - For new support requests, create tickets and notify team\n- Chain 2: FAQ Resolution - For common questions, search knowledge base and send automated responses\n- Chain 3: Escalation - For urgent/complex issues, create high-priority tickets and schedule meetings\n- Chain 4: Follow-ups - For existing tickets, check status and send updates\n- Chain 5: Feedback - For feedback emails, log responses and notify if negative\n- Chain 6: Order Issues - For payment/order problems, check systems and update CRM\n\nAnalyze keywords, sentiment, and urgency to decide which chains to execute. You can execute multiple chains in parallel when appropriate.",
         chains: chains
       }

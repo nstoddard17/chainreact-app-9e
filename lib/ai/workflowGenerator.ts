@@ -69,7 +69,7 @@ export async function suggestNodeConfiguration(nodeType: string, context: any) {
     
     // Fall back to the original implementation if no workflow data
     const { text } = await generateText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       prompt: `
         Suggest configuration for a ${nodeType} node in a workflow.
         Context: ${JSON.stringify(context, null, 2)}
@@ -97,7 +97,7 @@ export async function suggestNodeConfiguration(nodeType: string, context: any) {
 export async function generateNodeSuggestions(currentWorkflow: any, position: { x: number; y: number }) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: z.object({
         suggestions: z.array(
           z.object({
