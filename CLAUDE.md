@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Architectural Decision Guidelines
+
+**IMPORTANT**: When asked to make architectural changes or refactor code, ALWAYS:
+
+1. **First provide an analysis** comparing multiple approaches with pros/cons
+2. **Recommend the best approach** based on:
+   - Industry best practices from leading apps (Notion, Linear, Figma, Stripe, Vercel, etc.)
+   - Scalability and future flexibility
+   - Performance implications
+   - Developer experience and maintainability
+   - Technical debt considerations
+3. **Explain why** this approach aligns with world-class application standards
+4. **Get confirmation** before proceeding with implementation
+5. **Consider the "flex factor"** - ensure the solution can adapt as requirements evolve
+
+This ensures we're building with the same architectural rigor as the best apps in the world, not just implementing the first solution that comes to mind.
+
 ## Overview
 
 ChainReact is a workflow automation platform built with Next.js 15, TypeScript, and Supabase. The application allows users to create, manage, and execute automated workflows that integrate with various third-party services like Gmail, Discord, Notion, Slack, and more.

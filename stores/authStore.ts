@@ -761,18 +761,76 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "chainreact-auth",
-      storage: createJSONStorage(() => localStorage),
+      storage: {
+        getItem: (name) => {
+          try {
+            const str = localStorage.getItem(name)
+            if (!str) return null
+            
+            // Validate the stored data before parsing
+            if (str.startsWith('base64-') || str.includes('eyJ')) {
+              console.warn('Detected corrupted auth data, clearing...')
+              localStorage.removeItem(name)
+              return null
+            }
+            
+            // Try to parse the JSON
+            const data = JSON.parse(str)
+            
+            // Validate the structure
+            if (data && typeof data === 'object' && data.state) {
+              return str
+            }
+            
+            // If invalid structure, clear it
+            console.warn('Invalid auth data structure, clearing...')
+            localStorage.removeItem(name)
+            return null
+          } catch (error) {
+            console.error('Error reading auth storage:', error)
+            // Clear corrupted data
+            localStorage.removeItem(name)
+            return null
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            // Ensure value is a string
+            let stringValue = value
+            if (typeof value !== 'string') {
+              stringValue = JSON.stringify(value)
+            }
+            
+            // Validate it's valid JSON
+            JSON.parse(stringValue)
+            localStorage.setItem(name, stringValue)
+          } catch (error) {
+            console.error('Error setting auth storage:', error)
+          }
+        },
+        removeItem: (name) => {
+          localStorage.removeItem(name)
+        },
+      },
       partialize: (state) => ({
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHydrated()
+        try {
+          state?.setHydrated()
 
-        // Only initialize if not already initialized
-        if (state && !state.initialized) {
-          setTimeout(() => {
-            state.initialize()
-          }, 100)
+          // Only initialize if not already initialized
+          if (state && !state.initialized) {
+            setTimeout(() => {
+              state.initialize()
+            }, 100)
+          }
+        } catch (error) {
+          console.error('Error during rehydration:', error)
+          // Clear any corrupted state
+          localStorage.removeItem('chainreact-auth')
+          // Still mark as hydrated to prevent blocking
+          state?.setHydrated()
         }
       },
     },

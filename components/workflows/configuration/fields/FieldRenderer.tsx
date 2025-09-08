@@ -55,6 +55,9 @@ interface FieldProps {
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
   parentValues?: Record<string, any>; // All form values for dependency resolution
+  aiFields?: Record<string, boolean>; // Track which fields are set to AI mode
+  setAiFields?: (fields: Record<string, boolean>) => void; // Update AI fields
+  isConnectedToAIAgent?: boolean; // Whether an AI agent exists in the workflow
 }
 
 /**
@@ -94,6 +97,9 @@ export function FieldRenderer({
   nodeInfo,
   bubbleValues = [],
   parentValues = {},
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -218,6 +224,10 @@ export function FieldRenderer({
             guildId={parentValues?.guildId}
             channelId={parentValues?.channelId}
             userId={user?.id}
+            fieldName={field.name}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
             className={cn(
               error && "border-red-500"
             )}
@@ -327,6 +337,9 @@ export function FieldRenderer({
             error={error}
             dynamicOptions={fieldOptions}
             onDynamicLoad={onDynamicLoad}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
 
@@ -667,6 +680,9 @@ export function FieldRenderer({
             value={value}
             onChange={onChange}
             error={error}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
     }

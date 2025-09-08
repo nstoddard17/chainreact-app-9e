@@ -45,25 +45,36 @@ export async function POST(req: NextRequest) {
         status: integration.status
       })
       return NextResponse.json({
+        data: [],
+        success: false,
         error: 'Discord integration needs to be re-authorized. Please reconnect your Discord account.',
         needsReconnection: true,
-        currentStatus: integration.status,
-        data: [] // Return empty data instead of failing completely
-      }, { status: 200 }) // Return 200 with empty data so UI can handle gracefully
+        currentStatus: integration.status
+      })
     }
     
-    // Check for other invalid statuses
-    if (integration.status !== 'connected' && integration.status !== 'active') {
+    // Check for other invalid statuses - be more lenient
+    // Only fail if status is explicitly disconnected or error
+    if (integration.status === 'disconnected' || integration.status === 'error') {
       console.error('❌ [Discord API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
       return NextResponse.json({
+        data: [],
+        success: false,
         error: 'Discord integration is not connected. Please reconnect your account.',
         needsReconnection: true,
-        currentStatus: integration.status,
-        data: []
-      }, { status: 200 })
+        currentStatus: integration.status
+      })
+    }
+    
+    // Log warning for non-standard statuses but continue
+    if (integration.status !== 'connected' && integration.status !== 'active') {
+      console.warn('⚠️ [Discord API] Non-standard integration status, continuing anyway:', {
+        integrationId,
+        status: integration.status
+      })
     }
 
     // Get the appropriate handler

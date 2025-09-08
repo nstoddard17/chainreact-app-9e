@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, CreditCard, Bell, Shield, Key, Trash2 } from "lucide-react"
+import { Settings, CreditCard, Bell, Shield, Key, Trash2, Loader2 } from "lucide-react"
 import BillingContent from "@/components/billing/BillingContent"
 import DataDeletionSettings from "./DataDeletionSettings"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,15 @@ export default function SettingsContent() {
   const [activeTab, setActiveTab] = useState("billing")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate loading time for initial data fetch
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   async function handleFacebookDelete() {
     setDeleting(true)
@@ -36,6 +45,19 @@ export default function SettingsContent() {
       setDeleting(false)
       setShowDeleteDialog(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Settings">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-lg text-muted-foreground">Loading settings...</p>
+          </div>
+        </div>
+      </AppLayout>
+    )
   }
 
   return (

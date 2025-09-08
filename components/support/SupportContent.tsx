@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,11 +26,13 @@ import {
   HelpCircle,
   CheckCircle,
   X,
+  Loader2,
 } from "lucide-react"
 
 export function SupportContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [ticketForm, setTicketForm] = useState({
     name: "",
     email: "",
@@ -39,6 +41,14 @@ export function SupportContent() {
     category: "general",
     description: "",
   })
+
+  useEffect(() => {
+    // Simulate loading time for initial data fetch
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const faqs = [
     {
@@ -110,6 +120,17 @@ export function SupportContent() {
       category: "general",
       description: "",
     })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="text-lg text-muted-foreground">Loading support...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
