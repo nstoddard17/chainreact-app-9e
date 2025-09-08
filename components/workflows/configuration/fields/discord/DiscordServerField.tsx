@@ -19,7 +19,7 @@ interface DiscordServerFieldProps {
  * Discord-specific server/guild selector field
  * Handles Discord guilds with bot status checking
  */
-export function DiscordServerField({
+function DiscordServerFieldComponent({
   field,
   value,
   onChange,
@@ -42,11 +42,11 @@ export function DiscordServerField({
     previousValue.current = value;
   }, [value]);
 
-  // Auto-load Discord servers on mount ONLY if no data exists AND no value is selected
+  // Auto-load Discord servers on mount immediately
   useEffect(() => {
-    // Skip auto-loading if we already have a selected value OR if we have options available
-    if (value || options.length > 0) {
-      console.log('📌 Skipping Discord server auto-load - value or options exist:', {
+    // Skip auto-loading if we already have options available
+    if (options.length > 0) {
+      console.log('📌 Skipping Discord server auto-load - options exist:', {
         value,
         optionsCount: options.length
       });
@@ -54,12 +54,12 @@ export function DiscordServerField({
       return;
     }
     
-    if (field.dynamic && onDynamicLoad && !isLoading && !hasAttemptedLoad.current) {
+    if (field.dynamic && onDynamicLoad && !hasAttemptedLoad.current) {
       console.log('🔍 Auto-loading Discord servers on mount for field:', field.name);
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
-  }, [field.dynamic, field.name, onDynamicLoad, isLoading, options.length, value]);
+  }, [field.dynamic, field.name, onDynamicLoad, options.length]);
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
@@ -120,27 +120,24 @@ export function DiscordServerField({
   const processedOptions = processDiscordServers(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
-  // Always show loading state when isLoading is true (even if we have cached data)
-  if (field.dynamic && isLoading) {
+  // Show loading state immediately when modal opens and no options are available
+  if (field.dynamic && (isLoading || (options.length === 0 && !hasAttemptedLoad.current))) {
     return (
-      <Select disabled>
+      <Select disabled value={value === undefined || value === null ? "" : String(value)}>
         <SelectTrigger 
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
             error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
           )}
         >
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-            <span>Loading Discord servers...</span>
-          </div>
+          <SelectValue placeholder="Loading Discord servers..." />
         </SelectTrigger>
       </Select>
     );
   }
 
-  // Special case when no Discord servers are available
-  if (processedOptions.length === 0 && !isLoading) {
+  // Special case when no Discord servers are available after loading
+  if (processedOptions.length === 0 && !isLoading && hasAttemptedLoad.current) {
     return (
       <div className="text-sm text-slate-500">
         <p>No Discord servers found. You may need to:</p>
@@ -165,9 +162,12 @@ export function DiscordServerField({
     );
   }
 
+  // Ensure value is always defined to prevent uncontrolled/controlled warning
+  const selectValue = value === undefined || value === null ? "" : String(value);
+  
   return (
     <Select 
-      value={value ?? ""} 
+      value={selectValue} 
       onValueChange={onChange}
       onOpenChange={handleServerFieldOpen}
     >
@@ -191,11 +191,12 @@ export function DiscordServerField({
         {processedOptions.map((option: any, index: number) => {
           const optionValue = option.value || option.id;
           const optionLabel = option.label || option.name || option.value || option.id;
+          if (!optionValue) return null;
           
           return (
             <SelectItem 
-              key={`${optionValue}-${index}`} 
-              value={optionValue}
+              key={String(optionValue)} 
+              value={String(optionValue)}
             >
               <span>{optionLabel}</span>
             </SelectItem>
@@ -205,3 +206,6 @@ export function DiscordServerField({
     </Select>
   );
 }
+
+// Export directly without memoization to avoid React static flag issues
+export const DiscordServerField = DiscordServerFieldComponent;

@@ -146,7 +146,7 @@ function ConfigurationForm({
     selectedRecord
   });
 
-  // Use the consolidated handler as setValue
+  // Use the consolidated handler as setValue (except for Discord which uses setValueBase directly)
   const setValue = handleFieldChange;
 
   // NOW we can do the conditional return (after all hooks)
@@ -330,7 +330,9 @@ function ConfigurationForm({
   switch (provider) {
     case 'discord':
       console.log('📘 [ConfigForm] Routing to Discord configuration');
-      return <DiscordConfiguration {...commonProps} />;
+      // Pass the base setValue for Discord to avoid complex field change logic
+      // Also pass loadingFields so Discord can check if fields are loading
+      return <DiscordConfiguration {...commonProps} setValue={setValueBase} loadingFields={loadingFields} />;
     
     case 'airtable':
       console.log('📗 [ConfigForm] Routing to Airtable configuration');
