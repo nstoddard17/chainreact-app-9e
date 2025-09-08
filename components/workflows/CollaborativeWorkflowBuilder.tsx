@@ -50,7 +50,7 @@ import { Button } from "@/components/ui/button"
 import { OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical, Settings, HelpCircle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -232,6 +232,7 @@ const useWorkflowBuilderState = () => {
   const [filterCategory, setFilterCategory] = useState("all")
   const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Show all integrations including "Coming soon" ones
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
+  const [isActionAIMode, setIsActionAIMode] = useState(false) // AI mode for action selection
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
@@ -2611,8 +2612,20 @@ const useWorkflowBuilderState = () => {
     
     // Check if this is for an AI Agent chain
     if (aiAgentActionCallback) {
+      // Prepare config based on AI mode
+      let config = {};
+      if (isActionAIMode && action.configSchema) {
+        // Set all fields to AI mode
+        config = { _allFieldsAI: true };
+        action.configSchema.forEach((field: any) => {
+          if (field.name && field.type !== 'hidden') {
+            config[field.name] = `{{AI_FIELD:${field.name}}}`;
+          }
+        });
+      }
+      
       // Call the callback with the action details
-      aiAgentActionCallback(action.type, integration.id, {})
+      aiAgentActionCallback(action.type, integration.id, config)
       
       // Clear the callback and close the dialog
       setAiAgentActionCallback(null)
@@ -2620,10 +2633,11 @@ const useWorkflowBuilderState = () => {
       setSelectedIntegration(null)
       setSelectedAction(null)
       setSourceAddNode(null)
+      setIsActionAIMode(false) // Reset AI mode
       
       toast({
         title: "Action Added",
-        description: `Added ${action.title || action.type} to AI Agent chain`
+        description: `Added ${action.title || action.type} to AI Agent chain${isActionAIMode ? ' (AI configured)' : ''}`
       })
       return
     }
@@ -2652,8 +2666,20 @@ const useWorkflowBuilderState = () => {
       return
     }
     
-    if (nodeNeedsConfiguration(action)) {
-      // Store the pending action info and open configuration
+    // Prepare config based on AI mode for regular workflow actions
+    let initialConfig: Record<string, any> = {};
+    if (isActionAIMode && action.configSchema) {
+      // Set all fields to AI mode
+      initialConfig = { _allFieldsAI: true };
+      action.configSchema.forEach((field: any) => {
+        if (field.name && field.type !== 'hidden') {
+          initialConfig[field.name] = `{{AI_FIELD:${field.name}}}`;
+        }
+      });
+    }
+    
+    if (nodeNeedsConfiguration(action) && !isActionAIMode) {
+      // Store the pending action info and open configuration (only if not in AI mode)
       setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: effectiveSourceAddNode });
       const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
       
@@ -2661,15 +2687,17 @@ const useWorkflowBuilderState = () => {
         id: 'pending-action', 
         integration: integrationConfig, 
         nodeComponent: action, 
-        config: {} 
+        config: initialConfig 
       };
       setConfiguringNode(configuringNodeData);
       setShowActionDialog(false);
       // Clear sourceAddNode immediately to prevent dialog from reopening
       setSourceAddNode(null);
     } else {
-      // Add action directly if no configuration needed
-      addActionToWorkflow(integration, action, {}, effectiveSourceAddNode);
+      // Add action directly if no configuration needed OR if in AI mode
+      addActionToWorkflow(integration, action, initialConfig, effectiveSourceAddNode);
+      // Reset AI mode after adding
+      setIsActionAIMode(false);
     }
   }
 
@@ -6212,7 +6240,53 @@ function WorkflowBuilderContent() {
                   </DialogDescription>
                 </div>
               </div>
-              {/* Rely on default Dialog close button to avoid double X */}
+              
+              {/* AI/Manual Toggle - Only show if AI Agent exists in workflow */}
+              {(() => {
+                const hasAIAgent = getNodes().some(n => n.data?.type === 'ai_agent');
+                if (!hasAIAgent) return null;
+                
+                return (
+                  <div className="flex items-center gap-2 mr-8">
+                    <Label htmlFor="ai-mode-toggle" className="text-sm font-medium">
+                      Configuration:
+                    </Label>
+                    <div className="flex items-center bg-muted rounded-lg p-1">
+                      <Button
+                        id="ai-mode"
+                        variant={isActionAIMode ? "default" : "ghost"}
+                        size="sm"
+                        className="px-3 py-1 h-7"
+                        onClick={() => setIsActionAIMode(true)}
+                      >
+                        <Bot className="w-3 h-3 mr-1" />
+                        AI
+                      </Button>
+                      <Button
+                        id="manual-mode"
+                        variant={!isActionAIMode ? "default" : "ghost"}
+                        size="sm"
+                        className="px-3 py-1 h-7"
+                        onClick={() => setIsActionAIMode(false)}
+                      >
+                        <Settings className="w-3 h-3 mr-1" />
+                        Manual
+                      </Button>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">
+                          <strong>AI Mode:</strong> Action fields will be automatically configured by AI at runtime.<br/>
+                          <strong>Manual Mode:</strong> Configure action fields yourself with specific values.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                );
+              })()}
             </div>
           </DialogHeader>
           

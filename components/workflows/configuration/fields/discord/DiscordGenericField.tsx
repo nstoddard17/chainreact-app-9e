@@ -216,7 +216,13 @@ function DiscordGenericFieldComponent({
           displayLabel = value === '' ? 'Any User' : 'Loading user...';
         }
       } else if (field.name === 'messageId') {
-        displayLabel = 'Selected Message';
+        // Try to use the formatted name if available
+        const messageMatch = processedOptions.find(opt => String(opt.value || opt.id) === String(value));
+        if (messageMatch && (messageMatch.name || messageMatch.label)) {
+          displayLabel = messageMatch.name || messageMatch.label;
+        } else {
+          displayLabel = 'Selected Message';
+        }
       }
       
       // Preserve the exact saved value to prevent it from being cleared
@@ -241,13 +247,19 @@ function DiscordGenericFieldComponent({
     let optionLabel = option.label || option.name || (option.value !== undefined ? option.value : option.id) || "";
     let searchValue = String(optionLabel); // Ensure it's a string
     
-    // Special handling for message fields - show full message content
+    // Special handling for message fields - use the formatted name from backend if available
     if (field.name === 'messageId') {
-      if (option.content) {
+      // Use the formatted name from backend which includes author, date, and preview
+      if (option.name || option.label) {
+        optionLabel = option.name || option.label;
+        // Make both the formatted name and content searchable
+        searchValue = `${optionLabel} ${option.content || ''}`;
+      } else if (option.content) {
+        // Fallback to content if no formatted name
         optionLabel = option.content;
-        searchValue = option.content; // Make the full message content searchable
+        searchValue = option.content;
       } else {
-        // Fallback for messages without content
+        // Last fallback for messages without content or formatted name
         const fallbackLabel = `Message by ${option.author?.username || 'Unknown'} (${option.timestamp ? new Date(option.timestamp).toLocaleString() : 'Unknown time'})`;
         optionLabel = fallbackLabel;
         searchValue = `${option.author?.username || 'Unknown'} ${fallbackLabel}`;

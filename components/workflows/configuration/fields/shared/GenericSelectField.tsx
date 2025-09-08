@@ -164,6 +164,16 @@ export function GenericSelectField({
     );
   }
 
+  // Find the selected option to display its label
+  const selectedOption = processedOptions.find((opt: any) => {
+    const optValue = opt.value || opt.id;
+    return String(optValue) === String(value);
+  });
+  
+  const displayValue = selectedOption ? 
+    (selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id) : 
+    value;
+
   // Fallback to regular Select with clear button
   return (
     <div className="relative">
@@ -178,7 +188,9 @@ export function GenericSelectField({
             error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
           )}
         >
-          <SelectValue placeholder={field.placeholder || "Select an option..."} />
+          <SelectValue placeholder={field.placeholder || "Select an option..."}>
+            {value ? displayValue : (field.placeholder || "Select an option...")}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {processedOptions.length > 0 ? (

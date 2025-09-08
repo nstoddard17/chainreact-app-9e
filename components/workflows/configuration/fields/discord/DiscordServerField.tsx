@@ -1,9 +1,11 @@
 "use client"
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { RefreshCw } from "lucide-react";
+import { forceRefreshDiscordGuilds } from "@/stores/discordGuildsCacheStore";
 
 interface DiscordServerFieldProps {
   field: any;
@@ -32,6 +34,7 @@ function DiscordServerFieldComponent({
   // Track whether we've already attempted to load servers to prevent reloading
   const hasAttemptedLoad = useRef(false);
   const previousValue = useRef(value);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Reset load attempt flag if field is intentionally cleared
   useEffect(() => {
@@ -117,6 +120,24 @@ function DiscordServerFieldComponent({
     return error;
   };
 
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    hasAttemptedLoad.current = false; // Reset the load flag
+    try {
+      console.log('🔄 Manually refreshing Discord servers...');
+      await forceRefreshDiscordGuilds();
+      // Trigger reload through the onDynamicLoad callback
+      if (onDynamicLoad) {
+        onDynamicLoad(field.name);
+      }
+    } catch (error) {
+      console.error('Error refreshing Discord servers:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const processedOptions = processDiscordServers(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
@@ -166,44 +187,68 @@ function DiscordServerFieldComponent({
   const selectValue = value === undefined || value === null ? "" : String(value);
   
   return (
-    <Select 
-      value={selectValue} 
-      onValueChange={onChange}
-      onOpenChange={handleServerFieldOpen}
-    >
-      <SelectTrigger 
-        className={cn(
-          "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-          error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-        )}
+    <div className="flex items-center gap-2">
+      <Select 
+        value={selectValue} 
+        onValueChange={onChange}
+        onOpenChange={handleServerFieldOpen}
+        className="flex-1"
       >
-        <SelectValue placeholder={field.placeholder || "Select Discord server..."} />
-      </SelectTrigger>
-      <SelectContent 
-        className="bg-slate-900 text-white max-h-[200px]"
-        position="popper" 
-        sideOffset={4}
-        style={{ 
-          backgroundColor: 'hsl(0 0% 10%)',
-          color: 'white' 
-        }}
-      >
-        {processedOptions.map((option: any, index: number) => {
-          const optionValue = option.value || option.id;
-          const optionLabel = option.label || option.name || option.value || option.id;
-          if (!optionValue) return null;
+        <SelectTrigger 
+          className={cn(
+            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+          )}
+        >
+          <SelectValue placeholder={field.placeholder || "Select Discord server..."} />
+        </SelectTrigger>
+        <SelectContent 
+          className="bg-slate-900 text-white max-h-[200px]"
+          position="popper" 
+          sideOffset={4}
+          style={{ 
+            backgroundColor: 'hsl(0 0% 10%)',
+            color: 'white' 
+          }}
+        >
+          {/* Add refresh option at the top */}
+          <div className="px-2 py-1.5 text-xs text-slate-400 border-b border-slate-700 mb-1">
+            {processedOptions.length} server{processedOptions.length !== 1 ? 's' : ''} available
+          </div>
           
-          return (
-            <SelectItem 
-              key={String(optionValue)} 
-              value={String(optionValue)}
-            >
-              <span>{optionLabel}</span>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+          {processedOptions.map((option: any, index: number) => {
+            const optionValue = option.value || option.id;
+            const optionLabel = option.label || option.name || option.value || option.id;
+            if (!optionValue) return null;
+            
+            return (
+              <SelectItem 
+                key={String(optionValue)} 
+                value={String(optionValue)}
+              >
+                <span>{optionLabel}</span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+      
+      {/* Refresh button */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleRefresh}
+        disabled={isRefreshing || isLoading}
+        className="h-10 px-3"
+        title="Refresh server list"
+      >
+        <RefreshCw className={cn(
+          "h-4 w-4",
+          (isRefreshing || isLoading) && "animate-spin"
+        )} />
+      </Button>
+    </div>
   );
 }
 

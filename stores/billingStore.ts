@@ -92,7 +92,8 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = getSupabaseClient()
       if (!supabase) {
-        throw new Error("Supabase client not available")
+        console.log("Supabase client not available for subscription fetch")
+        return
       }
 
       const {
@@ -101,23 +102,26 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        throw new Error("Not authenticated")
+        console.log("User not authenticated for subscription fetch")
+        return
       }
 
       const { data, error } = await supabase
         .from("subscriptions")
-        .select(`
-          *,
-          plans (*)
-        `)
+        .select("*")
         .eq("user_id", user.id)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code !== "PGRST116") throw error
+      // It's OK if no subscription exists
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching subscription:", error)
+        return
+      }
 
-      set({ currentSubscription: data })
+      set({ currentSubscription: data || null })
     } catch (error: any) {
-      set({ error: error.message })
+      console.error("Subscription fetch error:", error)
+      // Don't set error state to prevent blocking UI
     }
   },
 
@@ -125,7 +129,8 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = getSupabaseClient()
       if (!supabase) {
-        throw new Error("Supabase client not available")
+        console.log("Supabase client not available for usage fetch")
+        return
       }
 
       const {
@@ -134,7 +139,8 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        throw new Error("Not authenticated")
+        console.log("User not authenticated for usage fetch")
+        return
       }
 
       const currentDate = new Date()
@@ -147,9 +153,12 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         .eq("user_id", user.id)
         .eq("year", year)
         .eq("month", month)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code !== "PGRST116") throw error
+      // It's OK if no usage record exists
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching usage:", error)
+      }
 
       set({
         usage: data || {
@@ -161,7 +170,8 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         },
       })
     } catch (error: any) {
-      set({ error: error.message })
+      console.error("Usage fetch error:", error)
+      // Don't set error state to prevent blocking UI
     }
   },
 

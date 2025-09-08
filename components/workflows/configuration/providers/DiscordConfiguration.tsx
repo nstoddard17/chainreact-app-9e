@@ -8,6 +8,18 @@ import { FieldRenderer } from '../fields/FieldRenderer';
 import { useDiscordState } from '../hooks/useDiscordState';
 import { cn } from "@/lib/utils";
 
+// Discord-specific extended configuration
+// This includes Discord-specific UI features like bot status, channel permissions, etc.
+export const DISCORD_EXTENDED_CONFIG = {
+  features: {
+    botStatusChecking: true,
+    channelPermissionWarnings: true,
+    progressiveFieldDisclosure: true,
+    richTextEditor: true,
+  },
+  // Add more Discord-specific UI configuration here as needed
+};
+
 interface DiscordConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -27,6 +39,7 @@ interface DiscordConfigurationProps {
   onConnectIntegration?: () => void;
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
+  isConnectedToAIAgent?: boolean;
   loadingFields?: Set<string>;
 }
 
@@ -47,6 +60,9 @@ export function DiscordConfiguration({
   integrationName,
   needsConnection,
   onConnectIntegration,
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
   loadingFields = new Set(),
 }: DiscordConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -317,6 +333,9 @@ export function DiscordConfiguration({
                     loadingDynamic={isFieldLoading(field.name)}
                     nodeInfo={nodeInfo}
                     parentValues={values}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    isConnectedToAIAgent={isConnectedToAIAgent}
                   />
                   
                   {/* Show bot status warning after server field ONLY if bot is not connected */}

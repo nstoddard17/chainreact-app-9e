@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useBillingStore } from "@/stores/billingStore"
-import PlanSelector from "./PlanSelector"
+import PlanSelector from "./PlanSelectorStyled"
 import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
 import { Card, CardContent } from "@/components/ui/card"
