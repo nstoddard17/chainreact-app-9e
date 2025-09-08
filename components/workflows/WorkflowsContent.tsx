@@ -23,7 +23,7 @@ import AddToOrganizationDialog from "./AddToOrganizationDialog"
 import WorkflowDialog from "./WorkflowDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/cachedWorkflowStore"
-import { RoleGuard, PermissionGuard } from "@/components/ui/role-guard"
+import { RoleGuard, PermissionGuard, OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
 import { hasOrganizationPermission } from "@/lib/utils/organizationRoles"
@@ -59,6 +59,11 @@ export default function WorkflowsContent() {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiModel, setAiModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini')
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
+  const [aiDebugMode, setAiDebugMode] = useState(false)
+  const [aiStrictMode, setAiStrictMode] = useState(true)
+  const [aiDebugData, setAiDebugData] = useState<any | null>(null)
+  const [aiDebugOpen, setAiDebugOpen] = useState(false)
+  const [aiDebugWorkflowId, setAiDebugWorkflowId] = useState<string | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [workflowToEdit, setWorkflowToEdit] = useState<Workflow | null>(null)
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; workflowId: string | null }>({
@@ -264,21 +269,80 @@ export default function WorkflowsContent() {
         body: JSON.stringify({
           prompt: aiPrompt,
           model: aiModel,
+          debug: aiDebugMode,
+          strict: aiStrictMode,
         }),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Success",
-          description: `Workflow "${data.workflow.name}" created successfully!`,
-        })
-        
-        // Clear the prompt and reload workflows
-        setAiPrompt("")
-        await loadAllWorkflows(true)
+        if (aiDebugMode && data.debug) {
+          setAiDebugData(data.debug)
+          setAiDebugOpen(true)
+          setAiDebugWorkflowId(data.workflow?.id || null)
+
+          // Console-friendly debug dump for quick copy/paste
+          try {
+            // Group logs for readability
+            console.groupCollapsed('AI Debug: Workflow Generation')
+            console.log('Model:', data.debug.model)
+            console.log('Detected Scenarios:', data.debug.detectedScenarios)
+            console.log('System Prompt:\n', data.debug.systemPrompt)
+            console.log('User Prompt:\n', data.debug.userPrompt)
+            console.log('Raw OpenAI Response (JSON string):\n', data.debug.rawResponse)
+            if (data.debug.errors?.length) {
+              console.warn('Validation Errors:', data.debug.errors)
+            }
+            // Also provide a single JSON object for copying
+            console.log('Debug Bundle JSON:', JSON.stringify({
+              workflowId: data.workflow?.id,
+              model: data.debug.model,
+              detectedScenarios: data.debug.detectedScenarios,
+              systemPrompt: data.debug.systemPrompt,
+              userPrompt: data.debug.userPrompt,
+              rawResponse: data.debug.rawResponse,
+              errors: data.debug.errors,
+              generatedWorkflow: data.generated,
+            }, null, 2))
+            console.groupEnd()
+          } catch (e) {
+            // Best-effort logging, avoid UI impact
+          }
+        }
+        if (aiDebugMode) {
+          toast({
+            title: "Success",
+            description: `Workflow "${data.workflow.name}" created. Debug mode is active.`,
+          })
+        } else {
+          toast({
+            title: "Success",
+            description: `Workflow "${data.workflow.name}" created successfully! Opening in builder...`,
+          })
+          // If this is a Discord-triggered workflow, add a reminder toast
+          try {
+            const hasDiscordTrigger = Array.isArray(data?.workflow?.nodes) && data.workflow.nodes.some((n: any) => n?.data?.type === 'discord_trigger_new_message')
+            if (hasDiscordTrigger) {
+              toast({
+                title: "Next step",
+                description: "In the builder, select your Discord server and channel for the trigger.",
+              })
+            }
+          } catch {}
+          // Clear the prompt
+          setAiPrompt("")
+          // Navigate to the workflow builder with the new workflow
+          setTimeout(() => {
+            window.location.href = `/workflows/builder?id=${data.workflow.id}`
+          }, 500)
+        }
       } else {
+        if (aiDebugMode && data.debug) {
+          setAiDebugData(data.debug)
+          setAiDebugOpen(true)
+          setAiDebugWorkflowId(null)
+        }
         // Check if it's a coming soon integration error
         if (data.comingSoonIntegrations && data.comingSoonIntegrations.length > 0) {
           setErrorModal({
@@ -335,6 +399,45 @@ export default function WorkflowsContent() {
     }
   }
 
+  const DebugSection = () => {
+    if (!aiDebugData) return null
+    const { model, detectedScenarios, systemPrompt, userPrompt, rawResponse, errors } = aiDebugData
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="text-sm text-muted-foreground">Model</div>
+          <div className="font-mono text-sm">{model}</div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Detected Scenarios</div>
+          <div className="font-mono text-sm">{Array.isArray(detectedScenarios) ? detectedScenarios.join(', ') : ''}</div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">System Prompt</div>
+          <pre className="bg-slate-50 border rounded p-2 max-h-[30vh] overflow-auto text-xs whitespace-pre-wrap">{systemPrompt}</pre>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">User Prompt</div>
+          <pre className="bg-slate-50 border rounded p-2 max-h-[30vh] overflow-auto text-xs whitespace-pre-wrap">{userPrompt}</pre>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Raw OpenAI Response</div>
+          <pre className="bg-slate-50 border rounded p-2 max-h-[30vh] overflow-auto text-xs whitespace-pre-wrap">{rawResponse}</pre>
+        </div>
+        {Array.isArray(errors) && errors.length > 0 && (
+          <div>
+            <div className="text-sm text-red-600">Validation Errors</div>
+            <ul className="list-disc pl-5 text-xs text-red-600 space-y-1">
+              {errors.map((e: string, i: number) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <AppLayout title="Workflows">
@@ -361,7 +464,12 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <OrganizationRoleGuard requiredRole="admin">
+            <Link href="/admin/ai-prompt" className="inline-flex">
+              <Button variant="outline" size="sm">AI Prompt Admin</Button>
+            </Link>
+          </OrganizationRoleGuard>
           <CreateWorkflowDialog />
         </div>
 
@@ -429,7 +537,20 @@ export default function WorkflowsContent() {
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                        <OrganizationRoleGuard requiredRole="admin">
+                          <div className="flex items-center gap-4 ml-4">
+                            <div className="flex items-center gap-2">
+                              <Switch id="ai-debug" checked={aiDebugMode} onCheckedChange={setAiDebugMode} />
+                              <Label htmlFor="ai-debug" className="text-sm text-muted-foreground">AI Debug Mode</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="ai-strict" checked={aiStrictMode} onCheckedChange={setAiStrictMode} />
+                              <Label htmlFor="ai-strict" className="text-sm text-muted-foreground">Strict Mode</Label>
+                            </div>
+                          </div>
+                        </OrganizationRoleGuard>
                       </div>
+                      {/* Removed example prompt buttons for a cleaner UI */}
                     </div>
                     <Button
                       onClick={handleGenerateWithAI}
@@ -583,6 +704,8 @@ export default function WorkflowsContent() {
                             const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
                             const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
                             const hasConnections = workflow.connections?.length > 0
+                            const discordTrigger = workflow.nodes?.find(n => n.data?.type === 'discord_trigger_new_message')
+                            const needsDiscordConfig = !!(discordTrigger && (!discordTrigger.data?.config?.guildId || !discordTrigger.data?.config?.channelId))
                             
                             return (
                               <>
@@ -599,6 +722,11 @@ export default function WorkflowsContent() {
                                 {workflow.nodes?.length > 1 && !hasConnections && (
                                   <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
                                     ⚠️ Missing connections
+                                  </div>
+                                )}
+                                {needsDiscordConfig && (
+                                  <div className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded border border-yellow-200" title="Select your Discord server and channel in the trigger">
+                                    ⚠️ Select Discord server and channel
                                   </div>
                                 )}
                               </>
@@ -737,6 +865,58 @@ export default function WorkflowsContent() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Admin-only AI Debug Modal */}
+      <OrganizationRoleGuard requiredRole="admin">
+        <Dialog open={aiDebugOpen} onOpenChange={setAiDebugOpen}>
+          <DialogContent className="w-[calc(100vw-2rem)] sm:w-auto max-w-3xl max-h-[calc(100vh-4rem)] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>AI Debug Output</DialogTitle>
+              <DialogDescription>Inspect the exact prompts and raw model response used to generate this workflow.</DialogDescription>
+            </DialogHeader>
+            <DebugSection />
+            <DialogFooter>
+              <div className="flex items-center gap-2 w-full justify-between">
+                <div className="text-xs text-muted-foreground">
+                  {aiDebugWorkflowId ? `Workflow ID: ${aiDebugWorkflowId}` : ''}
+                </div>
+                <div className="flex items-center gap-2">
+                  {Array.isArray(aiDebugData?.errors) && aiDebugData.errors.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const bundle = {
+                            errors: aiDebugData?.errors || [],
+                            systemPrompt: aiDebugData?.systemPrompt || '',
+                            userPrompt: aiDebugData?.userPrompt || '',
+                            rawResponse: aiDebugData?.rawResponse || '',
+                          }
+                          await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2))
+                          toast({ title: 'Copied', description: 'Validation errors copied to clipboard.' })
+                        } catch (e) {
+                          toast({ title: 'Copy failed', description: 'Could not copy to clipboard', variant: 'destructive' })
+                        }
+                      }}
+                    >
+                      Copy Errors
+                    </Button>
+                  )}
+                  {aiDebugWorkflowId && (
+                    <Button onClick={() => {
+                      setAiDebugOpen(false)
+                      window.location.href = `/workflows/builder?id=${aiDebugWorkflowId}`
+                    }}>
+                      Open in Builder
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setAiDebugOpen(false)}>Close</Button>
+                </div>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </OrganizationRoleGuard>
 
       <Dialog
         open={templateDialog.open}

@@ -315,7 +315,7 @@ Return ONLY valid JSON in this format:
           "systemPrompt": "You are a helpful AI assistant that can analyze emails and take appropriate actions. When you receive an email, analyze its content and determine the best course of action.",
           "tone": "professional",
           "responseLength": 100,
-          "model": "gpt-4",
+          "model": "gpt-4o-mini",
           "temperature": 0.7,
           "maxTokens": 1000,
           "outputFormat": "text",
@@ -406,7 +406,7 @@ and the AI decides which chains to execute based on the input. Each chain can ha
 that are configured with AI mode (AI decides all field values at runtime).
 
 "config": {
-  "model": "gpt-4-turbo",
+  "model": "gpt-4o-mini",
   "systemPrompt": "You are an intelligent workflow orchestrator. Analyze the input and decide which chains to execute based on the content, urgency, and context. You can execute multiple chains in parallel when appropriate.",
   "chains": [
     {
@@ -475,7 +475,7 @@ that are configured with AI mode (AI decides all field values at runtime).
 
 AI Agent - Email Analysis with Chains (ai_agent):
 "config": {
-  "model": "gpt-4-turbo",
+  "model": "gpt-4o-mini",
   "systemPrompt": "Analyze incoming emails and route to appropriate support chains based on content, urgency, and keywords.",
   "chains": [
     {
@@ -499,7 +499,7 @@ AI Agent - Email Analysis with Chains (ai_agent):
 
 AI Agent - Customer Support with 6 Chains (ai_agent):
 "config": {
-  "model": "gpt-4-turbo",
+  "model": "gpt-4o-mini",
   "systemPrompt": "You are a comprehensive customer support AI. Analyze inquiries and execute appropriate chains: Chain 1 for ticket classification, Chain 2 for FAQ resolution, Chain 3 for escalation, Chain 4 for follow-ups, Chain 5 for feedback collection, Chain 6 for order issues.",
   "chains": [
     {
@@ -612,7 +612,7 @@ AI AGENT CONFIGURATION GUIDELINES:
 11. Write realistic systemPrompt that describes the AI's role and capabilities
 12. Set tone to "professional", "friendly", or "casual" based on the use case
 13. Set responseLength to 50-150 based on expected response complexity
-14. Use "gpt-4" as the model for best performance
+14. Use "gpt-4o-mini" as the default model
 15. Set temperature to 0.7 for balanced creativity and consistency
 16. Set maxTokens to 1000-2000 based on expected response length
 17. Set outputFormat to "text" for most use cases
@@ -628,7 +628,7 @@ Node positioning example:
 export async function generateWorkflow(request: WorkflowGenerationRequest): Promise<GeneratedWorkflow> {
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
@@ -713,7 +713,7 @@ export async function suggestNodeConfigurationWithVariables(nodeType: string, wo
     const variables = extractWorkflowVariables(workflowData);
     
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
@@ -758,7 +758,7 @@ export async function suggestNodeConfigurationWithVariables(nodeType: string, wo
 export async function chatWithAI(message: string, context?: any): Promise<string> {
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",

@@ -444,6 +444,42 @@ export function DiscordConfiguration({
         <div className="flex-1 px-6 py-4">
           <ScrollArea className="h-[calc(90vh-180px)] pr-4">
             <div className="space-y-3">
+              {/* Inline guidance banner for selecting server/channel */}
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <div className="font-medium mb-1">Select a Discord server and channel</div>
+                <div className="mb-2">Choose your server first, then pick a channel to listen for new messages.</div>
+                {!dynamicOptions?.guildId?.length && (
+                  <div className="flex items-center gap-2 text-blue-900">
+                    <span>Don’t see your servers?</span>
+                    <ul className="list-disc pl-5">
+                      <li>Connect Discord in Integrations</li>
+                      <li>Invite the bot to your server</li>
+                      <li>Ensure the bot can view channels</li>
+                    </ul>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDynamicLoad('guildId', undefined, undefined, true)}
+                    >
+                      Retry loading servers
+                    </Button>
+                  </div>
+                )}
+                {values.guildId && (!dynamicOptions?.channelId?.length || !values.channelId) && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span>After selecting a server, choose a channel.</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDynamicLoad('channelId', 'guildId', values.guildId, true)}
+                    >
+                      Retry loading channels
+                    </Button>
+                  </div>
+                )}
+              </div>
               {renderFields(baseFields)}
               
               {/* Discord Bot Status for triggers - Show after guild is selected but before channel field */}

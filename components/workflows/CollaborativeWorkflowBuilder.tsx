@@ -47,6 +47,7 @@ import { ExecutionHistoryModal } from "./ExecutionHistoryModal"
 import { SandboxPreviewPanel } from "./SandboxPreviewPanel"
 
 import { Button } from "@/components/ui/button"
+import { OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical } from "lucide-react"
@@ -1928,41 +1929,96 @@ const useWorkflowBuilderState = () => {
         const aiAgentNodes = customNodes.filter(n => n.data?.type === 'ai_agent');
         console.log('🔄 [WorkflowBuilder] Loading workflow - AI Agent nodes found:', aiAgentNodes.length);
         
+        // More detailed logging to see what's actually in the nodes
+        console.log('📦 [WorkflowBuilder] Checking all nodes for chain metadata:');
+        customNodes.forEach(n => {
+          // Log ALL nodes to see their metadata, not just ones with 'chain' in ID
+          const metadata = {
+            type: n.data?.type,
+            isAIAgentChild: n.data?.isAIAgentChild,
+            parentAIAgentId: n.data?.parentAIAgentId,
+            parentChainIndex: n.data?.parentChainIndex,
+            hasChainInId: n.id.includes('chain')
+          };
+          console.log(`  Node ${n.id}:`, JSON.stringify(metadata));
+        });
+        
         // Track all Add Action nodes for AI Agent chains
         const aiAgentAddActionNodes: Node[] = [];
         const aiAgentAddActionEdges: Edge[] = [];
         
         if (aiAgentNodes.length > 0) {
+          // Always add Add Action nodes for AI Agent chains, including AI-generated workflows
+          console.log(`🤖 [WorkflowBuilder] Processing ${aiAgentNodes.length} AI Agent nodes, will add Add Action nodes to all chains`);
+          
           // For each AI Agent node, find its chain children and add Add Action nodes
           aiAgentNodes.forEach(aiAgentNode => {
-            const aiAgentId = aiAgentNode.id;
-            console.log(`🔄 [WorkflowBuilder] Processing AI Agent ${aiAgentId} during load`);
-            console.log(`🔍 [WorkflowBuilder] AI Agent ${aiAgentId} emptiedChains:`, aiAgentNode.data?.emptiedChains || 'undefined');
+              const aiAgentId = aiAgentNode.id;
+              console.log(`🔄 [WorkflowBuilder] Processing AI Agent ${aiAgentId} during load`);
+              console.log(`🔍 [WorkflowBuilder] AI Agent ${aiAgentId} emptiedChains:`, aiAgentNode.data?.emptiedChains || 'undefined');
             
             // Find all child nodes of this AI Agent
-            const directChildNodes = customNodes.filter(n => {
+            // First try by metadata, then by ID pattern, then by edges
+            let directChildNodes = customNodes.filter(n => {
               // Check if this node is marked as a child of this AI agent
               if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === aiAgentId) {
+                console.log(`✅ [WorkflowBuilder] Found chain child by metadata: ${n.id}`);
                 return true;
               }
               // Fallback: Check if this node ID indicates it's a chain child of this AI agent
               // Pattern: {aiAgentId}-chain... (for both action nodes and chain placeholders)
-              return n.id.startsWith(`${aiAgentId}-chain`);
+              if (n.id.startsWith(`${aiAgentId}-chain`)) {
+                console.log(`✅ [WorkflowBuilder] Found chain child by ID pattern: ${n.id}`);
+                return true;
+              }
+              return false;
             });
+            
+            // If no direct children found by metadata or ID, try finding them by edges
+            // This handles cases where actions were added but metadata was lost
+            if (directChildNodes.length === 0) {
+              console.log(`🔍 [WorkflowBuilder] No chain children found by metadata/ID for ${aiAgentId}, checking edges...`);
+              const currentEdges = getEdges();
+              
+              // Find all nodes directly connected from the AI Agent
+              const connectedNodes: Node[] = [];
+              currentEdges.forEach(edge => {
+                if (edge.source === aiAgentId) {
+                  const targetNode = customNodes.find(n => n.id === edge.target);
+                  if (targetNode && !targetNode.data?.isTrigger && targetNode.data?.type !== 'ai_agent') {
+                    console.log(`✅ [WorkflowBuilder] Found potential chain child by edge: ${targetNode.id} (${targetNode.data?.type})`);
+                    connectedNodes.push(targetNode);
+                  }
+                }
+              });
+              
+              // Use connected nodes as direct children if found
+              if (connectedNodes.length > 0) {
+                directChildNodes = connectedNodes;
+              }
+            }
             
             // Group children by chain, including nodes connected to chain nodes
             const chainGroups: Record<number, Node[]> = {};
             const currentEdges = getEdges();
             
             // First, add direct child nodes to their chains
-            directChildNodes.forEach(child => {
+            directChildNodes.forEach((child, index) => {
               // Use the parentChainIndex metadata if available
               let chainIndex = child.data?.parentChainIndex;
               
               // Fallback: Extract chain index from ID pattern: ...-chain{index}-...
               if (chainIndex === undefined || chainIndex === null) {
                 const chainMatch = child.id.match(/chain(\d+)/);
-                chainIndex = chainMatch ? parseInt(chainMatch[1]) : 0;
+                if (chainMatch) {
+                  chainIndex = parseInt(chainMatch[1]);
+                } else {
+                  // If no chain index found, distribute nodes across chains
+                  // This handles nodes that were added without proper metadata
+                  const expectedChainCount = aiAgentNode.data?.config?.chains?.length || 4;
+                  chainIndex = index % expectedChainCount;
+                  console.log(`📊 [WorkflowBuilder] Assigning node ${child.id} to chain ${chainIndex} (distributed)`);
+                }
               }
               
               if (!chainGroups[chainIndex]) {
@@ -2040,6 +2096,7 @@ const useWorkflowBuilderState = () => {
                 console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} has ${chainNodes.length} nodes, last node: ${lastChainNode.id}`);
                 
                 // Create Add Action node for this chain
+                // Always position it 160px below the last node in the chain
                 const addActionId = `add-action-${aiAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 const addActionNode: Node = {
                   id: addActionId,
@@ -2063,56 +2120,37 @@ const useWorkflowBuilderState = () => {
                 aiAgentAddActionNodes.push(addActionNode);
                 console.log(`🔄 [WorkflowBuilder] Created Add Action node ${addActionId} for chain ${chainIndex} at position:`, {
                   x: lastChainNode.position.x,
-                  y: lastChainNode.position.y + 160
+                  y: lastChainNode.position.y + 160,
+                  afterNode: lastChainNode.id
                 });
               } else {
-                // Chain exists but has no nodes yet
-                // Check if this chain was intentionally emptied
-                const emptiedChains = aiAgentNode.data?.emptiedChains || [];
-                const wasIntentionallyEmptied = emptiedChains.includes(chainIndex);
-                
-                console.log(`🔍 [WorkflowBuilder] Checking if chain ${chainIndex} was intentionally emptied:`, {
-                  aiAgentNodeId: aiAgentNode.id,
-                  emptiedChains: emptiedChains,
-                  chainIndex: chainIndex,
-                  wasIntentionallyEmptied: wasIntentionallyEmptied,
-                  aiAgentNodeData: aiAgentNode.data
-                });
-                
-                if (wasIntentionallyEmptied) {
-                  console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} was intentionally emptied, NOT creating placeholder Add Action`);
-                } else {
-                  // Chain was never populated - create a placeholder Add Action
-                  console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} is empty, creating placeholder Add Action`);
-                  
-                  // Position it relative to the AI Agent node
-                  const baseX = aiAgentNode.position.x + (chainIndex * 250); // Offset each chain horizontally
-                  const baseY = aiAgentNode.position.y + 200;
-                  
-                  const addActionId = `add-action-${aiAgentId}-chain${chainIndex}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                  const addActionNode: Node = {
-                    id: addActionId,
-                    type: 'addAction',
-                    position: { x: baseX, y: baseY },
-                    data: {
-                      parentId: aiAgentId, // Parent is the AI Agent itself for empty chains
-                      parentAIAgentId: aiAgentId,
-                      parentChainIndex: chainIndex,
-                      isChainAddAction: true,
-                      isPlaceholder: true,
-                      onClick: () => {
-                        // For placeholder, open the action dialog for this chain
-                        handleAddActionClick(addActionId, aiAgentId);
-                      }
-                    }
-                  };
-                  
-                  aiAgentAddActionNodes.push(addActionNode);
-                  console.log(`🔄 [WorkflowBuilder] Created placeholder Add Action node ${addActionId} for empty chain ${chainIndex}`);
-                }
+                // Chain exists but has no nodes yet — skip per-chain placeholder here.
+                // We handle the global empty state after the loop.
+                console.log(`🔄 [WorkflowBuilder] Chain ${chainIndex} is empty, will evaluate global placeholder logic`);
               }
             }
-          });
+            
+            // After processing all chains: if there are zero chain nodes overall, create a single placeholder
+            const totalChainNodes = Object.values(chainGroups).reduce((sum: number, arr: any[]) => sum + (arr?.length || 0), 0)
+            if (totalChainNodes === 0) {
+              console.log(`🔄 [WorkflowBuilder] No actions found in any chain. Creating a single Add Action placeholder under AI Agent ${aiAgentId}`)
+              const addActionId = `add-action-${aiAgentId}-placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+              const addActionNode: Node = {
+                id: addActionId,
+                type: 'addAction',
+                position: { x: aiAgentNode.position.x, y: aiAgentNode.position.y + 200 },
+                data: {
+                  parentId: aiAgentId,
+                  parentAIAgentId: aiAgentId,
+                  isChainAddAction: true,
+                  isPlaceholder: true,
+                  onClick: () => handleAddActionClick(addActionId, aiAgentId)
+                }
+              }
+              aiAgentAddActionNodes.push(addActionNode)
+              // Edge from AI Agent to placeholder will be added in the shared edge-addition stage below
+            }
+            });
         }
         
         // Add all AI Agent Add Action nodes to the main nodes array
@@ -2287,11 +2325,35 @@ const useWorkflowBuilderState = () => {
           return true;
         });
         
-        setNodes(uniqueNodes)
+        // Ensure Add Action nodes are properly positioned after their parent nodes
+        const finalNodes = uniqueNodes.map(node => {
+          if (node.type === 'addAction' && node.data?.parentId) {
+            const parentNode = uniqueNodes.find(n => n.id === node.data.parentId);
+            if (parentNode) {
+              // Always position Add Action node 160px below its parent
+              const correctedPosition = {
+                x: parentNode.position.x,
+                y: parentNode.position.y + 160
+              };
+              
+              // Check if position needs correction
+              if (node.position.x !== correctedPosition.x || node.position.y !== correctedPosition.y) {
+                console.log(`📍 [WorkflowBuilder] Repositioning Add Action ${node.id} to follow parent ${parentNode.id}`);
+                return {
+                  ...node,
+                  position: correctedPosition
+                };
+              }
+            }
+          }
+          return node;
+        });
+        
+        setNodes(finalNodes)
         setEdges(uniqueEdges)
         
         // Debug: Log what was set
-        console.log('🔍 [WorkflowBuilder] Final nodes set:', uniqueNodes.length, 'nodes (removed', allNodes.length - uniqueNodes.length, 'duplicates)')
+        console.log('🔍 [WorkflowBuilder] Final nodes set:', finalNodes.length, 'nodes (removed', allNodes.length - finalNodes.length, 'duplicates)')
         console.log('🔍 [WorkflowBuilder] Add Action nodes:', allNodes.filter(n => n.type === 'addAction').map(n => ({
           id: n.id,
           parentId: n.data?.parentId,
@@ -2302,7 +2364,10 @@ const useWorkflowBuilderState = () => {
           allNodes.some(n => n.type === 'addAction' && n.id === e.target)
         ).map(e => ({ id: e.id, source: e.source, target: e.target })))
         
-        setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100)
+        setTimeout(() => {
+          // Normalization now runs inside WorkflowBuilderContent after mount
+          try { fitView({ padding: 0.2, duration: 300 }) } catch {}
+        }, 150)
       }
     } else if (!workflowId) {
       setNodes([])
@@ -3240,8 +3305,70 @@ const useWorkflowBuilderState = () => {
     
     try {
       // Get current nodes and edges from React Flow
-      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+      const allCurrentNodes = getNodes();
+      console.log('💾 [Save] All nodes before filtering:', allCurrentNodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        dataType: n.data?.type,
+        isAIAgentChild: n.data?.isAIAgentChild,
+        parentAIAgentId: n.data?.parentAIAgentId
+      })));
+      
+      const reactFlowNodes = allCurrentNodes.filter((n: Node) => n.type === 'custom')
+      console.log('💾 [Save] Custom nodes to save:', reactFlowNodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        dataType: n.data?.type,
+        isAIAgentChild: n.data?.isAIAgentChild,
+        parentAIAgentId: n.data?.parentAIAgentId
+      })));
+      
+      let reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+
+      // Defensive: ensure edges from AI Agent -> first action node exist for each chain
+      try {
+        const nodeById: Record<string, Node> = {}
+        reactFlowNodes.forEach((n: Node) => (nodeById[n.id] = n))
+
+        // Group chain children by parent AI Agent
+        const children = reactFlowNodes.filter((n: any) => n.data?.isAIAgentChild && n.data?.parentAIAgentId)
+        const byAgent: Record<string, Node[]> = {}
+        children.forEach((n: any) => {
+          const aid = n.data.parentAIAgentId as string
+          byAgent[aid] = byAgent[aid] || []
+          byAgent[aid].push(n)
+        })
+
+        // Helper: check if an edge exists
+        const edgeExists = (src: string, tgt: string) => reactFlowEdges.some((e: Edge) => e.source === src && e.target === tgt)
+
+        Object.entries(byAgent).forEach(([agentId, nodes]) => {
+          // Partition by chain index if available
+          const chains: Record<string, Node[]> = {}
+          nodes.forEach((n: any) => {
+            const idx = String(n.data?.parentChainIndex ?? 'unknown')
+            chains[idx] = chains[idx] || []
+            chains[idx].push(n)
+          })
+
+          Object.values(chains).forEach((chainNodes: Node[]) => {
+            // Determine first node: the one with no incoming edge from another chain child
+            const chainIds = new Set(chainNodes.map(n => n.id))
+            const hasIncomingFromChain = (id: string) => reactFlowEdges.some((e: Edge) => chainIds.has(e.source) && e.target === id)
+            let first = chainNodes.find(n => !hasIncomingFromChain(n.id))
+            if (!first) {
+              // Fallback: pick top-most by Y
+              first = chainNodes.slice().sort((a, b) => a.position.y - b.position.y)[0]
+            }
+            if (first && !edgeExists(agentId, first.id)) {
+              const newEdge: Edge = { id: `e-${agentId}-${first.id}`, source: agentId, target: first.id, type: 'smoothstep' }
+              reactFlowEdges = [...reactFlowEdges, newEdge]
+            }
+          })
+        })
+      } catch (e) {
+        console.warn('⚠️ [WorkflowBuilder] Edge normalization skipped:', e)
+      }
 
 
       // Map to database format without losing React Flow properties
@@ -3680,6 +3807,30 @@ const useWorkflowBuilderState = () => {
     }
 
     try {
+      // Activation guard: require Discord trigger to have server + channel configured
+      const rfNodes = getNodes()
+      const discordTrigger = rfNodes.find((n: any) => n?.data?.type === 'discord_trigger_new_message' || n?.data?.type === 'discord_trigger_slash_command')
+      if (discordTrigger) {
+        let guildId = discordTrigger.data?.config?.guildId
+        let channelId = discordTrigger.data?.config?.channelId
+        // Try persisted configuration if not in node
+        if (!guildId || !channelId) {
+          try {
+            const savedNodeData = await loadNodeConfig(currentWorkflow.id, discordTrigger.id, discordTrigger.data?.type || '')
+            guildId = guildId || savedNodeData?.config?.guildId
+            channelId = channelId || savedNodeData?.config?.channelId
+          } catch {}
+        }
+        if (!guildId || !channelId) {
+          toast({
+            title: "Discord trigger needs setup",
+            description: "Select a Discord server and channel in the trigger before activating.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
+
       setIsUpdatingStatus(true)
       
       const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
@@ -5014,6 +5165,113 @@ function WorkflowBuilderContent() {
     setIsExecuting
   } = useWorkflowBuilderState()
 
+  // Helper: normalize Add Action buttons to always appear at end of each AI Agent chain
+  const normalizeAddActionButtons = useCallback(() => {
+    try {
+      const all = getNodes()
+      const aiAgents = all.filter((n: any) => n.data?.type === 'ai_agent')
+      if (aiAgents.length === 0) return
+      const nodeMap: Record<string, any> = {}
+      all.forEach(n => (nodeMap[n.id] = n))
+      const addIds = new Set(all.filter((n: any) => n.type === 'addAction').map((n: any) => n.id))
+      if (addIds.size > 0) {
+        setNodes(nodes => nodes.filter((n: any) => !addIds.has(n.id)))
+        setEdges(eds => eds.filter((e: any) => !addIds.has(e.source) && !addIds.has(e.target)))
+      }
+      const findLast = (startId: string): any => {
+        let cur = nodeMap[startId]
+        const visited = new Set<string>()
+        while (cur && !visited.has(cur.id)) {
+          visited.add(cur.id)
+          const out = getEdges().filter((e: any) => e.source === cur.id)
+          const next = out.map((e: any) => nodeMap[e.target]).find((n: any) => n && n.type !== 'addAction')
+          if (!next) break
+          cur = next
+        }
+        return cur
+      }
+      const newNodes: any[] = []
+      const newEdges: any[] = []
+      aiAgents.forEach((agent: any) => {
+        const outs = getEdges().filter((e: any) => e.source === agent.id)
+        const firsts = outs.map((e: any) => nodeMap[e.target]).filter((n: any) => n && n.type !== 'addAction')
+        if (firsts.length === 0) {
+          // No chains/actions found — create a single placeholder under AI Agent
+          const addId = `add-action-${agent.id}-placeholder-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+          newNodes.push({ id: addId, type: 'addAction', position: { x: agent.position.x, y: agent.position.y + 200 }, data: { parentId: agent.id, parentAIAgentId: agent.id, isPlaceholder: true } })
+          newEdges.push({ id: `e-${agent.id}-${addId}`, source: agent.id, target: addId, type: 'straight' })
+        } else {
+          firsts.forEach((fn: any, idx: number) => {
+            const last = findLast(fn.id)
+            if (!last) return
+            const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+            newNodes.push({ id: addId, type: 'addAction', position: { x: last.position.x, y: last.position.y + 150 }, data: { parentId: last.id, parentAIAgentId: agent.id } })
+            newEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
+          })
+        }
+      })
+      if (newNodes.length) setNodes(nds => [...nds, ...newNodes])
+      if (newEdges.length) setEdges(eds => [...eds, ...newEdges])
+    } catch (e) {
+      console.warn('Normalize Add Action failed:', e)
+    }
+  }, [getNodes, getEdges, setNodes, setEdges])
+
+  // Pre-Activation Check modal state
+  const [showPrecheck, setShowPrecheck] = useState(false)
+  const [precheckRunning, setPrecheckRunning] = useState(false)
+  const [precheckResults, setPrecheckResults] = useState<{ name: string; ok: boolean; info?: string }[]>([])
+
+  const runPreActivationCheck = useCallback(async () => {
+    const results: { name: string; ok: boolean; info?: string }[] = []
+    try {
+      setPrecheckRunning(true)
+      const all = getNodes()
+      const edgesList = getEdges()
+      const trigger = all.find((n: any) => n?.data?.isTrigger)
+      const aiAgent = all.find((n: any) => n?.data?.type === 'ai_agent')
+
+      // Structural checks
+      results.push({ name: 'Trigger present', ok: !!trigger })
+      results.push({ name: 'AI Agent present', ok: !!aiAgent })
+      results.push({ name: 'Has connections', ok: (edgesList?.length || 0) > 0 })
+
+      // Trigger-specific configuration guards
+      if (trigger) {
+        const t = trigger.data?.type
+        if (t === 'discord_trigger_new_message' || t === 'discord_trigger_slash_command') {
+          const g = trigger.data?.config?.guildId
+          const c = trigger.data?.config?.channelId
+          results.push({ name: 'Discord server selected', ok: !!g })
+          results.push({ name: 'Discord channel selected', ok: !!c })
+        }
+        if (t === 'webhook') {
+          const p = trigger.data?.config?.path
+          const m = trigger.data?.config?.method
+          results.push({ name: 'Webhook path set', ok: !!p })
+          results.push({ name: 'Webhook method set', ok: !!m })
+        }
+      }
+
+      // Integration connectivity checks based on nodes present
+      const providers = new Set<string>()
+      all.forEach((n: any) => {
+        const pid = n?.data?.providerId
+        if (pid) providers.add(pid)
+      })
+
+      const providerList = Array.from(providers)
+      providerList.forEach((pid) => {
+        if (pid === 'ai') return
+        const ok = isIntegrationConnected ? isIntegrationConnected(pid as any) : true
+        results.push({ name: `${pid} connected`, ok })
+      })
+    } finally {
+      setPrecheckResults(results)
+      setPrecheckRunning(false)
+    }
+  }, [getNodes, getEdges, isIntegrationConnected])
+
   // Update nodes with execution status when nodeStatuses changes
   useEffect(() => {
     if (Object.keys(nodeStatuses).length > 0 || currentNodeId) {
@@ -5034,6 +5292,16 @@ function WorkflowBuilderContent() {
       )
     }
   }, [nodeStatuses, currentNodeId, setNodes])
+
+  // Normalize Add Action buttons after initial load
+  useEffect(() => {
+    // Slight delay to ensure nodes/edges are applied
+    const t = setTimeout(() => {
+      try { normalizeAddActionButtons() } catch {}
+    }, 150)
+    return () => clearTimeout(t)
+  // Run once on mount or when workflowId changes
+  }, [workflowId])
 
   // Add handleAddNodeBetween to all custom edges that don't already have it
   const processedEdges = useMemo(() => {
@@ -5163,7 +5431,150 @@ function WorkflowBuilderContent() {
               />
             </div>
           </div>
-          <div className="flex items-center space-x-2 flex-shrink-0">
+            <div className="flex items-center space-x-2 flex-shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" onClick={() => { setShowPrecheck(true); runPreActivationCheck(); }}>
+                    Pre-Activation Check
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Run readiness checks before activating</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {/* Pre-Activation Check Modal */}
+            <Dialog open={showPrecheck} onOpenChange={setShowPrecheck}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Pre-Activation Check</DialogTitle>
+                  <DialogDescription>We run a few readiness checks before activation.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  {precheckRunning ? (
+                    <div className="text-sm text-slate-600">Running checks...</div>
+                  ) : precheckResults.length === 0 ? (
+                    <div className="text-sm text-slate-600">No checks run yet.</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {precheckResults.map((r, i) => (
+                        <li key={i} className="flex items-center justify-between">
+                          <span className={`text-sm ${r.ok ? 'text-green-600' : 'text-red-600'}`}>
+                            {r.ok ? '✓' : '✗'} {r.name}{r.info ? ` — ${r.info}` : ''}
+                          </span>
+                          {!r.ok && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Provide quick fix navigation for common items
+                                const nodes = getNodes()
+                                const trigger = nodes.find((n: any) => n?.data?.isTrigger)
+                                if (trigger && r.name.toLowerCase().includes('discord')) {
+                                  handleConfigureNode(trigger.id)
+                                  setShowPrecheck(false)
+                                  return
+                                }
+                                if (trigger && r.name.toLowerCase().includes('webhook')) {
+                                  handleConfigureNode(trigger.id)
+                                  setShowPrecheck(false)
+                                  return
+                                }
+                              }}
+                            >
+                              Fix
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => runPreActivationCheck()} disabled={precheckRunning}>Re-run</Button>
+                  <Button 
+                    onClick={() => setShowPrecheck(false)}
+                    disabled={precheckRunning}
+                    variant={precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'default' : 'secondary'}
+                  >
+                    {precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'Close (All Good)' : 'Close'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            {/* Admin-only maintenance: Clean up Add Action buttons */}
+            <OrganizationRoleGuard requiredRole="admin">
+              <Button variant="outline" onClick={() => {
+                try {
+                  const allNodes = getNodes()
+                  const aiAgents = allNodes.filter((n: any) => n.data?.type === 'ai_agent')
+                  if (aiAgents.length === 0) return
+                  
+                  // Build new nodes/edges by removing all addAction nodes under AI Agents,
+                  // then re-adding exactly one addAction after the last action in each chain
+                  const nodeMap: Record<string, any> = {}
+                  allNodes.forEach(n => nodeMap[n.id] = n)
+                  
+                  // Remove existing addAction nodes related to AI agents
+                  const nodesWithoutAdd = allNodes.filter((n: any) => n.type !== 'addAction')
+                  const addNodesToRemove = allNodes.filter((n: any) => n.type === 'addAction')
+                  const addNodeIds = new Set(addNodesToRemove.map((n: any) => n.id))
+                  
+                  setNodes(nodes => nodes.filter((n: any) => !addNodeIds.has(n.id)))
+                  setEdges(eds => eds.filter((e: any) => !addNodeIds.has(e.source) && !addNodeIds.has(e.target)))
+                  
+                  // Helper: find last node in a chain by walking edges forward
+                  const findLastInChain = (startId: string, edgeList: any[]): any => {
+                    let current = nodeMap[startId]
+                    const visited = new Set<string>()
+                    while (true) {
+                      if (!current || visited.has(current.id)) break
+                      visited.add(current.id)
+                      const outs = edgeList.filter((e: any) => e.source === current.id)
+                      const next = outs
+                        .map((e: any) => nodeMap[e.target])
+                        .find((n: any) => n && n.type !== 'addAction')
+                      if (!next) break
+                      current = next
+                    }
+                    return current
+                  }
+                  
+                  // For each AI Agent, compute first nodes of each chain and append a clean addAction after the last node
+                  const newAddNodes: any[] = []
+                  const newAddEdges: any[] = []
+                  const currentEdges = (edges as any) || []
+                  aiAgents.forEach((agent: any) => {
+                    const firstEdges = currentEdges.filter((e: any) => e.source === agent.id)
+                    const firstNodes = firstEdges
+                      .map((e: any) => nodeMap[e.target])
+                      .filter((n: any) => n && n.type !== 'addAction')
+                    firstNodes.forEach((fn: any, idx: number) => {
+                      const last = findLastInChain(fn.id, currentEdges)
+                      if (!last) return
+                      const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+                      const addNode = {
+                        id: addId,
+                        type: 'addAction',
+                        position: { x: last.position.x, y: last.position.y + 150 },
+                        data: { parentId: last.id, parentAIAgentId: agent.id }
+                      }
+                      newAddNodes.push(addNode)
+                      newAddEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
+                    })
+                  })
+                  
+                  setNodes(nds => [...nds, ...newAddNodes])
+                  setEdges(eds => [...eds, ...newAddEdges])
+                  toast({ title: 'Add buttons cleaned', description: `${newAddNodes.length} buttons repositioned at chain ends.` })
+                } catch (e) {
+                  console.error('Cleanup failed:', e)
+                  toast({ title: 'Cleanup failed', description: 'Could not reposition add buttons.', variant: 'destructive' })
+                }
+              }}>Clean Up Add Buttons</Button>
+            </OrganizationRoleGuard>
             <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
             {hasUnsavedChanges && (
               <Badge variant="outline" className="text-orange-600 border-orange-600">
@@ -6567,52 +6978,8 @@ function WorkflowBuilderContent() {
                           };
                           newEdgesToAdd.push(edgeToAddAction);
                         } else if (placeholderPositions[chainIndex]) {
-                          // Empty chain with placeholder position - create Add Action at placeholder position
-                          const placeholderPos = placeholderPositions[chainIndex];
-                          const offsetX = aiAgentNode.position.x - (aiAgentPosition?.x || 400);
-                          const offsetY = aiAgentNode.position.y - (aiAgentPosition?.y || 200);
-                          
-                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                          
-                          const addActionNode = {
-                            id: addActionId,
-                            type: 'addAction',
-                            position: {
-                              x: placeholderPos.x + offsetX,
-                              y: placeholderPos.y + offsetY
-                            },
-                            data: {
-                              parentId: actualAIAgentId,
-                              parentAIAgentId: actualAIAgentId,
-                              parentChainIndex: chainIndex,
-                              isChainAddAction: true,
-                              isChainStart: true,
-                              onClick: () => handleAddActionClick(addActionId, actualAIAgentId)
-                            }
-                          };
-                          
-                          // Check for duplicate before adding
-                          if (!addedNodeIds.has(addActionNode.id)) {
-                            newNodesToAdd.push(addActionNode);
-                            addedNodeIds.add(addActionNode.id);
-                          } else {
-                            console.warn(`⚠️ [WorkflowBuilder] Preventing duplicate Add Action node: ${addActionNode.id}`);
-                          }
-                          
-                          // Add edge from AI Agent to Add Action
-                          const edgeToAddAction = {
-                            id: `e-${actualAIAgentId}-${addActionId}`,
-                            source: actualAIAgentId,
-                            target: addActionId,
-                            type: 'straight',
-                            animated: true,
-                            style: {
-                              stroke: '#b1b1b7',
-                              strokeWidth: 2,
-                              strokeDasharray: '5,5'
-                            }
-                          };
-                          newEdgesToAdd.push(edgeToAddAction);
+                          // Do not add Add Action at AI Agent level; only at end of chains
+                          // This keeps UI tidy and encourages linear extension per chain
                         }
                       }
                       
@@ -6965,33 +7332,11 @@ function WorkflowBuilderContent() {
                           // Get current nodes from React Flow at the time edges are being updated
                           const currentNodesSnapshot = getNodes();
                           
-                          // Remove existing edges connected to AI Agent child nodes being removed
-                          // But KEEP edges to/from Add Action nodes (plus buttons)
+                          // Keep existing edges that reference valid nodes; do not strip AI Agent chains
                           const filteredEdges = eds.filter(e => {
                             const sourceNode = currentNodesSnapshot.find(n => n.id === e.source);
                             const targetNode = currentNodesSnapshot.find(n => n.id === e.target);
-                            
-                            // Keep edges to/from Add Action nodes
-                            if (sourceNode?.type === 'addAction' || targetNode?.type === 'addAction') {
-                              return true;
-                            }
-                            
-                            // Remove edges between AI agent child nodes (non-Add Action)
-                            if (sourceNode?.data?.isAIAgentChild && sourceNode?.data?.parentAIAgentId === actualAIAgentId &&
-                                targetNode?.data?.isAIAgentChild && targetNode?.data?.parentAIAgentId === actualAIAgentId) {
-                              console.log(`🔄 [WorkflowBuilder] Removing edge between AI Agent children: ${e.id}`);
-                              return false;
-                            }
-                            
-                            // Remove edge from AI agent to its child nodes (non-Add Action)
-                            if (sourceNode?.id === actualAIAgentId && 
-                                targetNode?.data?.isAIAgentChild && 
-                                targetNode?.data?.parentAIAgentId === actualAIAgentId) {
-                              console.log(`🔄 [WorkflowBuilder] Removing edge from AI Agent to child: ${e.id}`);
-                              return false;
-                            }
-                            
-                            return true;
+                            return !!sourceNode && !!targetNode;
                           });
                           
                           // Deduplicate new edges before adding

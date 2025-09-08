@@ -33,7 +33,7 @@ const DataMappingSchema = z.object({
 export async function generateDataMapping(sourceSchema: any, targetSchema: any, context?: any) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: DataMappingSchema,
       prompt: `
         Generate intelligent field mappings between these data schemas:
@@ -69,7 +69,7 @@ export async function generateDataMapping(sourceSchema: any, targetSchema: any, 
 export async function suggestDataTransformations(data: any, targetFormat: string) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: z.object({
         transformations: z.array(
           z.object({
@@ -114,7 +114,7 @@ export async function suggestDataTransformations(data: any, targetFormat: string
 export async function detectDataPatterns(executionData: any[]) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: z.object({
         patterns: z.array(
           z.object({
