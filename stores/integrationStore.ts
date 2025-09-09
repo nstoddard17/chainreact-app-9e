@@ -486,6 +486,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
+      
       // Return all integrations that exist and are usable (not just "connected" ones)
       // This includes connected, expired, needs_reauthorization, etc. since they can be reconnected
       // Only exclude explicitly disconnected or failed integrations

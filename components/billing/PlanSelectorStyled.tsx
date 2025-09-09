@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Check, Loader2, AlertTriangle, Info, ChevronDown, ChevronUp, Lock } from "lucide-react"
+import { Check, Loader2, AlertTriangle, Info, Lock } from "lucide-react"
 
 interface PlanSelectorProps {
   plans: any[]
@@ -19,7 +19,6 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
-  const [showFuturePlans, setShowFuturePlans] = useState(false)
   const { createCheckoutSession } = useBillingStore()
   
   // Remove duplicate plans by name (in case database has duplicates)
@@ -30,52 +29,8 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
     return acc
   }, [])
   
-  // Add mock Business and Enterprise plans for Coming Soon
-  const mockFuturePlans = [
-    {
-      id: 'business-tier',
-      name: 'Business',
-      description: 'For growing teams',
-      price_monthly: 99,
-      price_yearly: 990,
-      features: [
-        '50,000 executions per month',
-        'Advanced analytics dashboard',
-        'Priority support (24h response)',
-        'Custom integrations',
-        'Team collaboration (5 members)',
-        'API access',
-        'Execution history (90 days)',
-        'Custom workflows'
-      ],
-      coming_soon: true
-    },
-    {
-      id: 'enterprise-tier',
-      name: 'Enterprise',
-      description: 'Custom solutions',
-      price_monthly: null,
-      price_yearly: null,
-      features: [
-        'Unlimited executions',
-        'Enterprise analytics',
-        'Dedicated support (1h response)',
-        'White-label options',
-        'Unlimited team members',
-        'Advanced API access',
-        'Execution history (unlimited)',
-        'SLA guarantees'
-      ],
-      coming_soon: true
-    }
-  ]
-  
-  // Combine real plans with mock future plans
-  const allUniquePlans = [...uniquePlans, ...mockFuturePlans]
-  
-  // Separate active and coming soon plans
-  const activePlans = allUniquePlans.filter(p => !p.coming_soon)
-  const futurePlans = allUniquePlans.filter(p => p.coming_soon)
+  // Only use active plans (Free and Pro)
+  const activePlans = uniquePlans.filter(p => !p.coming_soon)
 
   const handleSelectPlan = async (planId: string) => {
     if (processingPlanId) return
@@ -173,8 +128,8 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
           </p>
         </div>
 
-        {/* Active Plans Grid - Free vs Pro focus */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        {/* Main Plans Grid - Only Free vs Pro */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
           {activePlans.map((plan) => (
             <PlanCard
               key={plan.id}
@@ -187,41 +142,11 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
               onToggleExpand={() => togglePlanExpansion(plan.id)}
               isDisabled={!hasStripeConfig}
               onSelect={() => handleSelectPlan(plan.id)}
+              isMainCard={true}
             />
           ))}
         </div>
         
-        {/* Future Plans Section - Collapsed by default */}
-        {futurePlans.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-slate-800">
-            <button
-              onClick={() => setShowFuturePlans(!showFuturePlans)}
-              className="w-full max-w-md mx-auto flex items-center justify-center gap-2 text-slate-400 hover:text-slate-300 transition-colors text-sm"
-            >
-              <span>View Future Plans</span>
-              {showFuturePlans ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-            
-            {showFuturePlans && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mt-6">
-                {futurePlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    price={billingCycle === "annual" ? plan.price_yearly : plan.price_monthly}
-                    billingCycle={billingCycle}
-                    isCurrentPlan={false}
-                    isProcessing={false}
-                    isExpanded={false}
-                    onToggleExpand={() => {}}
-                    isDisabled={true}
-                    onSelect={() => {}}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -237,6 +162,7 @@ interface PlanCardProps {
   onToggleExpand: () => void
   isDisabled: boolean
   onSelect: () => void
+  isMainCard?: boolean
 }
 
 function PlanCard({ 
@@ -248,7 +174,8 @@ function PlanCard({
   isExpanded,
   onToggleExpand,
   isDisabled, 
-  onSelect 
+  onSelect,
+  isMainCard = false
 }: PlanCardProps) {
   const isPro = plan.name === 'Pro'
   const isFree = plan.name === 'Free'
@@ -268,16 +195,16 @@ function PlanCard({
   return (
     <div className="relative h-full">
       {/* Floating badge for Pro plan */}
-      {isPro && !isComingSoon && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+      {isPro && !isComingSoon && isMainCard && (
+        <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-md">
             MOST POPULAR
           </div>
         </div>
       )}
       
       <Card
-        className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${isPro && !isComingSoon ? "bg-gradient-to-b from-slate-800 to-slate-850 border-2 border-blue-500/40 shadow-2xl shadow-blue-950/30 hover:shadow-blue-950/40 hover:border-blue-500/60" : isFree && !isComingSoon ? "bg-slate-900/60 border border-slate-700/40 shadow-lg hover:border-slate-600/60 hover:shadow-xl" : isComingSoon ? "bg-slate-950/20 border border-slate-800/10 relative overflow-hidden" : "bg-slate-900/80 border border-slate-700 hover:border-slate-600"}`}
+        className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${isPro && !isComingSoon && isMainCard ? "bg-gradient-to-b from-slate-800/90 to-slate-850/90 border-2 border-blue-500/50 shadow-2xl shadow-blue-950/30 hover:shadow-blue-950/40 hover:border-blue-500/70 hover:scale-[1.01]" : isFree && !isComingSoon && isMainCard ? "bg-slate-900/50 border border-slate-700/30 shadow-xl hover:border-slate-600/50 hover:shadow-2xl" : isComingSoon ? "bg-slate-950/20 border border-slate-800/10 relative overflow-hidden" : "bg-slate-900/80 border border-slate-700 hover:border-slate-600"}`}
       >
         {/* Slim highlight bar for Pro plan */}
         {isPro && !isComingSoon && (
@@ -293,14 +220,14 @@ function PlanCard({
             </div>
           </>
         )}
-        <CardContent className={`p-10 flex flex-col h-full ${isComingSoon ? 'relative z-0' : ''}`}>
-          {/* Plan Name - Much larger and bolder */}
-          <h3 className={`text-3xl font-black text-center mb-2 ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
+        <CardContent className={`${isMainCard ? 'p-12' : 'p-10'} flex flex-col h-full ${isComingSoon ? 'relative z-0' : ''}`}>
+          {/* Plan Name - Even larger for main cards */}
+          <h3 className={`${isMainCard ? 'text-4xl' : 'text-3xl'} font-black text-center mb-3 ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
             {plan.name}
           </h3>
           
           {/* Tagline - Smaller and lighter */}
-          <p className={`text-xs font-light text-center mb-8 ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>
+          <p className={`text-xs font-light text-center mb-10 ${isComingSoon ? 'text-slate-700' : 'text-slate-400'}`}>
             {tagline}
           </p>
           
@@ -310,19 +237,34 @@ function PlanCard({
               {isEnterprise ? (
                 <div className={`text-4xl font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>Custom</div>
               ) : (
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className={`text-5xl font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
-                    ${price}
-                  </span>
-                  <span className={`text-sm font-medium ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>/{billingCycle === "monthly" ? "month" : "year"}</span>
+                <div>
+                  {billingCycle === "annual" && isPro && (
+                    <div className="text-center mb-2">
+                      <span className="text-slate-500 line-through text-lg">$20/mo</span>
+                      <span className="ml-2 text-green-500 text-sm font-semibold">Save $60/year</span>
+                    </div>
+                  )}
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className={`${isPro && isMainCard ? 'text-6xl' : 'text-5xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
+                      ${billingCycle === "annual" && !isFree ? Math.round(price / 12) : price}
+                    </span>
+                    <span className={`text-sm font-medium ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>
+                      /{billingCycle === "annual" && !isFree ? "month" : billingCycle === "monthly" ? "month" : "year"}
+                    </span>
+                  </div>
+                  {billingCycle === "annual" && !isFree && (
+                    <div className="text-center mt-1">
+                      <span className="text-xs text-slate-500">Billed ${price} annually</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
           
-          {/* Features - Always visible with better spacing */}
+          {/* Features - Better spacing */}
           <div className="flex-grow">
-            <div className="space-y-4">
+            <div className="space-y-5">
               {(plan.features || []).slice(0, isExpanded ? 8 : 4).map((feature: string, index: number) => (
                 <div key={index} className="flex items-start gap-3">
                   <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isComingSoon ? 'text-slate-700' : 'text-green-500'}`} />
@@ -332,6 +274,16 @@ function PlanCard({
                 </div>
               ))}
             </div>
+            
+            {/* View all features link - moved under features */}
+            {plan.features && plan.features.length > 4 && !isComingSoon && (
+              <button
+                onClick={onToggleExpand}
+                className="text-sm text-slate-500 hover:text-slate-400 transition-colors mt-6 text-left"
+              >
+                {isExpanded ? "← Show less" : "View all features →"}
+              </button>
+            )}
           </div>
           
           {/* Buttons with better hierarchy */}
@@ -343,7 +295,7 @@ function PlanCard({
             ) : (
               <>
                 <Button
-                  className={`w-full py-6 text-base font-semibold transition-all ${isPro && !isCurrentPlan ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]" : isCurrentPlan ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50" : isFree && !isCurrentPlan ? "bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700" : "bg-slate-800 hover:bg-slate-700 text-white"}`}
+                  className={`w-full py-6 text-base font-semibold transition-all ${isPro && !isCurrentPlan && isMainCard ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]" : isCurrentPlan ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50" : isFree && !isCurrentPlan && isMainCard ? "bg-transparent border-2 border-slate-700 hover:bg-slate-800/50 text-slate-200" : "bg-slate-800 hover:bg-slate-700 text-white"}`}
                   disabled={isProcessing || isCurrentPlan}
                   onClick={onSelect}
                 >
@@ -363,15 +315,6 @@ function PlanCard({
                   )}
                 </Button>
                 
-                {/* View Details as text link with better spacing */}
-                {plan.features && plan.features.length > 4 && !isComingSoon && (
-                  <button
-                    onClick={onToggleExpand}
-                    className="w-full text-left text-sm text-slate-500 hover:text-slate-400 transition-colors pt-4"
-                  >
-                    {isExpanded ? "← Show less" : "View all features →"}
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -380,3 +323,4 @@ function PlanCard({
     </div>
   )
 }
+

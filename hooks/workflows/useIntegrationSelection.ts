@@ -129,12 +129,6 @@ export function useIntegrationSelection() {
     
     const connectedProviders = getConnectedProviders()
     
-    // Log for Google integrations to debug
-    if (integrationId.includes('google')) {
-      console.log(`Checking ${integrationId}, connected providers:`, connectedProviders)
-      console.log(`All integrations:`, integrations)
-    }
-    
     // Check if there's a base 'google' integration that covers all Google services
     if (integrationId.startsWith('google-')) {
       // Check for either the specific service or the base google provider
