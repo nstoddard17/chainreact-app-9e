@@ -43,7 +43,7 @@ export class AIIntentAnalysisService {
 
       console.log("🤖 Making OpenAI API call for intent analysis...")
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [{ role: "system", content: systemPrompt }],
         temperature: 0.1,
         max_tokens: 500,

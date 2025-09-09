@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   LayoutDashboard,
@@ -81,6 +81,7 @@ const roleColors = {
 
 export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { profile } = useAuthStore()
   const isAdmin = profile?.role === 'admin'
   const userRole = (profile?.role || 'free') as UserRole
@@ -261,7 +262,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                   "w-full justify-start text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20",
                   isCollapsed && "justify-center px-2"
                 )}
-                onClick={() => window.open('/donate', '_blank')}
+                onClick={() => router.push('/donate')}
                 title={isCollapsed ? "Donate" : undefined}
               >
                 <CreditCard className="w-4 h-4" />

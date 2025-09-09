@@ -35,7 +35,14 @@ async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
     const { getIntegrationByProvider } = useIntegrationStore.getState()
     const integration = getIntegrationByProvider("discord")
     
-    console.log('🔍 Discord integration check:', integration ? `Found: ${integration.id}, Status: ${integration.status}` : 'Not found');
+    console.log('🔍 Discord integration check:', integration ? {
+      id: integration.id,
+      status: integration.status,
+      hasAccessToken: !!integration.access_token,
+      provider: integration.provider,
+      createdAt: integration.created_at,
+      updatedAt: integration.updated_at
+    } : 'Not found');
     
     if (!integration) {
       console.warn('⚠️ No Discord integration found');
@@ -92,11 +99,15 @@ async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
 
     if (!response.success) {
       console.error("Failed to fetch Discord guilds:", response.error)
+      // Check if reconnection is needed based on the error response
+      if (response.error?.includes('re-authorized') || response.error?.includes('reconnect')) {
+        console.warn('⚠️ Discord integration needs re-authorization. Please reconnect your Discord account.');
+      }
       return [];
     }
     
     if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-      console.warn('⚠️ API returned empty or invalid data');
+      console.warn('⚠️ API returned empty data - Discord account may not be in any servers');
       return [];
     }
 
@@ -137,24 +148,38 @@ export async function loadDiscordGuildsOnce(forceRefresh = false): Promise<Disco
   // Check if we already have data in cache and it's not stale
   if (!forceRefresh) {
     const cachedData = useDiscordGuildsStore.getState().data
-    const isStale = useDiscordGuildsStore.getState().isStale(30 * 60 * 1000) // 30 minutes cache
+    const isStale = useDiscordGuildsStore.getState().isStale(5 * 60 * 1000) // 5 minutes cache (reduced from 30)
     
-    if (cachedData && !isStale) {
+    // Only use cache if it has actual data (not empty array)
+    if (cachedData && cachedData.length > 0 && !isStale) {
       console.log('✅ [Discord Guilds] Using cached data, skipping fetch')
       return cachedData
+    } else if (cachedData && cachedData.length === 0) {
+      console.log('⚠️ [Discord Guilds] Cache is empty, clearing and forcing refresh')
+      // Clear the empty cache to force a fresh fetch
+      useDiscordGuildsStore.getState().clearData()
+      // Don't return empty cache, continue to fetch
     }
   }
   
   const result = await loadOnce({
-    getter: () => useDiscordGuildsStore.getState().data,
+    getter: () => {
+      const data = useDiscordGuildsStore.getState().data;
+      // Return null if data is empty array to force fetch
+      if (Array.isArray(data) && data.length === 0) {
+        console.log('🔄 [Discord Guilds] Treating empty array as null to force fetch');
+        return null;
+      }
+      return data;
+    },
     setter: (data) => useDiscordGuildsStore.getState().setData(data),
     fetcher: fetchDiscordGuilds,
     options: {
       forceRefresh,
       setLoading: (loading) => useDiscordGuildsStore.getState().setLoading(loading),
       onError: (error) => useDiscordGuildsStore.getState().setError(error.message),
-      // Consider Discord guilds stale after 30 minutes (they don't change often)
-      checkStale: () => useDiscordGuildsStore.getState().isStale(30 * 60 * 1000)
+      // Consider Discord guilds stale after 5 minutes to catch new server joins
+      checkStale: () => useDiscordGuildsStore.getState().isStale(5 * 60 * 1000)
     }
   })
 
@@ -178,5 +203,15 @@ export function getDiscordGuildById(guildId: string): DiscordGuild | null {
  * Clear Discord guilds cache
  */
 export function clearDiscordGuildsCache(): void {
+  console.log('🧹 Clearing Discord guilds cache');
   useDiscordGuildsStore.getState().clearData()
+}
+
+/**
+ * Force refresh Discord guilds (clears cache and fetches fresh data)
+ */
+export async function forceRefreshDiscordGuilds(): Promise<DiscordGuild[]> {
+  console.log('🔄 Force refreshing Discord guilds');
+  clearDiscordGuildsCache();
+  return loadDiscordGuildsOnce(true);
 } 

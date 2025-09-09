@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Architectural Decision Guidelines
+
+**IMPORTANT**: When asked to make architectural changes or refactor code, ALWAYS:
+
+1. **First provide an analysis** comparing multiple approaches with pros/cons
+2. **Recommend the best approach** based on:
+   - Industry best practices from leading apps (Notion, Linear, Figma, Stripe, Vercel, etc.)
+   - Scalability and future flexibility
+   - Performance implications
+   - Developer experience and maintainability
+   - Technical debt considerations
+3. **Explain why** this approach aligns with world-class application standards
+4. **Get confirmation** before proceeding with implementation
+5. **Consider the "flex factor"** - ensure the solution can adapt as requirements evolve
+
+This ensures we're building with the same architectural rigor as the best apps in the world, not just implementing the first solution that comes to mind.
+
 ## Overview
 
 ChainReact is a workflow automation platform built with Next.js 15, TypeScript, and Supabase. The application allows users to create, manage, and execute automated workflows that integrate with various third-party services like Gmail, Discord, Notion, Slack, and more.
@@ -249,6 +266,84 @@ Fields in workflow configuration modals can be set to use AI-generated values. W
    - AI agent nodes will generate values for these placeholders during workflow execution
    - The generated values will automatically slot into the appropriate fields
    - This allows for dynamic, context-aware field population based on workflow data
+
+### AI Agent Chain Builder Architecture
+
+**⚠️ CRITICAL**: The AI Agent chain builder is a complex system with intricate integration between multiple components. DO NOT modify the following files without understanding the complete architecture:
+
+#### Core Files (DO NOT MODIFY without careful consideration):
+1. **`/components/workflows/AIAgentConfigModal.tsx`** - Main configuration modal
+   - Manages chains and chainsLayout state
+   - Passes data to workflow builder via onSave callback
+   - Lines 420-445: handleSave function that passes config to parent
+
+2. **`/components/workflows/AIAgentVisualChainBuilder.tsx`** - Visual chain builder
+   - ReactFlow-based visual builder for creating chains
+   - Synchronizes chains to parent via onChainsChange
+   - Manages node positions and connections
+
+3. **`/components/workflows/CollaborativeWorkflowBuilder.tsx`** - Main workflow integration
+   - Lines 5785-6585: AI Agent onSave handler and chain processing
+   - Lines 5854-6544: Critical setNodes callback that adds chains to workflow
+   - Lines 6530-6575: Edge management for chain connections
+   - **Key variables**: `workingNodes`, `actualAIAgentId`, `chainsToProcess`
+
+#### Critical Integration Points:
+
+1. **Chain Data Flow**:
+   ```
+   AIAgentVisualChainBuilder → AIAgentConfigModal → CollaborativeWorkflowBuilder
+   ```
+   - Visual builder creates `chainsLayout` with full node/edge data
+   - Config modal passes this via `onSave(config)` where `config.chainsLayout` contains everything
+   - Workflow builder processes in lines 5792-5802 checking for `chainsToProcess`
+
+2. **Node ID Pattern for Chains**:
+   ```
+   {aiAgentId}-{originalNodeId}-{timestamp}
+   ```
+   - Example: `node-1234-node-5678-1642000000000`
+   - This pattern is critical for chain identification
+
+3. **Add Action Button Management**:
+   - Must maintain `parentAIAgentId` and `parentChainIndex` in data
+   - Position calculations use 120px spacing for chains, 160px for main workflow
+   - Lines 2579-2643: Logic for finding last node in chain when adding actions
+
+4. **Critical Checks Before Modifying**:
+   - Ensure `workingNodes` is used instead of `currentNodes` in setNodes callback
+   - Verify `getNodes()` is available when needed (from useReactFlow hook)
+   - Check that edge filtering preserves Add Action connections
+   - Maintain chain metadata (`isAIAgentChild`, `parentAIAgentId`, `parentChainIndex`)
+
+5. **Common Issues and Solutions**:
+   - **Chains not appearing**: Check `chainsToProcess` has nodes and edges
+   - **Scope issues**: Use `getNodes()` in setTimeout callbacks, not closure variables
+   - **Add Action positioning**: Ensure finding actual last node by Y position
+   - **AI Agent getting Add Action**: Filter with `n.data?.type !== 'ai_agent'`
+
+#### Chain Persistence Fix (January 10, 2025):
+
+**Problem**: AI Agent chains were not persisting after save/reload because chain nodes lacked proper metadata.
+
+**Solution**: The fix ensures proper `parentChainIndex` metadata flows through the entire chain creation process:
+
+1. **Visual Builder** (`AIAgentVisualChainBuilder.tsx` lines 465-498):
+   - When syncing layout to parent, each node now includes `parentChainIndex`
+   - A `nodeChainMap` tracks which chain (0, 1, 2...) each node belongs to
+   - This metadata is included in the `fullLayoutData.nodes` array
+
+2. **Workflow Builder** (`CollaborativeWorkflowBuilder.tsx` line 6068):
+   - When creating nodes from visual builder data, `parentChainIndex` is transferred
+   - This ensures nodes have the metadata needed for chain identification on reload
+
+3. **Chain Recognition** (`CollaborativeWorkflowBuilder.tsx` lines 1792-1799):
+   - On workflow load, nodes are grouped into chains using `parentChainIndex`
+   - Fallback: If metadata is missing, chain index is extracted from node ID pattern
+
+**Key Insight**: The chain persistence depends on maintaining `parentChainIndex` metadata throughout the node lifecycle - from visual builder creation, through workflow integration, to database save/load.
+
+For complete architecture documentation, see `/learning/docs/ai-agent-chain-builder-architecture.md`
 
 ### Field Dependency Loading Pattern
 

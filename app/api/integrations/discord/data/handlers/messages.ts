@@ -45,27 +45,47 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       const processedMessages = (data || [])
         .filter((message: any) => message.type === 0 || message.type === undefined)
         .map((message: any) => {
-          let messageName = ""
+          // Format the timestamp
+          const messageDate = message.timestamp ? new Date(message.timestamp) : null
+          const now = new Date()
+          const isCurrentYear = messageDate && messageDate.getFullYear() === now.getFullYear()
+          
+          const formattedTime = messageDate ? 
+            messageDate.toLocaleString('en-US', { 
+              month: 'short', 
+              day: 'numeric',
+              year: isCurrentYear ? undefined : 'numeric',
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            }) : ''
+          
+          // Get the author name
+          const author = message.author?.username || "Unknown"
+          
+          // Build the message preview
+          let messagePreview = ""
           if (message.content && message.content.trim()) {
-            messageName = message.content.substring(0, 50) + (message.content.length > 50 ? "..." : "")
+            messagePreview = message.content.substring(0, 50) + (message.content.length > 50 ? "..." : "")
           } else if (message.embeds && message.embeds.length > 0) {
             const embed = message.embeds[0]
             if (embed.title) {
-              messageName = `[Embed] ${embed.title}`
+              messagePreview = `[Embed] ${embed.title}`
             } else if (embed.description) {
-              messageName = `[Embed] ${embed.description.substring(0, 40)}...`
+              messagePreview = `[Embed] ${embed.description.substring(0, 40)}...`
             } else {
-              messageName = `[Embed] (no title)`
+              messagePreview = `[Embed] (no title)`
             }
           } else if (message.attachments && message.attachments.length > 0) {
             const attachment = message.attachments[0]
-            messageName = `[File] ${attachment.filename}`
+            messagePreview = `[File] ${attachment.filename}`
+          } else {
+            messagePreview = "(empty message)"
           }
-          if (!messageName) {
-            const author = message.author?.username || "Unknown"
-            const time = message.timestamp ? new Date(message.timestamp).toLocaleString() : message.id
-            messageName = `Message by ${author} (${time})`
-          }
+          
+          // Combine everything into the display name
+          const messageName = `${author} • ${formattedTime} • ${messagePreview}`
+          
           return {
             id: message.id,
             name: messageName,

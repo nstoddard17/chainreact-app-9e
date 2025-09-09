@@ -69,16 +69,13 @@ export const CustomEdgeWithButton = ({
                 e.stopPropagation()
                 console.log('Plus button clicked on edge:', id)
                 console.log('onAddNode function available:', typeof onAddNode)
-                
-                const edgeIdParts = id.split('-')
-                const sourceId = edgeIdParts[1]
-                const targetId = edgeIdParts.slice(2).join('-') // Handle IDs with dashes
-                
-                console.log('Parsed sourceId:', sourceId, 'targetId:', targetId)
+                console.log('Edge data:', data)
                 
                 if (typeof onAddNode === 'function') {
                   console.log('Calling onAddNode...')
-                  onAddNode(sourceId, targetId, { x: labelX, y: labelY })
+                  // The onAddNode callback already has the source and target IDs closed over
+                  // Just call it directly - it will handle everything
+                  onAddNode()
                 } else {
                   console.error('onAddNode is not a function:', onAddNode)
                 }

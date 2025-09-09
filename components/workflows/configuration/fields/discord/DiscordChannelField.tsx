@@ -19,7 +19,7 @@ interface DiscordChannelFieldProps {
  * Discord-specific channel selector field
  * Handles Discord channels without adding bot status text
  */
-export function DiscordChannelField({
+function DiscordChannelFieldComponent({
   field,
   value,
   onChange,
@@ -46,8 +46,25 @@ export function DiscordChannelField({
 
   // Discord-specific option processing
   const processDiscordChannels = (channels: any[]) => {
-    return channels
+    // Remove duplicates and filter valid channels
+    const uniqueChannels = channels
       .filter(channel => channel && (channel.value || channel.id))
+      .reduce((acc: any[], channel: any) => {
+        const channelId = channel.value || channel.id;
+        const channelName = (channel.label || channel.name || '').toLowerCase().replace('#', '');
+        
+        // Check if we already have this channel (by ID or by normalized name)
+        const isDuplicate = acc.some(existing => {
+          const existingId = existing.value || existing.id;
+          const existingName = (existing.label || existing.name || '').toLowerCase().replace('#', '');
+          return existingId === channelId || (existingName === channelName && channelName !== '');
+        });
+        
+        if (!isDuplicate) {
+          acc.push(channel);
+        }
+        return acc;
+      }, [])
       .sort((a, b) => {
         // Sort by position first
         if (a.position !== undefined && b.position !== undefined) {
@@ -59,6 +76,8 @@ export function DiscordChannelField({
         const bName = b.label || b.name || b.value || b.id;
         return aName.localeCompare(bName);
       });
+      
+    return uniqueChannels;
   };
   
   // Process the channel options
@@ -75,7 +94,7 @@ export function DiscordChannelField({
       onChange('');
       processedOptions = [{
         id: 'channel-not-accessible',
-        value: '',
+        value: 'channel-not-accessible',
         label: 'Previously selected channel is no longer accessible',
         name: 'Channel Not Accessible',
         disabled: true
@@ -105,25 +124,6 @@ export function DiscordChannelField({
 
   const processedError = error ? handleDiscordError(error) : undefined;
 
-  // Show loading state for dynamic fields
-  if (field.dynamic && isLoading) {
-    return (
-      <Select disabled>
-        <SelectTrigger 
-          className={cn(
-            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            processedError && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-            <span>Loading Discord channels...</span>
-          </div>
-        </SelectTrigger>
-      </Select>
-    );
-  }
-
   // Special case when no Discord channels are available
   // Automatically trigger loading if we have no options and aren't already loading
   React.useEffect(() => {
@@ -140,30 +140,19 @@ export function DiscordChannelField({
     }
   }, [processedOptions.length, isLoading, value, onDynamicLoad, field.dynamic, field.name]);
   
-  // Always show loading state when no channels are available (they're being loaded)
-  if (processedOptions.length === 0 && !value) {
-    return (
-      <Select disabled>
-        <SelectTrigger 
-          className={cn(
-            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-            <span>Loading Discord channels...</span>
-          </div>
-        </SelectTrigger>
-      </Select>
-    );
-  }
+  // Determine if we should show loading state
+  const showLoadingState = (processedOptions.length === 0 && !value) || (field.dynamic && isLoading);
+  
+  // Ensure value is always defined to prevent uncontrolled/controlled warning
+  const selectValue = value === undefined || value === null ? "" : String(value);
 
+  // Always return the same structure
   return (
     <Select 
-      value={value ?? ""} 
+      value={selectValue} 
       onValueChange={onChange}
       onOpenChange={handleChannelFieldOpen}
+      disabled={showLoadingState}
     >
       <SelectTrigger 
         className={cn(
@@ -171,28 +160,36 @@ export function DiscordChannelField({
           error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
         )}
       >
-        <SelectValue placeholder={field.placeholder || "Select Discord channel..."} />
+        <SelectValue placeholder={showLoadingState ? "Loading Discord channels..." : (field.placeholder || "Select Discord channel...")} />
       </SelectTrigger>
       <SelectContent>
-        {processedOptions.map((option: any, index: number) => {
-          const optionValue = option.value || option.id;
-          const optionLabel = option.label || option.name || option.value || option.id;
-          
-          // Format channel name with # prefix for text channels
-          const formattedLabel = option.type === 0 ? `#${optionLabel}` : optionLabel;
-          
-          return (
-            <SelectItem 
-              key={`${optionValue}-${index}`} 
-              value={optionValue}
-            >
-              <div className="flex items-center gap-2">
-                <span>{formattedLabel}</span>
-              </div>
-            </SelectItem>
-          );
-        })}
+        {processedOptions
+          .filter((option: any) => {
+            const optionValue = option.value || option.id;
+            return !!optionValue; // Only include options with valid values
+          })
+          .map((option: any) => {
+            const optionValue = option.value || option.id;
+            const optionLabel = option.label || option.name || option.value || option.id;
+            
+            // Format channel name with # prefix for text channels ONLY if not already formatted
+            const formattedLabel = option.type === 0 && !optionLabel.startsWith('#') ? `#${optionLabel}` : optionLabel;
+            
+            return (
+              <SelectItem 
+                key={String(optionValue)} 
+                value={String(optionValue)}
+              >
+                <div className="flex items-center gap-2">
+                  <span>{formattedLabel}</span>
+                </div>
+              </SelectItem>
+            );
+          })}
       </SelectContent>
     </Select>
   );
 }
+
+// Export directly without memoization to avoid React static flag issues
+export const DiscordChannelField = DiscordChannelFieldComponent;

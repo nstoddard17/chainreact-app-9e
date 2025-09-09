@@ -7,6 +7,7 @@ import { useUserProfileStore, loadUserProfile, UserProfile } from "@/stores/user
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
 import useCacheManager from "@/hooks/use-cache-manager"
+import { Loader2 } from "lucide-react"
 
 export default function ProfileContent() {
   // Setup cache manager to handle auth state changes
@@ -32,7 +33,16 @@ export default function ProfileContent() {
 
   // Handle loading state
   if (loading && !profile) {
-    return <div className="p-8">Loading profile...</div>
+    return (
+      <AppLayout title="Profile">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-lg text-muted-foreground">Loading profile...</p>
+          </div>
+        </div>
+      </AppLayout>
+    )
   }
 
   // Handle error state

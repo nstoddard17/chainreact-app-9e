@@ -12,6 +12,31 @@ import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
+import { TwitterConfiguration } from './providers/TwitterConfiguration';
+import { GmailConfiguration } from './providers/GmailConfiguration';
+import { SlackConfiguration } from './providers/SlackConfiguration';
+import { NotionConfiguration } from './providers/NotionConfiguration';
+import { TrelloConfiguration } from './providers/TrelloConfiguration';
+import { HubSpotConfiguration } from './providers/HubSpotConfiguration';
+import { StripeConfiguration } from './providers/StripeConfiguration';
+import { TeamsConfiguration } from './providers/TeamsConfiguration';
+import { OutlookConfiguration } from './providers/OutlookConfiguration';
+import { OneDriveConfiguration } from './providers/OneDriveConfiguration';
+import { OneNoteConfiguration } from './providers/OneNoteConfiguration';
+import { GoogleCalendarConfiguration } from './providers/GoogleCalendarConfiguration';
+import { GoogleDriveConfiguration } from './providers/GoogleDriveConfiguration';
+import { GoogleDocsConfiguration } from './providers/GoogleDocsConfiguration';
+import { FacebookConfiguration } from './providers/FacebookConfiguration';
+import { LinkedInConfiguration } from './providers/LinkedInConfiguration';
+import { InstagramConfiguration } from './providers/InstagramConfiguration';
+import { ShopifyConfiguration } from './providers/ShopifyConfiguration';
+import { DropboxConfiguration } from './providers/DropboxConfiguration';
+import { YouTubeConfiguration } from './providers/YouTubeConfiguration';
+import { YouTubeStudioConfiguration } from './providers/YouTubeStudioConfiguration';
+import { BoxConfiguration } from './providers/BoxConfiguration';
+import { GitHubConfiguration } from './providers/GitHubConfiguration';
+import { PayPalConfiguration } from './providers/PayPalConfiguration';
+import { TikTokConfiguration } from './providers/TikTokConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { GmailFetchConfiguration } from './providers/gmail/GmailFetchConfiguration';
 
@@ -147,7 +172,7 @@ function ConfigurationForm({
     selectedRecord
   });
 
-  // Use the consolidated handler as setValue
+  // Use the consolidated handler as setValue (except for Discord which uses setValueBase directly)
   const setValue = handleFieldChange;
 
   // NOW we can do the conditional return (after all hooks)
@@ -225,6 +250,15 @@ function ConfigurationForm({
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
   
+  // Ensure integrations are loaded on mount
+  useEffect(() => {
+    const loadIntegrations = async () => {
+      console.log('🔄 [ConfigForm] Loading integrations on mount');
+      await fetchIntegrations(false); // Don't force refresh on initial load
+    };
+    loadIntegrations();
+  }, [fetchIntegrations]); // Include dependency but it should be stable
+
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {
     const handleReconnection = (event: CustomEvent) => {
@@ -335,17 +369,130 @@ function ConfigurationForm({
   }
   
   switch (provider) {
+    // Communication
     case 'discord':
       console.log('📘 [ConfigForm] Routing to Discord configuration');
-      return <DiscordConfiguration {...commonProps} />;
+      // Pass the base setValue for Discord to avoid complex field change logic
+      // Also pass loadingFields so Discord can check if fields are loading
+      return <DiscordConfiguration {...commonProps} setValue={setValueBase} loadingFields={loadingFields} />;
+    
+    case 'slack':
+      console.log('💬 [ConfigForm] Routing to Slack configuration');
+      return <SlackConfiguration {...commonProps} />;
+    
+    case 'teams':
+      console.log('👥 [ConfigForm] Routing to Teams configuration');
+      return <TeamsConfiguration {...commonProps} />;
+    
+    // Email
+    case 'gmail':
+      console.log('📧 [ConfigForm] Routing to Gmail configuration');
+      return <GmailConfiguration {...commonProps} />;
+    
+    case 'microsoft-outlook':
+    case 'outlook':
+      console.log('📮 [ConfigForm] Routing to Outlook configuration');
+      return <OutlookConfiguration {...commonProps} />;
+    
+    // Productivity
+    case 'notion':
+      console.log('📝 [ConfigForm] Routing to Notion configuration');
+      return <NotionConfiguration {...commonProps} />;
+    
+    case 'trello':
+      console.log('📋 [ConfigForm] Routing to Trello configuration');
+      return <TrelloConfiguration {...commonProps} />;
     
     case 'airtable':
       console.log('📗 [ConfigForm] Routing to Airtable configuration');
       return <AirtableConfiguration {...commonProps} />;
     
+    // Google Services
     case 'google-sheets':
       console.log('📙 [ConfigForm] Routing to Google Sheets configuration');
       return <GoogleSheetsConfiguration {...commonProps} />;
+    
+    case 'google-calendar':
+      console.log('📅 [ConfigForm] Routing to Google Calendar configuration');
+      return <GoogleCalendarConfiguration {...commonProps} />;
+    
+    case 'google-drive':
+      console.log('☁️ [ConfigForm] Routing to Google Drive configuration');
+      return <GoogleDriveConfiguration {...commonProps} />;
+    
+    case 'google-docs':
+      console.log('📄 [ConfigForm] Routing to Google Docs configuration');
+      return <GoogleDocsConfiguration {...commonProps} />;
+    
+    // Microsoft Services
+    case 'onedrive':
+      console.log('☁️ [ConfigForm] Routing to OneDrive configuration');
+      return <OneDriveConfiguration {...commonProps} />;
+    
+    case 'microsoft-onenote':
+    case 'onenote':
+      console.log('📓 [ConfigForm] Routing to OneNote configuration');
+      return <OneNoteConfiguration {...commonProps} />;
+    
+    // Business & E-commerce
+    case 'hubspot':
+      console.log('🚀 [ConfigForm] Routing to HubSpot configuration');
+      return <HubSpotConfiguration {...commonProps} />;
+    
+    case 'stripe':
+      console.log('💳 [ConfigForm] Routing to Stripe configuration');
+      return <StripeConfiguration {...commonProps} />;
+    
+    case 'shopify':
+      console.log('🛍️ [ConfigForm] Routing to Shopify configuration');
+      return <ShopifyConfiguration {...commonProps} />;
+    
+    case 'paypal':
+      console.log('💰 [ConfigForm] Routing to PayPal configuration');
+      return <PayPalConfiguration {...commonProps} />;
+    
+    // Social Media
+    case 'twitter':
+      console.log('🐦 [ConfigForm] Routing to Twitter configuration');
+      return <TwitterConfiguration {...commonProps} />;
+    
+    case 'facebook':
+      console.log('👤 [ConfigForm] Routing to Facebook configuration');
+      return <FacebookConfiguration {...commonProps} />;
+    
+    case 'linkedin':
+      console.log('💼 [ConfigForm] Routing to LinkedIn configuration');
+      return <LinkedInConfiguration {...commonProps} />;
+    
+    case 'instagram':
+      console.log('📸 [ConfigForm] Routing to Instagram configuration');
+      return <InstagramConfiguration {...commonProps} />;
+    
+    case 'youtube':
+      console.log('📺 [ConfigForm] Routing to YouTube configuration');
+      return <YouTubeConfiguration {...commonProps} />;
+    
+    case 'youtube-studio':
+      console.log('🎬 [ConfigForm] Routing to YouTube Studio configuration');
+      return <YouTubeStudioConfiguration {...commonProps} />;
+    
+    case 'tiktok':
+      console.log('🎵 [ConfigForm] Routing to TikTok configuration');
+      return <TikTokConfiguration {...commonProps} />;
+    
+    // File Storage
+    case 'dropbox':
+      console.log('📦 [ConfigForm] Routing to Dropbox configuration');
+      return <DropboxConfiguration {...commonProps} />;
+    
+    case 'box':
+      console.log('📦 [ConfigForm] Routing to Box configuration');
+      return <BoxConfiguration {...commonProps} />;
+    
+    // Development
+    case 'github':
+      console.log('🐙 [ConfigForm] Routing to GitHub configuration');
+      return <GitHubConfiguration {...commonProps} />;
     
     default:
       console.log('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
