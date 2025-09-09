@@ -10,9 +10,74 @@ export function resolveValue(
 ): any {
   if (typeof value !== "string") return value
   
-  const match = value.match(/^{{(.*)}}$/)
-  if (match) {
-    const key = match[1]
+  // First check if the entire value is a single template
+  const singleMatch = value.match(/^{{(.*)}}$/)
+  if (singleMatch) {
+    const key = singleMatch[1]
+    
+    console.log(`🔍 [resolveValue] Attempting to resolve single template: "${key}"`)
+    console.log(`🔍 [resolveValue] Available input keys:`, Object.keys(input))
+    
+    // Handle "Action: Provider: Action Name.Field" format
+    // e.g., "Action: Gmail: Get Email.Body"
+    if (key.includes(': ')) {
+      const colonParts = key.split(': ')
+      if (colonParts[0] === 'Action' && colonParts.length >= 3) {
+        // Extract the field from the last part (e.g., "Get Email.Body" -> "Body")
+        const lastPart = colonParts[colonParts.length - 1]
+        const fieldMatch = lastPart.match(/\.(\w+)$/)
+        const fieldName = fieldMatch ? fieldMatch[1] : null
+        
+        console.log(`🔍 [resolveValue] Detected Action format - Field: "${fieldName}"`)
+        
+        if (fieldName) {
+          // Look for Gmail search results in the input data - check both 'messages' and 'emails'
+          const emailArray = input.messages || input.emails
+          
+          console.log(`🔍 [resolveValue] Email array found:`, {
+            hasMessages: !!input.messages,
+            hasEmails: !!input.emails,
+            arrayLength: emailArray?.length || 0
+          })
+          
+          if (emailArray && Array.isArray(emailArray) && emailArray.length > 0) {
+            const firstMessage = emailArray[0]
+            
+            console.log(`🔍 [resolveValue] First message fields:`, Object.keys(firstMessage))
+            
+            // Map common field names to actual message properties
+            const fieldMap: Record<string, string> = {
+              'Body': 'body',  // Changed from 'snippet' to 'body'
+              'body': 'body',
+              'Subject': 'subject',
+              'subject': 'subject',
+              'From': 'from',
+              'from': 'from',
+              'To': 'to',
+              'to': 'to',
+              'Date': 'date',
+              'date': 'date',
+              'Snippet': 'snippet',
+              'snippet': 'snippet'
+            }
+            
+            const actualField = fieldMap[fieldName] || fieldName.toLowerCase()
+            console.log(`🔍 [resolveValue] Mapped field "${fieldName}" to "${actualField}"`)
+            
+            if (firstMessage[actualField] !== undefined) {
+              const resolvedValue = firstMessage[actualField]
+              console.log(`✅ [resolveValue] Resolved to:`, resolvedValue?.substring ? resolvedValue.substring(0, 100) + '...' : resolvedValue)
+              return resolvedValue
+            } else {
+              console.warn(`⚠️ [resolveValue] Field "${actualField}" not found in message`)
+            }
+          } else {
+            console.warn(`⚠️ [resolveValue] No email data found in input`)
+          }
+        }
+      }
+    }
+    
     const parts = key.split(".")
     
     // Handle node output references: {{NodeTitle.output}} or {{NodeTitle.AI Agent Output}}
@@ -111,6 +176,94 @@ export function resolveValue(
     
     // Fallback to direct input access using dot notation
     return parts.reduce((acc: any, part: any) => acc && acc[part], input)
+  }
+  
+  // Check if there are any templates embedded in the string
+  const embeddedTemplateRegex = /{{([^}]+)}}/g
+  if (embeddedTemplateRegex.test(value)) {
+    console.log(`🔍 [resolveValue] Found embedded templates in: "${value}"`)
+    
+    // Replace all embedded templates
+    let resolvedValue = value
+    resolvedValue = resolvedValue.replace(/{{([^}]+)}}/g, (match, key) => {
+      console.log(`🔍 [resolveValue] Processing embedded template: "${key}"`)
+      
+      // Handle "Action: Provider: Action Name.Field" format
+      if (key.includes(': ')) {
+        const colonParts = key.split(': ')
+        if (colonParts[0] === 'Action' && colonParts.length >= 3) {
+          // Extract the field from the last part
+          const lastPart = colonParts[colonParts.length - 1]
+          const fieldMatch = lastPart.match(/\.(\w+)$/)
+          const fieldName = fieldMatch ? fieldMatch[1] : null
+          
+          console.log(`🔍 [resolveValue] Embedded Action format - Field: "${fieldName}"`)
+          
+          if (fieldName) {
+            // Look for Gmail search results in the input data
+            const emailArray = input.messages || input.emails
+            
+            if (emailArray && Array.isArray(emailArray) && emailArray.length > 0) {
+              const firstMessage = emailArray[0]
+              
+              // Map common field names to actual message properties
+              const fieldMap: Record<string, string> = {
+                'Body': 'body',
+                'body': 'body',
+                'Subject': 'subject',
+                'subject': 'subject',
+                'From': 'from',
+                'from': 'from',
+                'To': 'to',
+                'to': 'to',
+                'Date': 'date',
+                'date': 'date',
+                'Snippet': 'snippet',
+                'snippet': 'snippet'
+              }
+              
+              const actualField = fieldMap[fieldName] || fieldName.toLowerCase()
+              
+              if (firstMessage[actualField] !== undefined) {
+                console.log(`✅ [resolveValue] Embedded template resolved to:`, firstMessage[actualField]?.substring ? firstMessage[actualField].substring(0, 50) + '...' : firstMessage[actualField])
+                return firstMessage[actualField]
+              }
+            }
+          }
+        }
+      }
+      
+      // Handle other template formats (data.field, trigger.field, etc.)
+      const parts = key.split(".")
+      
+      if (parts[0] === "data") {
+        const dataKey = parts.slice(1).join(".")
+        const resolvedData = dataKey.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
+        if (resolvedData !== undefined) {
+          return resolvedData
+        }
+      }
+      
+      if (parts[0] === "trigger" && mockTriggerOutputs) {
+        const triggerKey = parts[1]
+        if (mockTriggerOutputs[triggerKey]) {
+          return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey]
+        }
+      }
+      
+      // Try direct field access
+      const directValue = parts.reduce((acc: any, part: any) => acc && acc[part], input)
+      if (directValue !== undefined) {
+        return directValue
+      }
+      
+      // If we can't resolve it, return the original template
+      console.warn(`⚠️ [resolveValue] Could not resolve embedded template: "${key}"`)
+      return match
+    })
+    
+    console.log(`✅ [resolveValue] Final resolved value:`, resolvedValue?.substring ? resolvedValue.substring(0, 100) + '...' : resolvedValue)
+    return resolvedValue
   }
   
   return value
