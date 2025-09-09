@@ -42,18 +42,20 @@ export default function BillingContent() {
   return (
     <div className="space-y-12">
       {currentSubscription && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-800/30 backdrop-blur-sm p-6 rounded-xl border border-slate-700/50">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-800/20 backdrop-blur-sm p-6 rounded-xl border border-slate-700/30">
           <SubscriptionDetails subscription={currentSubscription} />
           <UsageStats usage={usage} subscription={currentSubscription} />
         </div>
       )}
 
       <div className="pt-8">
-        <div className="text-center mb-10">
+        <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-3">{currentSubscription ? "Change Plan" : "Choose Your Plan"}</h2>
           <p className="text-slate-400">Pick the plan that fits your workflow needs. You can switch anytime.</p>
         </div>
-        <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} />
+        <div className="bg-gradient-to-b from-slate-900/20 to-slate-900/0 rounded-3xl p-1">
+          <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} />
+        </div>
       </div>
     </div>
   )

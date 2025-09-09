@@ -331,6 +331,7 @@ export function DiscordConfiguration({
                     currentNodeId={currentNodeId}
                     dynamicOptions={dynamicOptions}
                     loadingDynamic={isFieldLoading(field.name)}
+                    onDynamicLoad={loadOptions}
                     nodeInfo={nodeInfo}
                     parentValues={values}
                     aiFields={aiFields}

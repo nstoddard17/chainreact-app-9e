@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
+import { DiscordMessageSelector } from "./DiscordMessageSelector";
 import { cn } from "@/lib/utils";
 
 interface DiscordGenericFieldProps {
@@ -452,16 +453,16 @@ function DiscordGenericFieldComponent({
     );
   }
 
-  // Use Combobox for message fields to enable search, Select for others
+  // Use enhanced Discord message selector for message fields
   if (field.name === 'messageId') {
     return (
-      <Combobox
-        options={comboboxOptions}
-        value={value ?? ""}
+      <DiscordMessageSelector
+        field={field}
+        value={value}
         onChange={onChange}
+        options={processedOptions}
         placeholder={field.placeholder || "Select a message..."}
-        searchPlaceholder="Search messages..."
-        emptyPlaceholder="No messages found."
+        error={error}
       />
     );
   }

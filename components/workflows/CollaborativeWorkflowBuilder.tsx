@@ -502,14 +502,26 @@ const useWorkflowBuilderState = () => {
       setSearchQuery("")
       setShowTriggerDialog(true)
     } else {
-      // Normal action adding
-      setSourceAddNode({ id: nodeId, parentId })
-      setSelectedIntegration(null)
-      setSelectedAction(null)
-      setSearchQuery("")
-      setShowActionDialog(true)
+      // Ensure integrations are loaded before opening dialog
+      if (storeIntegrations.length === 0 && !integrationsLoading) {
+        console.log('🔄 Fetching integrations before opening action dialog...')
+        fetchIntegrations(true).then(() => {
+          setSourceAddNode({ id: nodeId, parentId })
+          setSelectedIntegration(null)
+          setSelectedAction(null)
+          setSearchQuery("")
+          setShowActionDialog(true)
+        })
+      } else {
+        // Normal action adding
+        setSourceAddNode({ id: nodeId, parentId })
+        setSelectedIntegration(null)
+        setSelectedAction(null)
+        setSearchQuery("")
+        setShowActionDialog(true)
+      }
     }
-  }, [getNodes])
+  }, [getNodes, storeIntegrations, integrationsLoading, fetchIntegrations])
 
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {

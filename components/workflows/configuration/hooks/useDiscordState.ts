@@ -324,7 +324,8 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           setDiscordClientId(data.clientId);
         } else {
           setIsDiscordBotConfigured(false);
-          console.warn('Discord bot is not configured');
+          // Don't log as warning since this is expected when bot is not configured
+          // The bot configuration is optional and checked per-guild later
         }
       } catch (error) {
         console.error('Error fetching Discord config:', error);

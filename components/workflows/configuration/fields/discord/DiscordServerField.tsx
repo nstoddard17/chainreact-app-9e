@@ -35,6 +35,9 @@ function DiscordServerFieldComponent({
   const hasAttemptedLoad = useRef(false);
   const previousValue = useRef(value);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // For edit message (no value), always start with loading state
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasReceivedOptions, setHasReceivedOptions] = useState(false);
 
   // Reset load attempt flag if field is intentionally cleared
   useEffect(() => {
@@ -47,36 +50,38 @@ function DiscordServerFieldComponent({
 
   // Auto-load Discord servers on mount immediately
   useEffect(() => {
-    // Skip auto-loading if we already have options available
-    if (options.length > 0) {
-      console.log('📌 Skipping Discord server auto-load - options exist:', {
-        value,
-        optionsCount: options.length
-      });
-      hasAttemptedLoad.current = true; // Mark as attempted to prevent future loads
-      return;
-    }
-    
-    if (field.dynamic && onDynamicLoad && !hasAttemptedLoad.current) {
-      console.log('🔍 Auto-loading Discord servers on mount for field:', field.name);
+    // Always trigger load on first mount, regardless of value
+    // This ensures servers are loaded for edit modals that have a pre-selected value
+    if (!hasAttemptedLoad.current && field.dynamic && onDynamicLoad) {
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
-  }, [field.dynamic, field.name, onDynamicLoad, options.length]);
+  }, []); // Only run on mount
+  
+  // Track when we receive options for the first time
+  useEffect(() => {
+    if (options.length > 0 && !hasReceivedOptions) {
+      setHasReceivedOptions(true);
+      setIsInitialLoad(false);
+    }
+  }, [options.length, hasReceivedOptions]);
+  
+  // Also clear initial load if loading completes with no options
+  useEffect(() => {
+    if (!isLoading && hasAttemptedLoad.current && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [isLoading, isInitialLoad]);
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    // Don't reload if we already have a selected value OR if we have options
-    if (value || options.length > 0) {
-      console.log('📌 Skipping Discord server reload on dropdown open - value or options exist:', {
-        value,
-        optionsCount: options.length
-      });
+    // Don't reload if we already have options loaded
+    if (options.length > 0) {
       return;
     }
     
+    // Load servers when dropdown opens if not already loaded
     if (open && field.dynamic && onDynamicLoad && !isLoading && !hasAttemptedLoad.current) {
-      console.log('🔍 Loading Discord servers on dropdown open for field:', field.name);
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
@@ -125,7 +130,6 @@ function DiscordServerFieldComponent({
     setIsRefreshing(true);
     hasAttemptedLoad.current = false; // Reset the load flag
     try {
-      console.log('🔄 Manually refreshing Discord servers...');
       await forceRefreshDiscordGuilds();
       // Trigger reload through the onDynamicLoad callback
       if (onDynamicLoad) {
@@ -141,24 +145,46 @@ function DiscordServerFieldComponent({
   const processedOptions = processDiscordServers(options);
   const processedError = error ? handleDiscordError(error) : undefined;
 
-  // Show loading state immediately when modal opens and no options are available
-  if (field.dynamic && (isLoading || (options.length === 0 && !hasAttemptedLoad.current))) {
+
+  // Show loading state immediately when modal opens
+  // For edit message modal (no value), show loading until we explicitly receive options
+  if (field.dynamic && (isLoading || (isInitialLoad && !hasReceivedOptions))) {
     return (
-      <Select disabled value={value === undefined || value === null ? "" : String(value)}>
-        <SelectTrigger 
-          className={cn(
-            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-          )}
+      <div className="flex items-center gap-2">
+        <Select disabled value={value === undefined || value === null ? "" : String(value)}>
+          <SelectTrigger 
+            className={cn(
+              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex-1",
+              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            )}
+          >
+            <SelectValue>
+              <span className="flex items-center gap-2 text-slate-500">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Loading Discord servers...
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+        </Select>
+        
+        {/* Disabled refresh button while loading */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={true}
+          className="h-10 px-3 opacity-50"
+          title="Loading servers..."
         >
-          <SelectValue placeholder="Loading Discord servers..." />
-        </SelectTrigger>
-      </Select>
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        </Button>
+      </div>
     );
   }
 
   // Special case when no Discord servers are available after loading
-  if (processedOptions.length === 0 && !isLoading && hasAttemptedLoad.current) {
+  // Only show this if we've actually received a response (not still in initial load)
+  if (processedOptions.length === 0 && !isLoading && hasAttemptedLoad.current && hasReceivedOptions) {
     return (
       <div className="text-sm text-slate-500">
         <p>No Discord servers found. You may need to:</p>
@@ -193,14 +219,16 @@ function DiscordServerFieldComponent({
         onValueChange={onChange}
         onOpenChange={handleServerFieldOpen}
         className="flex-1"
+        disabled={isRefreshing}
       >
         <SelectTrigger 
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2",
+            isRefreshing && "opacity-70"
           )}
         >
-          <SelectValue placeholder={field.placeholder || "Select Discord server..."} />
+          <SelectValue placeholder={isRefreshing ? "Refreshing servers..." : (field.placeholder || "Select Discord server...")} />
         </SelectTrigger>
         <SelectContent 
           className="bg-slate-900 text-white max-h-[200px]"

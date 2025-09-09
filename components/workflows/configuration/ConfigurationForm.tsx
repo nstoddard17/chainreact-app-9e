@@ -254,7 +254,7 @@ function ConfigurationForm({
   useEffect(() => {
     const loadIntegrations = async () => {
       console.log('🔄 [ConfigForm] Loading integrations on mount');
-      await fetchIntegrations(false); // Don't force refresh on initial load
+      await fetchIntegrations(true); // Force refresh to ensure integrations are loaded
     };
     loadIntegrations();
   }, [fetchIntegrations]); // Include dependency but it should be stable
