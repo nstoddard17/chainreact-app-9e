@@ -12,40 +12,12 @@ export async function createGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log('📝 createGoogleDocument - Config:', JSON.stringify(config, null, 2))
-    console.log('📝 createGoogleDocument - Input keys:', Object.keys(input))
-    
-    // Debug: Log the full input structure to understand what data is available
-    console.log('📝 createGoogleDocument - Full Input:', {
-      hasEmails: !!input.emails,
-      hasMessages: !!input.messages,
-      emailCount: input.emails?.length || 0,
-      messageCount: input.messages?.length || 0,
-      firstEmail: input.emails?.[0] ? {
-        from: input.emails[0].from,
-        to: input.emails[0].to,
-        subject: input.emails[0].subject,
-        bodyLength: input.emails[0].body?.length || 0,
-        snippetLength: input.emails[0].snippet?.length || 0
-      } : null,
-      firstMessage: input.messages?.[0] ? {
-        from: input.messages[0].from,
-        subject: input.messages[0].subject,
-        hasBody: !!input.messages[0].body
-      } : null
-    })
-    
     // Resolve each config field individually to handle nested templates
-    console.log('📝 [DEBUG] About to resolve config.content:', config.content)
-    console.log('📝 [DEBUG] Input has emails?', !!input.emails, 'count:', input.emails?.length)
-    console.log('📝 [DEBUG] Input has messages?', !!input.messages, 'count:', input.messages?.length)
-    
     const resolvedConfig = {
       title: resolveValue(config.title, input),
       content: resolveValue(config.content, input),
       folderId: resolveValue(config.folderId, input)
     }
-    console.log('📝 createGoogleDocument - Resolved Config:', JSON.stringify(resolvedConfig, null, 2))
     
     const { title, content, folderId } = resolvedConfig
 

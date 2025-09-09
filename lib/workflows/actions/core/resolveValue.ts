@@ -15,9 +15,6 @@ export function resolveValue(
   if (singleMatch) {
     const key = singleMatch[1]
     
-    console.log(`🔍 [resolveValue] Attempting to resolve single template: "${key}"`)
-    console.log(`🔍 [resolveValue] Available input keys:`, Object.keys(input))
-    
     // Handle "Action: Provider: Action Name.Field" format
     // e.g., "Action: Gmail: Get Email.Body"
     if (key.includes(': ')) {
@@ -28,22 +25,12 @@ export function resolveValue(
         const fieldMatch = lastPart.match(/\.(\w+)$/)
         const fieldName = fieldMatch ? fieldMatch[1] : null
         
-        console.log(`🔍 [resolveValue] Detected Action format - Field: "${fieldName}"`)
-        
         if (fieldName) {
           // Look for Gmail search results in the input data - check both 'messages' and 'emails'
           const emailArray = input.messages || input.emails
           
-          console.log(`🔍 [resolveValue] Email array found:`, {
-            hasMessages: !!input.messages,
-            hasEmails: !!input.emails,
-            arrayLength: emailArray?.length || 0
-          })
-          
           if (emailArray && Array.isArray(emailArray) && emailArray.length > 0) {
             const firstMessage = emailArray[0]
-            
-            console.log(`🔍 [resolveValue] First message fields:`, Object.keys(firstMessage))
             
             // Map common field names to actual message properties
             const fieldMap: Record<string, string> = {
@@ -62,18 +49,10 @@ export function resolveValue(
             }
             
             const actualField = fieldMap[fieldName] || fieldName.toLowerCase()
-            console.log(`🔍 [resolveValue] Mapped field "${fieldName}" to "${actualField}"`)
             
             if (firstMessage[actualField] !== undefined) {
-              const resolvedValue = firstMessage[actualField]
-              console.log(`✅ [resolveValue] Resolved to:`, resolvedValue?.substring ? resolvedValue.substring(0, 100) + '...' : resolvedValue)
-              return resolvedValue
-            } else {
-              console.warn(`⚠️ [resolveValue] Field "${actualField}" not found in message`)
+              return firstMessage[actualField]
             }
-          } else {
-            console.warn(`⚠️ [resolveValue] No email data found in input`)
-          }
         }
       }
     }
@@ -181,13 +160,9 @@ export function resolveValue(
   // Check if there are any templates embedded in the string
   const embeddedTemplateRegex = /{{([^}]+)}}/g
   if (embeddedTemplateRegex.test(value)) {
-    console.log(`🔍 [resolveValue] Found embedded templates in: "${value}"`)
-    
     // Replace all embedded templates
     let resolvedValue = value
     resolvedValue = resolvedValue.replace(/{{([^}]+)}}/g, (match, key) => {
-      console.log(`🔍 [resolveValue] Processing embedded template: "${key}"`)
-      
       // Handle "Action: Provider: Action Name.Field" format
       if (key.includes(': ')) {
         const colonParts = key.split(': ')
@@ -196,8 +171,6 @@ export function resolveValue(
           const lastPart = colonParts[colonParts.length - 1]
           const fieldMatch = lastPart.match(/\.(\w+)$/)
           const fieldName = fieldMatch ? fieldMatch[1] : null
-          
-          console.log(`🔍 [resolveValue] Embedded Action format - Field: "${fieldName}"`)
           
           if (fieldName) {
             // Look for Gmail search results in the input data
@@ -225,7 +198,6 @@ export function resolveValue(
               const actualField = fieldMap[fieldName] || fieldName.toLowerCase()
               
               if (firstMessage[actualField] !== undefined) {
-                console.log(`✅ [resolveValue] Embedded template resolved to:`, firstMessage[actualField]?.substring ? firstMessage[actualField].substring(0, 50) + '...' : firstMessage[actualField])
                 return firstMessage[actualField]
               }
             }
@@ -258,11 +230,9 @@ export function resolveValue(
       }
       
       // If we can't resolve it, return the original template
-      console.warn(`⚠️ [resolveValue] Could not resolve embedded template: "${key}"`)
       return match
     })
     
-    console.log(`✅ [resolveValue] Final resolved value:`, resolvedValue?.substring ? resolvedValue.substring(0, 100) + '...' : resolvedValue)
     return resolvedValue
   }
   
