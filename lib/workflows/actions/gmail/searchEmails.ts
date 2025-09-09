@@ -271,17 +271,6 @@ export async function searchGmailEmails(
       message: `Found ${emails.length} emails matching the search criteria`
     }
     
-    console.log('📧 Gmail search returning:', {
-      emailCount: emails.length,
-      firstEmail: emails[0] ? {
-        from: emails[0].from,
-        subject: emails[0].subject,
-        snippet: emails[0].snippet?.substring(0, 50) + '...',
-        hasBody: !!emails[0].body
-      } : null,
-      outputKeys: Object.keys(result.output)
-    })
-    
     return result
   } catch (error: any) {
     console.error("Gmail search error:", error)

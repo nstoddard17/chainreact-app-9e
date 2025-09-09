@@ -42,13 +42,6 @@ export class NodeExecutionService {
       }
       
       let nodeResult = await this.executeNodeByType(node, allNodes, connections, context)
-      
-      console.log(`🔄 [NodeExecution] Raw result from ${node.id} (${node.data.type}):`, {
-        hasResult: !!nodeResult,
-        resultKeys: nodeResult ? Object.keys(nodeResult) : [],
-        hasOutput: !!nodeResult?.output,
-        outputKeys: nodeResult?.output ? Object.keys(nodeResult.output) : []
-      })
 
       // If in test mode and this is an action that would send data externally,
       // wrap the result with intercepted metadata
@@ -155,19 +148,6 @@ export class NodeExecutionService {
 
     console.log(`🔗 Node ${sourceNode.id} has ${connectedNodes.length} connected nodes`)
     console.log(`📌 Original context userId: ${context.userId}`)
-    
-    // Debug log the result being passed
-    console.log(`📊 [Data Flow] Result from ${sourceNode.id} (${sourceNode.data.type}):`, {
-      hasResult: !!result,
-      resultKeys: result ? Object.keys(result) : [],
-      hasEmails: result?.emails ? result.emails.length : 0,
-      hasMessages: result?.messages ? result.messages.length : 0,
-      firstEmail: result?.emails?.[0] ? {
-        from: result.emails[0].from,
-        subject: result.emails[0].subject,
-        hasBody: !!result.emails[0].body
-      } : null
-    })
 
     // Execute each connected node
     for (const connectedNode of connectedNodes) {
@@ -179,12 +159,6 @@ export class NodeExecutionService {
         }
         
         console.log(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`)
-        console.log(`📊 [Data Flow] Context data for ${connectedNode.id} (${connectedNode.data.type}):`, {
-          dataKeys: Object.keys(updatedContext.data),
-          hasEmails: !!updatedContext.data.emails,
-          hasMessages: !!updatedContext.data.messages,
-          emailCount: updatedContext.data.emails?.length || 0
-        })
         
         if (!updatedContext.userId) {
           console.error('❌ userId lost when creating updatedContext!')
