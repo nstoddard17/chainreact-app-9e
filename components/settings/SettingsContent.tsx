@@ -60,12 +60,33 @@ export default function SettingsContent() {
     )
   }
 
+  const tabHeaders = {
+    billing: {
+      title: "Billing & Subscription",
+      subtitle: "Manage your subscription and view usage statistics"
+    },
+    notifications: {
+      title: "Notification Settings",
+      subtitle: "Configure your notification preferences"
+    },
+    privacy: {
+      title: "Privacy Settings",
+      subtitle: "Manage your privacy and data settings"
+    },
+    api: {
+      title: "API Keys",
+      subtitle: "Manage your API keys for programmatic access"
+    }
+  }
+
+  const currentHeader = tabHeaders[activeTab as keyof typeof tabHeaders]
+
   return (
     <AppLayout title="Settings">
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground mt-2">Manage your account settings and preferences.</p>
+          <h1 className="text-4xl font-bold tracking-tight">{currentHeader.title}</h1>
+          <p className="text-slate-400 mt-3 text-lg">{currentHeader.subtitle}</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

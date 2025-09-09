@@ -71,13 +71,14 @@ export const useAuthStore = create<AuthState>()(
       initialize: async () => {
         const state = get()
         if (state.initialized || state.loading) {
+          console.log('Auth already initialized or loading, skipping...')
           return
         }
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
           set({ loading: false, initialized: true, error: "Initialization timed out" })
-        }, 12000) // Increased from 5 seconds to 12 seconds
+        }, 5000) // 5 seconds timeout for initialization
 
         try {
           set({ loading: true, error: null })
@@ -113,7 +114,7 @@ export const useAuthStore = create<AuthState>()(
           // Get current user from Supabase with timeout
           const userPromise = supabase.auth.getUser()
           const userTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('User fetch timeout')), 8000) // Increased from 3 seconds to 8 seconds
+            setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
           )
           
           let userResult
@@ -764,6 +765,11 @@ export const useAuthStore = create<AuthState>()(
       storage: {
         getItem: (name) => {
           try {
+            // Check if we're on the client side
+            if (typeof window === 'undefined') {
+              return null
+            }
+            
             const str = localStorage.getItem(name)
             if (!str) return null
             
@@ -788,13 +794,20 @@ export const useAuthStore = create<AuthState>()(
             return null
           } catch (error) {
             console.error('Error reading auth storage:', error)
-            // Clear corrupted data
-            localStorage.removeItem(name)
+            // Clear corrupted data only if we're on the client
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem(name)
+            }
             return null
           }
         },
         setItem: (name, value) => {
           try {
+            // Check if we're on the client side
+            if (typeof window === 'undefined') {
+              return
+            }
+            
             // Ensure value is a string
             let stringValue = value
             if (typeof value !== 'string') {
@@ -809,6 +822,10 @@ export const useAuthStore = create<AuthState>()(
           }
         },
         removeItem: (name) => {
+          // Check if we're on the client side
+          if (typeof window === 'undefined') {
+            return
+          }
           localStorage.removeItem(name)
         },
       },
@@ -817,18 +834,31 @@ export const useAuthStore = create<AuthState>()(
       }),
       onRehydrateStorage: () => (state) => {
         try {
+          // Mark as hydrated immediately
           state?.setHydrated()
 
-          // Only initialize if not already initialized
-          if (state && !state.initialized) {
-            setTimeout(() => {
-              state.initialize()
-            }, 100)
+          // Only initialize if not already initialized and we're on the client
+          if (state && !state.initialized && typeof window !== 'undefined') {
+            // Use requestIdleCallback if available, otherwise setTimeout
+            const scheduleInit = () => {
+              if ('requestIdleCallback' in window) {
+                (window as any).requestIdleCallback(() => state.initialize(), { timeout: 100 })
+              } else {
+                setTimeout(() => state.initialize(), 50)
+              }
+            }
+            scheduleInit()
           }
         } catch (error) {
           console.error('Error during rehydration:', error)
-          // Clear any corrupted state
-          localStorage.removeItem('chainreact-auth')
+          // Clear any corrupted state only if we're on the client
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.removeItem('chainreact-auth')
+            } catch (e) {
+              console.error('Failed to clear localStorage:', e)
+            }
+          }
           // Still mark as hydrated to prevent blocking
           state?.setHydrated()
         }

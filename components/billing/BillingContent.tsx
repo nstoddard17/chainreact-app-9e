@@ -40,21 +40,19 @@ export default function BillingContent() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Billing & Subscription</h1>
-        <p className="text-gray-600 mt-2">Manage your subscription and view usage statistics</p>
-      </div>
-
+    <div className="space-y-12">
       {currentSubscription && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-800/30 backdrop-blur-sm p-6 rounded-xl border border-slate-700/50">
           <SubscriptionDetails subscription={currentSubscription} />
           <UsageStats usage={usage} subscription={currentSubscription} />
         </div>
       )}
 
-      <div>
-        <h2 className="text-2xl font-bold mb-6">{currentSubscription ? "Change Plan" : "Choose Your Plan"}</h2>
+      <div className="pt-8">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold mb-3">{currentSubscription ? "Change Plan" : "Choose Your Plan"}</h2>
+          <p className="text-slate-400">Pick the plan that fits your workflow needs. You can switch anytime.</p>
+        </div>
         <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} />
       </div>
     </div>
