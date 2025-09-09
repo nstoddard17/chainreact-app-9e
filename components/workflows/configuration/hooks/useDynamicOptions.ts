@@ -196,7 +196,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
         try {
-          const guilds = await loadDiscordGuildsOnce(forceRefresh || false);
+          // Always force refresh if we're explicitly asked to or if we detect an issue
+          const shouldForceRefresh = forceRefresh || false;
+          console.log('🔍 [Discord] Loading guilds, forceRefresh:', shouldForceRefresh);
+          
+          const guilds = await loadDiscordGuildsOnce(shouldForceRefresh);
           
           if (!guilds || guilds.length === 0) {
             // Check if we have a Discord integration - if not, this is expected
@@ -205,7 +209,22 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             if (!discordIntegration) {
               console.log('🔍 No Discord integration found - empty guild list expected');
             } else {
-              console.warn('⚠️ Discord integration exists but no guilds returned - may need reconnection');
+              console.warn('⚠️ Discord integration exists but no guilds returned - attempting force refresh');
+              // Try one more time with force refresh
+              const refreshedGuilds = await loadDiscordGuildsOnce(true);
+              if (refreshedGuilds && refreshedGuilds.length > 0) {
+                console.log('✅ Force refresh successful, got guilds:', refreshedGuilds.length);
+                const formattedOptions = refreshedGuilds.map(guild => ({
+                  value: guild.id,
+                  label: guild.name,
+                }));
+                
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  [fieldName]: formattedOptions
+                }));
+                return;
+              }
             }
             
             setDynamicOptions(prev => ({
@@ -1229,28 +1248,73 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   useEffect(() => {
     console.log('🔄 [useDynamicOptions] Node type or provider changed, clearing all state', { nodeType, providerId });
     
-    // Abort all active fetch requests
+    // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
     abortControllers.current.forEach((controller, key) => {
-      console.log('🚫 [useDynamicOptions] Aborting fetch request:', key);
-      controller.abort();
+      // Don't abort Discord guild requests as they're cached and reusable
+      if (!key.startsWith('guildId')) {
+        console.log('🚫 [useDynamicOptions] Aborting fetch request:', key);
+        controller.abort();
+      }
     });
-    abortControllers.current.clear();
-    activeRequestIds.current.clear();
     
-    // Cancel all active requests
+    // Clear abort controllers except for Discord guilds
+    const guildControllers = new Map();
+    abortControllers.current.forEach((controller, key) => {
+      if (key.startsWith('guildId')) {
+        guildControllers.set(key, controller);
+      }
+    });
+    abortControllers.current = guildControllers;
+    
+    // Clear request IDs except for Discord guilds
+    const guildRequestIds = new Map();
+    activeRequestIds.current.forEach((id, key) => {
+      if (key.startsWith('guildId')) {
+        guildRequestIds.set(key, id);
+      }
+    });
+    activeRequestIds.current = guildRequestIds;
+    
+    // Cancel all active requests except Discord guilds
+    const guildRequests = new Map();
     activeRequests.current.forEach((promise, key) => {
-      console.log('🚫 [useDynamicOptions] Cancelling active request:', key);
+      if (key.startsWith('guildId')) {
+        guildRequests.set(key, promise);
+      } else {
+        console.log('🚫 [useDynamicOptions] Cancelling active request:', key);
+      }
     });
+    activeRequests.current = guildRequests;
     
-    // Clear everything
-    setDynamicOptions({});
-    loadingFields.current.clear();
-    activeRequests.current.clear();
+    // Preserve Discord guild data if provider is still Discord
+    const preservedOptions: any = {};
+    if (providerId === 'discord' && dynamicOptions.guildId) {
+      preservedOptions.guildId = dynamicOptions.guildId;
+    }
+    
+    // Clear everything except preserved options
+    setDynamicOptions(preservedOptions);
+    
+    // Clear loading fields except Discord guilds
+    const newLoadingFields = new Set<string>();
+    loadingFields.current.forEach(field => {
+      if (field.startsWith('guildId')) {
+        newLoadingFields.add(field);
+      }
+    });
+    loadingFields.current = newLoadingFields;
+    
     setLoading(false);
     setIsInitialLoading(false);
     
-    // Also clear any cached options
-    optionsCache.current = {};
+    // Clear cached options except Discord guilds
+    const newCache: any = {};
+    Object.keys(optionsCache.current).forEach(key => {
+      if (key.startsWith('guildId')) {
+        newCache[key] = optionsCache.current[key];
+      }
+    });
+    optionsCache.current = newCache;
   }, [nodeType, providerId]);
 
   // Preload independent fields when modal opens
@@ -1274,17 +1338,38 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     return () => {
       console.log('🧹 [useDynamicOptions] Component unmounting, cleaning up...');
       
-      // Abort all active fetch requests
+      // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
       abortControllers.current.forEach((controller, key) => {
-        console.log('🚫 [useDynamicOptions] Aborting fetch on unmount:', key);
-        controller.abort();
+        // Don't abort Discord guild requests as they use global cache
+        if (!key.startsWith('guildId')) {
+          console.log('🚫 [useDynamicOptions] Aborting fetch on unmount:', key);
+          controller.abort();
+        }
+      });
+      
+      // Clear controllers except Discord guilds
+      const guildControllers = new Map();
+      abortControllers.current.forEach((controller, key) => {
+        if (key.startsWith('guildId')) {
+          guildControllers.set(key, controller);
+        }
       });
       abortControllers.current.clear();
-    activeRequestIds.current.clear();
       
-      // Cancel all active requests
+      // Clear request IDs except Discord guilds
+      const guildRequestIds = new Map();
+      activeRequestIds.current.forEach((id, key) => {
+        if (key.startsWith('guildId')) {
+          guildRequestIds.set(key, id);
+        }
+      });
+      activeRequestIds.current.clear();
+      
+      // Cancel all active requests except Discord guilds
       activeRequests.current.forEach((promise, key) => {
-        console.log('🚫 [useDynamicOptions] Cancelling request on unmount:', key);
+        if (!key.startsWith('guildId')) {
+          console.log('🚫 [useDynamicOptions] Cancelling request on unmount:', key);
+        }
       });
       
       // Clear all state

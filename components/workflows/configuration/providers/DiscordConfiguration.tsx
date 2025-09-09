@@ -1,16 +1,24 @@
 "use client"
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings2, Zap, AlertTriangle, Check, X, ChevronLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { AlertTriangle, ChevronLeft, AlertCircle, ExternalLink, CheckCircle } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
-import DiscordBotStatus from '@/components/workflows/DiscordBotStatus';
 import { useDiscordState } from '../hooks/useDiscordState';
-import { DiscordReactionRemover } from '../fields/discord/DiscordReactionRemover';
-import { useIntegrationStore } from '@/stores/integrationStore';
+import { cn } from "@/lib/utils";
+
+// Discord-specific extended configuration
+// This includes Discord-specific UI features like bot status, channel permissions, etc.
+export const DISCORD_EXTENDED_CONFIG = {
+  features: {
+    botStatusChecking: true,
+    channelPermissionWarnings: true,
+    progressiveFieldDisclosure: true,
+    richTextEditor: true,
+  },
+  // Add more Discord-specific UI configuration here as needed
+};
 
 interface DiscordConfigurationProps {
   nodeInfo: any;
@@ -31,6 +39,8 @@ interface DiscordConfigurationProps {
   onConnectIntegration?: () => void;
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
+  isConnectedToAIAgent?: boolean;
+  loadingFields?: Set<string>;
 }
 
 export function DiscordConfiguration({
@@ -50,519 +60,328 @@ export function DiscordConfiguration({
   integrationName,
   needsConnection,
   onConnectIntegration,
-  aiFields = {},
-  setAiFields = () => {},
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
+  loadingFields = new Set(),
 }: DiscordConfigurationProps) {
-  const [activeTab, setActiveTab] = useState('basic');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
-  const [hasSavedValues, setHasSavedValues] = useState(false);
+  const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
+  const isLoadingChannels = useRef(false);
   
-  // Get integration to check status
-  const { getIntegrationByProvider, integrations } = useIntegrationStore();
-  const integration = getIntegrationByProvider('discord');
-  
-  // Check if we have saved values for dependent fields (indicates we're reopening with saved config)
-  useEffect(() => {
-    // Check if we have saved values - channelId should be set and not being loaded from initial mount
-    const hasChannelValue = !!(values.channelId);
-    const hasAuthorValue = !!(values.authorFilter);
-    const hasSavedConfiguration = hasChannelValue || hasAuthorValue;
-    
-    setHasSavedValues(hasSavedConfiguration);
-    
-    if (hasSavedConfiguration) {
-      console.log('🔍 [DiscordConfig] Detected saved configuration');
-      console.log('  - channelId:', values.channelId);
-      console.log('  - authorFilter:', values.authorFilter);
-      console.log('  - hasSavedConfiguration:', hasSavedConfiguration);
-      
-      // Silently load the data in background to get actual names
-      // This won't show loading states but will populate the options
-      if (hasChannelValue && values.guildId) {
-        console.log('📥 [DiscordConfig] Silently loading channels for display');
-        // Direct call to loadOptions with silent flag
-        loadOptions('channelId', 'guildId', values.guildId, false, true);
-      }
-      
-      if (hasAuthorValue && values.channelId) {
-        console.log('📥 [DiscordConfig] Silently loading users for display');
-        // Load after a short delay to ensure channel context is ready
-        setTimeout(() => {
-          // authorFilter depends on channelId for discord_members
-          loadOptions('authorFilter', 'channelId', values.channelId, false, true);
-        }, 1000); // Delay to ensure other data is ready
-      }
-    }
-  }, []); // Only run once on mount
-
-  // Use Discord state hook
+  // Use Discord state hook for advanced features
   const discordState = useDiscordState({
     nodeInfo,
     values,
     loadOptions
   });
   
-  // Reload data when integration status changes
-  React.useEffect(() => {
-    if (integration?.status === 'connected' || integration?.status === 'active') {
-      // Only reload guild options if we don't already have them
-      if (nodeInfo?.configSchema && !dynamicOptions?.guildId?.length) {
-        const guildField = nodeInfo.configSchema.find((f: any) => f.name === 'guildId');
-        if (guildField && guildField.dynamic) {
-          loadOptions('guildId', undefined, undefined, true);
-        }
-      }
-    }
-  }, [integration?.status]);
+  const {
+    botStatus,
+    isBotStatusChecking,
+    channelBotStatus,
+    isChannelBotStatusChecking,
+    channelLoadingError,
+    rateLimitInfo,
+    handleInviteBot,
+    checkBotStatus
+  } = discordState;
   
-  // Listen for integration reconnection events
-  React.useEffect(() => {
-    const handleReconnection = async (event: CustomEvent) => {
-      console.log('🔄 [DiscordConfig] Integration reconnection event received:', event.detail);
-      
-      // Check if this is for Discord
-      if (event.detail?.provider === 'discord') {
-        console.log('✅ [DiscordConfig] Discord reconnected, refreshing fields...');
-        
-        // Clear Discord guilds cache to ensure fresh data
-        try {
-          const { clearDiscordGuildsCache } = await import('@/stores/discordGuildsCacheStore');
-          clearDiscordGuildsCache();
-          console.log('✅ [DiscordConfig] Cleared Discord guilds cache');
-        } catch (error) {
-          console.error('Failed to clear Discord guilds cache:', error);
-        }
-        
-        // Set loading state for the guild field
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add('guildId');
-          return newSet;
-        });
-        
-        // Force refresh integrations to get updated status
-        setTimeout(() => {
-          // Reload the guild options
-          if (nodeInfo?.configSchema) {
-            const guildField = nodeInfo.configSchema.find((f: any) => f.name === 'guildId');
-            if (guildField && guildField.dynamic) {
-              loadOptions('guildId', undefined, undefined, true).finally(() => {
-                setLoadingFields(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete('guildId');
-                  return newSet;
-                });
-              });
-            }
-          }
-        }, 500); // Small delay to ensure integration status is updated
-      }
-    };
-    
-    // Listen for the reconnection event
-    window.addEventListener('integration-reconnected', handleReconnection as EventListener);
-    
-    return () => {
-      window.removeEventListener('integration-reconnected', handleReconnection as EventListener);
-    };
-  }, [nodeInfo, loadOptions]);
-  
-  // Load channels when bot status changes to connected
-  React.useEffect(() => {
-    // SKIP if we have saved values
-    if (hasSavedValues && values.channelId) {
-      console.log('📌 [DiscordConfig] Bot connected but skipping channel load - using saved channel value:', values.channelId);
-      return;
-    }
-    
-    // Only load if bot just became connected and we don't already have channels
-    if (discordState?.botStatus?.isInGuild && values.guildId && !discordState?.isBotStatusChecking) {
-      // Check if we already have channels loaded
-      if (dynamicOptions?.channelId?.length > 0) {
-        console.log('📌 [DiscordConfig] Channels already loaded, skipping');
-        return;
-      }
-      
-      console.log('🤖 [DiscordConfig] Bot is connected, loading channels for guild:', values.guildId);
-      
-      // Set loading state for channels
-      setLoadingFields(prev => {
-        const newSet = new Set(prev);
-        newSet.add('channelId');
-        return newSet;
-      });
-      
-      // Load channels
-      loadOptions('channelId', 'guildId', values.guildId, true).finally(() => {
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.delete('channelId');
-          return newSet;
-        });
-      });
-      
-      // Note: authorFilter now depends on channelId, not guildId
-      // It will be loaded when a channel is selected
-    }
-  }, [discordState?.botStatus?.isInGuild, values.guildId, discordState?.isBotStatusChecking, hasSavedValues, values.channelId]);
-
-  // Helper function to check if a field should be shown based on dependencies
-  const shouldShowField = (field: any) => {
-    // Never show fields with type: 'hidden'
-    if (field.type === 'hidden') return false;
-    
-    // Special handling for channelId field - only show if bot is connected to selected guild
-    if (field.name === 'channelId' && values.guildId) {
-      // Check if bot is connected to the selected guild
-      const botIsConnected = discordState?.botStatus?.isInGuild === true;
-      const botIsChecking = discordState?.isBotStatusChecking;
-      
-      // Show field if bot is connected or still checking (with loading state)
-      if (!botIsConnected && !botIsChecking) {
-        return false; // Hide channel field if bot is not connected
-      }
-    }
-    
-    // If field has hidden: true and dependsOn, only show if dependency is satisfied
-    if (field.hidden && field.dependsOn) {
-      const dependencyValue = values[field.dependsOn];
-      return !!dependencyValue; // Show only if dependency has a value
-    }
-    
-    // If field has hidden: true but no dependsOn, don't show it
-    if (field.hidden) return false;
-    
-    // Otherwise show the field
-    return true;
-  };
-
-  // Separate fields into basic and advanced
-  const baseFields = nodeInfo?.configSchema?.filter((field: any) => 
-    !field.advanced && shouldShowField(field)
-  ) || [];
-  
-  const advancedFields = nodeInfo?.configSchema?.filter((field: any) => 
-    field.advanced && shouldShowField(field)
-  ) || [];
-
-  // Handle dynamic field loading
-  const handleDynamicLoad = useCallback(async (
-    fieldName: string,
-    dependsOn?: string,
-    dependsOnValue?: any,
-    forceReload?: boolean,
-    silent?: boolean  // Add silent parameter
-  ) => {
-    console.log('🔍 [DiscordConfig] handleDynamicLoad called:', { 
-      fieldName, 
-      dependsOn, 
-      dependsOnValue,
-      forceReload,
-      silent,
-      hasSavedValues,
-      currentValue: values[fieldName]
-    });
-    
-    // For saved configurations with non-silent calls, skip loading for channelId only
-    // authorFilter always needs to load its options even with saved values
-    if (hasSavedValues && fieldName === 'channelId' && !forceReload && !silent) {
-      console.log(`🚫 [DiscordConfig] SKIPPING load for ${fieldName} - using saved value:`, values[fieldName]);
-      // Clear any loading state that might have been set
-      setLoadingFields(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(fieldName);
-        return newSet;
-      });
-      return; // Don't load anything
-    }
-    
-    // For silent loads, proceed but don't show loading state
-    if (silent) {
-      console.log(`🔇 [DiscordConfig] Silent load for ${fieldName}`);
-    }
-    
-    
-    // Skip loading guildId if we already have options and not force reloading
-    // Also skip if we already have a selected value to prevent re-triggering loading state
-    if (fieldName === 'guildId' && !forceReload) {
-      // If we have a selected value AND options, definitely skip
-      if (values.guildId && dynamicOptions?.guildId?.length > 0) {
-        console.log('📌 [DiscordConfig] Skipping guildId reload - value selected and options exist');
-        // Make sure loading state is cleared
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.delete('guildId');
-          return newSet;
-        });
-        return;
-      }
-      // Check if we already have options loaded (even without a value)
-      if (dynamicOptions?.guildId?.length > 0) {
-        console.log('📌 [DiscordConfig] Skipping guildId reload - already have options');
-        // Make sure loading state is cleared
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.delete('guildId');
-          return newSet;
-        });
-        return;
-      }
-    }
-    
-    // Skip loading channelId if bot is not connected yet
-    if (fieldName === 'channelId' && values.guildId && !discordState?.botStatus?.isInGuild && !discordState?.isBotStatusChecking) {
-      console.log('⏸️ [DiscordConfig] Skipping channelId load - bot not connected yet');
-      return;
-    }
-    
-    const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
-    if (!field) {
-      console.warn('Field not found in schema:', fieldName);
-      return;
-    }
-    
-    try {
-      // Only set loading state if not silent
-      if (!silent) {
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add(fieldName);
-          return newSet;
-        });
-      }
-      
-      // If explicit dependencies are provided, use them
-      if (dependsOn && dependsOnValue !== undefined) {
-        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload, silent);
-      } 
-      // Otherwise check field's defined dependencies
-      else if (field.dependsOn && values[field.dependsOn]) {
-        await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload, silent);
-      } 
-      // No dependencies, just load the field
-      else {
-        await loadOptions(fieldName, undefined, undefined, forceReload, silent);
-      }
-    } catch (error) {
-      console.error('Error loading dynamic options:', error);
-    } finally {
-      // Clear loading state when done (but not for silent loads)
-      if (!silent) {
-        setLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(fieldName);
-          return newSet;
-        });
-      }
-    }
-  }, [nodeInfo, values, loadOptions, dynamicOptions, discordState]);
-
-  // Render fields helper
-  const renderFields = (fields: any[]) => {
-    return fields.map((field, index) => (
-      <React.Fragment key={`field-${field.name}-${index}`}>
-        <FieldRenderer
-          field={field}
-          value={values[field.name]}
-          onChange={(value) => setValue(field.name, value)}
-          error={errors[field.name] || validationErrors[field.name]}
-          workflowData={workflowData}
-          currentNodeId={currentNodeId}
-          dynamicOptions={dynamicOptions}
-          loadingDynamic={loadingFields.has(field.name)}
-          nodeInfo={nodeInfo}
-          onDynamicLoad={handleDynamicLoad}
-          parentValues={values}
-        />
-        
-        {/* Discord Reaction Remover for remove_reaction action */}
-        {field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction' && values.messageId && values.channelId && (
-          <DiscordReactionRemover
-            messageId={values.messageId}
-            channelId={values.channelId}
-            onReactionSelect={(emoji) => setValue('selectedEmoji', emoji)}
-            selectedReaction={values.selectedEmoji}
-            dynamicOptions={{...dynamicOptions, selectedEmoji: discordState.selectedEmojiReactions}}
-            onLoadReactions={() => {
-              discordState.loadReactionsForMessage(values.channelId, values.messageId);
-            }}
-            isLoading={loadingFields.has('selectedEmoji')}
-          />
-        )}
-      </React.Fragment>
-    ));
-  };
-
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate required fields
-    const requiredFields = [...baseFields, ...advancedFields].filter(f => f.required);
-    const errors: Record<string, string> = {};
+    const newErrors: Record<string, string> = {};
     
-    requiredFields.forEach(field => {
-      if (!values[field.name]) {
-        errors[field.name] = `${field.label || field.name} is required`;
+    if (nodeInfo?.configSchema) {
+      for (const field of nodeInfo.configSchema) {
+        if (field.required && !values[field.name]) {
+          newErrors[field.name] = `${field.label} is required`;
+        }
       }
-    });
+    }
     
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
+    if (Object.keys(newErrors).length > 0) {
+      setValidationErrors(newErrors);
       return;
     }
     
     await onSubmit(values);
   };
 
-  // Show connection required state
+  // Need connection UI
   if (needsConnection) {
-    const isReauthorization = integration?.status === 'needs_reauthorization';
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
         <h3 className="text-lg font-semibold mb-2">
-          {isReauthorization ? 'Discord Re-authorization Required' : 'Discord Connection Required'}
+          Discord Connection Required
         </h3>
         <p className="text-sm text-slate-600 mb-4">
-          {isReauthorization 
-            ? 'Your Discord integration needs to be re-authorized. Please reconnect your account.'
-            : 'Please connect your Discord account to use this action.'}
+          Please connect your Discord account to use this action.
         </p>
-        <Button onClick={onConnectIntegration} variant="default">
-          {isReauthorization ? 'Reconnect Discord' : 'Connect Discord'}
+        <Button onClick={onConnectIntegration}>
+          Connect Discord
         </Button>
       </div>
     );
   }
 
-  // For Discord triggers, use simpler UI
-  if (nodeInfo?.type === 'discord_trigger_new_message' || nodeInfo?.type === 'discord_trigger_slash_command') {
-    return (
-      <form onSubmit={handleSubmit} className="flex flex-col h-full">
-        <div className="flex-1 px-6 py-4">
-          <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-            <div className="space-y-3">
-              {renderFields(baseFields)}
-              
-              {/* Discord Bot Status for triggers - Show after guild is selected but before channel field */}
-              {values.guildId && !discordState?.botStatus?.isInGuild && !discordState?.isBotStatusChecking && (
-                <DiscordBotStatus
-                  integration={discordState.discordIntegration}
-                  botStatus={discordState.botStatus}
-                  isChecking={discordState.isBotStatusChecking}
-                  onInviteBot={() => discordState.handleInviteBot(values.guildId)}
-                  channelBotStatus={discordState.channelBotStatus}
-                  isChannelChecking={discordState.isChannelBotStatusChecking}
-                  isBotConnectionInProgress={discordState.isBotConnectionInProgress}
-                  guildId={values.guildId}
-                  channelId={values.channelId}
-                />
-              )}
-            </div>
-          </ScrollArea>
-        </div>
+  // Ultra-simple field change handler with debouncing and loading state management
+  const handleFieldChange = (fieldName: string, value: any) => {
+    console.log('🎯 [Discord] Field change:', fieldName, value);
+    
+    // Update the value immediately
+    setValue(fieldName, value);
+    
+    // Handle server selection
+    if (fieldName === 'guildId' && value) {
+      // Prevent multiple concurrent loads
+      if (isLoadingChannels.current) {
+        console.log('⏳ [Discord] Already loading channels, skipping');
+        return;
+      }
+      
+      // Clear dependent fields when server changes
+      setValue('channelId', '');
+      setValue('messageId', '');
+      
+      // Check bot status for the selected guild
+      checkBotStatus(value);
+      
+      // Set loading flag
+      isLoadingChannels.current = true;
+      setLocalLoadingFields(new Set(['channelId']));
+      
+      // Load channels with a longer delay to prevent UI freeze
+      setTimeout(() => {
+        console.log('📥 [Discord] Loading channels for guild:', value);
+        loadOptions('channelId', 'guildId', value)
+          .then(() => {
+            console.log('✅ [Discord] Channels loaded successfully');
+          })
+          .catch((error) => {
+            console.error('❌ [Discord] Error loading channels:', error);
+          })
+          .finally(() => {
+            isLoadingChannels.current = false;
+            setLocalLoadingFields(new Set());
+          });
+      }, 500); // Increased delay to 500ms
+    }
+    
+    // Handle channel selection - load messages if message field exists
+    if (fieldName === 'channelId' && value) {
+      // Check if we have a messageId field in the schema
+      const hasMessageField = nodeInfo?.configSchema?.some((field: any) => field.name === 'messageId');
+      
+      if (hasMessageField) {
+        // Clear message value when channel changes
+        setValue('messageId', '');
+        // Also clear content field if it exists (for edit message action)
+        if (nodeInfo?.configSchema?.some((field: any) => field.name === 'content')) {
+          setValue('content', '');
+        }
         
-        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onBack || onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button type="submit">
-              {isEditMode ? 'Update' : 'Save'} Configuration
-            </Button>
-          </div>
-        </div>
-      </form>
-    );
-  }
+        // Set loading state for messages
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('messageId');
+          return newSet;
+        });
+        
+        // Load messages with a delay - force refresh to get new format
+        setTimeout(() => {
+          console.log('📥 [Discord] Loading messages for channel:', value);
+          loadOptions('messageId', 'channelId', value, true) // true forces refresh
+            .then(() => {
+              console.log('✅ [Discord] Messages loaded successfully');
+            })
+            .catch((error) => {
+              console.error('❌ [Discord] Error loading messages:', error);
+            })
+            .finally(() => {
+              setLocalLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete('messageId');
+                return newSet;
+              });
+            });
+        }, 300);
+      }
+    }
+    
+    // Handle message selection for edit message action
+    if (fieldName === 'messageId' && value) {
+      // Clear content field when a different message is selected
+      const hasContentField = nodeInfo?.configSchema?.some((field: any) => field.name === 'content');
+      if (hasContentField) {
+        // Could optionally pre-populate with the existing message content here
+        // For now, just ensure the field is ready for editing
+        console.log('📝 [Discord] Message selected for editing:', value);
+      }
+    }
+  };
+  
+  // Listen for bot connection events
+  useEffect(() => {
+    const handleBotConnected = (event: CustomEvent) => {
+      if (event.detail?.guildId === values.guildId) {
+        console.log('🤖 [Discord] Bot connected to server, refreshing...');
+        // Reload channels after bot is connected
+        if (values.guildId) {
+          setTimeout(() => {
+            loadOptions('channelId', 'guildId', values.guildId, true);
+          }, 1000);
+        }
+      }
+    };
+    
+    window.addEventListener('discord-bot-connected', handleBotConnected as EventListener);
+    return () => {
+      window.removeEventListener('discord-bot-connected', handleBotConnected as EventListener);
+    };
+  }, [values.guildId, loadOptions]);
 
-  // Discord Actions UI with tabs
+  // Get all fields (don't filter - we'll conditionally render instead)
+  const fields = nodeInfo?.configSchema || [];
+
+  // Check if we're loading a specific field
+  const isFieldLoading = (fieldName: string) => {
+    return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) || 
+           (fieldName === 'channelId' && isLoadingChannels.current);
+  };
+  
+  // Check if we need to show channel permission warning
+  const showChannelWarning = values.channelId && channelBotStatus && !channelBotStatus.canSendMessages && !isChannelBotStatusChecking;
+  const isAction = nodeInfo?.type?.startsWith('discord_action_');
+
+  // Simple UI with advanced features
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-        <TabsList className="mx-6 mt-4 mb-0 grid w-auto grid-cols-2 gap-1 p-1 bg-slate-100/50">
-          <TabsTrigger
-            value="basic"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2",
-              "rounded-md transition-all duration-200",
-              activeTab === "basic" 
-                ? "bg-white text-slate-900 shadow-sm" 
-                : "text-slate-600 hover:text-slate-900"
-            )}
-          >
-            <Settings2 className="h-4 w-4" />
-            Basic
-          </TabsTrigger>
-          <TabsTrigger
-            value="advanced"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2",
-              "rounded-md transition-all duration-200",
-              activeTab === "advanced" 
-                ? "bg-white text-slate-900 shadow-sm" 
-                : "text-slate-600 hover:text-slate-900"
-            )}
-          >
-            <Zap className="h-4 w-4" />
-            Advanced
-          </TabsTrigger>
-        </TabsList>
-        
-        <div className="flex-1 min-h-0">
-          <TabsContent value="basic" className="h-full mt-0">
-            <ScrollArea className="h-[calc(90vh-220px)] pr-4">
-              <div className="space-y-3 px-6 pb-6">
-                {renderFields(baseFields)}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-          
-          <TabsContent value="advanced" className="h-full mt-0">
-            <ScrollArea className="h-[calc(90vh-220px)] pr-4">
-              <div className="space-y-3 px-6 pb-6">
-                {advancedFields.length > 0 ? (
-                  renderFields(advancedFields)
-                ) : (
-                  <div className="text-center text-slate-500 py-8">
-                    No advanced settings available for this action.
+      <div className="flex-1 px-6 py-4">
+        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+          <div className="space-y-3">
+            {/* Rate Limit Warning - Always show at top if rate limited */}
+            {rateLimitInfo.isRateLimited && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-red-900 dark:text-red-100 mb-1">
+                      Rate Limited
+                    </h4>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      {rateLimitInfo.message || 'Discord API rate limit reached. Please wait a moment before trying again.'}
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
-            </ScrollArea>
-          </TabsContent>
-        </div>
-        
-        {/* Discord Bot Status - Show after guild is selected but before channel field */}
-        {values.guildId && !discordState?.botStatus?.isInGuild && !discordState?.isBotStatusChecking && (
-          <DiscordBotStatus
-            integration={discordState.discordIntegration}
-            botStatus={discordState.botStatus}
-            isChecking={discordState.isBotStatusChecking}
-            onInviteBot={() => discordState.handleInviteBot(values.guildId)}
-            channelBotStatus={discordState.channelBotStatus}
-            isChannelChecking={discordState.isChannelBotStatusChecking}
-            isBotConnectionInProgress={discordState.isBotConnectionInProgress}
-            guildId={values.guildId}
-            channelId={values.channelId}
-          />
-        )}
-        
-        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onBack || onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button type="submit">
-              {isEditMode ? 'Update' : 'Save'} Configuration
-            </Button>
+            )}
+            
+            {/* Channel Permission Warning for Actions */}
+            {showChannelWarning && isAction && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
+                      Missing Channel Permissions
+                    </h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      The bot doesn't have permission to send messages in this channel. Please check the channel permissions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {fields.map((field: any, index: number) => {
+              // Skip hidden fields
+              if (field.type === 'hidden') return null;
+              
+              // Conditionally hide channelId if no guild selected
+              if (field.name === 'channelId' && !values.guildId) {
+                return null;
+              }
+              
+              // Conditionally hide message field if no channel selected (for send message action)
+              if (field.name === 'message' && !values.channelId) {
+                return null;
+              }
+              
+              // Conditionally hide messageId field if no channel selected (for edit/delete message actions)
+              if (field.name === 'messageId' && !values.channelId) {
+                return null;
+              }
+              
+              // Conditionally hide content field if no message selected (for edit message action)
+              if (field.name === 'content' && !values.messageId) {
+                return null;
+              }
+              
+              return (
+                <React.Fragment key={`discord-${field.name}`}>
+                  <FieldRenderer
+                    field={field}
+                    value={values[field.name]}
+                    onChange={(value) => handleFieldChange(field.name, value)}
+                    error={errors[field.name] || validationErrors[field.name]}
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                    dynamicOptions={dynamicOptions}
+                    loadingDynamic={isFieldLoading(field.name)}
+                    nodeInfo={nodeInfo}
+                    parentValues={values}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    isConnectedToAIAgent={isConnectedToAIAgent}
+                  />
+                  
+                  {/* Show bot status warning after server field ONLY if bot is not connected */}
+                  {field.name === 'guildId' && values.guildId && botStatus && !botStatus.isInGuild && !isBotStatusChecking && !isAction && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
+                            Bot Not in Server
+                          </h4>
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                            The ChainReact bot needs to be added to this Discord server to receive messages.
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleInviteBot(values.guildId)}
+                            className="border-yellow-600 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-500 dark:text-yellow-300 dark:hover:bg-yellow-900/40"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Add Bot to Server
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
+        </ScrollArea>
+      </div>
+      
+      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onBack || onCancel}>
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+          <Button type="submit">
+            {isEditMode ? 'Update' : 'Save'} Configuration
+          </Button>
         </div>
-      </Tabs>
+      </div>
     </form>
   );
 }

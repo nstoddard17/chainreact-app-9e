@@ -24,6 +24,7 @@ export interface IntegrationConfig {
 }
 
 // Complete integration configurations with all metadata
+// Note: UI components for each integration are in /components/workflows/configuration/providers/
 export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   gmail: {
     id: "gmail",
@@ -39,7 +40,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     docsUrl: "https://developers.google.com/gmail/api",
     authType: "oauth",
   },
-
   "google-calendar": {
     id: "google-calendar",
     name: "Google Calendar",

@@ -150,7 +150,7 @@ async function handleActionDiscovery(params: {
         nodeId: 'discovery',
         nodeType: 'ai_router',
         config: {},
-        model: 'gpt-4-turbo'
+        model: 'gpt-4o-mini'
       }
     )
     

@@ -119,12 +119,66 @@ export function DiscordRichTextEditor({
   const [availableRoles, setAvailableRoles] = useState<Array<{id: string, name: string, color: string}>>([])
   const [availableChannels, setAvailableChannels] = useState<Array<{id: string, name: string, type: string}>>([])
   const [isLoadingDiscordData, setIsLoadingDiscordData] = useState(false)
+  const [displayValue, setDisplayValue] = useState(value || '') // What the user sees
+  const [internalValue, setInternalValue] = useState(value || '') // What gets saved (Discord API format)
   
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
+  const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
 
   // Debug logging to identify freeze cause
   console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
+  
+  // Convert Discord format to display format
+  const convertToDisplayFormat = useCallback((text: string) => {
+    if (!text) return ''
+    
+    let displayText = text
+    
+    // Convert user mentions
+    availableMembers.forEach(member => {
+      const discordFormat = `<@${member.id}>`
+      const displayFormat = `@${member.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+    
+    // Convert role mentions
+    availableRoles.forEach(role => {
+      const discordFormat = `<@&${role.id}>`
+      const displayFormat = `@${role.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+    
+    // Convert channel mentions
+    availableChannels.forEach(channel => {
+      const discordFormat = `<#${channel.id}>`
+      const displayFormat = `#${channel.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+    
+    return displayText
+  }, [availableMembers, availableRoles, availableChannels])
+  
+  // Convert display format back to Discord format
+  const convertToDiscordFormat = useCallback((text: string) => {
+    if (!text) return ''
+    
+    let discordText = text
+    
+    // Sort mentions by length (longest first) to avoid partial replacements
+    const sortedMentions = Array.from(mentionMapRef.current.entries()).sort((a, b) => b[0].length - a[0].length)
+    
+    sortedMentions.forEach(([displayFormat, discordFormat]) => {
+      // Use word boundaries to avoid partial replacements
+      const regex = new RegExp(`(?<!\\w)${displayFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\w)`, 'g')
+      discordText = discordText.replace(regex, discordFormat)
+    })
+    
+    return discordText
+  }, [])
 
   const loadDiscordGuildData = useCallback(async () => {
     if (!guildId || !userId) {
@@ -138,32 +192,53 @@ export function DiscordRichTextEditor({
       
       // Load members, roles, and channels for the guild with timeout
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      const timeoutId = setTimeout(() => {
+        try {
+          // Some environments support abort with reason, others don't
+          if (controller.abort.length > 0) {
+            controller.abort(new Error('Request timeout after 10 seconds'))
+          } else {
+            controller.abort()
+          }
+        } catch {
+          // Fallback to abort without reason if it fails
+          controller.abort()
+        }
+      }, 10000) // 10 second timeout
       
-      const [membersResponse, rolesResponse, channelsResponse] = await Promise.all([
-        fetch(`/api/integrations/discord/members?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
-        fetch(`/api/integrations/discord/roles?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
-        fetch(`/api/integrations/discord/channels?guildId=${guildId}&userId=${userId}`, { signal: controller.signal })
-      ]).catch(err => {
-        console.error('[DiscordRichTextEditor] API request failed:', err)
-        return [null, null, null]
-      })
+      let membersResponse = null
+      let rolesResponse = null
+      let channelsResponse = null
       
-      clearTimeout(timeoutId)
+      try {
+        [membersResponse, rolesResponse, channelsResponse] = await Promise.all([
+          fetch(`/api/integrations/discord/members?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
+          fetch(`/api/integrations/discord/roles?guildId=${guildId}&userId=${userId}`, { signal: controller.signal }),
+          fetch(`/api/integrations/discord/channels?guildId=${guildId}&userId=${userId}`, { signal: controller.signal })
+        ])
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.log('[DiscordRichTextEditor] Request was aborted (timeout or cancelled)')
+        } else {
+          console.error('[DiscordRichTextEditor] API request failed:', err)
+        }
+      } finally {
+        clearTimeout(timeoutId)
+      }
       
       if (membersResponse && membersResponse.ok) {
         const membersData = await membersResponse.json()
-        setAvailableMembers(membersData.members || [])
+        setAvailableMembers(membersData.data || membersData.members || [])
       }
       
       if (rolesResponse && rolesResponse.ok) {
         const rolesData = await rolesResponse.json()
-        setAvailableRoles(rolesData.roles || [])
+        setAvailableRoles(rolesData.data || rolesData.roles || [])
       }
       
       if (channelsResponse && channelsResponse.ok) {
         const channelsData = await channelsResponse.json()
-        setAvailableChannels(channelsData.channels || [])
+        setAvailableChannels(channelsData.data || channelsData.channels || [])
       }
       
       console.log('[DiscordRichTextEditor] Successfully loaded Discord guild data')
@@ -190,13 +265,29 @@ export function DiscordRichTextEditor({
     }
     */
   }, [guildId, userId, loadDiscordGuildData])
+  
+  // Update display value when available members/roles/channels change
+  useEffect(() => {
+    if (availableMembers.length > 0 || availableRoles.length > 0 || availableChannels.length > 0) {
+      const newDisplayValue = convertToDisplayFormat(internalValue)
+      setDisplayValue(newDisplayValue)
+    }
+  }, [availableMembers, availableRoles, availableChannels, internalValue, convertToDisplayFormat])
+  
+  // Sync with external value prop
+  useEffect(() => {
+    if (value !== internalValue) {
+      setInternalValue(value || '')
+      setDisplayValue(convertToDisplayFormat(value || ''))
+    }
+  }, [value, internalValue, convertToDisplayFormat])
 
   const insertMarkdown = useCallback((markdownSyntax: string) => {
     if (textareaRef.current) {
       const textarea = textareaRef.current
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
-      const selectedText = value.substring(start, end)
+      const selectedText = displayValue.substring(start, end)
       
       let newText = ''
       
@@ -221,8 +312,13 @@ export function DiscordRichTextEditor({
         newText = markdownSyntax
       }
       
-      const newValue = value.substring(0, start) + newText + value.substring(end)
-      onChange(newValue)
+      const newDisplayValue = displayValue.substring(0, start) + newText + displayValue.substring(end)
+      setDisplayValue(newDisplayValue)
+      
+      // Convert to Discord format and save
+      const newInternalValue = convertToDiscordFormat(newDisplayValue)
+      setInternalValue(newInternalValue)
+      onChange(newInternalValue)
       
       // Set cursor position after the inserted text
       setTimeout(() => {
@@ -233,30 +329,43 @@ export function DiscordRichTextEditor({
         }
       }, 10)
     }
-  }, [value, onChange])
+  }, [displayValue, convertToDiscordFormat, onChange])
 
-  const insertMention = (type: 'user' | 'role' | 'channel', id: string, name: string) => {
-    let mentionText = ''
+  const insertMention = useCallback((type: 'user' | 'role' | 'channel', id: string, name: string) => {
+    let discordFormat = ''
+    let displayFormat = ''
     
     if (type === 'user') {
-      mentionText = `<@${id}>`
+      discordFormat = `<@${id}>`
+      displayFormat = `@${name}`
     } else if (type === 'role') {
-      mentionText = `<@&${id}>`
+      discordFormat = `<@&${id}>`
+      displayFormat = `@${name}`
     } else if (type === 'channel') {
-      mentionText = `<#${id}>`
+      discordFormat = `<#${id}>`
+      displayFormat = `#${name}`
     }
+    
+    // Store the mapping
+    mentionMapRef.current.set(displayFormat, discordFormat)
     
     if (textareaRef.current) {
       const textarea = textareaRef.current
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
       
-      const newValue = value.substring(0, start) + mentionText + value.substring(end)
-      onChange(newValue)
+      // Insert the display format in the visible text
+      const newDisplayValue = displayValue.substring(0, start) + displayFormat + displayValue.substring(end)
+      setDisplayValue(newDisplayValue)
+      
+      // Convert to Discord format for internal storage
+      const newInternalValue = convertToDiscordFormat(newDisplayValue)
+      setInternalValue(newInternalValue)
+      onChange(newInternalValue)
       
       setTimeout(() => {
         if (textareaRef.current) {
-          const newPosition = start + mentionText.length
+          const newPosition = start + displayFormat.length
           textareaRef.current.setSelectionRange(newPosition, newPosition)
           textareaRef.current.focus()
         }
@@ -265,9 +374,9 @@ export function DiscordRichTextEditor({
     
     toast({
       title: "Mention added",
-      description: `Added ${type} mention for ${name}`,
+      description: `Added ${displayFormat}`,
     })
-  }
+  }, [displayValue, convertToDiscordFormat, onChange, toast])
 
   const insertVariable = (variable: string) => {
     if (textareaRef.current) {
@@ -275,8 +384,13 @@ export function DiscordRichTextEditor({
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
       
-      const newValue = value.substring(0, start) + variable + value.substring(end)
-      onChange(newValue)
+      const newDisplayValue = displayValue.substring(0, start) + variable + displayValue.substring(end)
+      setDisplayValue(newDisplayValue)
+      
+      // Convert to Discord format and save
+      const newInternalValue = convertToDiscordFormat(newDisplayValue)
+      setInternalValue(newInternalValue)
+      onChange(newInternalValue)
       
       setTimeout(() => {
         if (textareaRef.current) {
@@ -321,6 +435,60 @@ export function DiscordRichTextEditor({
 
   const togglePreview = () => {
     setIsPreviewMode(!isPreviewMode)
+  }
+
+  // Function to render message with Discord-style mentions
+  const renderMessageWithMentions = (text: string) => {
+    if (!text) return null
+    
+    // Create a map of mentions to their display names
+    const mentionMap = new Map()
+    
+    // Map user mentions
+    availableMembers.forEach(member => {
+      mentionMap.set(`<@${member.id}>`, {
+        display: `@${member.name}`,
+        type: 'user'
+      })
+    })
+    
+    // Map role mentions
+    availableRoles.forEach(role => {
+      mentionMap.set(`<@&${role.id}>`, {
+        display: `@${role.name}`,
+        type: 'role',
+        color: role.color
+      })
+    })
+    
+    // Map channel mentions
+    availableChannels.forEach(channel => {
+      mentionMap.set(`<#${channel.id}>`, {
+        display: `#${channel.name}`,
+        type: 'channel'
+      })
+    })
+    
+    // Split text by mentions and render
+    const mentionRegex = /<[@#][&!]?\d+>/g
+    const parts = text.split(mentionRegex)
+    const mentions = text.match(mentionRegex) || []
+    
+    return parts.map((part, index) => (
+      <React.Fragment key={index}>
+        {part}
+        {mentions[index] && (
+          <span className={
+            mentionMap.get(mentions[index])?.type === 'user' ? 'text-blue-400 bg-blue-900/30 px-1 rounded' :
+            mentionMap.get(mentions[index])?.type === 'role' ? 'text-purple-400 bg-purple-900/30 px-1 rounded' :
+            mentionMap.get(mentions[index])?.type === 'channel' ? 'text-blue-300 bg-blue-900/30 px-1 rounded' :
+            'text-gray-400'
+          }>
+            {mentionMap.get(mentions[index])?.display || mentions[index]}
+          </span>
+        )}
+      </React.Fragment>
+    ))
   }
 
   const getVariablesFromWorkflow = () => {
@@ -462,7 +630,17 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+                    onClick={() => {
+                      // Load Discord data on demand when user clicks roles
+                      if (!availableRoles.length && !isLoadingDiscordData) {
+                        loadDiscordGuildData()
+                      }
+                    }}
+                  >
                     <Shield className="h-4 w-4" />
                     Roles
                     <ChevronDown className="h-3 w-3" />
@@ -476,7 +654,7 @@ export function DiscordRichTextEditor({
                   <ScrollArea className="h-48">
                     <div className="p-2">
                       {isLoadingDiscordData ? (
-                        <div className="text-center py-8 text-gray-500">Loading roles...</div>
+                        <div className="text-center py-8 text-slate-400">Loading roles...</div>
                       ) : availableRoles.length === 0 ? (
                         <div className="text-center py-8 text-slate-400">No roles found</div>
                       ) : (
@@ -490,7 +668,7 @@ export function DiscordRichTextEditor({
                               className="w-3 h-3 rounded-full" 
                               style={{ backgroundColor: role.color || '#99aab5' }}
                             />
-                            <span className="text-sm">{role.name}</span>
+                            <span className="text-sm text-slate-200">{role.name}</span>
                           </div>
                         ))
                       )}
@@ -501,7 +679,17 @@ export function DiscordRichTextEditor({
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+                    onClick={() => {
+                      // Load Discord data on demand when user clicks channels
+                      if (!availableChannels.length && !isLoadingDiscordData) {
+                        loadDiscordGuildData()
+                      }
+                    }}
+                  >
                     <Hash className="h-4 w-4" />
                     Channels
                     <ChevronDown className="h-3 w-3" />
@@ -514,19 +702,29 @@ export function DiscordRichTextEditor({
                   </div>
                   <ScrollArea className="h-48">
                     <div className="p-2">
-                      {availableChannels.map(channel => (
-                        <div
-                          key={channel.id}
-                          className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-50 cursor-pointer"
-                          onClick={() => insertMention('channel', channel.id, channel.name)}
-                        >
-                          <Hash className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm">{channel.name}</span>
-                          <Badge variant="secondary" className="text-xs ml-auto">
-                            {channel.type}
-                          </Badge>
-                        </div>
-                      ))}
+                      {isLoadingDiscordData ? (
+                        <div className="text-center py-8 text-slate-400">Loading channels...</div>
+                      ) : availableChannels.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400">No channels found</div>
+                      ) : (
+                        // Filter for text channels only, remove duplicates and sort by position
+                        Array.from(new Map(availableChannels.map(c => [c.id, c])).values())
+                          .filter(channel => {
+                            const typeNum = typeof channel.type === 'string' ? parseInt(channel.type) : channel.type
+                            return typeNum === 0 // Only show text channels
+                          })
+                          .sort((a, b) => (a.position || 0) - (b.position || 0))
+                          .map(channel => (
+                            <div
+                              key={channel.id}
+                              className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
+                              onClick={() => insertMention('channel', channel.id, channel.name)}
+                            >
+                              <Hash className="h-4 w-4 text-slate-400" />
+                              <span className="text-sm text-slate-200">{channel.name}</span>
+                            </div>
+                          ))
+                      )}
                     </div>
                   </ScrollArea>
                 </PopoverContent>
@@ -579,10 +777,12 @@ export function DiscordRichTextEditor({
                   <span className="font-medium text-white">Bot</span>
                   <span className="text-xs text-gray-400">Today at 12:00 PM</span>
                 </div>
-                {value && (
+                {internalValue && (
                   <div className="text-gray-100 mb-2">
-                    {value.split('\n').map((line, i) => (
-                      <div key={i}>{line || '\u00A0'}</div>
+                    {internalValue.split('\n').map((line, i) => (
+                      <div key={i}>
+                        {line ? renderMessageWithMentions(line) : '\u00A0'}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -625,8 +825,16 @@ export function DiscordRichTextEditor({
                 ref={textareaRef}
                 id="message-content"
                 placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
+                value={displayValue}
+                onChange={(e) => {
+                  const newDisplayValue = e.target.value
+                  setDisplayValue(newDisplayValue)
+                  
+                  // Convert to Discord format and save
+                  const newInternalValue = convertToDiscordFormat(newDisplayValue)
+                  setInternalValue(newInternalValue)
+                  onChange(newInternalValue)
+                }}
                 className="min-h-[100px] font-mono text-sm"
               />
             </div>
@@ -782,7 +990,7 @@ export function DiscordRichTextEditor({
             Discord message editor - Supports markdown, mentions, and embeds
           </span>
           <span>
-            {value.length}/2000 characters
+            {internalValue.length}/2000 characters
           </span>
         </div>
       </div>

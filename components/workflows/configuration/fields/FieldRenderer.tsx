@@ -18,9 +18,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
-// Using optimized version to prevent freeze while maintaining features
-// import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
-import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
+// Use the full featured Discord rich text editor
+import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
+// import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
@@ -55,6 +55,9 @@ interface FieldProps {
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
   parentValues?: Record<string, any>; // All form values for dependency resolution
+  aiFields?: Record<string, boolean>; // Track which fields are set to AI mode
+  setAiFields?: (fields: Record<string, boolean>) => void; // Update AI fields
+  isConnectedToAIAgent?: boolean; // Whether an AI agent exists in the workflow
 }
 
 /**
@@ -94,6 +97,9 @@ export function FieldRenderer({
   nodeInfo,
   bubbleValues = [],
   parentValues = {},
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -218,6 +224,10 @@ export function FieldRenderer({
             guildId={parentValues?.guildId}
             channelId={parentValues?.channelId}
             userId={user?.id}
+            fieldName={field.name}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
             className={cn(
               error && "border-red-500"
             )}
@@ -327,6 +337,9 @@ export function FieldRenderer({
             error={error}
             dynamicOptions={fieldOptions}
             onDynamicLoad={onDynamicLoad}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
 
@@ -336,8 +349,8 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
 
-        // Special handling for Discord guild/server fields
-        if (field.name === 'guildId' && integrationProvider === 'discord') {
+        // Special handling for Discord fields - render them without nested conditionals
+        if (integrationProvider === 'discord' && field.name === 'guildId') {
           return (
             <DiscordServerField
               field={field}
@@ -350,9 +363,8 @@ export function FieldRenderer({
             />
           );
         }
-
-        // Special handling for Discord channel fields
-        if (field.name === 'channelId' && integrationProvider === 'discord') {
+        
+        if (integrationProvider === 'discord' && field.name === 'channelId') {
           return (
             <DiscordChannelField
               field={field}
@@ -366,8 +378,7 @@ export function FieldRenderer({
           );
         }
         
-        // Special handling for all other Discord dynamic fields
-        if (field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_') && integrationProvider === 'discord') {
+        if (integrationProvider === 'discord' && field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_')) {
           return (
             <DiscordGenericField
               field={field}
@@ -669,16 +680,22 @@ export function FieldRenderer({
             value={value}
             onChange={onChange}
             error={error}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
     }
   };
 
+  // Render the field content
+  const fieldContent = renderFieldByType();
+  
   return (
     <Card className="transition-all duration-200">
       <CardContent className="p-4">
         {field.type !== "button-toggle" && renderLabel()}
-        {renderFieldByType()}
+        {fieldContent}
         {error && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />

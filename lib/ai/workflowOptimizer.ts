@@ -37,7 +37,7 @@ const WorkflowAnalysisSchema = z.object({
 export async function analyzeWorkflowPerformance(workflow: any, executionHistory?: any[]) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: WorkflowAnalysisSchema,
       prompt: `
         Analyze this workflow for performance, reliability, and maintainability issues:
@@ -73,7 +73,7 @@ export async function analyzeWorkflowPerformance(workflow: any, executionHistory
 export async function detectWorkflowAnomalies(workflow: any, recentExecutions: any[]) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: z.object({
         anomalies: z.array(
           z.object({
@@ -120,7 +120,7 @@ export async function detectWorkflowAnomalies(workflow: any, recentExecutions: a
 export async function suggestWorkflowConsolidation(workflows: any[]) {
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       schema: z.object({
         consolidation_opportunities: z.array(
           z.object({

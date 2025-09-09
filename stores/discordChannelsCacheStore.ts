@@ -16,6 +16,9 @@ export interface DiscordChannel {
 // Create a cache store for Discord channels per guild
 export const useDiscordChannelsStore = createCacheStore<Record<string, DiscordChannel[]>>("discordChannels")
 
+// Track in-flight requests to prevent duplicate API calls
+const inFlightRequests = new Map<string, Promise<DiscordChannel[]>>();
+
 // Register the store for auth-based clearing
 registerStore({
   clearData: () => useDiscordChannelsStore.getState().clearData()
@@ -89,6 +92,14 @@ export async function loadDiscordChannelsOnce(guildId: string, forceRefresh = fa
     console.warn('⚠️ loadDiscordChannelsOnce called without guildId');
     return [];
   }
+  
+  // Check if there's already an in-flight request for this guild
+  const inFlightKey = `${guildId}:${forceRefresh}`;
+  const existingRequest = inFlightRequests.get(inFlightKey);
+  if (existingRequest) {
+    console.log(`🔄 [Discord Channels] Reusing in-flight request for guild ${guildId}`);
+    return existingRequest;
+  }
 
   const store = useDiscordChannelsStore.getState();
   
@@ -106,26 +117,40 @@ export async function loadDiscordChannelsOnce(guildId: string, forceRefresh = fa
     });
   };
 
-  // Check if data is stale (5 minutes for channels since they change less often than messages)
+  // Check if data is stale (10 minutes for channels since they rarely change)
   const isStale = () => {
     const lastUpdated = store.lastUpdated;
     if (!lastUpdated) return true;
-    return Date.now() - lastUpdated > (5 * 60 * 1000);
+    return Date.now() - lastUpdated > (10 * 60 * 1000); // Increased cache time
   };
-
-  const result = await loadOnce({
+  
+  // Create the loading promise
+  const loadPromise = loadOnce({
     getter,
     setter,
     fetcher: () => fetchDiscordChannels(guildId),
     options: {
       forceRefresh,
       setLoading: (loading) => store.setLoading(loading),
-      onError: (error) => store.setError(error.message),
+      onError: (error) => {
+        store.setError(error.message);
+        // Clean up in-flight request on error
+        inFlightRequests.delete(inFlightKey);
+      },
       checkStale: isStale
     }
   });
-
-  return result || [];
+  
+  // Store the in-flight request
+  inFlightRequests.set(inFlightKey, loadPromise);
+  
+  try {
+    const result = await loadPromise;
+    return result || [];
+  } finally {
+    // Clean up in-flight request when done
+    inFlightRequests.delete(inFlightKey);
+  }
 }
 
 /**

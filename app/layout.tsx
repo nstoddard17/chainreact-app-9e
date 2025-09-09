@@ -5,6 +5,7 @@ import { Space_Grotesk } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
+import AuthErrorBoundary from "@/components/auth/AuthErrorBoundary"
 import { LightweightPresenceProvider } from "@/components/providers/LightweightPresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
@@ -56,13 +57,15 @@ export default function RootLayout({
       <body className={spaceGrotesk.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
-            <GlobalErrorHandler />
-            <AuthInitializer />
-            <LightweightPresenceProvider>
-              <DiscordBotProvider />
-              <Toaster />
-              {children}
-            </LightweightPresenceProvider>
+            <AuthErrorBoundary>
+              <GlobalErrorHandler />
+              <AuthInitializer />
+              <LightweightPresenceProvider>
+                <DiscordBotProvider />
+                <Toaster />
+                {children}
+              </LightweightPresenceProvider>
+            </AuthErrorBoundary>
           </SupabaseProvider>
         </ThemeProvider>
       </body>

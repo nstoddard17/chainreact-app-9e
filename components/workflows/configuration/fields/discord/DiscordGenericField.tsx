@@ -22,7 +22,7 @@ interface DiscordGenericFieldProps {
  * Generic Discord field selector with consistent styling
  * Used for all Discord dynamic fields to ensure consistency
  */
-export function DiscordGenericField({
+function DiscordGenericFieldComponent({
   field,
   value,
   onChange,
@@ -216,7 +216,13 @@ export function DiscordGenericField({
           displayLabel = value === '' ? 'Any User' : 'Loading user...';
         }
       } else if (field.name === 'messageId') {
-        displayLabel = 'Selected Message';
+        // Try to use the formatted name if available
+        const messageMatch = processedOptions.find(opt => String(opt.value || opt.id) === String(value));
+        if (messageMatch && (messageMatch.name || messageMatch.label)) {
+          displayLabel = messageMatch.name || messageMatch.label;
+        } else {
+          displayLabel = 'Selected Message';
+        }
       }
       
       // Preserve the exact saved value to prevent it from being cleared
@@ -241,13 +247,19 @@ export function DiscordGenericField({
     let optionLabel = option.label || option.name || (option.value !== undefined ? option.value : option.id) || "";
     let searchValue = String(optionLabel); // Ensure it's a string
     
-    // Special handling for message fields - show full message content
+    // Special handling for message fields - use the formatted name from backend if available
     if (field.name === 'messageId') {
-      if (option.content) {
+      // Use the formatted name from backend which includes author, date, and preview
+      if (option.name || option.label) {
+        optionLabel = option.name || option.label;
+        // Make both the formatted name and content searchable
+        searchValue = `${optionLabel} ${option.content || ''}`;
+      } else if (option.content) {
+        // Fallback to content if no formatted name
         optionLabel = option.content;
-        searchValue = option.content; // Make the full message content searchable
+        searchValue = option.content;
       } else {
-        // Fallback for messages without content
+        // Last fallback for messages without content or formatted name
         const fallbackLabel = `Message by ${option.author?.username || 'Unknown'} (${option.timestamp ? new Date(option.timestamp).toLocaleString() : 'Unknown time'})`;
         optionLabel = fallbackLabel;
         searchValue = `${option.author?.username || 'Unknown'} ${fallbackLabel}`;
@@ -320,21 +332,18 @@ export function DiscordGenericField({
   // Always show loading state when isLoading is true (even if we have cached data)
   if (field.dynamic && isLoading) {
     return (
-      <Select disabled>
+      <Select disabled value={value ?? ""}>
         <SelectTrigger 
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
+            error && "border-red-500 focus-border-red-500 focus:ring-red-500 focus:ring-offset-2"
           )}
         >
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-            <span>
-              {field.name === 'messageId' ? 'Loading Discord messages...' : 
-               field.name === 'filterAuthor' ? 'Loading server members...' : 
-               'Loading options...'}
-            </span>
-          </div>
+          <SelectValue placeholder={
+            field.name === 'messageId' ? 'Loading Discord messages...' : 
+            field.name === 'filterAuthor' ? 'Loading server members...' : 
+            'Loading options...'
+          } />
         </SelectTrigger>
       </Select>
     );
@@ -347,31 +356,28 @@ export function DiscordGenericField({
       // If we've attempted to load and still have no options, the channel has no members
       if (hasAttemptedLoad.current || lastLoadedChannelId.current === parentValues.channelId) {
         return (
-          <Select disabled>
+          <Select disabled value={value ?? ""}>
             <SelectTrigger 
               className={cn(
                 "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
                 error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
               )}
             >
-              <span className="text-gray-500">No members found in this channel</span>
+              <SelectValue placeholder="No members found in this channel" />
             </SelectTrigger>
           </Select>
         );
       }
       // Otherwise show loading while we fetch
       return (
-        <Select disabled>
+        <Select disabled value={value ?? ""}>
           <SelectTrigger 
             className={cn(
               "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
               error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
           >
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-              <span>Loading channel members...</span>
-            </div>
+            <SelectValue placeholder="Loading channel members..." />
           </SelectTrigger>
         </Select>
       );
@@ -380,7 +386,7 @@ export function DiscordGenericField({
     // For authorFilter without channelId, show a disabled field
     if (field.name === 'authorFilter' && !parentValues?.channelId) {
       return (
-        <Select disabled>
+        <Select disabled value={value ?? ""}>
           <SelectTrigger 
             className={cn(
               "h-10 bg-gray-50 border-slate-200",
@@ -495,7 +501,7 @@ export function DiscordGenericField({
           
           return (
             <SelectItem 
-              key={`${optionValue}-${index}`} 
+              key={String(optionValue)} 
               value={String(optionValue)}
               className="truncate"
             >
@@ -507,3 +513,6 @@ export function DiscordGenericField({
     </Select>
   );
 }
+
+// Export directly without memoization to avoid React static flag issues
+export const DiscordGenericField = DiscordGenericFieldComponent;

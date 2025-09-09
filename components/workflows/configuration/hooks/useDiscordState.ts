@@ -21,6 +21,12 @@ interface UseDiscordStateProps {
   loadOptions: (fieldName: string, parentField?: string, parentValue?: any) => Promise<void>;
 }
 
+interface RateLimitInfo {
+  isRateLimited: boolean;
+  retryAfter?: number;
+  message?: string;
+}
+
 export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordStateProps) {
   // Discord-specific state
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
@@ -33,6 +39,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   const [discordClientId, setDiscordClientId] = useState<string | null>(null);
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
   const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({ isRateLimited: false });
   
   const { getIntegrationByProvider, connectIntegration, loadIntegrationData } = useIntegrationStore();
   const discordIntegration = getIntegrationByProvider('discord');
@@ -67,10 +74,32 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         loadOptions('channelId', 'guildId', guildId)
           .then(() => {
             console.log('✅ Channels loaded successfully after bot connection');
+            // Clear any rate limit errors
+            setRateLimitInfo({ isRateLimited: false });
           })
-          .catch((channelError) => {
+          .catch((channelError: any) => {
             console.error('Failed to load channels after bot connection:', channelError);
-            setChannelLoadingError('Failed to load channels after bot connection');
+            
+            // Check if it's a rate limit error
+            if (channelError?.message?.includes('rate limit') || channelError?.status === 429) {
+              setRateLimitInfo({
+                isRateLimited: true,
+                retryAfter: channelError.retryAfter || 60,
+                message: 'Discord API rate limit reached. Please wait a moment before trying again.'
+              });
+              setChannelLoadingError('Rate limited by Discord. Please wait a moment and try again.');
+              
+              // Auto-retry after the rate limit expires
+              if (channelError.retryAfter) {
+                setTimeout(() => {
+                  console.log('🔄 Retrying channel load after rate limit...');
+                  setRateLimitInfo({ isRateLimited: false });
+                  loadOptions('channelId', 'guildId', guildId);
+                }, (channelError.retryAfter + 1) * 1000);
+              }
+            } else {
+              setChannelLoadingError('Failed to load channels. Please check your Discord connection.');
+            }
           });
       } else if (newBotStatus.isInGuild && newBotStatus.hasPermissions && values.channelId) {
         console.log('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
@@ -345,6 +374,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     discordIntegration,
     needsDiscordConnection,
     isDiscordNode,
+    rateLimitInfo,
     
     // Actions
     setBotStatus,
@@ -352,6 +382,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     setChannelLoadingError,
     setIsBotConnectionInProgress,
     setSelectedEmojiReactions,
+    setRateLimitInfo,
     checkBotStatus,
     checkChannelBotStatus,
     checkBotInServer,

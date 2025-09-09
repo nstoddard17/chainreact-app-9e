@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
 export default function AuthInitializer() {
-  const { initialize, initialized, hydrated, user } = useAuthStore()
+  const { initialize, initialized, hydrated } = useAuthStore()
+  const initStarted = useRef(false)
 
   useEffect(() => {
     if (!hydrated) {
@@ -12,7 +13,8 @@ export default function AuthInitializer() {
       return
     }
 
-    if (!initialized) {
+    if (!initialized && !initStarted.current) {
+      initStarted.current = true
       console.log("🔄 Initializing auth after hydration...")
       initialize()
     }
