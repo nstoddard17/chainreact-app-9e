@@ -4,10 +4,9 @@ import { useState } from "react"
 import { useBillingStore } from "@/stores/billingStore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Check, Loader2, AlertTriangle, Star, Zap, FileText, Building2 } from "lucide-react"
+import { Check, Loader2, AlertTriangle, Info, ChevronDown, ChevronUp } from "lucide-react"
 
 interface PlanSelectorProps {
   plans: any[]
@@ -15,42 +14,30 @@ interface PlanSelectorProps {
   targetPlanId?: string
 }
 
-// Add mock plans for Business and Enterprise
-const mockPlans = [
-  {
-    id: 'business-tier',
-    name: 'Business',
-    description: 'For growing teams',
-    price_monthly: 49,
-    price_yearly: 490,
-    features: ['Everything in Pro', 'Priority support', 'Advanced analytics', 'Custom integrations'],
-    coming_soon: true
-  },
-  {
-    id: 'enterprise-tier',
-    name: 'Enterprise',
-    description: 'Custom solutions for large organizations',
-    price_monthly: null,
-    price_yearly: null,
-    features: ['Everything in Business', 'Dedicated support', 'Custom contracts', 'SLA guarantees'],
-    coming_soon: true
-  }
-]
-
 export default function PlanSelector({ plans, currentSubscription, targetPlanId }: PlanSelectorProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly")
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
+  const [showFuturePlans, setShowFuturePlans] = useState(false)
   const { createCheckoutSession } = useBillingStore()
   
-  // Combine real plans with mock plans
-  const allPlans = [...plans, ...mockPlans]
+  // Remove duplicate plans by name (in case database has duplicates)
+  const uniquePlans = plans.reduce((acc: any[], plan: any) => {
+    if (!acc.find(p => p.name === plan.name)) {
+      acc.push(plan)
+    }
+    return acc
+  }, [])
+  
+  // Separate active and coming soon plans
+  const activePlans = uniquePlans.filter(p => !p.coming_soon)
+  const futurePlans = uniquePlans.filter(p => p.coming_soon)
 
   const handleSelectPlan = async (planId: string) => {
     if (processingPlanId) return
     
-    // Don't process mock plans
+    // Don't process coming soon plans
     const plan = allPlans.find(p => p.id === planId)
     if (plan?.coming_soon) return
 
@@ -93,37 +80,59 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {!hasStripeConfig && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
+        <Alert className="bg-amber-950/20 border-amber-900/50">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-200">
             Billing integration is currently being set up. Some features may not be available yet.
           </AlertDescription>
         </Alert>
       )}
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="bg-red-950/20 border-red-900/50">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="space-y-6">
-        {/* Billing Cycle Toggle */}
-        <Tabs defaultValue="monthly" className="w-full" onValueChange={(value) => setBillingCycle(value as any)}>
-          <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            <TabsTrigger value="annual">
-              Annual <Badge className="ml-2 bg-green-100 text-green-700">Save {yearlyDiscount}%</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="space-y-8">
+        {/* Billing Cycle Toggle - Integrated with pricing */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-3 bg-slate-900/50 p-1 rounded-full border border-slate-800">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                billingCycle === "monthly"
+                  ? "bg-slate-800 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle("annual")}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                billingCycle === "annual"
+                  ? "bg-slate-800 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Annual
+              <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                Save {yearlyDiscount}%
+              </span>
+            </button>
+          </div>
+          <p className="text-slate-500 text-xs">
+            {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}. Cancel or change anytime.
+          </p>
+        </div>
 
-        {/* Plans Grid - Only one of each plan */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {allPlans.map((plan) => (
+        {/* Active Plans Grid - Free vs Pro focus */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+          {activePlans.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -133,11 +142,43 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
               isProcessing={processingPlanId === plan.id}
               isExpanded={expandedPlanId === plan.id}
               onToggleExpand={() => togglePlanExpansion(plan.id)}
-              isDisabled={!hasStripeConfig || plan.coming_soon}
+              isDisabled={!hasStripeConfig}
               onSelect={() => handleSelectPlan(plan.id)}
             />
           ))}
         </div>
+        
+        {/* Future Plans Section - Collapsed by default */}
+        {futurePlans.length > 0 && (
+          <div className="mt-12 pt-8 border-t border-slate-800">
+            <button
+              onClick={() => setShowFuturePlans(!showFuturePlans)}
+              className="w-full max-w-md mx-auto flex items-center justify-center gap-2 text-slate-400 hover:text-slate-300 transition-colors text-sm"
+            >
+              <span>View Future Plans</span>
+              {showFuturePlans ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {showFuturePlans && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mt-6">
+                {futurePlans.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    price={billingCycle === "annual" ? plan.price_yearly : plan.price_monthly}
+                    billingCycle={billingCycle}
+                    isCurrentPlan={false}
+                    isProcessing={false}
+                    isExpanded={false}
+                    onToggleExpand={() => {}}
+                    isDisabled={true}
+                    onSelect={() => {}}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -170,117 +211,133 @@ function PlanCard({
   const isFree = plan.name === 'Free'
   const isBusiness = plan.name === 'Business'
   const isEnterprise = plan.name === 'Enterprise'
+  const isComingSoon = plan.coming_soon || isBusiness || isEnterprise
   
-  // Icon selection based on plan
-  const PlanIcon = isFree ? Star : isPro ? Zap : isBusiness ? FileText : Building2
+  // Plan taglines
+  const tagline = isFree 
+    ? "Perfect for getting started"
+    : isPro 
+    ? "Best for growing teams"
+    : isBusiness
+    ? "Advanced features for scale"
+    : "Enterprise-grade solutions"
   
   return (
-    <div className="relative">
-      {/* Badge */}
-      {isPro && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-          <Badge className="bg-blue-500 text-white px-4 py-1 text-xs font-semibold">
-            MOST POPULAR
-          </Badge>
-        </div>
-      )}
-      {plan.coming_soon && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-          <Badge className="bg-gray-500 text-white px-4 py-1 text-xs font-semibold">
-            COMING SOON
-          </Badge>
-        </div>
-      )}
-      
+    <div className="relative h-full">
       <Card
-        className={`relative bg-slate-900 border-slate-700 rounded-2xl h-full ${
-          isPro ? "border-2 border-blue-500/50" : ""
-        } transition-all duration-300 hover:border-slate-600`}
+        className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${
+          isPro && !isComingSoon
+            ? "bg-gradient-to-b from-slate-800 to-slate-850 border-2 border-blue-500/40 shadow-2xl shadow-blue-950/30 hover:shadow-blue-950/40 hover:border-blue-500/60"
+            : isFree && !isComingSoon
+            ? "bg-slate-900/60 border border-slate-700/40 shadow-lg hover:border-slate-600/60 hover:shadow-xl"
+            : isComingSoon
+            ? "bg-slate-950/30 border border-slate-800/20 opacity-60"
+            : "bg-slate-900/80 border border-slate-700 hover:border-slate-600"
+        }`}
       >
-        <CardContent className="p-6 flex flex-col h-full">
-          {/* Icon */}
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center">
-              <PlanIcon className="w-8 h-8 text-slate-400" />
-            </div>
+        {/* Top accent bar for Pro plan */}
+        {isPro && !isComingSoon && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
+        )}
+        
+        {/* Badge integrated into card */}
+        {isPro && !isComingSoon && (
+          <div className="bg-gradient-to-r from-blue-600/90 to-blue-500/90 text-white text-center py-2 text-xs font-bold tracking-wider">
+            MOST POPULAR
           </div>
-          
-          {/* Plan Name */}
-          <h3 className="text-xl font-bold text-white text-center mb-4">
+        )}
+        {isComingSoon && (
+          <div className="bg-slate-800/50 text-slate-500 text-center py-2 text-xs font-semibold tracking-wider">
+            COMING SOON
+          </div>
+        )}
+        <CardContent className="p-8 flex flex-col h-full">
+          {/* Plan Name - Larger and bolder */}
+          <h3 className="text-2xl font-bold text-white text-center mb-2">
             {plan.name}
           </h3>
           
-          {/* Price */}
-          <div className="text-center mb-4">
-            {isEnterprise ? (
-              <div className="text-3xl font-bold text-white">Custom</div>
-            ) : (
-              <>
-                <span className="text-4xl font-bold text-white">
-                  ${price}
-                </span>
-                <span className="text-slate-400">/{billingCycle === "monthly" ? "mo" : "yr"}</span>
-              </>
-            )}
-          </div>
-          
-          {/* Description */}
+          {/* Tagline */}
           <p className="text-sm text-slate-400 text-center mb-6">
-            {plan.description}
+            {tagline}
           </p>
           
-          {/* Features (if expanded) */}
-          {isExpanded && plan.features && (
-            <div className="space-y-2 mb-6 flex-grow">
-              {plan.features.slice(0, 4).map((feature: string, index: number) => (
-                <div key={index} className="flex items-start">
-                  <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-slate-300">{feature}</span>
+          {/* Price Section with divider */}
+          <div className="pb-6 border-b border-slate-800/50">
+            <div className="text-center">
+              {isEnterprise ? (
+                <div className="text-4xl font-bold text-white">Custom</div>
+              ) : (
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-5xl font-bold text-white">
+                    ${price}
+                  </span>
+                  <span className="text-slate-500 text-sm font-medium">/{billingCycle === "monthly" ? "month" : "year"}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Features - Always visible with better spacing */}
+          <div className="flex-grow py-6">
+            <div className="space-y-3">
+              {(plan.features || []).slice(0, isExpanded ? 8 : 4).map((feature: string, index: number) => (
+                <div key={index} className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-slate-300 leading-relaxed">{feature}</span>
                 </div>
               ))}
             </div>
-          )}
+          </div>
           
-          {/* Buttons */}
-          <div className="mt-auto space-y-2">
-            <Button
-              variant="outline"
-              className="w-full bg-transparent text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white"
-              onClick={onToggleExpand}
-            >
-              View Details
-            </Button>
-            
-            <Button
-              className={`w-full ${
-                isPro && !isCurrentPlan
-                  ? "bg-blue-500 hover:bg-blue-600 text-white"
-                  : plan.coming_soon
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  : isFree && isCurrentPlan
-                  ? "bg-slate-800 text-slate-400"
-                  : "bg-slate-800 hover:bg-slate-700 text-white"
-              }`}
-              disabled={isProcessing || plan.coming_soon}
-              onClick={onSelect}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : plan.coming_soon ? (
-                "Coming Soon"
-              ) : isFree && !isCurrentPlan ? (
-                "Downgrade to Free"
-              ) : isPro && !isCurrentPlan ? (
-                "Upgrade to Pro"
-              ) : isCurrentPlan ? (
-                "Current Plan"
-              ) : (
-                `Select ${plan.name}`
-              )}
-            </Button>
+          {/* Buttons with better hierarchy */}
+          <div className="mt-auto space-y-3">
+            {isComingSoon ? (
+              <div className="w-full py-3 bg-slate-800/30 text-slate-600 rounded-lg text-center font-medium cursor-not-allowed">
+                Coming Soon
+              </div>
+            ) : (
+              <>
+                <Button
+                  className={`w-full py-6 text-base font-semibold transition-all ${
+                    isPro && !isCurrentPlan
+                      ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]"
+                      : isCurrentPlan
+                      ? "bg-slate-800/30 text-slate-500 cursor-default border border-slate-700/50"
+                      : isFree && !isCurrentPlan
+                      ? "bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700"
+                      : "bg-slate-800 hover:bg-slate-700 text-white"
+                  }`}
+                  disabled={isProcessing || isCurrentPlan}
+                  onClick={onSelect}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : isCurrentPlan ? (
+                    "Current Plan"
+                  ) : isFree && !isCurrentPlan ? (
+                    "Start Free"
+                  ) : isPro && !isCurrentPlan ? (
+                    "Upgrade to Pro →"
+                  ) : (
+                    `Select ${plan.name}`
+                  )}
+                </Button>
+                
+                {/* View Details as text link */}
+                {plan.features && plan.features.length > 4 && !isComingSoon && (
+                  <button
+                    onClick={onToggleExpand}
+                    className="w-full text-center text-sm text-slate-500 hover:text-slate-400 transition-colors"
+                  >
+                    {isExpanded ? "Show less" : "View all features"}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
