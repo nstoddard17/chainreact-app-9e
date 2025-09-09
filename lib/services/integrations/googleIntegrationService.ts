@@ -94,6 +94,10 @@ export class GoogleIntegrationService {
         const { executeGoogleSheetsUnifiedAction } = await import('@/lib/workflows/actions/googleSheets')
         return await executeGoogleSheetsUnifiedAction(config, context.userId, context.data || {})
         
+      case "google_sheets_action_create_spreadsheet":
+        const { createGoogleSpreadsheet } = await import('@/lib/workflows/actions/googleSheets')
+        return await createGoogleSpreadsheet(config, context.userId, context.data || {})
+        
       default:
         throw new Error(`Google Sheets action '${nodeType}' is not yet implemented`)
     }
@@ -154,6 +158,14 @@ export class GoogleIntegrationService {
     const config = node.data.config || {}
 
     console.log(`📅 Executing Google Calendar action: ${nodeType}`)
+    console.log('🔍 Node config at integration service:', {
+      nodeId: node.id,
+      hasConfig: !!config,
+      configKeys: Object.keys(config),
+      title: config.title,
+      startDate: config.startDate,
+      allDay: config.allDay
+    })
 
     if (context.testMode) {
       return {

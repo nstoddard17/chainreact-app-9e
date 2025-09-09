@@ -2763,20 +2763,16 @@ const useWorkflowBuilderState = () => {
       }
       
       // Also save to database immediately (as a backup and for workflow structure)
-      setTimeout(async () => {
-        try {
-          console.log('🔄 [WorkflowBuilder] Saving updated workflow to database...');
-          await handleSave();
-          console.log('✅ [WorkflowBuilder] Existing node configuration saved to database successfully');
-        } catch (error) {
-          console.error('❌ [WorkflowBuilder] Failed to save existing node configuration to database:', error);
-          toast({ 
-            title: "Save Warning", 
-            description: "Configuration updated but failed to save to database. Please save manually.", 
-            variant: "destructive" 
-          });
-        }
-      }, 50); // Small delay to ensure React state update is applied
+      // Don't use setTimeout - save immediately to avoid race conditions
+      handleSave().catch((error) => {
+        console.error('❌ [WorkflowBuilder] Failed to save existing node configuration to database:', error);
+        toast({ 
+          title: "Save Warning", 
+          description: "Configuration updated but failed to save to database. Please save manually.", 
+          variant: "destructive" 
+        });
+      });
+      console.log('🔄 [WorkflowBuilder] Initiated save of updated workflow to database');
       
       setConfiguringNode(null);
       return null; // No new node ID for existing nodes
@@ -3484,7 +3480,53 @@ const useWorkflowBuilderState = () => {
         throw new Error("No workflow selected")
       }
       
+      // Wait if there are unsaved changes or if currently saving
+      if (hasUnsavedChanges || isSaving) {
+        console.log('⏳ [WorkflowBuilder] Detected unsaved changes or save in progress, waiting...')
+        
+        // Wait for save to complete (max 3 seconds)
+        let waitTime = 0
+        const maxWait = 3000
+        const checkInterval = 100
+        
+        while ((hasUnsavedChanges || isSaving) && waitTime < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, checkInterval))
+          waitTime += checkInterval
+        }
+        
+        if (hasUnsavedChanges || isSaving) {
+          console.warn('⚠️ [WorkflowBuilder] Save may not have completed after waiting 3 seconds')
+        } else {
+          console.log('✅ [WorkflowBuilder] Save completed, proceeding with execution')
+        }
+      }
+      
       setIsExecuting(true)
+      
+      // Use the nodes state directly instead of getNodes() to ensure we have the latest data
+      // getNodes() might return stale data due to React state batching
+      const currentNodes = nodes
+      const currentEdges = edges
+      
+      console.log('🔍 [WorkflowBuilder] Using nodes from state:', {
+        nodesCount: currentNodes.length,
+        edgesCount: currentEdges.length,
+        nodesFromGetNodes: getNodes().length,
+        edgesFromGetEdges: getEdges().length
+      })
+      
+      // Log the Google Calendar node config if present
+      const calendarNode = currentNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
+      if (calendarNode) {
+        console.log('📅 [WorkflowBuilder] Google Calendar node config at execution:', {
+          nodeId: calendarNode.id,
+          config: calendarNode.data?.config,
+          hasConfig: !!calendarNode.data?.config,
+          configKeys: Object.keys(calendarNode.data?.config || {}),
+          title: calendarNode.data?.config?.title,
+          startDate: calendarNode.data?.config?.startDate
+        })
+      }
       
       // Execute the workflow immediately with test data but REAL external calls
       const response = await fetch('/api/workflows/execute', {
@@ -3502,8 +3544,8 @@ const useWorkflowBuilderState = () => {
             }
           },
           workflowData: {
-            nodes: getNodes(),
-            edges: getEdges()
+            nodes: currentNodes,
+            edges: currentEdges
           }
         })
       })

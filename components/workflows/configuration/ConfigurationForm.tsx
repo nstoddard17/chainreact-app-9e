@@ -13,6 +13,7 @@ import { DiscordConfiguration } from './providers/DiscordConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
+import { GmailFetchConfiguration } from './providers/gmail/GmailFetchConfiguration';
 
 interface ConfigurationFormProps {
   nodeInfo: any;
@@ -327,6 +328,12 @@ function ConfigurationForm({
   };
 
   // THIRD THING: Route to the correct provider component
+  // Check for specific node types that need custom configuration
+  if (provider === 'gmail' && nodeInfo?.type === 'gmail_action_search_email') {
+    console.log('📧 [ConfigForm] Routing to Gmail Fetch configuration');
+    return <GmailFetchConfiguration {...commonProps} />;
+  }
+  
   switch (provider) {
     case 'discord':
       console.log('📘 [ConfigForm] Routing to Discord configuration');

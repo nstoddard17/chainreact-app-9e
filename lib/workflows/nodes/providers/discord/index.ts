@@ -126,6 +126,38 @@ export const discordNodes: NodeComponent[] = [
         required: true,
         placeholder: "Enter your message with formatting, mentions, and emojis"
       }
+    ],
+    outputSchema: [
+      {
+        name: "messageId",
+        label: "Message ID",
+        type: "string",
+        description: "Unique identifier for the sent message"
+      },
+      {
+        name: "content",
+        label: "Content",
+        type: "string",
+        description: "The message content that was sent"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "Name of the channel where message was sent"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the message was sent"
+      },
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the message was sent successfully"
+      }
     ]
   },
   {

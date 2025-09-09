@@ -31,8 +31,9 @@ const googleDocsActionCreateDocument: NodeComponent = {
       label: "Content",
       type: "textarea",
       required: false,
-      placeholder: "Enter content with workflow variables using {{variable_name}}...\n\nExample:\nMeeting Notes – {{date}}\nSubject: {{email.subject}}\nFrom: {{email.sender}}\n\n{{email.body}}",
-      description: "Use {{variable_name}} to insert values from your workflow (e.g., {{email.subject}}, {{email.body}}, {{date}}).\n\nExample:\nMeeting Notes – {{date}}\nSubject: {{email.subject}}\nFrom: {{email.sender}}\n\n{{email.body}}"
+      placeholder: "Enter your document content here...\n\nYou can use {{variables}} to insert dynamic values from your workflow.",
+      description: "Document content. Use {{variable}} syntax to insert workflow variables.",
+      rows: 10
     },
     {
       name: "folderId",
@@ -115,8 +116,9 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       label: "Content to Insert",
       type: "textarea",
       required: true,
-      placeholder: "Enter content with workflow variables using {{variable_name}}...\n\nExample:\nUpdated on: {{date}}\nStatus: {{status}}\nNotes: {{notes}}",
-      description: "Use {{variable_name}} to insert values from your workflow"
+      placeholder: "Enter content to insert...\n\nYou can use {{variables}} to insert dynamic values.",
+      description: "Content to insert into the document. Use {{variable}} syntax for workflow variables.",
+      rows: 8
     },
     {
       name: "makeRevision",
