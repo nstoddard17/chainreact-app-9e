@@ -63,6 +63,19 @@ export async function POST(request: Request) {
     const allNodes = workflowData?.nodes || workflow.nodes || []
     const allEdges = workflowData?.edges || workflow.edges || []
     
+    // Log Google Calendar node config if present
+    const calendarNode = allNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
+    if (calendarNode) {
+      console.log('📅 [Execute Route] Google Calendar node config received:', {
+        nodeId: calendarNode.id,
+        hasConfig: !!calendarNode.data?.config,
+        configKeys: Object.keys(calendarNode.data?.config || {}),
+        title: calendarNode.data?.config?.title,
+        startDate: calendarNode.data?.config?.startDate,
+        allDay: calendarNode.data?.config?.allDay
+      })
+    }
+    
     // Filter out UI-only nodes (AddActionNodes, InsertActionNodes)
     const nodes = allNodes.filter((node: any) => {
       // Skip UI placeholder nodes

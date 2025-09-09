@@ -16,56 +16,59 @@ import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/var
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
-  // Discord
-  'discord_trigger_new_message': ['authorName', 'channelName', 'content'],
+  // Discord Actions (removed triggers as they don't provide full data)
   'discord_action_send_message': ['messageId', 'content', 'channelName'],
   'discord_action_add_reaction': ['success', 'messageId'],
   
-  // Gmail
-  'gmail_trigger_new_email': ['from', 'subject', 'body'],
+  // Gmail Actions
   'gmail_action_send_email': ['messageId', 'subject'],
   'gmail_action_reply_email': ['messageId', 'subject'],
+  'gmail_action_search_email': ['emails', 'count', 'from', 'subject', 'body', 'attachments'],
   
-  // Slack
-  'slack_trigger_new_message': ['user', 'channel', 'text'],
+  // Explicitly hide trigger outputs since they don't provide real data
+  'gmail_trigger_new_email': [],
+  'discord_trigger_new_message': [],
+  'slack_trigger_new_message': [],
+  'notion_trigger_new_page': [],
+  'github_trigger_new_issue': [],
+  'github_trigger_new_pr': [],
+  'hubspot_trigger_new_contact': [],
+  'google_calendar_trigger_new_event': [],
+  'outlook_trigger_new_email': [],
+  
+  // Slack Actions
   'slack_action_send_message': ['messageId', 'text', 'channel'],
   
   // AI/OpenAI
   'openai_action_chat_completion': ['response', 'usage'],
   'ai_agent': ['output'],
   
-  // Notion
+  // Notion Actions
   'notion_action_create_page': ['pageId', 'title', 'url'],
   'notion_action_update_page': ['pageId', 'title'],
-  'notion_trigger_new_page': ['pageId', 'title', 'url'],
   
-  // GitHub
-  'github_trigger_new_issue': ['title', 'body', 'author'],
-  'github_trigger_new_pr': ['title', 'body', 'author'],
+  // GitHub Actions
   'github_action_create_issue': ['issueId', 'title', 'url'],
   
-  // Trello
+  // Trello Actions
   'trello_action_create_card': ['cardId', 'name', 'url'],
   'trello_action_move_card': ['cardId', 'listName'],
   
-  // HubSpot
-  'hubspot_trigger_new_contact': ['firstName', 'lastName', 'email'],
+  // HubSpot Actions
   'hubspot_action_create_contact': ['contactId', 'email'],
   
-  // Webhook
+  // Webhook (keeping webhook trigger as it DOES provide full data)
   'webhook_trigger': ['body', 'headers', 'method'],
   'webhook_action': ['response', 'statusCode'],
   
-  // Google Sheets
+  // Google Sheets Actions
   'google_sheets_action_add_row': ['rowId', 'values'],
   'google_sheets_action_read_data': ['data', 'range'],
   
-  // Calendar
-  'google_calendar_trigger_new_event': ['title', 'startTime', 'attendees'],
-  'google_calendar_action_create_event': ['eventId', 'title', 'url'],
+  // Google Calendar Actions
+  'google_calendar_action_create_event': ['eventId', 'htmlLink', 'start', 'end', 'meetLink'],
   
-  // Microsoft/Outlook
-  'outlook_trigger_new_email': ['from', 'subject', 'body'],
+  // Microsoft/Outlook Actions
   'outlook_action_send_email': ['messageId', 'subject'],
   
   // Default fallback - show first 3 outputs
@@ -248,18 +251,34 @@ export function VariablePickerSidePanel({
              node.id !== 'add-node-button'
     }) || []
     
-    // Show previous nodes, trigger nodes, and any nodes that produce output (excluding current node)
+    // Show all nodes that have outputs (excluding current node)
+    // Changed logic: show ALL nodes with outputs, not just previous ones
     if (currentNodeId) {
       const previousNodeIds = getPreviousNodes(currentNodeId);
+      
+      // Debug logging
+      console.log('📊 [VARIABLES] Debug info:', {
+        currentNodeId,
+        previousNodeIds,
+        allNodesCount: allNodes.length,
+        allNodes: allNodes.map(n => ({
+          id: n.id,
+          title: n.title,
+          type: n.type,
+          isTrigger: n.isTrigger,
+          outputsCount: n.outputs?.length || 0,
+          outputs: n.outputs?.map(o => o.name) || []
+        }))
+      });
+      
+      // Include all nodes that have outputs, not just previous ones
       const filteredNodes = allNodes.filter(node => 
         node.id !== currentNodeId && // Exclude the current node being configured
-        (previousNodeIds.includes(node.id) || 
-        node.isTrigger || 
-        (node.outputs && node.outputs.length > 0)) // Include any node that has outputs
+        (node.outputs && node.outputs.length > 0) // Include any node that has outputs
       );
       
       // Debug: Log which nodes are being included
-      console.log('📊 [VARIABLES] Available nodes for variables menu:', filteredNodes.map(n => ({
+      console.log('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
         id: n.id,
         title: n.title,
         type: n.type,

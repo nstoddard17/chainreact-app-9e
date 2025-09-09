@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContentWithoutClose, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -126,13 +126,45 @@ export function FullscreenTextArea({
   disabled = false,
 }: FullscreenTextAreaProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [localValue, setLocalValue] = useState(value || "");
+  const timeoutRef = useRef<NodeJS.Timeout>();
+
+  // Update local value when prop changes
+  useEffect(() => {
+    setLocalValue(value || "");
+  }, [value]);
+
+  // Debounced change handler to prevent cursor jumping
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Debounce the onChange call to parent
+    timeoutRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, 300); // 300ms debounce
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <>
       <div className="relative">
         <Textarea
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
+          value={localValue}
+          onChange={handleChange}
           placeholder={placeholder}
           className={cn(
             "min-h-[120px] resize-y",

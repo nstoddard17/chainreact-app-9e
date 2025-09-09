@@ -129,8 +129,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         name: "timeZone", 
         label: "Time Zone", 
         type: "select",
-        defaultValue: "user-timezone", // Will be set to user's timezone in ConfigurationModal
+        defaultValue: "Local Time Zone",
         options: [
+          { value: "Local Time Zone", label: "Local Time Zone" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
@@ -303,6 +304,56 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
           { value: "RRULE:FREQ=YEARLY", label: "Annually" }
         ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "eventId",
+        label: "Event ID",
+        type: "string",
+        description: "Unique identifier for the created event"
+      },
+      {
+        name: "htmlLink",
+        label: "Event Link",
+        type: "string",
+        description: "Direct link to the event in Google Calendar"
+      },
+      {
+        name: "start",
+        label: "Start Time",
+        type: "object",
+        description: "Event start date and time information"
+      },
+      {
+        name: "end",
+        label: "End Time",
+        type: "object",
+        description: "Event end date and time information"
+      },
+      {
+        name: "hangoutLink",
+        label: "Hangout Link",
+        type: "string",
+        description: "Google Meet/Hangouts link if conference was added"
+      },
+      {
+        name: "meetLink",
+        label: "Meet Link",
+        type: "string",
+        description: "Google Meet video conference link"
+      },
+      {
+        name: "attendees",
+        label: "Attendees",
+        type: "array",
+        description: "List of event attendees with their response status"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Current status of the event"
       }
     ],
   },

@@ -691,8 +691,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "timeZone", 
         label: "Time Zone", 
         type: "select",
-        defaultValue: "user-timezone", // Will be set to user's timezone in ConfigurationModal
+        defaultValue: "Local Time Zone",
         options: [
+          { value: "Local Time Zone", label: "Local Time Zone" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
@@ -7459,8 +7460,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "startTime", label: "Start Time", type: "time", required: true, defaultValue: "current" },
       { name: "endDate", label: "End Date", type: "date", required: true, defaultValue: "same-as-start" },
       { name: "endTime", label: "End Time", type: "time", required: true, defaultValue: "current" },
-      { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
-        { value: "user-timezone", label: "Your timezone (auto-detected)" },
+      { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "Local Time Zone", creatable: true, placeholder: "Select or type timezone", options: [
+        { value: "Local Time Zone", label: "Local Time Zone" },
         { value: "America/New_York", label: "Eastern Time (ET)" },
         { value: "America/Chicago", label: "Central Time (CT)" },
         { value: "America/Denver", label: "Mountain Time (MT)" },

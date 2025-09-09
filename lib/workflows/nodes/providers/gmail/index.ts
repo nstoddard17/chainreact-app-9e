@@ -5,7 +5,7 @@ import { NodeComponent } from "../../types"
 // These imports are from the integrations folder at the root
 const GMAIL_SEND_EMAIL_METADATA = { key: "gmail_action_send_email", name: "Send Gmail Message", description: "Compose and send an email through your Gmail account" }
 const GMAIL_ADD_LABEL_METADATA = { key: "gmail_action_add_label", name: "Apply Gmail Labels", description: "Add one or more labels to incoming Gmail messages from a specific email address" }
-const GMAIL_SEARCH_EMAILS_METADATA = { key: "gmail_action_search_email", name: "Fetch Gmail Message", description: "Find emails in Gmail matching specific search criteria" }
+const GMAIL_SEARCH_EMAILS_METADATA = { key: "gmail_action_search_email", name: "Get Email", description: "Find emails in Gmail matching specific search criteria" }
 
 export const gmailNodes: NodeComponent[] = [
   {
@@ -230,7 +230,7 @@ export const gmailNodes: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
     producesOutput: true,
     configSchema: [
-      // Basic Tab Fields
+      // Basic Fields
       { 
         name: "labels", 
         label: "Folder / Label", 
@@ -282,7 +282,7 @@ export const gmailNodes: NodeComponent[] = [
         description: "Only fetch emails before this date"
       },
       
-      // Advanced Tab Fields
+      // Advanced Fields
       {
         name: "format",
         label: "Format",
@@ -417,5 +417,79 @@ export const gmailNodes: NodeComponent[] = [
         hidden: true
       },
     ],
+    outputSchema: [
+      {
+        name: "from",
+        label: "From",
+        type: "string",
+        description: "Email address of the sender"
+      },
+      {
+        name: "to",
+        label: "To",
+        type: "string",
+        description: "Email address(es) of the recipient(s)"
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "string",
+        description: "Subject line of the email"
+      },
+      {
+        name: "body",
+        label: "Body",
+        type: "string",
+        description: "Full body content of the email"
+      },
+      {
+        name: "snippet",
+        label: "Snippet",
+        type: "string",
+        description: "Short preview of the email content"
+      },
+      {
+        name: "attachments",
+        label: "Attachments",
+        type: "array",
+        description: "List of attachments with their details"
+      },
+      {
+        name: "messageId",
+        label: "Message ID",
+        type: "string",
+        description: "Unique identifier for the email"
+      },
+      {
+        name: "threadId",
+        label: "Thread ID",
+        type: "string",
+        description: "ID of the email conversation thread"
+      },
+      {
+        name: "labelIds",
+        label: "Labels",
+        type: "array",
+        description: "Gmail labels applied to this email"
+      },
+      {
+        name: "date",
+        label: "Date",
+        type: "string",
+        description: "Date when the email was received"
+      },
+      {
+        name: "isRead",
+        label: "Is Read",
+        type: "boolean",
+        description: "Whether the email has been read"
+      },
+      {
+        name: "hasAttachments",
+        label: "Has Attachments",
+        type: "boolean",
+        description: "Whether the email contains attachments"
+      }
+    ]
   },
 ]

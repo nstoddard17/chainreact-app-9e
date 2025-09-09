@@ -239,14 +239,32 @@ export async function searchGmailEmails(
       }
     }
     
+    // Return emails array and metadata
+    // For single email scenarios, users can access emails[0]
+    // For multiple emails, they have the full array to work with
     return {
       success: true,
       output: {
         ...input,
+        // Full email results array
         emails,
+        // Metadata about the search
         count: emails.length,
         query,
-        totalResults: searchResults.resultSizeEstimate || messageIds.length
+        totalResults: searchResults.resultSizeEstimate || messageIds.length,
+        // Convenience fields for single email use case (when maxResults=1)
+        // Only include these if exactly 1 email was requested and found
+        ...(config.maxResults === 1 && emails.length === 1 ? {
+          from: emails[0].from || "",
+          to: emails[0].to || "",
+          subject: emails[0].subject || "",
+          body: emails[0].body || "",
+          attachments: emails[0].attachments || [],
+          date: emails[0].date || "",
+          messageId: emails[0].id || "",
+          threadId: emails[0].threadId || "",
+          snippet: emails[0].snippet || ""
+        } : {})
       },
       message: `Found ${emails.length} emails matching the search criteria`
     }
