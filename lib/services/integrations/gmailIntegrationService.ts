@@ -14,6 +14,10 @@ export class GmailIntegrationService {
       case "gmail_action_send_email":
       case "gmail_send":  // Handle legacy/alternative type name
         return await this.executeSendEmail(node, context)
+      case "gmail_action_search_email":
+        return await this.executeSearchEmail(node, context)
+      case "gmail_action_fetch_message":
+        return await this.executeFetchMessage(node, context)
       case "gmail_action_add_label":
         return await this.executeAddLabel(node, context)
       case "gmail_action_remove_label":
@@ -63,6 +67,72 @@ export class GmailIntegrationService {
     
     // Call the Gmail send function with proper parameters
     const result = await sendGmailEmail(
+      config,
+      context.userId,  // Pass the userId directly from context
+      context.data || {}
+    )
+    
+    return result
+  }
+
+  private async executeSearchEmail(node: any, context: ExecutionContext) {
+    console.log("🔍 Executing Gmail search email")
+    
+    const config = node.data.config || {}
+    const query = this.resolveValue(config.query, context)
+    const maxResults = this.resolveValue(config.maxResults || 10, context)
+
+    if (!query) {
+      throw new Error("Gmail search email requires 'query' field")
+    }
+
+    if (context.testMode) {
+      return {
+        type: "gmail_action_search_email",
+        query,
+        maxResults,
+        status: "searched (test mode)",
+        messages: []
+      }
+    }
+
+    // Import and use the actual Gmail search implementation directly
+    const { searchGmailEmails } = await import('@/lib/workflows/actions/gmail')
+    
+    // Call the Gmail search function with proper parameters
+    const result = await searchGmailEmails(
+      config,
+      context.userId,  // Pass the userId directly from context
+      context.data || {}
+    )
+    
+    return result
+  }
+
+  private async executeFetchMessage(node: any, context: ExecutionContext) {
+    console.log("📨 Executing Gmail fetch message")
+    
+    const config = node.data.config || {}
+    const messageId = this.resolveValue(config.messageId || config.message_id, context)
+
+    if (!messageId) {
+      throw new Error("Gmail fetch message requires 'messageId' field")
+    }
+
+    if (context.testMode) {
+      return {
+        type: "gmail_action_fetch_message",
+        messageId,
+        status: "fetched (test mode)",
+        message: null
+      }
+    }
+
+    // Import and use the actual Gmail fetch implementation directly
+    const { fetchGmailMessage } = await import('@/lib/workflows/actions/gmail/fetchMessage')
+    
+    // Call the Gmail fetch function with proper parameters
+    const result = await fetchGmailMessage(
       config,
       context.userId,  // Pass the userId directly from context
       context.data || {}

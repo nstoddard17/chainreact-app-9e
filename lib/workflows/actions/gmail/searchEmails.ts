@@ -242,12 +242,14 @@ export async function searchGmailEmails(
     // Return emails array and metadata
     // For single email scenarios, users can access emails[0]
     // For multiple emails, they have the full array to work with
-    return {
+    const result = {
       success: true,
       output: {
         ...input,
         // Full email results array
         emails,
+        // Add a messages field as an alias for emails (for compatibility)
+        messages: emails,
         // Metadata about the search
         count: emails.length,
         query,
@@ -268,6 +270,19 @@ export async function searchGmailEmails(
       },
       message: `Found ${emails.length} emails matching the search criteria`
     }
+    
+    console.log('📧 Gmail search returning:', {
+      emailCount: emails.length,
+      firstEmail: emails[0] ? {
+        from: emails[0].from,
+        subject: emails[0].subject,
+        snippet: emails[0].snippet?.substring(0, 50) + '...',
+        hasBody: !!emails[0].body
+      } : null,
+      outputKeys: Object.keys(result.output)
+    })
+    
+    return result
   } catch (error: any) {
     console.error("Gmail search error:", error)
     return {
