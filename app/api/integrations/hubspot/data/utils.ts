@@ -117,11 +117,24 @@ export async function validateHubSpotToken(integration: any): Promise<{ success:
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper token validation against HubSpot API if needed
+    // Decrypt the access token
+    const { decrypt } = await import('@/lib/security/encryption')
+    let decryptedToken: string
+    
+    try {
+      decryptedToken = await decrypt(integration.access_token)
+    } catch (decryptError) {
+      console.error('❌ [HubSpot] Failed to decrypt access token:', decryptError)
+      return {
+        success: false,
+        error: "Failed to decrypt access token"
+      }
+    }
+
+    // Return the decrypted token
     return {
       success: true,
-      token: integration.access_token
+      token: decryptedToken
     }
   } catch (error: any) {
     return {

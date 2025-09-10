@@ -307,8 +307,20 @@ export class OAuthPopupManager {
       let messageReceived = false
       
       const handleMessage = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return
+        // Allow messages from both localhost and production domains
+        const allowedOrigins = [
+          window.location.origin,
+          'http://localhost:3000',
+          'https://chainreact.app',
+          'https://www.chainreact.app'
+        ]
         
+        if (!allowedOrigins.includes(event.origin)) {
+          console.log('[PopupManager] Ignoring message from unexpected origin:', event.origin)
+          return
+        }
+        
+        console.log('[PopupManager] Processing message from:', event.origin)
         messageReceived = true
         
         if (event.data.type === "oauth-success") {
@@ -354,6 +366,10 @@ export class OAuthPopupManager {
             clearInterval(checkPopupClosed)
             window.removeEventListener("message", handleMessage)
             this.currentPopup = null
+            console.warn('🚫 [OAuth Popup] Popup closed without receiving success message. This could mean:')
+            console.warn('  1. User manually closed the popup')
+            console.warn('  2. Authorization was cancelled on HubSpot side')
+            console.warn('  3. Success message was blocked or delayed')
             reject(new Error("User cancelled the reconnection"))
           }
         } catch (error) {

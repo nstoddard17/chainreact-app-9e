@@ -51,10 +51,6 @@ const discordMappings: Record<string, FieldMapping> = {
     channelId: "discord_channels",
     guildId: "discord_guilds",
   },
-  discord_action_add_reaction: {
-    channelId: "discord_channels",
-    messageId: "discord_messages",
-  },
   discord_action_edit_message: {
     channelId: "discord_channels",
     guildId: "discord_guilds",
@@ -67,61 +63,10 @@ const discordMappings: Record<string, FieldMapping> = {
     userIds: "discord_channel_members",
     messageIds: "discord_messages",
   },
-  discord_action_create_channel: {
-    guildId: "discord_guilds",
-  },
-  discord_action_create_category: {
-    guildId: "discord_guilds",
-  },
   discord_action_fetch_messages: {
     channelId: "discord_channels",
     guildId: "discord_guilds",
     filterAuthor: "discord_members",
-  },
-  discord_action_remove_reaction: {
-    channelId: "discord_channels",
-    guildId: "discord_guilds",
-    messageId: "discord_messages",
-  },
-  discord_action_update_channel: {
-    channelId: "discord_channels",
-    guildId: "discord_guilds",
-    parentId: "discord_categories",
-  },
-  discord_action_delete_channel: {
-    channelId: "discord_channels",
-    guildId: "discord_guilds",
-    parentCategory: "discord_categories",
-  },
-  discord_action_delete_category: {
-    guildId: "discord_guilds",
-    categoryId: "discord_categories",
-  },
-  discord_action_fetch_guild_members: {
-    guildId: "discord_guilds",
-    roleFilter: "discord_roles",
-  },
-  discord_action_assign_role: {
-    guildId: "discord_guilds",
-    userId: "discord_members",
-    roleId: "discord_roles",
-  },
-  discord_action_remove_role: {
-    guildId: "discord_guilds",
-    userId: "discord_members",
-    roleId: "discord_roles",
-  },
-  discord_action_kick_member: {
-    guildId: "discord_guilds",
-    userId: "discord_members",
-  },
-  discord_action_ban_member: {
-    guildId: "discord_guilds",
-    userId: "discord_members",
-  },
-  discord_action_unban_member: {
-    guildId: "discord_guilds",
-    userId: "discord_banned_users",
   },
 };
 
@@ -304,6 +249,45 @@ const teamsMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Facebook field mappings
+const facebookMappings: Record<string, FieldMapping> = {
+  facebook_action_create_post: {
+    pageId: "facebook_pages",
+    shareToGroups: "facebook_groups",
+  },
+  facebook_action_get_page_insights: {
+    pageId: "facebook_pages",
+  },
+  facebook_action_send_message: {
+    pageId: "facebook_pages",
+    recipientId: "facebook_conversations",
+  },
+  facebook_action_comment_on_post: {
+    pageId: "facebook_pages",
+    postId: "facebook_posts",
+  },
+};
+
+// HubSpot field mappings
+const hubspotMappings: Record<string, FieldMapping> = {
+  hubspot_action_create_contact: {
+    associatedCompanyId: "hubspot_companies",
+    jobtitle: "hubspot_job_titles",
+    department: "hubspot_departments",
+    industry: "hubspot_industries",
+  },
+  hubspot_action_create_deal: {
+    associatedContactId: "hubspot_contacts",
+    associatedCompanyId: "hubspot_companies",
+  },
+  hubspot_action_add_contact_to_list: {
+    listId: "hubspot_lists",
+  },
+  hubspot_action_update_deal: {
+    dealId: "hubspot_deals",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -331,6 +315,8 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...airtableMappings,
   ...outlookMappings,
   ...teamsMappings,
+  ...facebookMappings,
+  ...hubspotMappings,
   default: defaultMappings,
 };
 

@@ -452,20 +452,29 @@ Essential steps that MUST be completed:
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
 ### Integration Selection Modal Synchronization
-**IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL three modal components:
+**IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL modal components:
 
-1. **Workflow Builder Action Selection Modal** (`/components/workflows/builder/ActionSelectionDialog.tsx`)
-2. **Workflow Builder Trigger Selection Modal** (`/components/workflows/builder/TriggerSelectionDialog.tsx`)
-3. **AI Agent Action Selection Modal** (`/components/workflows/AIAgentConfigModal.tsx` lines 1729-1970)
+1. **Workflow Builder Action/Trigger Modals** (inline in `/components/workflows/CollaborativeWorkflowBuilder.tsx`)
+   - These are the primary modals users interact with
+   - Now uses `comingSoonIntegrations` from `useIntegrationSelection` hook (single source of truth)
+2. **AI Agent Action Selection Modal** (`/components/workflows/AIAgentConfigModal.tsx` lines 1729-1970)
+3. **Standalone Dialogs** (currently unused but exist for future use):
+   - `/components/workflows/builder/ActionSelectionDialog.tsx`
+   - `/components/workflows/builder/TriggerSelectionDialog.tsx`
+
+**Coming Soon Integrations**: 
+- **Single Source of Truth**: The list is maintained in `/hooks/workflows/useIntegrationSelection.ts` (lines 208-227)
+- **To add a new "coming soon" integration**: Only update the list in the hook
+- **CollaborativeWorkflowBuilder now imports from the hook** to avoid duplication
+- See `/learning/walkthroughs/coming-soon-integrations-sync-issue.md` for detailed explanation
 
 Key areas that must remain synchronized:
-- **Coming Soon Labels**: Use `comingSoonIntegrations` from `useIntegrationSelection` hook
 - **Connect Buttons**: Show for unconnected integrations, exclude system integrations (logic, core, manual, schedule, webhook)
 - **Integration Status**: Use `isIntegrationConnected` from the same hook
 - **OAuth URL Handling**: Consistent pattern for constructing OAuth URLs
 - **Visual Styling**: Same classes and layout for badges and buttons
 
-When updating any integration selection behavior, search for and update all three locations to maintain consistency across the application. This ensures users have the same experience regardless of which modal they're using.
+When updating any integration selection behavior, search for and update all locations to maintain consistency across the application.
 
 ## Code Refactoring Guide
 

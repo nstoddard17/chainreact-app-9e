@@ -760,13 +760,59 @@ const hubspotActionCreateCompany: NodeComponent = {
   requiredScopes: ["crm.objects.companies.write"],
   category: "CRM",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
-    { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Enter company name" },
-    { name: "domain", label: "Domain", type: "text", required: false, placeholder: "example.com" },
-    { name: "phone", label: "Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
-    { name: "address", label: "Address", type: "textarea", required: false, placeholder: "Company address" },
-    { name: "industry", label: "Industry", type: "text", required: false, placeholder: "Technology" }
+    // Primary Identifiers
+    { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Acme Corporation" },
+    { name: "domain", label: "Website Domain", type: "text", required: false, placeholder: "example.com", description: "Primary unique identifier to avoid duplicates" },
+    
+    // Contact Information
+    { name: "phone", label: "Phone Number", type: "text", required: false, placeholder: "+1-555-123-4567" },
+    { name: "address", label: "Street Address", type: "text", required: false, placeholder: "123 Business Ave" },
+    { name: "city", label: "City", type: "text", required: false, placeholder: "Boston" },
+    { name: "state", label: "State/Region", type: "text", required: false, placeholder: "MA" },
+    { name: "zip", label: "Postal Code", type: "text", required: false, placeholder: "02101" },
+    { name: "country", label: "Country", type: "text", required: false, placeholder: "United States" },
+    
+    // Business Information
+    { 
+      name: "industry", 
+      label: "Industry", 
+      type: "select",
+      options: [
+        { value: "Technology", label: "Technology" },
+        { value: "Healthcare", label: "Healthcare" },
+        { value: "Finance", label: "Finance" },
+        { value: "Retail", label: "Retail" },
+        { value: "Manufacturing", label: "Manufacturing" },
+        { value: "Education", label: "Education" },
+        { value: "Real Estate", label: "Real Estate" },
+        { value: "Consulting", label: "Consulting" },
+        { value: "Other", label: "Other" }
+      ],
+      required: false,
+      placeholder: "Select industry"
+    },
+    { name: "numberofemployees", label: "Number of Employees", type: "number", required: false, placeholder: "50" },
+    { name: "annualrevenue", label: "Annual Revenue", type: "number", required: false, placeholder: "1000000" },
+    { name: "description", label: "Company Description", type: "textarea", required: false, placeholder: "Brief description of the company" },
+    
+    // Lifecycle
+    { 
+      name: "lifecyclestage", 
+      label: "Lifecycle Stage", 
+      type: "select",
+      options: [
+        { value: "lead", label: "Lead" },
+        { value: "marketingqualifiedlead", label: "Marketing Qualified Lead" },
+        { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
+        { value: "opportunity", label: "Opportunity" },
+        { value: "customer", label: "Customer" },
+        { value: "other", label: "Other" }
+      ],
+      required: false,
+      defaultValue: "lead",
+      placeholder: "Select lifecycle stage"
+    }
   ]
 }
 
@@ -779,30 +825,78 @@ const hubspotActionCreateDeal: NodeComponent = {
   requiredScopes: ["crm.objects.deals.write"],
   category: "CRM",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
-    { name: "dealName", label: "Deal Name", type: "text", required: true, placeholder: "Enter deal name" },
-    { name: "amount", label: "Amount", type: "number", required: false, placeholder: "10000" },
+    // Required Fields
+    { name: "dealname", label: "Deal Name", type: "text", required: true, placeholder: "Q1 2025 Enterprise Deal" },
+    
+    // Pipeline and Stage
     { 
       name: "pipeline", 
       label: "Pipeline", 
-      type: "combobox",
-      dynamic: "hubspot_pipelines",
+      type: "select",
+      options: [
+        { value: "default", label: "Sales Pipeline" }
+      ],
       required: false,
-      placeholder: "Select a pipeline or type to create new",
-      creatable: true
+      defaultValue: "default",
+      placeholder: "Select pipeline",
+      description: "Sales pipeline for this deal"
     },
     { 
-      name: "stage", 
-      label: "Stage", 
-      type: "combobox",
-      dynamic: "hubspot_deal_stages",
-      required: false,
-      placeholder: "Select a stage or type to create new",
-      dependsOn: "pipeline",
-      creatable: true
+      name: "dealstage", 
+      label: "Deal Stage", 
+      type: "select",
+      options: [
+        { value: "appointmentscheduled", label: "Appointment Scheduled" },
+        { value: "qualifiedtobuy", label: "Qualified To Buy" },
+        { value: "presentationscheduled", label: "Presentation Scheduled" },
+        { value: "decisionmakerboughtin", label: "Decision Maker Bought In" },
+        { value: "contractsent", label: "Contract Sent" },
+        { value: "closedwon", label: "Closed Won" },
+        { value: "closedlost", label: "Closed Lost" }
+      ],
+      required: true,
+      defaultValue: "appointmentscheduled",
+      placeholder: "Select deal stage"
     },
-    { name: "closeDate", label: "Close Date", type: "date", required: false },
+    
+    // Financial Information
+    { name: "amount", label: "Deal Amount", type: "number", required: false, placeholder: "50000", description: "Value of the deal in your currency" },
+    { name: "closedate", label: "Expected Close Date", type: "date", required: false, description: "When do you expect to close this deal?" },
+    
+    // Deal Details
+    { 
+      name: "dealtype", 
+      label: "Deal Type", 
+      type: "select",
+      options: [
+        { value: "newbusiness", label: "New Business" },
+        { value: "existingbusiness", label: "Existing Business" }
+      ],
+      required: false,
+      placeholder: "Select deal type"
+    },
+    { name: "description", label: "Deal Description", type: "textarea", required: false, placeholder: "Description of the deal and key details" },
+    
+    // Associations
+    { 
+      name: "associatedContactId", 
+      label: "Associated Contact", 
+      type: "combobox",
+      dynamic: "hubspot_contacts",
+      required: false,
+      placeholder: "Select a contact to associate",
+      description: "Link this deal to a contact"
+    },
+    { 
+      name: "associatedCompanyId", 
+      label: "Associated Company", 
+      type: "combobox",
+      dynamic: "hubspot_companies",
+      required: false,
+      placeholder: "Select a company to associate",
+      description: "Link this deal to a company"
+    }
   ]
 }
 
@@ -812,28 +906,26 @@ const hubspotActionAddContactToList: NodeComponent = {
   description: "Add a contact to a HubSpot list",
   icon: Users,
   providerId: "hubspot",
-  requiredScopes: ["lists.read", "lists.write"],
+  requiredScopes: ["crm.lists.read", "crm.lists.write"],
   category: "CRM",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { 
-      name: "contactId", 
-      label: "Contact", 
-      type: "combobox",
-      dynamic: "hubspot_contacts",
+      name: "contactEmail", 
+      label: "Contact Email", 
+      type: "email",
       required: true,
-      placeholder: "Select a contact or type to create new",
-      creatable: true
+      placeholder: "contact@example.com",
+      description: "Email of the contact to add to the list"
     },
     { 
       name: "listId", 
       label: "List", 
-      type: "combobox",
-      dynamic: "hubspot_lists",
+      type: "select",
+      dynamic: true,
       required: true,
-      placeholder: "Select a list or type to create new",
-      creatable: true
+      placeholder: "Select a list",
+      description: "Choose the list to add the contact to (only manual lists can have contacts added)"
     }
   ]
 }
@@ -847,38 +939,58 @@ const hubspotActionUpdateDeal: NodeComponent = {
   requiredScopes: ["crm.objects.deals.write"],
   category: "CRM",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
+    // Deal Selection
     { 
       name: "dealId", 
-      label: "Deal", 
-      type: "select",
+      label: "Deal to Update", 
+      type: "combobox",
       dynamic: "hubspot_deals",
       required: true,
-      placeholder: "Select a deal to update"
+      placeholder: "Select or enter deal ID",
+      description: "Choose the deal you want to update"
     },
-    { name: "dealName", label: "Deal Name", type: "text", required: false },
-    { name: "amount", label: "Amount", type: "number", required: false },
+    
+    // Fields to Update (all optional)
+    { name: "dealname", label: "New Deal Name", type: "text", required: false, placeholder: "Updated deal name" },
+    
+    // Pipeline and Stage
     { 
-      name: "pipeline", 
-      label: "Pipeline", 
-      type: "combobox",
-      dynamic: "hubspot_pipelines",
+      name: "dealstage", 
+      label: "New Deal Stage", 
+      type: "select",
+      options: [
+        { value: "", label: "Keep Current Stage" },
+        { value: "appointmentscheduled", label: "Appointment Scheduled" },
+        { value: "qualifiedtobuy", label: "Qualified To Buy" },
+        { value: "presentationscheduled", label: "Presentation Scheduled" },
+        { value: "decisionmakerboughtin", label: "Decision Maker Bought In" },
+        { value: "contractsent", label: "Contract Sent" },
+        { value: "closedwon", label: "Closed Won" },
+        { value: "closedlost", label: "Closed Lost" }
+      ],
       required: false,
-      placeholder: "Select a pipeline or type to create new",
-      creatable: true
+      placeholder: "Select new stage"
     },
+    
+    // Financial Updates
+    { name: "amount", label: "New Amount", type: "number", required: false, placeholder: "75000" },
+    { name: "closedate", label: "New Close Date", type: "date", required: false },
+    
+    // Additional Updates
+    { name: "description", label: "Updated Description", type: "textarea", required: false, placeholder: "Updated deal description" },
     { 
-      name: "stage", 
-      label: "Stage", 
-      type: "combobox",
-      dynamic: "hubspot_deal_stages",
+      name: "dealtype", 
+      label: "Deal Type", 
+      type: "select",
+      options: [
+        { value: "", label: "Keep Current Type" },
+        { value: "newbusiness", label: "New Business" },
+        { value: "existingbusiness", label: "Existing Business" }
+      ],
       required: false,
-      placeholder: "Select a stage or type to create new",
-      dependsOn: "pipeline",
-      creatable: true
-    },
-    { name: "closeDate", label: "Close Date", type: "date", required: false },
+      placeholder: "Select deal type"
+    }
   ]
 }
 

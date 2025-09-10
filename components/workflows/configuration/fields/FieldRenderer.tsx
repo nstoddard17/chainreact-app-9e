@@ -467,16 +467,21 @@ export function FieldRenderer({
 
       case "boolean":
         return (
-          <div className="flex items-center space-x-2">
-            <Checkbox
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+                {field.label || field.name}
+              </Label>
+              {field.description && (
+                <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
+              )}
+            </div>
+            <Switch
               id={field.name}
               checked={value || false}
-              onCheckedChange={handleCheckboxChange}
-              className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+              onCheckedChange={onChange}
+              className="ml-4"
             />
-            <Label htmlFor={field.name} className="text-sm text-slate-700">
-              {field.label || field.name}
-            </Label>
           </div>
         );
 
@@ -626,6 +631,62 @@ export function FieldRenderer({
             onChange={onChange}
             error={error}
           />
+        );
+
+      case "datetime-local":
+        // Handle datetime-local input for date and time selection
+        const datetimeValue = useMemo(() => {
+          if (!value) return '';
+          if (value instanceof Date) {
+            // Format as YYYY-MM-DDTHH:mm for datetime-local input
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            const hours = String(value.getHours()).padStart(2, '0');
+            const minutes = String(value.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+          if (typeof value === 'string' && value) {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              return `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+          }
+          return '';
+        }, [value]);
+
+        return (
+          <div className="space-y-2">
+            <Input
+              type="datetime-local"
+              value={datetimeValue}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (newValue) {
+                  // Convert to ISO string for storage
+                  const date = new Date(newValue);
+                  onChange(date.toISOString());
+                } else {
+                  onChange('');
+                }
+              }}
+              min={field.min}
+              max={field.max}
+              className={cn(
+                "w-full",
+                error && "border-red-500"
+              )}
+              placeholder={field.placeholder}
+            />
+            {field.description && (
+              <p className="text-sm text-muted-foreground">{field.description}</p>
+            )}
+          </div>
         );
 
       case "file":

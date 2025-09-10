@@ -101,7 +101,18 @@ export function GenericConfiguration({
     // Never show fields with type: 'hidden'
     if (field.type === 'hidden') return false;
     
-    // Check conditionalVisibility
+    // Check showWhen condition (preferred format)
+    if (field.showWhen) {
+      const { field: dependentField, value: expectedValue } = field.showWhen;
+      const actualValue = values[dependentField];
+      
+      // Check if the condition is met
+      if (actualValue !== expectedValue) {
+        return false;
+      }
+    }
+    
+    // Check conditionalVisibility (legacy format)
     if (field.conditionalVisibility) {
       const { field: dependentField, value: expectedValue } = field.conditionalVisibility;
       const actualValue = values[dependentField];

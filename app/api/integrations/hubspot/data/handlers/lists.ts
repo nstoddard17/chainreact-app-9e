@@ -10,11 +10,14 @@ export const getHubSpotLists: HubSpotDataHandler<HubSpotList> = async (integrati
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
-    tokenLength: integration.access_token?.length
+    tokenLength: integration.access_token?.length,
+    status: integration.status,
+    integrationKeys: Object.keys(integration || {})
   })
   
   try {
     // Validate integration status
+    console.log('🔍 Validating HubSpot integration...')
     validateHubSpotIntegration(integration)
     
     console.log(`🔍 Validating HubSpot token...`)

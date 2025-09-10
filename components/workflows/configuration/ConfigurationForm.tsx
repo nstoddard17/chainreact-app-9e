@@ -259,6 +259,66 @@ function ConfigurationForm({
     loadIntegrations();
   }, [fetchIntegrations]); // Include dependency but it should be stable
 
+  // Load fields marked with loadOnMount immediately when form opens
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || isInitialLoading) return;
+    
+    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...');
+    
+    // Find fields that should load on mount
+    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => 
+      field.loadOnMount === true && field.dynamic === true
+    );
+    
+    if (fieldsToLoad.length > 0) {
+      console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
+      
+      // Load each field marked with loadOnMount
+      fieldsToLoad.forEach((field: any) => {
+        console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
+        loadOptions(field.name);
+      });
+    }
+  }, [nodeInfo, isInitialLoading, loadOptions]);
+
+  // Load dynamic fields when their dependencies are satisfied
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || isInitialLoading) return;
+    
+    // Special handling for Facebook shareToGroups field
+    if (nodeInfo.type === 'facebook_action_create_post' && values.pageId && !dynamicOptions.shareToGroups) {
+      console.log('🔄 [ConfigForm] Loading Facebook groups for sharing...');
+      loadOptions('shareToGroups');
+    }
+    
+    // Find other dynamic fields that should load when visible
+    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
+      if (field.dynamic !== true) return false;
+      
+      // Check if field is now visible (its dependencies are satisfied)
+      if (field.dependsOn) {
+        const dependsOnValue = values[field.dependsOn];
+        if (!dependsOnValue) return false; // Don't load if dependency not satisfied
+        
+        // Check if already loaded
+        const fieldOptions = dynamicOptions[field.name];
+        const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+        
+        // Load if visible and not yet loaded
+        return !hasOptions;
+      }
+      
+      return false;
+    });
+    
+    if (fieldsToLoad.length > 0) {
+      fieldsToLoad.forEach((field: any) => {
+        console.log(`🔄 [ConfigForm] Auto-loading field that became visible: ${field.name}`);
+        loadOptions(field.name);
+      });
+    }
+  }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions, values]);
+
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {
     const handleReconnection = (event: CustomEvent) => {
