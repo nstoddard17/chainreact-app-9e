@@ -197,6 +197,10 @@ export async function POST(request: NextRequest) {
 
     // Create Stripe checkout session
     console.log("[Checkout API] Creating Stripe session with price ID:", priceId)
+    console.log("[Checkout API] User ID:", user.id)
+    console.log("[Checkout API] User Email:", user.email)
+    console.log("[Checkout API] Plan ID:", planId)
+    console.log("[Checkout API] Billing Cycle:", billingCycle)
     console.log("[Checkout API] Success URL:", `${baseUrl}/settings?tab=billing&success=true`)
     console.log("[Checkout API] Cancel URL:", `${baseUrl}/settings?tab=billing&canceled=true`)
     
@@ -227,18 +231,25 @@ export async function POST(request: NextRequest) {
         tax_id_collection: {
           enabled: true, // Allow customers to add tax IDs (optional but recommended)
         },
+        // CRITICAL: Set metadata at checkout session level
         metadata: {
           user_id: user.id,
+          user_email: user.email, // Add email as backup
           plan_id: planId,
           billing_cycle: billingCycle,
         },
+        // Also set on subscription for redundancy
         subscription_data: {
           metadata: {
             user_id: user.id,
+            user_email: user.email,
             plan_id: planId,
+            billing_cycle: billingCycle,
           },
         },
         allow_promotion_codes: true,
+        // Ensure customer email is set
+        customer_email: user.email,
       })
     } catch (sessionError: any) {
       console.error("[Checkout API] Failed to create checkout session:", sessionError)

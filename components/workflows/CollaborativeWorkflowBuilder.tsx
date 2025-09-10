@@ -340,17 +340,48 @@ const useWorkflowBuilderState = () => {
     const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
     if (systemIntegrations.includes(integrationId)) return true;
     
+    // Debug logging to understand what's being checked
+    console.log('🔍 Checking connection for:', integrationId);
+    console.log('🔍 Available integrations:', storeIntegrations.map(i => ({ provider: i.provider, status: i.status })));
+    
+    // Create a mapping of integration config IDs to possible database provider values
+    // This handles cases where the integration ID doesn't match the database provider value
+    const providerMappings: Record<string, string[]> = {
+      'gmail': ['gmail'],
+      'google-calendar': ['google-calendar', 'google_calendar'],
+      'google-drive': ['google-drive', 'google_drive'],
+      'google-sheets': ['google-sheets', 'google_sheets'],
+      'google-docs': ['google-docs', 'google_docs'],
+      'discord': ['discord'],
+      'slack': ['slack'],
+      'notion': ['notion'],
+      'airtable': ['airtable'],
+      'hubspot': ['hubspot'],
+      'stripe': ['stripe'],
+      'shopify': ['shopify'],
+      'trello': ['trello'],
+      'microsoft-onenote': ['microsoft-onenote', 'onenote'],
+      'microsoft-outlook': ['microsoft-outlook', 'outlook'],
+      'microsoft-teams': ['microsoft-teams', 'teams'],
+      'onedrive': ['onedrive'],
+      'facebook': ['facebook'],
+      'instagram': ['instagram'],
+      'twitter': ['twitter'],
+      'linkedin': ['linkedin'],
+    };
+    
     // For Google services, check if ANY Google service is connected
     // Google services share authentication, so if one is connected, all are connected
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
-      // Check if any Google service integration exists that's connected
-      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail'];
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail',
+                              'google_drive', 'google_sheets', 'google_docs', 'google_calendar'];
       const connectedGoogleService = storeIntegrations.find(i => 
         googleServices.includes(i.provider) && 
         i.status === 'connected'
       );
       
       if (connectedGoogleService) {
+        console.log('✅ Found connected Google service:', connectedGoogleService.provider);
         return true;
       }
       
@@ -358,6 +389,7 @@ const useWorkflowBuilderState = () => {
       const connectedProviders = getConnectedProviders();
       const hasAnyGoogleConnected = googleServices.some(service => connectedProviders.includes(service));
       if (hasAnyGoogleConnected) {
+        console.log('✅ Google service connected via getConnectedProviders');
         return true;
       }
       
@@ -367,27 +399,48 @@ const useWorkflowBuilderState = () => {
     // For Microsoft services, check if ANY Microsoft service is connected
     // Microsoft services might share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive'];
+      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive',
+                                 'onenote', 'outlook', 'teams'];
       const connectedMicrosoftService = storeIntegrations.find(i => 
         microsoftServices.includes(i.provider) && 
         i.status === 'connected'
       );
       
       if (connectedMicrosoftService) {
+        console.log('✅ Found connected Microsoft service:', connectedMicrosoftService.provider);
         return true;
       }
+      
+      return false;
     }
     
     // Check if this specific integration exists in the store
-    const integration = storeIntegrations.find(i => i.provider === integrationId);
+    // Use the mapping to check all possible provider values
+    const possibleProviders = providerMappings[integrationId] || [integrationId];
+    console.log('🔍 Checking providers:', possibleProviders);
+    
+    const integration = storeIntegrations.find(i => 
+      possibleProviders.includes(i.provider) && i.status === 'connected'
+    );
+    
     if (integration) {
-      // Only consider it connected if status is explicitly "connected"
-      return integration.status === 'connected';
+      console.log('✅ Found connected integration:', integration.provider);
+      return true;
     }
     
     // Use the getConnectedProviders as fallback
     const connectedProviders = getConnectedProviders();
-    return connectedProviders.includes(integrationId);
+    console.log('🔍 Connected providers from store:', connectedProviders);
+    
+    // Check if any of the possible providers are in the connected list
+    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
+    if (isConnected) {
+      console.log('✅ Integration connected via getConnectedProviders');
+    } else {
+      console.log('❌ Integration not connected:', integrationId);
+    }
+    
+    return isConnected;
   }, [storeIntegrations, getConnectedProviders])
 
 
