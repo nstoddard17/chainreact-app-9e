@@ -3,6 +3,7 @@
  */
 
 import { OneNoteApiError } from './types'
+import { encrypt, decrypt } from '@/lib/security/encryption'
 
 /**
  * Create OneNote API error with proper context
@@ -119,7 +120,7 @@ export async function tryMultipleOneNoteEndpoints<T>(
 }
 
 /**
- * Simplified OneNote token validation (without complex refresh logic)
+ * Validate and refresh OneNote token if needed
  */
 export async function validateOneNoteToken(integration: any): Promise<{ success: boolean, token?: string, error?: string }> {
   try {
@@ -130,16 +131,170 @@ export async function validateOneNoteToken(integration: any): Promise<{ success:
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper token validation against Microsoft Graph API if needed
+    // Decrypt the access token
+    let accessToken: string
+    try {
+      accessToken = decrypt(integration.access_token)
+    } catch (decryptError) {
+      // If decryption fails, try using the token as-is (for backward compatibility)
+      console.log('⚠️ Token decryption failed, trying as plain text')
+      accessToken = integration.access_token
+    }
+
+    // Test if the current token is valid
+    const testResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+
+    if (testResponse.ok) {
+      // Token is valid
+      return {
+        success: true,
+        token: accessToken
+      }
+    }
+
+    if (testResponse.status === 401) {
+      // Token is expired, try to refresh
+      console.log('🔄 OneNote token expired, attempting refresh...')
+      
+      if (!integration.refresh_token) {
+        return {
+          success: false,
+          error: "Token expired and no refresh token available. Please reconnect your Microsoft account."
+        }
+      }
+
+      // Refresh the token
+      const refreshedToken = await refreshOneNoteToken(integration)
+      if (refreshedToken) {
+        return {
+          success: true,
+          token: refreshedToken
+        }
+      } else {
+        return {
+          success: false,
+          error: "Failed to refresh token. Please reconnect your Microsoft account."
+        }
+      }
+    }
+
+    // Other error
     return {
-      success: true,
-      token: integration.access_token
+      success: false,
+      error: `Token validation failed with status: ${testResponse.status}`
     }
   } catch (error: any) {
+    console.error('❌ Token validation error:', error)
     return {
       success: false,
       error: error.message || "Token validation failed"
     }
+  }
+}
+
+/**
+ * Refresh OneNote/Microsoft token
+ */
+async function refreshOneNoteToken(integration: any): Promise<string | null> {
+  try {
+    const clientId = process.env.MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    
+    if (!clientId || !clientSecret) {
+      console.error('❌ Microsoft OAuth credentials not configured')
+      return null
+    }
+
+    // Decrypt refresh token
+    let refreshToken: string
+    try {
+      refreshToken = decrypt(integration.refresh_token)
+    } catch (decryptError) {
+      // Try as plain text for backward compatibility
+      refreshToken = integration.refresh_token
+    }
+
+    const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+        scope: 'https://graph.microsoft.com/.default',
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('❌ Failed to refresh Microsoft token:', error)
+      return null
+    }
+
+    const data = await response.json()
+    
+    // Update the integration with new tokens
+    await updateIntegrationTokens(integration.id, data)
+    
+    return data.access_token
+  } catch (error: any) {
+    console.error('❌ Error refreshing OneNote token:', error)
+    return null
+  }
+}
+
+/**
+ * Update integration tokens in database
+ */
+async function updateIntegrationTokens(integrationId: string, tokenData: any): Promise<void> {
+  try {
+    // Import Supabase client
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Calculate expiration time
+    const expiresAt = tokenData.expires_in
+      ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+      : undefined
+
+    // Encrypt tokens
+    const encryptedAccessToken = encrypt(tokenData.access_token)
+    const encryptedRefreshToken = tokenData.refresh_token
+      ? encrypt(tokenData.refresh_token)
+      : undefined
+
+    // Update the integration
+    const updateData: any = {
+      access_token: encryptedAccessToken,
+      token_type: tokenData.token_type,
+      expires_at: expiresAt,
+      updated_at: new Date().toISOString()
+    }
+
+    if (encryptedRefreshToken) {
+      updateData.refresh_token = encryptedRefreshToken
+    }
+
+    const { error } = await supabase
+      .from('integrations')
+      .update(updateData)
+      .eq('id', integrationId)
+
+    if (error) {
+      console.error('❌ Failed to update integration tokens:', error)
+    } else {
+      console.log('✅ Successfully updated OneNote integration tokens')
+    }
+  } catch (error: any) {
+    console.error('❌ Error updating integration tokens:', error)
   }
 }

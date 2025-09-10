@@ -118,53 +118,75 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     setLoading: (key: string, loading: boolean) => {
-      set((state) => ({
-        loadingStates: {
+      set((state) => {
+        const newLoadingStates = {
           ...state.loadingStates,
           [key]: loading,
-        },
-        // If setting global loading state, also update the main loading state
-        ...(key === "global" && { loading }),
-      }))
+        }
+        
+        // Calculate if anything is still loading
+        const isAnythingLoading = Object.values(newLoadingStates).some(v => v === true)
+        
+        return {
+          loadingStates: newLoadingStates,
+          // Update main loading state based on any loading activity
+          loading: key === "global" ? loading : isAnythingLoading,
+        }
+      })
     },
 
     setError: (error: string | null) => set({ error }),
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
-      const { loading } = get()
-      if (loading) {
+      const { loadingStates, setLoading } = get()
+      if (loadingStates['providers']) {
+        console.log("Already loading providers, skipping...")
         return
       }
 
+      // Set a timeout to prevent stuck loading state
+      const loadingTimeout = setTimeout(() => {
+        const currentState = get()
+        if (currentState.loadingStates['providers']) {
+          console.warn("Provider initialization timeout - resetting loading state")
+          setLoading('providers', false)
+        }
+      }, 10000)
+
       try {
-        set({ loading: true, error: null })
+        setLoading('providers', true)
+        set({ error: null })
         
         const providers = await IntegrationService.fetchProviders()
 
+        clearTimeout(loadingTimeout)
+        setLoading('providers', false)
         set({
           providers,
-          loading: false,
         })
 
       } catch (error: any) {
         console.error("Failed to initialize providers:", error)
+        clearTimeout(loadingTimeout)
+        setLoading('providers', false)
         set({
           error: error.message || "Failed to load providers",
-          loading: false,
           providers: [],
         })
       }
     },
 
     fetchIntegrations: async (force = false) => {
-      const { loading, currentUserId } = get()
-      if (loading && !force) {
+      const { loadingStates, setLoading, currentUserId } = get()
+      if (loadingStates['integrations'] && !force) {
+        console.log("Already loading integrations, skipping...")
         return
       }
 
       try {
-        set({ loading: true, error: null })
+        setLoading('integrations', true)
+        set({ error: null })
         
         const { user } = await SessionManager.getSecureUserAndSession()
 
@@ -172,9 +194,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         if (!currentUserId) {
           set({ currentUserId: user.id })
         } else if (user?.id !== currentUserId) {
+          console.warn("User session mismatch detected")
+          setLoading('integrations', false)
           set({
             integrations: [],
-            loading: false,
             error: "User session mismatch",
           })
           return
@@ -182,16 +205,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         const integrations = await IntegrationService.fetchIntegrations(force)
         
+        setLoading('integrations', false)
         set({
           integrations,
-          loading: false,
           lastRefreshTime: new Date().toISOString(),
         })
       } catch (error: any) {
         console.error("Failed to fetch integrations:", error)
+        setLoading('integrations', false)
         set({
           error: error.message || "Failed to fetch integrations",
-          loading: false,
           integrations: [],
         })
       }
@@ -287,7 +310,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setError(error)
               setLoading(`connect-${providerId}`, false)
             },
-            onCancel: () => {
+            onCancel: async () => {
+              // For HubSpot, immediately check if connection actually succeeded
+              // since the popup messaging sometimes fails
+              if (providerId === 'hubspot') {
+                try {
+                  // Force fetch fresh data from database (bypass cache)
+                  const freshIntegrations = await IntegrationService.fetchIntegrations(true) // Force = true to bypass cache
+                  set({ integrations: freshIntegrations })
+                  const hubspotIntegration = freshIntegrations.find(i => i.provider === 'hubspot')
+                  if (hubspotIntegration && hubspotIntegration.status === 'connected') {
+                    // Connection succeeded! Update UI instantly
+                    emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId: 'hubspot' })
+                    setLoading(`connect-${providerId}`, false)
+                    return // Don't treat as cancellation
+                  }
+                } catch (error) {
+                  console.warn('Failed to check HubSpot connection status:', error)
+                }
+              }
+              // Only set loading to false if not HubSpot or if HubSpot check failed
               setLoading(`connect-${providerId}`, false)
               // User cancelled - don't set error
             },
@@ -338,14 +380,28 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         await IntegrationService.disconnectIntegration(integrationId)
         
+        // Immediately remove the integration from the state for instant UI update
+        set((state) => ({
+          integrations: state.integrations.filter(i => i.id !== integrationId)
+        }))
+        
+        // Emit event for other components to listen to
+        emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
+        
         setLoading(`disconnect-${integrationId}`, false)
+        
+        // Fetch integrations after a short delay to ensure consistency with the backend
         setTimeout(() => {
           fetchIntegrations(true)
-        }, 1000)
+        }, 500)
       } catch (error: any) {
         console.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
         setLoading(`disconnect-${integrationId}`, false)
+        // Refresh integrations on error to ensure UI stays in sync
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 100)
       }
     },
 
@@ -487,11 +543,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getConnectedProviders: () => {
       const { integrations } = get()
       
-      // Return all integrations that exist and are usable (not just "connected" ones)
-      // This includes connected, expired, needs_reauthorization, etc. since they can be reconnected
-      // Only exclude explicitly disconnected or failed integrations
+      // Return all integrations that are connected (status === "connected")
+      // Other statuses like expired or needs_reauthorization should show as disconnected
       const connectedProviders = integrations
-        .filter((i) => i.status !== "disconnected" && i.status !== "failed" && !i.disconnected_at)
+        .filter((i) => i.status === "connected")
         .map((i) => i.provider)
       
       // Google services share authentication - if any Google service is connected, all are available
@@ -501,6 +556,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
       if (hasAnyGoogleService) {
         // Add all Google service IDs since they share authentication
         googleServices.forEach(service => {
+          if (!connectedProviders.includes(service)) {
+            connectedProviders.push(service)
+          }
+        })
+      }
+      
+      // Microsoft services might also share authentication
+      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive']
+      const hasAnyMicrosoftService = connectedProviders.some(provider => microsoftServices.includes(provider))
+      
+      if (hasAnyMicrosoftService) {
+        // Add all Microsoft service IDs since they might share authentication
+        microsoftServices.forEach(service => {
           if (!connectedProviders.includes(service)) {
             connectedProviders.push(service)
           }
@@ -568,9 +636,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       try {
         await IntegrationService.disconnectIntegration(integrationId)
-        await fetchIntegrations(true)
+        
+        // Immediately remove the integration from the state for instant UI update
+        set((state) => ({
+          integrations: state.integrations.filter(i => i.id !== integrationId)
+        }))
+        
+        // Emit event for other components to listen to
+        emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
+        
+        // Fetch integrations to ensure consistency with the backend
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 500)
       } catch (error: any) {
         setError(error.message)
+        // Refresh integrations on error to ensure UI stays in sync
+        setTimeout(() => {
+          fetchIntegrations(true)
+        }, 100)
       } finally {
         setLoading(`delete-${integration.provider}`, false)
       }

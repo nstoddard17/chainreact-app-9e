@@ -73,6 +73,8 @@ function getRefreshHandlerForProvider(provider: string): (refreshToken: string) 
     google_sheets: refreshGoogleToken,
     microsoft_outlook: refreshMicrosoftToken,
     onedrive: refreshMicrosoftToken,
+    onenote: refreshMicrosoftToken,
+    'microsoft-onenote': refreshMicrosoftToken,
     // Add other providers here
   }
   

@@ -8,6 +8,7 @@ import { DiscordOptionsLoader } from './discord/discordOptionsLoader';
 import { AirtableOptionsLoader } from './airtable/airtableOptionsLoader';
 import { FacebookOptionsLoader } from './facebook/facebookOptionsLoader';
 import { hubspotOptionsLoader } from './hubspot/hubspotOptionsLoader';
+import { onenoteOptionsLoader } from './onenote/optionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -32,6 +33,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
     
     // Register HubSpot loader
     this.register('hubspot', hubspotOptionsLoader);
+    
+    // Register OneNote loader
+    this.register('microsoft-onenote', onenoteOptionsLoader);
     
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

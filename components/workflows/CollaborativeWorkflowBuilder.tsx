@@ -336,30 +336,18 @@ const useWorkflowBuilderState = () => {
   }
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
-    // Core integration is always "connected" since it's built-in
-    if (integrationId === 'core') return true;
-    
-    // Logic integration is always "connected" since it doesn't require authentication
-    if (integrationId === 'logic') return true;
-    
-    // AI Agent is always "connected" since it doesn't require external authentication
-    if (integrationId === 'ai') return true;
-    
-    // Webhook and scheduler don't require authentication
-    if (integrationId === 'webhook' || integrationId === 'scheduler') return true;
+    // System integrations that are always "connected" since they don't require external authentication
+    const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
+    if (systemIntegrations.includes(integrationId)) return true;
     
     // For Google services, check if ANY Google service is connected
     // Google services share authentication, so if one is connected, all are connected
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
-      // Check if any Google service integration exists that's properly connected
+      // Check if any Google service integration exists that's connected
       const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail'];
       const connectedGoogleService = storeIntegrations.find(i => 
         googleServices.includes(i.provider) && 
-        i.status !== 'disconnected' && 
-        i.status !== 'failed' && 
-        i.status !== 'expired' &&
-        i.status !== 'needs_reauthorization' &&
-        !i.disconnected_at
+        i.status === 'connected'
       );
       
       if (connectedGoogleService) {
@@ -376,16 +364,25 @@ const useWorkflowBuilderState = () => {
       return false;
     }
     
+    // For Microsoft services, check if ANY Microsoft service is connected
+    // Microsoft services might share authentication
+    if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
+      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive'];
+      const connectedMicrosoftService = storeIntegrations.find(i => 
+        microsoftServices.includes(i.provider) && 
+        i.status === 'connected'
+      );
+      
+      if (connectedMicrosoftService) {
+        return true;
+      }
+    }
+    
     // Check if this specific integration exists in the store
     const integration = storeIntegrations.find(i => i.provider === integrationId);
     if (integration) {
-      // Consider it connected if it's not explicitly disconnected or failed
-      const isConnected = integration.status !== 'disconnected' && 
-                          integration.status !== 'failed' && 
-                          integration.status !== 'expired' &&
-                          integration.status !== 'needs_reauthorization' &&
-                          !integration.disconnected_at;
-      return isConnected;
+      // Only consider it connected if status is explicitly "connected"
+      return integration.status === 'connected';
     }
     
     // Use the getConnectedProviders as fallback
