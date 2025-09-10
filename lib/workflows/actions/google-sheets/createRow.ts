@@ -51,60 +51,201 @@ export async function createGoogleSheetsRow(
 
     const headerData = await headerResponse.json()
     const headers = headerData.values?.[0] || []
-
-    // Map field values to column positions
-    const rowValues: any[] = new Array(Math.max(headers.length, Object.keys(fieldMapping).length))
     
+    console.log("📊 Raw headers from Google Sheets:", headers)
+    console.log("📊 Headers with indices:")
+    headers.forEach((h: string, i: number) => {
+      console.log(`  [${i}] "${h}" (length: ${h.length})`);
+    })
+
+    // Map field values to column positions - ensure array length matches headers exactly
+    const rowValues: any[] = new Array(headers.length).fill(undefined)
+    
+    console.log("🔍 Processing fieldMapping entries:")
     for (const [columnIdentifier, value] of Object.entries(fieldMapping)) {
-      if (value !== undefined && value !== null && value !== '') {
-        const resolvedValue = resolveValue(value, input)
-        
-        // Check if columnIdentifier is a column letter (A, B, C, etc.)
-        if (/^[A-Z]+$/i.test(columnIdentifier)) {
-          const index = columnIdentifier.toUpperCase().charCodeAt(0) - 65
+      const resolvedValue = value !== undefined && value !== null && value !== '' ? resolveValue(value, input) : ''
+      
+      // Check if columnIdentifier is a SINGLE column letter (A-Z only, not AA, AB, etc.)
+      // and NOT a word like "Address" or "RSVP"
+      if (/^[A-Z]$/i.test(columnIdentifier)) {
+        const index = columnIdentifier.toUpperCase().charCodeAt(0) - 65
+        console.log(`  Letter column "${columnIdentifier}" -> index ${index} -> value: "${resolvedValue}"`)
+        if (index < headers.length) {
           rowValues[index] = resolvedValue
+        }
+      } else {
+        // Find by header name - exact match
+        const headerIndex = headers.findIndex((h: string) => h === columnIdentifier)
+        console.log(`  Named column "${columnIdentifier}" -> index ${headerIndex} -> value: "${resolvedValue}"`)
+        if (headerIndex >= 0) {
+          rowValues[headerIndex] = resolvedValue
         } else {
-          // Find by header name
-          const headerIndex = headers.findIndex((h: string) => h === columnIdentifier)
-          if (headerIndex >= 0) {
-            rowValues[headerIndex] = resolvedValue
+          console.log(`    ⚠️ Column "${columnIdentifier}" not found in headers!`)
+          // Try trimmed match
+          const trimmedIndex = headers.findIndex((h: string) => h.trim() === columnIdentifier.trim())
+          if (trimmedIndex >= 0) {
+            console.log(`    ✓ Found with trimmed match at index ${trimmedIndex}`)
+            rowValues[trimmedIndex] = resolvedValue
           }
         }
       }
     }
 
-    // Replace undefined values with empty strings
+    // Replace undefined values with empty strings - maintain exact array length
     const finalRowValues = rowValues.map(v => v === undefined ? '' : v)
+    
+    console.log("📊 Final row values by position:")
+    finalRowValues.forEach((value, index) => {
+      const header = headers[index] || `Column ${index}`
+      console.log(`  [${index}] ${header}: "${value}"`);
+    })
+    
+    console.log("🔍 Google Sheets Create Row - Column Mapping Summary:", {
+      headersLength: headers.length,
+      fieldMappingKeys: Object.keys(fieldMapping),
+      finalRowValuesLength: finalRowValues.length,
+      insertPosition
+    })
+    
+    // Log each mapping explicitly
+    Object.entries(fieldMapping).forEach(([column, value]) => {
+      const headerIndex = headers.findIndex((h: string) => h === column)
+      console.log(`  Column "${column}" -> Index ${headerIndex} -> Value: "${value}"`)
+      if (headerIndex === -1) {
+        console.log(`    ⚠️ WARNING: Column "${column}" not found in headers!`)
+        // Try case-insensitive match
+        const caseInsensitiveIndex = headers.findIndex((h: string) => h.toLowerCase() === column.toLowerCase())
+        if (caseInsensitiveIndex >= 0) {
+          console.log(`    ℹ️ Found case-insensitive match at index ${caseInsensitiveIndex}`)
+        }
+      }
+    })
+    
+    console.log("📊 Headers from sheet:", headers)
+    console.log("📊 Field names from UI:", Object.keys(fieldMapping))
+
+    // Get sheet metadata if we need to insert at beginning or specific row
+    let sheetId: number | undefined
+    if (insertPosition === 'prepend' || insertPosition === 'specific_row') {
+      const metadataResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
+      
+      if (!metadataResponse.ok) {
+        throw new Error(`Failed to fetch spreadsheet metadata: ${metadataResponse.status}`)
+      }
+      
+      const spreadsheetData = await metadataResponse.json()
+      const sheet = spreadsheetData.sheets?.find((s: any) => s.properties?.title === sheetName)
+      
+      if (!sheet) {
+        throw new Error(`Sheet "${sheetName}" not found in spreadsheet`)
+      }
+      
+      sheetId = sheet.properties.sheetId
+    }
 
     // Determine the range based on insert position
     let range = sheetName
     let insertDataOption = 'INSERT_ROWS'
+    let apiMethod = 'append'
     
     if (insertPosition === 'append') {
       range = `${sheetName}!A:A` // Append to end
       insertDataOption = 'INSERT_ROWS'
-    } else if (insertPosition === 'prepend') {
-      range = `${sheetName}!A2:2` // Insert at row 2 (after headers)
-      insertDataOption = 'INSERT_ROWS'
-    } else if (insertPosition === 'specific_row' && specificRow) {
-      range = `${sheetName}!A${specificRow}:${specificRow}`
-      insertDataOption = 'INSERT_ROWS'
+      apiMethod = 'append'
+    } else if (insertPosition === 'prepend' && sheetId !== undefined) {
+      // For prepend, we need to use batchUpdate to insert a row at position 2
+      // First, insert a blank row at position 2
+      const insertRowResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [{
+              insertDimension: {
+                range: {
+                  sheetId: sheetId,
+                  dimension: "ROWS",
+                  startIndex: 1, // After header row (0-indexed)
+                  endIndex: 2    // Insert 1 row
+                },
+                inheritFromBefore: false
+              }
+            }]
+          }),
+        }
+      )
+      
+      if (!insertRowResponse.ok) {
+        const errorData = await insertRowResponse.json().catch(() => ({}))
+        throw new Error(`Failed to insert row: ${insertRowResponse.status} - ${errorData.error?.message || insertRowResponse.statusText}`)
+      }
+      
+      // Now update the newly inserted row with our data
+      // Use the same approach as append - just specify the row
+      range = `${sheetName}!2:2`
+      apiMethod = 'update'
+    } else if (insertPosition === 'specific_row' && specificRow && sheetId !== undefined) {
+      // For specific row, insert a blank row at that position first
+      const insertRowResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [{
+              insertDimension: {
+                range: {
+                  sheetId: sheetId,
+                  dimension: "ROWS",
+                  startIndex: Number(specificRow) - 1, // Convert to 0-indexed
+                  endIndex: Number(specificRow)        // Insert 1 row
+                },
+                inheritFromBefore: false
+              }
+            }]
+          }),
+        }
+      )
+      
+      if (!insertRowResponse.ok) {
+        const errorData = await insertRowResponse.json().catch(() => ({}))
+        throw new Error(`Failed to insert row: ${insertRowResponse.status} - ${errorData.error?.message || insertRowResponse.statusText}`)
+      }
+      
+      // Use the same approach as append - just specify the row
+      range = `${sheetName}!${specificRow}:${specificRow}`
+      apiMethod = 'update'
     }
 
-    // Insert the row
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=${insertDataOption}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          values: [finalRowValues],
-        }),
-      }
-    )
+    // Insert or update the row data
+    const endpoint = apiMethod === 'append' 
+      ? `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=${insertDataOption}`
+      : `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`
+      
+    const response = await fetch(endpoint, {
+      method: apiMethod === 'append' ? "POST" : "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        values: [finalRowValues],
+      }),
+    })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))

@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react";
+import { LightningLoader } from '@/components/ui/lightning-loader';
 
 interface GoogleSheetsAddRowFieldsProps {
   values: Record<string, any>;
@@ -9,6 +10,7 @@ interface GoogleSheetsAddRowFieldsProps {
   hasHeaders: boolean;
   action: string;
   showPreviewData: boolean;
+  loadingPreview?: boolean;
 }
 
 export function GoogleSheetsAddRowFields({
@@ -17,10 +19,35 @@ export function GoogleSheetsAddRowFields({
   previewData,
   hasHeaders,
   action,
-  showPreviewData
+  showPreviewData,
+  loadingPreview = false
 }: GoogleSheetsAddRowFieldsProps) {
-  // Only show for add action when we have preview data
-  if (action !== 'add' || !showPreviewData || previewData.length === 0) {
+  // Only show for add action
+  if (action !== 'add') {
+    return null;
+  }
+  
+  // Show loading state while fetching column data
+  if (loadingPreview || (!showPreviewData && values.spreadsheetId && values.sheetName)) {
+    return (
+      <div className="mt-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <LightningLoader size="md" color="green" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-green-900">Preparing column fields...</p>
+              <p className="text-xs text-green-700 mt-1">
+                Analyzing your sheet "{values.sheetName}" to create input fields for each column
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Don't show anything if we don't have preview data yet
+  if (!showPreviewData || previewData.length === 0) {
     return null;
   }
 
@@ -212,12 +239,10 @@ export function GoogleSheetsAddRowFields({
                     </div>
                   )}
                   
-                  {/* Show sample value as hint */}
-                  {sampleValue !== null && sampleValue !== undefined && sampleValue !== '' && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Sample: {String(sampleValue).slice(0, 50)}{String(sampleValue).length > 50 ? '...' : ''}
-                    </p>
-                  )}
+                  {/* Show column name as reference */}
+                  <p className="mt-1 text-xs text-slate-500">
+                    Column: {columnName}
+                  </p>
                 </div>
               );
             })}

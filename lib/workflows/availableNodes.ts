@@ -1103,6 +1103,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "end", label: "Add at end of sheet" },
           { value: "specific", label: "Insert at specific row" }
         ],
+        defaultValue: "end",
         description: "Choose where to add the new row",
         helpText: "Add at end will append the row to the bottom of your data. Insert at specific row will add it at the row number you specify."
       },
