@@ -340,9 +340,10 @@ const useWorkflowBuilderState = () => {
     const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
     if (systemIntegrations.includes(integrationId)) return true;
     
-    // Debug logging to understand what's being checked
-    console.log('🔍 Checking connection for:', integrationId);
-    console.log('🔍 Available integrations:', storeIntegrations.map(i => ({ provider: i.provider, status: i.status })));
+    // Only log in development for debugging
+    if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) { // Log 10% of the time to reduce noise
+      console.log('🔍 Checking connection for:', integrationId, 'Total integrations:', storeIntegrations.length);
+    }
     
     // Create a mapping of integration config IDs to possible database provider values
     // This handles cases where the integration ID doesn't match the database provider value
@@ -381,7 +382,6 @@ const useWorkflowBuilderState = () => {
       );
       
       if (connectedGoogleService) {
-        console.log('✅ Found connected Google service:', connectedGoogleService.provider);
         return true;
       }
       
@@ -389,7 +389,6 @@ const useWorkflowBuilderState = () => {
       const connectedProviders = getConnectedProviders();
       const hasAnyGoogleConnected = googleServices.some(service => connectedProviders.includes(service));
       if (hasAnyGoogleConnected) {
-        console.log('✅ Google service connected via getConnectedProviders');
         return true;
       }
       
@@ -407,7 +406,6 @@ const useWorkflowBuilderState = () => {
       );
       
       if (connectedMicrosoftService) {
-        console.log('✅ Found connected Microsoft service:', connectedMicrosoftService.provider);
         return true;
       }
       
@@ -417,28 +415,35 @@ const useWorkflowBuilderState = () => {
     // Check if this specific integration exists in the store
     // Use the mapping to check all possible provider values
     const possibleProviders = providerMappings[integrationId] || [integrationId];
-    console.log('🔍 Checking providers:', possibleProviders);
     
-    const integration = storeIntegrations.find(i => 
-      possibleProviders.includes(i.provider) && i.status === 'connected'
-    );
+    // Also check with simple provider name matching (discord -> discord, etc)
+    const integration = storeIntegrations.find(i => {
+      // Check if status is connected
+      if (i.status !== 'connected') return false;
+      
+      // Check exact match
+      if (i.provider === integrationId) return true;
+      
+      // Check if provider is in the possible providers list
+      if (possibleProviders.includes(i.provider)) return true;
+      
+      // Check if the integration ID matches the provider with different casing or hyphens
+      const normalizedProvider = i.provider.toLowerCase().replace(/-/g, '_');
+      const normalizedId = integrationId.toLowerCase().replace(/-/g, '_');
+      if (normalizedProvider === normalizedId) return true;
+      
+      return false;
+    });
     
     if (integration) {
-      console.log('✅ Found connected integration:', integration.provider);
       return true;
     }
     
     // Use the getConnectedProviders as fallback
     const connectedProviders = getConnectedProviders();
-    console.log('🔍 Connected providers from store:', connectedProviders);
     
     // Check if any of the possible providers are in the connected list
     const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
-    if (isConnected) {
-      console.log('✅ Integration connected via getConnectedProviders');
-    } else {
-      console.log('❌ Integration not connected:', integrationId);
-    }
     
     return isConnected;
   }, [storeIntegrations, getConnectedProviders])
@@ -1741,8 +1746,25 @@ const useWorkflowBuilderState = () => {
 
   // Fetch integrations when component mounts
   useEffect(() => {
-    fetchIntegrations(true) // Force fetch to ensure we have latest data
+    console.log('🔄 Fetching integrations on mount...')
+    console.log('🔄 Current storeIntegrations before fetch:', storeIntegrations.length)
+    fetchIntegrations(true).then(() => {
+      console.log('✅ Integrations fetch completed')
+      // Note: storeIntegrations here is from closure, so it won't be updated
+      // The actual updated data is in the store
+    }) // Force fetch to ensure we have latest data
   }, [fetchIntegrations])
+  
+  // Log when storeIntegrations changes
+  useEffect(() => {
+    console.log('📦 storeIntegrations updated:', storeIntegrations.length, 'integrations')
+    if (storeIntegrations.length > 0) {
+      console.log('📋 Integration details:', storeIntegrations.map(i => ({
+        provider: i.provider,
+        status: i.status
+      })))
+    }
+  }, [storeIntegrations])
 
   useEffect(() => {
     if (workflowId) {

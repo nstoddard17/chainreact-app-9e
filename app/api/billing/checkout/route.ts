@@ -248,8 +248,7 @@ export async function POST(request: NextRequest) {
           },
         },
         allow_promotion_codes: true,
-        // Ensure customer email is set
-        customer_email: user.email,
+        // Don't set customer_email when customer is already set
       })
     } catch (sessionError: any) {
       console.error("[Checkout API] Failed to create checkout session:", sessionError)
