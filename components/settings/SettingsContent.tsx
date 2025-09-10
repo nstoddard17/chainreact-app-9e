@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,9 +13,80 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "@/hooks/use-toast"
 
 export default function SettingsContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("billing")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // Handle URL parameters for success/canceled states
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    const success = searchParams.get("success")
+    const canceled = searchParams.get("canceled")
+    
+    // Set the active tab if specified in URL
+    if (tab) {
+      setActiveTab(tab)
+    }
+    
+    // Handle success state from Stripe checkout
+    if (success === "true") {
+      // Check if this is a new subscription or an update
+      const action = searchParams.get("action") || "upgraded"
+      
+      const messages = {
+        upgraded: {
+          title: "🎉 Welcome to Pro!",
+          description: "Your subscription has been activated successfully. You now have access to all Pro features including unlimited workflows, advanced integrations, and priority support."
+        },
+        changed: {
+          title: "✅ Plan Changed Successfully",
+          description: "Your subscription plan has been updated. Changes will take effect immediately."
+        },
+        reactivated: {
+          title: "🔄 Subscription Reactivated",
+          description: "Welcome back! Your subscription has been reactivated successfully."
+        }
+      }
+      
+      const message = messages[action as keyof typeof messages] || messages.upgraded
+      
+      toast({
+        title: message.title,
+        description: message.description,
+        duration: 6000,
+      })
+      
+      // Set flag for billing component to show welcome banner
+      if (action === "upgraded") {
+        sessionStorage.setItem("just_upgraded", "true")
+      }
+      
+      // Clean up the URL parameters
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete("success")
+      newUrl.searchParams.delete("action")
+      newUrl.searchParams.delete("tab")
+      router.replace(newUrl.pathname + "?tab=billing")
+    }
+    
+    // Handle canceled state from Stripe checkout
+    if (canceled === "true") {
+      toast({
+        title: "Checkout Canceled",
+        description: "Your subscription upgrade was canceled. You can try again anytime.",
+        variant: "default",
+        duration: 5000,
+      })
+      
+      // Clean up the URL parameters
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete("canceled")
+      newUrl.searchParams.delete("tab")
+      router.replace(newUrl.pathname + "?tab=billing")
+    }
+  }, [searchParams, router])
 
   async function handleFacebookDelete() {
     setDeleting(true)

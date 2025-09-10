@@ -249,6 +249,47 @@ const teamsMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Microsoft OneNote field mappings
+const onenoteMappings: Record<string, FieldMapping> = {
+  "microsoft-onenote_action_create_page": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_create_section": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_update_page": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+    pageId: "onenote_pages",
+  },
+  "microsoft-onenote_action_get_page_content": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+    pageId: "onenote_pages",
+  },
+  "microsoft-onenote_action_get_pages": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_copy_page": {
+    sourceNotebookId: "onenote_notebooks",
+    sourceSectionId: "onenote_sections",
+    sourcePageId: "onenote_pages",
+    targetNotebookId: "onenote_notebooks",
+    targetSectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_search": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_delete_page": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+    pageId: "onenote_pages",
+  },
+};
+
 // Facebook field mappings
 const facebookMappings: Record<string, FieldMapping> = {
   facebook_action_create_post: {
@@ -315,6 +356,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...airtableMappings,
   ...outlookMappings,
   ...teamsMappings,
+  ...onenoteMappings,
   ...facebookMappings,
   ...hubspotMappings,
   default: defaultMappings,

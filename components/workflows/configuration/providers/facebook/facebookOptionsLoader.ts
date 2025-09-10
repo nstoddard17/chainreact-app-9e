@@ -17,7 +17,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     return providerId === 'facebook' && this.supportedFields.includes(fieldName);
   }
 
-  async load(params: LoadOptionsParams): Promise<FormattedOption[]> {
+  async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue, signal } = params;
     
     if (!integrationId) {

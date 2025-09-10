@@ -142,6 +142,32 @@ The `/learning` directory serves as the single source of truth for:
 - Implementation walkthroughs
 - Change logs and architectural decisions
 
+## Common Issues and Solutions
+
+### Integration Connection Status Not Showing
+
+**⚠️ CRITICAL: This is a recurring issue that needs to be avoided!**
+
+When modifying integration-related code, the integration connection status often breaks, showing all integrations as disconnected. Here are the common causes and solutions:
+
+#### Common Causes:
+1. **Creating server-side utilities that initialize Supabase incorrectly** - Action handlers that create their own Supabase clients can cause issues
+2. **Modifying the status checking logic** - Changing how `status === 'connected'` is checked
+3. **Breaking the integration fetching** - Not properly fetching integrations in components
+4. **Import/export issues** - Circular dependencies or missing exports
+
+#### How to Fix:
+1. **Check that integrations are being fetched**: Ensure `fetchIntegrations()` is called in a useEffect
+2. **Verify the store has data**: Check that `storeIntegrations` from `useIntegrationStore()` is populated
+3. **Don't change status checking**: Keep it as `status === 'connected'` (not `!== 'disconnected'`)
+4. **Use proper imports**: Import `getConnectedProviders` from the store, not create new functions
+
+#### Prevention:
+- **DON'T create new Supabase clients in action handlers** - Pass the userId and fetch within the action using existing patterns
+- **DON'T modify the integration status checking logic** unless absolutely necessary
+- **DO test integration status display** after any integration-related changes
+- **DO use the existing patterns** from working integrations like Gmail or Discord
+
 ## Key Patterns
 
 ### Error Handling

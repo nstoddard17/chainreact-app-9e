@@ -37,23 +37,36 @@ export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integrati
       }
     }
     
-    // Try multiple OneNote API endpoints for pages
-    const endpoints = [
-      // All pages with content details
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,contentUrl,lastModifiedDateTime,parentSection&$top=100',
-      // Beta API with expanded section info
-      'https://graph.microsoft.com/beta/me/onenote/pages?$expand=parentSection',
-      // Standard API with basic selection
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,createdDateTime',
-      // Simple top 10 results
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$top=10',
-      // Ordered by last modified
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$orderby=lastModifiedDateTime desc',
-      // Ordered by title
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$orderby=title',
-      // Beta API with basic selection
-      'https://graph.microsoft.com/beta/me/onenote/pages?$select=id,title'
-    ]
+    // Build endpoints based on whether we're filtering by section
+    const sectionId = options?.sectionId
+    let endpoints: string[]
+    
+    if (sectionId) {
+      // Get pages for a specific section
+      endpoints = [
+        `https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages?$select=id,title,lastModifiedDateTime&$top=100`,
+        `https://graph.microsoft.com/beta/me/onenote/sections/${sectionId}/pages?$select=id,title`,
+        `https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages`,
+      ]
+    } else {
+      // Get all pages
+      endpoints = [
+        // All pages with content details
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,contentUrl,lastModifiedDateTime,parentSection&$top=100',
+        // Beta API with expanded section info
+        'https://graph.microsoft.com/beta/me/onenote/pages?$expand=parentSection',
+        // Standard API with basic selection
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,createdDateTime',
+        // Simple top 10 results
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$top=10',
+        // Ordered by last modified
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$orderby=lastModifiedDateTime desc',
+        // Ordered by title
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$orderby=title',
+        // Beta API with basic selection
+        'https://graph.microsoft.com/beta/me/onenote/pages?$select=id,title'
+      ]
+    }
     
     const result = await tryMultipleOneNoteEndpoints<OneNotePage>(
       tokenResult.token!,

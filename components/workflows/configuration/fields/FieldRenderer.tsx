@@ -106,7 +106,37 @@ export function FieldRenderer({
     (field.dynamic && dynamicOptions?.[field.name]) || 
     [];
 
-
+  // Auto-load options for combobox fields with dynamic data
+  useEffect(() => {
+    if (field.type === 'combobox' && field.dynamic && onDynamicLoad) {
+      console.log('[FieldRenderer] Checking if should load options for combobox:', {
+        fieldName: field.name,
+        isDynamic: field.dynamic,
+        hasOptions: fieldOptions.length > 0,
+        isLoading: loadingDynamic,
+        dependsOn: field.dependsOn,
+        parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
+      });
+      
+      // Only load if we don't have options yet
+      if (!fieldOptions.length && !loadingDynamic) {
+        // Check if we need to load based on parent dependency
+        if (field.dependsOn) {
+          const parentValue = parentValues[field.dependsOn];
+          if (parentValue) {
+            console.log('[FieldRenderer] Loading dependent field options:', field.name, 'depends on', field.dependsOn, '=', parentValue);
+            onDynamicLoad(field.name, field.dependsOn, parentValue);
+          } else {
+            console.log('[FieldRenderer] Skipping load - parent dependency not set:', field.dependsOn);
+          }
+        } else {
+          // No dependency, load directly
+          console.log('[FieldRenderer] Loading field options directly:', field.name);
+          onDynamicLoad(field.name);
+        }
+      }
+    }
+  }, [field.type, field.dynamic, field.name, field.dependsOn, parentValues[field.dependsOn], fieldOptions.length, loadingDynamic, onDynamicLoad]);
 
   // Determine which integration this field belongs to
   const getIntegrationProvider = (field: any) => {
@@ -463,6 +493,49 @@ export function FieldRenderer({
             selectedValues={bubbleValues}
             parentValues={parentValues}
           />
+        );
+
+      case "combobox":
+        // Combobox fields with search capability and dynamic loading
+        const comboboxOptions = Array.isArray(field.options) 
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+        
+        console.log('[FieldRenderer] Rendering combobox field:', {
+          fieldName: field.name,
+          fieldType: field.type,
+          isDynamic: field.dynamic,
+          dependsOn: field.dependsOn,
+          parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
+          optionsCount: comboboxOptions.length,
+          loadingDynamic,
+          disabled: loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn]),
+          options: comboboxOptions
+        });
+        
+        return (
+          <div className="space-y-2">
+            <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+              {field.label || field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            {field.description && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
+            <Combobox
+              value={value || ""}
+              onChange={onChange}
+              options={comboboxOptions}
+              placeholder={field.placeholder || `Select ${field.label || field.name}...`}
+              searchPlaceholder={`Search ${field.label || field.name}...`}
+              emptyPlaceholder={loadingDynamic ? "Loading options..." : "No options found"}
+              disabled={loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn])}
+              creatable={field.creatable || false}
+            />
+            {error && (
+              <p className="text-xs text-red-500 mt-1">{error}</p>
+            )}
+          </div>
         );
 
       case "boolean":
