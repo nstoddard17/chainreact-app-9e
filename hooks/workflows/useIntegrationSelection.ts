@@ -215,6 +215,7 @@ export function useIntegrationSelection() {
     'blackbaud',
     'box',
     'dropbox',
+    'github',
     'gitlab',
     'instagram',
     'linkedin',

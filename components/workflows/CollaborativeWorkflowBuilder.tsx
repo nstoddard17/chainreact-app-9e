@@ -59,6 +59,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/nodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { useToast } from "@/hooks/use-toast"
 import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from "@/lib/workflows/configPersistence"
 import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
@@ -5539,26 +5540,11 @@ function WorkflowBuilderContent() {
     return ['all', ...Array.from(new Set(allCategories))];
   }, [availableIntegrations]);
 
-  // Integrations to mark as coming soon in the trigger selection modal
-  const comingSoonIntegrations = useMemo(() => new Set([
-    'beehiiv',
-    'manychat',
-    'gumroad',
-    'kit',
-    'paypal',
-    'shopify',
-    'blackbaud',
-    'box',
-    'dropbox',
-    'gitlab',
-    'instagram',
-    'linkedin',
-    'teams',  // Microsoft Teams uses 'teams' as its ID
-    'stripe',
-    'tiktok',
-    'youtube',
-    'youtube-studio',
-  ]), []);
+  // Get comingSoonIntegrations from the shared hook to maintain single source of truth
+  const { comingSoonIntegrations: hookComingSoonIntegrations } = useIntegrationSelection();
+  
+  // Use the hook's coming soon integrations list
+  const comingSoonIntegrations = hookComingSoonIntegrations;
 
   const handleOpenTriggerDialog = () => {
     setSelectedIntegration(null);

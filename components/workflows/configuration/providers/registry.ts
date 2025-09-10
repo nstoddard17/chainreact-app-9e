@@ -6,6 +6,8 @@
 import { ProviderOptionsLoader, ProviderRegistry as IProviderRegistry } from './types';
 import { DiscordOptionsLoader } from './discord/discordOptionsLoader';
 import { AirtableOptionsLoader } from './airtable/airtableOptionsLoader';
+import { FacebookOptionsLoader } from './facebook/facebookOptionsLoader';
+import { hubspotOptionsLoader } from './hubspot/hubspotOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -24,6 +26,12 @@ class ProviderRegistryImpl implements IProviderRegistry {
     
     // Register Airtable loader
     this.register('airtable', new AirtableOptionsLoader());
+    
+    // Register Facebook loader
+    this.register('facebook', new FacebookOptionsLoader());
+    
+    // Register HubSpot loader
+    this.register('hubspot', hubspotOptionsLoader);
     
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

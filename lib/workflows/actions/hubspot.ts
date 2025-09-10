@@ -382,6 +382,226 @@ export async function createHubSpotCompany(
 }
 
 /**
+ * Add contact to HubSpot list
+ */
+export async function addContactToHubSpotList(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      contactEmail,
+      listId
+    } = resolvedConfig
+
+    if (!contactEmail) {
+      throw new Error("Contact email is required")
+    }
+
+    if (!listId) {
+      throw new Error("List ID is required")
+    }
+
+    // Get HubSpot integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "hubspot")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("HubSpot integration not connected")
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "hubspot")
+
+    // First, get contact ID from email
+    const searchResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/search`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        filterGroups: [{
+          filters: [{
+            propertyName: "email",
+            operator: "EQ",
+            value: contactEmail
+          }]
+        }]
+      })
+    })
+
+    if (!searchResponse.ok) {
+      const errorData = await searchResponse.json().catch(() => ({}))
+      throw new Error(`Failed to find contact: ${errorData.message || searchResponse.statusText}`)
+    }
+
+    const searchResult = await searchResponse.json()
+    
+    if (!searchResult.results || searchResult.results.length === 0) {
+      throw new Error(`No contact found with email: ${contactEmail}`)
+    }
+
+    const contactId = searchResult.results[0].id
+
+    // Add contact to list
+    const response = await fetch(`https://api.hubapi.com/crm/v3/lists/${listId}/memberships/add`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify([contactId])
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      
+      // Check if it's because the list is not manual
+      if (errorData.message && errorData.message.includes("DYNAMIC")) {
+        throw new Error("Cannot add contacts to dynamic lists. Please select a manual list.")
+      }
+      
+      throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        contactId: contactId,
+        contactEmail: contactEmail,
+        listId: listId,
+        membersAdded: result.recordsIdsAdded || [contactId],
+        message: `Contact ${contactEmail} added to list successfully`
+      },
+      message: `Successfully added contact ${contactEmail} to list`
+    }
+
+  } catch (error: any) {
+    console.error("HubSpot add contact to list error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to add contact to list"
+    }
+  }
+}
+
+/**
+ * Update an existing HubSpot deal
+ */
+export async function updateHubSpotDeal(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      dealId,
+      dealname,
+      amount,
+      dealstage,
+      closedate,
+      dealtype,
+      description
+    } = resolvedConfig
+
+    if (!dealId) {
+      throw new Error("Deal ID is required")
+    }
+
+    // Get HubSpot integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "hubspot")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("HubSpot integration not connected")
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "hubspot")
+
+    // Prepare update properties - only include fields that have values
+    const properties: Record<string, any> = {}
+    
+    if (dealname) properties.dealname = dealname
+    if (amount !== undefined && amount !== null) properties.amount = amount.toString()
+    if (dealstage) properties.dealstage = dealstage
+    if (closedate) properties.closedate = closedate
+    if (dealtype) properties.dealtype = dealtype
+    if (description) properties.description = description
+
+    if (Object.keys(properties).length === 0) {
+      throw new Error("No fields to update")
+    }
+
+    // Update deal
+    const response = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${dealId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        properties: properties
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        dealId: result.id,
+        dealname: result.properties.dealname,
+        amount: result.properties.amount,
+        dealstage: result.properties.dealstage,
+        closedate: result.properties.closedate,
+        dealtype: result.properties.dealtype,
+        description: result.properties.description,
+        updatedAt: result.updatedAt,
+        hubspotResponse: result
+      },
+      message: `HubSpot deal "${result.properties.dealname}" updated successfully`
+    }
+
+  } catch (error: any) {
+    console.error("HubSpot update deal error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to update HubSpot deal"
+    }
+  }
+}
+
+/**
  * Create a new HubSpot deal
  */
 export async function createHubSpotDeal(
@@ -400,12 +620,16 @@ export async function createHubSpotDeal(
       closedate,
       dealtype,
       description,
-      company,
-      contact
+      associatedCompanyId,
+      associatedContactId
     } = resolvedConfig
 
     if (!dealname) {
       throw new Error("Deal name is required")
+    }
+
+    if (!dealstage) {
+      throw new Error("Deal stage is required")
     }
 
     // Get HubSpot integration
@@ -428,12 +652,12 @@ export async function createHubSpotDeal(
 
     // Prepare deal properties
     const properties: Record<string, any> = {
-      dealname: dealname
+      dealname: dealname,
+      dealstage: dealstage
     }
 
     if (amount) properties.amount = amount
-    if (pipeline) properties.pipeline = pipeline
-    if (dealstage) properties.dealstage = dealstage
+    if (pipeline) properties.pipeline = pipeline || "default"
     if (closedate) properties.closedate = closedate
     if (dealtype) properties.dealtype = dealtype
     if (description) properties.description = description
@@ -461,8 +685,8 @@ export async function createHubSpotDeal(
     const result = await response.json()
 
     // Associate with company if provided
-    if (company) {
-      await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${result.id}/associations/companies/${company}/deal_to_company`, {
+    if (associatedCompanyId) {
+      await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${result.id}/associations/companies/${associatedCompanyId}/deal_to_company`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -472,8 +696,8 @@ export async function createHubSpotDeal(
     }
 
     // Associate with contact if provided
-    if (contact) {
-      await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${result.id}/associations/contacts/${contact}/deal_to_contact`, {
+    if (associatedContactId) {
+      await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${result.id}/associations/contacts/${associatedContactId}/deal_to_contact`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -495,7 +719,9 @@ export async function createHubSpotDeal(
         description: result.properties.description,
         createdAt: result.createdAt,
         updatedAt: result.updatedAt,
-        hubspotResponse: result
+        hubspotResponse: result,
+        associatedCompanyId: associatedCompanyId,
+        associatedContactId: associatedContactId
       },
       message: `HubSpot deal "${result.properties.dealname}" created successfully`
     }

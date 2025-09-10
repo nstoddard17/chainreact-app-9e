@@ -2,6 +2,12 @@
 
 *Latest updates are added at the top with proper dates*
 
+## September 10, 2025
+
+Enhanced the HubSpot integration to provide dynamic dropdown menus for selecting lists, companies, contacts, and deals directly within workflow actions. Fixed an authentication issue where access tokens weren't being properly decrypted before API calls. Now when users configure HubSpot actions like "Add Contact to List", they'll see their actual HubSpot data in easy-to-use dropdowns instead of having to manually enter IDs. The interface also provides helpful messages when a HubSpot account needs to be connected, making the setup process more intuitive.
+
+Fixed the GitHub integration to properly show as "coming soon" in the workflow builder, matching other upcoming integrations. Refactored the coming soon integrations list to use a single source of truth, eliminating duplicate configurations that were causing UI inconsistencies.
+
 ## January 10, 2025
 
 ### Simplified Discord Configuration to Fix Browser Freeze

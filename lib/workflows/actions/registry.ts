@@ -95,6 +95,8 @@ import {
   createHubSpotContact,
   createHubSpotCompany,
   createHubSpotDeal,
+  addContactToHubSpotList,
+  updateHubSpotDeal,
 } from './hubspot'
 
 // Facebook actions
@@ -284,6 +286,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_create_contact": createHubSpotContact,
   "hubspot_action_create_company": createHubSpotCompany,
   "hubspot_action_create_deal": createHubSpotDeal,
+  "hubspot_action_add_contact_to_list": addContactToHubSpotList,
+  "hubspot_action_update_deal": updateHubSpotDeal,
   
   // Facebook actions
   "facebook_action_create_post": createFacebookPost,

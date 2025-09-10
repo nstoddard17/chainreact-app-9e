@@ -688,8 +688,11 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes - updated to match exactly what's in the developer portal
+  // HubSpot scopes - must match exactly what's configured in HubSpot app settings
   const hubspotScopes = [
+    "oauth",  // Required for OAuth flow
+    "crm.lists.read",
+    "crm.lists.write",
     "crm.objects.companies.read",
     "crm.objects.companies.write",
     "crm.objects.contacts.read",
