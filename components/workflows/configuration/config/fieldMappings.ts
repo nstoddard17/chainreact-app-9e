@@ -61,9 +61,11 @@ const discordMappings: Record<string, FieldMapping> = {
     messageId: "discord_messages",
   },
   discord_action_delete_message: {
-    channelId: "discord_channels",
     guildId: "discord_guilds",
-    messageId: "discord_messages",
+    channelId: "discord_channels",
+    userId: "discord_channel_members",
+    userIds: "discord_channel_members",
+    messageIds: "discord_messages",
   },
   discord_action_create_channel: {
     guildId: "discord_guilds",

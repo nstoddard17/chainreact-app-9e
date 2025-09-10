@@ -24,14 +24,14 @@ This guide will help you set up Stripe for the billing system in ChainReact.
 1. In the product page, click "Add price"
 2. Create Monthly Price:
    - **Pricing model**: Standard pricing
-   - **Price**: $20.00
+   - **Price**: $19.99
    - **Billing period**: Monthly
    - Save and note the Price ID (starts with `price_`)
 
 3. Create Annual Price:
    - Click "Add another price"
    - **Pricing model**: Standard pricing
-   - **Price**: $180.00 
+   - **Price**: $179.99 
    - **Billing period**: Yearly
    - Save and note the Price ID (starts with `price_`)
 

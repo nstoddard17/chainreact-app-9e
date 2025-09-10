@@ -828,22 +828,219 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
 }
 
 /**
- * Delete a message in a Discord channel
+ * Delete message(s) in a Discord channel with filtering options
  */
 export async function deleteDiscordMessage(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { channelId, messageId } = resolvedConfig
+    const { channelId, messageIds, userId: filterUserId, userIds: filterUserIds, keywords } = resolvedConfig
+    
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bot ${botToken}` }
-    })
-    if (!response.ok) throw new Error(`Failed to delete message: ${response.status}`)
-    return { success: true, output: {}, message: "Message deleted successfully" }
+    
+    // Handle both single userId (legacy) and multiple userIds (new)
+    const userIdsToFilter = filterUserIds || (filterUserId ? [filterUserId] : [])
+    
+    // If no filters are provided and no messages selected, error out
+    if (!messageIds?.length && userIdsToFilter.length === 0 && (!keywords || keywords.length === 0)) {
+      throw new Error("Please select messages to delete or provide filter criteria")
+    }
+    
+    let messagesToDelete: string[] = []
+    
+    // If specific message IDs are provided, use those
+    if (messageIds && messageIds.length > 0) {
+      messagesToDelete = messageIds
+    }
+    
+    // If filters are provided, fetch and filter messages
+    if (userIdsToFilter.length > 0 || (keywords && keywords.length > 0)) {
+      // Fetch recent messages from the channel
+      const fetchResponse = await fetch(
+        `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
+        {
+          headers: { 
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json"
+          }
+        }
+      )
+      
+      if (!fetchResponse.ok) {
+        throw new Error(`Failed to fetch messages: ${fetchResponse.status}`)
+      }
+      
+      const messages = await fetchResponse.json()
+      
+      // Filter messages based on criteria
+      const filteredMessages = messages.filter((msg: any) => {
+        // Filter by users (multiple)
+        if (userIdsToFilter.length > 0 && !userIdsToFilter.includes(msg.author?.id)) {
+          return false
+        }
+        
+        // Filter by keywords
+        if (keywords && keywords.length > 0) {
+          const messageContent = (msg.content || "").toLowerCase()
+          const hasKeyword = keywords.some((keyword: string) => 
+            messageContent.includes(keyword.toLowerCase())
+          )
+          if (!hasKeyword) {
+            return false
+          }
+        }
+        
+        return true
+      })
+      
+      // Add filtered message IDs to the delete list
+      const filteredIds = filteredMessages.map((msg: any) => msg.id)
+      messagesToDelete = [...new Set([...messagesToDelete, ...filteredIds])]
+    }
+    
+    // Delete messages
+    let deletedCount = 0
+    let failedCount = 0
+    const errors: string[] = []
+    
+    // If we have 2 or more messages and they're recent (within 14 days), use bulk delete
+    if (messagesToDelete.length >= 2) {
+      try {
+        // Discord bulk delete endpoint (can delete 2-100 messages at once)
+        const bulkResponse = await fetch(
+          `https://discord.com/api/v10/channels/${channelId}/messages/bulk-delete`,
+          {
+            method: "POST",
+            headers: { 
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              messages: messagesToDelete.slice(0, 100) // Max 100 messages per bulk delete
+            })
+          }
+        )
+        
+        if (bulkResponse.ok) {
+          deletedCount = Math.min(messagesToDelete.length, 100)
+          
+          // If there are more than 100 messages, delete the rest individually
+          if (messagesToDelete.length > 100) {
+            for (const messageId of messagesToDelete.slice(100)) {
+              const response = await fetch(
+                `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
+                {
+                  method: "DELETE",
+                  headers: { Authorization: `Bot ${botToken}` }
+                }
+              )
+              
+              if (response.ok) {
+                deletedCount++
+              } else {
+                failedCount++
+                errors.push(`Message ${messageId}: ${response.status}`)
+              }
+              
+              // Add delay to avoid rate limits
+              await new Promise(resolve => setTimeout(resolve, 500))
+            }
+          }
+        } else {
+          // Bulk delete failed, fall back to individual deletion
+          for (const messageId of messagesToDelete) {
+            const response = await fetch(
+              `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: `Bot ${botToken}` }
+              }
+            )
+            
+            if (response.ok) {
+              deletedCount++
+            } else {
+              failedCount++
+              errors.push(`Message ${messageId}: ${response.status}`)
+            }
+            
+            // Add delay to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 500))
+          }
+        }
+      } catch (error) {
+        // Fall back to individual deletion
+        for (const messageId of messagesToDelete) {
+          try {
+            const response = await fetch(
+              `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: `Bot ${botToken}` }
+              }
+            )
+            
+            if (response.ok) {
+              deletedCount++
+            } else {
+              failedCount++
+              errors.push(`Message ${messageId}: ${response.status}`)
+            }
+          } catch (err) {
+            failedCount++
+            errors.push(`Message ${messageId}: ${err}`)
+          }
+          
+          // Add delay to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    } else if (messagesToDelete.length === 1) {
+      // Single message deletion
+      const response = await fetch(
+        `https://discord.com/api/v10/channels/${channelId}/messages/${messagesToDelete[0]}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bot ${botToken}` }
+        }
+      )
+      
+      if (response.ok) {
+        deletedCount = 1
+      } else {
+        failedCount = 1
+        errors.push(`Failed to delete message: ${response.status}`)
+      }
+    }
+    
+    // Build result message
+    let resultMessage = `Deleted ${deletedCount} message${deletedCount !== 1 ? 's' : ''}`
+    if (failedCount > 0) {
+      resultMessage += `, ${failedCount} failed`
+    }
+    if (filterUserId) {
+      resultMessage += ` (filtered by user)`
+    }
+    if (keywords && keywords.length > 0) {
+      resultMessage += ` (filtered by keywords: ${keywords.join(', ')})`
+    }
+    
+    return { 
+      success: deletedCount > 0, 
+      output: { 
+        deletedCount, 
+        failedCount,
+        totalProcessed: messagesToDelete.length,
+        errors: errors.length > 0 ? errors : undefined
+      }, 
+      message: resultMessage 
+    }
   } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to delete message" }
+    return { 
+      success: false, 
+      output: {}, 
+      message: error.message || "Failed to delete messages" 
+    }
   }
 }
 

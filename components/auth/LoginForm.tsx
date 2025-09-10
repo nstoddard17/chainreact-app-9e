@@ -17,6 +17,7 @@ function LoginFormContent() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [providerError, setProviderError] = useState("")
+  const [loginError, setLoginError] = useState("")
   const { signIn, signInWithGoogle } = useAuthStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -66,6 +67,7 @@ function LoginFormContent() {
     e.preventDefault()
     setLoading(true)
     setProviderError('')
+    setLoginError('')
 
     try {
       // Check if user should use Google instead
@@ -77,15 +79,34 @@ function LoginFormContent() {
       }
 
       await signIn(email, password)
-      window.location.href = getRedirectUrl()
-    } catch (error) {
+      
+      // Small delay to ensure auth state is propagated
+      setTimeout(() => {
+        router.push(getRedirectUrl())
+      }, 100)
+    } catch (error: any) {
       console.error("Login error:", error)
+      
+      // Set specific error message based on error type
+      let errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      
+      if (error.message?.toLowerCase().includes('invalid')) {
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      } else if (error.message?.toLowerCase().includes('not found')) {
+        errorMessage = "No account found with this email. Please sign up first.";
+      } else if (error.message?.toLowerCase().includes('network')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      }
+      
+      setLoginError(errorMessage)
+      
+      // Also show toast for accessibility
       toast({
         title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
-    } finally {
+      
       setLoading(false)
     }
   }
@@ -93,11 +114,11 @@ function LoginFormContent() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setProviderError('')
+    setLoginError('')
     try {
       await signInWithGoogle()
-      setTimeout(() => {
-        window.location.href = getRedirectUrl()
-      }, 1000)
+      // Google sign-in redirects automatically via OAuth flow
+      // No need for manual navigation
     } catch (error) {
       console.error("Google sign in error:", error)
       toast({
@@ -105,7 +126,6 @@ function LoginFormContent() {
         description: "Could not sign in with Google. Please try again.",
         variant: "destructive",
       })
-    } finally {
       setLoading(false)
     }
   }
@@ -114,10 +134,11 @@ function LoginFormContent() {
     const newEmail = e.target.value;
     setEmail(newEmail);
     
-    // Clear previous error when user starts typing
+    // Only clear provider error when user starts typing
     if (providerError) {
       setProviderError('');
     }
+    // Don't clear login error - let user see what went wrong
     
     // Check provider when user finishes typing (debounced)
     if (newEmail && newEmail.includes('@')) {
@@ -167,13 +188,34 @@ function LoginFormContent() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    // Don't clear login error - let user see what went wrong
+                  }}
                   className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your password"
                   required
                 />
               </div>
             </div>
+
+            {/* Login Error Message */}
+            {loginError && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-red-800">
+                      {loginError}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button
               type="submit"

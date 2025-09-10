@@ -673,6 +673,56 @@ export function FieldRenderer({
         // Return null as the preview UI is handled at the form level
         return null;
 
+      case "tag-input":
+        const { TagInput } = require("@/components/ui/tag-input");
+        return (
+          <TagInput
+            value={value || []}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            error={error}
+          />
+        );
+
+      case "multi-select":
+        // Check if this is a Discord messages field
+        if (field.dynamic === "discord_messages") {
+          const { DiscordMultiMessageSelector } = require("./discord/DiscordMultiMessageSelector");
+          return (
+            <DiscordMultiMessageSelector
+              field={field}
+              value={value || []}
+              onChange={onChange}
+              options={fieldOptions}
+              placeholder={field.placeholder}
+              error={error}
+              isLoading={loadingDynamic}
+            />
+          );
+        }
+        
+        // Default multi-select using MultiCombobox
+        const multiSelectOpts = Array.isArray(field.options)
+          ? field.options.map(opt => ({
+              value: String(opt.value),
+              label: opt.label || String(opt.value)
+            }))
+          : fieldOptions.map(opt => ({
+              value: opt.value || opt.id || "",
+              label: opt.label || opt.name || opt.value || opt.id || ""
+            }));
+            
+        return (
+          <MultiCombobox
+            options={multiSelectOpts}
+            value={value || []}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+          />
+        );
+
       default:
         return (
           <GenericTextInput

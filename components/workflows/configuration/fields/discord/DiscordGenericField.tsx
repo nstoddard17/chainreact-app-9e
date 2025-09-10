@@ -343,6 +343,7 @@ function DiscordGenericFieldComponent({
           <SelectValue placeholder={
             field.name === 'messageId' ? 'Loading Discord messages...' : 
             field.name === 'filterAuthor' ? 'Loading server members...' : 
+            field.name === 'userId' ? 'Loading channel members...' :
             'Loading options...'
           } />
         </SelectTrigger>
@@ -481,6 +482,7 @@ function DiscordGenericFieldComponent({
       >
         <SelectValue placeholder={
         field.name === 'authorFilter' ? "Select a user..." :
+        field.name === 'userId' ? "Select a user..." :
         field.placeholder || "Select an option..."
       } />
       </SelectTrigger>

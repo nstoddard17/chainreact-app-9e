@@ -28,9 +28,11 @@ export function createPopupResponse(
       
       // Create response data object
       const responseData = {
-        type: 'oauth-${type}',
+        type: 'oauth_complete',
+        success: ${type === 'success'},
         provider: '${safeProvider}',
         message: '${safeMessage}',
+        error: ${type === 'error' ? `'${safeMessage}'` : 'null'},
         timestamp: new Date().toISOString()
       };
       
