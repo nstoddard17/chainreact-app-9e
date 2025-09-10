@@ -4,7 +4,9 @@
 
 ## September 10, 2025
 
-Enhanced the HubSpot integration to provide dynamic dropdown menus for selecting lists, companies, contacts, and deals directly within workflow actions. Fixed an authentication issue where access tokens weren't being properly decrypted before API calls. Now when users configure HubSpot actions like "Add Contact to List", they'll see their actual HubSpot data in easy-to-use dropdowns instead of having to manually enter IDs. The interface also provides helpful messages when a HubSpot account needs to be connected, making the setup process more intuitive.
+Enhanced the HubSpot integration to provide dynamic dropdown menus for selecting lists, companies, contacts, and deals directly within workflow actions. Fixed multiple critical issues with the HubSpot OAuth flow including missing scopes for list access, token decryption failures, and DNS resolution problems. The integration now properly requests all necessary permissions including the oauth scope and CRM list read/write access. Also resolved a persistent bug where stale OAuth popup references would trigger false "cancelled by user" errors when navigating to the integrations page. The popup manager now properly cleans up stale references and initializes correctly on first use.
+
+Fixed Next.js 15 compatibility issues with dynamic route parameters that were preventing users from disconnecting integrations. Updated all API routes to properly await params before accessing their properties, ensuring smooth integration management across the platform.
 
 Fixed the GitHub integration to properly show as "coming soon" in the workflow builder, matching other upcoming integrations. Refactored the coming soon integrations list to use a single source of truth, eliminating duplicate configurations that were causing UI inconsistencies.
 
