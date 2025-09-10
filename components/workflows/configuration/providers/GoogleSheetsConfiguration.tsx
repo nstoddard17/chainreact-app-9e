@@ -75,6 +75,26 @@ export function GoogleSheetsConfiguration({
   const [googleSheetsSelectedRows, setGoogleSheetsSelectedRows] = useState<Set<string>>(new Set());
   const [googleSheetsHasHeaders, setGoogleSheetsHasHeaders] = useState(true);
   
+  // Track column update values separately to ensure they're captured
+  const [columnUpdateValues, setColumnUpdateValues] = useState<Record<string, any>>({});
+  
+  // Wrap setValue to capture column_ fields
+  const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
+    console.log(`🔧 [GoogleSheets] Setting value: ${key} = ${value}`);
+    
+    // Always set in the main values
+    setValue(key, value);
+    
+    // Also track column_ fields separately
+    if (key.startsWith('column_')) {
+      setColumnUpdateValues(prev => ({
+        ...prev,
+        [key]: value
+      }));
+      console.log(`🔧 [GoogleSheets] Tracked column field: ${key} = ${value}`);
+    }
+  }, [setValue]);
+  
   const { getIntegrationByProvider } = useIntegrationStore();
 
   // Track previous action to detect changes
@@ -365,7 +385,7 @@ export function GoogleSheetsConfiguration({
           <GoogleSheetsUpdateFields
             key={`update-fields-${index}`}
             values={values}
-            setValue={setValue}
+            setValue={setValueWithColumnTracking}
             selectedRows={googleSheetsSelectedRows}
             previewData={previewData}
             hasHeaders={googleSheetsHasHeaders}
@@ -398,6 +418,12 @@ export function GoogleSheetsConfiguration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🎯 [GoogleSheets] Form submission started');
+    console.log('🎯 [GoogleSheets] Current form values:', values);
+    console.log('🎯 [GoogleSheets] All form value keys:', Object.keys(values));
+    console.log('🎯 [GoogleSheets] Action:', values.action);
+    console.log('🎯 [GoogleSheets] Selected rows:', googleSheetsSelectedRows);
+    
     // Validate only visible required fields
     const requiredFields = visibleFields.filter(f => f.required);
     const errors: Record<string, string> = {};
@@ -419,7 +445,86 @@ export function GoogleSheetsConfiguration({
       return;
     }
     
-    await onSubmit(values);
+    // Prepare values for submission
+    let submissionValues = { ...values };
+    
+    // For update action, convert column_ fields to updateMapping
+    if (values.action === 'update') {
+      console.log('🔄 Processing update action with values:', values);
+      console.log('🔄 All value keys:', Object.keys(values));
+      console.log('🔄 Column fields from values:', Object.keys(values).filter(k => k.startsWith('column_')));
+      console.log('🔄 Tracked column values:', columnUpdateValues);
+      
+      const updateMapping: Record<string, any> = {};
+      
+      // Use the tracked column values which should have all the updates
+      const allColumnValues = { ...columnUpdateValues };
+      
+      // Also check the main values for any column_ fields
+      Object.keys(values).forEach(key => {
+        if (key.startsWith('column_')) {
+          allColumnValues[key] = values[key];
+        }
+      });
+      
+      console.log('🔄 Combined column values:', allColumnValues);
+      
+      // Process all column fields
+      Object.keys(allColumnValues).forEach(key => {
+        if (key.startsWith('column_')) {
+          const columnName = key.replace('column_', '');
+          const value = allColumnValues[key];
+          console.log(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
+          // Only include fields that have been modified (not empty)
+          if (value !== undefined && value !== '') {
+            updateMapping[columnName] = value;
+            console.log(`    ✓ Added to updateMapping: ${columnName} = "${value}"`);
+          } else {
+            console.log(`    ✗ Skipped (empty or undefined)`);
+          }
+        }
+      });
+      
+      console.log('🔄 Final updateMapping:', updateMapping);
+      
+      // Add updateMapping to submission values
+      submissionValues.updateMapping = updateMapping;
+      
+      // Set row number if a row is selected
+      if (googleSheetsSelectedRows.size === 1) {
+        const selectedRowId = Array.from(googleSheetsSelectedRows)[0];
+        const selectedRow = previewData.find((row: any) => row.id === selectedRowId);
+        if (selectedRow) {
+          // Set BOTH field names to ensure compatibility
+          submissionValues.rowNumber = selectedRow.rowNumber;
+          submissionValues.updateRowNumber = selectedRow.rowNumber;  // Also set this for compatibility
+          submissionValues.findRowBy = 'row_number';
+          console.log('📊 Selected row for update:', {
+            rowId: selectedRowId,
+            rowNumber: selectedRow.rowNumber,
+            rowData: selectedRow
+          });
+        }
+      }
+      
+      // Clean up column_ fields from submission
+      Object.keys(submissionValues).forEach(key => {
+        if (key.startsWith('column_')) {
+          delete submissionValues[key];
+        }
+      });
+      
+      console.log('📊 Submitting update with full config:', {
+        updateMapping,
+        rowNumber: submissionValues.rowNumber,
+        findRowBy: submissionValues.findRowBy,
+        spreadsheetId: submissionValues.spreadsheetId,
+        sheetName: submissionValues.sheetName,
+        action: submissionValues.action
+      });
+    }
+    
+    await onSubmit(submissionValues);
   };
   
   const handleConfirmDelete = async () => {
@@ -453,7 +558,7 @@ export function GoogleSheetsConfiguration({
             {showPreviewData && values.action === 'update' && googleSheetsSelectedRows.size > 0 && (
               <GoogleSheetsUpdateFields
                 values={values}
-                setValue={setValue}
+                setValue={setValueWithColumnTracking}
                 selectedRows={googleSheetsSelectedRows}
                 previewData={previewData}
                 hasHeaders={googleSheetsHasHeaders}
