@@ -76,6 +76,22 @@ export async function POST(request: Request) {
       })
     }
     
+    // Log Google Sheets node config if present
+    const sheetsNode = allNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
+    if (sheetsNode) {
+      console.log('📊 [Execute Route] Google Sheets node config received:', {
+        nodeId: sheetsNode.id,
+        hasConfig: !!sheetsNode.data?.config,
+        configKeys: Object.keys(sheetsNode.data?.config || {}),
+        action: sheetsNode.data?.config?.action,
+        updateMapping: sheetsNode.data?.config?.updateMapping,
+        rowNumber: sheetsNode.data?.config?.rowNumber,
+        findRowBy: sheetsNode.data?.config?.findRowBy,
+        spreadsheetId: sheetsNode.data?.config?.spreadsheetId,
+        sheetName: sheetsNode.data?.config?.sheetName
+      })
+    }
+    
     // Filter out UI-only nodes (AddActionNodes, InsertActionNodes)
     const nodes = allNodes.filter((node: any) => {
       // Skip UI placeholder nodes

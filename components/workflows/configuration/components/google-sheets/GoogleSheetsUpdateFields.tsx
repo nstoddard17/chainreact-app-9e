@@ -32,6 +32,19 @@ export function GoogleSheetsUpdateFields({
     
     if (!selectedRowData) return null;
     
+    // Initialize values for all columns if not already set
+    React.useEffect(() => {
+      if (selectedRowData?.fields) {
+        Object.entries(selectedRowData.fields).forEach(([columnName, currentValue]) => {
+          const fieldKey = `column_${columnName}`;
+          // Only initialize if the value doesn't exist, to avoid overwriting user edits
+          if (values[fieldKey] === undefined) {
+            setValue(fieldKey, String(currentValue ?? ''));
+          }
+        });
+      }
+    }, [selectedRowId]); // Only re-initialize when selected row changes, not on every render
+    
     return (
       <div className="mt-4 space-y-4">
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
@@ -99,9 +112,7 @@ export function GoogleSheetsUpdateFields({
                         <div className="relative">
                           <input
                             type="url"
-                            value={values[`column_${columnName}`] !== undefined 
-                              ? values[`column_${columnName}`] 
-                              : String(currentValue || '')}
+                            value={values[`column_${columnName}`] ?? ''}
                             onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                             placeholder="Enter image URL or drag a variable"
                             className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
@@ -119,17 +130,13 @@ export function GoogleSheetsUpdateFields({
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={values[`column_${columnName}`] !== undefined 
-                              ? values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true
-                              : currentValue === 'true' || currentValue === true}
+                            checked={values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true}
                             onChange={(e) => setValue(`column_${columnName}`, e.target.checked.toString())}
                             className="sr-only peer"
                           />
                           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           <span className="ml-3 text-sm text-slate-600">
-                            {values[`column_${columnName}`] !== undefined 
-                              ? (values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true ? 'True' : 'False')
-                              : (currentValue === 'true' || currentValue === true ? 'True' : 'False')}
+                            {values[`column_${columnName}`] === 'true' || values[`column_${columnName}`] === true ? 'True' : 'False'}
                           </span>
                         </label>
                       </div>
@@ -137,15 +144,11 @@ export function GoogleSheetsUpdateFields({
                       // Dropdown field - show as select
                       <div className="relative">
                         <select
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '')}
+                          value={values[`column_${columnName}`] ?? ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                         >
-                          <option value={String(currentValue)}>{String(currentValue)}</option>
                           {possibleDropdownValues
-                            .filter(v => v !== String(currentValue))
                             .map(option => (
                               <option key={option} value={option}>{option}</option>
                             ))}
@@ -162,9 +165,7 @@ export function GoogleSheetsUpdateFields({
                       <div className="relative">
                         <input
                           type="date"
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '').split('T')[0]}
+                          value={values[`column_${columnName}`] ? String(values[`column_${columnName}`]).split('T')[0] : ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                         />
@@ -179,9 +180,7 @@ export function GoogleSheetsUpdateFields({
                       <div className="relative">
                         <input
                           type="email"
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '')}
+                          value={values[`column_${columnName}`] ?? ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           placeholder="Enter email or drag a variable"
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -197,9 +196,7 @@ export function GoogleSheetsUpdateFields({
                       <div className="relative">
                         <input
                           type="number"
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '')}
+                          value={values[`column_${columnName}`] ?? ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           placeholder="Enter number or drag a variable"
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -215,9 +212,7 @@ export function GoogleSheetsUpdateFields({
                       <div className="relative">
                         <input
                           type="url"
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '')}
+                          value={values[`column_${columnName}`] ?? ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           placeholder="Enter URL or drag a variable"
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -233,9 +228,7 @@ export function GoogleSheetsUpdateFields({
                       <div className="relative">
                         <input
                           type="text"
-                          value={values[`column_${columnName}`] !== undefined 
-                            ? values[`column_${columnName}`] 
-                            : String(currentValue || '')}
+                          value={values[`column_${columnName}`] ?? ''}
                           onChange={(e) => setValue(`column_${columnName}`, e.target.value)}
                           placeholder="Enter new value or drag a variable"
                           className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -299,7 +292,7 @@ export function GoogleSheetsUpdateFields({
               <div className="relative">
                 <input
                   type="text"
-                  value={values[`updateValue_${values.columnToUpdate}`] || ''}
+                  value={values[`updateValue_${values.columnToUpdate}`] ?? ''}
                   onChange={(e) => setValue(`updateValue_${values.columnToUpdate}`, e.target.value)}
                   placeholder="Enter new value or drag a variable from the right panel"
                   className="w-full px-3 py-2 pr-10 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

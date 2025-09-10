@@ -29,7 +29,9 @@ export async function updateGoogleSheetsRow(
       matchColumn,
       matchValue,
       conditions,
-      updateMapping: Object.keys(updateMapping),
+      updateMapping,
+      updateMappingKeys: Object.keys(updateMapping),
+      updateMappingValues: Object.values(updateMapping),
       updateMultiple
     })
 
@@ -166,6 +168,11 @@ export async function updateGoogleSheetsRow(
       const currentRow = rows[rowIndex] || []
       const updatedRow = [...currentRow]
       
+      console.log(`Processing row ${rowNum} (index ${rowIndex}):`, {
+        currentRow,
+        headers
+      })
+      
       // Store previous values
       previousValues.push({...currentRow})
 
@@ -177,8 +184,10 @@ export async function updateGoogleSheetsRow(
           let columnIndex = -1
           if (/^[A-Z]+$/i.test(columnIdentifier)) {
             columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
+            console.log(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
           } else {
             columnIndex = headers.findIndex((h: string) => h === columnIdentifier)
+            console.log(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
           }
 
           if (columnIndex >= 0) {
@@ -186,18 +195,31 @@ export async function updateGoogleSheetsRow(
             while (updatedRow.length <= columnIndex) {
               updatedRow.push('')
             }
+            console.log(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
             updatedRow[columnIndex] = resolvedValue
+          } else {
+            console.warn(`Could not find column index for: ${columnIdentifier}`)
           }
         }
       }
 
       newValues.push(updatedRow)
 
+      const range = `${sheetName}!A${rowNum}:${String.fromCharCode(65 + updatedRow.length - 1)}${rowNum}`
+      console.log(`Update range: ${range}, Updated row:`, updatedRow)
+      
       updateRequests.push({
-        range: `${sheetName}!A${rowNum}:${String.fromCharCode(65 + updatedRow.length - 1)}${rowNum}`,
+        range,
         values: [updatedRow]
       })
     }
+
+    const requestBody = {
+      valueInputOption: "USER_ENTERED",
+      data: updateRequests
+    }
+    
+    console.log("Sending batch update request:", JSON.stringify(requestBody, null, 2))
 
     // Batch update all rows
     const updateResponse = await fetch(
@@ -208,10 +230,7 @@ export async function updateGoogleSheetsRow(
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          valueInputOption: "USER_ENTERED",
-          data: updateRequests
-        }),
+        body: JSON.stringify(requestBody),
       }
     )
 

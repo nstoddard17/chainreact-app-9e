@@ -4230,6 +4230,23 @@ const useWorkflowBuilderState = () => {
         })
       }
       
+      // Log the Google Sheets node config if present
+      const sheetsNode = currentNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
+      if (sheetsNode) {
+        console.log('📊 [WorkflowBuilder] Google Sheets node config at execution:', {
+          nodeId: sheetsNode.id,
+          config: sheetsNode.data?.config,
+          hasConfig: !!sheetsNode.data?.config,
+          configKeys: Object.keys(sheetsNode.data?.config || {}),
+          action: sheetsNode.data?.config?.action,
+          updateMapping: sheetsNode.data?.config?.updateMapping,
+          rowNumber: sheetsNode.data?.config?.rowNumber,
+          findRowBy: sheetsNode.data?.config?.findRowBy,
+          spreadsheetId: sheetsNode.data?.config?.spreadsheetId,
+          sheetName: sheetsNode.data?.config?.sheetName
+        })
+      }
+      
       // Execute the workflow immediately with test data but REAL external calls
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',

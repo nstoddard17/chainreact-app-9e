@@ -44,13 +44,18 @@ export async function executeGoogleSheetsUnifiedAction(
           spreadsheetId: config.spreadsheetId,
           sheetName: config.sheetName,
           findRowBy: config.findRowBy,
-          rowNumber: config.updateRowNumber,
+          rowNumber: config.rowNumber || config.updateRowNumber,  // Support both field names
           matchColumn: config.updateColumn,
           matchValue: config.updateValue,
           conditions: config.conditions,
           updateMapping: config.updateMapping,
           updateMultiple: config.updateMultiple
         }
+        
+        console.log('🔄 Google Sheets Update - Unified Action Config:', {
+          originalConfig: config,
+          mappedConfig: updateConfig
+        })
         const updateResult = await updateGoogleSheetsRow(updateConfig, userId, input)
         
         // Add action type to the output

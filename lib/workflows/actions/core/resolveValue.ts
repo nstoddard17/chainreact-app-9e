@@ -53,6 +53,7 @@ export function resolveValue(
             if (firstMessage[actualField] !== undefined) {
               return firstMessage[actualField]
             }
+          }
         }
       }
     }
