@@ -78,14 +78,14 @@ export function GoogleSheetsConfiguration({
   // Track column update values separately to ensure they're captured
   const [columnUpdateValues, setColumnUpdateValues] = useState<Record<string, any>>({});
   
-  // Wrap setValue to capture column_ fields
+  // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
     console.log(`🔧 [GoogleSheets] Setting value: ${key} = ${value}`);
     
     // Always set in the main values
     setValue(key, value);
     
-    // Also track column_ fields separately
+    // Also track column_ fields separately for update action
     if (key.startsWith('column_')) {
       setColumnUpdateValues(prev => ({
         ...prev,
@@ -93,12 +93,18 @@ export function GoogleSheetsConfiguration({
       }));
       console.log(`🔧 [GoogleSheets] Tracked column field: ${key} = ${value}`);
     }
+    
+    // For newRow_ fields, just ensure they're set in main values (no separate tracking needed)
+    if (key.startsWith('newRow_')) {
+      console.log(`🔧 [GoogleSheets] Set newRow field: ${key} = ${value}`);
+    }
   }, [setValue]);
   
   const { getIntegrationByProvider } = useIntegrationStore();
 
   // Track previous action to detect changes
   const [previousAction, setPreviousAction] = useState(values.action);
+  const [previousRowPosition, setPreviousRowPosition] = useState(values.rowPosition);
 
   // Reset grid state when action changes
   React.useEffect(() => {
@@ -111,6 +117,7 @@ export function GoogleSheetsConfiguration({
       setTableDisplayCount(25);
       setGoogleSheetsSortField(null);
       setGoogleSheetsSortDirection('asc');
+      hasInitializedRef.current = false; // Reset initialization flag
       
       // Clear action-specific fields when switching actions
       // Clear update-specific fields
@@ -246,6 +253,83 @@ export function GoogleSheetsConfiguration({
       setLoadingPreview(false);
     }
   }, [getIntegrationByProvider]);
+  
+  // Track if we've initialized the newRow fields
+  const hasInitializedRef = React.useRef(false);
+
+  // Initialize newRow_ fields from saved columnMapping when editing
+  React.useEffect(() => {
+    // Check if we have saved columnMapping data (indicates this is an edit of existing config)
+    const hasSavedData = values.columnMapping && typeof values.columnMapping === 'object' && Object.keys(values.columnMapping).length > 0;
+    
+    console.log('📊 [GoogleSheets] Checking restoration conditions:', {
+      hasSavedData,
+      action: values.action,
+      hasColumnMapping: !!values.columnMapping,
+      columnMapping: values.columnMapping,
+      hasInitialized: hasInitializedRef.current,
+      showPreviewData,
+      previewDataLength: previewData.length
+    });
+    
+    // Only run once when we have the data we need
+    // Wait for preview data to be loaded so we know which columns exist
+    if (hasInitializedRef.current || !hasSavedData || values.action !== 'add' || !showPreviewData || previewData.length === 0) {
+      return;
+    }
+    
+    // Restore the saved columnMapping data
+    console.log('📊 [GoogleSheets] Initializing newRow fields from saved columnMapping:', values.columnMapping);
+    
+    // Convert saved columnMapping back to individual newRow_ fields
+    Object.entries(values.columnMapping).forEach(([columnName, value]) => {
+      const fieldName = `newRow_${columnName}`;
+      console.log(`  - Restoring ${fieldName} = "${value}"`);
+      setValue(fieldName, value);
+    });
+    
+    // Mark as initialized
+    hasInitializedRef.current = true;
+  }, [values.action, values.columnMapping, setValue, showPreviewData, previewData]);
+
+  // Auto-load preview data when add action is selected or rowPosition changes
+  React.useEffect(() => {
+    // For add action, load preview data when:
+    // 1. Action changes to 'add' (rowPosition will default to 'end' or use existing value)
+    // 2. Required fields (spreadsheetId and sheetName) are present
+    // 3. Preview not already loaded
+    if (values.action === 'add' && values.spreadsheetId && values.sheetName) {
+      
+      // Load if action just changed to 'add' or if we haven't loaded preview yet
+      const actionJustChangedToAdd = previousAction !== 'add' && values.action === 'add';
+      const needsPreviewLoad = !showPreviewData && !loadingPreview;
+      
+      // Also check if rowPosition exists (either from default or user selection)
+      const hasRowPosition = values.rowPosition || 'end'; // Use 'end' as fallback if not set
+      
+      if ((actionJustChangedToAdd || needsPreviewLoad) && hasRowPosition) {
+        console.log('📊 [GoogleSheets] Auto-loading preview for add action', {
+          actionJustChangedToAdd,
+          needsPreviewLoad,
+          rowPosition: values.rowPosition || 'end',
+          spreadsheetId: values.spreadsheetId,
+          sheetName: values.sheetName,
+          showPreviewData,
+          loadingPreview
+        });
+        
+        // Set rowPosition to default if not already set
+        if (!values.rowPosition) {
+          setValue('rowPosition', 'end');
+        }
+        
+        loadGoogleSheetsPreviewData(values.spreadsheetId, values.sheetName, googleSheetsHasHeaders);
+      }
+    }
+    setPreviousRowPosition(values.rowPosition);
+  }, [values.action, values.rowPosition, values.spreadsheetId, values.sheetName, 
+      previousRowPosition, previousAction, googleSheetsHasHeaders, loadGoogleSheetsPreviewData,
+      showPreviewData, loadingPreview, setValue]);
 
   // Handle row selection
   const handleRowSelect = useCallback((rowId: string, selected: boolean) => {
@@ -489,6 +573,48 @@ export function GoogleSheetsConfiguration({
       
       // Add updateMapping to submission values
       submissionValues.updateMapping = updateMapping;
+    }
+    
+    // For add action, convert newRow_ fields to columnMapping
+    if (values.action === 'add') {
+      console.log('➕ Processing add action with values:', values);
+      console.log('➕ All value keys:', Object.keys(values));
+      console.log('➕ NewRow fields from values:', Object.keys(values).filter(k => k.startsWith('newRow_')));
+      
+      const columnMapping: Record<string, any> = {};
+      
+      // Process all newRow_ fields
+      Object.keys(values).forEach(key => {
+        if (key.startsWith('newRow_')) {
+          const columnName = key.replace('newRow_', '');
+          const value = values[key];
+          console.log(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
+          // Include all fields (even empty ones might be intentional)
+          columnMapping[columnName] = value || '';
+          console.log(`    ✓ Added to columnMapping: ${columnName} = "${value}"`);
+        }
+      });
+      
+      console.log('➕ Final columnMapping:', columnMapping);
+      
+      // Add columnMapping to submission values
+      submissionValues.columnMapping = columnMapping;
+      
+      // Clean up newRow_ fields from submission
+      Object.keys(submissionValues).forEach(key => {
+        if (key.startsWith('newRow_')) {
+          delete submissionValues[key];
+        }
+      });
+      
+      console.log('➕ Submitting add with full config:', {
+        columnMapping,
+        rowPosition: submissionValues.rowPosition,
+        rowNumber: submissionValues.rowNumber,
+        spreadsheetId: submissionValues.spreadsheetId,
+        sheetName: submissionValues.sheetName,
+        action: submissionValues.action
+      });
       
       // Set row number if a row is selected
       if (googleSheetsSelectedRows.size === 1) {
@@ -514,8 +640,8 @@ export function GoogleSheetsConfiguration({
         }
       });
       
-      console.log('📊 Submitting update with full config:', {
-        updateMapping,
+      console.log('📊 Final submission values after cleanup:', {
+        columnMapping: submissionValues.columnMapping,
         rowNumber: submissionValues.rowNumber,
         findRowBy: submissionValues.findRowBy,
         spreadsheetId: submissionValues.spreadsheetId,
@@ -529,7 +655,12 @@ export function GoogleSheetsConfiguration({
   
   const handleConfirmDelete = async () => {
     setShowDeleteConfirmation(false);
-    await onSubmit(values);
+    // Set confirmDelete to true when the user confirms the deletion
+    const confirmedValues = {
+      ...values,
+      confirmDelete: true
+    };
+    await onSubmit(confirmedValues);
   };
 
   // Show connection required state
@@ -579,14 +710,15 @@ export function GoogleSheetsConfiguration({
             )}
             
             {/* Add new row fields section after table preview */}
-            {values.action === 'add' && values.rowPosition && (
+            {values.action === 'add' && (values.rowPosition || values.spreadsheetId && values.sheetName) && (
               <GoogleSheetsAddRowFields
                 values={values}
-                setValue={setValue}
+                setValue={setValueWithColumnTracking}
                 previewData={previewData}
                 hasHeaders={googleSheetsHasHeaders}
                 action={values.action}
                 showPreviewData={showPreviewData}
+                loadingPreview={loadingPreview}
               />
             )}
           </div>
@@ -610,33 +742,35 @@ export function GoogleSheetsConfiguration({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>⚠️ Confirm Delete Action</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                This action will permanently delete rows from your Google Sheet. This cannot be undone.
-              </p>
-              {values.deleteRowBy === 'row_number' && values.deleteRowNumber && (
-                <p className="font-medium">
-                  • Row {values.deleteRowNumber} will be deleted
-                </p>
-              )}
-              {values.deleteRowBy === 'column_value' && values.deleteSearchValue && (
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
                 <div>
-                  <p className="font-medium">Delete criteria:</p>
-                  <ul className="ml-4 mt-1 space-y-1 text-sm">
-                    <li>• Column: {values.deleteSearchColumn}</li>
-                    <li>• Value: {values.deleteSearchValue}</li>
-                    <li>• Mode: {values.deleteAll ? 'Delete ALL matching rows' : 'Delete FIRST matching row'}</li>
-                  </ul>
+                  This action will permanently delete rows from your Google Sheet. This cannot be undone.
                 </div>
-              )}
-              {googleSheetsSelectedRows.size > 0 && (
-                <p className="font-medium text-amber-600">
-                  • {googleSheetsSelectedRows.size} manually selected row{googleSheetsSelectedRows.size !== 1 ? 's' : ''} will also be deleted
-                </p>
-              )}
-              <p className="text-red-600 font-semibold mt-3">
-                Are you sure you want to proceed?
-              </p>
+                {values.deleteRowBy === 'row_number' && values.deleteRowNumber && (
+                  <div className="font-medium">
+                    • Row {values.deleteRowNumber} will be deleted
+                  </div>
+                )}
+                {values.deleteRowBy === 'column_value' && values.deleteSearchValue && (
+                  <div>
+                    <div className="font-medium">Delete criteria:</div>
+                    <ul className="ml-4 mt-1 space-y-1 text-sm">
+                      <li>• Column: {values.deleteSearchColumn}</li>
+                      <li>• Value: {values.deleteSearchValue}</li>
+                      <li>• Mode: {values.deleteAll ? 'Delete ALL matching rows' : 'Delete FIRST matching row'}</li>
+                    </ul>
+                  </div>
+                )}
+                {googleSheetsSelectedRows.size > 0 && (
+                  <div className="font-medium text-amber-600">
+                    • {googleSheetsSelectedRows.size} manually selected row{googleSheetsSelectedRows.size !== 1 ? 's' : ''} will also be deleted
+                  </div>
+                )}
+                <div className="text-red-600 font-semibold mt-3">
+                  Are you sure you want to proceed?
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

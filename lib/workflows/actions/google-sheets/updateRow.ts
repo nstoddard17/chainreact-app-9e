@@ -182,7 +182,9 @@ export async function updateGoogleSheetsRow(
           const resolvedValue = resolveValue(value, input)
           
           let columnIndex = -1
-          if (/^[A-Z]+$/i.test(columnIdentifier)) {
+          // Check if columnIdentifier is a SINGLE column letter (A-Z only, not AA, AB, etc.)
+          // and NOT a word like "Address" or "RSVP"
+          if (/^[A-Z]$/i.test(columnIdentifier)) {
             columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
             console.log(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
           } else {

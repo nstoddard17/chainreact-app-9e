@@ -123,7 +123,9 @@ export async function deleteGoogleSheetsRow(
     } else if (deleteBy === 'column_value' && matchColumn && matchValue) {
       // Find column index
       let columnIndex = -1
-      if (/^[A-Z]+$/i.test(matchColumn)) {
+      // Check if matchColumn is a SINGLE column letter (A-Z only, not AA, AB, etc.)
+      // and NOT a word like "Address" or "RSVP"
+      if (/^[A-Z]$/i.test(matchColumn)) {
         columnIndex = matchColumn.toUpperCase().charCodeAt(0) - 65
       } else {
         columnIndex = headers.findIndex((h: string) => h === matchColumn)
@@ -146,7 +148,9 @@ export async function deleteGoogleSheetsRow(
           const { column, operator, value } = condition
           let columnIndex = -1
           
-          if (/^[A-Z]+$/i.test(column)) {
+          // Check if column is a SINGLE column letter (A-Z only, not AA, AB, etc.)
+          // and NOT a word like "Address" or "RSVP"
+          if (/^[A-Z]$/i.test(column)) {
             columnIndex = column.toUpperCase().charCodeAt(0) - 65
           } else {
             columnIndex = headers.findIndex((h: string) => h === column)
