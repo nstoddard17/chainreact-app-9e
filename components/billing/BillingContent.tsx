@@ -10,16 +10,15 @@ import { Loader2 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 
 export default function BillingContent() {
-  const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage } =
+  const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage, fetchAll } =
     useBillingStore()
   const searchParams = useSearchParams()
   const targetPlanId = searchParams.get("plan")
 
   useEffect(() => {
-    fetchPlans()
-    fetchSubscription()
-    fetchUsage()
-  }, [fetchPlans, fetchSubscription, fetchUsage])
+    // Fetch all data in parallel for better performance
+    fetchAll()
+  }, [])
 
   if (loading) {
     return (

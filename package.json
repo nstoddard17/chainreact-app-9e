@@ -15,7 +15,9 @@
     "refresh-tokens:batch": "node scripts/test-token-refresh.js --limit=50 --batch=10",
     "refresh-tokens:quiet": "node scripts/test-token-refresh.js",
     "start": "next start",
-    "fix-integrations": "node scripts/fix-problem-integrations.js"
+    "fix-integrations": "node scripts/fix-problem-integrations.js",
+    "setup-stripe": "npx tsx scripts/setup-stripe-prices.ts",
+    "setup-stripe-tax": "npx tsx scripts/setup-stripe-tax.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

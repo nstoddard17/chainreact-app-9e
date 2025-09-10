@@ -178,17 +178,19 @@ export const discordNodes: NodeComponent[] = [
   },
   {
     type: "discord_action_delete_message",
-    title: "Delete Message",
-    description: "Delete a message in a Discord channel.",
+    title: "Delete Message(s)",
+    description: "Delete messages in a Discord channel by selection, user, or keywords.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
-      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" }
+      { name: "guildId", label: "Server", type: "select", dynamic: true, required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageIds", label: "Messages", type: "multi-select", dynamic: "discord_messages", required: false, dependsOn: "channelId", placeholder: "Select messages to delete (optional)", showWhen: { channelId: "!empty" } },
+      { name: "userIds", label: "Users", type: "multi-select", dynamic: "discord_channel_members", required: false, dependsOn: "channelId", placeholder: "Filter by users (optional)", showWhen: { channelId: "!empty" } },
+      { name: "keywords", label: "Keywords", type: "tag-input", required: false, placeholder: "Enter keywords and press Enter", description: "Delete messages containing any of these keywords" }
     ]
   },
   {
@@ -303,53 +305,24 @@ export const discordNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic", placeholder: "Select a Discord server" },
-      { name: "name", label: "Channel Name", type: "text", required: true, uiTab: "basic" },
+      // Progressive fields - no tabs needed
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "type", label: "Channel Type", type: "select", options: [
         { value: "0", label: "Text Channel" },
         { value: "2", label: "Voice Channel" },
-        { value: "5", label: "Announcement Channel" },
-        { value: "13", label: "Stage Channel" },
-        { value: "15", label: "Forum Channel" },
-        { value: "16", label: "Media Channel" }
-      ], required: true, defaultValue: "0", uiTab: "basic" },
-      { name: "parentId", label: "Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "basic", description: "Category to place this channel in", dependsOn: "guildId", placeholder: "Select a category (optional)" },
+        { value: "15", label: "Forum Channel" }
+      ], required: true, defaultValue: "0" },
+      { name: "name", label: "Channel Name", type: "text", required: true, placeholder: "Enter channel name" },
+      { name: "isPrivate", label: "Private Channel", type: "boolean", required: false, defaultValue: false, description: "Make this channel private and restrict access" },
       
-      // Advanced Settings Tab
-      { name: "topic", label: "Topic", type: "text", required: false, uiTab: "advanced", description: "Channel description (text channels only)" },
-      { name: "nsfw", label: "Age-Restricted Channel", type: "boolean", required: false, uiTab: "advanced", description: "Mark channel as age-restricted (NSFW)", defaultValue: false },
+      // Permission fields - only shown when isPrivate is true
+      { name: "allowedUsers", label: "Allowed Users", type: "multiSelect", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select users who can access this channel", description: "Choose specific users to grant access", searchable: true },
+      { name: "allowedRoles", label: "Allowed Roles", type: "multiSelect", dynamic: "discord_roles", required: false, dependsOn: "guildId", placeholder: "Select roles that can access this channel", description: "Choose roles to grant access", searchable: true },
       
-      // Text Channel Specific Fields
-      { name: "rateLimitPerUser", label: "Rate Limit Per User", type: "number", required: false, uiTab: "advanced", description: "Slowmode in seconds (0-21600)", min: 0, max: 21600 },
-      { name: "defaultAutoArchiveDuration", label: "Default Auto-Archive Duration", type: "select", required: false, uiTab: "advanced", options: [
-        { value: "60", label: "1 Hour" },
-        { value: "1440", label: "24 Hours" },
-        { value: "4320", label: "3 Days" },
-        { value: "10080", label: "1 Week" }
-      ], description: "Default auto-archive duration for threads" },
-      
-      // Voice Channel Specific Fields
-      { name: "bitrate", label: "Bitrate", type: "number", required: false, uiTab: "advanced", description: "Voice channel bitrate (8000-128000)", min: 8000, max: 128000, defaultValue: 64000 },
-      { name: "userLimit", label: "User Limit", type: "number", required: false, uiTab: "advanced", description: "Maximum number of users (0-99, 0 = no limit)", min: 0, max: 99 },
-      { name: "rtcRegion", label: "Voice Region", type: "text", required: false, uiTab: "advanced", description: "Voice region ID (auto, us-east, us-west, etc.)" },
-      
-      // Forum Channel Specific Fields
-      { name: "defaultReactionEmoji", label: "Default Reaction Emoji", type: "text", required: false, uiTab: "advanced", description: "Default reaction emoji for forum posts" },
-      { name: "defaultThreadRateLimitPerUser", label: "Default Thread Rate Limit", type: "number", required: false, uiTab: "advanced", description: "Default rate limit per user for threads", min: 0, max: 21600 },
-      { name: "defaultSortOrder", label: "Default Sort Order", type: "select", required: false, uiTab: "advanced", options: [
-        { value: "0", label: "Latest Activity" },
-        { value: "1", label: "Creation Date" }
-      ], description: "Default sort order for forum posts" },
-      { name: "defaultForumLayout", label: "Default Forum Layout", type: "select", required: false, uiTab: "advanced", options: [
-        { value: "0", label: "Not Set" },
-        { value: "1", label: "List View" },
-        { value: "2", label: "Gallery View" }
-      ], description: "Default layout for forum posts" },
-      
-      // Advanced Settings
-      { name: "permissionOverwrites", label: "Permission Overwrites", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of permission overwrites" },
-      { name: "availableTags", label: "Available Tags", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of available tags for forum channels" }
+      // Optional fields
+      { name: "parentId", label: "Category", type: "select", dynamic: "discord_categories", required: false, description: "Category to place this channel in", dependsOn: "guildId", placeholder: "Select a category (optional)" },
+      { name: "topic", label: "Topic", type: "text", required: false, description: "Channel description (text channels only)" },
+      { name: "rateLimitPerUser", label: "Slowmode (seconds)", type: "number", required: false, description: "Delay between messages (0-21600)", min: 0, max: 21600 }
     ]
   },
   {
