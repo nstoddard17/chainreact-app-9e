@@ -64,6 +64,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
     }
 
+    console.log('🔍 [Workflow API] Returning workflow data:', {
+      id: data.id,
+      name: data.name,
+      nameType: typeof data.name,
+      nameIsEmpty: !data.name,
+      nameIsNull: data.name === null,
+      nameIsUndefined: data.name === undefined,
+      nameValue: JSON.stringify(data.name)
+    })
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('Workflow API error:', error)
@@ -87,6 +97,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const body = await request.json()
     const resolvedParams = await params
+
+    console.log('📝 [Workflow API] Updating workflow with body:', {
+      id: resolvedParams.id,
+      name: body.name,
+      hasName: 'name' in body,
+      nameType: typeof body.name,
+      bodyKeys: Object.keys(body)
+    })
 
     const { data, error } = await supabase
       .from("workflows")

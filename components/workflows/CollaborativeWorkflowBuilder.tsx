@@ -1756,6 +1756,15 @@ const useWorkflowBuilderState = () => {
           const response = await fetch(`/api/workflows/${workflowId}`);
           if (response.ok) {
             const freshWorkflow = await response.json();
+            console.log('🔍 [WorkflowBuilder] Fresh workflow loaded from API:', {
+              id: freshWorkflow.id,
+              name: freshWorkflow.name,
+              nameType: typeof freshWorkflow.name,
+              nameIsEmpty: !freshWorkflow.name,
+              nameIsNull: freshWorkflow.name === null,
+              nameIsUndefined: freshWorkflow.name === undefined,
+              fullWorkflow: freshWorkflow
+            });
             setCurrentWorkflow(freshWorkflow);
           } else {
             console.error('Failed to load workflow:', response.status, response.statusText);
@@ -1830,8 +1839,37 @@ const useWorkflowBuilderState = () => {
     }
     
     if (currentWorkflow) {
-      setWorkflowName(currentWorkflow.name)
+      // Check if the name is actually empty or just a string
+      const actualName = currentWorkflow.name;
+      const nameIsEmpty = !actualName || actualName.trim() === '';
+      
+      // Use the workflow name, or fall back to a default if empty
+      const workflowNameToSet = nameIsEmpty ? "Untitled Workflow" : actualName;
+      setWorkflowName(workflowNameToSet)
       setWorkflowDescription(currentWorkflow.description || "")
+      
+      console.log('📝 [WorkflowBuilder] Setting workflow name:', {
+        originalName: currentWorkflow.name,
+        nameIsEmpty,
+        trimmedName: actualName?.trim(),
+        setName: workflowNameToSet,
+        workflowId: currentWorkflow.id,
+        nameLength: actualName?.length,
+        nameCharCodes: actualName ? Array.from(actualName).map(c => c.charCodeAt(0)) : []
+      })
+      
+      // If the workflow has an empty name in the database, immediately save it with a default name
+      if (nameIsEmpty && currentWorkflow.id) {
+        console.log('🔧 [WorkflowBuilder] Workflow has empty name, saving with default name');
+        const updates: Partial<Workflow> = {
+          name: "Untitled Workflow"
+        };
+        updateWorkflow(currentWorkflow.id, updates).then(() => {
+          console.log('✅ [WorkflowBuilder] Default workflow name saved to database');
+        }).catch((error) => {
+          console.error('❌ [WorkflowBuilder] Failed to save default workflow name:', error);
+        });
+      }
       
       // Always rebuild nodes on initial load to ensure positions are loaded correctly
       const currentNodeIds = getNodes().filter(n => n.type === 'custom').map(n => n.id).sort()
@@ -2422,7 +2460,7 @@ const useWorkflowBuilderState = () => {
       setEdges([])
       // Don't automatically show the trigger dialog, let the user click the button
           }
-    }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes, isProcessingDeletion])
+    }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes, isProcessingDeletion, updateWorkflow])
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
     // Skip configuration for manual triggers
@@ -3508,8 +3546,15 @@ const useWorkflowBuilderState = () => {
       }))
 
 
+      // Never save an empty workflow name - use the current name or default
+      const nameToSave = workflowName && workflowName.trim() !== '' 
+        ? workflowName 
+        : (currentWorkflow.name && currentWorkflow.name.trim() !== '' 
+          ? currentWorkflow.name 
+          : 'Untitled Workflow');
+
       const updates: Partial<Workflow> = {
-        name: workflowName, 
+        name: nameToSave, 
         description: workflowDescription,
         nodes: mappedNodes, 
         connections: mappedConnections, 
@@ -3519,6 +3564,10 @@ const useWorkflowBuilderState = () => {
       // Log the save operation details for debugging
       console.log("🔄 Starting save operation:", {
         workflowId: currentWorkflow!.id,
+        originalWorkflowName: workflowName,
+        currentWorkflowName: currentWorkflow.name,
+        nameToSave: nameToSave,
+        workflowNameIsEmpty: !workflowName || workflowName.trim() === '',
         nodesCount: mappedNodes.length,
         connectionsCount: mappedConnections.length,
         hasAIAgent: mappedNodes.some(n => n.data.type === 'ai_agent'),
@@ -3546,7 +3595,7 @@ const useWorkflowBuilderState = () => {
       const userId: string = typeof currentWorkflow!.user_id === "string" ? currentWorkflow!.user_id : (() => { throw new Error("user_id is missing from currentWorkflow"); })();
       const newWorkflow: Workflow = {
         id: currentWorkflow!.id,
-        name: workflowName,
+        name: nameToSave,  // Use the same name we saved
         description: currentWorkflow!.description || null,
         user_id: userId as string,
         nodes: mappedNodes,

@@ -369,6 +369,14 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   setCurrentWorkflow: (workflow: Workflow | null) => {
+    console.log('🏪 [WorkflowStore] Setting current workflow:', {
+      id: workflow?.id,
+      name: workflow?.name,
+      nameType: typeof workflow?.name,
+      nameIsEmpty: !workflow?.name,
+      nameIsNull: workflow?.name === null,
+      nameIsUndefined: workflow?.name === undefined
+    });
     set({ currentWorkflow: workflow })
   },
 
