@@ -23,6 +23,27 @@ export interface PopupResponse {
 export class OAuthPopupManager {
   private static currentPopup: Window | null = null
   private static windowHasLostFocus = false
+  private static initialized = false
+  
+  /**
+   * Initialize and clean up any stale references
+   */
+  private static initialize(): void {
+    if (!this.initialized) {
+      // Clean up any stale popup reference on first use
+      if (this.currentPopup) {
+        try {
+          if (this.currentPopup.closed) {
+            this.currentPopup = null
+          }
+        } catch (e) {
+          // COOP might block access, assume it's stale
+          this.currentPopup = null
+        }
+      }
+      this.initialized = true
+    }
+  }
 
   /**
    * Check if popup is still valid
@@ -38,8 +59,12 @@ export class OAuthPopupManager {
   static closeExistingPopup(): void {
     if (this.currentPopup) {
       try {
-        this.currentPopup.close()
+        // Check if popup is actually open before trying to close
+        if (!this.currentPopup.closed) {
+          this.currentPopup.close()
+        }
       } catch (e) {
+        // COOP might block access, just log warning
         console.warn("Failed to close existing popup:", e)
       }
       this.currentPopup = null
@@ -55,6 +80,9 @@ export class OAuthPopupManager {
     options: PopupOptions
   ): Window | null {
     const { width = 600, height = 700, provider } = options
+    
+    // Initialize on first use
+    this.initialize()
     
     // Close any existing popup before opening a new one
     this.closeExistingPopup()
