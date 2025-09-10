@@ -47,22 +47,20 @@ const onenoteActionCreatePage: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
-      placeholder: "Select a notebook or type to create new",
-      creatable: true,
+      placeholder: "Select a notebook",
       description: "The notebook where the page will be created"
     },
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: false,
-      placeholder: "Select a section or type to create new",
+      placeholder: "Select a section",
       dependsOn: "notebookId",
-      creatable: true,
       description: "The section where the page will be created (uses default section if not specified)"
     },
     { 
@@ -144,7 +142,7 @@ const onenoteActionCreateSection: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
@@ -174,7 +172,7 @@ const onenoteActionUpdatePage: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
@@ -183,7 +181,7 @@ const onenoteActionUpdatePage: NodeComponent = {
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select a section",
@@ -193,7 +191,7 @@ const onenoteActionUpdatePage: NodeComponent = {
     { 
       name: "pageId", 
       label: "Page", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select a page to update",
@@ -261,7 +259,7 @@ const onenoteActionGetPageContent: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
@@ -270,7 +268,7 @@ const onenoteActionGetPageContent: NodeComponent = {
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select a section",
@@ -280,7 +278,7 @@ const onenoteActionGetPageContent: NodeComponent = {
     { 
       name: "pageId", 
       label: "Page", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select a page to retrieve",
@@ -319,7 +317,7 @@ const onenoteActionGetPages: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: false,
       placeholder: "Select a notebook (optional)",
@@ -328,7 +326,7 @@ const onenoteActionGetPages: NodeComponent = {
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: false,
       placeholder: "Select a section (optional)",
@@ -385,7 +383,7 @@ const onenoteActionCopyPage: NodeComponent = {
     { 
       name: "sourceNotebookId", 
       label: "Source Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select source notebook",
@@ -394,7 +392,7 @@ const onenoteActionCopyPage: NodeComponent = {
     { 
       name: "sourceSectionId", 
       label: "Source Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select source section",
@@ -404,7 +402,7 @@ const onenoteActionCopyPage: NodeComponent = {
     { 
       name: "sourcePageId", 
       label: "Source Page", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select page to copy",
@@ -414,7 +412,7 @@ const onenoteActionCopyPage: NodeComponent = {
     { 
       name: "targetNotebookId", 
       label: "Target Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select target notebook",
@@ -423,7 +421,7 @@ const onenoteActionCopyPage: NodeComponent = {
     { 
       name: "targetSectionId", 
       label: "Target Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select target section",
@@ -467,7 +465,7 @@ const onenoteActionSearch: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: false,
       placeholder: "Select notebook to search",
@@ -477,7 +475,7 @@ const onenoteActionSearch: NodeComponent = {
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: false,
       placeholder: "Select section to search",
@@ -511,7 +509,7 @@ const onenoteActionDeletePage: NodeComponent = {
     { 
       name: "notebookId", 
       label: "Notebook", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
@@ -520,7 +518,7 @@ const onenoteActionDeletePage: NodeComponent = {
     { 
       name: "sectionId", 
       label: "Section", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_sections",
       required: true,
       placeholder: "Select a section",
@@ -530,7 +528,7 @@ const onenoteActionDeletePage: NodeComponent = {
     { 
       name: "pageId", 
       label: "Page", 
-      type: "combobox",
+      type: "select",
       dynamic: "onenote_pages",
       required: true,
       placeholder: "Select page to delete",

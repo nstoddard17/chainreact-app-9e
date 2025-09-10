@@ -7,15 +7,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-05-28.basil",
 })
 
-// This webhook handles billing events for ChainReact subscriptions
-// Use /api/webhooks/stripe-integration for workflow triggers
+// This webhook handles your business billing (subscriptions for ChainReact)
 const webhookSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET!
 
 export async function POST(request: Request) {
-  console.log("[Stripe Billing Webhook] Received billing webhook request")
+  console.log("[Stripe Billing Webhook] ========================================")
+  console.log("[Stripe Billing Webhook] Received billing webhook request at:", new Date().toISOString())
+  console.log("[Stripe Billing Webhook] Headers:", Object.fromEntries(request.headers.entries()))
   
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")!
+  
+  console.log("[Stripe Billing Webhook] Has signature:", !!signature)
+  console.log("[Stripe Billing Webhook] Body length:", body.length)
+  console.log("[Stripe Billing Webhook] Webhook secret configured:", !!webhookSecret)
 
   let event: Stripe.Event
 
@@ -78,25 +83,82 @@ export async function POST(request: Request) {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, stripeClient: Stripe) {
+  console.log("[Stripe Webhook] ========================================")
   console.log("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
   console.log("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
+  console.log("[Stripe Webhook] Customer:", session.customer)
+  console.log("[Stripe Webhook] Customer email:", session.customer_details?.email)
+  console.log("[Stripe Webhook] Subscription ID:", session.subscription)
   
-  const userId = session.metadata?.user_id
-  const planId = session.metadata?.plan_id
-  const billingCycle = session.metadata?.billing_cycle
-
-  if (!userId || !planId) {
-    console.error("[Stripe Webhook] Missing userId or planId in session metadata")
-    console.error("Metadata received:", session.metadata)
-    return
+  // Try multiple sources for user info
+  let userId = session.metadata?.user_id
+  let planId = session.metadata?.plan_id || 'pro' // Default to pro if not specified
+  let billingCycle = session.metadata?.billing_cycle || 'monthly'
+  
+  // If no userId in metadata, try to find from customer email
+  if (!userId && session.customer_details?.email) {
+    console.log("[Stripe Webhook] No userId in metadata, attempting to find by email:", session.customer_details.email)
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", session.customer_details.email)
+      .single()
+    
+    if (userData && !userError) {
+      userId = userData.id
+      console.log("[Stripe Webhook] Found userId from email:", userId)
+    } else {
+      console.error("[Stripe Webhook] Could not find user by email:", userError)
+    }
   }
 
-  console.log(`[Stripe Webhook] Processing for user: ${userId}, plan: ${planId}, cycle: ${billingCycle}`)
+  if (!userId) {
+    console.error("[Stripe Webhook] CRITICAL: Could not determine userId from metadata or email")
+    console.error("Session data:", {
+      metadata: session.metadata,
+      customer: session.customer,
+      customer_email: session.customer_details?.email
+    })
+    // Don't return - try to store as much as possible
+  }
+
+  console.log(`[Stripe Webhook] Processing for user: ${userId || 'UNKNOWN'}, plan: ${planId}, cycle: ${billingCycle}`)
 
   // Get the full subscription details from Stripe
-  const subscription = await stripeClient.subscriptions.retrieve(session.subscription as string, {
-    expand: ['default_payment_method', 'latest_invoice', 'discount']
-  })
+  let subscription
+  try {
+    subscription = await stripeClient.subscriptions.retrieve(session.subscription as string, {
+      expand: ['default_payment_method', 'latest_invoice', 'discount']
+    })
+  } catch (retrieveError) {
+    console.error("[Stripe Webhook] Failed to retrieve subscription:", retrieveError)
+    // Try to create minimal record with session data
+    const minimalData = {
+      user_id: userId || null,
+      plan_id: planId,
+      stripe_customer_id: session.customer as string,
+      stripe_subscription_id: session.subscription as string,
+      status: 'active',
+      billing_cycle: billingCycle,
+      customer_email: session.customer_details?.email || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    
+    console.log("[Stripe Webhook] Attempting minimal record creation:", minimalData)
+    const { error: minimalError } = await supabase
+      .from("subscriptions")
+      .upsert(minimalData, {
+        onConflict: 'stripe_subscription_id'
+      })
+    
+    if (minimalError) {
+      console.error("[Stripe Webhook] Failed to create minimal record:", minimalError)
+    } else {
+      console.log("[Stripe Webhook] Created minimal subscription record")
+    }
+    return
+  }
 
   console.log("[Stripe Webhook] Retrieved subscription:", subscription.id)
 
