@@ -59,6 +59,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/nodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { useToast } from "@/hooks/use-toast"
 import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from "@/lib/workflows/configPersistence"
 import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
@@ -335,30 +336,49 @@ const useWorkflowBuilderState = () => {
   }
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
-    // Core integration is always "connected" since it's built-in
-    if (integrationId === 'core') return true;
+    // System integrations that are always "connected" since they don't require external authentication
+    const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
+    if (systemIntegrations.includes(integrationId)) return true;
     
-    // Logic integration is always "connected" since it doesn't require authentication
-    if (integrationId === 'logic') return true;
+    // Only log in development for debugging
+    if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) { // Log 10% of the time to reduce noise
+      console.log('🔍 Checking connection for:', integrationId, 'Total integrations:', storeIntegrations.length);
+    }
     
-    // AI Agent is always "connected" since it doesn't require external authentication
-    if (integrationId === 'ai') return true;
-    
-    // Webhook and scheduler don't require authentication
-    if (integrationId === 'webhook' || integrationId === 'scheduler') return true;
+    // Create a mapping of integration config IDs to possible database provider values
+    // This handles cases where the integration ID doesn't match the database provider value
+    const providerMappings: Record<string, string[]> = {
+      'gmail': ['gmail'],
+      'google-calendar': ['google-calendar', 'google_calendar'],
+      'google-drive': ['google-drive', 'google_drive'],
+      'google-sheets': ['google-sheets', 'google_sheets'],
+      'google-docs': ['google-docs', 'google_docs'],
+      'discord': ['discord'],
+      'slack': ['slack'],
+      'notion': ['notion'],
+      'airtable': ['airtable'],
+      'hubspot': ['hubspot'],
+      'stripe': ['stripe'],
+      'shopify': ['shopify'],
+      'trello': ['trello'],
+      'microsoft-onenote': ['microsoft-onenote', 'onenote'],
+      'microsoft-outlook': ['microsoft-outlook', 'outlook'],
+      'microsoft-teams': ['microsoft-teams', 'teams'],
+      'onedrive': ['onedrive'],
+      'facebook': ['facebook'],
+      'instagram': ['instagram'],
+      'twitter': ['twitter'],
+      'linkedin': ['linkedin'],
+    };
     
     // For Google services, check if ANY Google service is connected
     // Google services share authentication, so if one is connected, all are connected
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
-      // Check if any Google service integration exists that's properly connected
-      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail'];
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail',
+                              'google_drive', 'google_sheets', 'google_docs', 'google_calendar'];
       const connectedGoogleService = storeIntegrations.find(i => 
         googleServices.includes(i.provider) && 
-        i.status !== 'disconnected' && 
-        i.status !== 'failed' && 
-        i.status !== 'expired' &&
-        i.status !== 'needs_reauthorization' &&
-        !i.disconnected_at
+        i.status === 'connected'
       );
       
       if (connectedGoogleService) {
@@ -375,21 +395,57 @@ const useWorkflowBuilderState = () => {
       return false;
     }
     
+    // For Microsoft services, check if ANY Microsoft service is connected
+    // Microsoft services might share authentication
+    if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
+      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive',
+                                 'onenote', 'outlook', 'teams'];
+      const connectedMicrosoftService = storeIntegrations.find(i => 
+        microsoftServices.includes(i.provider) && 
+        i.status === 'connected'
+      );
+      
+      if (connectedMicrosoftService) {
+        return true;
+      }
+      
+      return false;
+    }
+    
     // Check if this specific integration exists in the store
-    const integration = storeIntegrations.find(i => i.provider === integrationId);
+    // Use the mapping to check all possible provider values
+    const possibleProviders = providerMappings[integrationId] || [integrationId];
+    
+    // Also check with simple provider name matching (discord -> discord, etc)
+    const integration = storeIntegrations.find(i => {
+      // Check if status is connected
+      if (i.status !== 'connected') return false;
+      
+      // Check exact match
+      if (i.provider === integrationId) return true;
+      
+      // Check if provider is in the possible providers list
+      if (possibleProviders.includes(i.provider)) return true;
+      
+      // Check if the integration ID matches the provider with different casing or hyphens
+      const normalizedProvider = i.provider.toLowerCase().replace(/-/g, '_');
+      const normalizedId = integrationId.toLowerCase().replace(/-/g, '_');
+      if (normalizedProvider === normalizedId) return true;
+      
+      return false;
+    });
+    
     if (integration) {
-      // Consider it connected if it's not explicitly disconnected or failed
-      const isConnected = integration.status !== 'disconnected' && 
-                          integration.status !== 'failed' && 
-                          integration.status !== 'expired' &&
-                          integration.status !== 'needs_reauthorization' &&
-                          !integration.disconnected_at;
-      return isConnected;
+      return true;
     }
     
     // Use the getConnectedProviders as fallback
     const connectedProviders = getConnectedProviders();
-    return connectedProviders.includes(integrationId);
+    
+    // Check if any of the possible providers are in the connected list
+    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
+    
+    return isConnected;
   }, [storeIntegrations, getConnectedProviders])
 
 
@@ -1690,8 +1746,25 @@ const useWorkflowBuilderState = () => {
 
   // Fetch integrations when component mounts
   useEffect(() => {
-    fetchIntegrations(true) // Force fetch to ensure we have latest data
+    console.log('🔄 Fetching integrations on mount...')
+    console.log('🔄 Current storeIntegrations before fetch:', storeIntegrations.length)
+    fetchIntegrations(true).then(() => {
+      console.log('✅ Integrations fetch completed')
+      // Note: storeIntegrations here is from closure, so it won't be updated
+      // The actual updated data is in the store
+    }) // Force fetch to ensure we have latest data
   }, [fetchIntegrations])
+  
+  // Log when storeIntegrations changes
+  useEffect(() => {
+    console.log('📦 storeIntegrations updated:', storeIntegrations.length, 'integrations')
+    if (storeIntegrations.length > 0) {
+      console.log('📋 Integration details:', storeIntegrations.map(i => ({
+        provider: i.provider,
+        status: i.status
+      })))
+    }
+  }, [storeIntegrations])
 
   useEffect(() => {
     if (workflowId) {
@@ -5339,6 +5412,7 @@ function WorkflowBuilderContent() {
   const router = useRouter()
   const { toast } = useToast()
   const { setCurrentWorkflow } = useWorkflowStore()
+  const { data: integrations } = useIntegrationsStore()
   
   const {
     nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive, 
@@ -5529,26 +5603,11 @@ function WorkflowBuilderContent() {
     return ['all', ...Array.from(new Set(allCategories))];
   }, [availableIntegrations]);
 
-  // Integrations to mark as coming soon in the trigger selection modal
-  const comingSoonIntegrations = useMemo(() => new Set([
-    'beehiiv',
-    'manychat',
-    'gumroad',
-    'kit',
-    'paypal',
-    'shopify',
-    'blackbaud',
-    'box',
-    'dropbox',
-    'gitlab',
-    'instagram',
-    'linkedin',
-    'teams',  // Microsoft Teams uses 'teams' as its ID
-    'stripe',
-    'tiktok',
-    'youtube',
-    'youtube-studio',
-  ]), []);
+  // Get comingSoonIntegrations from the shared hook to maintain single source of truth
+  const { comingSoonIntegrations: hookComingSoonIntegrations } = useIntegrationSelection();
+  
+  // Use the hook's coming soon integrations list
+  const comingSoonIntegrations = hookComingSoonIntegrations;
 
   const handleOpenTriggerDialog = () => {
     setSelectedIntegration(null);
@@ -6220,16 +6279,116 @@ function WorkflowBuilderContent() {
                           size="sm"
                           variant="outline"
                           className="mr-2"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            // Handle OAuth connection
-                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.authUrl) {
-                              window.location.href = config.authUrl;
+                            // Check if this integration needs reauthorization
+                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            
+                            // Generate OAuth URL dynamically
+                            try {
+                              const response = await fetch('/api/integrations/auth/generate-url', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  provider: integration.id, 
+                                  forceFresh: needsReauth // Force fresh auth if reauthorization needed
+                                })
+                              });
+                              
+                              const data = await response.json();
+                              console.log('OAuth URL response:', data);
+                              const url = data.authUrl || data.url; // Support both authUrl and url properties
+                              
+                              if (url) {
+                                // Open OAuth popup
+                                const width = 600;
+                                const height = 700;
+                                const left = window.innerWidth / 2 - width / 2;
+                                const top = window.innerHeight / 2 - height / 2;
+                                
+                                console.log('Opening OAuth popup with URL:', url);
+                                const popup = window.open(
+                                  url,
+                                  `${integration.id}_oauth`,
+                                  `width=${width},height=${height},left=${left},top=${top}`
+                                );
+                                
+                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+                                  console.error('Popup was blocked!');
+                                  // Fallback to redirect if popup is blocked
+                                  toast({
+                                    title: "Popup Blocked",
+                                    description: "Please allow popups for this site or we'll redirect you instead.",
+                                    variant: "destructive",
+                                  });
+                                  // Optional: fallback to redirect
+                                  setTimeout(() => {
+                                    window.location.href = url;
+                                  }, 2000);
+                                  return;
+                                }
+                                
+                                // Listen for OAuth completion
+                                const handleMessage = async (event: MessageEvent) => {
+                                  if (event.data?.type === 'oauth-complete') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) {
+                                      popup.close();
+                                    }
+                                    
+                                    // Refresh integrations to get updated status
+                                    if (event.data.success) {
+                                      // Force refresh integrations
+                                      await fetchIntegrations(true);
+                                      
+                                      // Force re-render of the modal by toggling it
+                                      const currentIntegration = selectedIntegration;
+                                      setSelectedIntegration(null);
+                                      setTimeout(() => {
+                                        setSelectedIntegration(currentIntegration);
+                                      }, 50);
+                                      
+                                      toast({
+                                        title: needsReauth ? "Reconnection Successful" : "Connection Successful",
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integration.name}`,
+                                      });
+                                    }
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
+                                
+                                // Clean up if popup is closed manually
+                                const checkClosed = setInterval(() => {
+                                  if (popup && popup.closed) {
+                                    clearInterval(checkClosed);
+                                    window.removeEventListener('message', handleMessage);
+                                  }
+                                }, 1000);
+                              }
+                            } catch (error) {
+                              console.error('Error generating OAuth URL:', error);
+                              toast({
+                                title: needsReauth ? "Reconnection Error" : "Connection Error",
+                                description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
+                                variant: "destructive",
+                              });
                             }
                           }}
                         >
-                          Connect
+                          {(() => {
+                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
+                            // Check for various states that need reauthorization
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            return needsReauth ? 'Reconnect' : 'Connect';
+                          })()}
                         </Button>
                       ) : (
                         <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -6259,14 +6418,117 @@ function WorkflowBuilderContent() {
                         </p>
                         <Button
                           variant="default"
-                          onClick={() => {
-                            const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.authUrl) {
-                              window.location.href = config.authUrl;
+                          onClick={async () => {
+                            // Check if this integration needs reauthorization
+                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            
+                            // Generate OAuth URL dynamically
+                            try {
+                              const response = await fetch('/api/integrations/auth/generate-url', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  provider: selectedIntegration.id, 
+                                  forceFresh: needsReauth // Force fresh auth if reauthorization needed
+                                })
+                              });
+                              
+                              const data = await response.json();
+                              console.log('OAuth URL response:', data);
+                              const url = data.authUrl || data.url; // Support both authUrl and url properties
+                              
+                              if (url) {
+                                // Open OAuth popup
+                                const width = 600;
+                                const height = 700;
+                                const left = window.innerWidth / 2 - width / 2;
+                                const top = window.innerHeight / 2 - height / 2;
+                                
+                                console.log('Opening OAuth popup with URL:', url);
+                                const popup = window.open(
+                                  url,
+                                  `${selectedIntegration.id}_oauth`,
+                                  `width=${width},height=${height},left=${left},top=${top}`
+                                );
+                                
+                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+                                  console.error('Popup was blocked!');
+                                  // Fallback to redirect if popup is blocked
+                                  toast({
+                                    title: "Popup Blocked",
+                                    description: "Please allow popups for this site or we'll redirect you instead.",
+                                    variant: "destructive",
+                                  });
+                                  // Optional: fallback to redirect
+                                  setTimeout(() => {
+                                    window.location.href = url;
+                                  }, 2000);
+                                  return;
+                                }
+                                
+                                // Listen for OAuth completion
+                                const handleMessage = async (event: MessageEvent) => {
+                                  if (event.data?.type === 'oauth-complete') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) {
+                                      popup.close();
+                                    }
+                                    
+                                    // Refresh integrations to get updated status
+                                    if (event.data.success) {
+                                      // Force refresh integrations
+                                      await fetchIntegrations(true);
+                                      
+                                      // Force re-render of the modal by toggling selected integration
+                                      const currentIntegration = selectedIntegration;
+                                      setSelectedIntegration(null);
+                                      setTimeout(() => {
+                                        setSelectedIntegration(currentIntegration);
+                                      }, 50);
+                                      
+                                      toast({
+                                        title: needsReauth ? "Reconnection Successful" : "Connection Successful",
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                      });
+                                    }
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
+                                
+                                // Clean up if popup is closed manually
+                                const checkClosed = setInterval(() => {
+                                  if (popup && popup.closed) {
+                                    clearInterval(checkClosed);
+                                    window.removeEventListener('message', handleMessage);
+                                  }
+                                }, 1000);
+                              }
+                            } catch (error) {
+                              console.error('Error generating OAuth URL:', error);
+                              toast({
+                                title: needsReauth ? "Reconnection Error" : "Connection Error",
+                                description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
+                                variant: "destructive",
+                              });
                             }
                           }}
                         >
-                          Connect {selectedIntegration.name}
+                          {(() => {
+                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
+                            // Check for various states that need reauthorization
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            return needsReauth 
+                              ? `Reconnect ${selectedIntegration.name}` 
+                              : `Connect ${selectedIntegration.name}`;
+                          })()}
                         </Button>
                       </div>
                     ) : displayedTriggers.length > 0 ? (
@@ -6543,16 +6805,116 @@ function WorkflowBuilderContent() {
                           size="sm"
                           variant="outline"
                           className="mr-2"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            // Handle OAuth connection
-                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.authUrl) {
-                              window.location.href = config.authUrl;
+                            // Check if this integration needs reauthorization
+                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            
+                            // Generate OAuth URL dynamically
+                            try {
+                              const response = await fetch('/api/integrations/auth/generate-url', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  provider: integration.id, 
+                                  forceFresh: needsReauth // Force fresh auth if reauthorization needed
+                                })
+                              });
+                              
+                              const data = await response.json();
+                              console.log('OAuth URL response:', data);
+                              const url = data.authUrl || data.url; // Support both authUrl and url properties
+                              
+                              if (url) {
+                                // Open OAuth popup
+                                const width = 600;
+                                const height = 700;
+                                const left = window.innerWidth / 2 - width / 2;
+                                const top = window.innerHeight / 2 - height / 2;
+                                
+                                console.log('Opening OAuth popup with URL:', url);
+                                const popup = window.open(
+                                  url,
+                                  `${integration.id}_oauth`,
+                                  `width=${width},height=${height},left=${left},top=${top}`
+                                );
+                                
+                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+                                  console.error('Popup was blocked!');
+                                  // Fallback to redirect if popup is blocked
+                                  toast({
+                                    title: "Popup Blocked",
+                                    description: "Please allow popups for this site or we'll redirect you instead.",
+                                    variant: "destructive",
+                                  });
+                                  // Optional: fallback to redirect
+                                  setTimeout(() => {
+                                    window.location.href = url;
+                                  }, 2000);
+                                  return;
+                                }
+                                
+                                // Listen for OAuth completion
+                                const handleMessage = async (event: MessageEvent) => {
+                                  if (event.data?.type === 'oauth-complete') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) {
+                                      popup.close();
+                                    }
+                                    
+                                    // Refresh integrations to get updated status
+                                    if (event.data.success) {
+                                      // Force refresh integrations
+                                      await fetchIntegrations(true);
+                                      
+                                      // Force re-render of the modal by toggling it
+                                      const currentIntegration = selectedIntegration;
+                                      setSelectedIntegration(null);
+                                      setTimeout(() => {
+                                        setSelectedIntegration(currentIntegration);
+                                      }, 50);
+                                      
+                                      toast({
+                                        title: needsReauth ? "Reconnection Successful" : "Connection Successful",
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integration.name}`,
+                                      });
+                                    }
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
+                                
+                                // Clean up if popup is closed manually
+                                const checkClosed = setInterval(() => {
+                                  if (popup && popup.closed) {
+                                    clearInterval(checkClosed);
+                                    window.removeEventListener('message', handleMessage);
+                                  }
+                                }, 1000);
+                              }
+                            } catch (error) {
+                              console.error('Error generating OAuth URL:', error);
+                              toast({
+                                title: needsReauth ? "Reconnection Error" : "Connection Error",
+                                description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
+                                variant: "destructive",
+                              });
                             }
                           }}
                         >
-                          Connect
+                          {(() => {
+                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
+                            // Check for various states that need reauthorization
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            return needsReauth ? 'Reconnect' : 'Connect';
+                          })()}
                         </Button>
                       ) : (
                         <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -6582,14 +6944,117 @@ function WorkflowBuilderContent() {
                         </p>
                         <Button
                           variant="default"
-                          onClick={() => {
-                            const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS];
-                            if (config?.authUrl) {
-                              window.location.href = config.authUrl;
+                          onClick={async () => {
+                            // Check if this integration needs reauthorization
+                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            
+                            // Generate OAuth URL dynamically
+                            try {
+                              const response = await fetch('/api/integrations/auth/generate-url', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  provider: selectedIntegration.id, 
+                                  forceFresh: needsReauth // Force fresh auth if reauthorization needed
+                                })
+                              });
+                              
+                              const data = await response.json();
+                              console.log('OAuth URL response:', data);
+                              const url = data.authUrl || data.url; // Support both authUrl and url properties
+                              
+                              if (url) {
+                                // Open OAuth popup
+                                const width = 600;
+                                const height = 700;
+                                const left = window.innerWidth / 2 - width / 2;
+                                const top = window.innerHeight / 2 - height / 2;
+                                
+                                console.log('Opening OAuth popup with URL:', url);
+                                const popup = window.open(
+                                  url,
+                                  `${selectedIntegration.id}_oauth`,
+                                  `width=${width},height=${height},left=${left},top=${top}`
+                                );
+                                
+                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+                                  console.error('Popup was blocked!');
+                                  // Fallback to redirect if popup is blocked
+                                  toast({
+                                    title: "Popup Blocked",
+                                    description: "Please allow popups for this site or we'll redirect you instead.",
+                                    variant: "destructive",
+                                  });
+                                  // Optional: fallback to redirect
+                                  setTimeout(() => {
+                                    window.location.href = url;
+                                  }, 2000);
+                                  return;
+                                }
+                                
+                                // Listen for OAuth completion
+                                const handleMessage = async (event: MessageEvent) => {
+                                  if (event.data?.type === 'oauth-complete') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) {
+                                      popup.close();
+                                    }
+                                    
+                                    // Refresh integrations to get updated status
+                                    if (event.data.success) {
+                                      // Force refresh integrations
+                                      await fetchIntegrations(true);
+                                      
+                                      // Force re-render of the modal by toggling selected integration
+                                      const currentIntegration = selectedIntegration;
+                                      setSelectedIntegration(null);
+                                      setTimeout(() => {
+                                        setSelectedIntegration(currentIntegration);
+                                      }, 50);
+                                      
+                                      toast({
+                                        title: needsReauth ? "Reconnection Successful" : "Connection Successful",
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                      });
+                                    }
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
+                                
+                                // Clean up if popup is closed manually
+                                const checkClosed = setInterval(() => {
+                                  if (popup && popup.closed) {
+                                    clearInterval(checkClosed);
+                                    window.removeEventListener('message', handleMessage);
+                                  }
+                                }, 1000);
+                              }
+                            } catch (error) {
+                              console.error('Error generating OAuth URL:', error);
+                              toast({
+                                title: needsReauth ? "Reconnection Error" : "Connection Error",
+                                description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
+                                variant: "destructive",
+                              });
                             }
                           }}
                         >
-                          Connect {selectedIntegration.name}
+                          {(() => {
+                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
+                            // Check for various states that need reauthorization
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                                               integrationRecord?.status === 'expired' ||
+                                               integrationRecord?.status === 'invalid' ||
+                                               integrationRecord?.status === 'error';
+                            return needsReauth 
+                              ? `Reconnect ${selectedIntegration.name}` 
+                              : `Connect ${selectedIntegration.name}`;
+                          })()}
                         </Button>
                       </div>
                     ) : (

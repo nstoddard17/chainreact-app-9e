@@ -48,11 +48,23 @@ function DiscordServerFieldComponent({
     previousValue.current = value;
   }, [value]);
 
-  // Auto-load Discord servers on mount immediately
+  // Auto-load Discord servers on mount only if no value is selected
   useEffect(() => {
-    // Always trigger load on first mount, regardless of value
-    // This ensures servers are loaded for edit modals that have a pre-selected value
+    // Only trigger load if:
+    // 1. We haven't attempted to load yet
+    // 2. Field is dynamic
+    // 3. We have the load function
+    // 4. IMPORTANT: Only load if no value is selected (for new configurations)
+    //    OR if we have a value but no options (for edit configurations)
     if (!hasAttemptedLoad.current && field.dynamic && onDynamicLoad) {
+      // If we have a value and options, don't reload
+      if (value && options.length > 0) {
+        // Skip auto-load - value exists with options
+        hasAttemptedLoad.current = true;
+        return;
+      }
+      
+      // Auto-loading servers on mount
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
@@ -63,8 +75,12 @@ function DiscordServerFieldComponent({
     if (options.length > 0 && !hasReceivedOptions) {
       setHasReceivedOptions(true);
       setIsInitialLoad(false);
+      // If we have a value and now have options, we're done loading
+      if (value) {
+        hasAttemptedLoad.current = true;
+      }
     }
-  }, [options.length, hasReceivedOptions]);
+  }, [options.length, hasReceivedOptions, value]);
   
   // Also clear initial load if loading completes with no options
   useEffect(() => {
@@ -75,13 +91,14 @@ function DiscordServerFieldComponent({
 
   // Discord-specific loading behavior for dropdown open
   const handleServerFieldOpen = (open: boolean) => {
-    // Don't reload if we already have options loaded
-    if (options.length > 0) {
+    // Don't reload if we already have options loaded or if we're currently loading
+    if (options.length > 0 || isLoading || hasAttemptedLoad.current) {
       return;
     }
     
     // Load servers when dropdown opens if not already loaded
-    if (open && field.dynamic && onDynamicLoad && !isLoading && !hasAttemptedLoad.current) {
+    if (open && field.dynamic && onDynamicLoad) {
+      // Loading servers on dropdown open
       hasAttemptedLoad.current = true;
       onDynamicLoad(field.name);
     }
@@ -146,34 +163,35 @@ function DiscordServerFieldComponent({
   const processedError = error ? handleDiscordError(error) : undefined;
 
 
-  // Show loading state immediately when modal opens
-  // For edit message modal (no value), show loading until we explicitly receive options
-  if (field.dynamic && (isLoading || (isInitialLoad && !hasReceivedOptions))) {
+  // Show loading state with simplified UI
+  // Only show loading state if:
+  // 1. We're actually refreshing (user clicked refresh)
+  // 2. OR it's the initial load and we haven't received options yet
+  // 3. BUT NOT if we already have a value and options (which means field is already loaded)
+  const hasValueAndOptions = value && processedOptions.length > 0;
+  const showLoadingState = field.dynamic && !hasValueAndOptions && (isRefreshing || (isInitialLoad && !hasReceivedOptions));
+  
+  if (showLoadingState) {
     return (
       <div className="flex items-center gap-2">
-        <Select disabled value={value === undefined || value === null ? "" : String(value)}>
+        <Select disabled value="">
           <SelectTrigger 
             className={cn(
               "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex-1",
               error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
             )}
           >
-            <SelectValue>
-              <span className="flex items-center gap-2 text-slate-500">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                Loading Discord servers...
-              </span>
-            </SelectValue>
+            <SelectValue placeholder="Loading Discord servers..." />
           </SelectTrigger>
         </Select>
         
-        {/* Disabled refresh button while loading */}
+        {/* Refresh button spinning while loading */}
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={true}
-          className="h-10 px-3 opacity-50"
+          className="h-10 px-3"
           title="Loading servers..."
         >
           <RefreshCw className="h-4 w-4 animate-spin" />

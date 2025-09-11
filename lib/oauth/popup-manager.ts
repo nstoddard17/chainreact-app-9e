@@ -23,6 +23,27 @@ export interface PopupResponse {
 export class OAuthPopupManager {
   private static currentPopup: Window | null = null
   private static windowHasLostFocus = false
+  private static initialized = false
+  
+  /**
+   * Initialize and clean up any stale references
+   */
+  private static initialize(): void {
+    if (!this.initialized) {
+      // Clean up any stale popup reference on first use
+      if (this.currentPopup) {
+        try {
+          if (this.currentPopup.closed) {
+            this.currentPopup = null
+          }
+        } catch (e) {
+          // COOP might block access, assume it's stale
+          this.currentPopup = null
+        }
+      }
+      this.initialized = true
+    }
+  }
 
   /**
    * Check if popup is still valid
@@ -38,8 +59,12 @@ export class OAuthPopupManager {
   static closeExistingPopup(): void {
     if (this.currentPopup) {
       try {
-        this.currentPopup.close()
+        // Check if popup is actually open before trying to close
+        if (!this.currentPopup.closed) {
+          this.currentPopup.close()
+        }
       } catch (e) {
+        // COOP might block access, just log warning
         console.warn("Failed to close existing popup:", e)
       }
       this.currentPopup = null
@@ -55,6 +80,9 @@ export class OAuthPopupManager {
     options: PopupOptions
   ): Window | null {
     const { width = 600, height = 700, provider } = options
+    
+    // Initialize on first use
+    this.initialize()
     
     // Close any existing popup before opening a new one
     this.closeExistingPopup()
@@ -118,6 +146,19 @@ export class OAuthPopupManager {
     let closedByMessage = false
     let popupClosedManually = false
     
+    // Clear any stale OAuth responses from localStorage before starting
+    const storageCheckPrefix = `oauth_response_${provider}`
+    try {
+      const allKeys = Object.keys(localStorage)
+      const staleKeys = allKeys.filter(key => key.startsWith(storageCheckPrefix))
+      staleKeys.forEach(key => {
+        console.log(`🧹 [OAuth] Clearing stale localStorage entry: ${key}`)
+        localStorage.removeItem(key)
+      })
+    } catch (e) {
+      console.warn('Failed to clear stale OAuth responses:', e)
+    }
+    
     const cleanup = () => {
       if (popupCheckTimer) clearInterval(popupCheckTimer)
       if (storageCheckTimer) clearInterval(storageCheckTimer)
@@ -148,7 +189,10 @@ export class OAuthPopupManager {
           onInfo(data.message || "OAuth info received")
         }
       } else if (data && data.type === "oauth-error") {
-        console.error(`❌ OAuth error for ${provider}:`, data.message)
+        // For HubSpot, don't log errors - handle silently
+        if (provider !== 'hubspot') {
+          console.error(`❌ OAuth error for ${provider}:`, data.message)
+        }
         closedByMessage = true
         cleanup()
         popup?.close()
@@ -163,19 +207,39 @@ export class OAuthPopupManager {
     window.addEventListener("message", messageHandler)
 
     // Add popup close detection (manual close by user)
+    let cancelCheckScheduled = false
     const popupCheckTimer = setInterval(() => {
       try {
-        if (popup && popup.closed && !closedByMessage) {
+        if (popup && popup.closed && !closedByMessage && !popupClosedManually) {
           popupClosedManually = true
           
-          // Give localStorage check a chance to detect success first
-          setTimeout(() => {
-            if (!closedByMessage) {
-              console.log(`❌ [OAuth] Popup closed manually for ${provider}, treating as cancelled`)
-              cleanup()
-              onCancel() // User intentionally cancelled
+          // Only schedule the cancellation check once
+          if (!cancelCheckScheduled) {
+            cancelCheckScheduled = true
+            
+            // For HubSpot, check immediately without any delay
+            if (provider === 'hubspot') {
+              // Instant check for HubSpot - no waiting
+              if (!closedByMessage) {
+                cleanup()
+                onCancel() // This will trigger the instant check in integrationStore
+              }
+            } else {
+              // For other providers, wait before checking
+              const cancelDelay = 2000
+              console.log(`⏳ [OAuth] Popup closed for ${provider}, waiting ${cancelDelay}ms for success message...`)
+              
+              setTimeout(() => {
+                if (!closedByMessage) {
+                  console.log(`❌ [OAuth] No success message received for ${provider} after ${cancelDelay}ms, treating as cancelled`)
+                  cleanup()
+                  onCancel() // User intentionally cancelled
+                } else {
+                  console.log(`✅ [OAuth] Success message received for ${provider} within timeout`)
+                }
+              }, cancelDelay)
             }
-          }, 500) // Small delay to avoid race condition
+          }
         }
       } catch (error) {
         // COOP policy may block popup.closed access - this is expected
@@ -183,7 +247,8 @@ export class OAuthPopupManager {
     }, 1000)
 
     // Use localStorage to check for OAuth responses (COOP-safe)
-    const storageCheckPrefix = `oauth_response_${provider}`
+    // Check instantly for HubSpot
+    const storageCheckInterval = provider === 'hubspot' ? 50 : 500
     const storageCheckTimer = setInterval(() => {
       // Continue checking even if popup closed manually - success might still be detected
       
@@ -197,14 +262,20 @@ export class OAuthPopupManager {
             
             if (responseData && responseData.type) {
               if (responseData.type === 'oauth-success') {
-                console.log(`✅ [OAuth] Success detected for ${provider} via localStorage`)
+                // For HubSpot, handle silently
+                if (provider !== 'hubspot') {
+                  console.log(`✅ [OAuth] Success detected for ${provider} via localStorage`)
+                }
                 closedByMessage = true
                 cleanup()
                 localStorage.removeItem(key)
                 onSuccess(responseData)
                 return
               } else if (responseData.type === 'oauth-error') {
-                console.error(`❌ OAuth error for ${provider} via localStorage:`, responseData.message)
+                // For HubSpot, don't log errors
+                if (provider !== 'hubspot') {
+                  console.error(`❌ OAuth error for ${provider} via localStorage:`, responseData.message)
+                }
                 closedByMessage = true
                 cleanup()
                 localStorage.removeItem(key)
@@ -225,7 +296,7 @@ export class OAuthPopupManager {
       } catch (error) {
         console.error("Error checking localStorage for OAuth response:", error)
       }
-    }, 500) // Check more frequently to catch success before popup close detection
+    }, storageCheckInterval) // Check more frequently for HubSpot
 
     // Connection timeout (5 minutes)
     const connectionTimeout = setTimeout(() => {
@@ -256,7 +327,23 @@ export class OAuthPopupManager {
       }
       onCancel = () => {
         originalOnCancel()
-        reject(new Error("OAuth cancelled by user"))
+        // For HubSpot and Microsoft providers, don't reject - the cancel handler will check if it actually succeeded
+        // These providers may close the popup before sending the success message
+        const providersToResolve = [
+          'hubspot', 
+          'microsoft-onenote', 
+          'onenote',
+          'microsoft-outlook',
+          'outlook',
+          'teams',
+          'onedrive'
+        ]
+        
+        if (providersToResolve.includes(provider)) {
+          resolve() // Resolve instead of reject for these providers
+        } else {
+          reject(new Error("OAuth cancelled by user"))
+        }
       }
     })
 
@@ -307,8 +394,20 @@ export class OAuthPopupManager {
       let messageReceived = false
       
       const handleMessage = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return
+        // Allow messages from both localhost and production domains
+        const allowedOrigins = [
+          window.location.origin,
+          'http://localhost:3000',
+          'https://chainreact.app',
+          'https://www.chainreact.app'
+        ]
         
+        if (!allowedOrigins.includes(event.origin)) {
+          console.log('[PopupManager] Ignoring message from unexpected origin:', event.origin)
+          return
+        }
+        
+        console.log('[PopupManager] Processing message from:', event.origin)
         messageReceived = true
         
         if (event.data.type === "oauth-success") {
@@ -354,6 +453,13 @@ export class OAuthPopupManager {
             clearInterval(checkPopupClosed)
             window.removeEventListener("message", handleMessage)
             this.currentPopup = null
+            // For HubSpot, don't log warnings - handled silently by integration store
+            if (provider !== 'hubspot') {
+              console.warn('🚫 [OAuth Popup] Popup closed without receiving success message. This could mean:')
+              console.warn('  1. User manually closed the popup')
+              console.warn('  2. Authorization was cancelled')
+              console.warn('  3. Success message was blocked or delayed')
+            }
             reject(new Error("User cancelled the reconnection"))
           }
         } catch (error) {
@@ -384,7 +490,10 @@ export class OAuthPopupManager {
                   resolve()
                   return
                 } else if (responseData.type === 'oauth-error') {
-                  console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message)
+                  // For HubSpot, don't log errors
+                  if (provider !== 'hubspot') {
+                    console.error(`❌ OAuth reconnection failed via localStorage:`, responseData.message)
+                  }
                   messageReceived = true
                   clearInterval(popupCloseCheckTimer)
                   clearInterval(checkPopupClosed)

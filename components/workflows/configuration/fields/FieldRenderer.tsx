@@ -106,7 +106,37 @@ export function FieldRenderer({
     (field.dynamic && dynamicOptions?.[field.name]) || 
     [];
 
-
+  // Auto-load options for combobox fields with dynamic data
+  useEffect(() => {
+    if (field.type === 'combobox' && field.dynamic && onDynamicLoad) {
+      console.log('[FieldRenderer] Checking if should load options for combobox:', {
+        fieldName: field.name,
+        isDynamic: field.dynamic,
+        hasOptions: fieldOptions.length > 0,
+        isLoading: loadingDynamic,
+        dependsOn: field.dependsOn,
+        parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
+      });
+      
+      // Only load if we don't have options yet
+      if (!fieldOptions.length && !loadingDynamic) {
+        // Check if we need to load based on parent dependency
+        if (field.dependsOn) {
+          const parentValue = parentValues[field.dependsOn];
+          if (parentValue) {
+            console.log('[FieldRenderer] Loading dependent field options:', field.name, 'depends on', field.dependsOn, '=', parentValue);
+            onDynamicLoad(field.name, field.dependsOn, parentValue);
+          } else {
+            console.log('[FieldRenderer] Skipping load - parent dependency not set:', field.dependsOn);
+          }
+        } else {
+          // No dependency, load directly
+          console.log('[FieldRenderer] Loading field options directly:', field.name);
+          onDynamicLoad(field.name);
+        }
+      }
+    }
+  }, [field.type, field.dynamic, field.name, field.dependsOn, parentValues[field.dependsOn], fieldOptions.length, loadingDynamic, onDynamicLoad]);
 
   // Determine which integration this field belongs to
   const getIntegrationProvider = (field: any) => {
@@ -465,18 +495,66 @@ export function FieldRenderer({
           />
         );
 
+      case "combobox":
+        // Combobox fields with search capability and dynamic loading
+        const comboboxOptions = Array.isArray(field.options) 
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+        
+        console.log('[FieldRenderer] Rendering combobox field:', {
+          fieldName: field.name,
+          fieldType: field.type,
+          isDynamic: field.dynamic,
+          dependsOn: field.dependsOn,
+          parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
+          optionsCount: comboboxOptions.length,
+          loadingDynamic,
+          disabled: loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn]),
+          options: comboboxOptions
+        });
+        
+        return (
+          <div className="space-y-2">
+            <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+              {field.label || field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            {field.description && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
+            <Combobox
+              value={value || ""}
+              onChange={onChange}
+              options={comboboxOptions}
+              placeholder={field.placeholder || `Select ${field.label || field.name}...`}
+              searchPlaceholder={`Search ${field.label || field.name}...`}
+              emptyPlaceholder={loadingDynamic ? "Loading options..." : "No options found"}
+              disabled={loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn])}
+              creatable={field.creatable || false}
+            />
+            {error && (
+              <p className="text-xs text-red-500 mt-1">{error}</p>
+            )}
+          </div>
+        );
+
       case "boolean":
         return (
-          <div className="flex items-center space-x-2">
-            <Checkbox
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+                {field.label || field.name}
+              </Label>
+              {field.description && (
+                <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
+              )}
+            </div>
+            <Switch
               id={field.name}
               checked={value || false}
-              onCheckedChange={handleCheckboxChange}
-              className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+              onCheckedChange={onChange}
+              className="ml-4"
             />
-            <Label htmlFor={field.name} className="text-sm text-slate-700">
-              {field.label || field.name}
-            </Label>
           </div>
         );
 
@@ -628,6 +706,62 @@ export function FieldRenderer({
           />
         );
 
+      case "datetime-local":
+        // Handle datetime-local input for date and time selection
+        const datetimeValue = useMemo(() => {
+          if (!value) return '';
+          if (value instanceof Date) {
+            // Format as YYYY-MM-DDTHH:mm for datetime-local input
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            const hours = String(value.getHours()).padStart(2, '0');
+            const minutes = String(value.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+          if (typeof value === 'string' && value) {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              return `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+          }
+          return '';
+        }, [value]);
+
+        return (
+          <div className="space-y-2">
+            <Input
+              type="datetime-local"
+              value={datetimeValue}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (newValue) {
+                  // Convert to ISO string for storage
+                  const date = new Date(newValue);
+                  onChange(date.toISOString());
+                } else {
+                  onChange('');
+                }
+              }}
+              min={field.min}
+              max={field.max}
+              className={cn(
+                "w-full",
+                error && "border-red-500"
+              )}
+              placeholder={field.placeholder}
+            />
+            {field.description && (
+              <p className="text-sm text-muted-foreground">{field.description}</p>
+            )}
+          </div>
+        );
+
       case "file":
         return (
           <GenericTextInput
@@ -672,6 +806,56 @@ export function FieldRenderer({
         // This is a special field that should be rendered by ConfigurationForm
         // Return null as the preview UI is handled at the form level
         return null;
+
+      case "tag-input":
+        const { TagInput } = require("@/components/ui/tag-input");
+        return (
+          <TagInput
+            value={value || []}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            error={error}
+          />
+        );
+
+      case "multi-select":
+        // Check if this is a Discord messages field
+        if (field.dynamic === "discord_messages") {
+          const { DiscordMultiMessageSelector } = require("./discord/DiscordMultiMessageSelector");
+          return (
+            <DiscordMultiMessageSelector
+              field={field}
+              value={value || []}
+              onChange={onChange}
+              options={fieldOptions}
+              placeholder={field.placeholder}
+              error={error}
+              isLoading={loadingDynamic}
+            />
+          );
+        }
+        
+        // Default multi-select using MultiCombobox
+        const multiSelectOpts = Array.isArray(field.options)
+          ? field.options.map(opt => ({
+              value: String(opt.value),
+              label: opt.label || String(opt.value)
+            }))
+          : fieldOptions.map(opt => ({
+              value: opt.value || opt.id || "",
+              label: opt.label || opt.name || opt.value || opt.id || ""
+            }));
+            
+        return (
+          <MultiCombobox
+            options={multiSelectOpts}
+            value={value || []}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+          />
+        );
 
       default:
         return (

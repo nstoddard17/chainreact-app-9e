@@ -46,6 +46,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     initializeProviders,
     fetchIntegrations,
     loading,
+    loadingStates,
     connectIntegration,
     disconnectIntegration,
     reconnectIntegration,
@@ -102,21 +103,36 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   // Add a fallback to prevent infinite loading
   useEffect(() => {
-    if (loading && user) {
+    const isLoadingIntegrations = loadingStates?.['integrations'] || false
+    const isLoadingProviders = loadingStates?.['providers'] || false
+    const isActuallyLoading = isLoadingIntegrations || isLoadingProviders || loading
+    
+    if (isActuallyLoading && user) {
       const timeout = setTimeout(() => {
-        console.warn("⚠️ Integration loading timeout - resetting state")
-        setLoading("global", false)
-        // Show error message to user
-        toast({
-          title: "Loading timeout",
-          description: "Integrations are taking longer than expected to load. Please refresh the page.",
-          variant: "destructive",
+        console.warn("⚠️ Integration loading timeout - attempting recovery")
+        // First try to force refresh integrations
+        fetchIntegrations(true).finally(() => {
+          // If still loading after force refresh, reset the state
+          const currentState = useIntegrationStore.getState()
+          const stillLoading = currentState.loadingStates?.['integrations'] || currentState.loadingStates?.['providers'] || currentState.loading
+          if (stillLoading) {
+            console.warn("⚠️ Force refresh didn't resolve loading state - resetting")
+            setLoading("integrations", false)
+            setLoading("providers", false)
+            setLoading("global", false)
+            // Show error message to user
+            toast({
+              title: "Loading timeout",
+              description: "Integrations are taking longer than expected to load. Please refresh the page.",
+              variant: "destructive",
+            })
+          }
         })
-      }, 10000) // Reduced to 10 second timeout for faster error feedback
+      }, 15000) // Increased to 15 second timeout to give more time for initial load
       
       return () => clearTimeout(timeout)
     }
-  }, [loading, user, setLoading, toast])
+  }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
 
   const fetchMetrics = async () => {
     if (!user) return
@@ -186,6 +202,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationConnected = (event: Event) => {
       const customEvent = event as CustomEvent
+      // Immediately refresh integrations to show the new connection
+      fetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Connected",
@@ -196,6 +214,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationDisconnected = (event: Event) => {
       const customEvent = event as CustomEvent
+      // Immediately refresh integrations to show the disconnection
+      fetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Disconnected",
@@ -206,6 +226,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationReconnected = (event: Event) => {
       const customEvent = event as CustomEvent
+      // Immediately refresh integrations to show the reconnection
+      fetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Reconnected",
@@ -215,6 +237,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
 
     const handleIntegrationsUpdated = () => {
+      // Refresh both integrations and metrics
+      fetchIntegrations(true)
       fetchMetrics()
     }
 
@@ -520,7 +544,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const IntegrationGrid = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading && filteredProviders.length === 0 ? (
+        {(loading || loadingStates?.['providers'] || loadingStates?.['integrations']) && filteredProviders.length === 0 ? (
           <div className="col-span-full flex items-center justify-center py-12">
             <div className="text-center">
               <LightningLoader size="lg" color="blue" className="mx-auto mb-2" />

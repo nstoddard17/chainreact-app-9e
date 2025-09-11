@@ -4,8 +4,22 @@ import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
 export function useAuth() {
-  const { user, loading, initialized, hydrated, error } = useAuthStore()
+  const { user, loading, initialized, hydrated, error, initialize, setHydrated } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
+
+  // Ensure store is hydrated on mount
+  useEffect(() => {
+    if (!hydrated) {
+      setHydrated()
+    }
+  }, [hydrated, setHydrated])
+
+  // Initialize auth if needed
+  useEffect(() => {
+    if (hydrated && !initialized && !loading) {
+      initialize()
+    }
+  }, [hydrated, initialized, loading, initialize])
 
   useEffect(() => {
     // Auth is ready when it's hydrated and initialized
@@ -21,7 +35,7 @@ export function useAuth() {
         console.warn("Auth hook fallback: forcing ready state after timeout")
         setIsReady(true)
       }
-    }, 15000) // 15 second fallback
+    }, 5000) // 5 second fallback
 
     return () => clearTimeout(fallbackTimeout)
   }, [isReady, loading])

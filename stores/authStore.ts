@@ -75,10 +75,10 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
-        // Add timeout protection for initialization
+        // Add timeout protection for initialization (reduced from 5s to 2s)
         const initTimeout = setTimeout(() => {
           set({ loading: false, initialized: true, error: "Initialization timed out" })
-        }, 5000) // 5 seconds timeout for initialization
+        }, 2000) // 2 seconds timeout for initialization
 
         try {
           set({ loading: true, error: null })
@@ -111,10 +111,10 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Get current user from Supabase with timeout
+          // Get current user from Supabase with timeout (reduced from 3s to 1.5s)
           const userPromise = supabase.auth.getUser()
           const userTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
+            setTimeout(() => reject(new Error('User fetch timeout')), 1500) // 1.5 seconds timeout for user fetch
           )
           
           let userResult
@@ -640,7 +640,23 @@ export const useAuthStore = create<AuthState>()(
               avatar: data.user.user_metadata?.avatar_url,
             }
 
-            set({ user, loading: false })
+            // Fetch profile data after successful login
+            const { data: profileData } = await supabase
+              .from('user_profiles')
+              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+              .eq('id', data.user.id)
+              .single()
+
+            let profile: Profile | null = null
+            if (profileData) {
+              profile = profileData
+              user.first_name = profileData.first_name
+              user.last_name = profileData.last_name
+              user.full_name = profileData.full_name || user.name
+            }
+
+            set({ user, profile, loading: false, initialized: true })
+            return { user, profile }
           }
         } catch (error: any) {
           console.error("Sign in error:", error)

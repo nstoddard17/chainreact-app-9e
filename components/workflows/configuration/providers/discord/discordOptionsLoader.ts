@@ -22,7 +22,9 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     'parentId',
     'categoryId',
     'parentCategory',
-    'roleFilter'
+    'roleFilter',
+    'allowedUsers',
+    'allowedRoles'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -73,11 +75,13 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
             
             case 'filterAuthor':
             case 'userId':
+            case 'allowedUsers':
               result = await this.loadMembers(params);
               break;
             
             case 'roleId':
             case 'roleFilter':
+            case 'allowedRoles':
               result = await this.loadRoles(params);
               break;
             
@@ -366,6 +370,8 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       case 'parentId':
       case 'categoryId':
       case 'parentCategory':
+      case 'allowedUsers':
+      case 'allowedRoles':
         return ['guildId'];
       
       case 'messageId':

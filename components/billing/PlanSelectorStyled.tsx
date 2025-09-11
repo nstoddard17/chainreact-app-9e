@@ -14,7 +14,7 @@ interface PlanSelectorProps {
   targetPlanId?: string
 }
 
-export default function PlanSelector({ plans, currentSubscription, targetPlanId }: PlanSelectorProps) {
+export default function PlanSelector({ plans = [], currentSubscription, targetPlanId }: PlanSelectorProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly")
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,27 +32,46 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
   // Only use active plans (Free and Pro)
   const activePlans = uniquePlans.filter(p => !p.coming_soon)
 
-  const handleSelectPlan = async (planId: string) => {
-    if (processingPlanId) return
+  const handlePlanSelection = async (selectedPlanId: string) => {
+    console.log("handlePlanSelection called with planId:", selectedPlanId)
+    console.log("Available plans:", plans)
+    
+    if (processingPlanId) {
+      console.log("Already processing a plan, returning")
+      return
+    }
     
     // Don't process coming soon plans
-    const plan = allPlans.find(p => p.id === planId)
-    if (plan?.coming_soon) return
+    const selectedPlan = plans?.find((p: any) => p.id === selectedPlanId)
+    if (!selectedPlan) {
+      console.error("Plan not found:", selectedPlanId)
+      return
+    }
+    
+    if (selectedPlan.coming_soon) {
+      console.log("Plan is coming soon, returning")
+      return
+    }
 
     try {
-      setProcessingPlanId(planId)
+      setProcessingPlanId(selectedPlanId)
       setError(null)
-      const checkoutUrl = await createCheckoutSession(planId, billingCycle === "annual" ? "yearly" : "monthly")
+      
+      const billingPeriod = billingCycle === "annual" ? "yearly" : "monthly"
+      console.log("Creating checkout session with billing period:", billingPeriod)
+      
+      const checkoutUrl = await createCheckoutSession(selectedPlanId, billingPeriod)
 
       if (!checkoutUrl) {
         throw new Error("No checkout URL returned")
       }
 
+      console.log("Redirecting to checkout URL:", checkoutUrl)
       window.location.href = checkoutUrl
     } catch (error: any) {
       console.error("Failed to create checkout session:", error)
 
-      if (error.message.includes("STRIPE_NOT_CONFIGURED")) {
+      if (error.message?.includes("STRIPE_NOT_CONFIGURED")) {
         setError("Billing is not yet configured for this application. Please contact support.")
       } else {
         setError("There was an error creating your checkout session. Please try again later.")
@@ -141,7 +160,7 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
               isExpanded={expandedPlanId === plan.id}
               onToggleExpand={() => togglePlanExpansion(plan.id)}
               isDisabled={!hasStripeConfig}
-              onSelect={() => handleSelectPlan(plan.id)}
+              onSelect={() => handlePlanSelection(plan.id)}
               isMainCard={true}
             />
           ))}
@@ -240,21 +259,21 @@ function PlanCard({
                 <div>
                   {billingCycle === "annual" && isPro && (
                     <div className="text-center mb-2">
-                      <span className="text-slate-500 line-through text-lg">$20/mo</span>
-                      <span className="ml-2 text-green-500 text-sm font-semibold">Save $60/year</span>
+                      <span className="text-slate-500 line-through text-lg">$19.99/mo</span>
+                      <span className="ml-2 text-green-500 text-sm font-semibold">Save $59.89/year</span>
                     </div>
                   )}
                   <div className="flex items-baseline justify-center gap-1">
                     <span className={`${isPro && isMainCard ? 'text-6xl' : 'text-5xl'} font-bold ${isComingSoon ? 'text-slate-600' : 'text-white'}`}>
-                      ${billingCycle === "annual" && !isFree ? Math.round(price / 12) : price}
+                      ${billingCycle === "annual" && !isFree && isPro ? "15" : isFree ? "0" : "19.99"}
                     </span>
                     <span className={`text-sm font-medium ${isComingSoon ? 'text-slate-700' : 'text-slate-500'}`}>
                       /{billingCycle === "annual" && !isFree ? "month" : billingCycle === "monthly" ? "month" : "year"}
                     </span>
                   </div>
-                  {billingCycle === "annual" && !isFree && (
+                  {billingCycle === "annual" && !isFree && isPro && (
                     <div className="text-center mt-1">
-                      <span className="text-xs text-slate-500">Billed ${price} annually</span>
+                      <span className="text-xs text-slate-500">Billed $179.99 annually</span>
                     </div>
                   )}
                 </div>

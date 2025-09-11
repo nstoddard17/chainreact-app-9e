@@ -201,7 +201,7 @@ export function TriggerSelectionDialog({
                         <Badge variant="secondary" className="ml-2 shrink-0">
                           Coming soon
                         </Badge>
-                      ) : !isConnected && integration.id !== 'core' && integration.id !== 'logic' && integration.id !== 'webhook' && integration.id !== 'scheduler' && integration.id !== 'ai' ? (
+                      ) : !isConnected && integration.id !== 'core' && integration.id !== 'logic' && integration.id !== 'webhook' && integration.id !== 'scheduler' && integration.id !== 'ai' && integration.id !== 'manual' ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -230,7 +230,7 @@ export function TriggerSelectionDialog({
             <ScrollArea className="h-full">
               <div className="p-4">
                 {selectedIntegration ? (
-                  !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'core' && selectedIntegration.id !== 'logic' ? (
+                  !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'core' && selectedIntegration.id !== 'logic' && selectedIntegration.id !== 'webhook' && selectedIntegration.id !== 'scheduler' && selectedIntegration.id !== 'ai' && selectedIntegration.id !== 'manual' ? (
                     // Show message for unconnected integrations
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <div className="text-muted-foreground mb-4">

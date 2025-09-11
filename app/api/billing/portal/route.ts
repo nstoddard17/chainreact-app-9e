@@ -1,12 +1,49 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-export async function POST(request: Request) {
+// Helper function to get base URL from request
+function getBaseUrlFromRequest(request: NextRequest): string {
+  // Priority 1: Always use actual request headers first
+  const headers = request.headers
+  const host = headers.get('host') || headers.get('x-forwarded-host')
+  
+  if (host) {
+    // Check if it's localhost - if so, ALWAYS use localhost regardless of env vars
+    if (host.includes('localhost') || host.includes('127.0.0.1')) {
+      console.log("[Portal API] Detected localhost, using local URL")
+      return `http://${host}`
+    }
+    
+    // For non-localhost, check if we should use env var
+    if (process.env.NEXT_PUBLIC_APP_URL && !host.includes('vercel.app') && !host.includes('ngrok')) {
+      // Use env var for production
+      return process.env.NEXT_PUBLIC_APP_URL
+    }
+    
+    // For preview/staging environments, use the actual host
+    const protocol = headers.get('x-forwarded-proto') || 'https'
+    return `${protocol}://${host}`
+  }
+  
+  // Priority 2: Fallback to environment variable
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  
+  // Priority 3: Fallback to localhost in development
+  if (process.env.NODE_ENV === 'development') {
+    return `http://localhost:${process.env.PORT || '3000'}`
+  }
+  
+  // Priority 4: Default fallback
+  return 'https://chainreact.app'
+}
+
+export async function POST(request: NextRequest) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
@@ -31,16 +68,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No subscription found" }, { status: 404 })
     }
 
-    // Get the base URL from the request headers or environment
-    const origin = getBaseUrl()
-
-    // Ensure we have a valid URL with explicit scheme
-    const baseUrl = origin.startsWith("http") ? origin : `https://${origin}`
+    // Get the base URL dynamically from the request
+    const baseUrl = getBaseUrlFromRequest(request)
 
     // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: `${baseUrl}/settings/billing`,
+      return_url: `${baseUrl}/settings?tab=billing`,
     })
 
     if (!portalSession.url) {

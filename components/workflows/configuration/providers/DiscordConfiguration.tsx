@@ -68,6 +68,7 @@ export function DiscordConfiguration({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const isLoadingChannels = useRef(false);
+  const hasInitializedServers = useRef(false);
   
   // Use Discord state hook for advanced features
   const discordState = useDiscordState({
@@ -130,59 +131,113 @@ export function DiscordConfiguration({
 
   // Ultra-simple field change handler with debouncing and loading state management
   const handleFieldChange = (fieldName: string, value: any) => {
-    console.log('🎯 [Discord] Field change:', fieldName, value);
+    console.log(`🔄 [Discord] Field change: ${fieldName} = ${value}`);
+    
+    // Store the previous value for comparison
+    const previousValue = values[fieldName];
+    
+    // Check if value actually changed
+    if (value === previousValue) {
+      console.log(`✅ [Discord] ${fieldName} value unchanged, skipping processing`);
+      return;
+    }
     
     // Update the value immediately
     setValue(fieldName, value);
     
     // Handle server selection
-    if (fieldName === 'guildId' && value) {
-      // Prevent multiple concurrent loads
-      if (isLoadingChannels.current) {
-        console.log('⏳ [Discord] Already loading channels, skipping');
-        return;
+    if (fieldName === 'guildId') {
+      // Only process if we have a value
+      if (value) {
+        // Prevent multiple concurrent loads
+        if (isLoadingChannels.current) {
+          console.log('⏳ [Discord] Already loading channels, skipping');
+          return;
+        }
+        
+        // Clear dependent fields when server changes
+        setValue('channelId', '');
+        setValue('messageId', '');
+        
+        // Check bot status for the selected guild
+        checkBotStatus(value);
+        
+        // Set loading flag
+        isLoadingChannels.current = true;
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('channelId');
+          return newSet;
+        });
+        
+        // Load channels with a longer delay to prevent UI freeze
+        setTimeout(() => {
+          console.log('📥 [Discord] Loading channels for guild:', value);
+          loadOptions('channelId', 'guildId', value)
+            .then(() => {
+              console.log('✅ [Discord] Channels loaded successfully');
+            })
+            .catch((error) => {
+              console.error('❌ [Discord] Error loading channels:', error);
+            })
+            .finally(() => {
+              isLoadingChannels.current = false;
+              setLocalLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete('channelId');
+                return newSet;
+              });
+            });
+        }, 500); // Increased delay to 500ms
+      } else {
+        // If server is cleared, clear dependent fields
+        setValue('channelId', '');
+        setValue('messageId', '');
       }
-      
-      // Clear dependent fields when server changes
-      setValue('channelId', '');
-      setValue('messageId', '');
-      
-      // Check bot status for the selected guild
-      checkBotStatus(value);
-      
-      // Set loading flag
-      isLoadingChannels.current = true;
-      setLocalLoadingFields(new Set(['channelId']));
-      
-      // Load channels with a longer delay to prevent UI freeze
-      setTimeout(() => {
-        console.log('📥 [Discord] Loading channels for guild:', value);
-        loadOptions('channelId', 'guildId', value)
-          .then(() => {
-            console.log('✅ [Discord] Channels loaded successfully');
-          })
-          .catch((error) => {
-            console.error('❌ [Discord] Error loading channels:', error);
-          })
-          .finally(() => {
-            isLoadingChannels.current = false;
-            setLocalLoadingFields(new Set());
-          });
-      }, 500); // Increased delay to 500ms
     }
     
-    // Handle channel selection - load messages if message field exists
-    if (fieldName === 'channelId' && value) {
-      // Check if we have a messageId field in the schema
-      const hasMessageField = nodeInfo?.configSchema?.some((field: any) => field.name === 'messageId');
-      
-      if (hasMessageField) {
-        // Clear message value when channel changes
-        setValue('messageId', '');
-        // Also clear content field if it exists (for edit message action)
-        if (nodeInfo?.configSchema?.some((field: any) => field.name === 'content')) {
-          setValue('content', '');
+    // Handle channel selection - load messages and users for various fields
+    if (fieldName === 'channelId') {
+      // Only process if we have a value
+      if (value) {
+        // For fetch messages action, load members when channel is selected
+        if (nodeInfo?.type === 'discord_action_fetch_messages' && values.guildId) {
+          console.log('👥 [Discord] Loading members for fetch messages filter');
+          // Set loading state for filterAuthor field
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('filterAuthor');
+            return newSet;
+          });
+          
+          // Load members for the selected server
+          setTimeout(() => {
+            loadOptions('filterAuthor', 'guildId', values.guildId, true)
+              .then(() => {
+                console.log('✅ [Discord] Members loaded for filter');
+              })
+              .catch((error) => {
+                console.error('❌ [Discord] Error loading members:', error);
+              })
+              .finally(() => {
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('filterAuthor');
+                  return newSet;
+                });
+              });
+          }, 300);
         }
+        // Check if we have a messageId field in the schema (edit/single delete)
+        const hasMessageField = nodeInfo?.configSchema?.some((field: any) => field.name === 'messageId');
+        
+        if (hasMessageField) {
+          // Clear message value only when channel actually changes
+          setValue('messageId', '');
+          // Also clear content field if it exists (for edit message action)
+          if (nodeInfo?.configSchema?.some((field: any) => field.name === 'content')) {
+            setValue('content', '');
+          }
         
         // Set loading state for messages
         setLocalLoadingFields(prev => {
@@ -193,10 +248,10 @@ export function DiscordConfiguration({
         
         // Load messages with a delay - force refresh to get new format
         setTimeout(() => {
-          console.log('📥 [Discord] Loading messages for channel:', value);
+          // Loading messages for channel
           loadOptions('messageId', 'channelId', value, true) // true forces refresh
             .then(() => {
-              console.log('✅ [Discord] Messages loaded successfully');
+              // Messages loaded successfully
             })
             .catch((error) => {
               console.error('❌ [Discord] Error loading messages:', error);
@@ -209,20 +264,181 @@ export function DiscordConfiguration({
               });
             });
         }, 300);
+        }
+        
+        // Check if we have a messageIds field (multi-select for delete action)
+        const hasMessagesField = nodeInfo?.configSchema?.some((field: any) => field.name === 'messageIds');
+        
+        if (hasMessagesField) {
+          // Clear messages value only when channel actually changes
+          setValue('messageIds', []);
+          
+          // Set loading state for messages
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('messageIds');
+            return newSet;
+          });
+          
+          // Load messages with a delay
+          setTimeout(() => {
+            console.log('📥 [Discord] Loading messages for multi-select:', value);
+            loadOptions('messageIds', 'channelId', value, true)
+              .then(() => {
+                console.log('✅ [Discord] Messages loaded for multi-select');
+              })
+              .catch((error) => {
+                console.error('❌ [Discord] Error loading messages:', error);
+              })
+              .finally(() => {
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('messageIds');
+                  return newSet;
+                });
+              });
+          }, 300);
+        }
+        
+        // Check if we have a userId field (for delete message user filter - legacy)
+        const hasUserField = nodeInfo?.configSchema?.some((field: any) => field.name === 'userId');
+        
+        if (hasUserField) {
+          // Clear user value when channel changes
+          setValue('userId', '');
+          
+          // Set loading state for users
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('userId');
+            return newSet;
+          });
+          
+          // Load channel members with a delay
+          setTimeout(() => {
+            console.log('👥 [Discord] Loading channel members for:', value);
+            loadOptions('userId', 'channelId', value, true)
+              .then(() => {
+                console.log('✅ [Discord] Channel members loaded successfully');
+              })
+              .catch((error) => {
+                console.error('❌ [Discord] Error loading channel members:', error);
+              })
+              .finally(() => {
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('userId');
+                  return newSet;
+                });
+              });
+          }, 300);
+        }
+        
+        // Check if we have a userIds field (for delete message user filter - new multi-select)
+        const hasUsersField = nodeInfo?.configSchema?.some((field: any) => field.name === 'userIds');
+        
+        if (hasUsersField) {
+          // Clear users value when channel changes
+          setValue('userIds', []);
+          
+          // Set loading state for users
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('userIds');
+            return newSet;
+          });
+          
+          // Load channel members with a delay
+          setTimeout(() => {
+            console.log('👥 [Discord] Loading channel members for multi-select:', value);
+            loadOptions('userIds', 'channelId', value, true)
+              .then(() => {
+                console.log('✅ [Discord] Channel members loaded successfully for multi-select');
+              })
+              .catch((error) => {
+                console.error('❌ [Discord] Error loading channel members:', error);
+              })
+              .finally(() => {
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('userIds');
+                  return newSet;
+                });
+              });
+          }, 300);
+        }
       }
     }
     
     // Handle message selection for edit message action
     if (fieldName === 'messageId' && value) {
-      // Clear content field when a different message is selected
+      // Check if this is an edit message action with a content field
       const hasContentField = nodeInfo?.configSchema?.some((field: any) => field.name === 'content');
-      if (hasContentField) {
-        // Could optionally pre-populate with the existing message content here
-        // For now, just ensure the field is ready for editing
+      if (hasContentField && nodeInfo?.type === 'discord_action_edit_message') {
         console.log('📝 [Discord] Message selected for editing:', value);
+        
+        // Find the selected message in the dynamic options to get its content
+        const messageOptions = dynamicOptions?.messageId || [];
+        const selectedMessage = messageOptions.find((msg: any) => {
+          // Handle both formats: direct ID or object with value
+          const msgId = msg.value || msg.id || msg;
+          return msgId === value;
+        });
+        
+        if (selectedMessage && selectedMessage.content) {
+          console.log('📄 [Discord] Populating content field with:', selectedMessage.content);
+          // Populate the content field with the selected message's content
+          setValue('content', selectedMessage.content);
+        } else {
+          console.log('⚠️ [Discord] No content found for selected message');
+          // Clear the content field if no content is found
+          setValue('content', '');
+        }
       }
     }
   };
+  
+  // Auto-load Discord servers for ALL Discord actions on mount
+  useEffect(() => {
+    // Check if this is a Discord action (not trigger)
+    const isDiscordAction = nodeInfo?.type?.startsWith('discord_action_');
+    
+    // Only auto-load servers if:
+    // 1. This is a Discord action
+    // 2. We haven't already initialized
+    // 3. The guildId field exists in the schema
+    if (isDiscordAction && !hasInitializedServers.current) {
+      const hasGuildField = nodeInfo?.configSchema?.some((field: any) => field.name === 'guildId');
+      
+      if (hasGuildField) {
+        console.log('🚀 [Discord] Auto-loading servers for Discord action');
+        hasInitializedServers.current = true;
+        
+        // Set loading state for the server field
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('guildId');
+          return newSet;
+        });
+        
+        // Load servers immediately
+        loadOptions('guildId', undefined, undefined, true)
+          .then(() => {
+            console.log('✅ [Discord] Servers loaded successfully');
+          })
+          .catch((error) => {
+            console.error('❌ [Discord] Error loading servers:', error);
+          })
+          .finally(() => {
+            setLocalLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('guildId');
+              return newSet;
+            });
+          });
+      }
+    }
+  }, [nodeInfo?.type]); // Only depend on node type to prevent re-runs
   
   // Listen for bot connection events
   useEffect(() => {
@@ -249,6 +465,10 @@ export function DiscordConfiguration({
 
   // Check if we're loading a specific field
   const isFieldLoading = (fieldName: string) => {
+    // For guildId, only check specific loading states, not global loadingDynamic
+    if (fieldName === 'guildId') {
+      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName);
+    }
     return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) || 
            (fieldName === 'channelId' && isLoadingChannels.current);
   };
@@ -318,6 +538,62 @@ export function DiscordConfiguration({
               // Conditionally hide content field if no message selected (for edit message action)
               if (field.name === 'content' && !values.messageId) {
                 return null;
+              }
+              
+              // For delete message action - hide messages, userIds/userId, and keywords fields if no channel selected
+              if (nodeInfo?.type === 'discord_action_delete_message') {
+                if ((field.name === 'messageIds' || field.name === 'userIds' || field.name === 'userId' || field.name === 'keywords') && !values.channelId) {
+                  return null;
+                }
+              }
+              
+              // For fetch messages action - progressive field display
+              if (nodeInfo?.type === 'discord_action_fetch_messages') {
+                // Hide channel field if no server selected
+                if (field.name === 'channelId' && !values.guildId) {
+                  return null;
+                }
+                // Hide all other fields if no channel selected
+                if (!values.channelId && field.name !== 'guildId' && field.name !== 'channelId') {
+                  return null;
+                }
+              }
+              
+              // For add/remove reaction actions - hide emoji field if no channel selected
+              if (nodeInfo?.type === 'discord_action_add_reaction' || nodeInfo?.type === 'discord_action_remove_reaction') {
+                if (field.name === 'emoji' && !values.channelId) {
+                  return null;
+                }
+              }
+              
+              // For create channel action - progressive field display
+              if (nodeInfo?.type === 'discord_action_create_channel') {
+                // Step 1: Show only server field initially
+                if (!values.guildId && field.name !== 'guildId') {
+                  return null;
+                }
+                
+                // Step 2: After server, show only channel type
+                if (values.guildId && !values.type && field.name !== 'guildId' && field.name !== 'type') {
+                  return null;
+                }
+                
+                // Step 3: After type, show channel name
+                if (values.type && !values.name && field.name !== 'guildId' && field.name !== 'type' && field.name !== 'name') {
+                  return null;
+                }
+                
+                // Step 4: After name, show private toggle
+                if (values.name && field.name !== 'guildId' && field.name !== 'type' && field.name !== 'name' && field.name !== 'isPrivate') {
+                  // Only show permission fields if isPrivate is true
+                  if ((field.name === 'allowedUsers' || field.name === 'allowedRoles') && !values.isPrivate) {
+                    return null;
+                  }
+                  // Hide optional fields (category, topic, slowmode) until private toggle is set
+                  if (!('isPrivate' in values) && (field.name === 'parentId' || field.name === 'topic' || field.name === 'rateLimitPerUser')) {
+                    return null;
+                  }
+                }
               }
               
               return (

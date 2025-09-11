@@ -46,12 +46,14 @@ interface BillingState {
   usage: UsageData | null
   loading: boolean
   error: string | null
+  lastFetchTime: number | null
 }
 
 interface BillingActions {
   fetchPlans: () => Promise<void>
   fetchSubscription: () => Promise<void>
   fetchUsage: () => Promise<void>
+  fetchAll: () => Promise<void>
   createCheckoutSession: (planId: string, billingCycle: string) => Promise<string>
   cancelSubscription: () => Promise<void>
   createPortalSession: () => Promise<string>
@@ -64,14 +66,13 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
   usage: null,
   loading: false,
   error: null,
+  lastFetchTime: null,
 
   fetchPlans: async () => {
     const supabase = getSupabaseClient()
     if (!supabase) {
       throw new Error("Supabase client not available")
     }
-
-    set({ loading: true, error: null })
 
     try {
       const { data, error } = await supabase
@@ -82,9 +83,10 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       if (error) throw error
 
-      set({ plans: data || [], loading: false })
+      set({ plans: data || [] })
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      console.error("Error fetching plans:", error)
+      set({ error: error.message })
     }
   },
 
@@ -175,16 +177,75 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     }
   },
 
+  fetchAll: async () => {
+    // Check if data was recently fetched (cache for 30 seconds)
+    const state = get()
+    const now = Date.now()
+    const CACHE_DURATION = 30000 // 30 seconds
+    
+    if (state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
+      console.log("Using cached billing data")
+      return
+    }
+
+    // Fetch all data in parallel for better performance
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.log("Supabase client not available")
+      return
+    }
+
+    set({ loading: true, error: null })
+
+    try {
+      // Run all fetches in parallel
+      await Promise.all([
+        get().fetchPlans().catch(err => console.error("Error fetching plans:", err)),
+        get().fetchSubscription().catch(err => console.error("Error fetching subscription:", err)),
+        get().fetchUsage().catch(err => console.error("Error fetching usage:", err))
+      ])
+      
+      set({ lastFetchTime: now })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   createCheckoutSession: async (planId: string, billingCycle: string) => {
     try {
       console.log("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
 
+      // Get the current session token
+      const supabase = getSupabaseClient()
+      console.log("Getting session...")
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        console.error("Session error:", sessionError)
+        throw new Error("No active session found. Please sign in again.")
+      }
+      
+      console.log("Session obtained, making API request...")
+      
+      // Add a timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ planId, billingCycle }),
+        signal: controller.signal,
+      }).catch((error) => {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please try again.')
+        }
+        throw error
+      }).finally(() => {
+        clearTimeout(timeoutId)
       })
 
       console.log("Checkout response status:", response.status)

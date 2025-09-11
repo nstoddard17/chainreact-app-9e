@@ -278,42 +278,80 @@ export function DiscordMessageSelector({
             </div>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[400px]">
-          <Command shouldFilter={false}>
-            <CommandInput 
-              placeholder="Search by message content or author..."
-              value={searchValue}
-              onValueChange={setSearchValue}
-            />
-            <CommandList>
-              <CommandEmpty>No messages found in this channel.</CommandEmpty>
-              <CommandGroup>
-                {filteredOptions.map((option) => {
-                  const optionValue = option.value || option.id;
-                  return (
-                    <CommandItem
-                      key={optionValue}
-                      value={optionValue}
-                      onSelect={() => {
-                        onChange(optionValue);
-                        setOpen(false);
-                        setSearchValue("");
-                      }}
-                      className="p-2"
-                    >
-                      <Check
+        <PopoverContent 
+          className="w-[--radix-popover-trigger-width] p-0" 
+          align="start" 
+          sideOffset={4}
+          onOpenAutoFocus={(e) => {
+            // Prevent auto-focus to allow immediate scrolling
+            e.preventDefault();
+          }}
+        >
+          <div className="flex flex-col max-h-[400px]">
+            <div className="flex items-center border-b px-3 flex-shrink-0">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="mr-2 h-4 w-4 shrink-0 opacity-50"
+              >
+                <path
+                  d="M11.8536 1.14645C11.6583 0.951184 11.3417 0.951184 11.1465 1.14645L3.71455 8.57836C3.62459 8.66832 3.55263 8.77461 3.50251 8.89155L2.04044 12.303C1.9599 12.491 2.00189 12.709 2.14646 12.8536C2.29103 12.9981 2.50905 13.0401 2.69697 12.9596L6.10847 11.4975C6.22541 11.4474 6.3317 11.3754 6.42166 11.2855L13.8536 3.85355C14.0488 3.65829 14.0488 3.34171 13.8536 3.14645L11.8536 1.14645ZM4.42166 9.28547L11.5 2.20711L12.7929 3.5L5.71455 10.5784L4.21924 11.2192L3.78081 10.7808L4.42166 9.28547Z"
+                  fill="currentColor"
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+              <input
+                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Search by message content or author..."
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+              />
+            </div>
+            <div 
+              className="flex-1 overflow-y-auto overflow-x-hidden min-h-0" 
+              style={{ maxHeight: '350px', overscrollBehavior: 'contain' }}
+              onWheel={(e) => {
+                // Prevent event from bubbling up and ensure scrolling works
+                e.stopPropagation();
+              }}
+            >
+              <div className="p-1">
+                {filteredOptions.length === 0 ? (
+                  <div className="py-6 text-center text-sm">No messages found in this channel.</div>
+                ) : (
+                  filteredOptions.map((option) => {
+                    const optionValue = option.value || option.id;
+                    return (
+                      <div
+                        key={optionValue}
+                        onClick={() => {
+                          onChange(optionValue);
+                          setOpen(false);
+                          setSearchValue("");
+                        }}
                         className={cn(
-                          "mr-2 h-4 w-4 flex-shrink-0",
-                          value === optionValue ? "opacity-100" : "opacity-0"
+                          "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                          "p-2"
                         )}
-                      />
-                      {renderMessage(option)}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 flex-shrink-0",
+                            value === optionValue ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {renderMessage(option)}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
       {error && (

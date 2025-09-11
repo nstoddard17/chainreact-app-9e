@@ -3,9 +3,12 @@ import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const integrationId = params.id
+    const { id: integrationId } = await params
 
     if (!integrationId) {
       return NextResponse.json({ success: false, error: "Integration ID is required" }, { status: 400 })
@@ -64,9 +67,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   }
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const integrationId = params.id
+    const { id: integrationId } = await params
 
     if (!integrationId) {
       return NextResponse.json({ success: false, error: "Integration ID is required" }, { status: 400 })

@@ -213,6 +213,7 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   channelId: formatChannelField,
   filterAuthor: formatAuthorField,
   messageId: formatMessageField,
+  messageIds: formatMessageField, // Multi-select messages also use the same formatter
   
   // Board management fields
   boardId: formatBoardField,

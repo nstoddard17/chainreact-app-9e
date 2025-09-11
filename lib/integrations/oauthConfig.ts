@@ -361,6 +361,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/hubspot/callback",
+    scope: "oauth crm.lists.read crm.lists.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.deals.write",
   },
   airtable: {
     id: "airtable",

@@ -112,7 +112,6 @@ export function useIntegrationSelection() {
     
     // Sort integrations alphabetically by name
     const result = Object.values(integrationMap).sort((a, b) => a.name.localeCompare(b.name))
-    console.log('🔍 getIntegrationsFromNodes returning', result.length, 'integrations:', result.map(i => i.id))
     return result
   }, [])
 
@@ -123,24 +122,30 @@ export function useIntegrationSelection() {
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
     // Special integrations that don't require connection
-    if (['webhook', 'scheduler', 'ai', 'core', 'logic'].includes(integrationId)) {
+    if (['webhook', 'scheduler', 'ai', 'core', 'logic', 'manual'].includes(integrationId)) {
       return true
     }
     
     const connectedProviders = getConnectedProviders()
     
     // Check if there's a base 'google' integration that covers all Google services
-    if (integrationId.startsWith('google-')) {
+    if (integrationId.startsWith('google-') || integrationId === 'gmail') {
       // Check for either the specific service or the base google provider
       const hasSpecific = connectedProviders.includes(integrationId)
       const hasBase = connectedProviders.includes('google')
-      console.log(`Google integration check - hasSpecific: ${hasSpecific}, hasBase: ${hasBase}`)
+      return hasSpecific || hasBase
+    }
+    
+    // Check for Microsoft services
+    if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
+      const hasSpecific = connectedProviders.includes(integrationId)
+      const hasBase = connectedProviders.includes('microsoft')
       return hasSpecific || hasBase
     }
     
     // Direct provider match
     return connectedProviders.includes(integrationId)
-  }, [getConnectedProviders, integrations])
+  }, [getConnectedProviders])
 
   const filterIntegrations = useCallback((
     integrations: IntegrationInfo[],
@@ -215,6 +220,7 @@ export function useIntegrationSelection() {
     'blackbaud',
     'box',
     'dropbox',
+    'github',
     'gitlab',
     'instagram',
     'linkedin',

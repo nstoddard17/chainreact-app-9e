@@ -142,6 +142,32 @@ The `/learning` directory serves as the single source of truth for:
 - Implementation walkthroughs
 - Change logs and architectural decisions
 
+## Common Issues and Solutions
+
+### Integration Connection Status Not Showing
+
+**⚠️ CRITICAL: This is a recurring issue that needs to be avoided!**
+
+When modifying integration-related code, the integration connection status often breaks, showing all integrations as disconnected. Here are the common causes and solutions:
+
+#### Common Causes:
+1. **Creating server-side utilities that initialize Supabase incorrectly** - Action handlers that create their own Supabase clients can cause issues
+2. **Modifying the status checking logic** - Changing how `status === 'connected'` is checked
+3. **Breaking the integration fetching** - Not properly fetching integrations in components
+4. **Import/export issues** - Circular dependencies or missing exports
+
+#### How to Fix:
+1. **Check that integrations are being fetched**: Ensure `fetchIntegrations()` is called in a useEffect
+2. **Verify the store has data**: Check that `storeIntegrations` from `useIntegrationStore()` is populated
+3. **Don't change status checking**: Keep it as `status === 'connected'` (not `!== 'disconnected'`)
+4. **Use proper imports**: Import `getConnectedProviders` from the store, not create new functions
+
+#### Prevention:
+- **DON'T create new Supabase clients in action handlers** - Pass the userId and fetch within the action using existing patterns
+- **DON'T modify the integration status checking logic** unless absolutely necessary
+- **DO test integration status display** after any integration-related changes
+- **DO use the existing patterns** from working integrations like Gmail or Discord
+
 ## Key Patterns
 
 ### Error Handling
@@ -451,21 +477,46 @@ Essential steps that MUST be completed:
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
-### Integration Selection Modal Synchronization
-**IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL three modal components:
+### Integration Connection Status Issue (RECURRING)
+**⚠️ CRITICAL**: This is a frequently occurring issue that needs special attention!
 
-1. **Workflow Builder Action Selection Modal** (`/components/workflows/builder/ActionSelectionDialog.tsx`)
-2. **Workflow Builder Trigger Selection Modal** (`/components/workflows/builder/TriggerSelectionDialog.tsx`)
-3. **AI Agent Action Selection Modal** (`/components/workflows/AIAgentConfigModal.tsx` lines 1729-1970)
+**Problem**: Integrations show as disconnected in the action selection modal even when they are connected in the database.
+
+**Root Cause**: Integration config IDs (from `INTEGRATION_CONFIGS`) don't match database provider values.
+- Example: Config ID `"microsoft-onenote"` → Database provider `"onenote"`
+- Example: Config ID `"google-calendar"` → Database provider `"google_calendar"`
+
+**Quick Fix**:
+1. Check `/learning/walkthroughs/integration-connection-status-fix.md` for the complete solution
+2. Update `providerMappings` in the `isIntegrationConnected` function in `CollaborativeWorkflowBuilder.tsx`
+3. Add any new provider name variations to the mapping
+
+**Prevention**: When adding new integrations, ensure the provider name in the database matches the config ID, or immediately add the mapping.
+
+### Integration Selection Modal Synchronization
+**IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL modal components:
+
+1. **Workflow Builder Action/Trigger Modals** (inline in `/components/workflows/CollaborativeWorkflowBuilder.tsx`)
+   - These are the primary modals users interact with
+   - Now uses `comingSoonIntegrations` from `useIntegrationSelection` hook (single source of truth)
+2. **AI Agent Action Selection Modal** (`/components/workflows/AIAgentConfigModal.tsx` lines 1729-1970)
+3. **Standalone Dialogs** (currently unused but exist for future use):
+   - `/components/workflows/builder/ActionSelectionDialog.tsx`
+   - `/components/workflows/builder/TriggerSelectionDialog.tsx`
+
+**Coming Soon Integrations**: 
+- **Single Source of Truth**: The list is maintained in `/hooks/workflows/useIntegrationSelection.ts` (lines 208-227)
+- **To add a new "coming soon" integration**: Only update the list in the hook
+- **CollaborativeWorkflowBuilder now imports from the hook** to avoid duplication
+- See `/learning/walkthroughs/coming-soon-integrations-sync-issue.md` for detailed explanation
 
 Key areas that must remain synchronized:
-- **Coming Soon Labels**: Use `comingSoonIntegrations` from `useIntegrationSelection` hook
 - **Connect Buttons**: Show for unconnected integrations, exclude system integrations (logic, core, manual, schedule, webhook)
 - **Integration Status**: Use `isIntegrationConnected` from the same hook
 - **OAuth URL Handling**: Consistent pattern for constructing OAuth URLs
 - **Visual Styling**: Same classes and layout for badges and buttons
 
-When updating any integration selection behavior, search for and update all three locations to maintain consistency across the application. This ensures users have the same experience regardless of which modal they're using.
+When updating any integration selection behavior, search for and update all locations to maintain consistency across the application.
 
 ## Code Refactoring Guide
 
