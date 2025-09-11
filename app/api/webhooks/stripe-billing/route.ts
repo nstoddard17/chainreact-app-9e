@@ -1,5 +1,4 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
@@ -43,8 +42,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
+  // Use service role key to bypass RLS
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   try {
     console.log(`[Stripe Webhook] Processing event: ${event.type}`)
