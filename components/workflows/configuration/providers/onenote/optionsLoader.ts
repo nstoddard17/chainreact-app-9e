@@ -107,6 +107,22 @@ async function loadNotebooks(integrationId: string) {
       return []
     }
     
+    // Check for personal account warning
+    if (result.knownLimitation && result.accountType === 'personal') {
+      console.warn('[OneNote Options Loader] Personal account detected with known limitations')
+      return [{
+        value: '__personal_account__',
+        label: '⚠️ Personal Microsoft accounts not supported',
+        icon: '❌',
+        disabled: true
+      }, {
+        value: '__use_work_account__',
+        label: 'Please use a work or school account for OneNote',
+        icon: 'ℹ️',
+        disabled: true
+      }]
+    }
+    
     if (!result.data || !Array.isArray(result.data)) {
       console.log('[OneNote Options Loader] No notebooks data received')
       if (result.error) {
@@ -166,12 +182,23 @@ async function loadSections(integrationId: string, notebookId: string) {
       })
     })
     
+    const result = await response.json()
+    
     if (!response.ok) {
       console.error('[OneNote Options Loader] API error:', response.status, response.statusText)
       return []
     }
     
-    const result = await response.json()
+    // Check for personal account warning
+    if (result.knownLimitation && result.accountType === 'personal') {
+      console.warn('[OneNote Options Loader] Personal account detected - sections not available')
+      return [{
+        value: '__personal_account__',
+        label: '⚠️ Personal accounts cannot access sections',
+        icon: '❌',
+        disabled: true
+      }]
+    }
     
     if (!result.data || !Array.isArray(result.data)) {
       console.log('[OneNote Options Loader] No sections data received')
@@ -209,12 +236,23 @@ async function loadPages(integrationId: string, sectionId: string) {
       })
     })
     
+    const result = await response.json()
+    
     if (!response.ok) {
       console.error('[OneNote Options Loader] API error:', response.status, response.statusText)
       return []
     }
     
-    const result = await response.json()
+    // Check for personal account warning
+    if (result.knownLimitation && result.accountType === 'personal') {
+      console.warn('[OneNote Options Loader] Personal account detected - pages not available')
+      return [{
+        value: '__personal_account__',
+        label: '⚠️ Personal accounts cannot access pages',
+        icon: '❌',
+        disabled: true
+      }]
+    }
     
     if (!result.data || !Array.isArray(result.data)) {
       console.log('[OneNote Options Loader] No pages data received')

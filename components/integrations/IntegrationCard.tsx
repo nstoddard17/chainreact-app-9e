@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -25,6 +25,7 @@ import {
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Integration } from "@/stores/integrationStore"
+import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 
 interface IntegrationCardProps {
   provider: IntegrationConfig
@@ -46,10 +47,16 @@ export function IntegrationCard({
   onReconnect,
 }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
+  const { comingSoonIntegrations } = useIntegrationSelection()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [showTeamsWarningDialog, setShowTeamsWarningDialog] = useState(false)
+  
+  // Check if this integration is coming soon
+  const isComingSoon = useMemo(() => {
+    return comingSoonIntegrations.has(provider.id)
+  }, [comingSoonIntegrations, provider.id])
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -216,7 +223,7 @@ export function IntegrationCard({
               >
                 {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
               </h3>
-              {provider.id === 'teams' && (
+              {provider.id === 'teams' && !isComingSoon && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -236,7 +243,7 @@ export function IntegrationCard({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {showTeamsUpgradeMessage && (
+              {showTeamsUpgradeMessage && !isComingSoon && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -259,38 +266,52 @@ export function IntegrationCard({
             </div>
           </div>
         </div>
-        <Badge 
-          className={cn(
-            "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 flex items-center gap-1",
-            badgeClass
-          )}
-        >
-          {statusIcon}
-        </Badge>
+        {isComingSoon ? (
+          <Badge 
+            className="px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+          >
+            Coming Soon
+          </Badge>
+        ) : (
+          <Badge 
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 flex items-center gap-1",
+              badgeClass
+            )}
+          >
+            {statusIcon}
+          </Badge>
+        )}
       </CardHeader>
 
       <CardContent className="px-5 pb-4 flex-1">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {integration?.created_at && (
-            <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
+          {isComingSoon ? (
+            <span>Available in future update</span>
+          ) : (
+            <>
+              {integration?.created_at && (
+                <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
+              )}
+              {!integration && <span>Not connected</span>}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setShowInfo(true)}
+                    >
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">View integration details</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View integration details</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>
           )}
-          {!integration && <span>Not connected</span>}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setShowInfo(true)}
-                >
-                  <Info className="h-4 w-4" />
-                  <span className="sr-only">View integration details</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>View integration details</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
         <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
@@ -323,51 +344,57 @@ export function IntegrationCard({
       </CardContent>
 
       <CardFooter className="px-5 py-4 pt-0 flex flex-col gap-2">
-        <div className="flex w-full justify-between gap-2">
-          {isLoading ? (
-            <Button disabled className="w-full">
-              <LightningLoader size="sm" className="mr-2" />
-              {status === "connected" ? "Disconnecting..." : "Connecting..."}
-            </Button>
-          ) : isConnected ? (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowDisconnectDialog(true)}
-            >
-              <Link2Off className="mr-2 h-4 w-4" />
-              Disconnect
-            </Button>
-          ) : (
-            <Button
-              className="w-full"
-              onClick={handleConnectClick}
-            >
-              <LinkIcon className="mr-2 h-4 w-4" />
-              {status === "expired" ? "Reconnect" : "Connect"}
-            </Button>
-          )}
+        {isComingSoon ? (
+          <Button disabled className="w-full" variant="outline">
+            <Clock className="mr-2 h-4 w-4" />
+            Coming Soon
+          </Button>
+        ) : (
+          <div className="flex w-full justify-between gap-2">
+            {isLoading ? (
+              <Button disabled className="w-full">
+                <LightningLoader size="sm" className="mr-2" />
+                {status === "connected" ? "Disconnecting..." : "Connecting..."}
+              </Button>
+            ) : isConnected ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowDisconnectDialog(true)}
+              >
+                <Link2Off className="mr-2 h-4 w-4" />
+                Disconnect
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={handleConnectClick}
+              >
+                <LinkIcon className="mr-2 h-4 w-4" />
+                {status === "expired" ? "Reconnect" : "Connect"}
+              </Button>
+            )}
 
-          {isConnected && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleReconnect}
-                    disabled={isLoading}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="sr-only">Refresh connection</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh connection</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-        
+            {isConnected && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleReconnect}
+                      disabled={isLoading}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="sr-only">Refresh connection</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh connection</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
       </CardFooter>
 
       <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>

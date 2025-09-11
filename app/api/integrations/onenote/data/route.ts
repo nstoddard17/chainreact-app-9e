@@ -50,6 +50,28 @@ export async function POST(req: NextRequest) {
         currentStatus: integration.status
       }, { status: 400 })
     }
+    
+    // Check for personal account limitation
+    if (integration.metadata?.accountType === 'personal') {
+      console.warn('⚠️ [OneNote API] Personal account detected with known limitations:', {
+        integrationId,
+        email: integration.metadata.email
+      })
+      
+      // Return a special response for personal accounts
+      return NextResponse.json({
+        data: [],
+        warning: 'OneNote API does not work with personal Microsoft accounts (outlook.com, hotmail.com, live.com). Please use a work or school account for OneNote integration.',
+        accountType: 'personal',
+        email: integration.metadata.email,
+        knownLimitation: true,
+        suggestedActions: [
+          'Use a Microsoft work or school account',
+          'Create a free Microsoft 365 developer account for testing',
+          'Contact your IT administrator if you have a work account'
+        ]
+      })
+    }
 
     // Get the appropriate handler
     const handler = oneNoteHandlers[dataType]

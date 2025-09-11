@@ -139,6 +139,15 @@ export async function GET(request: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt,
     )
+    
+    // Add account type metadata from validation
+    if (validationData.userInfo) {
+      integrationData.metadata = {
+        accountType: validationData.userInfo.accountType,
+        email: validationData.userInfo.userPrincipalName,
+        displayName: validationData.userInfo.displayName
+      }
+    }
 
     const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
       onConflict: "user_id, provider",
