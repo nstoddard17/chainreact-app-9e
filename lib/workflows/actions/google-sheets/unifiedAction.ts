@@ -11,6 +11,19 @@ export async function executeGoogleSheetsUnifiedAction(
   try {
     const action = resolveValue(config.action, input)
     
+    console.log('🔄 [Google Sheets Unified Action] Received config:', {
+      action,
+      configKeys: Object.keys(config),
+      deleteSpecific: {
+        deleteRowBy: config.deleteRowBy,
+        deleteColumn: config.deleteColumn,
+        deleteValue: config.deleteValue,
+        deleteRowNumber: config.deleteRowNumber,
+        deleteAll: config.deleteAll,
+        confirmDelete: config.confirmDelete
+      }
+    })
+    
     // Import the specific action handlers dynamically to avoid circular dependencies
     const { createGoogleSheetsRow } = await import('./createRow')
     const { updateGoogleSheetsRow } = await import('./updateRow')
@@ -78,7 +91,6 @@ export async function executeGoogleSheetsUnifiedAction(
           endRow: config.endRow,
           matchColumn: config.deleteColumn,
           matchValue: config.deleteValue,
-          conditions: config.deleteConditions,
           deleteAll: config.deleteAll,
           confirmDelete: config.confirmDelete
         }

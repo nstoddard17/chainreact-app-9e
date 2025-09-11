@@ -92,14 +92,18 @@ export async function updateGoogleDocument(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const resolvedConfig = resolveValue(config, { input })
-    const { 
-      documentId, 
-      operation = 'append',
-      content,
-      editMode = 'direct',
-      versionComment
-    } = resolvedConfig
+    // Resolve each config field individually
+    const documentId = resolveValue(config.documentId, input)
+    const insertLocation = resolveValue(config.insertLocation, input) || 'end'
+    const searchText = resolveValue(config.searchText, input)
+    const content = resolveValue(config.content, input)
+
+    console.log('Google Docs Update - Resolved config:', {
+      documentId,
+      insertLocation,
+      searchText,
+      content: content?.substring(0, 50) + '...'
+    })
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
     
@@ -110,7 +114,7 @@ export async function updateGoogleDocument(
     const docs = google.docs({ version: 'v1', auth: oauth2Client })
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    // Get current document to find its length
+    // Get current document to find its length and content
     const doc = await docs.documents.get({ documentId })
     const documentLength = doc.data.body?.content?.reduce((len, element) => {
       if (element.endIndex) {
@@ -121,9 +125,10 @@ export async function updateGoogleDocument(
 
     let requests: any[] = []
 
-    // Handle different operation types
-    switch (operation) {
-      case 'append':
+    // Handle different insert locations
+    switch (insertLocation) {
+      case 'end':
+        // Append at the end of document
         requests.push({
           insertText: {
             location: { index: documentLength - 1 },
@@ -132,7 +137,8 @@ export async function updateGoogleDocument(
         })
         break
         
-      case 'insert':
+      case 'beginning':
+        // Insert at the beginning (after title)
         requests.push({
           insertText: {
             location: { index: 1 },
@@ -142,7 +148,7 @@ export async function updateGoogleDocument(
         break
         
       case 'replace':
-        // Delete all content except the last newline
+        // Replace all content
         if (documentLength > 1) {
           requests.push({
             deleteContentRange: {
@@ -161,61 +167,138 @@ export async function updateGoogleDocument(
           }
         })
         break
+
+      case 'after_text':
+        // Find text and insert after it
+        if (!searchText) {
+          throw new Error('Search text is required when inserting after specific text')
+        }
+        
+        // Extract document text to find the search text
+        let fullText = ''
+        let textMap: Array<{start: number, end: number, text: string}> = []
+        
+        if (doc.data.body?.content) {
+          doc.data.body.content.forEach((element) => {
+            if (element.paragraph?.elements) {
+              element.paragraph.elements.forEach((elem) => {
+                if (elem.textRun?.content && elem.startIndex && elem.endIndex) {
+                  fullText += elem.textRun.content
+                  textMap.push({
+                    start: elem.startIndex,
+                    end: elem.endIndex,
+                    text: elem.textRun.content
+                  })
+                }
+              })
+            }
+          })
+        }
+        
+        // Convert search text with wildcards to regex
+        const searchPattern = searchText
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars except *
+          .replace(/\\\*/g, '.*') // Convert * to regex wildcard
+        
+        const regex = new RegExp(searchPattern, 'i')
+        const match = fullText.match(regex)
+        
+        if (!match || match.index === undefined) {
+          throw new Error(`Text "${searchText}" not found in document`)
+        }
+        
+        // Find the document index for the end of the match
+        let documentIndex = 1
+        let accumulatedLength = 0
+        for (const segment of textMap) {
+          if (accumulatedLength + segment.text.length > match.index + match[0].length) {
+            documentIndex = segment.start + (match.index + match[0].length - accumulatedLength)
+            break
+          }
+          accumulatedLength += segment.text.length
+        }
+        
+        requests.push({
+          insertText: {
+            location: { index: documentIndex },
+            text: ' ' + content
+          }
+        })
+        break
+
+      case 'before_text':
+        // Find text and insert before it
+        if (!searchText) {
+          throw new Error('Search text is required when inserting before specific text')
+        }
+        
+        // Extract document text to find the search text
+        let fullTextBefore = ''
+        let textMapBefore: Array<{start: number, end: number, text: string}> = []
+        
+        if (doc.data.body?.content) {
+          doc.data.body.content.forEach((element) => {
+            if (element.paragraph?.elements) {
+              element.paragraph.elements.forEach((elem) => {
+                if (elem.textRun?.content && elem.startIndex && elem.endIndex) {
+                  fullTextBefore += elem.textRun.content
+                  textMapBefore.push({
+                    start: elem.startIndex,
+                    end: elem.endIndex,
+                    text: elem.textRun.content
+                  })
+                }
+              })
+            }
+          })
+        }
+        
+        // Convert search text with wildcards to regex
+        const searchPatternBefore = searchText
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars except *
+          .replace(/\\\*/g, '.*') // Convert * to regex wildcard
+        
+        const regexBefore = new RegExp(searchPatternBefore, 'i')
+        const matchBefore = fullTextBefore.match(regexBefore)
+        
+        if (!matchBefore || matchBefore.index === undefined) {
+          throw new Error(`Text "${searchText}" not found in document`)
+        }
+        
+        // Find the document index for the start of the match
+        let documentIndexBefore = 1
+        let accumulatedLengthBefore = 0
+        for (const segment of textMapBefore) {
+          if (accumulatedLengthBefore + segment.text.length > matchBefore.index) {
+            documentIndexBefore = segment.start + (matchBefore.index - accumulatedLengthBefore)
+            break
+          }
+          accumulatedLengthBefore += segment.text.length
+        }
+        
+        requests.push({
+          insertText: {
+            location: { index: documentIndexBefore },
+            text: content + ' '
+          }
+        })
+        break
+
+      default:
+        throw new Error(`Unknown insert location: ${insertLocation}`)
     }
 
-    // Apply edits based on edit mode
-    if (editMode === 'suggestion') {
-      // Wrap requests in suggestion mode
-      await docs.documents.batchUpdate({
-        documentId,
-        requestBody: {
-          requests,
-          writeControl: {
-            requiredRevisionId: doc.data.revisionId
-          }
-        },
-        // Enable suggestion mode
-        suggestionsViewMode: 'SUGGESTIONS_INLINE'
-      } as any)
-    } else {
-      // Direct edit mode
-      await docs.documents.batchUpdate({
-        documentId,
-        requestBody: { requests }
-      })
-    }
-
-    // Add version comment if provided (using Drive API to update description)
-    if (versionComment) {
-      try {
-        // Get current file metadata
-        const fileMetadata = await drive.files.get({
-          fileId: documentId,
-          fields: 'description'
-        })
-        
-        // Append version comment to description with timestamp
-        const timestamp = new Date().toISOString()
-        const currentDescription = fileMetadata.data.description || ''
-        const newDescription = currentDescription 
-          ? `${currentDescription}\n\n[${timestamp}] ${versionComment}`
-          : `[${timestamp}] ${versionComment}`
-        
-        // Update file with new description
-        await drive.files.update({
-          fileId: documentId,
-          requestBody: {
-            description: newDescription.slice(0, 1000) // Limit to 1000 chars
-          }
-        })
-      } catch (commentError) {
-        console.warn('Failed to add version comment:', commentError)
-        // Don't fail the entire operation if comment fails
-      }
-    }
+    // Apply the updates
+    await docs.documents.batchUpdate({
+      documentId,
+      requestBody: { requests }
+    })
 
     // Get updated document info
     const updatedDoc = await docs.documents.get({ documentId })
+
+    // Build success message
+    let successMessage = `Document updated successfully (inserted ${insertLocation === 'end' ? 'at end' : insertLocation === 'beginning' ? 'at beginning' : insertLocation === 'replace' ? 'replacing all content' : insertLocation === 'after_text' ? 'after text' : 'before text'})`
 
     return {
       success: true,
@@ -223,11 +306,10 @@ export async function updateGoogleDocument(
         documentId,
         title: updatedDoc.data.title,
         revisionId: updatedDoc.data.revisionId,
-        operation,
-        editMode,
+        insertLocation,
         documentUrl: `https://docs.google.com/document/d/${documentId}/edit`
       },
-      message: `Document updated successfully (${operation} mode: ${editMode})`
+      message: successMessage
     }
   } catch (error: any) {
     console.error('Update Google Document error:', error)

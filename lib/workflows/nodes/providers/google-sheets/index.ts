@@ -219,11 +219,10 @@ export const googleSheetsNodes: NodeComponent[] = [
         options: [
           { value: "row_number", label: "Row number" },
           { value: "column_value", label: "Column value" },
-          { value: "conditions", label: "Multiple conditions" },
           { value: "range", label: "Row range" }
         ],
         description: "How to identify which row(s) to delete",
-        helpText: "Row number: Delete a specific row. Column value: Find and delete row where a column contains a specific value. Multiple conditions: Use complex rules. Row range: Delete multiple consecutive rows."
+        helpText: "Row number: Delete a specific row. Column value: Find and delete row where a column contains a specific value. Row range: Delete multiple consecutive rows."
       },
       {
         name: "deleteRowNumber",
@@ -253,29 +252,6 @@ export const googleSheetsNodes: NodeComponent[] = [
       // Column selection for delete is handled in the GoogleSheetsDeleteConfirmation component
       
       // Delete fields (deleteSearchColumn, deleteSearchValue, deleteAll) are handled in GoogleSheetsDeleteConfirmation component
-      
-      {
-        name: "deleteConditions",
-        label: "Delete Conditions",
-        type: "text",
-        required: true,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "conditions",
-        placeholder: "e.g., Status = 'Inactive' AND Date < '2024-01-01'",
-        description: "Enter conditions using Column = 'Value' format",
-        helpText: "Use AND/OR to combine conditions. Examples:\n• Name = 'John' AND Status = 'Active'\n• Price > 100 OR Category = 'Premium'\n• Date < '2024-01-01' AND Status != 'Completed'\nSupported operators: =, !=, <, >, <=, >=\nWithout 'Delete All' checked, only the FIRST match is deleted."
-      },
-      {
-        name: "deleteAllConditions",
-        label: "Delete All Matching Rows",
-        type: "boolean",
-        required: false,
-        hidden: true,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "conditions",
-        defaultValue: false,
-        description: "Choose whether to delete ALL matching rows or just the first one found",
-        helpText: "⚠️ IMPORTANT:\n• UNCHECKED (default): Only the FIRST matching row found will be deleted\n• CHECKED: ALL rows matching your conditions will be deleted\n\nIf you don't check this box, the system will search from top to bottom and delete only the first row it finds that matches your conditions."
-      },
       {
         name: "startRow",
         label: "Start Row",

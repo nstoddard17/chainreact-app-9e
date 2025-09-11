@@ -133,7 +133,7 @@ export function GoogleSheetsConfiguration({
         setValue('deleteSearchColumn', undefined);
         setValue('deleteSearchValue', undefined);
         setValue('deleteAll', false);
-        setValue('deleteConditions', undefined);
+;
       }
       
       // Clear add-specific fields
@@ -424,9 +424,9 @@ export function GoogleSheetsConfiguration({
     return fields.map((field, index) => {
       // Special handling for Google Sheets data preview field
       if (field.type === 'google_sheets_data_preview') {
-        // Show for update, delete with column_value, or add action
+        // Show for update, delete with column_value or conditions, or add action
         if (values.action === 'update' || 
-            (values.action === 'delete' && values.deleteRowBy === 'column_value') ||
+            (values.action === 'delete' && (values.deleteRowBy === 'column_value' || values.deleteRowBy === 'conditions')) ||
             (values.action === 'add' && values.rowPosition)) {
           return (
             <GoogleSheetsDataPreview
@@ -463,6 +463,7 @@ export function GoogleSheetsConfiguration({
         return null;
       }
 
+
       // Add the update fields section right after the data preview for Google Sheets
       if (field.type === 'google_sheets_update_fields' && values.action === 'update') {
         return (
@@ -483,7 +484,14 @@ export function GoogleSheetsConfiguration({
           <FieldRenderer
             field={field}
             value={values[field.name]}
-            onChange={(value) => setValue(field.name, value)}
+            onChange={(value) => {
+              setValue(field.name, value);
+              
+              // When deleteRowBy is set, ensure action is set to delete
+              if (field.name === 'deleteRowBy' && value) {
+                setValue('action', 'delete');
+              }
+            }}
             error={errors[field.name] || validationErrors[field.name]}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
@@ -660,6 +668,29 @@ export function GoogleSheetsConfiguration({
       ...values,
       confirmDelete: true
     };
+    
+    // Map UI field names to backend field names for delete action
+    if (values.deleteSearchColumn) {
+      confirmedValues.deleteColumn = values.deleteSearchColumn;
+    }
+    if (values.deleteSearchValue) {
+      confirmedValues.deleteValue = values.deleteSearchValue;
+    }
+    // Ensure deleteRowBy is set
+    if (!confirmedValues.deleteRowBy && (values.deleteSearchColumn || values.deleteRowNumber)) {
+      confirmedValues.deleteRowBy = values.deleteRowNumber ? 'row_number' : 'column_value';
+    }
+    
+    console.log('🗑️ [GoogleSheets] Delete confirmation - mapped values:', {
+      deleteRowBy: confirmedValues.deleteRowBy,
+      deleteColumn: confirmedValues.deleteColumn,
+      deleteValue: confirmedValues.deleteValue,
+      deleteRowNumber: confirmedValues.deleteRowNumber,
+      deleteAll: confirmedValues.deleteAll,
+      confirmDelete: confirmedValues.confirmDelete,
+      action: confirmedValues.action
+    });
+    
     await onSubmit(confirmedValues);
   };
 

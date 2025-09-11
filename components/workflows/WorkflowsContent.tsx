@@ -23,6 +23,7 @@ import AddToOrganizationDialog from "./AddToOrganizationDialog"
 import WorkflowDialog from "./WorkflowDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/cachedWorkflowStore"
+import { clearAllCachedData } from "@/stores/cacheStore"
 import { RoleGuard, PermissionGuard, OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
@@ -92,7 +93,12 @@ export default function WorkflowsContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        await loadAllWorkflows()
+        // In development, clear old cached data on component mount
+        if (process.env.NODE_ENV === 'development') {
+          clearAllCachedData()
+        }
+        // Force refresh in development to always get fresh data
+        await loadAllWorkflows(process.env.NODE_ENV === 'development')
       } catch (err) {
         console.error("Failed to load workflows:", err)
       }

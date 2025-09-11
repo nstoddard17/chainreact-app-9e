@@ -72,7 +72,9 @@
       "mcp__playwright__browser_handle_dialog",
       "mcp__playwright__browser_console_messages",
       "mcp__playwright__browser_close",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
     ],
     "defaultMode": "acceptEdits"
   }
