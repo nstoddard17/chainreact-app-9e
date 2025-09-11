@@ -61,6 +61,49 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Check account type to inform about potential limitations
+    try {
+      const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+        headers: { 
+          "Authorization": `Bearer ${tokenData.access_token}` 
+        }
+      })
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        const email = userData.mail || userData.userPrincipalName || ""
+        
+        // Check if this is a personal account
+        const isPersonalAccount = !userData.userPrincipalName || 
+                                 email.includes("outlook.com") ||
+                                 email.includes("hotmail.com") ||
+                                 email.includes("live.com") ||
+                                 email.includes("gmail.com")
+        
+        if (isPersonalAccount) {
+          console.log("ℹ️ Personal Microsoft account detected:", email)
+          console.log("   OneDrive works with personal accounts but has storage limits")
+          
+          // Store account info in metadata
+          const metadata = {
+            accountType: "personal",
+            email: email,
+            info: "OneDrive works with personal accounts. Free accounts have 5GB storage limit."
+          }
+          
+          tokenData._metadata = metadata
+        } else {
+          console.log("✅ Work/School account detected:", email)
+          tokenData._metadata = {
+            accountType: "work",
+            email: email
+          }
+        }
+      }
+    } catch (checkError) {
+      console.error("Could not check account type:", checkError)
+    }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
@@ -76,6 +119,11 @@ export async function GET(request: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt,
     )
+    
+    // Add account type metadata if available
+    if (tokenData._metadata) {
+      integrationData.metadata = tokenData._metadata
+    }
 
     const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
       onConflict: "user_id, provider",

@@ -225,14 +225,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     console.log("[Stripe Webhook] Successfully saved subscription:", result.data)
   }
 
-  // TODO: Store invoice once we know what columns exist in the invoices table
-  // if (subscription.latest_invoice) {
-  //   const invoice = typeof subscription.latest_invoice === 'string' 
-  //     ? await stripeClient.invoices.retrieve(subscription.latest_invoice)
-  //     : subscription.latest_invoice as Stripe.Invoice
-  //     
-  //   await storeInvoice(invoice, supabase, userId)
-  // }
+  // Store invoice if available
+  if (subscription.latest_invoice) {
+    const invoice = typeof subscription.latest_invoice === 'string' 
+      ? await stripeClient.invoices.retrieve(subscription.latest_invoice)
+      : subscription.latest_invoice as Stripe.Invoice
+      
+    await storeInvoice(invoice, supabase, userId)
+  }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
@@ -356,68 +356,61 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     userId = subscription?.user_id
   }
 
+  // Only use fields that exist in the invoices table
   const invoiceData = {
     stripe_invoice_id: invoice.id,
     user_id: userId || null,
-    subscription_id: invoice.subscription as string || null,
-    stripe_customer_id: invoice.customer as string,
-    
-    // Amounts
-    amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
-    amount_due: invoice.amount_due ? invoice.amount_due / 100 : 0,
-    amount_remaining: invoice.amount_remaining ? invoice.amount_remaining / 100 : 0,
-    subtotal: invoice.subtotal ? invoice.subtotal / 100 : 0,
-    total: invoice.total ? invoice.total / 100 : 0,
-    tax_amount: invoice.tax ? invoice.tax / 100 : null,
-    
-    // Status and metadata
+    amount: invoice.total ? invoice.total / 100 : 0, // Use total as amount
     status: invoice.status || 'pending',
-    billing_reason: invoice.billing_reason,
-    currency: invoice.currency || 'usd',
-    
-    // Dates
-    period_start: safeTimestampToISO(invoice.period_start),
-    period_end: safeTimestampToISO(invoice.period_end),
-    due_date: safeTimestampToISO(invoice.due_date),
-    paid_at: safeTimestampToISO(invoice.status_transitions?.paid_at),
-    
-    // Invoice URLs
-    invoice_pdf: invoice.invoice_pdf || null,
-    hosted_invoice_url: invoice.hosted_invoice_url || null,
-    
-    // Payment info
-    payment_method_types: invoice.payment_settings?.payment_method_types || [],
-    
     created_at: safeTimestampToISO(invoice.created) || new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
   console.log("[Stripe Webhook] Invoice data:", JSON.stringify(invoiceData, null, 2))
 
-  const { error } = await supabase
+  // Check if invoice exists first to avoid conflicts
+  const { data: existing } = await supabase
     .from("invoices")
-    .upsert(invoiceData, {
-      onConflict: 'stripe_invoice_id'
-    })
+    .select("id")
+    .eq("stripe_invoice_id", invoice.id)
+    .single()
 
-  if (error) {
-    console.error("[Stripe Webhook] Error storing invoice:", error)
-    throw error
+  let result
+  if (existing) {
+    // Update existing invoice
+    console.log("[Stripe Webhook] Updating existing invoice")
+    const { data, error } = await supabase
+      .from("invoices")
+      .update(invoiceData)
+      .eq("stripe_invoice_id", invoice.id)
+      .select()
+    result = { data, error }
   } else {
-    console.log("[Stripe Webhook] Successfully stored invoice")
+    // Insert new invoice
+    console.log("[Stripe Webhook] Creating new invoice")
+    const { data, error } = await supabase
+      .from("invoices")
+      .insert(invoiceData)
+      .select()
+    result = { data, error }
+  }
+
+  if (result.error) {
+    console.error("[Stripe Webhook] Error storing invoice:", result.error)
+    throw result.error
+  } else {
+    console.log("[Stripe Webhook] Successfully stored invoice:", result.data)
   }
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
   console.log("[Stripe Webhook] handlePaymentSucceeded - Invoice:", invoice.id)
-  // TODO: Store invoice once we know what columns exist in the invoices table
-  // await storeInvoice(invoice, supabase)
+  await storeInvoice(invoice, supabase)
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
   console.log("[Stripe Webhook] handlePaymentFailed - Invoice:", invoice.id)
-  // TODO: Store invoice once we know what columns exist in the invoices table
-  // await storeInvoice(invoice, supabase)
+  await storeInvoice(invoice, supabase)
   
   // You might want to send notification emails here
   // Or update the subscription status to 'past_due'
