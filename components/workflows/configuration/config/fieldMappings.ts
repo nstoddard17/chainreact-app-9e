@@ -190,10 +190,6 @@ const googleDocsMappings: Record<string, FieldMapping> = {
   google_docs_action_get_document: {
     documentId: "google-docs-documents",
   },
-  google_docs_action_export_document: {
-    documentId: "google-docs-documents",
-    driveFolder: "google-drive-folders",
-  },
   google_docs_trigger_document_modified: {
     documentId: "google-docs-documents",
   },

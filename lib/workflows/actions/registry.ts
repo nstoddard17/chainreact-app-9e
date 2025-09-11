@@ -30,8 +30,7 @@ import {
   createGoogleDocument,
   updateGoogleDocument,
   shareGoogleDocument,
-  getGoogleDocument,
-  exportGoogleDocument
+  getGoogleDocument
 } from './googleDocs'
 
 // Airtable actions
@@ -246,7 +245,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "google_docs_action_update_document": updateGoogleDocument,
   "google_docs_action_share_document": shareGoogleDocument,
   "google_docs_action_get_document": getGoogleDocument,
-  "google_docs_action_export_document": exportGoogleDocument,
   
   // Airtable actions
   "airtable_action_move_record": moveAirtableRecord,
