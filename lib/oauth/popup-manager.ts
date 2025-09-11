@@ -327,9 +327,20 @@ export class OAuthPopupManager {
       }
       onCancel = () => {
         originalOnCancel()
-        // For HubSpot, don't reject - the cancel handler will check if it actually succeeded
-        if (provider === 'hubspot') {
-          resolve() // Resolve instead of reject for HubSpot
+        // For HubSpot and Microsoft providers, don't reject - the cancel handler will check if it actually succeeded
+        // These providers may close the popup before sending the success message
+        const providersToResolve = [
+          'hubspot', 
+          'microsoft-onenote', 
+          'onenote',
+          'microsoft-outlook',
+          'outlook',
+          'teams',
+          'onedrive'
+        ]
+        
+        if (providersToResolve.includes(provider)) {
+          resolve() // Resolve instead of reject for these providers
         } else {
           reject(new Error("OAuth cancelled by user"))
         }

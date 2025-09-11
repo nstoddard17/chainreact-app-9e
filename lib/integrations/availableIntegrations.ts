@@ -543,7 +543,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Capture thoughts, ideas, and to-dos in OneNote",
     category: "productivity",
     capabilities: ["Create Notes", "Read Notes", "Organize Notebooks", "Attach Files"],
-    scopes: ["User.Read", "Notes.ReadWrite.All"],
+    scopes: ["User.Read", "Notes.ReadWrite.All", "offline_access"],
     isAvailable: true,
     requiresClientId: "ONENOTE_CLIENT_ID",
     requiresClientSecret: "ONENOTE_CLIENT_SECRET",

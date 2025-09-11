@@ -10,6 +10,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 // This webhook handles your business billing (subscriptions for ChainReact)
 const webhookSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET!
 
+// Helper function to safely convert timestamps to ISO strings
+function safeTimestampToISO(timestamp: number | null | undefined): string | null {
+  if (!timestamp || timestamp <= 0) return null;
+  try {
+    return new Date(timestamp * 1000).toISOString();
+  } catch (e) {
+    console.error("[Stripe Webhook] Invalid timestamp:", timestamp, e);
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   console.log("[Stripe Billing Webhook] ========================================")
   console.log("[Stripe Billing Webhook] Received billing webhook request at:", new Date().toISOString())
@@ -171,9 +182,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     status: subscription.status,
     billing_cycle: billingCycle || 'monthly',
     
-    // Period dates
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    // Period dates - these should always be valid
+    current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
+    current_period_end: safeTimestampToISO(subscription.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     cancel_at_period_end: subscription.cancel_at_period_end,
     
     // Pricing details
@@ -181,9 +192,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     unit_amount: subscription.items.data[0]?.price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null,
     currency: subscription.items.data[0]?.price.currency || 'usd',
     
-    // Trial information
-    trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
-    trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    // Trial information - may be null
+    trial_start: safeTimestampToISO(subscription.trial_start),
+    trial_end: safeTimestampToISO(subscription.trial_end),
     
     // Discount/coupon info
     discount_percentage: subscription.discount?.coupon?.percent_off || null,
@@ -196,8 +207,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       : subscription.default_payment_method?.id || null,
     
     // Additional metadata
-    created_at: new Date(subscription.created * 1000).toISOString(),
-    canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+    created_at: safeTimestampToISO(subscription.created) || new Date().toISOString(),
+    canceled_at: safeTimestampToISO(subscription.canceled_at),
     
     // Customer email from session
     customer_email: session.customer_details?.email || null,
@@ -254,8 +265,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     status: subscription.status,
     
     // Period dates
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
+    current_period_end: safeTimestampToISO(subscription.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     cancel_at_period_end: subscription.cancel_at_period_end,
     
     // Pricing details
@@ -264,11 +275,11 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     currency: subscription.items.data[0]?.price.currency || 'usd',
     
     // Trial information
-    trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
-    trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    trial_start: safeTimestampToISO(subscription.trial_start),
+    trial_end: safeTimestampToISO(subscription.trial_end),
     
     // Additional metadata
-    created_at: new Date(subscription.created * 1000).toISOString(),
+    created_at: safeTimestampToISO(subscription.created) || new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
@@ -291,8 +302,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   
   const updateData = {
     status: subscription.status,
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
+    current_period_end: safeTimestampToISO(subscription.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     cancel_at_period_end: subscription.cancel_at_period_end,
     
     // Update pricing if changed
@@ -300,10 +311,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     unit_amount: subscription.items.data[0]?.price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null,
     
     // Update trial info
-    trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    trial_end: safeTimestampToISO(subscription.trial_end),
     
     // Update cancellation info
-    canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+    canceled_at: safeTimestampToISO(subscription.canceled_at),
     
     updated_at: new Date().toISOString()
   }
@@ -375,12 +386,10 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     currency: invoice.currency || 'usd',
     
     // Dates
-    period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
-    period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
-    due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
-    paid_at: invoice.status_transitions?.paid_at 
-      ? new Date(invoice.status_transitions.paid_at * 1000).toISOString() 
-      : null,
+    period_start: safeTimestampToISO(invoice.period_start),
+    period_end: safeTimestampToISO(invoice.period_end),
+    due_date: safeTimestampToISO(invoice.due_date),
+    paid_at: safeTimestampToISO(invoice.status_transitions?.paid_at),
     
     // Invoice URLs
     invoice_pdf: invoice.invoice_pdf || null,
@@ -389,7 +398,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     // Payment info
     payment_method_types: invoice.payment_settings?.payment_method_types || [],
     
-    created_at: invoice.created ? new Date(invoice.created * 1000).toISOString() : new Date().toISOString(),
+    created_at: safeTimestampToISO(invoice.created) || new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
