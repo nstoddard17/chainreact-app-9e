@@ -1,6 +1,9 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
+// Check if we're in development mode
+const isDevelopment = process.env.NODE_ENV === 'development'
+
 // Generic Cache Store Template
 export const createCacheStore = <T>(name: string) => {
   // Define the store state interface
@@ -18,40 +21,51 @@ export const createCacheStore = <T>(name: string) => {
     isStale: (maxAge?: number) => boolean
   }
 
+  const storeConfig = (set: any, get: any) => ({
+    data: null,
+    loading: false,
+    error: null,
+    lastFetched: null,
+    
+    setData: (data: T) => set({ 
+      data, 
+      lastFetched: Date.now(), 
+      loading: false,
+      error: null 
+    }),
+    
+    clearData: () => set({ 
+      data: null, 
+      lastFetched: null,
+      error: null 
+    }),
+    
+    setLoading: (loading: boolean) => set({ loading }),
+    
+    setError: (error: string | null) => set({ 
+      error,
+      loading: false
+    }),
+    
+    isStale: (maxAge = isDevelopment ? 0 : 5 * 60 * 1000) => {
+      // In development, always consider data stale to force refresh
+      if (isDevelopment) return true
+      
+      const { lastFetched } = get()
+      if (!lastFetched) return true
+      return Date.now() - lastFetched > maxAge
+    }
+  })
+
+  // In development, don't persist to localStorage
+  if (isDevelopment) {
+    return create<CacheState<T>>()(storeConfig)
+  }
+
+  // In production, use localStorage persistence
   return create<CacheState<T>>()(
     persist(
-      (set, get) => ({
-        data: null,
-        loading: false,
-        error: null,
-        lastFetched: null,
-        
-        setData: (data: T) => set({ 
-          data, 
-          lastFetched: Date.now(), 
-          loading: false,
-          error: null 
-        }),
-        
-        clearData: () => set({ 
-          data: null, 
-          lastFetched: null,
-          error: null 
-        }),
-        
-        setLoading: (loading: boolean) => set({ loading }),
-        
-        setError: (error: string | null) => set({ 
-          error,
-          loading: false
-        }),
-        
-        isStale: (maxAge = 5 * 60 * 1000) => {
-          const { lastFetched } = get()
-          if (!lastFetched) return true
-          return Date.now() - lastFetched > maxAge
-        }
-      }),
+      storeConfig,
       {
         name: `chainreact-cache-${name}`,
         storage: typeof window !== 'undefined' 
@@ -165,4 +179,20 @@ export function clearAllStores() {
   storeRegistry.forEach(store => {
     store.clearData()
   })
+}
+
+// Clear all localStorage cache (useful for development)
+export function clearAllCachedData() {
+  if (typeof window !== 'undefined') {
+    // Clear all chainreact-cache-* items from localStorage
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('chainreact-cache-')) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+    console.log(`🧹 Cleared ${keysToRemove.length} cached items from localStorage`)
+  }
 } 

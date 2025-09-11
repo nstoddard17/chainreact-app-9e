@@ -4297,12 +4297,6 @@ const useWorkflowBuilderState = () => {
       }
       
       // Execute the workflow immediately with test data but REAL external calls
-      // Add AbortController for timeout handling
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, 60000) // 60 second timeout for long operations like delete
-      
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4321,11 +4315,8 @@ const useWorkflowBuilderState = () => {
             nodes: currentNodes,
             edges: currentEdges
           }
-        }),
-        signal: controller.signal
+        })
       })
-      
-      clearTimeout(timeoutId)
       
       if (response.ok) {
         const result = await response.json()

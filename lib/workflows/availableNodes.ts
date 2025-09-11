@@ -1249,7 +1249,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Delete All Matches",
         type: "boolean",
         required: false,
-        showIf: (values: any) => values.action === "delete" && values.deleteRowBy === "column_value" && values.deleteSearchValue,
+        showIf: (values: any) => values.action === "delete" && ((values.deleteRowBy === "column_value" && values.deleteSearchValue) || (values.deleteRowBy === "conditions" && values.deleteConditions?.length > 0)),
         defaultValue: false,
         description: "Delete all rows that match the criteria",
         helpText: "When enabled, ALL rows matching your search criteria will be deleted. When disabled, only the FIRST matching row will be deleted. Use with caution!"

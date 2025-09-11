@@ -19,7 +19,6 @@ export async function deleteGoogleSheetsRow(
     const endRow = resolveValue(config.endRow, input)
     const matchColumn = resolveValue(config.matchColumn, input)
     const matchValue = resolveValue(config.matchValue, input)
-    const conditions = config.conditions || []
     const deleteAll = resolveValue(config.deleteAll, input) || false
     const confirmDelete = resolveValue(config.confirmDelete, input)
 
@@ -32,7 +31,6 @@ export async function deleteGoogleSheetsRow(
       endRow,
       matchColumn,
       matchValue,
-      conditions,
       deleteAll,
       confirmDelete
     })
@@ -138,70 +136,6 @@ export async function deleteGoogleSheetsRow(
             deletedData.push(rows[i])
             if (!deleteAll) break
           }
-        }
-      }
-    } else if (deleteBy === 'multiple_conditions' && conditions.length > 0) {
-      for (let i = 1; i < rows.length; i++) {
-        let allConditionsMet = true
-        
-        for (const condition of conditions) {
-          const { column, operator, value } = condition
-          let columnIndex = -1
-          
-          // Check if column is a SINGLE column letter (A-Z only, not AA, AB, etc.)
-          // and NOT a word like "Address" or "RSVP"
-          if (/^[A-Z]$/i.test(column)) {
-            columnIndex = column.toUpperCase().charCodeAt(0) - 65
-          } else {
-            columnIndex = headers.findIndex((h: string) => h === column)
-          }
-
-          if (columnIndex >= 0) {
-            const cellValue = rows[i][columnIndex] || ''
-            const compareValue = resolveValue(value, input)
-
-            let conditionMet = false
-            switch (operator) {
-              case 'equals':
-                conditionMet = cellValue === compareValue
-                break
-              case 'not_equals':
-                conditionMet = cellValue !== compareValue
-                break
-              case 'contains':
-                conditionMet = cellValue.toString().includes(compareValue)
-                break
-              case 'starts_with':
-                conditionMet = cellValue.toString().startsWith(compareValue)
-                break
-              case 'ends_with':
-                conditionMet = cellValue.toString().endsWith(compareValue)
-                break
-              case 'greater_than':
-                conditionMet = parseFloat(cellValue) > parseFloat(compareValue)
-                break
-              case 'less_than':
-                conditionMet = parseFloat(cellValue) < parseFloat(compareValue)
-                break
-              case 'is_empty':
-                conditionMet = !cellValue || cellValue === ''
-                break
-              case 'is_not_empty':
-                conditionMet = cellValue && cellValue !== ''
-                break
-            }
-
-            if (!conditionMet) {
-              allConditionsMet = false
-              break
-            }
-          }
-        }
-
-        if (allConditionsMet) {
-          rowsToDelete.push(i + 1)
-          deletedData.push(rows[i])
-          if (!deleteAll) break
         }
       }
     }

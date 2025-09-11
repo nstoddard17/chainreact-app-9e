@@ -88,7 +88,14 @@ export async function POST(request: Request) {
         rowNumber: sheetsNode.data?.config?.rowNumber,
         findRowBy: sheetsNode.data?.config?.findRowBy,
         spreadsheetId: sheetsNode.data?.config?.spreadsheetId,
-        sheetName: sheetsNode.data?.config?.sheetName
+        sheetName: sheetsNode.data?.config?.sheetName,
+        // Delete-specific fields
+        deleteRowBy: sheetsNode.data?.config?.deleteRowBy,
+        deleteColumn: sheetsNode.data?.config?.deleteColumn,
+        deleteValue: sheetsNode.data?.config?.deleteValue,
+        deleteRowNumber: sheetsNode.data?.config?.deleteRowNumber,
+        deleteAll: sheetsNode.data?.config?.deleteAll,
+        confirmDelete: sheetsNode.data?.config?.confirmDelete
       })
     }
     

@@ -67,25 +67,12 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       description: "Choose from your Google Docs documents"
     },
     {
-      name: "previewDocument",
-      label: "Preview Document",
-      type: "button-toggle",
-      defaultValue: "false",
-      options: [
-        { value: "false", label: "Hide Preview" },
-        { value: "true", label: "Show Preview" }
-      ],
-      description: "Toggle to show a read-only preview of the document's first 10 lines"
-    },
-    {
       name: "documentPreview",
       label: "Document Preview",
-      type: "custom",
+      type: "google_docs_preview",
       required: false,
-      placeholder: "Select a document to see its preview",
-      description: "Preview of the document's current content (first 10 lines)",
-      readonly: true,
-      conditional: { field: "previewDocument", value: "true" }
+      description: "Toggle to show a read-only preview of the document's first 2 paragraphs",
+      dependsOn: "documentId"
     },
     {
       name: "insertLocation",
@@ -107,9 +94,10 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       label: "Search Text",
       type: "text",
       required: false,
-      placeholder: "Text to search for in the document",
-      description: "Required when inserting after or before specific text",
-      showWhen: { insertLocation: ["after_text", "before_text"] }
+      placeholder: "Text to search for in the document (supports wildcards: * for any characters)",
+      description: "Enter the text to search for. Use * as a wildcard for pattern matching.",
+      hidden: true,
+      showIf: (values: any) => values.insertLocation === "after_text" || values.insertLocation === "before_text"
     },
     {
       name: "content",
@@ -119,23 +107,6 @@ const googleDocsActionUpdateDocument: NodeComponent = {
       placeholder: "Enter content to insert...\n\nYou can use {{variables}} to insert dynamic values.",
       description: "Content to insert into the document. Use {{variable}} syntax for workflow variables.",
       rows: 8
-    },
-    {
-      name: "makeRevision",
-      label: "Create Revision",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Save this update as a named revision in document history"
-    },
-    {
-      name: "revisionComment",
-      label: "Revision Comment",
-      type: "text",
-      required: false,
-      placeholder: "e.g., Added Q4 financial data, Updated contact information",
-      conditional: { field: "makeRevision", value: true },
-      description: "Optional comment to label this version in the document's revision history"
     }
   ],
 }
@@ -160,25 +131,12 @@ const googleDocsActionShareDocument: NodeComponent = {
       description: "Choose from your Google Docs documents"
     },
     {
-      name: "previewDocument",
-      label: "Preview Document",
-      type: "button-toggle",
-      defaultValue: "false",
-      options: [
-        { value: "false", label: "Hide Preview" },
-        { value: "true", label: "Show Preview" }
-      ],
-      description: "Toggle to show a read-only preview of the document's first 10 lines"
-    },
-    {
       name: "documentPreview",
       label: "Document Preview",
-      type: "custom",
+      type: "google_docs_preview",
       required: false,
-      placeholder: "Select a document to see its preview",
-      description: "Preview of the document's current content (first 10 lines)",
-      readonly: true,
-      conditional: { field: "previewDocument", value: "true" }
+      description: "Toggle to show a read-only preview of the document's first 2 paragraphs",
+      dependsOn: "documentId"
     },
     {
       name: "shareType",
@@ -284,25 +242,12 @@ const googleDocsActionExportDocument: NodeComponent = {
       description: "Choose from your Google Docs documents"
     },
     {
-      name: "previewDocument",
-      label: "Preview Document",
-      type: "button-toggle",
-      defaultValue: "false",
-      options: [
-        { value: "false", label: "Hide Preview" },
-        { value: "true", label: "Show Preview" }
-      ],
-      description: "Toggle to show a read-only preview of the document's first 10 lines"
-    },
-    {
       name: "documentPreview",
       label: "Document Preview",
-      type: "custom",
+      type: "google_docs_preview",
       required: false,
-      placeholder: "Select a document to see its preview",
-      description: "Preview of the document's current content (first 10 lines)",
-      readonly: true,
-      conditional: { field: "previewDocument", value: "true" }
+      description: "Toggle to show a read-only preview of the document's first 2 paragraphs",
+      dependsOn: "documentId"
     },
     {
       name: "exportFormat",
