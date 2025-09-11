@@ -173,7 +173,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   console.log("[Stripe Webhook] Retrieved subscription:", subscription.id)
 
-  // Extract comprehensive subscription data
+  // Extract ONLY the fields that exist in the database
   const subscriptionData = {
     user_id: userId,
     plan_id: planId,
@@ -181,38 +181,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     stripe_subscription_id: subscription.id,
     status: subscription.status,
     billing_cycle: billingCycle || 'monthly',
-    
-    // Period dates - these should always be valid
     current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
     current_period_end: safeTimestampToISO(subscription.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    cancel_at_period_end: subscription.cancel_at_period_end,
-    
-    // Pricing details
-    price_id: subscription.items.data[0]?.price.id,
-    unit_amount: subscription.items.data[0]?.price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null,
-    currency: subscription.items.data[0]?.price.currency || 'usd',
-    
-    // Trial information - may be null
-    trial_start: safeTimestampToISO(subscription.trial_start),
-    trial_end: safeTimestampToISO(subscription.trial_end),
-    
-    // Discount/coupon info
-    discount_percentage: subscription.discount?.coupon?.percent_off || null,
-    discount_amount: subscription.discount?.coupon?.amount_off ? subscription.discount.coupon.amount_off / 100 : null,
-    coupon_code: subscription.discount?.coupon?.id || null,
-    
-    // Payment method
-    default_payment_method: typeof subscription.default_payment_method === 'string' 
-      ? subscription.default_payment_method 
-      : subscription.default_payment_method?.id || null,
-    
-    // Additional metadata
     created_at: safeTimestampToISO(subscription.created) || new Date().toISOString(),
-    // Removed canceled_at - column doesn't exist in database
-    
-    // Customer email from session
-    customer_email: session.customer_details?.email || null,
-    
     updated_at: new Date().toISOString()
   }
 
@@ -233,14 +204,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     console.log("[Stripe Webhook] Successfully upserted subscription:", data)
   }
 
-  // Also store the initial invoice if available
-  if (subscription.latest_invoice) {
-    const invoice = typeof subscription.latest_invoice === 'string' 
-      ? await stripeClient.invoices.retrieve(subscription.latest_invoice)
-      : subscription.latest_invoice as Stripe.Invoice
-      
-    await storeInvoice(invoice, supabase, userId)
-  }
+  // TODO: Store invoice once we know what columns exist in the invoices table
+  // if (subscription.latest_invoice) {
+  //   const invoice = typeof subscription.latest_invoice === 'string' 
+  //     ? await stripeClient.invoices.retrieve(subscription.latest_invoice)
+  //     : subscription.latest_invoice as Stripe.Invoice
+  //     
+  //   await storeInvoice(invoice, supabase, userId)
+  // }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
@@ -304,17 +275,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     status: subscription.status,
     current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
     current_period_end: safeTimestampToISO(subscription.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    cancel_at_period_end: subscription.cancel_at_period_end,
-    
-    // Update pricing if changed
-    price_id: subscription.items.data[0]?.price.id,
-    unit_amount: subscription.items.data[0]?.price.unit_amount ? subscription.items.data[0].price.unit_amount / 100 : null,
-    
-    // Update trial info
-    trial_end: safeTimestampToISO(subscription.trial_end),
-    
-    // Update cancellation info - removed canceled_at (column doesn't exist)
-    
     updated_at: new Date().toISOString()
   }
 
@@ -419,12 +379,14 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
   console.log("[Stripe Webhook] handlePaymentSucceeded - Invoice:", invoice.id)
-  await storeInvoice(invoice, supabase)
+  // TODO: Store invoice once we know what columns exist in the invoices table
+  // await storeInvoice(invoice, supabase)
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
   console.log("[Stripe Webhook] handlePaymentFailed - Invoice:", invoice.id)
-  await storeInvoice(invoice, supabase)
+  // TODO: Store invoice once we know what columns exist in the invoices table
+  // await storeInvoice(invoice, supabase)
   
   // You might want to send notification emails here
   // Or update the subscription status to 'past_due'
