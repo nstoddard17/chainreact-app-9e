@@ -189,19 +189,38 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   console.log("[Stripe Webhook] Upserting subscription data:", JSON.stringify(subscriptionData, null, 2))
 
-  // Create or update subscription in database
-  const { data, error } = await supabase
+  // First, try to check if subscription already exists
+  const { data: existing } = await supabase
     .from("subscriptions")
-    .upsert(subscriptionData, {
-      onConflict: 'stripe_subscription_id'
-    })
-    .select()
+    .select("id")
+    .eq("stripe_subscription_id", subscription.id)
+    .single()
 
-  if (error) {
-    console.error("[Stripe Webhook] Error upserting subscription:", error)
-    throw error
+  let result
+  if (existing) {
+    // Update existing subscription
+    console.log("[Stripe Webhook] Updating existing subscription")
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .update(subscriptionData)
+      .eq("stripe_subscription_id", subscription.id)
+      .select()
+    result = { data, error }
   } else {
-    console.log("[Stripe Webhook] Successfully upserted subscription:", data)
+    // Insert new subscription
+    console.log("[Stripe Webhook] Creating new subscription")
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .insert(subscriptionData)
+      .select()
+    result = { data, error }
+  }
+
+  if (result.error) {
+    console.error("[Stripe Webhook] Error saving subscription:", result.error)
+    throw result.error
+  } else {
+    console.log("[Stripe Webhook] Successfully saved subscription:", result.data)
   }
 
   // TODO: Store invoice once we know what columns exist in the invoices table
@@ -254,11 +273,21 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     updated_at: new Date().toISOString()
   }
 
-  const { error } = await supabase
+  // Check if subscription exists first
+  const { data: existing } = await supabase
     .from("subscriptions")
-    .upsert(subscriptionData, {
-      onConflict: 'stripe_subscription_id'
-    })
+    .select("id")
+    .eq("stripe_subscription_id", subscription.id)
+    .single()
+
+  const { error } = existing
+    ? await supabase
+        .from("subscriptions")
+        .update(subscriptionData)
+        .eq("stripe_subscription_id", subscription.id)
+    : await supabase
+        .from("subscriptions")
+        .insert(subscriptionData)
 
   if (error) {
     console.error("[Stripe Webhook] Error creating subscription:", error)
