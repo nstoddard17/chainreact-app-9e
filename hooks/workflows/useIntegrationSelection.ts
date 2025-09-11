@@ -224,7 +224,6 @@ export function useIntegrationSelection() {
     'gitlab',
     'instagram',
     'linkedin',
-    'teams',  // Microsoft Teams uses 'teams' as its ID
     'stripe',
     'tiktok',
     'youtube',

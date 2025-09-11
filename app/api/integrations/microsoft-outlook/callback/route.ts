@@ -61,6 +61,51 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Check account type to warn about personal account limitations
+    try {
+      const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+        headers: { 
+          "Authorization": `Bearer ${tokenData.access_token}` 
+        }
+      })
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        const email = userData.mail || userData.userPrincipalName || ""
+        
+        // Check if this is a personal account
+        const isPersonalAccount = !userData.userPrincipalName || 
+                                 email.includes("outlook.com") ||
+                                 email.includes("hotmail.com") ||
+                                 email.includes("live.com") ||
+                                 email.includes("gmail.com")
+        
+        if (isPersonalAccount) {
+          console.warn("⚠️ Personal Microsoft account detected:", email)
+          console.warn("   Outlook API may have limitations with personal accounts")
+          console.warn("   Some features may not work as expected")
+          
+          // Store a warning flag in the integration metadata
+          const metadata = {
+            accountType: "personal",
+            email: email,
+            warning: "Some Outlook features may not work with personal Microsoft accounts. Consider using a work or school account for full functionality.",
+            knownLimitation: true
+          }
+          
+          tokenData._metadata = metadata
+        } else {
+          console.log("✅ Work/School account detected:", email)
+          tokenData._metadata = {
+            accountType: "work",
+            email: email
+          }
+        }
+      }
+    } catch (checkError) {
+      console.error("Could not check account type:", checkError)
+    }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
@@ -76,6 +121,11 @@ export async function GET(request: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt,
     )
+    
+    // Add account type metadata if available
+    if (tokenData._metadata) {
+      integrationData.metadata = tokenData._metadata
+    }
 
     const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
       onConflict: "user_id, provider",
