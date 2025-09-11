@@ -16,10 +16,20 @@ export async function createGoogleDocument(
     const resolvedConfig = {
       title: resolveValue(config.title, input),
       content: resolveValue(config.content, input),
-      folderId: resolveValue(config.folderId, input)
+      folderId: resolveValue(config.folderId, input),
+      // Sharing options
+      enableSharing: resolveValue(config.enableSharing, input),
+      shareType: resolveValue(config.shareType, input),
+      emails: resolveValue(config.emails, input),
+      permission: resolveValue(config.permission, input),
+      sendNotification: resolveValue(config.sendNotification, input),
+      emailMessage: resolveValue(config.emailMessage, input),
+      allowDownload: resolveValue(config.allowDownload, input),
+      expirationDate: resolveValue(config.expirationDate, input)
     }
     
-    const { title, content, folderId } = resolvedConfig
+    const { title, content, folderId, enableSharing, shareType, emails, 
+            permission, sendNotification, emailMessage, allowDownload, expirationDate } = resolvedConfig
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
     
@@ -38,6 +48,7 @@ export async function createGoogleDocument(
     })
 
     const documentId = createResponse.data.documentId
+    let shareResults = { success: true, errors: [] as string[], sharedWith: [] as string[] }
 
     // Add content if provided
     if (content) {
@@ -63,15 +74,142 @@ export async function createGoogleDocument(
       })
     }
 
+    // Handle sharing if enabled
+    if (enableSharing && documentId) {
+      try {
+        // Determine the role based on permission level
+        let role = 'reader'
+        if (permission === 'editor') role = 'writer'
+        else if (permission === 'commenter') role = 'commenter'
+        
+        if (shareType === 'specific_users' && emails) {
+          // Share with specific users
+          const emailList = emails.split(',').map((e: string) => e.trim()).filter(Boolean)
+          
+          if (emailList.length === 0) {
+            console.log('No valid email addresses provided for sharing')
+          } else {
+            for (const email of emailList) {
+              try {
+                const permissionRequest: any = {
+                  fileId: documentId,
+                  requestBody: {
+                    type: 'user',
+                    role: role,
+                    emailAddress: email
+                  }
+                }
+                
+                // Only add notification settings for specific users
+                if (sendNotification !== false) {
+                  permissionRequest.sendNotificationEmail = true
+                  if (emailMessage) {
+                    permissionRequest.emailMessage = emailMessage
+                  }
+                } else {
+                  permissionRequest.sendNotificationEmail = false
+                }
+                
+                await drive.permissions.create(permissionRequest)
+                shareResults.sharedWith.push(email)
+                console.log(`Successfully shared with ${email}`)
+              } catch (error: any) {
+                console.error(`Failed to share with ${email}:`, error)
+                shareResults.errors.push(`Failed to share with ${email}: ${error.message}`)
+                shareResults.success = false
+              }
+            }
+          }
+        } else if (shareType === 'anyone_with_link') {
+          // Share with anyone with link (no expiration date for this option)
+          try {
+            await drive.permissions.create({
+              fileId: documentId,
+              requestBody: {
+                type: 'anyone',
+                role: role,
+                allowFileDiscovery: false
+              }
+            })
+            shareResults.sharedWith.push('anyone with link')
+            console.log('Successfully shared with anyone with link')
+          } catch (error: any) {
+            console.error('Failed to share with anyone with link:', error)
+            shareResults.errors.push(`Failed to share with anyone with link: ${error.message}`)
+            shareResults.success = false
+          }
+        } else if (shareType === 'make_public') {
+          // Make document public
+          try {
+            await drive.permissions.create({
+              fileId: documentId,
+              requestBody: {
+                type: 'anyone',
+                role: role,
+                allowFileDiscovery: true
+              }
+            })
+            shareResults.sharedWith.push('public')
+            console.log('Successfully made document public')
+          } catch (error: any) {
+            console.error('Failed to make document public:', error)
+            shareResults.errors.push(`Failed to make document public: ${error.message}`)
+            shareResults.success = false
+          }
+        }
+
+        // Handle download/print/copy restrictions
+        if (allowDownload === false) {
+          try {
+            await drive.files.update({
+              fileId: documentId,
+              requestBody: {
+                copyRequiresWriterPermission: true,
+                viewersCanCopyContent: false
+              }
+            })
+            console.log('Successfully set download/print/copy restrictions')
+          } catch (error: any) {
+            console.error('Failed to set download restrictions:', error)
+            shareResults.errors.push(`Failed to set download restrictions: ${error.message}`)
+          }
+        }
+
+        // Handle expiration date if provided and not "anyone with link"
+        if (expirationDate && shareType !== 'anyone_with_link') {
+          // Note: Expiration dates require Google Workspace and specific API setup
+          // For now, we'll log this as a limitation
+          console.log('Note: Expiration dates require Google Workspace Enterprise features')
+          // We could potentially store the expiration date in metadata for manual handling
+        }
+      } catch (shareError: any) {
+        console.error('Unexpected sharing error:', shareError)
+        shareResults.errors.push(`Unexpected sharing error: ${shareError.message}`)
+        shareResults.success = false
+      }
+    }
+
+    // Build success message with sharing status
+    let message = `Document "${title}" created successfully`
+    if (enableSharing) {
+      if (shareResults.sharedWith.length > 0) {
+        message += `. Shared with: ${shareResults.sharedWith.join(', ')}`
+      }
+      if (shareResults.errors.length > 0) {
+        message += `. Sharing errors: ${shareResults.errors.join('; ')}`
+      }
+    }
+
     return {
       success: true,
       output: {
         documentId,
         title: createResponse.data.title,
         revisionId: createResponse.data.revisionId,
-        documentUrl: `https://docs.google.com/document/d/${documentId}/edit`
+        documentUrl: `https://docs.google.com/document/d/${documentId}/edit`,
+        sharingStatus: shareResults
       },
-      message: `Document "${title}" created successfully`
+      message
     }
   } catch (error: any) {
     console.error('Create Google Document error:', error)
