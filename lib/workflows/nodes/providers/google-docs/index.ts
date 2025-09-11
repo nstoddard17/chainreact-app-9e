@@ -3,7 +3,6 @@ import {
   PenSquare,
   Edit,
   Share,
-  Download,
   FileText
 } from "lucide-react"
 
@@ -209,153 +208,6 @@ const googleDocsActionUpdateDocument: NodeComponent = {
 }
 
 
-const googleDocsActionExportDocument: NodeComponent = {
-  type: "google_docs_action_export_document",
-  title: "Export Document",
-  description: "Export a Google Doc to various formats (PDF, DOCX, etc.)",
-  icon: Download,
-  providerId: "google-docs",
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "documentId",
-      label: "Document",
-      type: "select",
-      dynamic: "google-docs-documents",
-      required: true,
-      placeholder: "Select a document from your Google Docs",
-      description: "Choose from your Google Docs documents"
-    },
-    {
-      name: "documentPreview",
-      label: "Document Preview",
-      type: "google_docs_preview",
-      required: false,
-      description: "Toggle to show a read-only preview of the document's first 2 paragraphs",
-      dependsOn: "documentId"
-    },
-    {
-      name: "exportFormat",
-      label: "Export Format",
-      type: "select",
-      required: true,
-      defaultValue: "pdf",
-      options: [
-        { value: "pdf", label: "PDF (.pdf)" },
-        { value: "docx", label: "Microsoft Word (.docx)" },
-        { value: "odt", label: "OpenDocument Text (.odt)" },
-        { value: "rtf", label: "Rich Text Format (.rtf)" },
-        { value: "txt", label: "Plain Text (.txt)" },
-        { value: "html", label: "HTML (.html)" },
-        { value: "epub", label: "EPUB Publication (.epub)" },
-        { value: "md", label: "Markdown (.md)" }
-      ],
-      description: "Choose the format to export the document"
-    },
-    {
-      name: "exportOptions",
-      label: "Export Options",
-      type: "select",
-      required: false,
-      defaultValue: "default",
-      options: [
-        { value: "default", label: "Default Settings" },
-        { value: "compact", label: "Compact (Smaller File Size)" },
-        { value: "high_quality", label: "High Quality (Larger File)" }
-      ],
-      description: "Additional export options",
-      conditional: { field: "exportFormat", value: "pdf" }
-    },
-    {
-      name: "includeComments",
-      label: "Include Comments",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Include document comments in the export (if supported by format)"
-    },
-    {
-      name: "includeSuggestions",
-      label: "Include Suggestions",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Include suggested edits in the export (if supported by format)"
-    },
-    {
-      name: "destinationType",
-      label: "Save To",
-      type: "select",
-      required: true,
-      defaultValue: "drive",
-      options: [
-        { value: "drive", label: "Google Drive" },
-        { value: "email", label: "Send via Email" },
-        { value: "download", label: "Direct Download" },
-        { value: "webhook", label: "Send to Webhook" }
-      ],
-      description: "Where to save or send the exported document"
-    },
-    {
-      name: "destinationFolder",
-      label: "Destination Folder",
-      type: "select",
-      dynamic: "google-drive-folders",
-      required: false,
-      placeholder: "Select a folder (uses root if not specified)",
-      description: "Google Drive folder to save the exported file",
-      conditional: { field: "destinationType", value: "drive" }
-    },
-    {
-      name: "emailRecipients",
-      label: "Email Recipients",
-      type: "email-autocomplete",
-      required: false,
-      placeholder: "Enter email addresses separated by commas",
-      dynamic: "google-contacts",
-      description: "Email addresses to send the exported document to",
-      conditional: { field: "destinationType", value: "email" }
-    },
-    {
-      name: "emailSubject",
-      label: "Email Subject",
-      type: "text",
-      required: false,
-      placeholder: "Exported Document: {{title}}",
-      description: "Subject line for the email",
-      conditional: { field: "destinationType", value: "email" }
-    },
-    {
-      name: "emailBody",
-      label: "Email Body",
-      type: "textarea",
-      required: false,
-      placeholder: "Please find the exported document attached.",
-      description: "Message body for the email",
-      conditional: { field: "destinationType", value: "email" }
-    },
-    {
-      name: "webhookUrl",
-      label: "Webhook URL",
-      type: "text",
-      required: false,
-      placeholder: "https://example.com/webhook",
-      description: "Webhook URL to send the exported file",
-      conditional: { field: "destinationType", value: "webhook" }
-    },
-    {
-      name: "webhookHeaders",
-      label: "Webhook Headers",
-      type: "textarea",
-      required: false,
-      placeholder: "Authorization: Bearer token\nContent-Type: application/octet-stream",
-      description: "Optional headers for the webhook request (one per line)",
-      conditional: { field: "destinationType", value: "webhook" }
-    }
-  ]
-}
 
 // Google Docs Triggers
 const googleDocsTriggerNewDocument: NodeComponent = {
@@ -477,10 +329,9 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
 
 // Export all Google Docs nodes
 export const googleDocsNodes: NodeComponent[] = [
-  // Actions (3)
+  // Actions (2)
   googleDocsActionCreateDocument,
   googleDocsActionUpdateDocument,
-  googleDocsActionExportDocument,
   
   // Triggers (2)
   googleDocsTriggerNewDocument,
