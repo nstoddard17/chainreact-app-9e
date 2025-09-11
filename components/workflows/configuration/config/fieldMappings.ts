@@ -238,11 +238,67 @@ const outlookMappings: Record<string, FieldMapping> = {
   },
   "microsoft-outlook_action_create_calendar_event": {
     attendees: "outlook-enhanced-recipients",
+    calendarId: "outlook_calendars",
+  },
+  "microsoft-outlook_action_add_folder": {
+    messageId: "outlook_messages",
+    folderId: "outlook_folders",
+  },
+  "microsoft-outlook_action_archive_email": {
+    messageId: "outlook_messages",
+  },
+  "microsoft-outlook_action_search_email": {
+    folderId: "outlook_folders",
+  },
+  "microsoft-outlook_action_move_email": {
+    messageId: "outlook_messages",
+    sourceFolderId: "outlook_folders",
+    destinationFolderId: "outlook_folders",
+  },
+  "microsoft-outlook_action_mark_as_read": {
+    messageId: "outlook_messages",
+  },
+  "microsoft-outlook_action_mark_as_unread": {
+    messageId: "outlook_messages",
+  },
+  "microsoft-outlook_action_reply_to_email": {
+    messageId: "outlook_messages",
+  },
+  "microsoft-outlook_action_fetch_emails": {
+    folderId: "outlook_folders",
+  },
+  "microsoft-outlook_action_get_calendar_events": {
+    calendarId: "outlook_calendars",
   },
 };
 
 // Microsoft Teams field mappings
 const teamsMappings: Record<string, FieldMapping> = {
+  "teams_trigger_new_message": {
+    channelId: "teams_channels",
+  },
+  "teams_action_send_message": {
+    channelId: "teams_channels",
+  },
+  "teams_action_send_chat_message": {
+    chatId: "teams_chats",
+  },
+  "teams_action_create_channel": {
+    teamId: "teams_teams",
+  },
+  "teams_action_add_member_to_team": {
+    teamId: "teams_teams",
+    userEmail: "outlook-enhanced-recipients",
+  },
+  "teams_action_send_adaptive_card": {
+    channelId: "teams_channels",
+  },
+  "teams_action_get_team_members": {
+    teamId: "teams_teams",
+  },
+  "teams_trigger_user_joins_team": {
+    teamId: "teams_teams",
+  },
   "microsoft-teams_action_add_team_member": {
     userEmail: "outlook-enhanced-recipients",
     teamId: "teams_teams",

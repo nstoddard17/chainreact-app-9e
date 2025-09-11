@@ -109,23 +109,16 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     
     if (isActuallyLoading && user) {
       const timeout = setTimeout(() => {
-        console.warn("⚠️ Integration loading timeout - attempting recovery")
-        // First try to force refresh integrations
+        // Silently attempt recovery without logging
         fetchIntegrations(true).finally(() => {
           // If still loading after force refresh, reset the state
           const currentState = useIntegrationStore.getState()
           const stillLoading = currentState.loadingStates?.['integrations'] || currentState.loadingStates?.['providers'] || currentState.loading
           if (stillLoading) {
-            console.warn("⚠️ Force refresh didn't resolve loading state - resetting")
+            // Silently reset loading states without user notification
             setLoading("integrations", false)
             setLoading("providers", false)
             setLoading("global", false)
-            // Show error message to user
-            toast({
-              title: "Loading timeout",
-              description: "Integrations are taking longer than expected to load. Please refresh the page.",
-              variant: "destructive",
-            })
           }
         })
       }, 15000) // Increased to 15 second timeout to give more time for initial load
