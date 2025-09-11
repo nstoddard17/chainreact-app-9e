@@ -1052,8 +1052,12 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
-
-
+  
+  // Debug logging to see what scopes we're requesting
+  console.log('🔍 OneNote OAuth URL Generation:')
+  console.log('  - Config scope:', config.scope)
+  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  console.log('  - Redirect URI:', redirectUri)
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -1063,8 +1067,11 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
     prompt: "consent", // Force consent screen every time
     state,
   })
+  
+  const finalUrl = `${config.authEndpoint}?${params.toString()}`
+  console.log('  - Final OAuth URL (scope part):', finalUrl.includes('Notes.ReadWrite') ? '✅ Contains Notes.ReadWrite' : '❌ Missing Notes.ReadWrite')
 
-  return `${config.authEndpoint}?${params.toString()}`
+  return finalUrl
 }
 
 async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
