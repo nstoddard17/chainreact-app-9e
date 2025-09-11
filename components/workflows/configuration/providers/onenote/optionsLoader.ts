@@ -1,10 +1,31 @@
-import { ProviderOptionsLoader } from '../types'
+import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
 export const onenoteOptionsLoader: ProviderOptionsLoader = {
-  providerId: 'microsoft-onenote',
+  canHandle(fieldName: string, providerId: string): boolean {
+    // Handle microsoft-onenote and onenote provider IDs
+    if (providerId !== 'microsoft-onenote' && providerId !== 'onenote') {
+      return false
+    }
+    
+    // List of fields this loader can handle
+    const supportedFields = [
+      'notebookId', 'targetNotebookId', 'sourceNotebookId',
+      'sectionId', 'targetSectionId', 'sourceSectionId',
+      'pageId', 'sourcePageId'
+    ]
+    
+    return supportedFields.includes(fieldName)
+  },
   
-  loadFieldOptions: async (fieldName: string, integrationId: string, dependencies?: Record<string, any>) => {
-    console.log('[OneNote Options Loader] Loading options for field:', fieldName, 'with dependencies:', dependencies)
+  async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { fieldName, integrationId, dependsOnValue } = params
+    
+    console.log('[OneNote Options Loader] Loading options for field:', fieldName, 'with params:', params)
+    
+    if (!integrationId) {
+      console.log('[OneNote Options Loader] No integration ID provided')
+      return []
+    }
     
     switch (fieldName) {
       case 'notebookId':
@@ -15,15 +36,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
       case 'sectionId':
       case 'targetSectionId':
       case 'sourceSectionId': {
-        // Determine which notebook field to use based on the field name prefix
-        let notebookFieldName = 'notebookId'
-        if (fieldName.startsWith('target')) {
-          notebookFieldName = 'targetNotebookId'
-        } else if (fieldName.startsWith('source')) {
-          notebookFieldName = 'sourceNotebookId'
-        }
-        
-        const notebookId = dependencies?.[notebookFieldName]
+        const notebookId = dependsOnValue
         if (!notebookId) {
           console.log('[OneNote Options Loader] No notebook selected for sections')
           return []
@@ -33,13 +46,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
         
       case 'pageId':
       case 'sourcePageId': {
-        // Determine which section field to use based on the field name prefix
-        let sectionFieldName = 'sectionId'
-        if (fieldName.startsWith('source')) {
-          sectionFieldName = 'sourceSectionId'
-        }
-        
-        const sectionId = dependencies?.[sectionFieldName]
+        const sectionId = dependsOnValue
         if (!sectionId) {
           console.log('[OneNote Options Loader] No section selected for pages')
           return []
@@ -53,7 +60,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
     }
   },
   
-  getDependentFields: (fieldName: string) => {
+  getFieldDependencies(fieldName: string): string[] {
     const dependencyMap: Record<string, string[]> = {
       notebookId: ['sectionId'],
       sectionId: ['pageId'],
@@ -125,6 +132,17 @@ async function loadNotebooks(integrationId: string) {
     }))
     
     console.log('[OneNote Options Loader] Loaded notebooks:', options.length)
+    
+    // If no notebooks found, provide a helpful message
+    if (options.length === 0) {
+      return [{
+        value: '__empty__',
+        label: 'No notebooks found - Create one in OneNote first',
+        icon: '📓',
+        disabled: true
+      }]
+    }
+    
     return options
   } catch (error) {
     console.error('[OneNote Options Loader] Error loading notebooks:', error)

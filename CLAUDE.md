@@ -477,6 +477,22 @@ Essential steps that MUST be completed:
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
+### Integration Connection Status Issue (RECURRING)
+**⚠️ CRITICAL**: This is a frequently occurring issue that needs special attention!
+
+**Problem**: Integrations show as disconnected in the action selection modal even when they are connected in the database.
+
+**Root Cause**: Integration config IDs (from `INTEGRATION_CONFIGS`) don't match database provider values.
+- Example: Config ID `"microsoft-onenote"` → Database provider `"onenote"`
+- Example: Config ID `"google-calendar"` → Database provider `"google_calendar"`
+
+**Quick Fix**:
+1. Check `/learning/walkthroughs/integration-connection-status-fix.md` for the complete solution
+2. Update `providerMappings` in the `isIntegrationConnected` function in `CollaborativeWorkflowBuilder.tsx`
+3. Add any new provider name variations to the mapping
+
+**Prevention**: When adding new integrations, ensure the provider name in the database matches the config ID, or immediately add the mapping.
+
 ### Integration Selection Modal Synchronization
 **IMPORTANT**: When making changes to integration handling (coming soon labels, connect buttons, integration status checks), these changes MUST be applied consistently across ALL modal components:
 

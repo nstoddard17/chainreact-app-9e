@@ -34,8 +34,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register HubSpot loader
     this.register('hubspot', hubspotOptionsLoader);
     
-    // Register OneNote loader
+    // Register OneNote loader for both possible provider IDs
     this.register('microsoft-onenote', onenoteOptionsLoader);
+    this.register('onenote', onenoteOptionsLoader);
     
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
