@@ -208,7 +208,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     
     // Additional metadata
     created_at: safeTimestampToISO(subscription.created) || new Date().toISOString(),
-    canceled_at: safeTimestampToISO(subscription.canceled_at),
+    // Removed canceled_at - column doesn't exist in database
     
     // Customer email from session
     customer_email: session.customer_details?.email || null,
@@ -313,8 +313,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     // Update trial info
     trial_end: safeTimestampToISO(subscription.trial_end),
     
-    // Update cancellation info
-    canceled_at: safeTimestampToISO(subscription.canceled_at),
+    // Update cancellation info - removed canceled_at (column doesn't exist)
     
     updated_at: new Date().toISOString()
   }
@@ -339,7 +338,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
     .from("subscriptions")
     .update({ 
       status: "canceled",
-      canceled_at: new Date().toISOString(),
+      // Removed canceled_at - column doesn't exist
       updated_at: new Date().toISOString()
     })
     .eq("stripe_subscription_id", subscription.id)
