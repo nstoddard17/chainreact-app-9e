@@ -91,6 +91,16 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
+    console.log('📡 [HubSpot Callback] Token exchange response:', {
+      hasAccessToken: !!tokenData.access_token,
+      accessTokenPreview: tokenData.access_token ? tokenData.access_token.substring(0, 30) + '...' : 'none',
+      hasRefreshToken: !!tokenData.refresh_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope,
+      hubId: tokenData.hub_id
+    })
+    
     // Extract token expiration time
     const expiresIn = tokenData.expires_in || 21600 // Default to 6 hours if not specified
     const expiresAt = new Date(Date.now() + expiresIn * 1000)

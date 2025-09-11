@@ -95,7 +95,22 @@ import {
   createHubSpotContact,
   createHubSpotCompany,
   createHubSpotDeal,
+  addContactToHubSpotList,
+  updateHubSpotDeal,
 } from './hubspot'
+
+// Microsoft OneNote actions
+import {
+  onenoteCreatePage,
+  onenoteCreateNotebook,
+  onenoteCreateSection,
+  onenoteUpdatePage,
+  onenoteGetPageContent,
+  onenoteGetPages,
+  onenoteCopyPage,
+  onenoteSearch,
+  onenoteDeletePage,
+} from './microsoft-onenote'
 
 // Facebook actions
 import {
@@ -284,6 +299,19 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_create_contact": createHubSpotContact,
   "hubspot_action_create_company": createHubSpotCompany,
   "hubspot_action_create_deal": createHubSpotDeal,
+  "hubspot_action_add_contact_to_list": addContactToHubSpotList,
+  "hubspot_action_update_deal": updateHubSpotDeal,
+  
+  // Microsoft OneNote actions
+  "microsoft-onenote_action_create_page": onenoteCreatePage,
+  "microsoft-onenote_action_create_notebook": onenoteCreateNotebook,
+  "microsoft-onenote_action_create_section": onenoteCreateSection,
+  "microsoft-onenote_action_update_page": onenoteUpdatePage,
+  "microsoft-onenote_action_get_page_content": onenoteGetPageContent,
+  "microsoft-onenote_action_get_pages": onenoteGetPages,
+  "microsoft-onenote_action_copy_page": onenoteCopyPage,
+  "microsoft-onenote_action_search": onenoteSearch,
+  "microsoft-onenote_action_delete_page": onenoteDeletePage,
   
   // Facebook actions
   "facebook_action_create_post": createFacebookPost,

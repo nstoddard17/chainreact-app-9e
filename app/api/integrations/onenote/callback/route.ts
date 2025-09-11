@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Log what scopes were actually granted
+    console.log("🔍 OneNote OAuth callback - Token exchange successful")
+    console.log("   Scopes returned:", tokenData.scope)
+    console.log("   Token type:", tokenData.token_type)
+    console.log("   Expires in:", tokenData.expires_in, "seconds")
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds

@@ -37,21 +37,34 @@ export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (int
       }
     }
     
-    // Try multiple OneNote API endpoints for sections
-    const endpoints = [
-      // All sections with expanded pages
-      'https://graph.microsoft.com/v1.0/me/onenote/sections?$expand=pages&$top=100',
-      // Beta API with expanded pages
-      'https://graph.microsoft.com/beta/me/onenote/sections?$expand=pages',
-      // Standard API with basic selection
-      'https://graph.microsoft.com/v1.0/me/onenote/sections?$select=id,displayName,createdDateTime',
-      // Simple top 10 results
-      'https://graph.microsoft.com/v1.0/me/onenote/sections?$top=10',
-      // Ordered by display name
-      'https://graph.microsoft.com/v1.0/me/onenote/sections?$orderby=displayName',
-      // Beta API with basic selection
-      'https://graph.microsoft.com/beta/me/onenote/sections?$select=id,displayName'
-    ]
+    // Build endpoints based on whether we're filtering by notebook
+    const notebookId = options?.notebookId
+    let endpoints: string[]
+    
+    if (notebookId) {
+      // Get sections for a specific notebook
+      endpoints = [
+        `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections?$select=id,displayName,createdDateTime&$top=100`,
+        `https://graph.microsoft.com/beta/me/onenote/notebooks/${notebookId}/sections?$select=id,displayName`,
+        `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections`,
+      ]
+    } else {
+      // Get all sections
+      endpoints = [
+        // All sections with expanded pages
+        'https://graph.microsoft.com/v1.0/me/onenote/sections?$expand=pages&$top=100',
+        // Beta API with expanded pages
+        'https://graph.microsoft.com/beta/me/onenote/sections?$expand=pages',
+        // Standard API with basic selection
+        'https://graph.microsoft.com/v1.0/me/onenote/sections?$select=id,displayName,createdDateTime',
+        // Simple top 10 results
+        'https://graph.microsoft.com/v1.0/me/onenote/sections?$top=10',
+        // Ordered by display name
+        'https://graph.microsoft.com/v1.0/me/onenote/sections?$orderby=displayName',
+        // Beta API with basic selection
+        'https://graph.microsoft.com/beta/me/onenote/sections?$select=id,displayName'
+      ]
+    }
     
     const result = await tryMultipleOneNoteEndpoints<OneNoteSection>(
       tokenResult.token!,

@@ -10,11 +10,35 @@ import { HubSpotIntegration } from './types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ [HubSpot API] Missing Supabase environment variables')
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {
   try {
-    const { integrationId, dataType, options = {} } = await req.json()
+    let integrationId, dataType, options = {}
+    
+    try {
+      const body = await req.json()
+      integrationId = body.integrationId
+      dataType = body.dataType
+      options = body.options || {}
+      
+      console.log('📥 [HubSpot API] Received request:', {
+        integrationId,
+        dataType,
+        options
+      })
+    } catch (parseError) {
+      console.error('❌ [HubSpot API] Failed to parse request body:', parseError)
+      return NextResponse.json({
+        error: 'Invalid JSON in request body',
+        details: parseError.message
+      }, { status: 400 })
+    }
 
     // Validate required parameters
     if (!integrationId || !dataType) {
@@ -69,7 +93,24 @@ export async function POST(req: NextRequest) {
     })
 
     // Execute the handler
-    const data = await handler(integration as HubSpotIntegration, options)
+    let data
+    try {
+      data = await handler(integration as HubSpotIntegration, options)
+    } catch (handlerError: any) {
+      console.error('❌ [HubSpot API] Handler execution failed:', {
+        dataType,
+        error: handlerError.message,
+        stack: handlerError.stack,
+        integrationId
+      })
+      
+      // Return a proper error response
+      return NextResponse.json({
+        error: handlerError.message || 'Failed to fetch HubSpot data',
+        details: process.env.NODE_ENV === 'development' ? handlerError.stack : undefined,
+        needsReconnection: handlerError.message?.includes('authentication')
+      }, { status: 500 })
+    }
 
     console.log(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
       integrationId,

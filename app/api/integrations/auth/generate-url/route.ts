@@ -688,14 +688,19 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes - updated to match exactly what's in the developer portal
+  // HubSpot scopes - using the minimum required for our actions
+  // Note: These scopes must be configured in your HubSpot app settings
+  // If you get a scope error, ensure these are enabled in your HubSpot app at:
+  // https://app.hubspot.com/developer/{your-account-id}/application/{your-app-id}
   const hubspotScopes = [
-    "crm.objects.companies.read",
-    "crm.objects.companies.write",
     "crm.objects.contacts.read",
     "crm.objects.contacts.write",
+    "crm.objects.companies.read",
+    "crm.objects.companies.write",
     "crm.objects.deals.read",
-    "crm.objects.deals.write"
+    "crm.objects.deals.write",
+    "crm.lists.read",  // Required for Add Contact to List action
+    "crm.lists.write"  // Required for Add Contact to List action
   ]
 
   const params = new URLSearchParams({
@@ -705,6 +710,9 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     scope: hubspotScopes.join(" "),
     access_type: "offline",
     state,
+    // Force re-approval to prevent cached authorization issues
+    // This ensures HubSpot shows the authorization screen instead of auto-redirecting
+    approval_prompt: "force"
   })
 
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
@@ -1044,8 +1052,12 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
-
-
+  
+  // Debug logging to see what scopes we're requesting
+  console.log('🔍 OneNote OAuth URL Generation:')
+  console.log('  - Config scope:', config.scope)
+  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  console.log('  - Redirect URI:', redirectUri)
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -1055,8 +1067,11 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
     prompt: "consent", // Force consent screen every time
     state,
   })
+  
+  const finalUrl = `${config.authEndpoint}?${params.toString()}`
+  console.log('  - Final OAuth URL (scope part):', finalUrl.includes('Notes.ReadWrite') ? '✅ Contains Notes.ReadWrite' : '❌ Missing Notes.ReadWrite')
 
-  return `${config.authEndpoint}?${params.toString()}`
+  return finalUrl
 }
 
 async function generateGumroadAuthUrl(stateObject: any): Promise<string> {

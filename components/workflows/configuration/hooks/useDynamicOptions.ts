@@ -694,6 +694,60 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         integration: integration.provider
       });
       
+      // Check for provider-specific loader first (for providers like HubSpot)
+      if (providerId === 'hubspot') {
+        console.log('🔍 [useDynamicOptions] Using HubSpot provider loader for field:', fieldName);
+        
+        try {
+          // Import provider registry
+          const { providerRegistry } = await import('../providers/registry');
+          const loader = providerRegistry.getLoader(providerId, fieldName);
+          
+          if (loader) {
+            console.log('✅ [useDynamicOptions] Found HubSpot loader for field:', fieldName);
+            
+            const formattedOptions = await loader.loadOptions({
+              fieldName,
+              nodeType,
+              providerId,
+              integrationId: integration.id,
+              dependsOn,
+              dependsOnValue,
+              forceRefresh,
+              extraOptions
+            });
+            
+            console.log('✅ [useDynamicOptions] HubSpot loader returned', formattedOptions.length, 'options');
+            
+            // Check if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) !== requestId) {
+              console.log('🚫 [loadOptions] Request superseded, not updating state');
+              return;
+            }
+            
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: formattedOptions
+            }));
+            
+            // Clear loading state
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+              if (!silent) {
+                onLoadingChangeRef.current?.(fieldName, false);
+              }
+            }
+            
+            return;
+          }
+        } catch (error) {
+          console.error('❌ [useDynamicOptions] Error using HubSpot provider loader:', error);
+          // Fall through to use regular integration data loading
+        }
+      }
+      
       if (!resourceType) {
         // Only warn for fields that are expected to have dynamic options but don't
         const expectedDynamicFields = ['guildId', 'channelId', 'roleId', 'userId', 'boardId', 'baseId', 'tableId', 'workspaceId'];

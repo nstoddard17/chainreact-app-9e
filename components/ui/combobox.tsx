@@ -233,7 +233,7 @@ export function Combobox({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder || "Search..."}
@@ -467,7 +467,7 @@ export function MultiCombobox({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
         <Command>
           <CommandInput
             placeholder={searchPlaceholder || "Search..."}
@@ -622,7 +622,7 @@ export function HierarchicalCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
         <Command>
           <CommandInput 
             placeholder={searchPlaceholder || "Search..."}

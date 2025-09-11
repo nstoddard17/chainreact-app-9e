@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo, useEffect, useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,9 @@ import type { NodeComponent } from '@/lib/workflows/nodes'
 import type { Node } from '@xyflow/react'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
+import { openOAuthPopup } from '@/lib/utils/oauth-popup'
+import { toast } from '@/components/ui/use-toast'
+import { useIntegrationStore } from '@/stores/integrationStore'
 
 interface IntegrationInfo {
   id: string
@@ -78,6 +81,10 @@ export function ActionSelectionDialog({
   
   // Get the coming soon integrations from the hook
   const { comingSoonIntegrations } = useIntegrationSelection()
+  const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null)
+  
+  // Get integration store to check status
+  const { getIntegrationByProvider } = useIntegrationStore()
 
   // Refresh integrations when dialog opens
   useEffect(() => {
@@ -86,6 +93,76 @@ export function ActionSelectionDialog({
       refreshIntegrations()
     }
   }, [open, refreshIntegrations])
+
+  // Handle OAuth connection
+  const handleConnect = useCallback(async (integrationId: string) => {
+    console.log('handleConnect called with:', integrationId)
+    setConnectingIntegration(integrationId)
+    
+    try {
+      console.log('Generating OAuth URL for:', integrationId)
+      // Generate OAuth URL via API
+      const response = await fetch('/api/integrations/auth/generate-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider: integrationId,
+          forceFresh: false,
+        }),
+      })
+      console.log('OAuth URL response:', response.status)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to generate OAuth URL')
+      }
+
+      const data = await response.json()
+      console.log('OAuth URL data:', data)
+      const { url } = data
+      
+      if (!url) {
+        console.error('No OAuth URL in response:', data)
+        throw new Error('No OAuth URL returned')
+      }
+
+      console.log('Opening OAuth popup with URL:', url)
+      const config = INTEGRATION_CONFIGS[integrationId as keyof typeof INTEGRATION_CONFIGS]
+      
+      openOAuthPopup({
+        url,
+        name: `${integrationId}_oauth`,
+        onSuccess: () => {
+          // Refresh integrations to get updated connection status
+          if (refreshIntegrations) {
+            refreshIntegrations()
+          }
+          setConnectingIntegration(null)
+          toast({
+            title: "Connected Successfully",
+            description: `${config?.name || integrationId} has been connected to your account.`,
+          })
+        },
+        onError: (error) => {
+          setConnectingIntegration(null)
+          toast({
+            title: "Connection Failed",
+            description: error.message || "Failed to connect integration. Please try again.",
+            variant: "destructive"
+          })
+        }
+      })
+    } catch (error) {
+      setConnectingIntegration(null)
+      toast({
+        title: "Connection Error",
+        description: error instanceof Error ? error.message : "Failed to initiate OAuth connection.",
+        variant: "destructive"
+      })
+    }
+  }, [refreshIntegrations])
 
   const filteredIntegrationsForActions = useMemo(() => {
     const filtered = availableIntegrations.filter(int => {
@@ -154,7 +231,7 @@ export function ActionSelectionDialog({
             </div>
             <div>
               <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                Select an Action
+                Select an Action (v2)
                 <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
               </DialogTitle>
               <DialogDescription className="text-sm text-slate-600 mt-1">
@@ -222,10 +299,22 @@ export function ActionSelectionDialog({
               ) : (
                 filteredIntegrationsForActions.map((integration) => {
                   const isConnected = isIntegrationConnected(integration.id)
+                  const integrationData = getIntegrationByProvider(integration.id)
+                  const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
                   
-                  // Debug logging for Google integrations
-                  if (integration.id.includes('google') || comingSoonIntegrations.has(integration.id)) {
-                    console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
+                  // Debug logging for all integrations
+                  console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, needsReauth: ${needsReauth}, status: ${integrationData?.status}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
+                  
+                  // Special debug for Discord
+                  if (integration.id === 'discord') {
+                    console.log('Discord integration details:', {
+                      id: integration.id,
+                      isConnected,
+                      needsReauth,
+                      status: integrationData?.status,
+                      isSystemIntegration: ['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id),
+                      showConnectButton: (!isConnected || needsReauth) && !['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id)
+                    })
                   }
                   
                   return (
@@ -255,21 +344,29 @@ export function ActionSelectionDialog({
                         <Badge variant="secondary" className="ml-2 shrink-0">
                           Coming soon
                         </Badge>
-                      ) : !isConnected && integration.id !== 'core' && integration.id !== 'logic' ? (
+                      ) : (!isConnected || needsReauth) && integration.id !== 'core' && integration.id !== 'logic' && integration.id !== 'webhook' && integration.id !== 'scheduler' && integration.id !== 'ai' && integration.id !== 'manual' ? (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant={needsReauth ? "destructive" : "outline"}
                           className="ml-2 shrink-0"
+                          disabled={connectingIntegration === integration.id}
                           onClick={(e) => {
                             e.stopPropagation()
-                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
-                            if (config?.oauthUrl) {
-                              window.location.href = config.oauthUrl
-                            }
+                            console.log(`${needsReauth ? 'Reconnect' : 'Connect'} button clicked for:`, integration.id)
+                            handleConnect(integration.id)
                           }}
                         >
-                          <LinkIcon className="w-3 h-3 mr-1" />
-                          Connect
+                          {connectingIntegration === integration.id ? (
+                            <>
+                              <LightningLoader className="w-3 h-3 mr-1" />
+                              {needsReauth ? 'Reconnecting...' : 'Connecting...'}
+                            </>
+                          ) : (
+                            <>
+                              <LinkIcon className="w-3 h-3 mr-1" />
+                              {needsReauth ? 'Reconnect' : 'Connect'}
+                            </>
+                          )}
                         </Button>
                       ) : null}
                     </div>
@@ -284,7 +381,18 @@ export function ActionSelectionDialog({
             <ScrollArea className="h-full">
               <div className="p-4">
                 {selectedIntegration ? (
-                  !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'core' && selectedIntegration.id !== 'logic' ? (
+                  (() => {
+                    const integrationData = getIntegrationByProvider(selectedIntegration.id)
+                    const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
+                    const showConnectButton = (!isIntegrationConnected(selectedIntegration.id) || needsReauth) && 
+                                            selectedIntegration.id !== 'core' && 
+                                            selectedIntegration.id !== 'logic' && 
+                                            selectedIntegration.id !== 'webhook' && 
+                                            selectedIntegration.id !== 'scheduler' && 
+                                            selectedIntegration.id !== 'ai' && 
+                                            selectedIntegration.id !== 'manual'
+                    
+                    return showConnectButton ? (
                     // Show message for unconnected integrations
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <div className="text-muted-foreground mb-4">
@@ -292,21 +400,31 @@ export function ActionSelectionDialog({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {needsReauth ? 'Reconnect' : 'Connect'} {selectedIntegration.name}
+                      </h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        You need to connect your {selectedIntegration.name} account to use these actions.
+                        {needsReauth 
+                          ? `Your ${selectedIntegration.name} connection has expired. Please reconnect to continue using these actions.`
+                          : `You need to connect your ${selectedIntegration.name} account to use these actions.`
+                        }
                       </p>
                       <Button
-                        variant="default"
-                        onClick={() => {
-                          const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS]
-                          if (config?.oauthUrl) {
-                            window.location.href = config.oauthUrl
-                          }
-                        }}
+                        variant={needsReauth ? "destructive" : "default"}
+                        disabled={connectingIntegration === selectedIntegration.id}
+                        onClick={() => handleConnect(selectedIntegration.id)}
                       >
-                        <LinkIcon className="w-4 h-4 mr-2" />
-                        Connect {selectedIntegration.name}
+                        {connectingIntegration === selectedIntegration.id ? (
+                          <>
+                            <LightningLoader className="w-4 h-4 mr-2" />
+                            {needsReauth ? 'Reconnecting...' : 'Connecting...'}
+                          </>
+                        ) : (
+                          <>
+                            <LinkIcon className="w-4 h-4 mr-2" />
+                            {needsReauth ? 'Reconnect' : 'Connect'} {selectedIntegration.name}
+                          </>
+                        )}
                       </Button>
                     </div>
                   ) : displayedActions.length > 0 ? (
@@ -363,6 +481,7 @@ export function ActionSelectionDialog({
                       </p>
                     </div>
                   )
+                  })()
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <p>Select an integration to see its actions</p>

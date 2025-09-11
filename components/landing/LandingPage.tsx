@@ -1,6 +1,6 @@
 "use client"
 
-import React, { Suspense, useMemo } from 'react'
+import React, { Suspense, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
@@ -69,10 +69,17 @@ const LandingFooter = dynamic(() => import('./LandingFooter'), {
 // Main component with optimized loading
 export default function LandingPage() {
   const { isAuthenticated, user, isReady } = useAuth()
-  const { signOut, profile } = useAuthStore()
+  const { signOut, profile, initialize, initialized } = useAuthStore()
 
   const userRole = (profile?.role as UserRole) || 'free'
   const isAdmin = userRole === 'admin'
+
+  // Initialize auth on mount if not already initialized
+  useEffect(() => {
+    if (!initialized) {
+      initialize()
+    }
+  }, [initialized, initialize])
 
   // Memoize the sign out handler
   const handleSignOut = useMemo(() => async () => {
