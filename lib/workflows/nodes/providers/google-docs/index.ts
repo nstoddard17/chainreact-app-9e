@@ -11,20 +11,22 @@ import {
 const googleDocsActionCreateDocument: NodeComponent = {
   type: "google_docs_action_create_document",
   title: "Create Document",
-  description: "Create a new Google Document with customizable content and properties",
+  description: "Create a new Google Document with customizable content and sharing options",
   icon: PenSquare,
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"],
   configSchema: [
+    // Document tab fields
     {
       name: "title",
       label: "Document Title",
       type: "text",
       required: true,
       placeholder: "e.g., Meeting Notes, Project Report, Documentation",
-      description: "The title of the new document"
+      description: "The title of the new document",
+      tabGroup: "Document"
     },
     {
       name: "content",
@@ -33,7 +35,8 @@ const googleDocsActionCreateDocument: NodeComponent = {
       required: false,
       placeholder: "Enter your document content here...\n\nYou can use {{variables}} to insert dynamic values from your workflow.",
       description: "Document content. Use {{variable}} syntax to insert workflow variables.",
-      rows: 10
+      rows: 10,
+      tabGroup: "Document"
     },
     {
       name: "folderId",
@@ -42,7 +45,101 @@ const googleDocsActionCreateDocument: NodeComponent = {
       required: false,
       dynamic: "google-drive-folders",
       placeholder: "Select a folder (optional)",
-      description: "Choose where to create the document"
+      description: "Choose where to create the document",
+      tabGroup: "Document"
+    },
+    // Share Document tab fields
+    {
+      name: "enableSharing",
+      label: "Share this Document",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Enable sharing options for the created document",
+      tabGroup: "Share Document"
+    },
+    {
+      name: "shareType",
+      label: "Share Type",
+      type: "select",
+      required: false,
+      defaultValue: "specific_users",
+      options: [
+        { value: "specific_users", label: "Share with Specific Users" },
+        { value: "anyone_with_link", label: "Anyone with Link" },
+        { value: "make_public", label: "Make Public (Anyone can find)" }
+      ],
+      description: "Choose how to share the document",
+      conditional: { field: "enableSharing", value: true },
+      tabGroup: "Share Document"
+    },
+    {
+      name: "emails",
+      label: "Email Addresses",
+      type: "email-autocomplete",
+      required: false,
+      placeholder: "Enter email addresses separated by commas",
+      description: "Email addresses of people to share with",
+      dynamic: "google-contacts",
+      conditional: { field: "shareType", value: "specific_users" },
+      showIf: (values: any) => values.enableSharing && values.shareType === "specific_users",
+      tabGroup: "Share Document"
+    },
+    {
+      name: "permission",
+      label: "Permission Level",
+      type: "select",
+      required: false,
+      defaultValue: "viewer",
+      options: [
+        { value: "viewer", label: "Viewer (Read Only)" },
+        { value: "commenter", label: "Commenter (Can Comment)" },
+        { value: "editor", label: "Editor (Can Edit)" }
+      ],
+      description: "Permission level for the shared users",
+      conditional: { field: "enableSharing", value: true },
+      tabGroup: "Share Document"
+    },
+    {
+      name: "sendNotification",
+      label: "Send Email Notification",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Send an email notification to the users being shared with",
+      conditional: { field: "shareType", value: "specific_users" },
+      showIf: (values: any) => values.enableSharing && values.shareType === "specific_users",
+      tabGroup: "Share Document"
+    },
+    {
+      name: "emailMessage",
+      label: "Notification Message",
+      type: "textarea",
+      required: false,
+      placeholder: "Optional message to include in the sharing email",
+      description: "Custom message to include in the notification email",
+      showIf: (values: any) => values.enableSharing && values.shareType === "specific_users" && values.sendNotification,
+      tabGroup: "Share Document"
+    },
+    {
+      name: "allowDownload",
+      label: "Allow Download/Print/Copy",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Allow viewers and commenters to download, print, or copy the document",
+      conditional: { field: "enableSharing", value: true },
+      tabGroup: "Share Document"
+    },
+    {
+      name: "expirationDate",
+      label: "Access Expiration Date",
+      type: "date",
+      required: false,
+      placeholder: "Optional expiration date for access",
+      description: "Date when the shared access will expire (optional)",
+      showIf: (values: any) => values.enableSharing && values.shareType !== "anyone_with_link",
+      tabGroup: "Share Document"
     }
   ],
 }
@@ -111,116 +208,6 @@ const googleDocsActionUpdateDocument: NodeComponent = {
   ],
 }
 
-const googleDocsActionShareDocument: NodeComponent = {
-  type: "google_docs_action_share_document",
-  title: "Share Document",
-  description: "Share a Google Document with specific users or make it public",
-  icon: Share,
-  providerId: "google-docs",
-  category: "Productivity",
-  isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.readonly"],
-  configSchema: [
-    {
-      name: "documentId",
-      label: "Document",
-      type: "select",
-      dynamic: "google-docs-documents",
-      required: true,
-      placeholder: "Select a document from your Google Docs",
-      description: "Choose from your Google Docs documents"
-    },
-    {
-      name: "documentPreview",
-      label: "Document Preview",
-      type: "google_docs_preview",
-      required: false,
-      description: "Toggle to show a read-only preview of the document's first 2 paragraphs",
-      dependsOn: "documentId"
-    },
-    {
-      name: "shareType",
-      label: "Share Type",
-      type: "select",
-      required: true,
-      defaultValue: "specific_users",
-      options: [
-        { value: "specific_users", label: "Share with Specific Users" },
-        { value: "anyone_with_link", label: "Anyone with Link" },
-        { value: "make_public", label: "Make Public (Anyone can find)" },
-        { value: "domain", label: "Anyone in Organization" }
-      ],
-      description: "Choose how to share the document"
-    },
-    {
-      name: "emails",
-      label: "Email Addresses",
-      type: "email-autocomplete",
-      required: false,
-      placeholder: "Enter email addresses separated by commas",
-      description: "Email addresses of people to share with",
-      dynamic: "google-contacts",
-      conditional: { field: "shareType", value: "specific_users" }
-    },
-    {
-      name: "permission",
-      label: "Permission Level",
-      type: "select",
-      required: true,
-      defaultValue: "viewer",
-      options: [
-        { value: "viewer", label: "Viewer (Read Only)" },
-        { value: "commenter", label: "Commenter (Can Comment)" },
-        { value: "editor", label: "Editor (Can Edit)" },
-        { value: "owner", label: "Owner (Transfer Ownership)" }
-      ],
-      description: "Permission level for the shared users"
-    },
-    {
-      name: "sendNotification",
-      label: "Send Email Notification",
-      type: "boolean",
-      required: false,
-      defaultValue: true,
-      description: "Send an email notification to the users being shared with",
-      conditional: { field: "shareType", value: "specific_users" }
-    },
-    {
-      name: "emailMessage",
-      label: "Notification Message",
-      type: "textarea",
-      required: false,
-      placeholder: "Optional message to include in the sharing email",
-      description: "Custom message to include in the notification email",
-      showWhen: { shareType: "specific_users", sendNotification: true }
-    },
-    {
-      name: "allowDownload",
-      label: "Allow Download/Print/Copy",
-      type: "boolean",
-      required: false,
-      defaultValue: true,
-      description: "Allow viewers and commenters to download, print, or copy the document"
-    },
-    {
-      name: "expirationDate",
-      label: "Access Expiration Date",
-      type: "date",
-      required: false,
-      placeholder: "Optional expiration date for access",
-      description: "Date when the shared access will expire (optional)"
-    },
-    {
-      name: "transferOwnership",
-      label: "Transfer Ownership",
-      type: "boolean",
-      required: false,
-      defaultValue: false,
-      description: "Transfer ownership of the document to the specified user (irreversible)",
-      conditional: { field: "permission", value: "owner" }
-    }
-  ],
-}
 
 const googleDocsActionExportDocument: NodeComponent = {
   type: "google_docs_action_export_document",
@@ -490,10 +477,9 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
 
 // Export all Google Docs nodes
 export const googleDocsNodes: NodeComponent[] = [
-  // Actions (4)
+  // Actions (3)
   googleDocsActionCreateDocument,
   googleDocsActionUpdateDocument,
-  googleDocsActionShareDocument,
   googleDocsActionExportDocument,
   
   // Triggers (2)
