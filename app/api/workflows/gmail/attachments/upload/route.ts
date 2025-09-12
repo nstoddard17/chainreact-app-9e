@@ -6,7 +6,6 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📎 [Gmail Attachment Upload] Starting upload process');
     
     // Get the Authorization header
     const authHeader = request.headers.get('Authorization');
@@ -31,14 +30,6 @@ export async function POST(request: NextRequest) {
     const workflowId = formData.get('workflowId') as string;
     const nodeId = formData.get('nodeId') as string;
 
-    console.log('📎 [Gmail Attachment Upload] Request details:', {
-      fileName: file?.name,
-      fileSize: file?.size,
-      fileType: file?.type,
-      workflowId,
-      nodeId,
-      userId: user.id
-    });
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -63,7 +54,6 @@ export async function POST(request: NextRequest) {
     const fileName = `${timestamp}_${randomId}.${fileExtension}`;
     const filePath = `gmail-attachments/${user.id}/${workflowId}/${nodeId}/${fileName}`;
 
-    console.log('📎 [Gmail Attachment Upload] Generated file path:', filePath);
 
     // Create storage bucket if it doesn't exist
     const { data: buckets } = await supabase.storage.listBuckets();
@@ -97,7 +87,6 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('📎 [Gmail Attachment Upload] File uploaded to storage successfully');
 
     // Check if there's an existing attachment for this node in storage and delete it
     // Since we're not using the database, we need to check storage directly
@@ -107,7 +96,6 @@ export async function POST(request: NextRequest) {
       .list(existingBasePath);
 
     if (existingFiles && existingFiles.length > 0) {
-      console.log('📎 [Gmail Attachment Upload] Deleting existing attachments:', existingFiles.length);
       
       // Delete old files from storage
       const filesToDelete = existingFiles.map(f => `${existingBasePath}${f.name}`);
@@ -120,7 +108,6 @@ export async function POST(request: NextRequest) {
     const isTemporaryUpload = true; // Always temporary for Gmail attachments
     
     // Always return as temporary upload with file info embedded
-    console.log('📎 [Gmail Attachment Upload] Returning file info with embedded content');
     
     return NextResponse.json({
       success: true,
@@ -170,7 +157,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Node ID required' }, { status: 400 });
     }
 
-    console.log('📎 [Gmail Attachment Delete] Deleting attachments for node:', nodeId);
 
     // Since we're not using the database, construct the file path directly
     // The path pattern is: gmail-attachments/{userId}/{workflowId}/{nodeId}/{fileName}
@@ -189,7 +175,6 @@ export async function DELETE(request: NextRequest) {
       if (error) {
         console.error('📎 [Gmail Attachment Delete] Error deleting files:', error);
       } else {
-        console.log('📎 [Gmail Attachment Delete] Deleted', files.length, 'files');
       }
     }
 

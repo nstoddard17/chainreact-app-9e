@@ -124,151 +124,89 @@ export async function sendGmailEmail(
     messageParts.push('')
     messageParts.push(finalBody)
 
-    // Debug logging for attachment fields
-    console.log('📎 [sendGmailEmail] Attachment config:', {
-      sourceType,
-      sourceTypeValue: sourceType,
-      sourceTypeIsFile: sourceType === 'file',
-      uploadedFiles,
-      uploadedFilesType: typeof uploadedFiles,
-      uploadedFilesIsArray: Array.isArray(uploadedFiles),
-      uploadedFilesLength: Array.isArray(uploadedFiles) ? uploadedFiles.length : 'N/A',
-      hasUploadedFiles: !!uploadedFiles,
-      fileUrl,
-      fileFromNode,
-      attachments,
-      hasAttachments: !!attachments,
-      attachmentsType: typeof attachments,
-      resolvedConfig,
-      originalConfig: config,
-      inputData: input
-    });
     
     // Handle attachments based on sourceType
     let attachmentList: any[] = [];
     
     // Determine attachment source based on sourceType or legacy attachments field
-    console.log('📎 [sendGmailEmail] Checking attachment source:', {
-      sourceType,
-      hasUploadedFiles: !!uploadedFiles,
-      hasAttachments: !!attachments,
-      conditionMet: sourceType === 'file' && (uploadedFiles || attachments)
-    });
     
     // Check both uploadedFiles and attachments field (for compatibility with GmailAttachmentField)
     if (sourceType === 'file' && (uploadedFiles || attachments)) {
       const fileData = uploadedFiles || attachments;
       // Handle uploaded files from the file field
-      console.log('📎 [sendGmailEmail] ENTERING FILE UPLOAD BRANCH - Processing file data:', {
-        type: typeof fileData,
-        isArray: Array.isArray(fileData),
-        hasContent: fileData?.content ? 'yes' : 'no',
-        hasNodeId: fileData?.nodeId ? 'yes' : 'no',
-        keys: fileData && typeof fileData === 'object' ? Object.keys(fileData) : null
-      });
       
       if (typeof fileData === 'string') {
         // It's a file ID from storage
-        console.log('📎 [sendGmailEmail] String file ID detected');
         attachmentList = [fileData];
       } else if (Array.isArray(fileData)) {
         // It's an array of uploaded files
-        console.log('📎 [sendGmailEmail] Array of files detected:', fileData.length, 'files');
         attachmentList = fileData;
       } else if (fileData && typeof fileData === 'object') {
         // It's a single file object - check if it has content directly (from GmailAttachmentField)
         if (fileData.content && fileData.fileName) {
-          console.log('📎 [sendGmailEmail] File object with content detected (from GmailAttachmentField)');
           // The file already has base64 content, use it directly
           attachmentList = [fileData];
         } else {
-          console.log('📎 [sendGmailEmail] Single file object detected');
           attachmentList = [fileData];
         }
       }
     } else if (sourceType === 'url' && fileUrl) {
       // Handle file from URL - would need to download first
-      console.log('File from URL not yet implemented:', fileUrl);
+      // File from URL not yet implemented
     } else if (sourceType === 'node' && fileFromNode) {
       // Handle file from previous node (variable reference)
-      console.log('📎 [sendGmailEmail] Processing fileFromNode:', JSON.stringify(fileFromNode, null, 2));
       
       // Check if fileFromNode is already a file object from Google Drive
       if (fileFromNode && typeof fileFromNode === 'object') {
         // Check for Google Drive Get File structure: {file: {content, filename, mimeType}}
         if (fileFromNode.file && fileFromNode.file.content) {
-          console.log('📎 Detected Google Drive Get File structure');
           attachmentList = [fileFromNode.file]; // Use the file object directly
         } else if (fileFromNode.content) {
           // Direct file object with content
-          console.log('📎 Detected direct file object with content');
           attachmentList = [fileFromNode];
         } else if (fileFromNode.uploadedFiles && Array.isArray(fileFromNode.uploadedFiles)) {
           // Google Drive Upload File result structure
-          console.log('📎 Detected Google Drive Upload File result');
           // Each uploaded file has: {fileId, fileName, mimeType, webViewLink, webContentLink}
           // We need to fetch these files' content
           for (const uploadedFile of fileFromNode.uploadedFiles) {
             if (uploadedFile.fileId) {
               // This is just metadata, we'd need to fetch the actual file content
               // For now, log a warning
-              console.warn('📎 Google Drive Upload result contains file metadata only. Use Google Drive Get File action to retrieve file content.');
+              // Google Drive Upload result contains file metadata only. Use Google Drive Get File action to retrieve file content.
             }
           }
           attachmentList = []; // Can't attach without content
         } else if (fileFromNode.fileId || fileFromNode.id) {
           // It might be a reference object with just the ID
-          console.log('📎 Detected file ID reference');
           attachmentList = [fileFromNode];
         } else if (Array.isArray(fileFromNode)) {
-          console.log('📎 Detected array of files');
           attachmentList = fileFromNode;
         } else {
           // Unknown structure, try to use it as is
-          console.log('📎 Unknown structure, using as is');
           attachmentList = [fileFromNode];
         }
       } else if (typeof fileFromNode === 'string') {
         // It's a file ID string
-        console.log('📎 Detected file ID string');
         attachmentList = [fileFromNode];
       } else if (Array.isArray(fileFromNode)) {
-        console.log('📎 Detected array');
         attachmentList = fileFromNode;
       }
     } else if (uploadedFiles && sourceType === 'file') {
       // Handle uploaded files from Gmail attachment upload
-      console.log('📎 [sendGmailEmail] Processing uploaded files:', uploadedFiles);
       attachmentList = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
     } else if (attachments) {
       // Legacy support for existing workflows using attachments field
       attachmentList = Array.isArray(attachments) ? attachments : [attachments];
     }
     
-    console.log('📎 [sendGmailEmail] Final attachmentList:', {
-      count: attachmentList.length,
-      items: attachmentList
-    });
-    
     // Process attachments
     for (const attachment of attachmentList) {
       try {
         let fileData: any = null;
         
-        console.log('📎 [sendGmailEmail] Processing attachment:', {
-          type: typeof attachment,
-          hasId: attachment?.id ? 'yes' : 'no',
-          hasContent: attachment?.content ? 'yes' : 'no',
-          hasFile: attachment?.file ? 'yes' : 'no',
-          hasFileName: attachment?.fileName || attachment?.filename ? 'yes' : 'no',
-          structure: attachment ? Object.keys(attachment) : null,
-          fullAttachment: attachment
-        });
-        
         // Check if it's an uploaded file object with id (from file upload field)
         if (attachment && typeof attachment === 'object' && attachment.id) {
           // File uploaded via the standard workflow file upload
-          console.log('📎 [sendGmailEmail] Fetching uploaded file with ID:', attachment.id);
           try {
             const storedFile = await FileStorageService.getFile(attachment.id, userId);
             if (storedFile) {
@@ -280,14 +218,12 @@ export async function sendGmailEmail(
                 fileName: attachment.fileName || storedFile.fileName || 'attachment',
                 mimeType: attachment.fileType || storedFile.fileType || 'application/octet-stream'
               };
-              console.log('📎 [sendGmailEmail] Successfully retrieved file from storage');
             }
           } catch (error) {
             console.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
           }
         } else if (attachment && typeof attachment === 'object' && attachment.content && attachment.fileName) {
           // File with inline content (for backwards compatibility)
-          console.log('📎 [sendGmailEmail] Using file with inline content');
           fileData = {
             data: attachment.content, // Already base64 encoded
             fileName: attachment.fileName || attachment.name || 'attachment',
@@ -297,7 +233,6 @@ export async function sendGmailEmail(
           // This is a file metadata object from the upload field
           // Check if it's a Google Drive file that we can fetch
           if (attachment.id && attachment.id.startsWith('google-drive-')) {
-            console.log('📎 Detected Google Drive file metadata, attempting to fetch content:', attachment.name);
             
             try {
               // Extract the actual file ID from the Google Drive ID format
@@ -319,18 +254,15 @@ export async function sendGmailEmail(
                   fileName: driveResult.output.file.filename || attachment.name,
                   mimeType: driveResult.output.file.mimeType || attachment.type || 'application/octet-stream'
                 };
-                console.log('📎 Successfully fetched Google Drive file content');
               } else {
-                console.log('📎 Failed to fetch Google Drive file content');
                 continue;
               }
             } catch (error) {
-              console.warn('📎 Error fetching Google Drive file:', error);
+              // Error fetching Google Drive file
               continue;
             }
           } else if (attachment.filePath) {
             // File uploaded to storage but content not included inline
-            console.log('📎 [sendGmailEmail] Fetching file from storage path:', attachment.filePath);
             
             try {
               const { createClient } = await import('@supabase/supabase-js');
@@ -356,15 +288,14 @@ export async function sendGmailEmail(
                   fileName: attachment.fileName || attachment.name || 'attachment',
                   mimeType: attachment.mimeType || attachment.fileType || attachment.type || 'application/octet-stream'
                 };
-                console.log('📎 [sendGmailEmail] Successfully retrieved file from storage');
-              }
+                }
             } catch (error) {
               console.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
               continue;
             }
           } else {
             // Regular file upload without content - skip
-            console.log('Skipping file attachment - file content not available:', attachment.name);
+            // Skipping file attachment - file content not available
             continue;
           }
         } else if (attachment && typeof attachment === 'object' && attachment.content) {
@@ -374,11 +305,6 @@ export async function sendGmailEmail(
             fileName: attachment.filename || attachment.fileName || attachment.name || 'attachment',
             mimeType: attachment.mimeType || attachment.type || 'application/octet-stream'
           };
-          console.log('📎 Using direct file object with content:', {
-            fileName: fileData.fileName,
-            mimeType: fileData.mimeType,
-            dataLength: fileData.data?.length
-          });
         } else if (attachment && typeof attachment === 'object' && attachment.file && attachment.file.content) {
           // Nested file object (e.g., {{node.output.file}})
           fileData = {
@@ -386,21 +312,15 @@ export async function sendGmailEmail(
             fileName: attachment.file.filename || attachment.file.fileName || attachment.file.name || attachment.fileName || 'attachment',
             mimeType: attachment.file.mimeType || attachment.file.type || 'application/octet-stream'
           };
-          console.log('📎 Using nested file object');
         } else if (typeof attachment === 'string') {
           // File ID from FileStorageService
-          console.log('📎 Fetching file from storage with ID:', attachment);
+          // Fetching file from storage with ID
           fileData = await FileStorageService.getFile(attachment, userId);
         } else {
-          console.log('📎 Unknown attachment structure, skipping:', attachment);
+          // Unknown attachment structure, skipping
         }
         
         if (fileData) {
-          console.log('📎 Adding attachment to MIME message:', {
-            fileName: fileData.fileName,
-            mimeType: fileData.mimeType,
-            dataLength: fileData.data?.length
-          });
           
           messageParts.push(`--${boundary}`)
           messageParts.push(`Content-Type: ${fileData.mimeType || 'application/octet-stream'}`)
@@ -409,10 +329,10 @@ export async function sendGmailEmail(
           messageParts.push('')
           messageParts.push(fileData.data)
         } else {
-          console.log('📎 No fileData for attachment, skipping');
+          // No fileData for attachment, skipping
         }
       } catch (error) {
-        console.warn(`Failed to attach file:`, error)
+        console.error(`Failed to attach file:`, error)
       }
     }
 
@@ -429,8 +349,8 @@ export async function sendGmailEmail(
     if (scheduleSend) {
       // Gmail doesn't have native scheduled send via API
       // Would need to implement with a job queue
-      console.log('Scheduled send requested for:', scheduleSend)
-      // For now, send immediately with a note
+      // Scheduled send requested but not implemented yet
+      // For now, send immediately
     }
 
     // Send the email
@@ -453,7 +373,7 @@ export async function sendGmailEmail(
           }
         })
       } catch (labelError) {
-        console.warn('Failed to apply labels:', labelError)
+        console.error('Failed to apply labels:', labelError)
       }
     }
 
