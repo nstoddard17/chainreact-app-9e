@@ -27,7 +27,8 @@ export class WorkflowExecutionService {
     
     // Use workflowData if provided (current state), otherwise fall back to saved workflow
     const allNodes = workflowData?.nodes || workflow.nodes || []
-    const connections = workflowData?.connections || workflow.connections || []
+    // Handle both 'edges' (from UI) and 'connections' (from DB) naming
+    const connections = workflowData?.edges || workflowData?.connections || workflow.connections || []
 
     // Filter out UI-only nodes and invalid nodes
     const validNodes = allNodes.filter((node: any) => {

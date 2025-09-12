@@ -30,7 +30,7 @@ export class IntegrationNodeHandlers {
     }
 
     // Google integrations (Drive, Sheets, Docs, Calendar)
-    if (nodeType.startsWith('google_') || nodeType.startsWith('sheets_') || nodeType.startsWith('calendar_')) {
+    if (nodeType.startsWith('google_') || nodeType.startsWith('google-') || nodeType.startsWith('sheets_') || nodeType.startsWith('calendar_')) {
       return await this.googleService.execute(node, context)
     }
 

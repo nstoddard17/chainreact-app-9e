@@ -104,28 +104,37 @@ export class FileStorageService {
 
   /**
    * Retrieve a stored file for workflow execution
+   * @param nodeId The node ID (used as file identifier)
+   * @param userId The user ID
+   * @param workflowId Optional workflow ID for additional filtering
    */
-  static async getFile(fileId: string, userId: string): Promise<{ file: Blob; metadata: StoredFile } | null> {
+  static async getFile(nodeId: string, userId: string, workflowId?: string): Promise<{ file: Blob; metadata: StoredFile } | null> {
     try {
       const supabase = getSupabaseClient()
 
-      // Get file metadata
-      const { data: metadata, error: metadataError } = await supabase
+      // Build query
+      let query = supabase
         .from('workflow_files')
         .select('*')
-        .eq('id', fileId)
-        .eq('user_id', userId)
-        .single()
+        .eq('node_id', nodeId)
+        .eq('user_id', userId);
+      
+      if (workflowId) {
+        query = query.eq('workflow_id', workflowId);
+      }
+
+      // Get file metadata
+      const { data: metadata, error: metadataError } = await query.single();
 
       if (metadataError || !metadata) {
         console.error('File metadata not found:', metadataError)
         return null
       }
 
-      // Check if file has expired
+      // Check if file has expired (though we set far future dates for permanent storage)
       if (new Date() > new Date(metadata.expires_at)) {
-        console.warn('File has expired:', fileId)
-        await this.deleteFile(fileId, userId)
+        console.warn('File has expired:', nodeId)
+        await this.deleteFileByNode(nodeId, userId, workflowId)
         return null
       }
 
@@ -142,7 +151,7 @@ export class FileStorageService {
       return {
         file: fileData,
         metadata: {
-          id: metadata.id,
+          id: metadata.node_id, // Use node_id as the identifier
           fileName: metadata.file_name,
           fileType: metadata.file_type,
           fileSize: metadata.file_size,
@@ -156,6 +165,67 @@ export class FileStorageService {
     } catch (error) {
       console.error('Error retrieving file:', error)
       return null
+    }
+  }
+
+  /**
+   * Delete a stored file by node ID
+   */
+  static async deleteFileByNode(nodeId: string, userId: string, workflowId?: string): Promise<boolean> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Build query
+      let query = supabase
+        .from('workflow_files')
+        .select('file_path')
+        .eq('node_id', nodeId)
+        .eq('user_id', userId);
+      
+      if (workflowId) {
+        query = query.eq('workflow_id', workflowId);
+      }
+
+      // Get file metadata first
+      const { data: metadata, error: metadataError } = await query;
+
+      if (metadataError || !metadata || metadata.length === 0) {
+        console.error('File metadata not found for deletion:', metadataError)
+        return false
+      }
+
+      // Delete from storage
+      const filePaths = metadata.map(m => m.file_path);
+      const { error: storageError } = await supabase.storage
+        .from('workflow-files')
+        .remove(filePaths)
+
+      if (storageError) {
+        console.error('Storage deletion error:', storageError)
+      }
+
+      // Delete from database
+      let deleteQuery = supabase
+        .from('workflow_files')
+        .delete()
+        .eq('node_id', nodeId)
+        .eq('user_id', userId);
+      
+      if (workflowId) {
+        deleteQuery = deleteQuery.eq('workflow_id', workflowId);
+      }
+
+      const { error: dbError } = await deleteQuery;
+
+      if (dbError) {
+        console.error('Database deletion error:', dbError)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error deleting file:', error)
+      return false
     }
   }
 

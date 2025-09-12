@@ -18,6 +18,7 @@ export const googleDriveNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-drive-folders",
         required: true,
+        loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
   },
@@ -37,6 +38,7 @@ export const googleDriveNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-drive-folders",
         required: true,
+        loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
   },
@@ -78,14 +80,16 @@ export const googleDriveNodes: NodeComponent[] = [
       },
       { 
         name: "sourceType", 
-        label: "", 
-        type: "button-toggle", 
-        required: false,
+        label: "File Source", 
+        type: "select", 
+        required: true,
         defaultValue: "file",
         options: [
-          { value: "file", label: "Upload Files" },
-          { value: "url", label: "From URL" }
-        ]
+          { value: "file", label: "Upload File" },
+          { value: "url", label: "From URL" },
+          { value: "node", label: "From Previous Node" }
+        ],
+        description: "Choose how to provide the file for upload"
       },
       { 
         name: "uploadedFiles", 
@@ -94,8 +98,8 @@ export const googleDriveNodes: NodeComponent[] = [
         required: false,
         placeholder: "Choose files to upload...",
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
-        maxSize: 100 * 1024 * 1024, // 100MB limit for Google Drive
-        description: "Upload files to create in Google Drive. Files will be created with their original names and content. The file name field will be auto-populated.",
+        maxSize: 25 * 1024 * 1024, // 25MB limit for Google Drive
+        description: "Upload files to create in Google Drive (max 25MB per file). Files will be stored and available for workflow execution.",
         conditional: { field: "sourceType", value: "file" }
       },
       { 
@@ -103,9 +107,18 @@ export const googleDriveNodes: NodeComponent[] = [
         label: "File URL", 
         type: "text", 
         required: false,
-        placeholder: "Publicly accessible URL of the file",
-        description: "URL of the file to download and upload to Google Drive",
+        placeholder: "https://example.com/file.pdf",
+        description: "Direct URL to a publicly accessible file (e.g., image, PDF, document). The file will be downloaded and uploaded to Google Drive.",
         conditional: { field: "sourceType", value: "url" }
+      },
+      { 
+        name: "fileFromNode", 
+        label: "File Variable", 
+        type: "text", 
+        required: false,
+        placeholder: "{{node-id.output.file}}",
+        description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
+        conditional: { field: "sourceType", value: "node" }
       },
       {
         name: "folderId",
@@ -114,6 +127,7 @@ export const googleDriveNodes: NodeComponent[] = [
         dynamic: "google-drive-folders",
         required: false,
         placeholder: "Select a folder (optional, defaults to root)",
+        loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
   },

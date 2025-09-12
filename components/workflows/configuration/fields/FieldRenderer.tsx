@@ -33,6 +33,7 @@ import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
 import { DiscordGenericField } from "./discord/DiscordGenericField";
 import { AirtableImageField } from "./airtable/AirtableImageField";
+import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 
 // Shared field components
 import { GenericSelectField } from "./shared/GenericSelectField";
@@ -58,6 +59,7 @@ interface FieldProps {
   aiFields?: Record<string, boolean>; // Track which fields are set to AI mode
   setAiFields?: (fields: Record<string, boolean>) => void; // Update AI fields
   isConnectedToAIAgent?: boolean; // Whether an AI agent exists in the workflow
+  setFieldValue?: (field: string, value: any) => void; // Update other form fields
 }
 
 /**
@@ -100,6 +102,7 @@ export function FieldRenderer({
   aiFields,
   setAiFields,
   isConnectedToAIAgent,
+  setFieldValue,
 }: FieldProps) {
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options || 
@@ -143,12 +146,19 @@ export function FieldRenderer({
     // Check if field has explicit provider
     if (field.provider) return field.provider;
     
+    // Check nodeInfo for provider ID (most reliable for determining provider)
+    if (nodeInfo?.providerId) {
+      console.log('🔍 [FieldRenderer] Using nodeInfo.providerId:', nodeInfo.providerId);
+      return nodeInfo.providerId;
+    }
+    
     // Detect provider from dynamic data type (only if dynamic is a string)
     if (field.dynamic && typeof field.dynamic === 'string') {
       if (field.dynamic.includes('gmail')) return 'gmail';
       if (field.dynamic.includes('outlook')) return 'outlook';
       if (field.dynamic.includes('discord')) return 'discord';
       if (field.dynamic.includes('slack')) return 'slack';
+      if (field.dynamic.includes('google-drive')) return 'google-drive';
     }
     
     // Detect from field name patterns
@@ -156,6 +166,9 @@ export function FieldRenderer({
     
     // For Airtable fields
     if (field.name?.startsWith('airtable_field_')) return 'airtable';
+    
+    // For Google Drive fields
+    if (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode' || field.name === 'fileName') return 'google-drive';
     
     return 'generic';
   };
@@ -315,6 +328,41 @@ export function FieldRenderer({
       case "textarea":
       case "time":
       case "file":
+        // Debug logging for file field rendering
+        console.log('🔍 [FieldRenderer] Rendering file field:', {
+          fieldName: field.name,
+          fieldType: field.type,
+          integrationProvider,
+          isGoogleDrive: integrationProvider === 'google-drive',
+          fieldNameMatch: field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode',
+          parentValues,
+          nodeInfo
+        });
+        
+        // Special handling for Google Drive file uploads
+        if (integrationProvider === 'google-drive' && 
+            (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode')) {
+          const sourceType = parentValues?.sourceType || 'file';
+          console.log('✅ [FieldRenderer] Using GoogleDriveFileField for:', field.name, 'with sourceType:', sourceType);
+          return (
+            <GoogleDriveFileField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              sourceType={sourceType}
+              workflowId={parentValues?.workflowId}
+              nodeId={nodeInfo?.id || currentNodeId}
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              parentValues={parentValues}
+              setFieldValue={setFieldValue}
+            />
+          );
+        } else {
+          console.log('⚠️ [FieldRenderer] Not using GoogleDriveFileField, falling through to generic');
+        }
+        
         // Special handling for Airtable image/attachment fields
         if (integrationProvider === 'airtable' && field.name?.startsWith('airtable_field_')) {
           const airtableFieldType = (field as any).airtableFieldType;
@@ -762,15 +810,6 @@ export function FieldRenderer({
           </div>
         );
 
-      case "file":
-        return (
-          <GenericTextInput
-            field={field}
-            value={value}
-            onChange={onChange}
-            error={error}
-          />
-        );
 
       case "button-toggle":
         // Render a switch toggle button with labels
