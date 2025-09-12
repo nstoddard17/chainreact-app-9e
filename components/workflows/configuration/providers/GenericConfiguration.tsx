@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
@@ -96,10 +96,64 @@ export function GenericConfiguration({
     }
   }, [nodeInfo, values, loadOptions]);
 
+  // Background load options for dynamic fields with saved values
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || !isEditMode) return;
+
+    // Find all dynamic fields with saved values that need background loading
+    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
+      if (!field.dynamic) return false;
+      if (!field.loadOnMount) return false; // Only load fields marked with loadOnMount
+      
+      const savedValue = values[field.name];
+      if (!savedValue) return false;
+      
+      // Check if we already have options for this field
+      const fieldOptions = dynamicOptions[field.name];
+      const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+      
+      // If we have options, check if the saved value exists in them
+      if (hasOptions) {
+        const valueExists = fieldOptions.some((opt: any) => 
+          (opt.value === savedValue) || (opt.id === savedValue)
+        );
+        // If value exists in options, no need to load
+        if (valueExists) return false;
+      }
+      
+      return true; // Need to load options
+    });
+
+    // Load options for each field
+    fieldsToLoad.forEach((field: any) => {
+      console.log('🔄 [GenericConfig] Background loading options for field:', field.name, 'with value:', values[field.name]);
+      
+      // Set a small delay to ensure UI renders first with the ID
+      setTimeout(() => {
+        if (field.dependsOn && values[field.dependsOn]) {
+          loadOptions(field.name, field.dependsOn, values[field.dependsOn], false);
+        } else {
+          loadOptions(field.name, undefined, undefined, false);
+        }
+      }, 100);
+    });
+  }, [nodeInfo, isEditMode, values, dynamicOptions, loadOptions]);
+
   // Helper function to check if a field should be shown based on dependencies
   const shouldShowField = (field: any) => {
     // Never show fields with type: 'hidden'
     if (field.type === 'hidden') return false;
+    
+    // Check conditional property (used in Google Drive and other nodes)
+    if (field.conditional) {
+      const { field: dependentField, value: expectedValue } = field.conditional;
+      const actualValue = values[dependentField];
+      
+      // Check if the condition is met
+      if (actualValue !== expectedValue) {
+        return false;
+      }
+    }
     
     // Check showWhen condition (preferred format)
     if (field.showWhen) {
@@ -196,6 +250,7 @@ export function GenericConfiguration({
             nodeInfo={nodeInfo}
             onDynamicLoad={handleDynamicLoad}
             parentValues={values}
+            setFieldValue={setValue}
             // Props specific to AIFieldWrapper
             isAIEnabled={aiFields[field.name] || aiFields._allFieldsAI || false}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}

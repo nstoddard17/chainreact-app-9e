@@ -23,6 +23,7 @@ interface AIFieldWrapperProps {
   onAIToggle?: (fieldName: string, enabled: boolean) => void;
   isReadOnly?: boolean;
   isNonEditable?: boolean;
+  setFieldValue?: (field: string, value: any) => void;
 }
 
 export function AIFieldWrapper({
@@ -41,6 +42,7 @@ export function AIFieldWrapper({
   onAIToggle,
   isReadOnly = false,
   isNonEditable = false,
+  setFieldValue,
 }: AIFieldWrapperProps) {
   // Initialize AI mode based on either the prop or if the value is an AI placeholder
   const [isAIMode, setIsAIMode] = useState(
@@ -170,6 +172,7 @@ export function AIFieldWrapper({
                   nodeInfo={nodeInfo}
                   onDynamicLoad={onDynamicLoad}
                   parentValues={parentValues}
+                  setFieldValue={setFieldValue}
                 />
               </div>
             </div>

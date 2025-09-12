@@ -311,6 +311,52 @@ function ConfigurationForm({
     }
   }, [nodeInfo, isInitialLoading, loadOptions]);
 
+  // Load options for dynamic fields with saved values
+  useEffect(() => {
+    if (!nodeInfo?.configSchema || isInitialLoading) return;
+    
+    console.log('🔍 [ConfigForm] Checking for dynamic fields with saved values...');
+    
+    // Find dynamic fields that have saved values
+    const fieldsWithValues = nodeInfo.configSchema.filter((field: any) => {
+      // Check if it's a dynamic field
+      if (!field.dynamic) return false;
+      
+      // Check if it has a saved value
+      const savedValue = values[field.name];
+      if (!savedValue) return false;
+      
+      // Check if options are already loaded
+      const fieldOptions = dynamicOptions[field.name];
+      const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+      
+      // Only load if we have a value but no options yet
+      return !hasOptions;
+    });
+    
+    if (fieldsWithValues.length > 0) {
+      console.log('🚀 [ConfigForm] Loading options for fields with saved values:', 
+        fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name] }))
+      );
+      
+      // Load options for each field with a saved value
+      fieldsWithValues.forEach((field: any) => {
+        console.log(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
+        
+        // Check if field has dependencies
+        if (field.dependsOn) {
+          const dependsOnValue = values[field.dependsOn];
+          if (dependsOnValue) {
+            loadOptions(field.name, field.dependsOn, dependsOnValue);
+          }
+        } else {
+          // No dependencies, just load the field
+          loadOptions(field.name);
+        }
+      });
+    }
+  }, [nodeInfo, isInitialLoading, values, dynamicOptions, loadOptions]);
+
   // Load dynamic fields when their dependencies are satisfied
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;

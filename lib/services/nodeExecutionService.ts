@@ -194,47 +194,63 @@ export class NodeExecutionService {
   }
 
   private isIntegrationNode(nodeType: string): boolean {
-    const integrationTypes = [
-      'gmail_action_send_email', 'gmail_action_search_email', 'gmail_action_fetch_message',
-      'gmail_action_add_label', 'gmail_send',
-      'slack_send_message', 'webhook_call', 'calendar_create_event',
-      'sheets_append', 'sheets_read', 'sheets_update', 'send_email',
-      'google_drive_create_file', 'google_drive_upload_file',
-      'onedrive_upload_file', 'dropbox_upload_file',
-      'google_sheets_unified', 'sheets_create_spreadsheet',
-      'google_docs_create', 'google_docs_read', 'google_docs_update',
-      'google_docs_action_create_document', 'google_docs_action_update_document',
-      'google_docs_action_share_document', 'google_docs_action_get_document',
-      'google_docs_action_export_document',
-      'google_calendar_action_create_event', 'google_calendar_action_update_event',
-      'google_calendar_action_delete_event',
-      'google_sheets_action_create_spreadsheet', 'google_sheets_unified_action',
-      'google_sheets_action_create_row', 'google_sheets_action_update_row',
-      'google_sheets_action_delete_row', 'google_sheets_action_list_rows'
+    // Check for integration prefixes (more flexible than exact matches)
+    const integrationPrefixes = [
+      'gmail_', 'slack_', 'discord_', 'teams_', 
+      'google_', 'google-', // Handle both google_ and google- formats
+      'sheets_', 'calendar_', 'docs_',
+      'onedrive_', 'dropbox_', 'notion_',
+      'airtable_', 'hubspot_', 'stripe_',
+      'twitter_', 'facebook_', 'linkedin_',
+      'instagram_', 'youtube_', 'trello_',
+      'microsoft_', 'outlook_', 'onenote_'
     ]
-    return integrationTypes.includes(nodeType)
+    
+    // Check if node type starts with any integration prefix
+    if (integrationPrefixes.some(prefix => nodeType.startsWith(prefix))) {
+      return true
+    }
+    
+    // Also check for specific integration types that don't follow prefix pattern
+    const specificTypes = [
+      'webhook_call', 'send_email', 'webhook', 'email'
+    ]
+    
+    return specificTypes.includes(nodeType)
   }
 
   private isExternalAction(nodeType: string): boolean {
     // Actions that would send data externally (should be intercepted in sandbox mode)
-    const externalActions = [
-      'gmail_action_send_email', 'gmail_action_add_label', 'gmail_action_remove_label',
-      'gmail_action_mark_read', 'gmail_action_mark_unread', 'gmail_action_archive',
-      'gmail_action_delete', 'gmail_send',
-      'slack_send_message', 'discord_send_message', 'teams_send_message',
-      'webhook_call', 'calendar_create_event',
-      'sheets_append', 'sheets_update', 'sheets_create_spreadsheet',
-      'google_drive_create_file', 'google_drive_upload_file',
-      'onedrive_upload_file', 'dropbox_upload_file',
-      'google_docs_create', 'google_docs_update',
-      'google_calendar_action_create_event', 'google_calendar_action_update_event',
-      'google_calendar_action_delete_event',
-      'google_sheets_action_create_spreadsheet', 'google_sheets_unified_action',
-      'google_sheets_action_create_row', 'google_sheets_action_update_row',
-      'google_sheets_action_delete_row',
-      'notion_create_page', 'notion_update_page', 'airtable_create_record',
-      'airtable_update_record', 'hubspot_create_contact', 'stripe_create_charge'
+    
+    // Check for action keywords that indicate external operations
+    const externalKeywords = [
+      'send', 'create', 'upload', 'update', 'delete', 'append',
+      'write', 'post', 'publish', 'share', 'export', 'archive'
     ]
-    return externalActions.includes(nodeType)
+    
+    // Check if the node type contains any external action keyword
+    const hasExternalKeyword = externalKeywords.some(keyword => 
+      nodeType.toLowerCase().includes(keyword)
+    )
+    
+    // Also check specific prefixes that are always external
+    const externalPrefixes = [
+      'gmail_action_', 'slack_', 'discord_', 'teams_',
+      'google-drive:', 'google_drive_', 'google-docs:', 'google_docs_',
+      'google-calendar:', 'google_calendar_', 'google-sheets:', 'google_sheets_',
+      'onedrive_', 'dropbox_', 'webhook'
+    ]
+    
+    const hasExternalPrefix = externalPrefixes.some(prefix => 
+      nodeType.startsWith(prefix)
+    )
+    
+    // Exclude certain read-only operations
+    const readOnlyKeywords = ['fetch', 'get', 'read', 'list', 'search', 'find']
+    const isReadOnly = readOnlyKeywords.some(keyword => 
+      nodeType.toLowerCase().includes(keyword)
+    )
+    
+    return (hasExternalKeyword || hasExternalPrefix) && !isReadOnly
   }
 }

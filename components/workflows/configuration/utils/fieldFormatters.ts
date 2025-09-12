@@ -162,6 +162,16 @@ function formatSheetField(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format folder fields (Google Drive)
+ */
+function formatFolderField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.id || item.value,
+    label: item.name || item.label || item.title || item.id,
+  }));
+}
+
+/**
  * Format filter field options (Airtable)
  */
 function formatFilterField(data: any[]): FormattedOption[] {
@@ -243,6 +253,10 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   
   // Notion fields
   workspace: formatWorkspaceField,
+  
+  // Google Drive fields
+  folderId: formatFolderField,
+  parentFolderId: formatFolderField,
 };
 
 /**

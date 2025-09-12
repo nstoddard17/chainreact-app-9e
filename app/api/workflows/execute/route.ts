@@ -9,6 +9,14 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { workflowId, testMode = false, executionMode, inputData = {}, workflowData } = body
     
+    // Log the workflow data to see what nodes we're getting
+    console.log("📊 [Execute Route] Workflow data received:", {
+      workflowId,
+      hasWorkflowData: !!workflowData,
+      nodesCount: workflowData?.nodes?.length || 0,
+      nodeTypes: workflowData?.nodes?.map((n: any) => ({ id: n.id, type: n.data?.type })) || []
+    })
+    
     // Determine execution mode
     // - 'sandbox': Test mode with no external calls (testMode = true)
     // - 'live': Execute with real external calls (testMode = false)
@@ -184,9 +192,11 @@ export async function POST(request: Request) {
       name: error.name
     })
     
+    // Return more detailed error information
     return NextResponse.json({ 
-      error: "Workflow execution failed", 
-      details: error.message 
+      error: error.message || "Workflow execution failed", 
+      details: error.stack,
+      message: error.message 
     }, { status: 500 })
   }
 }
