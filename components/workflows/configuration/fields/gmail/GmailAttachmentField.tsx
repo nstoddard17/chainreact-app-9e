@@ -82,25 +82,12 @@ export function GmailAttachmentField({
   }, [value, sourceType]); // Removed uploadedFile from dependencies to prevent loops
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🎯 [GmailAttachmentField] handleFileUpload triggered');
     const files = event.target.files;
-    console.log('📁 [GmailAttachmentField] Files selected:', files);
     if (!files || files.length === 0) {
-      console.log('⚠️ [GmailAttachmentField] No files selected');
       return;
     }
 
     const file = files[0];
-    console.log('📄 [GmailAttachmentField] File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      setFieldValue: !!setFieldValue,
-      parentValues,
-      workflowId,
-      nodeId,
-      currentNodeId
-    });
     
     // Check file size (25MB limit for Gmail)
     const MAX_SIZE = 25 * 1024 * 1024;
@@ -111,7 +98,6 @@ export function GmailAttachmentField({
 
     // If there's already an uploaded file, remove it first to prevent orphaned files
     if (uploadedFile && uploadedFile.nodeId) {
-      console.log('🔄 [GmailAttachmentField] Removing previous file before uploading new one');
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -130,7 +116,6 @@ export function GmailAttachmentField({
           });
         }
       } catch (error) {
-        console.warn('⚠️ [GmailAttachmentField] Failed to remove previous file:', error);
         // Continue with upload even if cleanup failed
       }
     }
@@ -147,26 +132,13 @@ export function GmailAttachmentField({
       // Always use a proper UUID for the file storage, but keep the original nodeId for reference
       // The nodeId from the workflow (like "node-1757693755059-gk6c930g6") is not a valid UUID
       const fileStorageId = crypto.randomUUID();
-      console.log('📝 [GmailAttachmentField] Generated UUID for file storage:', fileStorageId);
-      console.log('📝 [GmailAttachmentField] Original node ID:', nodeId || currentNodeId);
       
       // Use workflow ID from URL first, then prop, then generate if needed
       let actualWorkflowId = workflowIdFromUrl || workflowId || '';
       if (!actualWorkflowId || actualWorkflowId === 'undefined' || actualWorkflowId === 'null' || actualWorkflowId === '') {
         // For new workflows that haven't been saved yet, generate a UUID
         actualWorkflowId = crypto.randomUUID();
-        console.log('📝 [GmailAttachmentField] Generated UUID for workflow:', actualWorkflowId);
-      } else {
-        console.log('📝 [GmailAttachmentField] Using workflow ID:', actualWorkflowId, 'from:', workflowIdFromUrl ? 'URL' : 'prop');
       }
-      
-      console.log('📤 [GmailAttachmentField] Uploading with IDs:', {
-        fileStorageId,
-        actualWorkflowId,
-        originalNodeId: nodeId,
-        originalWorkflowId: workflowId,
-        currentNodeId
-      });
       
       // Upload file to our Gmail attachments API
       const formData = new FormData();
@@ -188,7 +160,6 @@ export function GmailAttachmentField({
       }
 
       const data = await response.json();
-      console.log('✅ [GmailAttachmentField] Upload successful:', data);
       
       // Store the complete file information for Gmail attachments
       const fileInfo = {
@@ -207,23 +178,12 @@ export function GmailAttachmentField({
       
       // Update local state to show uploaded file
       setUploadedFile(fileInfo);
-      console.log('📝 [GmailAttachmentField] Updated uploadedFile state:', fileInfo);
 
-      // Also update metadata fields for persistence
-      console.log('🔄 [GmailAttachmentField] Attempting to update metadata fields:', {
-        hasSetFieldValue: !!setFieldValue,
-        currentFileName: parentValues?.attachmentFileName,
-        newFileName: file.name
-      });
-      
       // Store file metadata in parent values for persistence
       if (setFieldValue) {
-        console.log('🚀 [GmailAttachmentField] Calling setFieldValue with attachment metadata');
         setFieldValue('attachmentFileName', file.name);
         setFieldValue('attachmentFileSize', file.size);
         setFieldValue('attachmentFileType', file.type);
-      } else {
-        console.log('⚠️ [GmailAttachmentField] No setFieldValue function available');
       }
       
       // Reset the file input to allow selecting the same file again
@@ -295,17 +255,6 @@ export function GmailAttachmentField({
   // Use a timestamp-based ID to avoid issues with non-standard node IDs
   const fileInputId = `gmail-file-input-${Date.now()}`;
   
-  console.log('📌 [GmailAttachmentField] Rendering Gmail attachment field:', {
-    fieldName: field.name,
-    fileInputId,
-    sourceType,
-    hasUploadedFile: !!uploadedFile,
-    uploadedFileInfo: uploadedFile,
-    value,
-    nodeId,
-    currentNodeId
-  });
-  
   return (
     <div className="space-y-2">
       <Label htmlFor={fileInputId} className="flex items-center gap-2">
@@ -353,13 +302,9 @@ export function GmailAttachmentField({
             type="button"
             variant="outline"
             onClick={() => {
-              console.log('🖱️ [GmailAttachmentField] Button clicked, attempting to trigger file input:', fileInputId);
               const fileInput = document.getElementById(fileInputId);
-              console.log('🔍 [GmailAttachmentField] File input element found:', !!fileInput);
               if (fileInput) {
                 (fileInput as HTMLInputElement).click();
-              } else {
-                console.error('❌ [GmailAttachmentField] File input element not found!');
               }
             }}
             disabled={uploading}

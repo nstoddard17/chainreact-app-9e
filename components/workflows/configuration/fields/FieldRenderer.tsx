@@ -113,14 +113,6 @@ export function FieldRenderer({
   // Auto-load options for combobox fields with dynamic data
   useEffect(() => {
     if (field.type === 'combobox' && field.dynamic && onDynamicLoad) {
-      console.log('[FieldRenderer] Checking if should load options for combobox:', {
-        fieldName: field.name,
-        isDynamic: field.dynamic,
-        hasOptions: fieldOptions.length > 0,
-        isLoading: loadingDynamic,
-        dependsOn: field.dependsOn,
-        parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
-      });
       
       // Only load if we don't have options yet
       if (!fieldOptions.length && !loadingDynamic) {
@@ -128,14 +120,11 @@ export function FieldRenderer({
         if (field.dependsOn) {
           const parentValue = parentValues[field.dependsOn];
           if (parentValue) {
-            console.log('[FieldRenderer] Loading dependent field options:', field.name, 'depends on', field.dependsOn, '=', parentValue);
             onDynamicLoad(field.name, field.dependsOn, parentValue);
           } else {
-            console.log('[FieldRenderer] Skipping load - parent dependency not set:', field.dependsOn);
           }
         } else {
           // No dependency, load directly
-          console.log('[FieldRenderer] Loading field options directly:', field.name);
           onDynamicLoad(field.name);
         }
       }
@@ -149,7 +138,6 @@ export function FieldRenderer({
     
     // Check nodeInfo for provider ID (most reliable for determining provider)
     if (nodeInfo?.providerId) {
-      console.log('🔍 [FieldRenderer] Using nodeInfo.providerId:', nodeInfo.providerId);
       return nodeInfo.providerId;
     }
     
@@ -184,17 +172,6 @@ export function FieldRenderer({
    * Renders the label with optional tooltip
    */
   const renderLabel = () => {
-    // Debug logging for Gmail trigger fields
-    if (field.name === 'from' && nodeInfo?.type === 'gmail_trigger_new_email') {
-      console.log('🔍 [FieldRenderer] Gmail trigger FROM field:', {
-        fieldName: field.name,
-        fieldLabel: field.label,
-        fieldRequired: field.required,
-        fieldType: field.type,
-        nodeType: nodeInfo?.type,
-        fullField: field
-      });
-    }
     
     return (
       <div className="flex items-center gap-2 mb-3">
@@ -332,16 +309,6 @@ export function FieldRenderer({
       case "textarea":
       case "time":
       case "file":
-        // Debug logging for file field rendering
-        console.log('🔍 [FieldRenderer] Rendering file field:', {
-          fieldName: field.name,
-          fieldType: field.type,
-          integrationProvider,
-          isGoogleDrive: integrationProvider === 'google-drive',
-          fieldNameMatch: field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode',
-          parentValues,
-          nodeInfo
-        });
         
         // Special handling for Google Drive file preview
         if (integrationProvider === 'google-drive' && field.name === 'filePreview' && field.type === 'textarea') {
@@ -366,7 +333,6 @@ export function FieldRenderer({
         
         // Special handling for Gmail attachments (field name is uploadedFiles)
         if (integrationProvider === 'gmail' && field.name === 'uploadedFiles') {
-          console.log('✅ [FieldRenderer] Using GmailAttachmentField for Gmail uploadedFiles');
           return (
             <GmailAttachmentField
               field={field}
@@ -388,7 +354,6 @@ export function FieldRenderer({
         if (integrationProvider === 'google-drive' && 
             (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode')) {
           const sourceType = parentValues?.sourceType || 'file';
-          console.log('✅ [FieldRenderer] Using GoogleDriveFileField for:', field.name, 'with sourceType:', sourceType);
           return (
             <GoogleDriveFileField
               field={field}
@@ -405,7 +370,6 @@ export function FieldRenderer({
             />
           );
         } else {
-          console.log('⚠️ [FieldRenderer] Not using GoogleDriveFileField, falling through to generic');
         }
         
         // Special handling for Airtable image/attachment fields
@@ -599,17 +563,6 @@ export function FieldRenderer({
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
         
-        console.log('[FieldRenderer] Rendering combobox field:', {
-          fieldName: field.name,
-          fieldType: field.type,
-          isDynamic: field.dynamic,
-          dependsOn: field.dependsOn,
-          parentValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
-          optionsCount: comboboxOptions.length,
-          loadingDynamic,
-          disabled: loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn]),
-          options: comboboxOptions
-        });
         
         return (
           <div className="space-y-2">
