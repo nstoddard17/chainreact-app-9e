@@ -37,26 +37,66 @@ export class GmailIntegrationService {
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
     console.log("📧 Executing Gmail send email")
+    console.log("📧 [GmailIntegrationService] Raw node data:", JSON.stringify(node.data, null, 2))
     
     const config = node.data.config || {}
-    const to = this.resolveValue(config.to, context)
-    const subject = this.resolveValue(config.subject, context)
-    const body = this.resolveValue(config.body, context)
-    const cc = this.resolveValue(config.cc, context)
-    const bcc = this.resolveValue(config.bcc, context)
+    
+    // Debug raw config
+    console.log('📧 [GmailIntegrationService] Raw config:', {
+      sourceType: config.sourceType,
+      uploadedFiles: config.uploadedFiles,
+      fileUrl: config.fileUrl,
+      fileFromNode: config.fileFromNode,
+      attachments: config.attachments
+    });
+    
+    // Resolve all config values including the new attachment fields
+    const resolvedConfig = {
+      to: this.resolveValue(config.to, context),
+      subject: this.resolveValue(config.subject, context),
+      body: this.resolveValue(config.body, context),
+      cc: this.resolveValue(config.cc, context),
+      bcc: this.resolveValue(config.bcc, context),
+      signature: this.resolveValue(config.signature, context),
+      // New attachment fields
+      sourceType: this.resolveValue(config.sourceType, context),
+      uploadedFiles: this.resolveValue(config.uploadedFiles, context),
+      fileUrl: this.resolveValue(config.fileUrl, context),
+      fileFromNode: this.resolveValue(config.fileFromNode, context),
+      // Legacy support
+      attachments: this.resolveValue(config.attachments, context),
+      // Additional fields that might be needed
+      isHtml: config.isHtml,
+      replyTo: this.resolveValue(config.replyTo, context),
+      priority: config.priority,
+      readReceipt: config.readReceipt,
+      labels: config.labels,
+      scheduleSend: config.scheduleSend,
+      trackOpens: config.trackOpens,
+      trackClicks: config.trackClicks
+    }
+    
+    // Debug resolved config
+    console.log('📧 [GmailIntegrationService] Resolved config:', {
+      sourceType: resolvedConfig.sourceType,
+      uploadedFiles: resolvedConfig.uploadedFiles,
+      fileUrl: resolvedConfig.fileUrl,
+      fileFromNode: resolvedConfig.fileFromNode,
+      attachments: resolvedConfig.attachments
+    });
 
-    if (!to || !subject) {
+    if (!resolvedConfig.to || !resolvedConfig.subject) {
       throw new Error("Gmail send email requires 'to' and 'subject' fields")
     }
 
     if (context.testMode) {
       return {
         type: "gmail_action_send_email",
-        to,
-        subject,
-        body,
-        cc,
-        bcc,
+        to: resolvedConfig.to,
+        subject: resolvedConfig.subject,
+        body: resolvedConfig.body,
+        cc: resolvedConfig.cc,
+        bcc: resolvedConfig.bcc,
         status: "sent (test mode)",
         messageId: "test-message-id"
       }
@@ -65,9 +105,9 @@ export class GmailIntegrationService {
     // Import and use the actual Gmail send implementation directly
     const { sendGmailEmail } = await import('@/lib/workflows/actions/gmail/sendEmail')
     
-    // Call the Gmail send function with proper parameters
+    // Call the Gmail send function with resolved config
     const result = await sendGmailEmail(
-      config,
+      resolvedConfig,  // Pass the resolved config instead of raw config
       context.userId,  // Pass the userId directly from context
       context.data || {}
     )

@@ -573,51 +573,106 @@ export function useFieldChangeHandler({
    * Handle generic dependent field changes for non-provider fields
    */
   const handleGenericDependentField = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
-    const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
-    
-    if (!field?.dependsOn) return false;
-    
-    console.log('🔍 Generic dependent field change:', { fieldName, value, dependsOn: field.dependsOn });
-
-    // Find all fields that depend on this field
+    // Check if any field depends on this field
     const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === fieldName) || [];
     
-    if (dependentFields.length > 0) {
-      // Clear all dependent fields
-      dependentFields.forEach((depField: any) => {
-        setValue(depField.name, '');
-        
-        // Set loading state if the field has dynamic options
-        if (depField.dynamicOptions) {
-          setLoadingFields((prev: Set<string>) => {
-            const newSet = new Set(prev);
-            newSet.add(depField.name);
-            return newSet;
-          });
-          
-          // Reset cached options
-          resetOptions(depField.name);
-        }
-      });
+    if (dependentFields.length === 0) {
+      return false;
+    }
+    
+    console.log('🔍 Generic dependent field change:', { 
+      fieldName, 
+      value, 
+      dependentFields: dependentFields.map((f: any) => f.name) 
+    });
+    
+    // Clear all dependent fields
+    dependentFields.forEach((depField: any) => {
+      console.log(`🧹 Clearing dependent field: ${depField.name}`);
+      setValue(depField.name, '');
       
-      // Load options for dependent fields if value is provided
-      if (value) {
-        setTimeout(() => {
-          Promise.all(
-            dependentFields
-              .filter((depField: any) => depField.dynamicOptions)
-              .map((depField: any) => 
-                loadOptions(depField.name, fieldName, value, true).finally(() => {
+      // Set loading state if the field has dynamic options (check both 'dynamic' and 'dynamicOptions')
+      if (depField.dynamic || depField.dynamicOptions) {
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add(depField.name);
+          return newSet;
+        });
+        
+        // Reset cached options
+        resetOptions(depField.name);
+      }
+    });
+    
+    // Load options for dependent fields if value is provided
+    if (value) {
+      setTimeout(async () => {
+        for (const depField of dependentFields) {
+          if (depField.dynamic || depField.dynamicOptions) {
+            try {
+              // Special handling for preview fields (textareas that show dynamic content)
+              if (depField.name === 'filePreview' && nodeInfo?.providerId === 'google-drive') {
+                // For preview fields, fetch the preview and set it directly as the value
+                // Import supabase at the top of the function to get the session
+                const { supabase } = await import('@/utils/supabaseClient');
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                const headers: HeadersInit = {
+                  'Content-Type': 'application/json'
+                };
+                
+                if (session?.access_token) {
+                  headers['Authorization'] = `Bearer ${session.access_token}`;
+                }
+                
+                const response = await fetch(`/api/integrations/google-drive/file-preview`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({ fileId: value })
+                });
+
+                if (response.ok) {
+                  const data = await response.json();
+                  setValue(depField.name, data.preview || 'No preview available');
+                }
+                
+                setLoadingFields((prev: Set<string>) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(depField.name);
+                  return newSet;
+                });
+              } else {
+                // Regular dynamic field loading
+                await loadOptions(depField.name, fieldName, value, true).finally(() => {
                   setLoadingFields((prev: Set<string>) => {
                     const newSet = new Set(prev);
                     newSet.delete(depField.name);
                     return newSet;
                   });
-                })
-              )
-          );
-        }, 10);
-      }
+                });
+              }
+            } catch (error) {
+              console.error(`Error loading dependent field ${depField.name}:`, error);
+              setLoadingFields((prev: Set<string>) => {
+                const newSet = new Set(prev);
+                newSet.delete(depField.name);
+                return newSet;
+              });
+            }
+          }
+        }
+      }, 10);
+    } else {
+      // If no value, just clear the loading states
+      dependentFields.forEach((depField: any) => {
+        if (depField.dynamic || depField.dynamicOptions) {
+          setLoadingFields((prev: Set<string>) => {
+            const newSet = new Set(prev);
+            newSet.delete(depField.name);
+            return newSet;
+          });
+        }
+      });
     }
 
     return true;
@@ -653,7 +708,25 @@ export function useFieldChangeHandler({
    * Main field change handler - the single entry point for all field changes
    */
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 handleFieldChange called:', { fieldName, value, provider: nodeInfo?.providerId });
+    console.log('🔍 handleFieldChange called:', { 
+      fieldName, 
+      value, 
+      valueType: typeof value,
+      isArray: Array.isArray(value),
+      valueLength: Array.isArray(value) ? value.length : 'N/A',
+      provider: nodeInfo?.providerId 
+    });
+    
+    // Special logging for uploadedFiles field
+    if (fieldName === 'uploadedFiles') {
+      console.log('📎 [useFieldChangeHandler] uploadedFiles being set:', {
+        value,
+        hasValue: value !== null && value !== undefined,
+        isArray: Array.isArray(value),
+        arrayLength: Array.isArray(value) ? value.length : 0,
+        firstItem: Array.isArray(value) && value.length > 0 ? value[0] : null
+      });
+    }
 
     // Try provider-specific and generic handlers
     const handled = await handleProviderFieldChange(fieldName, value);

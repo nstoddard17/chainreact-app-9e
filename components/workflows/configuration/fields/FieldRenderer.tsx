@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
+import { GmailAttachmentField } from "./gmail/GmailAttachmentField";
 import { OutlookEmailField } from "./outlook/OutlookEmailField";
 import { DiscordServerField } from "./discord/DiscordServerField";
 import { DiscordChannelField } from "./discord/DiscordChannelField";
@@ -163,6 +164,9 @@ export function FieldRenderer({
     
     // Detect from field name patterns
     if (field.name === 'guildId' || field.name === 'channelId') return 'discord';
+    
+    // For Gmail attachment fields (uploadedFiles is the field name for Gmail attachments)
+    if (field.name === 'uploadedFiles' && field.type === 'file' && nodeInfo?.providerId === 'gmail') return 'gmail';
     
     // For Airtable fields
     if (field.name?.startsWith('airtable_field_')) return 'airtable';
@@ -339,6 +343,47 @@ export function FieldRenderer({
           nodeInfo
         });
         
+        // Special handling for Google Drive file preview
+        if (integrationProvider === 'google-drive' && field.name === 'filePreview' && field.type === 'textarea') {
+          // For now, use the standard textarea but with enhanced preview text
+          // In the future, we could create a custom component that renders images
+          return (
+            <GenericTextInput
+              field={{
+                ...field,
+                rows: 15,  // Make it larger for better preview
+                disabled: true  // Keep it read-only
+              }}
+              value={value}
+              onChange={onChange}
+              error={error}
+              dynamicOptions={fieldOptions}
+              onDynamicLoad={onDynamicLoad}
+              workflowNodes={workflowData?.nodes}
+            />
+          );
+        }
+        
+        // Special handling for Gmail attachments (field name is uploadedFiles)
+        if (integrationProvider === 'gmail' && field.name === 'uploadedFiles') {
+          console.log('✅ [FieldRenderer] Using GmailAttachmentField for Gmail uploadedFiles');
+          return (
+            <GmailAttachmentField
+              field={field}
+              value={value}
+              onChange={onChange}
+              error={error}
+              sourceType="file"
+              workflowId={parentValues?.workflowId}
+              nodeId={nodeInfo?.id || currentNodeId}
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              parentValues={parentValues}
+              setFieldValue={setFieldValue}
+            />
+          );
+        }
+        
         // Special handling for Google Drive file uploads
         if (integrationProvider === 'google-drive' && 
             (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode')) {
@@ -409,12 +454,17 @@ export function FieldRenderer({
         
         return (
           <GenericTextInput
-            field={field}
+            field={{
+              ...field,
+              workflowId: parentValues?.workflowId || workflowData?.id || 'temp',
+              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`
+            }}
             value={value}
             onChange={onChange}
             error={error}
             dynamicOptions={fieldOptions}
             onDynamicLoad={onDynamicLoad}
+            workflowNodes={workflowData?.nodes}
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}
@@ -747,10 +797,15 @@ export function FieldRenderer({
       case "time":
         return (
           <GenericTextInput
-            field={field}
+            field={{
+              ...field,
+              workflowId: workflowData?.id,
+              nodeId: currentNodeId
+            }}
             value={value}
             onChange={onChange}
             error={error}
+            workflowNodes={workflowData?.nodes}
           />
         );
 
@@ -899,10 +954,15 @@ export function FieldRenderer({
       default:
         return (
           <GenericTextInput
-            field={field}
+            field={{
+              ...field,
+              workflowId: workflowData?.id,
+              nodeId: currentNodeId
+            }}
             value={value}
             onChange={onChange}
             error={error}
+            workflowNodes={workflowData?.nodes}
             aiFields={aiFields}
             setAiFields={setAiFields}
             isConnectedToAIAgent={isConnectedToAIAgent}

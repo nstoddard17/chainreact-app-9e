@@ -125,8 +125,11 @@ export class DataFlowManager {
     }
 
     // Handle human-readable node output references: {{Node Title.Field Label}} or {{Node Title → Field Label}}
+    // But skip if it looks like a node ID (node-timestamp-random format)
     const humanReadableMatch = reference.match(/\{\{([^.→]+)(?:\.|\s*→\s*)([^}]+)\}\}/)
-    if (humanReadableMatch) {
+    const isNodeId = humanReadableMatch && /^(node|trigger|add-action)-\d+(-[a-z0-9]+)?/.test(humanReadableMatch[1].trim())
+    
+    if (humanReadableMatch && !isNodeId) {
       const nodeTitle = humanReadableMatch[1].trim()
       const fieldLabel = humanReadableMatch[2].trim()
       
@@ -235,12 +238,23 @@ export class DataFlowManager {
       const field = nodeOutputMatch[2]
       const output = this.getNodeOutput(nodeId)
       
+      console.log(`📎 Resolving node output reference: nodeId="${nodeId}", field="${field}"`)
+      console.log(`📎 Node output found:`, output ? 'yes' : 'no')
+      if (output) {
+        console.log(`📎 Output success:`, output.success)
+        console.log(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
+        console.log(`📎 Output data:`, JSON.stringify(output.data, null, 2))
+      }
+      
       if (output && output.success) {
         if (field) {
-          return this.getNestedValue(output.data, field)
+          const fieldValue = this.getNestedValue(output.data, field)
+          console.log(`📎 Field value for "${field}":`, fieldValue ? 'found' : 'not found')
+          return fieldValue
         }
         return output.data
       }
+      console.log(`📎 Returning null - output not found or not successful`)
       return null
     }
 

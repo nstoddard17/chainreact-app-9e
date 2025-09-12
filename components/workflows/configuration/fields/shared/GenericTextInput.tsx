@@ -7,6 +7,8 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { FullscreenTextArea } from "../FullscreenTextEditor";
+import { formatVariableForDisplay } from "@/lib/utils/variableDisplay";
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 
 interface GenericTextInputProps {
   field: any;
@@ -15,6 +17,7 @@ interface GenericTextInputProps {
   error?: string;
   dynamicOptions?: Array<{value: string; label: string;}>;
   onDynamicLoad?: (fieldName: string) => void;
+  workflowNodes?: any[];
 }
 
 /**
@@ -28,11 +31,27 @@ export function GenericTextInput({
   error,
   dynamicOptions,
   onDynamicLoad,
+  workflowNodes,
 }: GenericTextInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<Array<{value: string; label: string;}>>([]);
+  const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  
+  // Format variable for display - convert workflow nodes to the format expected by formatVariableForDisplay
+  const nodeInfo = workflowNodes?.map((node: any) => {
+    // Get the node component definition to access outputSchema
+    const nodeComponent = ALL_NODE_COMPONENTS.find(comp => comp.type === node.data?.type);
+    
+    return {
+      id: node.id,
+      title: node.data?.title || node.data?.label || nodeComponent?.title || 'Custom',
+      type: node.data?.type || 'unknown',
+      outputSchema: nodeComponent?.outputSchema || node.data?.outputSchema
+    };
+  });
+  const { display: displayValue, actual: actualValue } = formatVariableForDisplay(value || "", nodeInfo);
 
   // Load suggestions when field has dynamic options
   useEffect(() => {
@@ -116,12 +135,15 @@ export function GenericTextInput({
   const commonProps = {
     id: field.name,
     placeholder: field.placeholder || `Enter ${field.label || field.name}...`,
-    value: value || "",
+    value: isEditing ? (value || "") : displayValue,
     onChange: handleChange,
     onDragOver: handleDragOver,
     onDrop: handleDrop,
+    onFocus: () => setIsEditing(true),
+    onBlur: () => setIsEditing(false),
     className: cn(
-      error && "border-red-500"
+      error && "border-red-500",
+      !isEditing && displayValue !== value && "text-blue-600" // Show in blue when displaying human-readable format
     ),
   };
 
@@ -174,16 +196,195 @@ export function GenericTextInput({
       );
 
     case "file":
+      // If field accepts variables, we need to handle both file uploads and variable text
+      if (field.acceptsVariables) {
+        // Check if value is a variable string (e.g., {{node.output.file}})
+        const isVariable = typeof value === 'string' && value.includes('{{') && value.includes('}}');
+        
+        if (isVariable) {
+          // Show the variable as text input with drag support
+          return (
+            <div className="relative">
+              <Input
+                type="text"
+                value={value || ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={field.placeholder || "Upload files or drag variables..."}
+                className={cn(
+                  "pr-10",
+                  error && "border-red-500"
+                )}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                disabled={field.disabled}
+              />
+              {value && (
+                <button
+                  type="button"
+                  onClick={() => onChange("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        }
+        
+        // Check if value contains uploaded files
+        if (value && Array.isArray(value)) {
+          // Show uploaded files
+          return (
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600">
+                {value.length} file(s) attached
+              </div>
+              <div className="space-y-1">
+                {value.map((file: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-2 border rounded">
+                    <span className="text-sm">{file.name || file.fileName || `File ${index + 1}`}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = value.filter((_: any, i: number) => i !== index);
+                        onChange(newValue.length > 0 ? newValue : null);
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange(null)}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Clear all files
+              </button>
+            </div>
+          );
+        }
+      }
+      
+      // Standard file upload
+      
       return (
         <FileUpload
           value={value}
-          onChange={onChange}
+          onChange={async (files) => {
+            // Convert FileList to array of file objects that can be stored
+            if (files && files.length > 0) {
+              // For all file uploads, upload to server immediately (same as Google Drive)
+              console.log('📎 [GenericTextInput] Uploading files:', files.length);
+              
+              try {
+                // Get auth token from Supabase
+                let token = null;
+                
+                try {
+                  // Import the app's Supabase client
+                  const { supabase } = await import('@/utils/supabaseClient');
+                  const { data: { session } } = await supabase.auth.getSession();
+                  token = session?.access_token;
+                  if (!token) {
+                    console.error('No auth session found');
+                    // Store file metadata without upload
+                    const fileArray = Array.from(files).map(file => ({
+                      name: file.name,
+                      size: file.size,
+                      type: file.type,
+                      lastModified: file.lastModified
+                    }));
+                    onChange(field.multiple ? fileArray : fileArray[0]);
+                    return;
+                  }
+                } catch (e) {
+                  console.error('Failed to get auth token:', e);
+                  // Store file metadata without upload
+                  const fileArray = Array.from(files).map(file => ({
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    lastModified: file.lastModified
+                  }));
+                  onChange(field.multiple ? fileArray : fileArray[0]);
+                  return;
+                }
+                
+                // Get workflow and node IDs from context
+                const workflowId = field.workflowId || 'temp';
+                const nodeId = field.nodeId || `temp-${Date.now()}`;
+                
+                const uploadedFiles = [];
+                
+                for (const file of Array.from(files)) {
+                  console.log('📎 [GenericTextInput] Uploading file:', file.name);
+                  
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  formData.append('workflowId', workflowId);
+                  formData.append('nodeId', nodeId);
+                  
+                  const response = await fetch('/api/workflows/files/upload', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                  });
+                  
+                  if (!response.ok) {
+                    const error = await response.json();
+                    console.error('📎 [GenericTextInput] Upload failed:', error);
+                    throw new Error(error.error || 'Failed to upload file');
+                  }
+                  
+                  const result = await response.json();
+                  console.log('📎 [GenericTextInput] Upload successful:', result);
+                  
+                  // Store the file info - use the fileId as the identifier
+                  uploadedFiles.push({
+                    id: result.fileId,
+                    fileName: result.fileName,
+                    fileSize: result.fileSize,
+                    fileType: result.fileType,
+                    filePath: result.filePath,
+                    isTemporary: result.isTemporary
+                  });
+                }
+                
+                // Store the uploaded file info
+                console.log('📎 [GenericTextInput] Setting uploadedFiles value:', {
+                  multiple: field.multiple,
+                  uploadedFilesCount: uploadedFiles.length,
+                  uploadedFiles: uploadedFiles,
+                  valueToSet: field.multiple ? uploadedFiles : uploadedFiles[0]
+                });
+                onChange(field.multiple ? uploadedFiles : uploadedFiles[0]);
+                
+              } catch (error) {
+                console.error('📎 [GenericTextInput] Error uploading files:', error);
+                // Fallback to storing file metadata
+                const fileArray = Array.from(files).map(file => ({
+                  name: file.name,
+                  size: file.size,
+                  type: file.type,
+                  lastModified: file.lastModified
+                }));
+                onChange(field.multiple ? fileArray : fileArray[0]);
+              }
+            } else {
+              onChange(null);
+            }
+          }}
           accept={field.accept || "*/*"}
           maxSize={field.maxSize || 25 * 1024 * 1024} // 25MB default
           maxFiles={field.multiple ? 10 : 1}
           placeholder={field.placeholder || "Choose files to attach..."}
           disabled={field.disabled}
-          hideUploadedFiles={true} // Hide the upload badge/banner
+          hideUploadedFiles={false} // Show the uploaded files
         />
       );
 

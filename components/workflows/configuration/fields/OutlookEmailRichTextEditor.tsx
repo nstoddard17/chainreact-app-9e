@@ -24,7 +24,7 @@ interface OutlookEmailRichTextEditorProps {
   className?: string
   error?: string
   userId?: string
-  autoIncludeSignature?: boolean
+  // autoIncludeSignature removed - signatures must be manually added
 }
 
 export function OutlookEmailRichTextEditor({
@@ -33,8 +33,7 @@ export function OutlookEmailRichTextEditor({
   placeholder = "Compose your email...",
   className = "",
   error,
-  userId,
-  autoIncludeSignature = false
+  userId
 }: OutlookEmailRichTextEditorProps) {
   const [signatures, setSignatures] = useState<OutlookSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
@@ -59,11 +58,15 @@ export function OutlookEmailRichTextEditor({
         setSignatures(data.signatures || [])
         setProfile(data.profile)
         
-        // Auto-select default signature
+        // Check if signature is already present but DON'T auto-add
         const defaultSignature = data.signatures?.find((sig: OutlookSignature) => sig.isDefault)
-        if (defaultSignature && autoIncludeSignature && !value.includes(defaultSignature.content)) {
-          setSelectedSignature(defaultSignature.id)
-          onChange(value + '\n\n' + defaultSignature.content)
+        if (defaultSignature) {
+          // Check if signature is already in the content
+          if (value && value.includes(defaultSignature.content)) {
+            // If the signature is already in the value, just set it as selected
+            setSelectedSignature(defaultSignature.id)
+          }
+          // Don't auto-add signature - user must manually add it using the signature button
         }
       } else {
         console.error('Failed to load Outlook signatures:', response.status)

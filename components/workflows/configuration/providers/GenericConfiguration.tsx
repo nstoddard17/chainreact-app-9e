@@ -284,6 +284,23 @@ export function GenericConfiguration({
       return;
     }
     
+    // Log attachment-related fields for Gmail send email
+    if (nodeInfo?.type === 'gmail_action_send_email') {
+      console.log('📎 [GenericConfiguration] Gmail send email values being saved:', {
+        sourceType: values.sourceType,
+        uploadedFiles: values.uploadedFiles,
+        uploadedFilesType: typeof values.uploadedFiles,
+        uploadedFilesIsArray: Array.isArray(values.uploadedFiles),
+        uploadedFilesLength: Array.isArray(values.uploadedFiles) ? values.uploadedFiles.length : 'N/A',
+        uploadedFilesContent: Array.isArray(values.uploadedFiles) && values.uploadedFiles.length > 0 ? 
+          values.uploadedFiles[0] : 'N/A',
+        fileUrl: values.fileUrl,
+        fileFromNode: values.fileFromNode,
+        attachments: values.attachments,
+        allValues: JSON.stringify(values, null, 2)
+      });
+    }
+    
     await onSubmit(values);
   };
 

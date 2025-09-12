@@ -342,24 +342,20 @@ export class GoogleIntegrationService {
     console.log("📥 Executing Google Drive get file")
     
     const config = node.data.config || {}
-    const fileId = this.resolveValue(config.fileId, context)
-
-    if (!fileId) {
-      throw new Error("Google Drive get file requires 'fileId' field")
-    }
 
     if (context.testMode) {
       return {
         type: "google_drive_get_file",
-        fileId,
+        fileId: config.fileId,
         status: "retrieved (test mode)",
         fileName: "test-file.txt",
         content: "Test file content"
       }
     }
 
-    // TODO: Implement actual Google Drive get file
-    throw new Error("Google Drive get file is not yet implemented")
+    // Import and use actual implementation
+    const { getGoogleDriveFile } = await import('@/lib/workflows/actions/googleDrive/getFile')
+    return await getGoogleDriveFile(config, context.userId, context.data || {})
   }
 
   private resolveValue(value: any, context: ExecutionContext): any {

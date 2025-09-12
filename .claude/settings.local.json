@@ -74,7 +74,11 @@
       "mcp__playwright__browser_close",
       "Bash(powershell:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "mcp__playwright__browser_file_upload",
+      "Bash(timeout:*)",
+      "Bash(dir /s /b C:Usersmarcusourcereposchainreact-app-9e-1libworkflowsnodesproviders*.ts)",
+      "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\components\\workflows\\configuration\\providers\\gmail\")"
     ],
     "defaultMode": "acceptEdits"
   }

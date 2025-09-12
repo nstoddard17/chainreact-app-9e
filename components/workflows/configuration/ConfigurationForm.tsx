@@ -7,6 +7,7 @@ import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
+import { saveNodeConfig } from '@/lib/workflows/configPersistence';
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
@@ -419,6 +420,31 @@ function ConfigurationForm({
   const handleSubmit = async (submissionValues: Record<string, any>) => {
     setIsLoading(true);
     try {
+      // Save configuration to persistence layer if we have the necessary IDs
+      if (workflowData?.id && currentNodeId) {
+        console.log('📎 [ConfigForm] Saving to persistence:', {
+          workflowId: workflowData.id,
+          nodeId: currentNodeId,
+          nodeType: nodeInfo?.type,
+          uploadedFiles: submissionValues.uploadedFiles,
+          sourceType: submissionValues.sourceType
+        });
+        
+        try {
+          await saveNodeConfig(
+            workflowData.id,
+            currentNodeId,
+            nodeInfo?.type || 'unknown',
+            submissionValues,
+            dynamicOptions
+          );
+          console.log('✅ [ConfigForm] Configuration saved to persistence layer');
+        } catch (persistenceError) {
+          console.error('❌ [ConfigForm] Failed to save to persistence:', persistenceError);
+          // Don't fail the overall save if persistence fails
+        }
+      }
+      
       await onSave(submissionValues);
     } catch (error) {
       console.error('Error saving configuration:', error);
