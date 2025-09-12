@@ -93,17 +93,16 @@ export default function WorkflowsContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Only load workflows if not already loaded
-        await loadAllWorkflows(false)
+        // Always fetch fresh data when the page loads
+        // This ensures deleted workflows don't appear
+        await loadAllWorkflows(true) // Force refresh to get latest data
       } catch (err) {
         console.error("Failed to load workflows:", err)
       }
     }
     
-    // Load workflows only on mount or when explicitly needed
-    if (!workflows && !loading) {
-      loadData()
-    }
+    // Always load fresh data on mount
+    loadData()
   }, []) // Empty dependency array - only run on mount
 
   // Load user profiles for workflow creators

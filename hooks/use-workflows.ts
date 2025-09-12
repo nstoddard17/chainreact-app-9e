@@ -151,12 +151,8 @@ export function useWorkflows(): UseWorkflowsReturn {
     await updateWorkflow(currentWorkflow.id, currentWorkflow)
   }, [currentWorkflow])
   
-  // Load workflows on mount if needed
-  useEffect(() => {
-    if (!workflows && !loading) {
-      loadAllWorkflows()
-    }
-  }, []) // Empty dependency array - only run on mount
+  // Don't auto-load workflows on mount - let the page component control this
+  // to ensure fresh data is always loaded when viewing the workflows page
   
   return {
     workflows,

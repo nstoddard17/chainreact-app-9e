@@ -112,7 +112,7 @@ export async function loadWorkflows(forceRefresh = false): Promise<Workflow[]> {
       forceRefresh,
       setLoading: (loading) => useWorkflowsListStore.getState().setLoading(loading),
       onError: (error) => useWorkflowsListStore.getState().setError(error.message),
-      checkStale: () => useWorkflowsListStore.getState().isStale(10 * 60 * 1000) // 10 minutes - increased cache time
+      checkStale: () => useWorkflowsListStore.getState().isStale(0) // No caching - always fetch fresh data
     }
   })
 
