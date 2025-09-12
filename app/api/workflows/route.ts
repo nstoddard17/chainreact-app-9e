@@ -15,7 +15,12 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const { data, error } = await supabase.from("workflows").select("*").order("updated_at", { ascending: false })
+    // Filter by user_id to work with RLS policies
+    const { data, error } = await supabase
+      .from("workflows")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

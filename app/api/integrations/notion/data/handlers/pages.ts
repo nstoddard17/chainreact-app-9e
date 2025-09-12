@@ -59,10 +59,23 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     
     console.log(`🔍 Found ${workspaceIds.length} workspaces`)
     
-    // Get all pages from all workspaces
+    // Check if we should filter by a specific workspace
+    const targetWorkspaceId = context?.workspaceId
+    const workspacesToProcess = targetWorkspaceId 
+      ? [targetWorkspaceId].filter(id => workspaceIds.includes(id))
+      : workspaceIds
+    
+    if (targetWorkspaceId && workspacesToProcess.length === 0) {
+      console.log(`⚠️ Requested workspace ${targetWorkspaceId} not found in user's workspaces`)
+      return []
+    }
+    
+    console.log(`🔍 Processing ${workspacesToProcess.length} workspace(s)${targetWorkspaceId ? ` (filtered to: ${targetWorkspaceId})` : ''}`)
+    
+    // Get all pages from selected workspaces
     const allPages: NotionPage[] = []
     
-    for (const workspaceId of workspaceIds) {
+    for (const workspaceId of workspacesToProcess) {
       const workspace = workspaces[workspaceId]
       console.log(`🔍 Processing workspace: ${workspace.name}`)
       

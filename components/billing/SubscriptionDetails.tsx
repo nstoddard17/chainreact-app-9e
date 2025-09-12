@@ -24,7 +24,7 @@ interface SubscriptionDetailsProps {
 
 export default function SubscriptionDetails({ subscription }: SubscriptionDetailsProps) {
   const [loading, setLoading] = useState(false)
-  const { cancelSubscription, createPortalSession } = useBillingStore()
+  const { cancelSubscription, reactivateSubscription, createPortalSession } = useBillingStore()
 
   const handleCancelSubscription = async () => {
     if (!subscription) return
@@ -34,6 +34,19 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
       await cancelSubscription()
     } catch (error) {
       console.error("Failed to cancel subscription:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReactivateSubscription = async () => {
+    if (!subscription) return
+
+    setLoading(true)
+    try {
+      await reactivateSubscription()
+    } catch (error) {
+      console.error("Failed to reactivate subscription:", error)
     } finally {
       setLoading(false)
     }
@@ -73,10 +86,19 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
   const isActive = subscription.status === "active"
   const isCanceled = subscription.status === "canceled"
   const willCancel = subscription.cancel_at_period_end
-  const periodEnd = new Date(subscription.current_period_end).toLocaleDateString()
+  const periodEnd = new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+  
+  // Calculate the correct price based on billing cycle
+  const isMonthly = subscription.billing_cycle === "monthly"
+  const price = isMonthly ? plan?.price_monthly : plan?.price_yearly
+  const billingPeriod = isMonthly ? "month" : "year"
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold text-slate-900">Current Subscription</CardTitle>
@@ -94,21 +116,25 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between">
+        <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-medium text-slate-900">{plan?.name || "Unknown Plan"}</h3>
+            <h3 className="text-lg font-medium text-slate-900">{plan?.name || "Free Plan"}</h3>
             <p className="text-slate-500">
-              {subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly"} billing •{" "}
-              {subscription.billing_cycle === "monthly"
-                ? `$${plan?.price_monthly}/month`
-                : `$${plan?.price_yearly}/year`}
+              {isMonthly ? "Monthly" : "Yearly"} billing •{" "}
+              ${price !== undefined ? price : 0}/{billingPeriod}
             </p>
           </div>
 
-          <div className="mt-4 md:mt-0 flex flex-col md:items-end">
-            <div className="text-sm text-slate-500">Current period ends</div>
-            <div className="font-medium">{periodEnd}</div>
-            {willCancel && <div className="text-sm text-red-600 mt-1">Your subscription will end on this date.</div>}
+          <div className="border-t pt-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-500">Current period ends</span>
+              <span className="font-medium text-slate-900">{periodEnd}</span>
+            </div>
+            {willCancel && (
+              <div className="text-sm text-red-600 mt-2">
+                Your subscription will end on this date.
+              </div>
+            )}
           </div>
         </div>
 
@@ -125,10 +151,10 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
           <Button
             variant="outline"
-            className="flex items-center"
+            className="flex items-center justify-center w-full"
             onClick={handleManagePayment}
             disabled={loading || isCanceled}
           >
@@ -139,7 +165,7 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
           {isActive && !willCancel && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" disabled={loading}>
+                <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 w-full" disabled={loading}>
                   Cancel Subscription
                 </Button>
               </AlertDialogTrigger>
@@ -169,6 +195,28 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+
+          {isActive && willCancel && (
+            <Button 
+              variant="outline" 
+              className="text-green-600 border-green-200 hover:bg-green-50 w-full" 
+              onClick={handleReactivateSubscription}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Reactivate Subscription"
+              )}
+            </Button>
+          )}
+          
+          {(!isActive || (isCanceled && !willCancel)) && (
+            <div className="sm:col-span-1" />
           )}
         </div>
       </CardContent>

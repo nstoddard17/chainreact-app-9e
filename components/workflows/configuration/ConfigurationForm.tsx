@@ -250,14 +250,44 @@ function ConfigurationForm({
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
   
-  // Ensure integrations are loaded on mount
+  // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
+    const componentId = Math.random().toString(36).substr(2, 9);
+    console.log('🚨 [ConfigForm] MOUNT EFFECT RUNNING', {
+      nodeType: nodeInfo?.type,
+      providerId: nodeInfo?.providerId,
+      timestamp: new Date().toISOString(),
+      componentId
+    });
+    
+    let mounted = true;
+    let timeoutId: NodeJS.Timeout;
+    
+    // Debounce the integration fetch - wait 500ms to see if component stays mounted
     const loadIntegrations = async () => {
-      console.log('🔄 [ConfigForm] Loading integrations on mount');
-      await fetchIntegrations(true); // Force refresh to ensure integrations are loaded
+      // Wait a bit to see if component stays mounted
+      timeoutId = setTimeout(async () => {
+        if (mounted) {
+          console.log('🔄 [ConfigForm] Component stayed mounted, loading integrations', { componentId });
+          await fetchIntegrations(); // Regular fetch - concurrent calls are now handled properly
+        } else {
+          console.log('⏭️ [ConfigForm] Component unmounted quickly, skipping integration fetch', { componentId });
+        }
+      }, 500); // Wait 500ms before fetching
     };
+    
     loadIntegrations();
-  }, [fetchIntegrations]); // Include dependency but it should be stable
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+      console.log('🚨 [ConfigForm] UNMOUNT EFFECT CLEANUP', {
+        nodeType: nodeInfo?.type,
+        timestamp: new Date().toISOString(),
+        componentId
+      });
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
@@ -337,7 +367,7 @@ function ConfigurationForm({
     return () => {
       window.removeEventListener('integration-reconnected', handleReconnection as EventListener);
     };
-  }, [fetchIntegrations]);
+  }, []); // Empty dependency array - event listeners only need to be set up once
 
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
@@ -451,52 +481,48 @@ function ConfigurationForm({
     
     case 'microsoft-outlook':
     case 'outlook':
-      console.log('📮 [ConfigForm] Routing to Outlook configuration');
       return <OutlookConfiguration {...commonProps} />;
     
     // Productivity
     case 'notion':
-      console.log('📝 [ConfigForm] Routing to Notion configuration');
+      // NOTION WORKSPACE DEBUG: Log when Notion configuration is loaded
+      if (commonProps.dynamicOptions?.workspace) {
+        console.log('🔍 [NOTION DEBUG] Notion workspace options:', {
+          workspaceOptions: commonProps.dynamicOptions.workspace,
+          currentValue: commonProps.values?.workspace
+        });
+      }
       return <NotionConfiguration {...commonProps} />;
     
     case 'trello':
-      console.log('📋 [ConfigForm] Routing to Trello configuration');
       return <TrelloConfiguration {...commonProps} />;
     
     case 'airtable':
-      console.log('📗 [ConfigForm] Routing to Airtable configuration');
       return <AirtableConfiguration {...commonProps} />;
     
     // Google Services
     case 'google-sheets':
-      console.log('📙 [ConfigForm] Routing to Google Sheets configuration');
       return <GoogleSheetsConfiguration {...commonProps} />;
     
     case 'google-calendar':
-      console.log('📅 [ConfigForm] Routing to Google Calendar configuration');
       return <GoogleCalendarConfiguration {...commonProps} />;
     
     case 'google-drive':
-      console.log('☁️ [ConfigForm] Routing to Google Drive configuration');
       return <GoogleDriveConfiguration {...commonProps} />;
     
     case 'google-docs':
-      console.log('📄 [ConfigForm] Routing to Google Docs configuration');
       return <GoogleDocsConfiguration {...commonProps} />;
     
     // Microsoft Services
     case 'onedrive':
-      console.log('☁️ [ConfigForm] Routing to OneDrive configuration');
       return <OneDriveConfiguration {...commonProps} />;
     
     case 'microsoft-onenote':
     case 'onenote':
-      console.log('📓 [ConfigForm] Routing to OneNote configuration');
       return <OneNoteConfiguration {...commonProps} />;
     
     // Business & E-commerce
     case 'hubspot':
-      console.log('🚀 [ConfigForm] Routing to HubSpot configuration');
       return <HubSpotConfiguration {...commonProps} />;
     
     case 'stripe':

@@ -29,40 +29,31 @@ export class SessionManager {
       throw new Error("Supabase client not available")
     }
 
-    // First, validate the user securely
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user?.id) {
-      // Try to refresh the session
-      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
-      
-      if (refreshError || !session) {
-        console.error("❌ Session refresh failed:", refreshError)
-        throw new Error("No authenticated user found. Please log in again.")
+    // First try to get the session (this is faster and more reliable)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    // If we have a valid session with access token, get the user
+    if (session?.access_token && session?.user) {
+      return { 
+        user: session.user, 
+        session 
       }
-      
-      // Try to get user again after refresh
-      const { data: { user: refreshedUser }, error: refreshedUserError } = await supabase.auth.getUser()
-      if (refreshedUserError || !refreshedUser?.id) {
-        throw new Error("Session refresh failed. Please log in again.")
-      }
-      
-      return { user: refreshedUser, session }
     }
-
-    // Then get the session for the access token
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) {
-      // Try to refresh the session if no access token
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-      
-      if (refreshError || !refreshedSession?.access_token) {
-        throw new Error("Session expired. Please log in again.")
-      }
-      
-      return { user, session: refreshedSession }
+    
+    // If no session or it's incomplete, try to refresh
+    console.log("No valid session found, attempting refresh...")
+    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+    
+    if (refreshError || !refreshedSession?.access_token || !refreshedSession?.user) {
+      // Only log, don't console.error to avoid scary messages
+      console.log("Session refresh not possible, user needs to log in")
+      throw new Error("No authenticated user found. Please log in.")
     }
-
-    return { user, session }
+    
+    return { 
+      user: refreshedSession.user, 
+      session: refreshedSession 
+    }
   }
 
   /**

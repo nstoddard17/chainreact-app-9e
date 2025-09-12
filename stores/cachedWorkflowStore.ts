@@ -112,7 +112,7 @@ export async function loadWorkflows(forceRefresh = false): Promise<Workflow[]> {
       forceRefresh,
       setLoading: (loading) => useWorkflowsListStore.getState().setLoading(loading),
       onError: (error) => useWorkflowsListStore.getState().setError(error.message),
-      checkStale: () => useWorkflowsListStore.getState().isStale(5 * 60 * 1000) // 5 minutes
+      checkStale: () => useWorkflowsListStore.getState().isStale(10 * 60 * 1000) // 10 minutes - increased cache time
     }
   })
 
@@ -235,18 +235,19 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     }
   }
   
-  // Prepare the update data
+  // Prepare the update data - only send the fields we're actually updating
   const updateData = {
     ...updates,
     updated_at: new Date().toISOString()
   }
 
-  // If we have the current workflow, merge it with updates
-  if (currentWorkflow) {
-    Object.assign(updateData, currentWorkflow, updates)
-  }
-
-  console.log(`📤 Sending update to Supabase for workflow ${id}`)
+  console.log(`📤 Sending update to Supabase for workflow ${id}`, {
+    hasNodes: 'nodes' in updateData,
+    nodesCount: updateData.nodes?.length,
+    hasConnections: 'connections' in updateData,
+    connectionsCount: updateData.connections?.length,
+    name: updateData.name
+  })
 
   // Create a timeout promise
   const timeoutPromise = new Promise((_, reject) => {
@@ -271,7 +272,10 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     
     console.log("✅ Workflow updated successfully:", {
       id: savedData.id,
+      name: savedData.name,
       status: savedData.status,
+      nodesCount: savedData.nodes?.length,
+      connectionsCount: savedData.connections?.length,
       updated_at: savedData.updated_at
     })
 

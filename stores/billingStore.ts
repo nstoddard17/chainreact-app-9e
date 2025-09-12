@@ -56,6 +56,8 @@ interface BillingActions {
   fetchAll: () => Promise<void>
   createCheckoutSession: (planId: string, billingCycle: string) => Promise<string>
   cancelSubscription: () => Promise<void>
+  reactivateSubscription: () => Promise<void>
+  changePlan: (newPlanId: string, billingCycle: string) => Promise<any>
   createPortalSession: () => Promise<string>
   checkUsageLimits: (resourceType: string) => boolean
 }
@@ -110,7 +112,10 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       const { data, error } = await supabase
         .from("subscriptions")
-        .select("*")
+        .select(`
+          *,
+          plan:plans (*)
+        `)
         .eq("user_id", user.id)
         .maybeSingle()
 
@@ -286,6 +291,59 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       // Refresh subscription data
       await get().fetchSubscription()
+    } catch (error: any) {
+      set({ error: error.message })
+      throw error
+    }
+  },
+
+  reactivateSubscription: async () => {
+    const { currentSubscription } = get()
+    if (!currentSubscription) return
+
+    try {
+      const response = await fetch(`/api/billing/subscriptions/${currentSubscription.id}/reactivate`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reactivate subscription")
+      }
+
+      // Refresh subscription data
+      await get().fetchSubscription()
+    } catch (error: any) {
+      set({ error: error.message })
+      throw error
+    }
+  },
+
+  changePlan: async (newPlanId: string, billingCycle: string) => {
+    const { currentSubscription } = get()
+    if (!currentSubscription) {
+      throw new Error("No active subscription to change")
+    }
+
+    try {
+      const response = await fetch(`/api/billing/subscriptions/${currentSubscription.id}/change-plan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newPlanId, billingCycle }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to change plan")
+      }
+
+      const result = await response.json()
+
+      // Refresh subscription data
+      await get().fetchSubscription()
+
+      return result
     } catch (error: any) {
       set({ error: error.message })
       throw error

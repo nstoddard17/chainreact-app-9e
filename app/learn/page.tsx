@@ -1,19 +1,9 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { requireUsername } from "@/utils/checkUsername"
 import LearnContent from "@/components/learn/LearnContent"
 
 export default async function LearnPage() {
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    redirect("/auth/login")
-  }
-
+  // This will check for username and redirect if needed
+  await requireUsername()
+  
   return <LearnContent />
 }

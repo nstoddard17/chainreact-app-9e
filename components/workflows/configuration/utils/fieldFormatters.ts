@@ -185,12 +185,22 @@ function formatFilterValue(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format workspace fields (Notion, etc.)
+ */
+function formatWorkspaceField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.value || item.id,
+    label: item.label || item.name || item.value || item.id,
+  }));
+}
+
+/**
  * Default formatter for unspecified field types
  */
 function formatDefaultField(data: any[]): FormattedOption[] {
   return data.map((item: any) => ({
-    value: item.id,
-    label: item.name || item.title || item.id,
+    value: item.value || item.id,
+    label: item.label || item.name || item.title || item.value || item.id,
   }));
 }
 
@@ -230,6 +240,9 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   
   // Google Sheets fields
   sheetName: formatSheetField,
+  
+  // Notion fields
+  workspace: formatWorkspaceField,
 };
 
 /**

@@ -103,7 +103,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       name: body.name,
       hasName: 'name' in body,
       nameType: typeof body.name,
-      bodyKeys: Object.keys(body)
+      bodyKeys: Object.keys(body),
+      nodesCount: body.nodes?.length,
+      connectionsCount: body.connections?.length
     })
 
     const { data, error } = await supabase

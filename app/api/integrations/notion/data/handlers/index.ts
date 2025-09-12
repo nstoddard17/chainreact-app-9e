@@ -11,6 +11,27 @@ import { getNotionWorkspaces } from './workspaces'
 import { getNotionDatabaseProperties } from './databaseProperties'
 
 export const notionHandlers: Record<string, NotionDataHandler> = {
+  // Direct mappings for cleaner API
+  users: getNotionUsers,
+  templates: getNotionTemplates,
+  databases: getNotionDatabases,
+  pages: getNotionPages,
+  workspaces: getNotionWorkspaces,
+  properties: getNotionDatabaseProperties,
+  blocks: getNotionDatabaseProperties, // TODO: Implement blocks handler
+  filter_types: () => Promise.resolve([
+    { value: 'page', label: 'Pages' },
+    { value: 'database', label: 'Databases' }
+  ]),
+  database_templates: () => Promise.resolve([
+    { value: 'Project Tracker', label: 'Project Tracker' },
+    { value: 'CRM', label: 'CRM' },
+    { value: 'Content Calendar', label: 'Content Calendar' },
+    { value: 'Task Management', label: 'Task Management' },
+    { value: 'Bug Tracker', label: 'Bug Tracker' },
+  ]),
+  
+  // Legacy mappings for backward compatibility
   notion_users: getNotionUsers,
   notion_templates: getNotionTemplates,
   notion_databases: getNotionDatabases,

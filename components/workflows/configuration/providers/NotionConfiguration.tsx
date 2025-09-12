@@ -1,12 +1,7 @@
 "use client"
 
-import React from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
-
-// Notion-specific extended configuration (if needed in the future)
-export const NOTION_EXTENDED_CONFIG = {
-  // Add Notion-specific UI configuration here when needed
-};
 
 interface NotionConfigurationProps {
   nodeInfo: any;
@@ -32,7 +27,79 @@ interface NotionConfigurationProps {
 }
 
 export function NotionConfiguration(props: NotionConfigurationProps) {
-  // Notion currently uses the generic configuration
-  // This wrapper allows for future Notion-specific customizations
-  return <GenericConfiguration {...props} />;
+  const { nodeInfo, values, loadOptions, loadingFields = new Set() } = props;
+  const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
+  
+  // Filter the config schema to only show workspace initially
+  const modifiedNodeInfo = useMemo(() => {
+    if (!nodeInfo?.configSchema) return nodeInfo;
+    
+    // Check if workspace has been selected
+    const hasWorkspace = values.workspace && values.workspace !== '';
+    
+    // Filter fields based on workspace selection
+    const filteredSchema = nodeInfo.configSchema.map((field: any) => {
+      // Always show workspace field
+      if (field.name === 'workspace') {
+        return field;
+      }
+      
+      // Hide fields that depend on workspace if workspace is not selected
+      if (field.dependsOn === 'workspace' && !hasWorkspace) {
+        return { ...field, hidden: true };
+      }
+      
+      // Hide fields that indirectly depend on workspace (e.g., fields that depend on page_id)
+      if (field.dependsOn && field.dependsOn !== 'workspace') {
+        const parentField = nodeInfo.configSchema.find((f: any) => f.name === field.dependsOn);
+        if (parentField?.dependsOn === 'workspace' && !hasWorkspace) {
+          return { ...field, hidden: true };
+        }
+      }
+      
+      return field;
+    });
+    
+    return {
+      ...nodeInfo,
+      configSchema: filteredSchema
+    };
+  }, [nodeInfo, values.workspace]);
+  
+  // Load workspaces immediately when component mounts
+  useEffect(() => {
+    const loadWorkspaces = async () => {
+      // Only load if not already loading and we don't have options yet
+      if (!loadingFields.has('workspace') && !props.dynamicOptions['workspace']?.length) {
+        setIsLoadingWorkspace(true);
+        try {
+          await loadOptions('workspace', undefined, undefined, true);
+        } catch (error) {
+          // Failed to load workspaces
+        } finally {
+          setIsLoadingWorkspace(false);
+        }
+      }
+    };
+    
+    loadWorkspaces();
+  }, []); // Only run once on mount
+  
+  // Create modified loading fields to include workspace loading state
+  const modifiedLoadingFields = useMemo(() => {
+    const fields = new Set(loadingFields);
+    if (isLoadingWorkspace) {
+      fields.add('workspace');
+    }
+    return fields;
+  }, [loadingFields, isLoadingWorkspace]);
+  
+  // Pass modified props to GenericConfiguration
+  return (
+    <GenericConfiguration 
+      {...props}
+      nodeInfo={modifiedNodeInfo}
+      loadingFields={modifiedLoadingFields}
+    />
+  );
 }

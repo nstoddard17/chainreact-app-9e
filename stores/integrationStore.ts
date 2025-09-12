@@ -139,85 +139,150 @@ export const useIntegrationStore = create<IntegrationStore>()(
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
-      const { loadingStates, setLoading } = get()
-      if (loadingStates['providers']) {
-        console.log("Already loading providers, skipping...")
-        return
+      const requestKey = 'initialize-providers'
+      
+      // If there's already an ongoing request, return it
+      if (ongoingRequests.has(requestKey)) {
+        console.log("Already loading providers, returning existing promise...")
+        return ongoingRequests.get(requestKey)
       }
-
-      // Set a timeout to prevent stuck loading state
-      const loadingTimeout = setTimeout(() => {
-        const currentState = get()
-        if (currentState.loadingStates['providers']) {
-          console.warn("Provider initialization timeout - resetting loading state")
-          setLoading('providers', false)
-        }
-      }, 10000)
-
-      try {
-        setLoading('providers', true)
-        set({ error: null })
+      
+      // Create the request promise
+      const requestPromise = (async () => {
+        const { setLoading } = get()
         
-        const providers = await IntegrationService.fetchProviders()
+        // Set a timeout to prevent stuck loading state
+        const loadingTimeout = setTimeout(() => {
+          const currentState = get()
+          if (currentState.loadingStates['providers']) {
+            console.warn("Provider initialization timeout - resetting loading state")
+            setLoading('providers', false)
+          }
+        }, 10000)
 
-        clearTimeout(loadingTimeout)
-        setLoading('providers', false)
-        set({
-          providers,
-        })
+        try {
+          setLoading('providers', true)
+          set({ error: null })
+          
+          const providers = await IntegrationService.fetchProviders()
 
-      } catch (error: any) {
-        console.error("Failed to initialize providers:", error)
-        clearTimeout(loadingTimeout)
-        setLoading('providers', false)
-        set({
-          error: error.message || "Failed to load providers",
-          providers: [],
-        })
-      }
+          clearTimeout(loadingTimeout)
+          setLoading('providers', false)
+          set({
+            providers,
+          })
+
+        } catch (error: any) {
+          console.error("Failed to initialize providers:", error)
+          clearTimeout(loadingTimeout)
+          setLoading('providers', false)
+          set({
+            error: error.message || "Failed to load providers",
+            providers: [],
+          })
+        } finally {
+          // Clean up the ongoing request
+          ongoingRequests.delete(requestKey)
+        }
+      })()
+      
+      // Store the ongoing request
+      ongoingRequests.set(requestKey, requestPromise)
+      
+      return requestPromise
     },
 
     fetchIntegrations: async (force = false) => {
-      const { loadingStates, setLoading, currentUserId } = get()
-      if (loadingStates['integrations'] && !force) {
-        console.log("Already loading integrations, skipping...")
-        return
+      // ADD STACK TRACE TO FIND CALLER
+      console.trace('🔍 [IntegrationStore] fetchIntegrations called', {
+        force,
+        timestamp: new Date().toISOString(),
+        caller: new Error().stack?.split('\n')[2]?.trim()
+      })
+      
+      const requestKey = 'fetch-integrations'
+      
+      // If there's already an ongoing request and we're not forcing, return it
+      if (!force && ongoingRequests.has(requestKey)) {
+        console.log("Already fetching integrations, returning existing promise...")
+        return ongoingRequests.get(requestKey)
       }
-
-      try {
-        setLoading('integrations', true)
-        set({ error: null })
+      
+      // Check if we have cached data that's still fresh (5 minutes)
+      const { lastRefreshTime, integrations } = get()
+      if (!force && lastRefreshTime && integrations.length > 0) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        if (lastRefreshTime > fiveMinutesAgo) {
+          console.log("Using cached integrations data...")
+          return Promise.resolve()
+        }
+      }
+      
+      // Create the request promise
+      const requestPromise = (async () => {
+        const { setLoading, currentUserId } = get()
         
-        const { user } = await SessionManager.getSecureUserAndSession()
+        try {
+          setLoading('integrations', true)
+          set({ error: null })
+          
+          // Try to get user session, but handle auth failures gracefully
+          let user;
+          try {
+            const sessionData = await SessionManager.getSecureUserAndSession();
+            user = sessionData.user;
+          } catch (authError: any) {
+            console.log("User not authenticated, skipping integration fetch")
+            // Clear loading state and return empty integrations for unauthenticated users
+            setLoading('integrations', false)
+            set({
+              integrations: [],
+              currentUserId: null,
+              error: null, // Don't show error for auth issues, just return empty
+            })
+            // Clean up the request from cache before returning
+            ongoingRequests.delete(requestKey)
+            return
+          }
 
-        // If currentUserId is not set, set it now
-        if (!currentUserId) {
-          set({ currentUserId: user.id })
-        } else if (user?.id !== currentUserId) {
-          console.warn("User session mismatch detected")
+          // If currentUserId is not set, set it now
+          if (!currentUserId) {
+            set({ currentUserId: user.id })
+          } else if (user?.id !== currentUserId) {
+            console.warn("User session mismatch detected")
+            setLoading('integrations', false)
+            set({
+              integrations: [],
+              currentUserId: user.id, // Update to new user ID
+              error: null,
+            })
+            // Continue with new user instead of returning
+          }
+
+          const integrations = await IntegrationService.fetchIntegrations(force)
+          
           setLoading('integrations', false)
           set({
-            integrations: [],
-            error: "User session mismatch",
+            integrations,
+            lastRefreshTime: new Date().toISOString(),
           })
-          return
+        } catch (error: any) {
+          console.error("Failed to fetch integrations:", error)
+          setLoading('integrations', false)
+          set({
+            error: error.message || "Failed to fetch integrations",
+            integrations: [],
+          })
+        } finally {
+          // Clean up the ongoing request
+          ongoingRequests.delete(requestKey)
         }
-
-        const integrations = await IntegrationService.fetchIntegrations(force)
-        
-        setLoading('integrations', false)
-        set({
-          integrations,
-          lastRefreshTime: new Date().toISOString(),
-        })
-      } catch (error: any) {
-        console.error("Failed to fetch integrations:", error)
-        setLoading('integrations', false)
-        set({
-          error: error.message || "Failed to fetch integrations",
-          integrations: [],
-        })
-      }
+      })()
+      
+      // Store the ongoing request
+      ongoingRequests.set(requestKey, requestPromise)
+      
+      return requestPromise
     },
 
     connectIntegration: async (providerId: string) => {

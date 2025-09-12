@@ -1,8 +1,9 @@
-"use client"
-
+import { requireUsername } from "@/utils/checkUsername"
 import ProfileContent from "@/components/profile/ProfileContent"
 
-// Client Component for better auth handling consistency
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  // This will check for username and redirect if needed
+  await requireUsername()
+  
   return <ProfileContent />
 } 

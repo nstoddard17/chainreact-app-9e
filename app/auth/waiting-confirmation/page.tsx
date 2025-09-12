@@ -4,88 +4,98 @@ import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Mail, RefreshCw, CheckCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { supabase } from "@/utils/supabaseClient"
 
 export default function WaitingConfirmationPage() {
   const [email, setEmail] = useState<string>("")
+  const [userId, setUserId] = useState<string>("")
   const [isPolling, setIsPolling] = useState(true)
   const [hasResent, setHasResent] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const router = useRouter()
+  const [isConfirmed, setIsConfirmed] = useState(false)
   const { user, initialize } = useAuthStore()
 
   useEffect(() => {
-    // Check if we came back from email confirmation
-    const urlParams = new URLSearchParams(window.location.search)
-    const isConfirmed = urlParams.get('confirmed') === 'true'
-    
-    if (isConfirmed) {
-      console.log('Email confirmed via redirect!')
-      localStorage.removeItem('pendingSignup')
-      
-      // If user opened link in new browser/incognito or after closing original tab,
-      // they might not be authenticated yet. Let them continue to setup.
-      router.push('/setup-username')
-      return
-    }
-    
-    // Get email from pending signup or current user
+    // Get email and userId from pending signup or current user
     const pendingSignup = localStorage.getItem('pendingSignup')
     if (pendingSignup) {
       const data = JSON.parse(pendingSignup)
       setEmail(data.email)
+      setUserId(data.userId || '')
     } else if (user?.email) {
       setEmail(user.email)
+      setUserId(user.id)
     }
+  }, [user])
 
-    let pollInterval: NodeJS.Timeout
+  useEffect(() => {
+    if (!userId || !isPolling || isConfirmed) return
 
-    if (isPolling) {
-      // Simple polling for Supabase auth state as fallback
-      pollInterval = setInterval(async () => {
-        try {
-          console.log('Polling for confirmation...')
-          const { data: { user: currentUser }, error } = await supabase.auth.getUser()
+    // Poll every 3 seconds to check if email has been confirmed
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log('Polling for email confirmation...')
+        
+        // Try to get the current session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (session?.user?.email_confirmed_at) {
+          console.log('Email confirmed! Session detected.')
+          setIsConfirmed(true)
+          setIsPolling(false)
+          clearInterval(pollInterval)
           
-          if (currentUser && currentUser.email_confirmed_at) {
-            console.log('Email confirmed via Supabase polling!')
-            setIsPolling(false)
-            localStorage.removeItem('pendingSignup')
-            router.push('/setup-username')
-          }
-        } catch (error) {
-          console.error('Error checking auth status:', error)
+          // Clean up
+          localStorage.removeItem('pendingSignup')
+          
+          // Initialize auth store to get the user data
+          await initialize()
+          return
         }
-      }, 5000)
-    }
 
-    return () => {
-      if (pollInterval) clearInterval(pollInterval)
-    }
-  }, [isPolling, user, router, initialize])
+        // Alternative: Check the user directly
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+        
+        if (currentUser?.email_confirmed_at) {
+          console.log('Email confirmed! User check succeeded.')
+          setIsConfirmed(true)
+          setIsPolling(false)
+          clearInterval(pollInterval)
+          
+          // Clean up
+          localStorage.removeItem('pendingSignup')
+          
+          // Initialize auth store to get the user data
+          await initialize()
+        }
+      } catch (error) {
+        console.error('Error polling for confirmation:', error)
+      }
+    }, 3000) // Poll every 3 seconds
+
+    // Clean up interval on unmount or when polling stops
+    return () => clearInterval(pollInterval)
+  }, [userId, isPolling, isConfirmed, initialize])
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0) return
 
     try {
-      const pendingSignup = localStorage.getItem('pendingSignup')
-      if (!pendingSignup) return
-
-      const data = JSON.parse(pendingSignup)
+      setHasResent(false) // Reset status
       
-      // Send confirmation email
-      const response = await fetch('/api/auth/send-confirmation', {
+      // Send confirmation email using the new endpoint
+      const response = await fetch('/api/auth/resend-confirmation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          email: data.email, 
-          userId: data.userId 
+          email: email
         }),
       })
+
+      const data = await response.json()
 
       if (response.ok) {
         setHasResent(true)
@@ -100,9 +110,30 @@ export default function WaitingConfirmationPage() {
             return prev - 1
           })
         }, 1000)
+      } else if (response.status === 429) {
+        // Rate limited
+        const retryAfter = data.retryAfter || 3600
+        setResendCooldown(Math.min(retryAfter, 3600)) // Cap at 1 hour for display
+        
+        const cooldownInterval = setInterval(() => {
+          setResendCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(cooldownInterval)
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+        
+        // Show error message
+        alert(data.error || 'Too many requests. Please try again later.')
+      } else {
+        // Other errors
+        alert(data.error || 'Failed to resend email. Please try again.')
       }
     } catch (error) {
       console.error('Error resending confirmation email:', error)
+      alert('An error occurred. Please try again.')
     }
   }
 
@@ -134,52 +165,79 @@ export default function WaitingConfirmationPage() {
               </div>
               
               <h2 className="text-2xl font-bold text-white mb-4">
-                Check Your Email
+                {isConfirmed ? 'Email Confirmed!' : 'Check Your Email'}
               </h2>
               
-              <p className="text-blue-200 mb-6 leading-relaxed">
-                We've sent a confirmation link to:
-              </p>
-              
-              <div className="bg-blue-600/20 rounded-lg p-3 mb-6">
-                <p className="text-white font-medium">{email}</p>
-              </div>
+              {!isConfirmed ? (
+                <>
+                  <p className="text-blue-200 mb-6 leading-relaxed">
+                    We've sent a confirmation link to:
+                  </p>
+                  
+                  <div className="bg-blue-600/20 rounded-lg p-3 mb-6">
+                    <p className="text-white font-medium">{email}</p>
+                  </div>
 
-              <p className="text-blue-200 mb-6 text-sm leading-relaxed">
-                Click the link in your email to verify your account. This page will automatically 
-                update when your email is confirmed.
-              </p>
+                  <p className="text-blue-200 mb-6 text-sm leading-relaxed">
+                    Click the link in your email to verify your account. This page will automatically 
+                    update when your email is confirmed.
+                  </p>
 
-              {/* Polling indicator */}
-              {isPolling && (
-                <div className="flex items-center justify-center text-blue-300 mb-6">
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  <span className="text-sm">Waiting for confirmation...</span>
-                </div>
+                  {/* Status indicator */}
+                  <div className="flex items-center justify-center text-blue-300 mb-6">
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <span className="text-sm">Waiting for email confirmation...</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-6 animate-bounce">
+                    <CheckCircle className="h-8 w-8 text-green-400" />
+                  </div>
+                  
+                  <p className="text-blue-200 mb-6 leading-relaxed">
+                    Your email has been verified successfully!
+                  </p>
+                  
+                  <div className="bg-green-600/20 rounded-lg p-3 mb-6">
+                    <p className="text-green-200 text-sm">
+                      Great! Your account is now active and ready to use.
+                    </p>
+                  </div>
+                  
+                  <Link href="/dashboard">
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Continue to Dashboard
+                    </Button>
+                  </Link>
+                </>
               )}
 
-              <div className="space-y-4">
-                <Button
-                  onClick={handleResendEmail}
-                  variant="outline"
-                  className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300"
-                  disabled={resendCooldown > 0}
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  {resendCooldown > 0 
-                    ? `Resend in ${resendCooldown}s` 
-                    : hasResent 
-                      ? "Email Resent!" 
-                      : "Resend Email"
-                  }
-                </Button>
-
-                <Link href="/auth/register">
-                  <Button variant="ghost" className="w-full text-blue-300 hover:text-blue-200 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
-                    Use Different Email
+              {!isConfirmed && (
+                <div className="space-y-4">
+                  <Button
+                    onClick={handleResendEmail}
+                    variant="outline"
+                    className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300"
+                    disabled={resendCooldown > 0}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {resendCooldown > 0 
+                      ? `Resend in ${resendCooldown}s` 
+                      : hasResent 
+                        ? "Email Resent!" 
+                        : "Resend Email"
+                    }
                   </Button>
-                </Link>
-              </div>
+
+                  <Link href="/auth/register">
+                    <Button variant="ghost" className="w-full text-blue-300 hover:text-blue-200 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                      Use Different Email
+                    </Button>
+                  </Link>
+                </div>
+              )}
 
               <div className="mt-6 text-xs text-blue-300/60">
                 Didn't receive the email? Check your spam folder or{" "}

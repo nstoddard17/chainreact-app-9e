@@ -25,6 +25,10 @@ interface DynamicOption {
 /**
  * Custom hook for managing dynamic field options
  */
+// Track auth error retry attempts to prevent infinite loops
+let authErrorRetryCount = 0;
+const MAX_AUTH_RETRIES = 1;
+
 export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFormValues }: UseDynamicOptionsProps) => {
   // Store callback in ref to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
@@ -62,25 +66,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
-    console.log(`📍 [loadOptions] Called for field:`, { 
-      fieldName, 
-      nodeType, 
-      providerId, 
-      dependsOn, 
-      dependsOnValue, 
-      forceRefresh, 
-      silent,
-      hasNodeType: !!nodeType,
-      hasProviderId: !!providerId
-    });
-    
-    // Add specific logging for troubleshooting Discord fields
-    if (fieldName === 'authorFilter' || fieldName === 'channelId') {
-      console.log(`🔄 [loadOptions] ${fieldName} called:`, { fieldName, nodeType, providerId, dependsOn, dependsOnValue, forceRefresh, silent, timestamp: new Date().toISOString() });
-    }
     
     if (!nodeType || !providerId) {
-      console.warn('⚠️ [loadOptions] Missing nodeType or providerId, returning early');
       return;
     }
     
@@ -99,14 +86,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Cancel any existing request for this field before starting a new one
     const existingController = abortControllers.current.get(cacheKey);
     if (existingController) {
-      console.log('🚫 [loadOptions] Cancelling existing request for:', { 
-        fieldName, 
-        cacheKey, 
-        oldRequestId: activeRequestIds.current.get(cacheKey), 
-        newRequestId: requestId,
-        dependsOn,
-        dependsOnValue 
-      });
       existingController.abort();
       abortControllers.current.delete(cacheKey);
     }
@@ -117,12 +96,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Check if there's already an active request for this exact field/dependency combination
     const activeRequestKey = cacheKey;
     if (!forceRefresh && activeRequests.current.has(activeRequestKey)) {
-      console.log('🔄 [loadOptions] Waiting for existing request:', { fieldName, cacheKey });
       try {
         await activeRequests.current.get(activeRequestKey);
         return; // Data should now be available
       } catch (error) {
-        console.error('🔄 [loadOptions] Existing request failed:', error);
         // Continue with new request
       }
     }
@@ -131,11 +108,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     if (!forceRefresh && loadingFields.current.has(cacheKey)) {
       // Only log for Discord fields to avoid spam
       if (fieldName === 'filterAuthor' || (fieldName === 'guildId' && providerId === 'discord')) {
-        console.log('🚫 [loadOptions] Skipping Discord field - already loading:', { 
-          fieldName, 
-          cacheKey, 
-          isLoading: loadingFields.current.has(cacheKey)
-        });
+        // Skip duplicate call
       }
       return;
     }
@@ -144,21 +117,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     if (!forceRefresh && fieldName === 'authorFilter' && dependsOn === 'channelId' && dependsOnValue) {
       const channelSpecificData = dynamicOptions[`${fieldName}_${dependsOnValue}`];
       if (channelSpecificData && channelSpecificData.length > 0) {
-        console.log('🚫 [loadOptions] Skipping authorFilter - already have data for this channel:', { 
-          fieldName, 
-          channelId: dependsOnValue,
-          dataCount: channelSpecificData.length
-        });
         return;
       }
     }
     
     // For other fields, use simple data check (exclude authorFilter since it's channel-specific)
     if (!forceRefresh && fieldName !== 'authorFilter' && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
-      console.log('🚫 [loadOptions] Skipping field - already has data:', { 
-        fieldName, 
-        dataCount: dynamicOptions[fieldName].length
-      });
       return;
     }
     // Determine data to load based on field name (moved outside try block for error handling)
@@ -177,14 +141,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         
         // Enhanced logging for channelId loading state
         if (fieldName === 'channelId') {
-          console.log('🔄 [loadOptions] Setting channelId loading to TRUE:', { cacheKey, timestamp: new Date().toISOString() });
         }
         
         onLoadingChangeRef.current?.(fieldName, true);
       } else {
         // Silent mode - just log that we're loading silently
         if (fieldName === 'channelId') {
-          console.log('🔕 [loadOptions] Loading channelId silently:', { cacheKey, timestamp: new Date().toISOString() });
         }
       }
 
@@ -198,7 +160,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         try {
           // Always force refresh if we're explicitly asked to or if we detect an issue
           const shouldForceRefresh = forceRefresh || false;
-          console.log('🔍 [Discord] Loading guilds, forceRefresh:', shouldForceRefresh);
           
           const guilds = await loadDiscordGuildsOnce(shouldForceRefresh);
           
@@ -207,13 +168,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             const discordIntegration = getIntegrationByProvider('discord');
             
             if (!discordIntegration) {
-              console.log('🔍 No Discord integration found - empty guild list expected');
             } else {
-              console.warn('⚠️ Discord integration exists but no guilds returned - attempting force refresh');
               // Try one more time with force refresh
               const refreshedGuilds = await loadDiscordGuildsOnce(true);
               if (refreshedGuilds && refreshedGuilds.length > 0) {
-                console.log('✅ Force refresh successful, got guilds:', refreshedGuilds.length);
                 const formattedOptions = refreshedGuilds.map(guild => ({
                   value: guild.id,
                   label: guild.name,
@@ -244,16 +202,29 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             [fieldName]: formattedOptions
           }));
         } catch (error: any) {
-          console.error('Error loading Discord guilds:', error);
           
           // If this is an authentication error, we might need to refresh integration state
           if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-            console.log('🔄 Discord authentication error detected, refreshing integration state');
-            try {
-              const { useIntegrationStore } = await import('@/stores/integrationStore');
-              useIntegrationStore.getState().fetchIntegrations(true);
-            } catch (refreshError) {
-              console.warn('Failed to refresh integration state:', refreshError);
+            console.error('🚨 [useDynamicOptions] AUTH ERROR DETECTED', {
+              fieldName,
+              error: error.message,
+              retryCount: authErrorRetryCount,
+              maxRetries: MAX_AUTH_RETRIES,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Only retry once to prevent infinite loops
+            if (authErrorRetryCount < MAX_AUTH_RETRIES) {
+              authErrorRetryCount++;
+              console.log('🔄 [useDynamicOptions] Attempting to refresh integrations...');
+              try {
+                const { useIntegrationStore } = await import('@/stores/integrationStore');
+                useIntegrationStore.getState().fetchIntegrations(true);
+              } catch (refreshError) {
+                console.error('🚨 [useDynamicOptions] Failed to refresh integrations', refreshError);
+              }
+            } else {
+              console.warn('⚠️ [useDynamicOptions] Max auth retries reached, not refreshing integrations');
             }
           }
           
@@ -274,7 +245,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Special handling for Discord channels using cache store
       if (fieldName === 'channelId' && providerId === 'discord') {
         if (!dependsOnValue) {
-          console.log('🔍 Discord channels require guildId - no guild selected');
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
@@ -282,13 +252,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           return;
         }
 
-        console.log('🔍 [loadOptions] Loading Discord channels from cache for guild:', dependsOnValue);
         
         try {
           const channels = await loadDiscordChannelsOnce(dependsOnValue, forceRefresh || false);
           
           if (!channels || channels.length === 0) {
-            console.warn('⚠️ No Discord channels found for guild:', dependsOnValue);
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
@@ -316,23 +284,35 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               position: channel.position,
             }));
           
-          console.log('✅ [loadOptions] Loaded', formattedOptions.length, 'Discord channels for guild', dependsOnValue);
           
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: formattedOptions
           }));
         } catch (error: any) {
-          console.error('❌ [loadOptions] Error loading Discord channels for guild', dependsOnValue, ':', error);
           
           // If this is an authentication error, we might need to refresh integration state
           if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-            console.log('🔄 Discord authentication error detected, refreshing integration state');
-            try {
-              const { useIntegrationStore } = await import('@/stores/integrationStore');
-              useIntegrationStore.getState().fetchIntegrations(true);
-            } catch (refreshError) {
-              console.warn('Failed to refresh integration state:', refreshError);
+            console.error('🚨 [useDynamicOptions] AUTH ERROR DETECTED', {
+              fieldName,
+              error: error.message,
+              retryCount: authErrorRetryCount,
+              maxRetries: MAX_AUTH_RETRIES,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Only retry once to prevent infinite loops
+            if (authErrorRetryCount < MAX_AUTH_RETRIES) {
+              authErrorRetryCount++;
+              console.log('🔄 [useDynamicOptions] Attempting to refresh integrations...');
+              try {
+                const { useIntegrationStore } = await import('@/stores/integrationStore');
+                useIntegrationStore.getState().fetchIntegrations(true);
+              } catch (refreshError) {
+                console.error('🚨 [useDynamicOptions] Failed to refresh integrations', refreshError);
+              }
+            } else {
+              console.warn('⚠️ [useDynamicOptions] Max auth retries reached, not refreshing integrations');
             }
           }
           
@@ -346,20 +326,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Get integration for other providers
       integration = getIntegrationByProvider(providerId);
-      console.log(`🔍 [useDynamicOptions] Looking for integration:`, {
-        providerId,
-        fieldName,
-        integrationFound: !!integration,
-        integrationId: integration?.id,
-        integrationStatus: integration?.status
-      });
       
       if (!integration) {
-        console.warn(`❌ No integration found for provider: ${providerId}`, {
-          fieldName,
-          resourceType,
-          nodeType
-        });
         // Clear the field data
         setDynamicOptions(prev => ({
           ...prev,
@@ -380,14 +348,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Special handling for dynamic Airtable fields (linked records)
       if (fieldName.startsWith('airtable_field_') && providerId === 'airtable') {
-        console.log('🔍 [useDynamicOptions] Loading linked records for field:', fieldName);
         
         // Get the form values to find the base and linked table info
         const formValues = getFormValues?.() || {};
         const baseId = extraOptions?.baseId || formValues.baseId;
         
         if (!baseId) {
-          console.log('🔍 [useDynamicOptions] No baseId available for linked record loading');
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
@@ -416,7 +382,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         }
         
         if (!tableFields) {
-          console.log('🔍 [useDynamicOptions] No table fields found for linked record loading');
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
@@ -435,15 +400,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         const actualFieldName = fieldName.replace('airtable_field_', '');
         const tableField = tableFields.find((f: any) => f.name === actualFieldName);
         
-        console.log('🔍 [useDynamicOptions] Looking for field:', {
-          fieldName,
-          actualFieldName,
-          availableFields: tableFields.map((f: any) => ({ name: f.name, type: f.type, id: f.id })),
-          foundField: tableField
-        });
         
         if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
-          console.log('🔍 [useDynamicOptions] Field is not a linked record field:', tableField?.type);
           // Only clear loading if this is still the current request
           if (activeRequestIds.current.get(cacheKey) === requestId) {
             loadingFields.current.delete(cacheKey);
@@ -459,7 +417,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         
         // If no linkedTableId, try to guess the table name from the field name
         if (!linkedTableId) {
-          console.log('🔍 [useDynamicOptions] No linked table ID found in field options, trying to guess from field name:', tableField.name);
           
           // Try to guess the linked table name from the field name
           const fieldNameLower = (tableField.name || '').toLowerCase();
@@ -494,13 +451,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               linkedTableName = baseName;
             }
             
-            console.log('🔍 [useDynamicOptions] Guessed table name from field name:', tableField.name, '->', linkedTableName);
           }
           
-          console.log('🔍 [useDynamicOptions] Will try linked table name:', linkedTableName);
         }
         
-        console.log('🔍 [useDynamicOptions] Loading records from linked table:', linkedTableId);
         
         try {
           // We need to find the table name from the linked table ID
@@ -529,7 +483,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           if (linkedTableId) {
             linkedTable = tables.find((table: any) => table.id === linkedTableId);
             if (!linkedTable) {
-              console.log('🔍 [useDynamicOptions] Linked table not found by ID:', linkedTableId);
             }
           }
           
@@ -541,12 +494,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               table.name?.toLowerCase() === linkedTableName.toLowerCase()
             );
             if (linkedTable) {
-              console.log('🔍 [useDynamicOptions] Found linked table by name:', linkedTableName);
             }
           }
           
           if (!linkedTable) {
-            console.log('🔍 [useDynamicOptions] Linked table not found:', { linkedTableId, linkedTableName });
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
@@ -560,7 +511,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             return;
           }
           
-          console.log('🔍 [useDynamicOptions] Using linked table:', linkedTable.name || linkedTable.value);
           
           // Load records from the linked table using its name
           const recordsResponse = await fetch('/api/integrations/airtable/data', {
@@ -572,7 +522,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               options: {
                 baseId,
                 tableName: linkedTable.name || linkedTable.value,
-                maxRecords: 100
+                limit: 100
               }
             }),
             signal: abortController.signal
@@ -585,7 +535,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const recordsResult = await recordsResponse.json();
           const records = recordsResult.data || [];
           
-          console.log('🔍 [useDynamicOptions] Loaded', records.length, 'linked records');
           
           // Determine the best field to use for display
           let displayField: string | null = null;
@@ -593,7 +542,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           if (records.length > 0) {
             sampleFields = Object.keys(records[0].fields || {});
-            console.log(`🔍 [useDynamicOptions] Available fields in linked table:`, sampleFields);
             
             // Priority order for finding display field (same logic as ConfigurationForm.tsx):
             // 1. Fields containing 'name' or 'title'
@@ -612,7 +560,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                      !Array.isArray(value);
             }) || null;
             
-            console.log(`🔍 [useDynamicOptions] Using field "${displayField}" as display field for linked records`);
           }
           
           // Format records as options
@@ -646,19 +593,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             };
           });
           
-          console.log('🟡 [LINKED RECORDS] Formatted options for linked field:', {
-            fieldName,
-            optionsCount: formattedOptions.length,
-            firstThreeOptions: formattedOptions.slice(0, 3).map(opt => ({
-              value: opt.value,
-              label: opt.label,
-              hasDoubleColon: opt.value.includes('::')
-            }))
-          });
           
           // Check if this is still the current request
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
-            console.log('🚫 [loadOptions] Linked record request superseded, not updating state for:', { fieldName, cacheKey, requestId });
             return;
           }
           
@@ -667,12 +604,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             [fieldName]: formattedOptions
           }));
         } catch (error: any) {
-          console.error('❌ [useDynamicOptions] Failed to load linked records:', {
-            field: fieldName,
-            baseId,
-            linkedTableId,
-            error: error?.message || String(error)
-          });
           setDynamicOptions(prev => ({
             ...prev,
             [fieldName]: []
@@ -687,16 +618,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         return;
       }
 
-      console.log(`🔍 [useDynamicOptions] Mapping debug:`, {
-        fieldName,
-        nodeType,
-        resourceType,
-        integration: integration.provider
-      });
       
       // Check for provider-specific loader first (for providers like HubSpot)
       if (providerId === 'hubspot') {
-        console.log('🔍 [useDynamicOptions] Using HubSpot provider loader for field:', fieldName);
         
         try {
           // Import provider registry
@@ -704,7 +628,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const loader = providerRegistry.getLoader(providerId, fieldName);
           
           if (loader) {
-            console.log('✅ [useDynamicOptions] Found HubSpot loader for field:', fieldName);
             
             const formattedOptions = await loader.loadOptions({
               fieldName,
@@ -717,11 +640,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               extraOptions
             });
             
-            console.log('✅ [useDynamicOptions] HubSpot loader returned', formattedOptions.length, 'options');
-            
             // Check if this is still the current request
             if (activeRequestIds.current.get(cacheKey) !== requestId) {
-              console.log('🚫 [loadOptions] Request superseded, not updating state');
               return;
             }
             
@@ -743,7 +663,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             return;
           }
         } catch (error) {
-          console.error('❌ [useDynamicOptions] Error using HubSpot provider loader:', error);
           // Fall through to use regular integration data loading
         }
       }
@@ -752,9 +671,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         // Only warn for fields that are expected to have dynamic options but don't
         const expectedDynamicFields = ['guildId', 'channelId', 'roleId', 'userId', 'boardId', 'baseId', 'tableId', 'workspaceId'];
         if (expectedDynamicFields.includes(fieldName)) {
-          console.warn(`No resource type found for field: ${fieldName} in node: ${nodeType}`);
         } else {
-          console.log(`🔍 [useDynamicOptions] Field ${fieldName} does not require dynamic loading for node: ${nodeType}`);
         }
         // Only clear loading if this is still the current request
         if (activeRequestIds.current.get(cacheKey) === requestId) {
@@ -770,14 +687,12 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
-        console.log('🔍 [useDynamicOptions] Skipping sheets load - no spreadsheet selected');
         return;
       }
       
       // For Airtable fields, use records approach instead of schema API
       if (fieldName === 'filterField' && resourceType === 'airtable_fields') {
         if (!dependsOnValue) {
-          console.log('🔍 [useDynamicOptions] Skipping airtable fields load - no table selected');
           return;
         }
         // Get baseId from extraOptions first (passed explicitly), then form values
@@ -787,11 +702,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           baseId = formValues.baseId;
         }
         if (!baseId) {
-          console.log('🔍 [useDynamicOptions] Skipping airtable fields load - no baseId available');
           return;
         }
         
-        console.log('🔍 [useDynamicOptions] Loading airtable fields from records with:', { baseId, tableName: dependsOnValue });
         
         // Use the same approach as preview records to get field names
         try {
@@ -806,10 +719,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               options: {
                 baseId,
                 tableName: dependsOnValue,
-                maxRecords: 5 // Just need a few records to get field names
+                limit: 5
               }
             }),
-            signal: abortController.signal,
+            signal: abortController.signal
           });
 
           if (!recordsResponse.ok) {
@@ -820,12 +733,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const recordsResult = await recordsResponse.json();
           const records = recordsResult.data || [];
           
-          console.log('🔍 [useDynamicOptions] Records loaded for field extraction:', records.length);
           
           // Extract field names from the first record
           const fieldNames = records.length > 0 ? Object.keys(records[0]?.fields || {}) : [];
           
-          console.log('🔍 [useDynamicOptions] Extracted field names:', fieldNames);
           
           // Format as field options
           const fieldOptions = fieldNames.map(name => ({
@@ -835,11 +746,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             id: name
           }));
           
-          console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: fieldOptions.length });
           
           // Check if this is still the current request
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
-            console.log('🚫 [useDynamicOptions] Request superseded by newer request, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
             return;
           }
           
@@ -853,7 +762,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           return; // Skip the normal loadIntegrationData call
         } catch (error: any) {
-          console.error('❌ [useDynamicOptions] Failed to load fields from records:', error);
           throw error; // Re-throw to be caught by the outer catch block
         }
       }
@@ -861,7 +769,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // For Airtable field values, use records approach to get unique field values
       if (fieldName === 'filterValue' && resourceType === 'airtable_field_values') {
         if (!dependsOnValue) {
-          console.log('🔍 [useDynamicOptions] Skipping airtable field values load - no field selected');
           return;
         }
         
@@ -876,20 +783,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         }
         
         if (!baseId || !tableName) {
-          console.log('🔍 [useDynamicOptions] Skipping airtable field values load - missing baseId or tableName', {
-            hasBaseId: !!baseId,
-            hasTableName: !!tableName,
-            extraOptions,
-            formValues: getFormValues?.()
-          });
           return;
         }
         
-        console.log('🔍 [useDynamicOptions] Loading airtable field values from records with:', { 
-          baseId, 
-          tableName, 
-          filterField: dependsOnValue 
-        });
         
         // Check if this is a linked record field based on field name patterns
         // Since the API is failing, we'll detect based on common naming patterns
@@ -918,10 +814,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               options: {
                 baseId,
                 tableName,
-                maxRecords: 5 // Just check a few records
+                limit: 3
               }
-            }),
-            signal: abortController.signal,
+            })
           });
 
           if (recordsResponse.ok) {
@@ -930,7 +825,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             
             // Check if this is still the current request
             if (activeRequestIds.current.get(cacheKey) !== requestId) {
-              console.log('🚫 [useDynamicOptions] Request superseded during sample records fetch, not updating state');
               return;
             }
             
@@ -966,7 +860,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               const baseName = dependsOnValue.replace(/^(associated|linked|related)\s*/i, '');
               linkedTableName = baseName.replace(/s?$/, 's');
             }
-            console.log('🔍 [useDynamicOptions] Detected linked record field based on data, will fetch from table:', linkedTableName);
           }
         }
         
@@ -982,11 +875,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               dataType: 'airtable_records',
               options: {
                 baseId,
-                tableName,
-                maxRecords: 100 // Get more records to capture more unique values
+                tableName: dependsOnValue,
+                limit: 5
               }
             }),
-            signal: abortController.signal,
+            signal: abortController.signal
           });
 
           if (!recordsResponse.ok) {
@@ -999,11 +892,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           // Check if this is still the current request
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
-            console.log('🚫 [useDynamicOptions] Request superseded during records fetch, not updating state');
             return;
           }
           
-          console.log('🔍 [useDynamicOptions] Records loaded for field values extraction:', records.length);
           
           // Extract unique values from the selected field
           const fieldValues = new Map<string, string>(); // Use Map to store value -> label
@@ -1048,7 +939,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           // If we have linked record IDs, fetch their names
           if (isLinkedRecordField && recordIds.size > 0 && linkedTableName) {
-            console.log('🔍 [useDynamicOptions] Fetching names for linked records:', Array.from(recordIds));
             
             try {
               const linkedResponse = await fetch('/api/integrations/airtable/data', {
@@ -1060,7 +950,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                   options: {
                     baseId,
                     tableName: linkedTableName,
-                    maxRecords: 100
+                    limit: 100
                   }
                 })
               });
@@ -1071,11 +961,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 
                 // Check if this is still the current request
                 if (activeRequestIds.current.get(cacheKey) !== requestId) {
-                  console.log('🚫 [useDynamicOptions] Request superseded during linked records fetch, not updating state');
                   return;
                 }
                 
-                console.log(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table`);
                 
                 // Find the best field to use for display
                 let displayField: string | null = null;
@@ -1092,7 +980,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                     !field.toLowerCase().includes('modified')
                   ) || sampleFields[0];
                   
-                  console.log(`🔍 Using field "${displayField}" for display names`);
                 }
                 
                 // Map record IDs to their display names
@@ -1108,13 +995,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 });
               }
             } catch (error) {
-              console.warn('⚠️ [useDynamicOptions] Could not fetch linked record names:', error);
               // Fall back to using record IDs
               recordIds.forEach(id => fieldValues.set(id, id));
             }
           }
           
-          console.log('🔍 [useDynamicOptions] Extracted unique field values:', Array.from(fieldValues.entries()));
           
           // Format as field value options
           const valueOptions = Array.from(fieldValues.entries())
@@ -1124,11 +1009,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               label: label
             }));
           
-          console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { fieldName, resultLength: valueOptions.length });
           
           // Check if this is still the current request
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
-            console.log('🚫 [useDynamicOptions] Request superseded by newer request, not updating state for:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
             return;
           }
           
@@ -1142,42 +1025,18 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           return; // Skip the normal loadIntegrationData call
         } catch (error: any) {
-          console.error('❌ [useDynamicOptions] Failed to load field values from records:', error);
           throw error; // Re-throw to be caught by the outer catch block
         }
       }
-      console.log('🚀 [useDynamicOptions] Calling loadIntegrationData...', {
-        fieldName,
-        resourceType,
-        integrationId: integration.id,
-        options,
-        forceRefresh
-      });
       const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
-      console.log('✅ [useDynamicOptions] loadIntegrationData completed:', { 
-        fieldName, 
-        resourceType,
-        resultLength: result?.data?.length || result?.length || 'unknown', 
-        result 
-      });
       
       // Check if this is still the current request
       // This is crucial because loadIntegrationData might not support abort signals
       if (activeRequestIds.current.get(cacheKey) !== requestId) {
         // Special handling for authorFilter - always use the data if we got it
         if (fieldName === 'authorFilter') {
-          console.log('⚠️ [loadOptions] authorFilter - Using data despite supersession, data is valid');
           // Continue to update state for authorFilter
         } else {
-          console.log('🚫 [loadOptions] Request superseded during processing, not updating state for:', { 
-            fieldName, 
-            cacheKey, 
-            requestId, 
-            currentId: activeRequestIds.current.get(cacheKey),
-            resourceType,
-            dependsOn,
-            dependsOnValue
-          });
           return; // Don't update state if this request was superseded for other fields
         }
       }
@@ -1208,7 +1067,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Clear loading state on successful completion
       // For authorFilter, always clear the loading state when we have data
       if (fieldName === 'authorFilter') {
-        console.log('✅ [loadOptions] Clearing loading state for authorFilter after successful load');
         loadingFields.current.delete(cacheKey);
         setLoading(false);
         
@@ -1232,18 +1090,15 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         // Only clear loading states if not in silent mode
         if (!silent) {
           if (fieldName === 'tableName') {
-            console.log('✅ [loadOptions] Successfully loaded tableName, clearing loading state');
           }
           onLoadingChangeRef.current?.(fieldName, false);
         }
       } else {
-        console.log('🚫 [loadOptions] Not clearing loading state for superseded request:', { fieldName, cacheKey, requestId, currentId: activeRequestIds.current.get(cacheKey) });
       }
       
     } catch (error: any) {
       // Check if the error was due to abort
       if (error.name === 'AbortError') {
-        console.log('🚫 [loadOptions] Request aborted for:', { fieldName, cacheKey });
         // Don't update state or clear loading for aborted requests
         // The loading state should persist until the new request completes
         return;
@@ -1252,15 +1107,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Get the integration if available for error logging
       const currentIntegration = getIntegrationByProvider(providerId);
       
-      console.error(`❌ [useDynamicOptions] Failed to load options for ${fieldName}:`, {
-        fieldName,
-        resourceType,
-        integrationId: currentIntegration?.id,
-        providerId,
-        options,
-        error: error?.message || String(error),
-        stack: error?.stack || 'No stack trace available'
-      });
       setDynamicOptions(prev => ({
         ...prev,
         [fieldName]: []
@@ -1298,15 +1144,26 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
   
+  // Track previous values to avoid unnecessary clears
+  const prevNodeTypeRef = useRef(nodeType);
+  const prevProviderIdRef = useRef(providerId);
+
   // Clear all options when node type changes
   useEffect(() => {
-    console.log('🔄 [useDynamicOptions] Node type or provider changed, clearing all state', { nodeType, providerId });
+    // Only clear if values actually changed
+    if (prevNodeTypeRef.current === nodeType && prevProviderIdRef.current === providerId) {
+      return;
+    }
+    
+    
+    // Update refs
+    prevNodeTypeRef.current = nodeType;
+    prevProviderIdRef.current = providerId;
     
     // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
     abortControllers.current.forEach((controller, key) => {
       // Don't abort Discord guild requests as they're cached and reusable
       if (!key.startsWith('guildId')) {
-        console.log('🚫 [useDynamicOptions] Aborting fetch request:', key);
         controller.abort();
       }
     });
@@ -1335,7 +1192,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       if (key.startsWith('guildId')) {
         guildRequests.set(key, promise);
       } else {
-        console.log('🚫 [useDynamicOptions] Cancelling active request:', key);
       }
     });
     activeRequests.current = guildRequests;
@@ -1390,13 +1246,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     
     // Cleanup function when component unmounts
     return () => {
-      console.log('🧹 [useDynamicOptions] Component unmounting, cleaning up...');
       
       // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
       abortControllers.current.forEach((controller, key) => {
         // Don't abort Discord guild requests as they use global cache
         if (!key.startsWith('guildId')) {
-          console.log('🚫 [useDynamicOptions] Aborting fetch on unmount:', key);
           controller.abort();
         }
       });
@@ -1422,7 +1276,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Cancel all active requests except Discord guilds
       activeRequests.current.forEach((promise, key) => {
         if (!key.startsWith('guildId')) {
-          console.log('🚫 [useDynamicOptions] Cancelling request on unmount:', key);
         }
       });
       

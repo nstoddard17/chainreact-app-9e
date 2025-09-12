@@ -4,7 +4,12 @@ import { NodeComponent } from "../../types"
 // Import Notion action metadata if it exists
 const NOTION_CREATE_PAGE_METADATA = { key: "notion_action_create_page", name: "Create Page", description: "Create a new page in Notion" }
 
+// Import comprehensive actions if they exist separately
+import { notionComprehensiveActions } from './comprehensive-actions'
+
+// Combine existing nodes with comprehensive actions
 export const notionNodes: NodeComponent[] = [
+  ...notionComprehensiveActions,
   {
     type: "notion_trigger_new_page",
     title: "New Page in Database",

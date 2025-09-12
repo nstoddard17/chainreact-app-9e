@@ -15,6 +15,7 @@ import {
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { RoleBadgeCompact } from "@/components/ui/role-badge"
 import { NotificationDropdown } from "@/components/ui/notification-dropdown"
+import { AIUsageIndicator } from "@/components/ui/AIUsageIndicator"
 import { type UserRole } from "@/lib/utils/roles"
 
 interface TopBarProps {
@@ -30,11 +31,13 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
   const handleSignOut = async () => {
     try {
       console.log("Starting sign out process...")
+      // Navigate to homepage first for smoother UX
+      router.push("/")
+      // Then sign out (this will clear the state)
       await signOut()
-      // signOut() handles the redirect automatically, don't redirect here
     } catch (error) {
       console.error("Logout error:", error)
-      // Only redirect if signOut failed completely
+      // Still try to navigate even on error
       router.push("/")
     }
   }
@@ -63,6 +66,9 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
 
       <div className="flex items-center space-x-4">
         <ThemeToggle />
+        
+        {/* AI Usage Indicator */}
+        <AIUsageIndicator />
         
         {/* Notification Bell - separate from user dropdown */}
         <NotificationDropdown />

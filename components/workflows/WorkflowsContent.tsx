@@ -93,21 +93,18 @@ export default function WorkflowsContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // In development, clear old cached data on component mount
-        if (process.env.NODE_ENV === 'development') {
-          clearAllCachedData()
-        }
-        // Force refresh in development to always get fresh data
-        await loadAllWorkflows(process.env.NODE_ENV === 'development')
+        // Only load workflows if not already loaded
+        await loadAllWorkflows(false)
       } catch (err) {
         console.error("Failed to load workflows:", err)
       }
     }
     
+    // Load workflows only on mount or when explicitly needed
     if (!workflows && !loading) {
       loadData()
     }
-  }, [workflows, loading, loadAllWorkflows])
+  }, []) // Empty dependency array - only run on mount
 
   // Load user profiles for workflow creators
   useEffect(() => {
@@ -145,7 +142,7 @@ export default function WorkflowsContent() {
 
   const handleMoveComplete = () => {
     // Refresh workflows to reflect the changes
-    loadAllWorkflows()
+    loadAllWorkflows(true) // Force refresh after moving to organization
   }
 
   const handleEditWorkflow = (workflow: Workflow) => {
@@ -159,7 +156,7 @@ export default function WorkflowsContent() {
       description: "Workflow updated successfully",
     })
     // Refresh workflows to show the updated data
-    await loadAllWorkflows()
+    await loadAllWorkflows(true) // Force refresh after edit
   }
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {

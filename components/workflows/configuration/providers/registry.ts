@@ -9,6 +9,7 @@ import { AirtableOptionsLoader } from './airtable/airtableOptionsLoader';
 import { FacebookOptionsLoader } from './facebook/facebookOptionsLoader';
 import { hubspotOptionsLoader } from './hubspot/hubspotOptionsLoader';
 import { onenoteOptionsLoader } from './onenote/optionsLoader';
+import { notionOptionsLoader } from './notion/options';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -37,6 +38,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register OneNote loader for both possible provider IDs
     this.register('microsoft-onenote', onenoteOptionsLoader);
     this.register('onenote', onenoteOptionsLoader);
+    
+    // Register Notion loader
+    this.register('notion', notionOptionsLoader);
     
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

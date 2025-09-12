@@ -1,20 +1,10 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { requireUsername } from "@/utils/checkUsername"
 import IntegrationsContent from "@/components/integrations/IntegrationsContent"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 export default async function IntegrationsPage() {
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    redirect("/auth/login")
-  }
+  // This will check for username and redirect if needed
+  await requireUsername()
 
   const configuredClients: Record<string, boolean> = {}
   for (const key in INTEGRATION_CONFIGS) {
