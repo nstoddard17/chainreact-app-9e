@@ -1,4 +1,4 @@
-import { File, FolderPlus, Upload } from "lucide-react"
+import { File, FolderPlus, Upload, Download } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const googleDriveNodes: NodeComponent[] = [
@@ -130,5 +130,70 @@ export const googleDriveNodes: NodeComponent[] = [
         loadOnMount: true, // Load folders immediately when form opens to show names instead of IDs
       },
     ],
+  },
+  {
+    type: "google-drive:get_file",
+    title: "Get File",
+    description: "Retrieve a file from Google Drive",
+    icon: Download,
+    isTrigger: false,
+    providerId: "google-drive",
+    category: "Google Drive",
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "folderId",
+        label: "Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: false,
+        placeholder: "Select a folder (optional, shows all files if not selected)",
+        loadOnMount: true,
+        description: "Choose a folder to browse files from"
+      },
+      {
+        name: "fileId",
+        label: "File",
+        type: "select",
+        dynamic: "google-drive-files",
+        required: true,
+        placeholder: "Select a file",
+        dependsOn: "folderId",
+        loadOnMount: true,  // Load all files initially
+        description: "Select the file to retrieve"
+      },
+      {
+        name: "filePreview",
+        label: "File Preview",
+        type: "textarea",
+        required: false,
+        placeholder: "File preview will appear here after selection...",
+        description: "Preview of the selected file",
+        rows: 10,
+        disabled: true,
+        dynamic: true,  // This field loads dynamic content
+        dependsOn: "fileId"  // Reload when fileId changes
+      }
+    ],
+    outputSchema: [
+      { 
+        name: "file", 
+        label: "File", 
+        type: "object", 
+        description: "The complete file object ready for use as an attachment",
+        properties: {
+          content: { type: "string", description: "Base64 encoded file content" },
+          filename: { type: "string", description: "The file name with extension" },
+          mimeType: { type: "string", description: "The MIME type of the file" },
+          size: { type: "number", description: "File size in bytes" }
+        }
+      },
+      { 
+        name: "fileName", 
+        label: "File Name", 
+        type: "string", 
+        description: "The name of the file (for convenience)" 
+      }
+    ]
   },
 ]

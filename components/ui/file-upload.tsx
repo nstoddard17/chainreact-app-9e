@@ -22,6 +22,7 @@ interface UploadedFile {
   progress: number
   error?: string
   isFileId?: boolean
+  isFileMetadata?: boolean
   previewUrl?: string
 }
 
@@ -54,6 +55,30 @@ export function FileUpload({
             isFileId: true // Flag to indicate this is a file ID
           }
         }
+        
+        // Check if it's a file metadata object (from Google Drive or other integrations)
+        // Check for File-like properties instead of using instanceof
+        const hasFileProperties = file && typeof file === 'object' && 
+          'size' in file && 'type' in file && 'name' in file &&
+          typeof file.slice === 'function';
+          
+        if (file && typeof file === 'object' && !hasFileProperties) {
+          // Create a minimal File-like object for display purposes
+          const fileBlob = new Blob([], { type: file.type || 'application/octet-stream' }) as File;
+          // Override the name property
+          Object.defineProperty(fileBlob, 'name', {
+            value: file.name || file.fileName || `File ${index + 1}`,
+            writable: false
+          });
+          
+          return {
+            file: fileBlob,
+            id: file.id || file.fileId || `${file.name || 'file'}-${file.size || 0}-${index}`,
+            progress: 100,
+            isFileMetadata: true // Flag to indicate this is file metadata
+          }
+        }
+        
         // It's a File object
         const uploadedFile: UploadedFile = {
           file,
@@ -62,7 +87,7 @@ export function FileUpload({
         }
         
         // Generate preview URL for image files
-        if (file.type.startsWith('image/')) {
+        if (file.type?.startsWith('image/')) {
           uploadedFile.previewUrl = URL.createObjectURL(file)
         }
         
@@ -99,7 +124,7 @@ export function FileUpload({
     Array.from(fileList).forEach((file, index) => {
       // Check for duplicate files (same name and size)
       const isDuplicate = uploadedFiles.some(uploaded => 
-        uploaded.file.name === file.name && uploaded.file.size === file.size
+        uploaded.file?.name === file.name && uploaded.file?.size === file.size
       )
       
       if (isDuplicate) {
@@ -143,7 +168,24 @@ export function FileUpload({
       
       // Convert to FileList-like structure for onChange
       const dataTransfer = new DataTransfer()
-      combinedFiles.forEach(({ file }) => dataTransfer.items.add(file))
+      combinedFiles.forEach(({ file, isFileMetadata, isFileId }) => {
+        // Only add real File objects to DataTransfer
+        // Skip Blob objects created for display purposes
+        // Check if it's a real file by checking for the slice method and other File properties
+        const isRealFile = !isFileMetadata && !isFileId && 
+          file && typeof file === 'object' && 
+          typeof file.slice === 'function' &&
+          'name' in file && 'size' in file && 'type' in file;
+          
+        if (isRealFile) {
+          try {
+            dataTransfer.items.add(file)
+          } catch (error) {
+            // If adding fails, it's not a real File object, skip it
+            console.debug('Skipping non-File object in upload:', file.name || 'unknown')
+          }
+        }
+      })
       onChange(dataTransfer.files)
     }
   }
@@ -171,6 +213,7 @@ export function FileUpload({
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('FileUpload: Input change event triggered', { filesCount: e.target.files?.length });
     if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files)
       // Reset the input to allow selecting the same file again if needed
@@ -226,8 +269,9 @@ export function FileUpload({
           accept={accept}
           multiple={maxFiles > 1}
           onChange={handleInputChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           disabled={disabled}
+          aria-label="Upload files"
         />
         
         <div className="flex flex-col items-center justify-center space-y-2 text-center">

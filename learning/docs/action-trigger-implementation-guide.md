@@ -5,8 +5,10 @@ This document provides a comprehensive checklist for implementing workflow actio
 
 ## Critical Implementation Checklist
 
-### 1. Define Node in availableNodes.ts
-**Location:** `/lib/workflows/availableNodes.ts`
+### 1. Define Node in availableNodes.ts or Provider-Specific Nodes File
+**Location:** `/lib/workflows/availableNodes.ts` OR `/lib/workflows/nodes/providers/[provider]/index.ts`
+
+**Note:** As of late 2024, some providers (like Google Drive) have been refactored to use separate node definition files in `/lib/workflows/nodes/providers/`. Check if your provider already has a dedicated file before adding to availableNodes.ts.
 
 ```typescript
 {
@@ -90,10 +92,26 @@ export async function yourActionHandler(
 }
 ```
 
-### 3. Register Handler in executeNode.ts
-**Location:** `/lib/workflows/executeNode.ts`
+### 3. Register Handler in executeNode.ts OR Integration Service
+**Location:** `/lib/workflows/executeNode.ts` OR `/lib/services/integrations/[provider]IntegrationService.ts`
 
+**New Architecture (2024+):** Many providers now use integration services that dynamically import action handlers. Check if your provider has an integration service first.
+
+For Integration Service pattern:
 ```typescript
+// In /lib/services/integrations/googleIntegrationService.ts
+private async executeGetFile(node: any, context: ExecutionContext) {
+  const config = node.data.config || {}
+  
+  // Import and use actual implementation
+  const { getGoogleDriveFile } = await import('@/lib/workflows/actions/googleDrive/getFile')
+  return await getGoogleDriveFile(config, context.userId, context.data || {})
+}
+```
+
+For direct registration pattern:
+```typescript
+// In /lib/workflows/executeNode.ts
 // 1. Import the handler
 import { yourActionHandler } from './actions/provider/action'
 
@@ -105,43 +123,94 @@ const actionHandlers: Record<string, ActionHandler> = {
 ```
 
 ### 4. Add Field Mappings for Dynamic Fields
-**Location:** `/components/workflows/configuration/hooks/useDynamicOptions.ts`
+**Location:** `/components/workflows/configuration/config/fieldMappings.ts` (NEW LOCATION as of 2024)
 
 ⚠️ **CRITICAL:** Skip this step = "Unsupported data type" errors!
 
 ```typescript
-const fieldMappings = {
-  // ... existing mappings
-  provider_action_name: {
-    fieldName: "data-type-identifier",
-    // Add ALL dynamic fields here
+// In the provider-specific mappings section
+const googleDriveMappings: Record<string, FieldMapping> = {
+  "google-drive:get_file": {
+    folderId: "google-drive-folders",
+    fileId: "google-drive-files",
+    fileIdAll: "google-drive-files",
+  },
+  // ... other mappings
+}
+```
+
+**Note:** Field mappings have been refactored to a centralized location. Each provider has its own mapping section that gets combined in the export.
+
+### 5. Create Provider Options Loader (NEW PATTERN 2024)
+**Location:** `/components/workflows/configuration/providers/[provider]/[Provider]OptionsLoader.ts`
+
+For complex providers with dependent fields, preview functionality, or special loading logic:
+
+```typescript
+import { ProviderOptionsLoader } from '../types'
+
+export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
+  async loadOptions(
+    fieldName: string,
+    providerId: string,
+    dependencyFieldName?: string,
+    dependencyValue?: any,
+    forceRefresh?: boolean
+  ): Promise<{ value: string; label: string }[]> {
+    // Handle special fields like previews
+    if (fieldName === 'filePreview' && dependencyValue) {
+      // Special preview logic
+    }
+    
+    // Handle dependent fields
+    if (fieldName === 'fileId' && dependencyFieldName === 'folderId') {
+      // Load files filtered by folder
+    }
+    
+    // Default loading logic
+  }
+  
+  canHandle(fieldName: string, providerId: string): boolean {
+    const supportedFields = ['folderId', 'fileId', 'filePreview']
+    return providerId === 'google-drive' && supportedFields.includes(fieldName)
+  }
+  
+  shouldReloadOnDependencyChange(fieldName: string, dependencyFieldName: string): boolean {
+    // Define which fields should reload when dependencies change
+    return (fieldName === 'fileId' && dependencyFieldName === 'folderId')
   }
 }
 ```
 
-### 5. Implement Data Handlers for Dynamic Fields
-**Location:** `/app/api/integrations/[provider]/data/handlers/[handler].ts`
-
+Register in `/components/workflows/configuration/providers/registry.ts`:
 ```typescript
-export const getDataType = async (integration: Integration, options?: any) => {
-  // Fetch data from API
-  const data = await fetchFromAPI(...)
-  
-  // Format for dropdown
-  return data.map(item => ({
-    value: item.id,
-    label: item.name
-  }))
-}
+import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoader'
+// In registerDefaultLoaders():
+this.register('google-drive', new GoogleDriveOptionsLoader())
 ```
 
-### 6. Register Data Handlers
-**Location:** `/app/api/integrations/[provider]/data/handlers/index.ts`
+### 6. Implement API Data Handlers
+**Location:** `/app/api/integrations/[provider]/data/route.ts`
+
+Create API endpoints to fetch dynamic data:
 
 ```typescript
-export const handlers: Record<string, DataHandler> = {
-  'data-type-identifier': getDataType,
-  // ... other handlers
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
+  const type = searchParams.get('type')
+  
+  switch (type) {
+    case 'folders':
+      // Fetch and return folders
+    case 'files':
+      // Fetch and return files
+  }
+}
+
+export async function POST(req: NextRequest) {
+  // For operations that need request body (like file preview)
+  const { fileId } = await req.json()
+  // Fetch and return preview
 }
 ```
 
@@ -185,7 +254,48 @@ interface ActionResult {
 
 ## Common Patterns
 
-### Pattern 1: Multiple Operations with Error Collection
+### Pattern 1: Conditional Field Visibility
+Use conditional fields to show/hide fields based on other field values:
+```typescript
+// Show fileId only when folderId is selected
+{
+  name: "fileId",
+  label: "File",
+  type: "select",
+  dynamic: "google-drive-files",
+  required: true,
+  dependsOn: "folderId",
+  conditional: { field: "folderId", exists: true }
+}
+
+// Show different field when no folder selected
+{
+  name: "fileIdAll",
+  label: "File",
+  type: "select",
+  dynamic: "google-drive-files",
+  required: true,
+  conditional: { field: "folderId", exists: false }
+}
+```
+
+### Pattern 2: File Preview Fields
+For read-only preview fields that show content based on selection:
+```typescript
+{
+  name: "filePreview",
+  label: "File Preview",
+  type: "textarea",
+  required: false,
+  placeholder: "File preview will appear here...",
+  rows: 10,
+  disabled: true, // Make it read-only
+  dependsOn: "fileId", // Reload when file changes
+  conditional: { field: "fileId", exists: true } // Only show when file selected
+}
+```
+
+### Pattern 3: Multiple Operations with Error Collection
 ```typescript
 const results = []
 const errors = []
@@ -210,7 +320,7 @@ return {
 }
 ```
 
-### Pattern 2: Conditional Operations
+### Pattern 4: Conditional Operations
 ```typescript
 if (makePublic) {
   // Additional operation
@@ -221,7 +331,7 @@ if (sendNotification) {
 }
 ```
 
-### Pattern 3: Default Values and Optional Fields
+### Pattern 5: Default Values and Optional Fields
 ```typescript
 const {
   requiredField, // Will error if not provided
@@ -387,10 +497,61 @@ All actions/triggers must follow this structure for consistency:
 7. **Return structure** - Always success/output/message
 8. **Error handling** - Log and return standardized error
 
+## Recent Architectural Changes (2024)
+
+### Provider-Specific Node Files
+Some providers now use separate node definition files instead of adding everything to availableNodes.ts:
+- Google Drive: `/lib/workflows/nodes/providers/google-drive/index.ts`
+- Pattern: Export array of node definitions that get imported elsewhere
+
+### Integration Services Pattern
+Many providers now route through integration services instead of direct handler registration:
+- Location: `/lib/services/integrations/[provider]IntegrationService.ts`
+- Benefit: Centralized provider logic, dynamic imports, better organization
+- Pattern: Service checks node type and routes to appropriate handler
+
+### Provider Options Loaders
+Complex field loading logic has been extracted to provider-specific loaders:
+- Location: `/components/workflows/configuration/providers/[provider]/`
+- Benefit: Handles dependent fields, previews, special loading logic
+- Registration: Add to provider registry in `/components/workflows/configuration/providers/registry.ts`
+
+### Centralized Field Mappings
+Field mappings moved from hooks to centralized configuration:
+- Old: `/components/workflows/configuration/hooks/useDynamicOptions.ts`
+- New: `/components/workflows/configuration/config/fieldMappings.ts`
+- Benefit: Better organization, easier to find and update
+
+## Tips and Pitfalls to Avoid
+
+### Common Pitfalls
+1. **Forgetting field mappings** - #1 cause of "Unsupported data type" errors
+2. **Not registering handlers** - Action executes but does nothing
+3. **Provider name mismatches** - Integration shows as disconnected
+4. **Missing output schema** - Next nodes can't access the data
+5. **Not handling file fields properly** - Files need special storage handling
+6. **Forgetting conditional field logic** - Fields show when they shouldn't
+
+### Pro Tips
+1. **Check for existing provider files first** - Don't duplicate in availableNodes.ts
+2. **Use integration services for Google/Microsoft** - They're already set up
+3. **Test with real API data early** - Mock data often differs from reality
+4. **Add comprehensive logging** - Helps debug execution issues
+5. **Use conditional fields for better UX** - Hide irrelevant fields
+6. **Implement preview features** - Users love seeing what they're selecting
+7. **Handle partial failures gracefully** - Process what you can, report what failed
+
+### Time Estimates
+- **Simple action** (1-3 fields, basic API call): 30-45 minutes
+- **Medium action** (4-8 fields, some dependencies): 1-2 hours  
+- **Complex action** (previews, conditional fields, multiple operations): 2-4 hours
+- **New provider setup** (OAuth, first action): 4-6 hours
+
 ## Notes
 
 - This guide applies to both actions and triggers
 - Triggers may have additional webhook handling requirements
 - Some providers may need special authentication handling
-- Update this guide when discovering new patterns or requirements
+- **This is a living document** - Update when discovering new patterns or requirements
+- Last major update: January 2025 (Google Drive Get File implementation)
 - Always test the complete flow from UI to execution

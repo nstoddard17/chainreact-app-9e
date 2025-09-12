@@ -23,7 +23,7 @@ interface GmailEmailRichTextEditorProps {
   className?: string
   error?: string
   userId?: string
-  autoIncludeSignature?: boolean
+  // autoIncludeSignature removed - signatures must be manually added
 }
 
 export function GmailEmailRichTextEditor({
@@ -32,8 +32,7 @@ export function GmailEmailRichTextEditor({
   placeholder = "Compose your email...",
   className = "",
   error,
-  userId,
-  autoIncludeSignature = false
+  userId
 }: GmailEmailRichTextEditorProps) {
   const [signatures, setSignatures] = useState<GmailSignature[]>([])
   const [selectedSignature, setSelectedSignature] = useState<string>('')
@@ -56,12 +55,20 @@ export function GmailEmailRichTextEditor({
         const data = await response.json()
         setSignatures(data.signatures || [])
         
-        // Auto-select default signature
+        // Check if any signature is already present in the content
         const defaultSignature = data.signatures?.find((sig: GmailSignature) => sig.isDefault)
-        if (defaultSignature && autoIncludeSignature && !value.includes(defaultSignature.content)) {
-          setSelectedSignature(defaultSignature.id)
-          onChange(value + '\n\n' + defaultSignature.content)
+        if (value && value.trim() !== '') {
+          // Body has content, check if a signature is already present
+          const existingSignature = data.signatures?.find((sig: GmailSignature) => {
+            const normalizedContent = sig.content.replace(/\s+/g, ' ').trim()
+            const normalizedValue = value.replace(/\s+/g, ' ').trim()
+            return normalizedValue.includes(normalizedContent)
+          })
+          if (existingSignature) {
+            setSelectedSignature(existingSignature.id)
+          }
         }
+        // Don't auto-add signature - user must manually add it using the signature button
       } else {
         console.error('Failed to load Gmail signatures:', response.status)
       }
@@ -75,19 +82,46 @@ export function GmailEmailRichTextEditor({
   const insertSignature = (signatureId: string) => {
     const signature = signatures.find(s => s.id === signatureId)
     if (signature) {
-      // Remove existing signature if any
-      let newValue = value
-      signatures.forEach(sig => {
-        newValue = newValue.replace(sig.content, '').trim()
+      // First, check if ANY signature is already in the value to prevent duplicates
+      const hasAnySignature = signatures.some(sig => {
+        // Create a normalized version for comparison (remove extra whitespace/newlines)
+        const normalizedContent = sig.content.replace(/\s+/g, ' ').trim()
+        const normalizedValue = value.replace(/\s+/g, ' ').trim()
+        return normalizedValue.includes(normalizedContent)
       })
       
-      // Add new signature
-      newValue = newValue + '\n\n' + signature.content
-      onChange(newValue)
+      if (hasAnySignature) {
+        // Remove ALL existing signatures first
+        let newValue = value
+        signatures.forEach(sig => {
+          // Try multiple ways to remove the signature
+          const patterns = [
+            sig.content,
+            '\n\n' + sig.content,
+            '\n' + sig.content,
+            sig.content.replace(/\s+/g, ' ').trim()
+          ]
+          patterns.forEach(pattern => {
+            while (newValue.includes(pattern)) {
+              newValue = newValue.replace(pattern, '')
+            }
+          })
+        })
+        newValue = newValue.trim()
+        
+        // Now add the new signature
+        newValue = newValue + '\n\n' + signature.content
+        onChange(newValue)
+      } else {
+        // No existing signature, just add the new one
+        const newValue = value.trim() + '\n\n' + signature.content
+        onChange(newValue)
+      }
+      
       setSelectedSignature(signatureId)
       
       toast({
-        title: "Signature added",
+        title: "Signature updated",
         description: `${signature.name} signature has been added to your email.`,
       })
     }

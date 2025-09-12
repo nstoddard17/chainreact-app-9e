@@ -378,11 +378,19 @@ export function VariablePickerSidePanel({
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, variable: string) => {
+    console.log('🚀 [VariablePickerSidePanel] Drag started:', {
+      variable,
+      dataTransferTypes: e.dataTransfer.types,
+      effectAllowed: 'copy'
+    })
     e.dataTransfer.setData('text/plain', variable)
     e.dataTransfer.effectAllowed = 'copy'
   }
 
   const handleDragEnd = (e?: React.DragEvent) => {
+    console.log('🏁 [VariablePickerSidePanel] Drag ended', {
+      dropEffect: e?.dataTransfer?.dropEffect
+    })
     if (e) {
       e.preventDefault()
     }
@@ -627,7 +635,9 @@ export function VariablePickerSidePanel({
                   <CollapsibleContent className="bg-white">
                     {hasOutputs ? (
                       node.outputs.map((output: any) => {
-                                                  const variableRef = `{{${node.title}.${output.label || output.name}}}`
+                                                  // Use node.id for the actual variable reference, not node.title
+                        const variableRef = `{{${node.id}.output.${output.name}}}`
+                        const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
                         const variableValue = getVariableValue(node.id, output.name)
                         const hasValue = variableValue !== null
                         
@@ -637,6 +647,12 @@ export function VariablePickerSidePanel({
                             className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
                             onDragStart={(e) => {
+                              console.log('🎯 [VariablePickerSidePanel] Variable drag start:', {
+                                variableRef,
+                                nodeTitle: node.title,
+                                outputName: output.name,
+                                outputLabel: output.label
+                              })
                               e.stopPropagation() // Prevent collapsible from closing
                               handleDragStart(e, variableRef)
                             }}

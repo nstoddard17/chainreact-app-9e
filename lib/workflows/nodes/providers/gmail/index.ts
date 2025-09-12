@@ -163,16 +163,49 @@ export const gmailNodes: NodeComponent[] = [
       },
       { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true, description: "Subject line of the email" },
       { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your email message...", provider: "gmail", description: "Email message content with rich text formatting" },
+      { name: "signature", label: "Signature", type: "hidden", required: false, description: "Selected email signature content" },
+      {
+        name: "sourceType",
+        label: "Attachment Source",
+        type: "select",
+        required: false,
+        defaultValue: "file",
+        options: [
+          { value: "file", label: "Upload Files" },
+          { value: "url", label: "From URL" },
+          { value: "node", label: "From Previous Node" }
+        ],
+        description: "Choose how to provide attachments"
+      },
       { 
-        name: "attachments", 
-        label: "Attachments", 
+        name: "uploadedFiles", 
+        label: "Upload Files", 
         type: "file", 
         required: false,
-        placeholder: "Select files to attach", 
+        placeholder: "Choose files to attach...",
         multiple: true,
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
         maxSize: 25 * 1024 * 1024, // 25MB limit (Gmail's attachment limit)
-        description: "Attach files from your computer or select files from previous workflow nodes"
+        description: "Upload files from your computer (max 25MB per file)",
+        conditional: { field: "sourceType", value: "file" }
+      },
+      { 
+        name: "fileUrl", 
+        label: "File URL", 
+        type: "text", 
+        required: false,
+        placeholder: "https://example.com/file.pdf",
+        description: "Direct URL to a publicly accessible file",
+        conditional: { field: "sourceType", value: "url" }
+      },
+      { 
+        name: "fileFromNode", 
+        label: "File Variable", 
+        type: "text", 
+        required: false,
+        placeholder: "{{node-id.output.file}}",
+        description: "Use a file from a previous node (e.g., from Google Drive)",
+        conditional: { field: "sourceType", value: "node" }
       },
     ],
     actionParamsSchema: {
@@ -182,7 +215,10 @@ export const gmailNodes: NodeComponent[] = [
       subject: "The subject line of the email.",
       body: "The email content, which can be plain text or HTML.",
       signature: "Email signature to append to the message.",
-      attachments: "Files to be included as attachments.",
+      sourceType: "How attachments are provided (file, url, or node).",
+      uploadedFiles: "Files uploaded directly for attachments.",
+      fileUrl: "URL to a file to attach.",
+      fileFromNode: "Variable reference to a file from a previous node.",
     },
   },
   {

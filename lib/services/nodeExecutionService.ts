@@ -60,7 +60,22 @@ export class NodeExecutionService {
 
       // Store result in data flow manager
       if (context.dataFlowManager && nodeResult) {
-        context.dataFlowManager.setNodeOutput(node.id, nodeResult)
+        // Convert the result to the format expected by DataFlowManager
+        // Actions return { success, output, message } but DataFlowManager expects { success, data }
+        const nodeOutput = {
+          success: nodeResult.success !== undefined ? nodeResult.success : true,
+          data: nodeResult.output || nodeResult.data || nodeResult,
+          metadata: {
+            timestamp: new Date(),
+            nodeType: node.data.type,
+            executionTime: Date.now() - startTime
+          }
+        }
+        context.dataFlowManager.setNodeOutput(node.id, nodeOutput)
+        console.log(`💾 Stored output for node ${node.id}:`, {
+          success: nodeOutput.success,
+          dataKeys: nodeOutput.data ? Object.keys(nodeOutput.data) : 'no data'
+        })
       }
       
       // For integration nodes that return an output object, pass the output directly

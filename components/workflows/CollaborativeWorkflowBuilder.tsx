@@ -891,6 +891,19 @@ const useWorkflowBuilderState = () => {
       })
     }
     
+    // GMAIL ATTACHMENT DEBUG: Log configuration for Gmail nodes
+    if (configuringNodeInfo?.providerId === 'gmail' && configuringNodeInfo?.type === 'gmail_action_send_email') {
+      console.log('📎 [GMAIL DEBUG] Saving Gmail configuration:', {
+        sourceType: config.sourceType,
+        uploadedFiles: config.uploadedFiles,
+        uploadedFilesType: typeof config.uploadedFiles,
+        uploadedFilesIsArray: Array.isArray(config.uploadedFiles),
+        uploadedFilesLength: Array.isArray(config.uploadedFiles) ? config.uploadedFiles.length : 'N/A',
+        fullConfig: config,
+        nodeType: configuringNodeInfo?.type
+      })
+    }
+    
     try {
       // Check if this is a pending node that needs to be added
       if (pendingNode && (pendingNode as any).nodeId === configuringNode.id) {
@@ -991,6 +1004,13 @@ const useWorkflowBuilderState = () => {
         setPendingNode(null)
       } else {
         // This is an existing node - just update its configuration
+        console.log('📎 [handleConfigurationSave] Updating existing node config:', {
+          nodeId: configuringNode.id,
+          config: config,
+          uploadedFiles: config.uploadedFiles,
+          sourceType: config.sourceType
+        });
+        
         setNodes((nds) =>
           nds.map((node) => {
             if (node.id === configuringNode.id) {
@@ -2513,7 +2533,13 @@ const useWorkflowBuilderState = () => {
         name: nameToSave,
         nodesCount: mappedNodes.length,
         connectionsCount: mappedConnections.length,
-        firstNode: mappedNodes[0]
+        firstNode: mappedNodes[0],
+        // Check Gmail nodes specifically
+        gmailNodes: mappedNodes.filter(n => n.data.type === 'gmail_action_send_email').map(n => ({
+          id: n.id,
+          config: n.data.config,
+          uploadedFiles: n.data.config?.uploadedFiles
+        }))
       })
       
       // Save to database
@@ -6760,7 +6786,7 @@ function WorkflowBuilderContent() {
               nodeInfo={configuringNodeInfo}
               integrationName={configuringIntegrationName}
               initialData={configuringInitialData}
-              workflowData={{ nodes, edges }}
+              workflowData={{ nodes, edges, id: workflowId }}
               currentNodeId={configuringNode?.id}
             />
           )}

@@ -615,7 +615,7 @@ export function EmailRichTextEditor({
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
   const [fontSize, setFontSize] = useState('14px')
   const [textColor, setTextColor] = useState('#000000')
-  const [autoIncludeSignature, setAutoIncludeSignature] = useState(true)
+  // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
   
   const editorRef = useRef<HTMLDivElement>(null)
@@ -664,13 +664,15 @@ export function EmailRichTextEditor({
           return
         }
         
-        // Auto-select default signature
+        // Auto-select default signature but DON'T add it to the content
         const defaultSignature = data.signatures?.find((sig: EmailSignature) => sig.isDefault)
-        if (defaultSignature && autoIncludeSignature) {
-          setSelectedSignature(defaultSignature.id)
-          if (!value.includes(defaultSignature.content)) {
-            onChange(value + '\n\n' + defaultSignature.content)
+        if (defaultSignature) {
+          // Check if signature is already in the content
+          if (value && value.includes(defaultSignature.content)) {
+            // If the signature is already in the value, just set it as selected
+            setSelectedSignature(defaultSignature.id)
           }
+          // Don't auto-add signature - user must manually add it using the signature button
         }
       } else {
         console.error(`Failed to load ${integrationProvider} signatures:`, response.status, response.statusText)
@@ -704,17 +706,8 @@ export function EmailRichTextEditor({
         editorRef.current.innerHTML = template.content
       }
       
-      // Add signature if auto-include is enabled
-      if (autoIncludeSignature && selectedSignature) {
-        const signature = signatures.find(sig => sig.id === selectedSignature)
-        if (signature) {
-          const contentWithSignature = template.content + '\n\n' + signature.content
-          onChange(contentWithSignature)
-          if (editorRef.current) {
-            editorRef.current.innerHTML = contentWithSignature
-          }
-        }
-      }
+      // Don't auto-add signature when inserting template
+      // User can manually add signature if needed
       
       setSelectedTemplate('')
       toast({
@@ -961,16 +954,7 @@ export function EmailRichTextEditor({
                 <h4 className="text-sm font-medium text-foreground">Email Signatures</h4>
                 <p className="text-xs text-muted-foreground mt-1">Add your signature to the email</p>
                 
-                <div className="flex items-center space-x-2 mt-3">
-                  <Switch
-                    id="auto-signature"
-                    checked={autoIncludeSignature}
-                    onCheckedChange={setAutoIncludeSignature}
-                  />
-                  <Label htmlFor="auto-signature" className="text-xs text-foreground">
-                    Auto-include signature
-                  </Label>
-                </div>
+                {/* Auto-include signature removed - signatures must be manually added */}
               </div>
               <ScrollArea className="max-h-48 w-full" type="scroll" scrollHideDelay={600}>
                 <div className="p-2">
