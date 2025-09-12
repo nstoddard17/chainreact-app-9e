@@ -1287,6 +1287,51 @@ const useWorkflowBuilderState = () => {
             }
           }
           
+          // Clean up any uploaded files associated with this node
+          if (currentWorkflow?.id && deletingNodeId) {
+            // Check if this node type might have file uploads
+            const fileUploadNodeTypes = [
+              'google-drive:create_file',
+              'google-drive:upload_file',
+              'google_drive_upload_file',
+              'google_drive_action_upload_file',
+              // Add other node types that handle files here as needed
+            ];
+            
+            if (nodeType && fileUploadNodeTypes.includes(nodeType)) {
+              try {
+                console.log('🗑️ [WorkflowBuilder] Cleaning up files for deleted node:', {
+                  workflowId: currentWorkflow.id,
+                  nodeId: deletingNodeId,
+                  nodeType: nodeType
+                });
+                
+                // Get the user session for auth
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                  // Call the DELETE endpoint to clean up files
+                  const response = await fetch(
+                    `/api/workflows/files/upload?nodeId=${deletingNodeId}&workflowId=${currentWorkflow.id}`,
+                    {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                      },
+                    }
+                  );
+                  
+                  if (response.ok) {
+                    console.log('✅ [WorkflowBuilder] Files cleaned up for deleted node');
+                  } else {
+                    console.warn('⚠️ [WorkflowBuilder] Failed to clean up files for deleted node');
+                  }
+                }
+              } catch (fileError) {
+                console.error('❌ [WorkflowBuilder] Error cleaning up files for deleted node:', fileError);
+              }
+            }
+          }
+          
           if (nodeType && providerId) {
             // Since we can't easily identify which preferences belong to which node,
             // we'll clear ALL preferences for this node type and provider
@@ -2843,8 +2888,17 @@ const useWorkflowBuilderState = () => {
     if (isExecuting) return
     
     try {
-      if (!currentWorkflow) {
-        throw new Error("No workflow selected")
+      if (!currentWorkflow || !currentWorkflow.id) {
+        // Check if this is a new unsaved workflow
+        if (hasUnsavedChanges || !workflowId) {
+          toast({
+            title: "Save Workflow First",
+            description: "Please save your workflow before running it live.",
+            variant: "destructive"
+          })
+          return
+        }
+        throw new Error("No workflow selected or workflow not properly loaded")
       }
       
       // Wait if there are unsaved changes or if currently saving
@@ -2942,8 +2996,20 @@ const useWorkflowBuilderState = () => {
           variant: "default"
         })
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || 'Failed to execute workflow')
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Unknown error' }
+        }
+        console.error('❌ [WorkflowBuilder] Execution failed:', {
+          status: response.status,
+          error: errorData,
+          workflowId: currentWorkflow.id,
+          nodesCount: currentNodes.length
+        })
+        throw new Error(errorData.error || errorData.message || 'Failed to execute workflow')
       }
     } catch (error: any) {
       console.error('Error executing live workflow:', error)

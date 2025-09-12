@@ -8,8 +8,8 @@ export class GoogleIntegrationService {
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
 
-    // Google Drive actions
-    if (nodeType.startsWith('google_drive_')) {
+    // Google Drive actions (handle both google_drive_ and google-drive: prefixes)
+    if (nodeType.startsWith('google_drive_') || nodeType.startsWith('google-drive:')) {
       return await this.executeGoogleDriveAction(node, context)
     }
 
@@ -19,12 +19,12 @@ export class GoogleIntegrationService {
     }
 
     // Google Docs actions
-    if (nodeType.startsWith('google_docs_')) {
+    if (nodeType.startsWith('google_docs_') || nodeType.startsWith('google-docs:')) {
       return await this.executeGoogleDocsAction(node, context)
     }
 
     // Google Calendar actions
-    if (nodeType.startsWith('calendar_') || nodeType.startsWith('google_calendar_')) {
+    if (nodeType.startsWith('calendar_') || nodeType.startsWith('google_calendar_') || nodeType.startsWith('google-calendar:')) {
       return await this.executeGoogleCalendarAction(node, context)
     }
 
@@ -39,15 +39,23 @@ export class GoogleIntegrationService {
 
     switch (nodeType) {
       case "google_drive_create_file":
+      case "google-drive:create_file":  // New format from nodes
         return await this.executeCreateFile(node, context)
       case "google_drive_upload_file":
+      case "google_drive_action_upload_file":
+      case "google-drive:upload_file":  // If we add this in future
         return await this.executeUploadFile(node, context)
       case "google_drive_create_folder":
+      case "google-drive:create_folder":
         return await this.executeCreateFolder(node, context)
       case "google_drive_delete_file":
+      case "google-drive:delete_file":
         return await this.executeDeleteFile(node, context)
       case "google_drive_share_file":
+      case "google-drive:share_file":
         return await this.executeShareFile(node, context)
+      case "google-drive:get_file":  // From nodes definition
+        return await this.executeGetFile(node, context)
       default:
         throw new Error(`Google Drive action '${nodeType}' is not yet implemented`)
     }
@@ -196,32 +204,47 @@ export class GoogleIntegrationService {
     }
   }
 
-  // Google Drive implementations (simplified - actual implementation when actions are available)
+  // Google Drive implementations
   private async executeCreateFile(node: any, context: ExecutionContext) {
-    console.log("📄 Executing Google Drive create file")
+    console.log("📄 Executing Google Drive create/upload file")
     
     const config = node.data.config || {}
-    const fileName = this.resolveValue(config.fileName || config.name, context)
-    const content = this.resolveValue(config.content, context)
-    const folderId = this.resolveValue(config.folderId || config.parent_id, context)
-
-    if (!fileName) {
-      throw new Error("Google Drive create file requires 'fileName' field")
+    
+    console.log("🔍 [GoogleIntegrationService] Google Drive config:", {
+      nodeId: node.id,
+      nodeType: node.data.type,
+      config: config,
+      hasUploadedFiles: !!config.uploadedFiles,
+      uploadedFiles: config.uploadedFiles,
+      sourceType: config.sourceType,
+      fileName: config.fileName,
+      userId: context.userId
+    })
+    
+    // Pass the workflow ID if available for file storage context
+    const enrichedConfig = {
+      ...config,
+      workflowId: context.workflowId
     }
 
     if (context.testMode) {
       return {
         type: "google_drive_create_file",
-        fileName,
-        content,
-        folderId,
-        status: "created (test mode)",
+        fileName: config.fileName,
+        sourceType: config.sourceType,
+        status: "uploaded (test mode)",
         fileId: "test-file-id"
       }
     }
 
-    // TODO: Implement actual Google Drive create file
-    throw new Error("Google Drive create file is not yet implemented")
+    try {
+      // Use the uploadGoogleDriveFile function we already have
+      const { uploadGoogleDriveFile } = await import('@/lib/workflows/actions/googleDrive/uploadFile')
+      return await uploadGoogleDriveFile(enrichedConfig, context.userId, context.data || {})
+    } catch (error: any) {
+      console.error("❌ [GoogleIntegrationService] Error executing Google Drive upload:", error)
+      throw new Error(`Google Drive upload failed: ${error.message}`)
+    }
   }
 
   private async executeUploadFile(node: any, context: ExecutionContext) {
@@ -313,6 +336,30 @@ export class GoogleIntegrationService {
 
     // TODO: Implement actual Google Drive share file
     throw new Error("Google Drive share file is not yet implemented")
+  }
+
+  private async executeGetFile(node: any, context: ExecutionContext) {
+    console.log("📥 Executing Google Drive get file")
+    
+    const config = node.data.config || {}
+    const fileId = this.resolveValue(config.fileId, context)
+
+    if (!fileId) {
+      throw new Error("Google Drive get file requires 'fileId' field")
+    }
+
+    if (context.testMode) {
+      return {
+        type: "google_drive_get_file",
+        fileId,
+        status: "retrieved (test mode)",
+        fileName: "test-file.txt",
+        content: "Test file content"
+      }
+    }
+
+    // TODO: Implement actual Google Drive get file
+    throw new Error("Google Drive get file is not yet implemented")
   }
 
   private resolveValue(value: any, context: ExecutionContext): any {
