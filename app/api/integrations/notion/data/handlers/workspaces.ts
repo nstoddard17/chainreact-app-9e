@@ -46,18 +46,43 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
     }
     
     console.log(`🔍 Found integration: ${notionIntegration.id}`)
+    console.log('📦 Full metadata object:', JSON.stringify(notionIntegration.metadata, null, 2))
     
-    // Get workspaces from metadata
-    const workspaces = notionIntegration.metadata?.workspaces || {}
-    const workspaceArray = Object.entries(workspaces).map(([id, workspace]: [string, any]) => ({
-      id,
-      name: workspace.name,
-      value: id,
-      label: workspace.name,
-      icon: workspace.icon,
-      owner: workspace.owner,
-      object: workspace.object || 'workspace'
-    }))
+    // Get workspaces from metadata - check different possible structures
+    let workspaces = notionIntegration.metadata?.workspaces || {}
+    
+    // If workspaces is empty, check if the metadata itself contains workspace data
+    if (Object.keys(workspaces).length === 0 && notionIntegration.metadata) {
+      // Check if metadata has workspace_id and workspace_name directly
+      if (notionIntegration.metadata.workspace_id && notionIntegration.metadata.workspace_name) {
+        console.log('📦 Found workspace data directly in metadata')
+        workspaces = {
+          [notionIntegration.metadata.workspace_id]: {
+            workspace_id: notionIntegration.metadata.workspace_id,
+            workspace_name: notionIntegration.metadata.workspace_name,
+            workspace_icon: notionIntegration.metadata.workspace_icon,
+            bot_id: notionIntegration.metadata.bot_id,
+            owner_type: notionIntegration.metadata.owner_type,
+            user_info: notionIntegration.metadata.user_info
+          }
+        }
+      }
+    }
+    
+    console.log('📦 Workspaces object to process:', JSON.stringify(workspaces, null, 2))
+    
+    const workspaceArray = Object.entries(workspaces).map(([id, workspace]: [string, any]) => {
+      console.log(`🔍 Processing workspace ${id}:`, JSON.stringify(workspace, null, 2))
+      return {
+        id,
+        name: workspace.workspace_name || workspace.name || id,  // Use workspace_name (correct property)
+        value: id,
+        label: workspace.workspace_name || workspace.name || id,  // Use workspace_name (correct property)
+        icon: workspace.workspace_icon || workspace.icon,
+        owner: workspace.owner_type || workspace.owner,
+        object: workspace.object || 'workspace'
+      }
+    })
     
     console.log(`✅ Found ${workspaceArray.length} workspaces in metadata`)
     

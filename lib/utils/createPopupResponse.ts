@@ -7,6 +7,7 @@ export function createPopupResponse(
   provider: string,
   message: string,
   baseUrl: string,
+  options?: { autoClose?: boolean }
 ) {
   // Log the popup response creation for debugging
   console.log(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
@@ -20,6 +21,17 @@ export function createPopupResponse(
   
   // Create a unique storage key for this response
   const storageKey = `oauth_response_${safeProvider}_${Date.now()}`;
+  
+  // Determine if this is a personal account error that shouldn't auto-close
+  const isPersonalAccountError = type === 'error' && 
+    (message.includes('Personal Microsoft accounts') || 
+     message.includes('personal Microsoft accounts') ||
+     message.includes('work or school account'));
+  
+  // Don't auto-close for errors unless explicitly set, especially for personal account errors
+  const shouldAutoClose = options?.autoClose !== undefined 
+    ? options.autoClose 
+    : (type === 'success' || !isPersonalAccountError);
   
   const script = `
     <script>
@@ -105,20 +117,28 @@ export function createPopupResponse(
         
         sendMessage();
         
-        // Ensure window closes after a delay, regardless of message success
-        // Microsoft providers need more time to ensure the message is received
-        const isMicrosoftProvider = ['microsoft-onenote', 'onenote', 'microsoft-outlook', 'outlook', 'teams', 'onedrive'].includes('${safeProvider}');
-        const closeDelay = isMicrosoftProvider ? 3000 : 2000;
-        setTimeout(() => {
-          if (!messageSent) {
-            console.warn('Closing window without confirming message was sent');
-          }
-          window.close();
-        }, closeDelay);
+        // Only auto-close if configured to do so
+        const shouldAutoClose = ${shouldAutoClose};
+        if (shouldAutoClose) {
+          // Ensure window closes after a delay, regardless of message success
+          // Microsoft providers need more time to ensure the message is received
+          const isMicrosoftProvider = ['microsoft-onenote', 'onenote', 'microsoft-outlook', 'outlook', 'teams', 'onedrive'].includes('${safeProvider}');
+          const closeDelay = isMicrosoftProvider ? 3000 : 2000;
+          setTimeout(() => {
+            if (!messageSent) {
+              console.warn('Closing window without confirming message was sent');
+            }
+            window.close();
+          }, closeDelay);
+        } else {
+          console.log('Auto-close disabled for this message');
+        }
       } catch (e) {
         console.error('Error in popup window:', e);
-        // Force close the window even if an error occurs
-        setTimeout(() => window.close(), 1000);
+        // Only force close if auto-close is enabled
+        if (${shouldAutoClose}) {
+          setTimeout(() => window.close(), 1000);
+        }
       }
     </script>
   `
@@ -310,7 +330,12 @@ export function createPopupResponse(
                <div class="progress-bar">
                  <div class="progress-fill"></div>
                </div>` 
-            : `<button class="close-button" onclick="window.close()">Try Again</button>`
+            : isPersonalAccountError 
+              ? `<button class="close-button" onclick="window.close()">Close</button>
+                 <p class="subtitle" style="margin-top: 1rem; color: #e53e3e;">
+                   Please use a work or school Microsoft account instead.
+                 </p>`
+              : `<button class="close-button" onclick="window.close()">Try Again</button>`
           }
           
           <div class="brand-footer">

@@ -11,7 +11,8 @@ import { validateNotionIntegration, validateNotionToken, getDatabaseTitle } from
 export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (integration: NotionIntegration, options?: any) => {
   try {
     validateNotionIntegration(integration)
-    console.log("🗄️ [Notion Databases] Fetching databases")
+    const targetWorkspaceId = options?.workspaceId
+    console.log("🗄️ [Notion Databases] Fetching databases", targetWorkspaceId ? `for workspace: ${targetWorkspaceId}` : '(all workspaces)')
 
     // Validate and get token
     const tokenResult = await validateNotionToken(integration)
@@ -43,17 +44,28 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
 
     const data = await response.json()
     
-    const databases = (data.results || []).map((database: any): NotionDatabase => ({
+    let databases = (data.results || []).map((database: any): NotionDatabase => ({
       id: database.id,
       name: getDatabaseTitle(database),
       value: database.id,
+      label: getDatabaseTitle(database), // Add label for dropdown display
       title: getDatabaseTitle(database),
       url: database.url,
       created_time: database.created_time,
       last_edited_time: database.last_edited_time,
       properties: database.properties,
-      parent: database.parent
+      parent: database.parent,
+      workspace_id: database.parent?.workspace // Try to get workspace from parent
     }))
+
+    // Filter by workspace if specified
+    // Note: Notion API doesn't directly provide workspace info, so this is best-effort
+    // In production, you might need to store workspace associations separately
+    if (targetWorkspaceId) {
+      // For now, we'll return all databases when workspace is specified
+      // since Notion's API doesn't easily filter by workspace
+      console.log(`⚠️ [Notion Databases] Workspace filtering requested but returning all databases (Notion API limitation)`)
+    }
 
     console.log(`✅ [Notion Databases] Retrieved ${databases.length} databases`)
     return databases

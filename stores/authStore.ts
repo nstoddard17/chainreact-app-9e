@@ -75,10 +75,11 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
-        // Add timeout protection for initialization (reduced from 5s to 2s)
+        // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
-          set({ loading: false, initialized: true, error: "Initialization timed out" })
-        }, 2000) // 2 seconds timeout for initialization
+          console.warn('Auth initialization timed out, forcing completion...')
+          set({ loading: false, initialized: true, error: null })
+        }, 3000) // 3 seconds timeout for initialization
 
         try {
           set({ loading: true, error: null })
@@ -160,16 +161,35 @@ export const useAuthStore = create<AuthState>()(
 
               if (fetchResult.error) {
                 // If fetch fails, try to create a new profile
+                // For Google users, extract first and last name from metadata
+                const isGoogleUser = user.app_metadata?.provider === 'google' || 
+                                   user.app_metadata?.providers?.includes('google') ||
+                                   user.identities?.some(id => id.provider === 'google')
+                
+                let firstName = user.user_metadata?.given_name || ''
+                let lastName = user.user_metadata?.family_name || ''
+                let fullName = user.user_metadata?.full_name || user.user_metadata?.name || ''
+                
+                // If we don't have first/last name but have full name, split it
+                if ((!firstName || !lastName) && fullName) {
+                  const nameParts = fullName.split(' ')
+                  firstName = firstName || nameParts[0] || ''
+                  lastName = lastName || nameParts.slice(1).join(' ') || ''
+                }
+                
                 const createProfileData = {
                   id: user.id,
-                  full_name: userObj.name,
-                  avatar_url: userObj.avatar,
-                  provider: user.app_metadata?.provider || 
-                           user.app_metadata?.providers?.[0] || 
-                           (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email'),
+                  full_name: fullName,
+                  first_name: firstName,
+                  last_name: lastName,
+                  avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+                  email: user.email,  // Include the email
+                  provider: isGoogleUser ? 'google' : 'email',
                   role: 'free',
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
+                  // Don't set username for Google users - they'll set it on the setup page
+                  username: isGoogleUser ? null : undefined,
                 }
 
                 const createResult = await supabase
@@ -201,7 +221,8 @@ export const useAuthStore = create<AuthState>()(
                     avatar_url: user.user_metadata?.avatar_url,
                     provider: detectedProvider,
                     role: 'free',
-                    username: user.email?.split('@')[0] || 'user',
+                    // Don't auto-generate username for Google users
+                    username: detectedProvider === 'google' ? null : (user.email?.split('@')[0] || 'user'),
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                   }
@@ -265,13 +286,14 @@ export const useAuthStore = create<AuthState>()(
 
                   // Only start if not already started and only fetch basic integration list
                   if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
-                    await integrationStore.fetchIntegrations(true)
+                    // Don't force refresh on initial load to avoid conflicts
+                    await integrationStore.fetchIntegrations(false)
                   }
                 } catch (error) {
-                  console.error("❌ Lightweight preload failed:", error)
+                  console.log("Background integration preload skipped:", error.message)
                   // Don't fail auth initialization for background preload errors
                 }
-              }, 2000) // Increased delay to prioritize UI responsiveness
+              }, 3000) // Increased delay to prioritize UI responsiveness and avoid conflicts
             } catch (profileError) {
               set({ user: userObj, profile: null, loading: false, initialized: true })
             }
@@ -464,16 +486,7 @@ export const useAuthStore = create<AuthState>()(
             })
           }
 
-          // Sign out from Supabase and wait for completion
-          console.log("🔄 Signing out from Supabase...")
-          const { error: signOutError } = await supabase.auth.signOut()
-          if (signOutError) {
-            console.error("❌ Supabase sign out error:", signOutError)
-          } else {
-            console.log("✅ Supabase sign out successful")
-          }
-
-          // Clear all stores after successful sign out
+          // Clear all stores immediately
           try {
             // Clear integration store
             const { useIntegrationStore } = await import("./integrationStore")
@@ -520,14 +533,18 @@ export const useAuthStore = create<AuthState>()(
             window.dispatchEvent(new CustomEvent('user-signout'))
           }
 
-          // Force a hard redirect to ensure clean state
-          console.log("🚀 Redirecting to homepage...")
-          if (typeof window !== 'undefined') {
-            // Add a small delay to ensure Supabase signout completes
-            setTimeout(() => {
-              window.location.replace('/')
-            }, 100)
-          }
+          // Note: Navigation is handled by the component calling signOut
+          // This ensures proper Next.js router usage
+          console.log("🚀 Sign out complete, navigation handled by caller")
+
+          // Sign out from Supabase in the background (don't wait)
+          console.log("🔄 Signing out from Supabase...")
+          supabase.auth.signOut().then(() => {
+            console.log("✅ Supabase sign out successful")
+          }).catch((error) => {
+            console.error("❌ Supabase sign out error:", error)
+          })
+          
         } catch (error: any) {
           console.error("Sign out error:", error)
           
@@ -537,8 +554,8 @@ export const useAuthStore = create<AuthState>()(
             profile: null, 
             loading: false, 
             error: null, 
-            initialized: false,
-            hydrated: false 
+            initialized: true, // Keep initialized to show signed out state
+            hydrated: true 
           })
           
           // Clear localStorage even if sign out failed
@@ -553,11 +570,8 @@ export const useAuthStore = create<AuthState>()(
                 localStorage.removeItem(key)
               }
             })
-          }
-          
-          // Still redirect even if there's an error
-          if (typeof window !== 'undefined') {
-            window.location.replace('/')
+            
+            // Note: Navigation is handled by the component calling signOut
           }
         }
       },
@@ -586,6 +600,7 @@ export const useAuthStore = create<AuthState>()(
               first_name: updates.first_name,
               last_name: updates.last_name,
               username: updates.username,
+              email: updates.email || user.email,  // Include email, fallback to user's email
               company: updates.company,
               job_title: updates.job_title,
               secondary_email: updates.secondary_email,
@@ -630,7 +645,11 @@ export const useAuthStore = create<AuthState>()(
             password,
           })
 
-          if (error) throw error
+          if (error) {
+            // Make sure to reset loading state before throwing
+            set({ error: error.message, loading: false })
+            throw error
+          }
 
           if (data.user) {
             const user: User = {
@@ -656,10 +675,26 @@ export const useAuthStore = create<AuthState>()(
             }
 
             set({ user, profile, loading: false, initialized: true })
+            
+            // Update integration store with new user ID after successful login
+            setTimeout(async () => {
+              try {
+                const { useIntegrationStore } = await import("./integrationStore")
+                useIntegrationStore.getState().setCurrentUserId(data.user.id)
+              } catch (error) {
+                console.error("Error updating integration store user ID after login:", error)
+              }
+            }, 100)
+            
             return { user, profile }
           }
+          
+          // If no user returned but also no error, still reset loading
+          set({ loading: false })
+          throw new Error("Login failed - no user data returned")
         } catch (error: any) {
           console.error("Sign in error:", error)
+          // Ensure loading is always reset on any error
           set({ error: error.message, loading: false })
           throw error
         }
@@ -669,15 +704,25 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
-          // Set up email confirmation URL
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL
+          // Set up email confirmation URL with explicit type parameter
+          // In development, use localhost; in production, use the actual domain
+          let baseUrl: string
+          if (typeof window !== 'undefined') {
+            baseUrl = window.location.origin
+          } else if (process.env.NODE_ENV === 'development') {
+            baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+          } else {
+            baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://chainreact.app'
+          }
+          
+          console.log('Signing up with email redirect to:', `${baseUrl}/api/auth/callback?type=email-confirmation`)
           
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
               data: metadata || {},
-              emailRedirectTo: `${baseUrl}/auth/waiting-confirmation?confirmed=true`
+              emailRedirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
             },
           })
 
@@ -685,6 +730,30 @@ export const useAuthStore = create<AuthState>()(
 
           // Store signup data temporarily for the waiting page
           if (data.user) {
+            // Create the user profile immediately with username and email
+            const profileData = {
+              id: data.user.id,
+              username: metadata?.username,
+              first_name: metadata?.first_name,
+              last_name: metadata?.last_name,
+              full_name: metadata?.full_name,
+              email: email,  // Store the primary email
+              provider: 'email',
+              role: 'free',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+
+            // Try to create the profile
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .insert(profileData)
+
+            if (profileError) {
+              console.error('Error creating profile during signup:', profileError)
+              // Don't throw - profile can be created later if needed
+            }
+
             localStorage.setItem('pendingSignup', JSON.stringify({
               userId: data.user.id,
               email: data.user.email,
@@ -732,10 +801,13 @@ export const useAuthStore = create<AuthState>()(
 
       checkUsernameAndRedirect: () => {
         const state = get()
-        if (state.profile && (!state.profile.username || state.profile.username.trim() === '')) {
-          // Only redirect if we're not already on the setup-username page
-          if (typeof window !== 'undefined' && window.location.pathname !== '/setup-username') {
-            window.location.href = '/setup-username'
+        // Check if Google user needs username setup
+        if (state.profile && 
+            state.profile.provider === 'google' && 
+            (!state.profile.username || state.profile.username.trim() === '')) {
+          // Redirect to username setup page for Google users
+          if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/setup-username')) {
+            window.location.href = '/auth/setup-username'
           }
         }
       },
@@ -847,6 +919,8 @@ export const useAuthStore = create<AuthState>()(
       },
       partialize: (state) => ({
         user: state.user,
+        profile: state.profile,
+        initialized: state.initialized,
       }),
       onRehydrateStorage: () => (state) => {
         try {

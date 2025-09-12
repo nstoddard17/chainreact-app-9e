@@ -104,6 +104,7 @@ export default function EmailConfirmPage() {
               full_name: fullName,
               first_name: firstName,
               last_name: lastName,
+              email: user.email,  // Include the email
               avatar_url: user.user_metadata?.avatar_url,
               provider: detectedProvider,
               role: 'free',
@@ -114,18 +115,10 @@ export default function EmailConfirmPage() {
 
         setProcessing(false)
 
-        // Proceed to username setup
-        const hasUsername = !!(existingProfile?.username && existingProfile.username.trim() !== '')
-        
-        if (!hasUsername) {
-          setTimeout(() => {
-            router.push('/setup-username')
-          }, 2000)
-        } else {
-          setTimeout(() => {
-            router.push('/dashboard')
-          }, 2000)
-        }
+        // Username is now set during signup, go to dashboard
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 2000)
         
       } catch (error) {
         console.error('Error handling email confirmation:', error)
@@ -233,16 +226,10 @@ export default function EmailConfirmPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Link href="/setup-username">
+                  <Link href="/dashboard">
                     <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                       <ArrowRight className="mr-2 h-4 w-4" />
-                      Set Up Username
-                    </Button>
-                  </Link>
-
-                  <Link href="/dashboard">
-                    <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
-                      Skip for Now
+                      Continue to Dashboard
                     </Button>
                   </Link>
                 </div>

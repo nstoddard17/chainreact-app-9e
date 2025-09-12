@@ -170,9 +170,10 @@ export function GenericSelectField({
     return String(optValue) === String(value);
   });
   
+  // Always prefer label over value for display
   const displayValue = selectedOption ? 
     (selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id) : 
-    value;
+    (value || '');
 
   // Fallback to regular Select with clear button
   return (
@@ -189,7 +190,7 @@ export function GenericSelectField({
           )}
         >
           <SelectValue placeholder={field.placeholder || "Select an option..."}>
-            {value ? displayValue : (field.placeholder || "Select an option...")}
+            {displayValue || (field.placeholder || "Select an option...")}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>

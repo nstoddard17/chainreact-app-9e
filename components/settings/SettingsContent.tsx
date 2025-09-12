@@ -5,9 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, CreditCard, Bell, Shield, Key, Trash2 } from "lucide-react"
+import { Settings, CreditCard, Bell, Shield, Key, Trash2, Sparkles } from "lucide-react"
 import BillingContent from "@/components/billing/BillingContent"
 import DataDeletionSettings from "./DataDeletionSettings"
+import AIUsageContent from "./AIUsageContent"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
@@ -115,6 +116,10 @@ export default function SettingsContent() {
       title: "Billing & Subscription",
       subtitle: "Manage your subscription and view usage statistics"
     },
+    "ai-usage": {
+      title: "AI Usage",
+      subtitle: "Monitor your AI usage and manage your monthly budget"
+    },
     notifications: {
       title: "Notification Settings",
       subtitle: "Configure your notification preferences"
@@ -140,10 +145,14 @@ export default function SettingsContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="billing" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Billing
+            </TabsTrigger>
+            <TabsTrigger value="ai-usage" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              AI Usage
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
@@ -161,6 +170,10 @@ export default function SettingsContent() {
 
           <TabsContent value="billing" className="mt-6">
             <BillingContent />
+          </TabsContent>
+
+          <TabsContent value="ai-usage" className="mt-6">
+            <AIUsageContent />
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-6">

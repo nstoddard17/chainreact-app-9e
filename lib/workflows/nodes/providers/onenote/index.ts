@@ -51,6 +51,7 @@ const onenoteActionCreatePage: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
+      loadOnMount: true,
       description: "The notebook where the page will be created"
     },
     { 
@@ -61,7 +62,6 @@ const onenoteActionCreatePage: NodeComponent = {
       required: false,
       placeholder: "Select a section",
       dependsOn: "notebookId",
-      hidden: true,
       description: "The section where the page will be created (uses default section if not specified)"
     },
     { 
@@ -70,8 +70,6 @@ const onenoteActionCreatePage: NodeComponent = {
       type: "text", 
       required: true, 
       placeholder: "Enter page title",
-      dependsOn: "notebookId",
-      hidden: true,
       description: "The title of the new page"
     },
     { 
@@ -80,8 +78,6 @@ const onenoteActionCreatePage: NodeComponent = {
       type: "textarea", 
       required: false, 
       placeholder: "Enter page content (HTML supported)",
-      dependsOn: "notebookId",
-      hidden: true,
       description: "The HTML content of the page. Supports limited HTML/XHTML tags"
     },
     {
@@ -90,8 +86,6 @@ const onenoteActionCreatePage: NodeComponent = {
       type: "select",
       required: false,
       defaultValue: "text/html",
-      dependsOn: "notebookId",
-      hidden: true,
       options: [
         { value: "text/html", label: "HTML" },
         { value: "application/xhtml+xml", label: "XHTML" },
@@ -153,6 +147,7 @@ const onenoteActionCreateSection: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
+      loadOnMount: true,
       description: "The notebook where the section will be created"
     },
     { 
@@ -183,6 +178,7 @@ const onenoteActionUpdatePage: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
+      loadOnMount: true,
       description: "The notebook containing the page"
     },
     { 
@@ -270,6 +266,7 @@ const onenoteActionGetPageContent: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
+      loadOnMount: true,
       description: "The notebook containing the page"
     },
     { 
@@ -328,6 +325,7 @@ const onenoteActionGetPages: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: false,
       placeholder: "Select a notebook (optional)",
+      loadOnMount: true,
       description: "Filter pages by notebook"
     },
     { 
@@ -394,6 +392,7 @@ const onenoteActionCopyPage: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select source notebook",
+      loadOnMount: true,
       description: "The notebook containing the page to copy"
     },
     { 
@@ -423,6 +422,7 @@ const onenoteActionCopyPage: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select target notebook",
+      loadOnMount: true,
       description: "The notebook to copy the page to"
     },
     { 
@@ -476,6 +476,7 @@ const onenoteActionSearch: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: false,
       placeholder: "Select notebook to search",
+      loadOnMount: true,
       description: "Limit search to this notebook",
       conditional: { field: "scope", value: "notebook" }
     },
@@ -520,6 +521,7 @@ const onenoteActionDeletePage: NodeComponent = {
       dynamic: "onenote_notebooks",
       required: true,
       placeholder: "Select a notebook",
+      loadOnMount: true,
       description: "The notebook containing the page"
     },
     { 

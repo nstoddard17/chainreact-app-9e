@@ -15,11 +15,13 @@ interface PlanSelectorProps {
 }
 
 export default function PlanSelector({ plans = [], currentSubscription, targetPlanId }: PlanSelectorProps) {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly")
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
+    currentSubscription?.billing_cycle === "yearly" ? "annual" : "monthly"
+  )
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
-  const { createCheckoutSession } = useBillingStore()
+  const { createCheckoutSession, changePlan } = useBillingStore()
   
   // Remove duplicate plans by name (in case database has duplicates)
   const uniquePlans = plans.reduce((acc: any[], plan: any) => {
@@ -35,6 +37,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   const handlePlanSelection = async (selectedPlanId: string) => {
     console.log("handlePlanSelection called with planId:", selectedPlanId)
     console.log("Available plans:", plans)
+    console.log("Current subscription:", currentSubscription)
     
     if (processingPlanId) {
       console.log("Already processing a plan, returning")
@@ -58,23 +61,48 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
       setError(null)
       
       const billingPeriod = billingCycle === "annual" ? "yearly" : "monthly"
-      console.log("Creating checkout session with billing period:", billingPeriod)
+      console.log("Billing period:", billingPeriod)
       
-      const checkoutUrl = await createCheckoutSession(selectedPlanId, billingPeriod)
+      // If user has an active subscription, change the plan
+      if (currentSubscription && currentSubscription.status === "active") {
+        console.log("Changing existing plan")
+        
+        // Check if switching from monthly to annual
+        const isUpgradeToAnnual = currentSubscription.billing_cycle === "monthly" && billingPeriod === "yearly"
+        
+        const result = await changePlan(selectedPlanId, billingPeriod)
+        
+        if (result.scheduledChange && isUpgradeToAnnual) {
+          setError(null)
+          // Show success message for scheduled annual upgrade
+          alert("Success! Your plan will change to annual billing at the end of your current billing period, adding 12 months to your subscription.")
+        } else {
+          // For immediate changes
+          alert("Your plan has been updated successfully!")
+        }
+        
+        // Refresh the page to show updated subscription
+        window.location.reload()
+      } else {
+        // No active subscription, create checkout session
+        console.log("Creating new checkout session")
+        
+        const checkoutUrl = await createCheckoutSession(selectedPlanId, billingPeriod)
 
-      if (!checkoutUrl) {
-        throw new Error("No checkout URL returned")
+        if (!checkoutUrl) {
+          throw new Error("No checkout URL returned")
+        }
+
+        console.log("Redirecting to checkout URL:", checkoutUrl)
+        window.location.href = checkoutUrl
       }
-
-      console.log("Redirecting to checkout URL:", checkoutUrl)
-      window.location.href = checkoutUrl
     } catch (error: any) {
-      console.error("Failed to create checkout session:", error)
+      console.error("Failed to process plan selection:", error)
 
       if (error.message?.includes("STRIPE_NOT_CONFIGURED")) {
         setError("Billing is not yet configured for this application. Please contact support.")
       } else {
-        setError("There was an error creating your checkout session. Please try again later.")
+        setError(error.message || "There was an error processing your request. Please try again later.")
       }
     } finally {
       setProcessingPlanId(null)

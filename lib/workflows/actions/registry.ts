@@ -74,13 +74,35 @@ import {
   unbanDiscordMember,
 } from './discord'
 
-// Notion actions
+// Notion actions - existing
 import {
   createNotionDatabase,
   createNotionPage,
   updateNotionPage,
   searchNotionPages,
 } from './notion'
+
+// Notion actions - comprehensive new handlers
+import {
+  notionCreatePage,
+  notionUpdatePage,
+  notionRetrievePage,
+  notionArchivePage,
+  notionCreateDatabase,
+  notionQueryDatabase,
+  notionUpdateDatabase,
+  notionAppendBlocks,
+  notionUpdateBlock,
+  notionDeleteBlock,
+  notionRetrieveBlockChildren,
+  notionListUsers,
+  notionRetrieveUser,
+  notionCreateComment,
+  notionRetrieveComments,
+  notionSearch,
+  notionDuplicatePage,
+  notionSyncDatabaseEntries,
+} from './notion/handlers'
 
 // GitHub actions
 import {
@@ -282,11 +304,28 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "discord_action_ban_member": banDiscordMember,
   "discord_action_unban_member": unbanDiscordMember,
   
-  // Notion actions
+  // Notion actions - existing (kept for backward compatibility)
   "notion_action_create_database": createNotionDatabase,
   "notion_action_create_page": createNotionPage,
   "notion_action_update_page": updateNotionPage,
   "notion_action_search_pages": searchNotionPages,
+  
+  // Notion actions - comprehensive API v2 actions
+  "notion_action_retrieve_page": notionRetrievePage,
+  "notion_action_archive_page": notionArchivePage,
+  "notion_action_query_database": notionQueryDatabase,
+  "notion_action_update_database": notionUpdateDatabase,
+  "notion_action_append_blocks": notionAppendBlocks,
+  "notion_action_update_block": notionUpdateBlock,
+  "notion_action_delete_block": notionDeleteBlock,
+  "notion_action_retrieve_block_children": notionRetrieveBlockChildren,
+  "notion_action_list_users": notionListUsers,
+  "notion_action_retrieve_user": notionRetrieveUser,
+  "notion_action_create_comment": notionCreateComment,
+  "notion_action_retrieve_comments": notionRetrieveComments,
+  "notion_action_search": notionSearch,
+  "notion_action_duplicate_page": notionDuplicatePage,
+  "notion_action_sync_database_entries": notionSyncDatabaseEntries,
   
   // GitHub actions
   "github_action_create_issue": createGitHubIssue,

@@ -13,12 +13,23 @@ const pageAccessRules = {
   '/teams': ['business', 'enterprise', 'admin'],
   '/enterprise': ['enterprise', 'admin'],
   '/admin': ['admin'],
-  '/setup-username': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/profile': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/settings': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
 }
 
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname
+  
+  // Skip middleware for auth pages, API routes, and static files
+  if (pathname.startsWith('/auth/login') || 
+      pathname.startsWith('/auth/register') ||
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next/') ||
+      pathname === '/' ||
+      pathname.includes('.')) {
+    return NextResponse.next()
+  }
+  
   let res = NextResponse.next({
     request: {
       headers: req.headers,
@@ -29,7 +40,7 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
+      cookieEncoding: 'raw',
       cookies: {
         getAll() {
           return req.cookies.getAll()
@@ -46,24 +57,56 @@ export async function middleware(req: NextRequest) {
 
   try {
     // Check if user is authenticated
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // If no user, allow the request (auth pages will handle redirect)
+    // If no user, redirect to login (except for setup-username page)
     if (!user) {
+      if (!pathname.startsWith('/auth/')) {
+        return NextResponse.redirect(new URL('/auth/login', req.url))
+      }
       return res
     }
 
-    // Get user profile to check role
-    const { data: profile } = await supabase
+    // ALWAYS fetch fresh profile data - no caching
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('role, username, provider')
       .eq('id', user.id)
       .single()
 
+    console.log('[Middleware] Username check:', {
+      path: pathname,
+      userId: user.id,
+      provider: profile?.provider,
+      username: profile?.username,
+      hasUsername: !!(profile?.username && profile.username.trim() !== ''),
+      profileError: profileError?.message
+    })
+
+    // If no profile exists, check if Google user and create profile
+    if (profileError && profileError.code === 'PGRST116') {
+      const isGoogleUser = user.app_metadata?.provider === 'google' || 
+                          user.app_metadata?.providers?.includes('google') ||
+                          user.identities?.some(id => id.provider === 'google')
+      
+      if (isGoogleUser && !pathname.startsWith('/auth/setup-username')) {
+        console.log('[Middleware] Google user without profile, redirecting to setup')
+        return NextResponse.redirect(new URL('/auth/setup-username', req.url))
+      }
+    }
+
+    // CHECK USERNAME FOR ALL USERS
+    // If username is missing or empty, redirect to setup
+    if ((!profile?.username || profile.username.trim() === '' || profile.username === null) && 
+        !pathname.startsWith('/auth/setup-username')) {
+      console.log('[Middleware] User without username, redirecting to setup', {
+        username: profile?.username,
+        provider: profile?.provider
+      })
+      return NextResponse.redirect(new URL('/auth/setup-username', req.url))
+    }
+
     const userRole = profile?.role || 'free'
-    const pathname = req.nextUrl.pathname
 
     // Check if the page has access rules
     const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
@@ -133,7 +176,6 @@ export const config = {
     '/admin/:path*',
     '/learn/:path*',
     '/community/:path*',
-    '/setup-username',
     '/profile',
     '/settings/:path*',
   ],

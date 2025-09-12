@@ -1,31 +1,50 @@
-# Supabase Email Configuration
+# Supabase Email Configuration for Development
 
-To prevent duplicate confirmation emails (both Supabase's default and your custom Resend emails), you need to configure Supabase to not send automatic confirmation emails.
+## The Problem
+When testing email confirmation in local development, Supabase sends confirmation emails with links pointing to your production domain instead of localhost. This is because Supabase uses the "Site URL" configured in your project settings for all email templates.
 
-## Option 1: Disable in Dashboard
-1. Go to Supabase Dashboard → Authentication → Settings
-2. Scroll to "Email Templates" 
-3. **Uncheck "Enable email confirmations"**
-4. Save settings
+## Solutions
 
-## Option 2: Clear Email Template
-1. Go to Supabase Dashboard → Authentication → Email Templates
-2. Select "Confirm signup" template
-3. Clear the subject and HTML content
-4. Save (this will prevent Supabase from sending emails)
+### For Local Development Testing
 
-## Option 3: Via Auth Settings (Recommended)
-1. Go to Supabase Dashboard → Authentication → Settings
-2. Under "User email confirmation" set to **disabled**
-3. This stops automatic confirmation emails while keeping signup enabled
+#### Option 1: Temporary Dashboard Change (Quick Fix)
+1. Go to your [Supabase Dashboard](https://app.supabase.com)
+2. Select your project
+3. Navigate to **Authentication** → **URL Configuration**
+4. Change **Site URL** from your production URL to: `http://localhost:3000`
+5. Save changes
 
-## Current Setup
-- ✅ Custom Resend emails are working
-- ❌ Supabase is still sending duplicate emails
-- 🎯 Goal: Only send custom Resend emails
+⚠️ **IMPORTANT**: Remember to change this back to your production URL before deploying!
 
-## Verification
-After making changes:
-1. Test signup with a new email
-2. Should receive only 1 email (from Resend)
-3. Email should use your custom template and SMTP settings
+#### Option 2: Use Environment Variable (Recommended)
+1. Create a `.env.local` file in your project root (if not exists)
+2. Add: `NEXT_PUBLIC_BASE_URL=http://localhost:3000`
+3. The code will automatically use this URL for email redirects in development
+
+### For Production
+Ensure your Supabase dashboard has the correct production URL:
+1. Go to **Authentication** → **URL Configuration**
+2. Set **Site URL** to your production domain (e.g., `https://chainreact.app`)
+3. Set **Redirect URLs** to include:
+   - `https://chainreact.app/api/auth/callback`
+   - `http://localhost:3000/api/auth/callback` (for development)
+
+### How It Works
+The application now intelligently detects the environment:
+- **In browser**: Uses `window.location.origin` (current domain)
+- **In development**: Uses `NEXT_PUBLIC_BASE_URL` or defaults to `http://localhost:3000`
+- **In production**: Uses `NEXT_PUBLIC_SITE_URL` or your production domain
+
+### Testing Email Confirmation Flow
+1. Start your dev server: `npm run dev`
+2. Create a new account
+3. Check your email
+4. Click the confirmation link
+5. The original tab (waiting page) will auto-detect confirmation and redirect
+6. The email link tab will attempt to auto-close
+
+### Troubleshooting
+- If emails still go to production, check Supabase dashboard Site URL
+- If redirect fails, ensure `/api/auth/callback` route is working
+- Check browser console for any error messages
+- Verify environment variables are loaded correctly

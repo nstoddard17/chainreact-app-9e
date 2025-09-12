@@ -9,16 +9,20 @@ import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Lock, User, AtSign } from "lucide-react"
+import { Mail, Lock, User, AtSign, Eye, EyeOff } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
 function RegisterFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(false)
   const [providerError, setProviderError] = useState("")
+  const [usernameError, setUsernameError] = useState("")
+  const [usernameChecking, setUsernameChecking] = useState(false)
   const { signUp, signInWithGoogle } = useAuthStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -67,11 +71,52 @@ function RegisterFormContent() {
     }
   }
 
+  const checkUsername = async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameError('');
+      return true;
+    }
+
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/
+    if (!usernameRegex.test(username)) {
+      setUsernameError('Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens');
+      return false;
+    }
+
+    setUsernameChecking(true);
+    try {
+      const response = await fetch('/api/auth/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      const data = await response.json();
+
+      if (data.exists) {
+        setUsernameError('This username is already taken. Please choose a different one.');
+        return false;
+      } else {
+        setUsernameError('');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking username:', error);
+      return true; // Allow if check fails
+    } finally {
+      setUsernameChecking(false);
+    }
+  }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setProviderError('')
+    setUsernameError('')
 
     try {
       // Check if user already exists
@@ -82,11 +127,20 @@ function RegisterFormContent() {
         return;
       }
 
+      // Check if username is available
+      const usernameAvailable = await checkUsername(username);
+      
+      if (!usernameAvailable) {
+        setLoading(false);
+        return;
+      }
+
       await signUp(email, password, {
         first_name: firstName,
         last_name: lastName,
         full_name: `${firstName} ${lastName}`.trim(),
         email: email,
+        username: username,
       })
       router.push(getRedirectUrl())
     } catch (error) {
@@ -137,6 +191,25 @@ function RegisterFormContent() {
     }
   }
 
+  const handleUsernameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value;
+    setUsername(newUsername);
+    
+    // Clear previous error when user starts typing
+    if (usernameError) {
+      setUsernameError('');
+    }
+    
+    // Check username when user finishes typing (debounced)
+    if (newUsername && newUsername.length >= 3) {
+      setTimeout(() => {
+        if (username === newUsername) { // Only check if username hasn't changed
+          checkUsername(newUsername);
+        }
+      }, 500);
+    }
+  }
+
 
   return (
     <>
@@ -182,6 +255,41 @@ function RegisterFormContent() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-slate-700">
+                Username <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Choose a username"
+                  required
+                  minLength={3}
+                  maxLength={20}
+                  pattern="^[a-zA-Z0-9_-]{3,20}$"
+                  disabled={usernameChecking}
+                  autoComplete="username"
+                />
+              </div>
+              {usernameError && (
+                <div className="text-sm text-red-600 mt-1 p-2 bg-red-50 border border-red-200 rounded">
+                  {usernameError}
+                </div>
+              )}
+              {usernameChecking && (
+                <div className="text-sm text-blue-600 mt-1">
+                  Checking username availability...
+                </div>
+              )}
+              <div className="text-xs text-slate-500">
+                3-20 characters, letters, numbers, underscores, and hyphens only
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700">
@@ -215,16 +323,32 @@ function RegisterFormContent() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Create a password"
                   required
                   minLength={8}
                   maxLength={15}
                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,15}$"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-black transition-colors duration-200 focus:outline-none"
+                  style={{ color: showPassword ? '#4B5563' : '#6B7280' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#000000'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = showPassword ? '#4B5563' : '#6B7280'}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
               <div className="text-xs text-slate-500">
                 8-15 characters, must include uppercase, lowercase, number, and special character
@@ -234,7 +358,7 @@ function RegisterFormContent() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              disabled={loading || !!providerError}
+              disabled={loading || !!providerError || !!usernameError || usernameChecking}
             >
               {loading ? "Creating account..." : "Create Account"}
             </Button>

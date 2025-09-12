@@ -12,7 +12,7 @@ interface UsageStatsProps {
 export default function UsageStats({ usage, subscription }: UsageStatsProps) {
   if (!usage || !subscription?.plan) {
     return (
-      <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+      <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-slate-900">Usage Statistics</CardTitle>
         </CardHeader>
@@ -67,7 +67,7 @@ export default function UsageStats({ usage, subscription }: UsageStatsProps) {
   ]
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-slate-900">Usage Statistics</CardTitle>
       </CardHeader>

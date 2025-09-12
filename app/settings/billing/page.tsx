@@ -1,6 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { requireUsername } from "@/utils/checkUsername"
 import BillingContent from "@/components/billing/BillingContent"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
@@ -20,16 +18,8 @@ export default async function BillingPage() {
     console.warn(`Missing environment variables: ${missingVars.join(", ")}`)
   }
 
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    redirect("/auth/login")
-  }
+  // This will check for username and redirect if needed
+  await requireUsername()
 
   return <BillingContent />
 }

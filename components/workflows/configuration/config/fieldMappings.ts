@@ -381,6 +381,92 @@ const hubspotMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Notion field mappings
+const notionMappings: Record<string, FieldMapping> = {
+  notion_action_retrieve_page: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+  },
+  notion_action_archive_page: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+  },
+  notion_action_query_database: {
+    workspace: "notion_workspaces",
+    database_id: "notion_databases",
+  },
+  notion_action_update_database: {
+    workspace: "notion_workspaces",
+    database_id: "notion_databases",
+  },
+  notion_action_append_blocks: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+    after: "notion_page_blocks",
+  },
+  notion_action_update_block: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+    block_id: "notion_page_blocks",
+  },
+  notion_action_delete_block: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+    block_id: "notion_page_blocks",
+  },
+  notion_action_retrieve_block_children: {
+    block_id: "notion_blocks",
+  },
+  notion_action_list_users: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_retrieve_user: {
+    workspace: "notion_workspaces",
+    user_id: "notion_users",
+  },
+  notion_action_create_comment: {
+    workspace: "notion_workspaces",
+    page_id: "notion_pages",
+    parent_id: "notion_blocks",
+  },
+  notion_action_retrieve_comments: {
+    block_id: "notion_blocks",
+  },
+  notion_action_search: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_duplicate_page: {
+    workspace: "notion_workspaces",
+    source_page_id: "notion_pages",
+    destination_page_id: "notion_pages",
+    destination_database_id: "notion_databases",
+  },
+  notion_action_sync_database_entries: {
+    workspace: "notion_workspaces",
+    database_id: "notion_databases",
+  },
+  notion_action_update_page: {
+    page: "notion_pages",
+  },
+  notion_action_search_pages: {
+    filter: "notion_filter_types",
+  },
+  notion_action_create_page: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    databaseProperties: "notion_database_properties",
+    template: "notion_templates",
+    page: "notion_pages",
+  },
+  notion_action_append_to_page: {
+    page: "notion_pages",
+  },
+  notion_action_create_database: {
+    workspace: "notion_workspaces",
+    template: "notion_database_templates",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -411,6 +497,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...onenoteMappings,
   ...facebookMappings,
   ...hubspotMappings,
+  ...notionMappings,
   default: defaultMappings,
 };
 

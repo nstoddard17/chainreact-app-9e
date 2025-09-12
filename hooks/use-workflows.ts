@@ -153,10 +153,10 @@ export function useWorkflows(): UseWorkflowsReturn {
   
   // Load workflows on mount if needed
   useEffect(() => {
-    if (!workflows) {
+    if (!workflows && !loading) {
       loadAllWorkflows()
     }
-  }, [workflows, loadAllWorkflows])
+  }, []) // Empty dependency array - only run on mount
   
   return {
     workflows,

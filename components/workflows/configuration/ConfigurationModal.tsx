@@ -117,13 +117,12 @@ export function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
-  // Debug logging (can be removed in production)
-  if (process.env.NODE_ENV !== "production") {
-    console.log("🔍 ConfigurationModal rendered:", {
-      isOpen,
-      nodeType: nodeInfo?.type,
-      integrationName
-    });
+  // Track node type to prevent unnecessary re-renders
+  const prevNodeTypeRef = React.useRef(nodeInfo?.type);
+  
+  // Track node type changes
+  if (prevNodeTypeRef.current !== nodeInfo?.type) {
+    prevNodeTypeRef.current = nodeInfo?.type;
   }
 
   // Check if this node is connected to an AI Agent
@@ -136,7 +135,6 @@ export function ConfigurationModal({
     for (const edge of parentEdges) {
       const sourceNode = workflowData.nodes.find((node: any) => node.id === edge.source);
       if (sourceNode?.data?.type === 'ai_agent') {
-        console.log('🤖 [ConfigModal] Node is connected to AI Agent:', sourceNode.id);
         return true;
       }
     }

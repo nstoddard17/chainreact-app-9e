@@ -1,0 +1,197 @@
+import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
+
+export const notionOptionsLoader: ProviderOptionsLoader = {
+  canHandle(fieldName: string, providerId: string): boolean {
+    // Handle all Notion provider fields
+    return providerId === 'notion'
+  },
+  
+  async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { fieldName, integrationId, dependsOnValue, extraOptions } = params
+    try {
+      // Map field names to Notion API data types
+      const fieldToDataTypeMap: Record<string, string> = {
+        'workspace': 'workspaces',
+        'database': 'databases',
+        'page': 'pages',
+        'page_id': 'pages',
+        'databaseProperties': 'properties',
+        'after': 'blocks',
+        'block_id': 'blocks',
+        'user_id': 'users',
+        'template': 'templates',
+        'filter': 'filter_types',
+        'database_id': 'databases',
+        'source_database_id': 'databases',
+        'target_database_id': 'databases',
+        'parent_id': 'blocks',
+        'source_page_id': 'pages',
+        'destination_page_id': 'pages',
+        'destination_database_id': 'databases',
+      }
+      
+      const dataType = fieldToDataTypeMap[fieldName] || fieldName
+      
+      // Build request body from query params
+      const requestBody: any = {
+        integrationId,
+        dataType,
+        options: {}
+      }
+      
+      // Add workspace filter if present
+      if (dependsOnValue && (fieldName === 'page_id' || fieldName === 'database_id' || fieldName === 'user_id' || 
+          fieldName === 'source_page_id' || fieldName === 'destination_page_id' || fieldName === 'destination_database_id')) {
+        requestBody.options.workspaceId = dependsOnValue
+      }
+      
+      // Add other dependencies
+      if (fieldName === 'databaseProperties' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+      } else if (fieldName === 'after' && dependsOnValue) {
+        requestBody.options.pageId = dependsOnValue
+      } else if (fieldName === 'block_id' && dependsOnValue) {
+        requestBody.options.pageId = dependsOnValue
+      }
+      
+      // Add extra options
+      if (extraOptions) {
+        requestBody.options = { ...requestBody.options, ...extraOptions }
+      }
+      
+      const response = await fetch('/api/integrations/notion/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      })
+      
+      if (!response.ok) {
+        console.error('Failed to fetch Notion options:', response.statusText)
+        return []
+      }
+      
+      const result = await response.json()
+      const data = result.data || result
+      
+      console.log('🔍 [Notion Options] Raw response for', dataType, ':', result)
+      console.log('🔍 [Notion Options] Extracted data:', data)
+      
+      // Format the response based on data type
+      switch (dataType) {
+        case 'workspaces':
+          const workspaceData = Array.isArray(data) ? data : (data.workspaces || data)
+          console.log('🔍 [Notion Options] Workspace data before mapping:', workspaceData)
+          
+          const mappedWorkspaces = workspaceData?.map((workspace: any) => {
+            // The workspace already has label from the handler, use it directly
+            const option = {
+              value: workspace.value || workspace.id,
+              label: workspace.label || workspace.name || 'Unnamed Workspace'
+            }
+            console.log('🔍 [Notion Options] Mapped workspace:', option)
+            return option
+          }) || []
+          
+          console.log('🔍 [Notion Options] Final workspace options:', mappedWorkspaces)
+          return mappedWorkspaces
+          
+        case 'databases':
+          const databaseData = Array.isArray(data) ? data : (data.databases || data)
+          return databaseData?.map((db: any) => ({
+            value: db.value || db.id,
+            label: db.label || db.name || db.title?.[0]?.plain_text || db.title || 'Unnamed Database'
+          })) || []
+          
+        case 'pages':
+          const pageData = Array.isArray(data) ? data : (data.pages || data)
+          return pageData?.map((page: any) => ({
+            value: page.value || page.id,
+            label: page.label || page.title || 
+                   page.properties?.title?.title?.[0]?.plain_text || 
+                   page.properties?.Name?.title?.[0]?.plain_text || 
+                   'Unnamed Page'
+          })) || []
+          
+        case 'properties':
+          return (Array.isArray(data) ? data : data.properties)?.map((prop: any) => ({
+            value: prop.id,
+            label: prop.name
+          })) || []
+          
+        case 'blocks':
+          return (Array.isArray(data) ? data : data.blocks)?.map((block: any) => ({
+            value: block.id,
+            label: `${block.type} block`
+          })) || []
+          
+        case 'users':
+          return (Array.isArray(data) ? data : data.users)?.map((user: any) => ({
+            value: user.id,
+            label: user.name || user.email || 'Unknown User'
+          })) || []
+          
+        case 'templates':
+          return (Array.isArray(data) ? data : data.templates)?.map((template: any) => ({
+            value: template.id,
+            label: template.name
+          })) || []
+          
+        case 'database_templates':
+          return [
+            { value: 'Project Tracker', label: 'Project Tracker' },
+            { value: 'CRM', label: 'CRM' },
+            { value: 'Content Calendar', label: 'Content Calendar' },
+            { value: 'Task Management', label: 'Task Management' },
+            { value: 'Bug Tracker', label: 'Bug Tracker' },
+            { value: 'Feature Requests', label: 'Feature Requests' },
+            { value: 'Customer Support', label: 'Customer Support' },
+            { value: 'Sales Pipeline', label: 'Sales Pipeline' },
+            { value: 'Marketing Campaigns', label: 'Marketing Campaigns' },
+            { value: 'Event Planning', label: 'Event Planning' },
+            { value: 'Product Roadmap', label: 'Product Roadmap' },
+            { value: 'Team Directory', label: 'Team Directory' },
+            { value: 'Knowledge Base', label: 'Knowledge Base' },
+            { value: 'Inventory Management', label: 'Inventory Management' },
+            { value: 'Expense Tracker', label: 'Expense Tracker' },
+            { value: 'Time Tracking', label: 'Time Tracking' },
+            { value: 'Meeting Notes', label: 'Meeting Notes' },
+            { value: 'Research Database', label: 'Research Database' },
+            { value: 'Learning Management', label: 'Learning Management' }
+          ]
+          
+        case 'filter_types':
+          return [
+            { value: 'page', label: 'Pages' },
+            { value: 'database', label: 'Databases' }
+          ]
+          
+        default:
+          return []
+      }
+    } catch (error) {
+      console.error('Error loading Notion options:', error)
+      return []
+    }
+  },
+  
+  getFieldDependencies(fieldName: string): string[] {
+    // Define field dependencies
+    const dependencies: Record<string, string[]> = {
+      'database': ['workspace'],
+      'database_id': ['workspace'],
+      'page_id': ['workspace'],
+      'page': ['workspace'],
+      'user_id': ['workspace'],
+      'source_page_id': ['workspace'],
+      'destination_page_id': ['workspace'],
+      'destination_database_id': ['workspace'],
+      'after': ['page_id'],
+      'block_id': ['page_id'],
+      'databaseProperties': ['database'],
+    }
+    
+    return dependencies[fieldName] || []
+  }
+}

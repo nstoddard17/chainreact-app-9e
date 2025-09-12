@@ -38,8 +38,12 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
       return
     }
 
-    // Allow access to setup-username page
-    if (pathname === '/setup-username') {
+    // Check if Google user needs username setup
+    if (profile && 
+        profile.provider === 'google' && 
+        (!profile.username || profile.username.trim() === '') &&
+        !pathname.includes('/auth/setup-username')) {
+      router.push('/auth/setup-username')
       return
     }
 

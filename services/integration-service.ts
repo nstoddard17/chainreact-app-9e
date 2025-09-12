@@ -109,6 +109,12 @@ export class IntegrationService {
       const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
 
       try {
+        console.log('🌐 [IntegrationService] Making API call', {
+          attempt: attempt + 1,
+          force,
+          timestamp: new Date().toISOString()
+        });
+        
         const response = await fetch("/api/integrations", {
           method: "GET",
           headers: {

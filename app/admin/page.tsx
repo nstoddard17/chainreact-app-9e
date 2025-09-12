@@ -1,21 +1,24 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { useAdminStore } from "@/stores/adminStore"
 import AppLayout from "@/components/layout/AppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
-import { Crown, Shield, Users, Settings, User, Building, Zap } from "lucide-react"
+import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
+import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { type UserRole } from "@/lib/utils/roles"
 
 export default function AdminPage() {
   const { profile, user } = useAuthStore()
   const { userStats, loading, fetchUserStats } = useAdminStore()
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState("overview")
 
   const userRole = (profile?.role as UserRole) || 'free'
 
@@ -90,104 +93,129 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Admin Stats - First Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.totalUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                All registered users
-              </p>
-            </CardContent>
-          </Card>
+        {/* Admin Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Crown className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              User Management
+            </TabsTrigger>
+            <TabsTrigger value="ai-usage" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              AI Usage
+            </TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Free Users</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.freeUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Users with free plan
-              </p>
-            </CardContent>
-          </Card>
+          <TabsContent value="overview" className="space-y-6">
+            {/* Admin Stats - First Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.totalUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    All registered users
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pro Users</CardTitle>
-              <Crown className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.proUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Users with pro plan
-              </p>
-            </CardContent>
-          </Card>
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Free Users</CardTitle>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.freeUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Users with free plan
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Business Users</CardTitle>
-              <Building className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.businessUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Users with business plan
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pro Users</CardTitle>
+                  <Crown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.proUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Users with pro plan
+                  </p>
+                </CardContent>
+              </Card>
 
-        {/* Admin Stats - Second Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Enterprise Users</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.enterpriseUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Users with enterprise plan
-              </p>
-            </CardContent>
-          </Card>
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Business Users</CardTitle>
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.businessUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Users with business plan
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "Loading..." : userStats.adminUsers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                System administrators
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Admin Stats - Second Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Enterprise Users</CardTitle>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.enterpriseUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Users with enterprise plan
+                  </p>
+                </CardContent>
+              </Card>
 
-        {/* User Management (with online status) */}
-        <UserRoleManagement />
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.adminUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    System administrators
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <UserRoleManagement />
+          </TabsContent>
+
+          <TabsContent value="ai-usage" className="space-y-6">
+            <AIUsageAdmin />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   )

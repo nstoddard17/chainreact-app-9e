@@ -7,6 +7,13 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
+  console.log('📍 [API /api/integrations] GET request received', {
+    timestamp: new Date().toISOString(),
+    headers: {
+      referer: 'check-console', // Will be logged from request
+    }
+  });
+  
   try {
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
@@ -18,6 +25,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
+      console.error('❌ [API /api/integrations] Auth error', { userError });
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 

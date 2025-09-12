@@ -72,15 +72,8 @@ export function useEmailCache(): UseEmailCacheReturn {
     ])
   }, [])
 
-  // Load data on mount if needed
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await getFrequentEmails()
-      await getEmailStats()
-    }
-    
-    loadInitialData()
-  }, [getFrequentEmails, getEmailStats])
+  // Removed automatic loading on mount to prevent rapid API calls
+  // Data will be loaded on-demand when actually needed
 
   return {
     trackEmailUsage,

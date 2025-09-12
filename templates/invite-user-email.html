@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Invited to Join ChainReact</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); min-height: 100vh;">
+  <div style="padding: 40px 20px; min-height: 100vh;">
+    <div style="max-width: 640px; margin: 0 auto;">
+      <!-- Main Card -->
+      <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.2);">
+        
+        <!-- Header with animated gradient -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%); background-size: 200% 100%; padding: 48px 32px; text-align: center; position: relative;">
+          <!-- Logo and Title -->
+          <div style="display: inline-block; position: relative;">
+            <div style="font-size: 36px; font-weight: 800; color: white; margin-bottom: 8px; letter-spacing: -0.5px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);">
+              🎉 You're Invited!
+            </div>
+            <div style="color: rgba(255, 255, 255, 0.95); font-size: 16px; font-weight: 500; letter-spacing: 0.5px;">
+              Join ChainReact Team Collaboration
+            </div>
+          </div>
+          
+          <!-- Decorative elements -->
+          <div style="position: absolute; top: 20px; right: 20px; width: 60px; height: 60px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; filter: blur(20px);"></div>
+          <div style="position: absolute; bottom: 20px; left: 20px; width: 80px; height: 80px; background: rgba(16, 185, 129, 0.2); border-radius: 50%; filter: blur(30px);"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 48px 40px;">
+          <!-- Invitation Message -->
+          <div style="margin-bottom: 40px;">
+            <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 20px 0; color: #f1f5f9; line-height: 1.3;">
+              {{ .InviterName }} has invited you to collaborate!
+            </h1>
+            <p style="color: #cbd5e1; line-height: 1.7; font-size: 16px; margin: 0;">
+              You've been invited to join the <strong style="color: #60a5fa;">{{ .TeamName }}</strong> team on ChainReact. Join now to start collaborating on powerful workflow automations together.
+            </p>
+          </div>
+
+          <!-- Team Info Card -->
+          <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%); border-radius: 16px; padding: 24px; margin: 32px 0; border: 1px solid rgba(59, 130, 246, 0.1);">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+              <div style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+                👥
+              </div>
+              <div>
+                <div style="color: #f1f5f9; font-weight: 600; font-size: 18px;">{{ .TeamName }}</div>
+                <div style="color: #94a3b8; font-size: 14px;">{{ .TeamMemberCount }} team members</div>
+              </div>
+            </div>
+            <div style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+              <strong>Message from {{ .InviterName }}:</strong><br>
+              "{{ .InviteMessage }}"
+            </div>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 48px 0;">
+            <a href="{{ .InviteURL }}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: white; text-decoration: none; padding: 18px 48px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(16, 185, 129, 0.2); transition: all 0.3s ease; letter-spacing: 0.3px;">
+              ✨ Accept Invitation & Join Team
+            </a>
+            <p style="color: #64748b; font-size: 13px; margin-top: 12px;">
+              This invitation expires in 7 days
+            </p>
+          </div>
+
+          <!-- What You'll Get Access To -->
+          <div style="margin: 48px 0;">
+            <h2 style="font-size: 20px; font-weight: 600; color: #f1f5f9; margin: 0 0 24px 0; text-align: center;">
+              What You'll Get Access To
+            </h2>
+            
+            <div style="display: grid; gap: 16px;">
+              <!-- Feature 1 -->
+              <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 20px; display: flex; align-items: start; gap: 16px;">
+                <div style="background: linear-gradient(135deg, #10b981, #34d399); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                  🤝
+                </div>
+                <div>
+                  <div style="color: #f1f5f9; font-weight: 600; margin-bottom: 4px;">Shared Workflows</div>
+                  <div style="color: #94a3b8; font-size: 14px; line-height: 1.5;">Access and collaborate on team workflows in real-time</div>
+                </div>
+              </div>
+
+              <!-- Feature 2 -->
+              <div style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 20px; display: flex; align-items: start; gap: 16px;">
+                <div style="background: linear-gradient(135deg, #3b82f6, #60a5fa); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+                  🔗
+                </div>
+                <div>
+                  <div style="color: #f1f5f9; font-weight: 600; margin-bottom: 4px;">Team Integrations</div>
+                  <div style="color: #94a3b8; font-size: 14px; line-height: 1.5;">Use shared connections to apps and services</div>
+                </div>
+              </div>
+
+              <!-- Feature 3 -->
+              <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 20px; display: flex; align-items: start; gap: 16px;">
+                <div style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
+                  📊
+                </div>
+                <div>
+                  <div style="color: #f1f5f9; font-weight: 600; margin-bottom: 4px;">Analytics & Insights</div>
+                  <div style="color: #94a3b8; font-size: 14px; line-height: 1.5;">View team performance and workflow metrics</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Current Team Members Preview -->
+          <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, rgba(59, 130, 246, 0.03) 100%); border-radius: 16px; padding: 24px; margin: 40px 0; border: 1px solid rgba(100, 116, 139, 0.1);">
+            <h3 style="font-size: 16px; font-weight: 600; color: #cbd5e1; margin: 0 0 16px 0;">
+              Who You'll Be Working With
+            </h3>
+            <div style="display: flex; align-items: center; gap: -8px;">
+              <!-- Team member avatars (overlapping) -->
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #60a5fa); border-radius: 50%; border: 3px solid #1e293b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; position: relative; z-index: 4;">JD</div>
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #8b5cf6, #a78bfa); border-radius: 50%; border: 3px solid #1e293b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; margin-left: -12px; position: relative; z-index: 3;">SM</div>
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #10b981, #34d399); border-radius: 50%; border: 3px solid #1e293b; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; margin-left: -12px; position: relative; z-index: 2;">AK</div>
+              <div style="width: 40px; height: 40px; background: rgba(100, 116, 139, 0.2); border-radius: 50%; border: 3px solid #1e293b; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-weight: 600; font-size: 12px; margin-left: -12px; position: relative; z-index: 1;">+{{ .AdditionalMembersCount }}</div>
+            </div>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="text-align: center; margin: 48px 0 32px 0;">
+            <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin: 0;">
+              Ready to start collaborating?
+            </p>
+            <div style="margin-top: 16px;">
+              <span style="color: #34d399;">✓ Accept invitation</span>
+              <span style="color: #94a3b8; margin: 0 8px;">→</span>
+              <span style="color: #60a5fa;">✓ Set up your profile</span>
+              <span style="color: #94a3b8; margin: 0 8px;">→</span>
+              <span style="color: #a78bfa;">✓ Start building together</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 32px 40px; border-top: 1px solid rgba(100, 116, 139, 0.2); background: rgba(15, 23, 42, 0.5);">
+          <div style="text-align: center;">
+            <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0; line-height: 1.6;">
+              Questions about this invitation? Contact <a href="mailto:{{ .InviterEmail }}" style="color: #60a5fa; text-decoration: none;">{{ .InviterEmail }}</a>
+            </p>
+            <p style="color: #475569; font-size: 12px; margin: 16px 0 0 0;">
+              © 2025 ChainReact. All rights reserved.<br>
+              <span style="font-size: 11px;">This invitation was sent to {{ .RecipientEmail }}. If you received this in error, you can safely ignore it.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

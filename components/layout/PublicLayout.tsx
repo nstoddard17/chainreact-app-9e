@@ -34,15 +34,21 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const handleSignOut = async () => {
     try {
-      await signOut()
       setMobileMenuOpen(false)
-      // Redirect to homepage after successful logout
-      router.push("/")
+      // Sign out will clear the state instantly
+      await signOut()
+      // The UI will update automatically as user becomes null
+      // No need to redirect if already on homepage
+      if (window.location.pathname !== '/') {
+        router.push("/")
+      }
     } catch (error) {
       console.error("Logout error:", error)
       setMobileMenuOpen(false)
-      // Still redirect even if there's an error
-      router.push("/")
+      // Still try to navigate on error
+      if (window.location.pathname !== '/') {
+        router.push("/")
+      }
     }
   }
 
