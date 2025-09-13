@@ -2,6 +2,12 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 13, 2025
+
+### Enhanced Notion Integration with Smart Property Detection and Organized UI
+
+Revolutionized the Notion workflow integration by implementing intelligent database schema detection that automatically fetches and displays the exact dropdown options from Notion databases. When users select a page to edit, the system now retrieves the full database schema, populating select and multi-select fields with the actual options defined in Notion - including all available tags, statuses, and categories with their associated colors. The interface has been redesigned with a clear visual hierarchy: content blocks (paragraphs, headings, lists) appear at the top in a dedicated "Content Blocks" section, while database properties (select fields, dates, checkboxes, relations) are organized in a separate "Database Properties" section below with a distinct visual treatment. This smart detection eliminates manual configuration and ensures workflows always use the correct, up-to-date options from Notion, making automation more reliable and user-friendly. The system seamlessly handles both regular pages and database pages, adapting the interface to match the exact structure of each Notion page.
+
 ## January 12, 2025
 
 ### Fixed Notion Database Fetching and Action Selection Issues

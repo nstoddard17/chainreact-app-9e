@@ -50,11 +50,15 @@ export const notionUnifiedActions: NodeComponent[] = [
       {
         name: "page",
         label: "Page",
-        type: "select",
+        type: "combobox",
         dynamic: "notion_pages",
         required: true,
-        placeholder: "Select a page",
+        placeholder: "Search for a page...",
+        description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        hideLabel: true,
         visibilityCondition: { 
           field: "operation", 
           operator: "in",
@@ -146,6 +150,22 @@ export const notionUnifiedActions: NodeComponent[] = [
         placeholder: "Select destination parent page",
         dependsOn: "workspace",
         visibilityCondition: { field: "operation", operator: "equals", value: "duplicate" }
+      },
+      // Dynamic block/property fields for update operation
+      {
+        name: "pageFields",
+        label: "Page Properties & Blocks",
+        type: "dynamic_fields",
+        dynamic: "notion_page_blocks",
+        dependsOn: "page",
+        required: false,
+        placeholder: "Loading page properties and blocks...",
+        description: "Edit page properties and content blocks",
+        visibilityCondition: { 
+          field: "operation", 
+          operator: "equals",
+          value: "update"
+        }
       }
     ],
     outputSchema: [
@@ -204,7 +224,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Database" },
-          { value: "query", label: "Query Database" },
+          { value: "query", label: "Search Database" },
           { value: "update", label: "Update Database" },
           { value: "sync", label: "Sync Database Entries" }
         ],
@@ -322,153 +342,6 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "Has More",
         type: "boolean",
         description: "Whether there are more results"
-      }
-    ]
-  },
-
-  // ============= UNIFIED BLOCK MANAGEMENT =============
-  {
-    type: "notion_action_manage_blocks",
-    title: "Manage Blocks",
-    description: "Append, update, delete blocks or retrieve block children in Notion pages",
-    icon: Layers,
-    providerId: "notion",
-    requiredScopes: ["content.read", "content.write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "workspace",
-        label: "Workspace",
-        type: "select",
-        dynamic: "notion_workspaces",
-        required: true,
-        placeholder: "Select Notion workspace",
-        visibilityCondition: "always"
-      },
-      {
-        name: "operation",
-        label: "Operation",
-        type: "select",
-        required: true,
-        clearable: false,
-        options: [
-          { value: "append", label: "Append Blocks" },
-          { value: "update", label: "Update Block" },
-          { value: "delete", label: "Delete Block" },
-          { value: "get_children", label: "Get Block Children" }
-        ],
-        placeholder: "Select operation",
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      },
-      {
-        name: "page",
-        label: "Page",
-        type: "select",
-        dynamic: "notion_pages",
-        required: true,
-        placeholder: "Select a page",
-        dependsOn: "workspace",
-        visibilityCondition: { 
-          field: "operation", 
-          operator: "in",
-          value: ["append", "update", "delete"]
-        }
-      },
-      // Block ID for update/delete/get_children
-      {
-        name: "blockId",
-        label: "Block ID",
-        type: "text",
-        required: true,
-        placeholder: "Enter block ID",
-        visibilityCondition: { 
-          field: "operation", 
-          operator: "in",
-          value: ["update", "delete", "get_children"]
-        }
-      },
-      // Content for append/update
-      {
-        name: "blockType",
-        label: "Block Type",
-        type: "select",
-        required: true,
-        clearable: false,
-        options: [
-          { value: "paragraph", label: "Paragraph" },
-          { value: "heading_1", label: "Heading 1" },
-          { value: "heading_2", label: "Heading 2" },
-          { value: "heading_3", label: "Heading 3" },
-          { value: "bulleted_list_item", label: "Bullet List" },
-          { value: "numbered_list_item", label: "Numbered List" },
-          { value: "quote", label: "Quote" },
-          { value: "code", label: "Code Block" },
-          { value: "divider", label: "Divider" }
-        ],
-        visibilityCondition: { 
-          field: "operation", 
-          operator: "in",
-          value: ["append", "update"]
-        }
-      },
-      {
-        name: "content",
-        label: "Block Content",
-        type: "textarea",
-        required: true,
-        placeholder: "Enter block content",
-        visibilityCondition: { 
-          field: "operation", 
-          operator: "in",
-          value: ["append", "update"]
-        }
-      },
-      // Position for append
-      {
-        name: "position",
-        label: "Position",
-        type: "select",
-        required: false,
-        clearable: false,
-        options: [
-          { value: "start", label: "At Beginning" },
-          { value: "end", label: "At End" },
-          { value: "after", label: "After Specific Block" }
-        ],
-        visibilityCondition: { field: "operation", operator: "equals", value: "append" }
-      },
-      {
-        name: "afterBlockId",
-        label: "After Block ID",
-        type: "text",
-        required: false,
-        placeholder: "Block ID to insert after",
-        visibilityCondition: { 
-          field: "position", 
-          operator: "equals", 
-          value: "after"
-        }
-      }
-    ],
-    outputSchema: [
-      {
-        name: "blockId",
-        label: "Block ID",
-        type: "string",
-        description: "The ID of the affected block"
-      },
-      {
-        name: "children",
-        label: "Children",
-        type: "array",
-        description: "Child blocks (for get_children operation)"
-      },
-      {
-        name: "success",
-        label: "Success",
-        type: "boolean",
-        description: "Whether the operation succeeded"
       }
     ]
   },
@@ -663,7 +536,8 @@ export const notionUnifiedActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_pages",
         required: true,
-        placeholder: "Select a page",
+        placeholder: "Select a page (must be shared with integration)",
+        description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
         visibilityCondition: { field: "operation", operator: "isNotEmpty" }
       },

@@ -10,6 +10,7 @@ import { getNotionPages } from './pages'
 import { getNotionWorkspaces } from './workspaces'
 import { getNotionDatabaseProperties } from './databaseProperties'
 import { getNotionTeamspaces } from './teamspaces'
+import { getNotionPageBlocks } from './pageBlocks'
 
 export const notionHandlers: Record<string, NotionDataHandler> = {
   // Direct mappings for cleaner API
@@ -20,7 +21,8 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   workspaces: getNotionWorkspaces,
   teamspaces: getNotionTeamspaces,
   properties: getNotionDatabaseProperties,
-  blocks: getNotionDatabaseProperties, // TODO: Implement blocks handler
+  blocks: getNotionPageBlocks,
+  page_blocks: getNotionPageBlocks,
   filter_types: () => Promise.resolve([
     { value: 'page', label: 'Pages' },
     { value: 'database', label: 'Databases' }
@@ -41,6 +43,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   notion_workspaces: getNotionWorkspaces,
   notion_teamspaces: getNotionTeamspaces,
   notion_database_properties: getNotionDatabaseProperties,
+  notion_page_blocks: getNotionPageBlocks,
 }
 
 export {
@@ -51,4 +54,5 @@ export {
   getNotionWorkspaces,
   getNotionTeamspaces,
   getNotionDatabaseProperties,
+  getNotionPageBlocks,
 }

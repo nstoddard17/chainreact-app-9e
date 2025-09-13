@@ -222,7 +222,7 @@ export const notionComprehensiveActions: NodeComponent[] = [
   // ============= DATABASE ACTIONS =============
   {
     type: "notion_action_query_database",
-    title: "Query Database",
+    title: "Search Database",
     description: "Search and filter database entries",
     icon: Search,
     providerId: "notion",

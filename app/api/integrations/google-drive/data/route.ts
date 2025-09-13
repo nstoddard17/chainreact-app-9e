@@ -109,8 +109,64 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    
-    // Get user from session
+    const body = await req.json()
+    const { integrationId, dataType, options = {} } = body
+
+    // Handle both patterns - with integrationId or with fileId
+    if (integrationId && dataType) {
+      // New pattern matching Notion endpoint
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('id', integrationId)
+        .eq('provider', 'google-drive')
+        .single()
+
+      if (integrationError || !integration) {
+        return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
+      }
+
+      // Decrypt access token
+      const encryptionKey = process.env.ENCRYPTION_KEY!
+      const accessToken = decrypt(integration.access_token, encryptionKey)
+      
+      // Initialize Google Drive API
+      const oauth2Client = new google.auth.OAuth2()
+      oauth2Client.setCredentials({ access_token: accessToken })
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+      // Handle different data types
+      if (dataType === 'files') {
+        const query = [`trashed = false`]
+        if (options.mimeType) {
+          const mimeTypes = options.mimeType.split(',')
+          const mimeQuery = mimeTypes.map((m: string) => `mimeType='${m.trim()}'`).join(' or ')
+          query.push(`(${mimeQuery})`)
+        }
+        
+        const response = await drive.files.list({
+          q: query.join(' and '),
+          fields: 'files(id,name,mimeType,webViewLink,iconLink,thumbnailLink,modifiedTime)',
+          pageSize: options.maxResults || 100,
+          orderBy: 'modifiedTime desc'
+        })
+
+        return NextResponse.json({ 
+          data: response.data.files || [],
+          success: true 
+        })
+      }
+
+      return NextResponse.json({ error: 'Unsupported data type' }, { status: 400 })
+    }
+
+    // Legacy pattern with fileId (kept for backward compatibility)
+    const { fileId } = body
+    if (!fileId) {
+      return NextResponse.json({ error: 'File ID or integration ID is required' }, { status: 400 })
+    }
+
+    // Get user from session for legacy pattern
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -121,13 +177,6 @@ export async function POST(req: NextRequest) {
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await req.json()
-    const { fileId } = body
-
-    if (!fileId) {
-      return NextResponse.json({ error: 'File ID is required' }, { status: 400 })
     }
 
     // Get Google Drive integration

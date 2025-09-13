@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
+import { RoleBadge } from "@/components/ui/role-badge"
+import { type UserRole } from "@/lib/utils/roles"
 
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
@@ -70,18 +72,49 @@ export default function ProfileSettings() {
     }
   }
 
+  const userRole = (profile?.role as UserRole) || 'free'
+  const isBetaTester = userRole === 'beta-pro'
+
   return (
-    <Card className="bg-card rounded-2xl shadow-lg border border-border">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-card-foreground">Profile Settings</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input id="username" value={profile?.username || ""} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Your username cannot be changed.</p>
+    <div className="space-y-6">
+      {/* Membership Status Card - Show for beta testers */}
+      {isBetaTester && (
+        <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-semibold">Membership Status</CardTitle>
+              <RoleBadge role={userRole} size="md" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-2 rounded-full">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">
+                  Thank you for being a beta tester! You have access to all Pro features while helping us improve ChainReact.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-card rounded-2xl shadow-lg border border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl font-semibold text-card-foreground">Profile Settings</CardTitle>
+            {!isBetaTester && <RoleBadge role={userRole} size="sm" />}
           </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" value={profile?.username || ""} disabled className="bg-muted" />
+              <p className="text-xs text-muted-foreground">Your username cannot be changed.</p>
+            </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -172,5 +205,6 @@ export default function ProfileSettings() {
         </form>
       </CardContent>
     </Card>
+    </div>
   )
 }

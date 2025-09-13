@@ -40,6 +40,9 @@ import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GenericSelectField } from "./shared/GenericSelectField";
 import { GenericTextInput } from "./shared/GenericTextInput";
 
+// Notion-specific field components
+import { NotionBlockFields } from "./notion/NotionBlockFields";
+
 /**
  * Props for the Field component
  */
@@ -218,6 +221,22 @@ export function FieldRenderer({
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
+      case "dynamic_fields":
+        // Dynamic fields for Notion blocks
+        if (integrationProvider === 'notion' && field.dynamic === 'notion_page_blocks') {
+          return (
+            <NotionBlockFields
+              value={value}
+              onChange={onChange}
+              field={field}
+              values={parentValues}
+              loadOptions={onDynamicLoad}
+              setFieldValue={setFieldValue}
+            />
+          );
+        }
+        return null;
+        
       case "email-rich-text":
         // Enhanced rich text editor specifically for email composition
         return (
@@ -566,23 +585,33 @@ export function FieldRenderer({
         
         return (
           <div className="space-y-2">
-            <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
-              {field.label || field.name}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
+            {!field.hideLabel && (
+              <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
+                {field.label || field.name}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+            )}
             {field.description && (
               <p className="text-xs text-muted-foreground">{field.description}</p>
             )}
-            <Combobox
-              value={value || ""}
-              onChange={onChange}
-              options={comboboxOptions}
-              placeholder={field.placeholder || `Select ${field.label || field.name}...`}
-              searchPlaceholder={`Search ${field.label || field.name}...`}
-              emptyPlaceholder={loadingDynamic ? "Loading options..." : "No options found"}
-              disabled={loadingDynamic || (field.dependsOn && !parentValues[field.dependsOn])}
-              creatable={field.creatable || false}
-            />
+            {/* Show loading state for dynamic fields */}
+            {loadingDynamic && field.dynamic ? (
+              <div className="flex items-center gap-2 h-10 px-3 py-2 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span>Loading {field.label?.toLowerCase() || 'options'}...</span>
+              </div>
+            ) : (
+              <Combobox
+                value={value || ""}
+                onChange={onChange}
+                options={comboboxOptions}
+                placeholder={field.placeholder || `Select ${field.label || field.name}...`}
+                searchPlaceholder={`Search ${field.label || field.name}...`}
+                emptyPlaceholder={loadingDynamic ? "Loading options..." : "No options found"}
+                disabled={loadingDynamic}
+                creatable={field.creatable || false}
+              />
+            )}
             {error && (
               <p className="text-xs text-red-500 mt-1">{error}</p>
             )}
