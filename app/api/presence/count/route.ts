@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 // Simple in-memory fallback cache
 let fallbackCount = 0
@@ -9,8 +8,7 @@ export async function GET() {
   try {
     // Try database access
     try {
-      const cookieStore = await cookies()
-      const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+      const supabase = await createSupabaseRouteHandlerClient()
       
       // Try to get count from database first (cached value)
       const { data: stats, error } = await supabase

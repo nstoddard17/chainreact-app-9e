@@ -216,8 +216,8 @@ export function GenericSelectField({
           )}
         </SelectContent>
       </Select>
-      {/* Clear button */}
-      {value && (
+      {/* Clear button - only show if clearable is not false */}
+      {value && field.clearable !== false && (
         <button
           type="button"
           onClick={(e) => {

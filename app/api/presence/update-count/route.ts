@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 // Simple in-memory cache for online count (resets on server restart)
 let onlineCountCache = {
@@ -53,8 +52,7 @@ export async function POST(request: Request) {
     const shouldUpdateDb = Math.random() < 0.1 // 10% chance
     if (shouldUpdateDb) {
       try {
-        const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        const supabase = await createSupabaseRouteHandlerClient()
         
         // Try to update the database, but don't fail if auth issues
         await supabase

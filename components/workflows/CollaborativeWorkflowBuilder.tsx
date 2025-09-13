@@ -341,9 +341,14 @@ const useWorkflowBuilderState = () => {
     const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
     if (systemIntegrations.includes(integrationId)) return true;
     
-    // Only log in development for debugging
-    if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) { // Log 10% of the time to reduce noise
-          }
+    // Debug logging to see what's in the store
+    if (integrationId === 'gmail' || integrationId === 'discord') {
+      console.log(`🔍 Checking connection for ${integrationId}:`, {
+        storeIntegrations: storeIntegrations,
+        integrationCount: storeIntegrations?.length,
+        firstFew: storeIntegrations?.slice(0, 3).map(i => ({ provider: i.provider, status: i.status }))
+      });
+    }
     
     // Create a mapping of integration config IDs to possible database provider values
     // This handles cases where the integration ID doesn't match the database provider value
@@ -444,6 +449,16 @@ const useWorkflowBuilderState = () => {
     
     // Check if any of the possible providers are in the connected list
     const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
+    
+    // Debug logging for non-system integrations
+    if (integrationId === 'gmail' || integrationId === 'discord') {
+      console.log(`📌 Connection result for ${integrationId}:`, {
+        found: isConnected,
+        integration: integration?.provider,
+        connectedProviders,
+        possibleProviders
+      });
+    }
     
     return isConnected;
   }, [storeIntegrations, getConnectedProviders])
@@ -703,7 +718,13 @@ const useWorkflowBuilderState = () => {
     console.log('🔄 [WorkflowBuilder] Action selected:', { integration, action, sourceAddNode })
     
     if (!sourceAddNode) {
-      console.error('No source node for action')
+      console.error('No source node for action. Please use the "Add Action" button to add nodes.')
+      toast({
+        title: "Cannot Add Action",
+        description: "Please use the 'Add Action' button on a node to add new actions.",
+        variant: "destructive"
+      })
+      setShowActionDialog(false)
       return
     }
     
@@ -2430,28 +2451,15 @@ const useWorkflowBuilderState = () => {
       componentId
     });
     
-    // Use a flag to prevent multiple fetches
-    let isMounted = true
-    let timeoutId: NodeJS.Timeout;
-    
+    // Always fetch integrations on mount to ensure we have the latest data
+    // This is critical for showing connection status correctly
     const loadIntegrations = async () => {
-      // Debounce - wait to see if component stays mounted
-      timeoutId = setTimeout(async () => {
-        if (isMounted && (!storeIntegrations || storeIntegrations.length === 0)) {
-          console.log('📥 [WorkflowBuilder] Component stayed mounted, calling fetchIntegrations', { componentId });
-          await fetchIntegrations()
-          console.log('✅ Integrations fetch completed')
-        } else {
-          console.log('⏭️ [WorkflowBuilder] Skipping fetchIntegrations', {
-            isMounted,
-            hasIntegrations: storeIntegrations?.length > 0,
-            componentId
-          });
-        }
-      }, 300); // Wait 300ms before fetching
+      console.log('📥 [WorkflowBuilder] Fetching integrations on mount', { componentId });
+      await fetchIntegrations(true); // Force fetch to ensure we have the latest
+      console.log('✅ Integrations fetch completed');
     }
     
-    loadIntegrations()
+    loadIntegrations();
     
     // Cleanup function
     return () => {
@@ -2460,10 +2468,8 @@ const useWorkflowBuilderState = () => {
         timestamp: new Date().toISOString(),
         componentId
       });
-      isMounted = false
-      clearTimeout(timeoutId);
     }
-  }, []) // Empty dependency array - only run on mount, ignore fetchIntegrations
+  }, []) // Empty dependency array - only run on mount
   
   // Main save function for the workflow
   const handleSave = async () => {
@@ -6772,7 +6778,14 @@ function WorkflowBuilderContent() {
               initialData={configuringNode.config}
               workflowData={{ nodes, edges }}
               currentNodeId={configuringNode.id}
-              onOpenActionDialog={() => setShowActionDialog(true)}
+              onOpenActionDialog={() => {
+                // Set a dummy source node for AI Agent action selection
+                setSourceAddNode({ 
+                  id: 'ai-agent-source', 
+                  parentId: configuringNode?.id || 'ai-agent' 
+                });
+                setShowActionDialog(true);
+              }}
               onActionSelect={(callback) => {
                 // Store the callback for when an action is selected from the main dialog
                 setAiAgentActionCallback(() => callback)
@@ -6783,6 +6796,15 @@ function WorkflowBuilderContent() {
               isOpen={!!configuringNode}
               onClose={handleConfigurationClose}
               onSave={handleConfigurationSave}
+              onBack={() => {
+                // Close configuration modal and open action selection modal
+                handleConfigurationClose();
+                // Only show action dialog if we have a source node (from pendingNode)
+                if (pendingNode && (pendingNode as any).sourceNodeInfo) {
+                  setSourceAddNode((pendingNode as any).sourceNodeInfo);
+                  setShowActionDialog(true);
+                }
+              }}
               nodeInfo={configuringNodeInfo}
               integrationName={configuringIntegrationName}
               initialData={configuringInitialData}

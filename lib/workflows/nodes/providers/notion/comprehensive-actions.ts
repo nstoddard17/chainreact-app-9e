@@ -16,43 +16,150 @@ import { NodeComponent } from "../../types"
 export const notionComprehensiveActions: NodeComponent[] = [
   // ============= PAGE ACTIONS =============
   {
-    type: "notion_action_retrieve_page",
+    type: "notion_action_get_page_details",
     title: "Get Page Details",
-    description: "Retrieve all information about a specific page",
+    description: "Retrieve detailed information about a Notion page including properties and content",
     icon: FileText,
     providerId: "notion",
-    requiredScopes: ["read"],
+    requiredScopes: ["content.read"],
     category: "Productivity",
     isTrigger: false,
     configSchema: [
       { 
         name: "workspace", 
         label: "Workspace", 
-        type: "select",
-        dynamic: true,
-        dynamicOptions: "notion_workspaces",
+        type: "select", 
+        dynamic: "notion_workspaces",
         required: true,
-        placeholder: "Select a workspace"
+        placeholder: "Select Notion workspace",
+        visibilityCondition: "always" // Always show
       },
       { 
-        name: "page_id", 
+        name: "page", 
         label: "Page", 
-        type: "select",
-        dynamic: true,
-        dynamicOptions: "notion_pages",
+        type: "select", 
+        dynamic: "notion_pages",
         required: true,
         placeholder: "Select a page",
-        dependsOn: "workspace"
+        dependsOn: "workspace",
+        visibilityCondition: { field: "workspace", operator: "isNotEmpty" } // Show when workspace is selected
+      },
+      // Property filters - show after page is selected
+      { 
+        name: "includeProperties", 
+        label: "Include Properties", 
+        type: "select", 
+        defaultValue: "true",
+        clearable: false,
+        options: [
+          { value: "true", label: "True" },
+          { value: "false", label: "False" }
+        ],
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        helperText: "Include all page properties in the response"
       },
       { 
-        name: "filter_properties", 
-        label: "Filter Properties", 
-        type: "multiselect",
-        dynamic: true,
-        dynamicOptions: "notion_page_properties",
+        name: "includeContent", 
+        label: "Include Content", 
+        type: "select", 
+        defaultValue: "true",
+        clearable: false,
+        options: [
+          { value: "true", label: "True" },
+          { value: "false", label: "False" }
+        ],
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        helperText: "Include page content blocks"
+      },
+      { 
+        name: "includeChildren", 
+        label: "Include Child Pages", 
+        type: "select", 
+        defaultValue: "false",
+        clearable: false,
+        options: [
+          { value: "true", label: "True" },
+          { value: "false", label: "False" }
+        ],
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        helperText: "Include information about child pages"
+      },
+      { 
+        name: "includeComments", 
+        label: "Include Comments", 
+        type: "select", 
+        defaultValue: "false",
+        clearable: false,
+        options: [
+          { value: "true", label: "True" },
+          { value: "false", label: "False" }
+        ],
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        helperText: "Include page comments"
+      },
+      { 
+        name: "propertyFilter", 
+        label: "Filter by Property", 
+        type: "text", 
         required: false,
-        description: "Select specific properties to retrieve (leave empty for all)",
-        dependsOn: { field: "page_id" }
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        placeholder: "e.g., Status = Done",
+        helperText: "Filter results based on property values"
+      },
+      { 
+        name: "dateFilter", 
+        label: "Date Filter", 
+        type: "select", 
+        required: false,
+        clearable: false,
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        options: [
+          { value: "none", label: "No Filter" },
+          { value: "today", label: "Today" },
+          { value: "yesterday", label: "Yesterday" },
+          { value: "this_week", label: "This Week" },
+          { value: "last_week", label: "Last Week" },
+          { value: "this_month", label: "This Month" },
+          { value: "last_month", label: "Last Month" },
+          { value: "last_7_days", label: "Last 7 Days" },
+          { value: "last_30_days", label: "Last 30 Days" },
+          { value: "last_90_days", label: "Last 90 Days" }
+        ],
+        defaultValue: "none",
+        placeholder: "Filter by date"
+      },
+      { 
+        name: "sortBy", 
+        label: "Sort By", 
+        type: "select", 
+        required: false,
+        clearable: false,
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        options: [
+          { value: "none", label: "No Sorting" },
+          { value: "created_time", label: "Created Date" },
+          { value: "last_edited_time", label: "Last Edited" },
+          { value: "title", label: "Title (A-Z)" },
+          { value: "title_desc", label: "Title (Z-A)" }
+        ],
+        defaultValue: "none",
+        placeholder: "Sort order"
+      },
+      { 
+        name: "outputFormat", 
+        label: "Output Format", 
+        type: "select", 
+        required: false,
+        defaultValue: "full",
+        visibilityCondition: { field: "page", operator: "isNotEmpty" },
+        options: [
+          { value: "full", label: "Full Details" },
+          { value: "summary", label: "Summary Only" },
+          { value: "properties", label: "Properties Only" },
+          { value: "content", label: "Content Only" },
+          { value: "metadata", label: "Metadata Only" }
+        ],
+        helperText: "Choose what information to include in the output"
       }
     ],
     outputSchema: [

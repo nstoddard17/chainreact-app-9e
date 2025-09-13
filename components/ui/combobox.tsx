@@ -245,9 +245,8 @@ export function Combobox({
             className="max-h-60 overflow-y-auto" 
             style={{ maxHeight: '240px', overflowY: 'auto' }}
             onWheel={(e) => {
-              e.preventDefault();
-              const target = e.currentTarget;
-              target.scrollTop += e.deltaY;
+              // Stop propagation to prevent parent scrolling
+              e.stopPropagation();
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
@@ -478,11 +477,6 @@ export function MultiCombobox({
           <CommandList
             className="max-h-60 overflow-y-auto"
             style={{ maxHeight: '240px', overflowY: 'auto' }}
-            onWheel={(e) => {
-              e.preventDefault();
-              const target = e.currentTarget;
-              target.scrollTop += e.deltaY;
-            }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
@@ -633,9 +627,8 @@ export function HierarchicalCombobox({
             className="max-h-60 overflow-y-auto" 
             style={{ maxHeight: '240px', overflowY: 'auto' }}
             onWheel={(e) => {
-              e.preventDefault();
-              const target = e.currentTarget;
-              target.scrollTop += e.deltaY;
+              // Stop propagation to prevent parent scrolling
+              e.stopPropagation();
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>

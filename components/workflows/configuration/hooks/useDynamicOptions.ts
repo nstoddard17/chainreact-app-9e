@@ -327,7 +327,15 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Get integration for other providers
       integration = getIntegrationByProvider(providerId);
       
+      console.log('🔍 [useDynamicOptions] Looking for integration:', {
+        providerId,
+        fieldName,
+        integrationFound: !!integration,
+        integrationId: integration?.id
+      });
+      
       if (!integration) {
+        console.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
         // Clear the field data
         setDynamicOptions(prev => ({
           ...prev,

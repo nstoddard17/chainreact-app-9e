@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import type { Integration } from "@/types/integration"
 
@@ -15,27 +15,92 @@ export async function GET() {
   });
   
   try {
-    cookies()
-    const supabase = await createSupabaseRouteHandlerClient()
-
-    // Get current user
+    // First get the user from the regular client
+    const supabaseAuth = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser()
+    } = await supabaseAuth.auth.getUser()
 
     if (userError || !user) {
-      console.error('❌ [API /api/integrations] Auth error', { userError });
+      console.error('❌ [API /api/integrations] Auth error', { 
+        userError,
+        hasUser: !!user 
+      });
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    // Get all integrations for this user
-    const { data: integrations, error: integrationsError } = await supabase
+    console.log('✅ [API /api/integrations] User authenticated', { userId: user.id });
+
+    // Use service role client to bypass RLS for reading integrations
+    const supabaseService = await createSupabaseServiceClient()
+    let { data: integrations, error: integrationsError } = await supabaseService
       .from("integrations")
       .select("*")
       .eq("user_id", user.id)
+    
+    // Fallback: If no integrations found, check for orphaned ones based on email
+    if ((!integrations || integrations.length === 0) && user.email) {
+      console.log('🔍 [API /api/integrations] No integrations found, checking for orphaned ones...')
+      
+      // Try to find integrations from old user IDs
+      const { data: userProfiles } = await supabaseService
+        .from("user_profiles")
+        .select("id")
+        .eq("email", user.email)
+        .neq("id", user.id)
+      
+      if (userProfiles && userProfiles.length > 0) {
+        const oldUserIds = userProfiles.map(p => p.id)
+        const { data: orphanedIntegrations } = await supabaseService
+          .from("integrations")
+          .select("*")
+          .in("user_id", oldUserIds)
+        
+        if (orphanedIntegrations && orphanedIntegrations.length > 0) {
+          console.log(`🔄 [API /api/integrations] Found ${orphanedIntegrations.length} orphaned integrations, auto-migrating...`)
+          
+          // Auto-migrate these integrations
+          await supabaseService
+            .from("integrations")
+            .update({ 
+              user_id: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .in("user_id", oldUserIds)
+          
+          // Re-fetch with the correct user ID
+          const result = await supabaseService
+            .from("integrations")
+            .select("*")
+            .eq("user_id", user.id)
+          
+          integrations = result.data
+          integrationsError = result.error
+          
+          console.log(`✅ [API /api/integrations] Auto-migrated and fetched ${integrations?.length || 0} integrations`)
+        }
+      }
+    }
+    
+    console.log('📊 [API /api/integrations] Query result', {
+      count: integrations?.length || 0,
+      error: integrationsError,
+      errorMessage: integrationsError?.message,
+      errorCode: integrationsError?.code,
+      firstFew: integrations?.slice(0, 2).map(i => ({ 
+        provider: i.provider, 
+        status: i.status 
+      }))
+    });
 
     if (integrationsError) {
+      console.error('❌ [API /api/integrations] Database error:', {
+        message: integrationsError.message,
+        code: integrationsError.code,
+        details: integrationsError.details,
+        hint: integrationsError.hint
+      });
       return NextResponse.json({ error: integrationsError.message }, { status: 500 })
     }
 
@@ -58,7 +123,7 @@ export async function GET() {
 
     // Batch update all expired integrations at once
     if (expiredIntegrationIds.length > 0) {
-      await supabase
+      await supabaseService
         .from("integrations")
         .update({
           status: "expired",
