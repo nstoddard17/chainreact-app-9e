@@ -3840,6 +3840,7 @@ const useWorkflowBuilderState = () => {
     setListeningMode,
     handleResetLoadingStates,
     sourceAddNode,
+    setSourceAddNode,
     handleActionDialogClose,
     nodeNeedsConfiguration,
     workflows: workflowsData,
@@ -4045,7 +4046,7 @@ function WorkflowBuilderContent() {
     configuringNodeInfo, configuringIntegrationName, configuringInitialData, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
-    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
+    sourceAddNode, setSourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
     handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
     showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions,
@@ -5423,6 +5424,7 @@ function WorkflowBuilderContent() {
                   return (
                     <div
                       key={integration.id}
+                      id={`action-integration-${integration.id}`}
                       className={`flex items-center p-3 rounded-md ${
                         isComingSoon 
                           ? 'cursor-not-allowed opacity-60'
@@ -6797,12 +6799,39 @@ function WorkflowBuilderContent() {
               onClose={handleConfigurationClose}
               onSave={handleConfigurationSave}
               onBack={() => {
-                // Close configuration modal and open action selection modal
+                // Save the integration and source info before closing
+                const savedIntegration = pendingNode?.integration;
+                const savedSourceInfo = (pendingNode as any)?.sourceNodeInfo;
+                
+                // Close configuration modal (this will clear pendingNode)
                 handleConfigurationClose();
-                // Only show action dialog if we have a source node (from pendingNode)
-                if (pendingNode && (pendingNode as any).sourceNodeInfo) {
-                  setSourceAddNode((pendingNode as any).sourceNodeInfo);
+                
+                // Restore the action dialog with saved info
+                if (savedSourceInfo) {
+                  setSourceAddNode(savedSourceInfo);
+                  // Restore the previously selected integration
+                  if (savedIntegration) {
+                    setSelectedIntegration(savedIntegration);
+                  }
+                  // Clear the selected action so user can choose a different one
+                  setSelectedAction(null);
                   setShowActionDialog(true);
+                  
+                  // Scroll to the selected integration after a brief delay to ensure dialog is rendered
+                  if (savedIntegration) {
+                    setTimeout(() => {
+                      const element = document.getElementById(`action-integration-${savedIntegration.id}`);
+                      if (element) {
+                        // Get the scrollable container (ScrollArea viewport)
+                        const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                        if (scrollContainer) {
+                          // Calculate the position to scroll the element to the top
+                          const elementTop = element.offsetTop;
+                          scrollContainer.scrollTop = elementTop - 8; // Subtract 8px for a bit of padding
+                        }
+                      }
+                    }, 100);
+                  }
                 }
               }}
               nodeInfo={configuringNodeInfo}
