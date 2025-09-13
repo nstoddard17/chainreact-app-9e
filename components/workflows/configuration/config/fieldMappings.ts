@@ -481,14 +481,11 @@ const notionMappings: Record<string, FieldMapping> = {
     page: "notion_pages",
     database: "notion_databases",
     destinationPage: "notion_pages",
+    pageFields: "notion_page_blocks",
   },
   notion_action_manage_database: {
     workspace: "notion_workspaces",
     database: "notion_databases",
-  },
-  notion_action_manage_blocks: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
   },
   notion_action_search: {
     workspace: "notion_workspaces",

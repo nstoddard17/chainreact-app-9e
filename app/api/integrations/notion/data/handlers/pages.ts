@@ -6,11 +6,23 @@ import { NotionIntegration, NotionPage, NotionDataHandler } from '../types'
 import { validateNotionIntegration, makeNotionApiRequest } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Simple in-memory cache for pages (expires after 5 minutes)
+const pageCache = new Map<string, { data: NotionPage[], timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 export const getNotionPages: NotionDataHandler<NotionPage> = async (integration: any, context?: any): Promise<NotionPage[]> => {
   console.log("🔍 Notion pages fetcher called")
   console.log("🔍 Context:", context)
   
   try {
+    // Check cache first
+    const cacheKey = `${integration.id || integration.userId}_${context?.workspace || 'all'}`
+    const cached = pageCache.get(cacheKey)
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log("✅ Returning cached pages:", cached.data.length)
+      return cached.data
+    }
     // Import decrypt function
     const { decrypt } = await import("@/lib/security/encryption")
     const encryptionKey = process.env.ENCRYPTION_KEY!
@@ -96,6 +108,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
         // Decrypt the access token
         const workspaceAccessToken = decrypt(encryptedToken, encryptionKey)
         
+        // Optimize by fetching fewer pages initially and sorting by recently edited
         const response = await makeNotionApiRequest(
           'https://api.notion.com/v1/search',
           workspaceAccessToken,
@@ -106,7 +119,11 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
                 property: "object",
                 value: "page"
               },
-              page_size: 100
+              sort: {
+                direction: "descending",
+                timestamp: "last_edited_time"
+              },
+              page_size: 50  // Reduced from 100 for faster initial load
             })
           }
         )
@@ -124,27 +141,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
         
         console.log(`✅ Got ${pages.length} pages (filtered from ${allResults.length} total results) from workspace ${workspaceName}`)
         
-        // Log first page to see property structure
-        if (pages.length > 0) {
-          const firstPage = pages[0]
-          // Find the actual title property
-          let titlePropertyName = null
-          for (const [propName, prop] of Object.entries(firstPage.properties || {})) {
-            if ((prop as any).type === 'title') {
-              titlePropertyName = propName
-              break
-            }
-          }
-          console.log(`📄 Sample page properties:`, {
-            id: firstPage.id,
-            object: firstPage.object,
-            propertyKeys: Object.keys(firstPage.properties || {}),
-            titlePropertyName: titlePropertyName,
-            hasTitle: !!firstPage.properties?.title,
-            hasName: !!firstPage.properties?.Name,
-            archived: firstPage.archived
-          })
-        }
+        // Removed verbose logging for performance
         
         // Transform pages to expected format - extract title from various possible locations
         const transformedPages = pages
@@ -186,7 +183,6 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
                       // Even if empty, we found the title field - page is truly untitled
                       title = 'Untitled'
                     }
-                    console.log(`📝 Found title in property '${propName}': ${title}`)
                     break
                   }
                 }
@@ -240,6 +236,13 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     }
     
     console.log(`✅ Total pages fetched: ${allPages.length}`)
+    
+    // Store in cache
+    pageCache.set(cacheKey, {
+      data: allPages,
+      timestamp: Date.now()
+    })
+    
     return allPages
     
   } catch (error: any) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useBillingStore } from "@/stores/billingStore"
+import { useAuthStore } from "@/stores/authStore"
 import PlanSelector from "./PlanSelectorStyled"
 import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
@@ -12,9 +13,13 @@ import { useSearchParams } from "next/navigation"
 export default function BillingContent() {
   const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage, fetchAll } =
     useBillingStore()
+  const { profile } = useAuthStore()
   const searchParams = useSearchParams()
   const targetPlanId = searchParams.get("plan")
   const [showWelcome, setShowWelcome] = useState(false)
+
+  // Check if user is a beta tester
+  const isBetaTester = profile?.role === 'beta-pro'
 
   useEffect(() => {
     // Fetch all data in parallel for better performance
@@ -46,6 +51,55 @@ export default function BillingContent() {
           <div className="text-center text-red-600">Error loading billing information: {error}</div>
         </CardContent>
       </Card>
+    )
+  }
+
+  // Show special message for beta testers
+  if (isBetaTester) {
+    return (
+      <div className="space-y-12">
+        <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2">Beta Testing Program</h2>
+                <p className="text-muted-foreground mb-4">
+                  You're currently enrolled in our beta testing program with full Pro access.
+                  Thank you for helping us improve ChainReact!
+                </p>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <strong>Your Benefits:</strong>
+                  </p>
+                  <ul className="text-sm space-y-1 ml-4">
+                    <li>• Up to 50 workflows</li>
+                    <li>• 5,000 executions per month</li>
+                    <li>• All integrations unlocked</li>
+                    <li>• Priority support</li>
+                    <li>• Early access to new features</li>
+                  </ul>
+                </div>
+                <div className="mt-4 p-3 bg-blue-500/10 rounded-lg">
+                  <p className="text-sm">
+                    <strong>Note:</strong> As a beta tester, you have free access to Pro features.
+                    When your beta period ends, you'll receive a special discount to continue with a paid plan.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Usage Stats for Beta Testers */}
+        {usage && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-800/20 backdrop-blur-sm p-6 rounded-xl border border-slate-700/30">
+            <UsageStats usage={usage} subscription={currentSubscription} />
+          </div>
+        )}
+      </div>
     )
   }
 

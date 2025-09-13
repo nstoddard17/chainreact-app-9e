@@ -47,7 +47,7 @@ import { ExecutionHistoryModal } from "./ExecutionHistoryModal"
 import { SandboxPreviewPanel } from "./SandboxPreviewPanel"
 
 import { Button } from "@/components/ui/button"
-import { OrganizationRoleGuard } from "@/components/ui/role-guard"
+import { RoleGuard, OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical, Settings, HelpCircle } from "lucide-react"
@@ -4311,7 +4311,7 @@ function WorkflowBuilderContent() {
             </div>
           </div>
             <div className="flex items-center space-x-2 flex-shrink-0">
-            <OrganizationRoleGuard requiredRole="admin">
+            <RoleGuard requiredRole="admin">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -4324,7 +4324,7 @@ function WorkflowBuilderContent() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            </OrganizationRoleGuard>
+            </RoleGuard>
             
             {/* Pre-Activation Check Modal */}
             <Dialog open={showPrecheck} onOpenChange={setShowPrecheck}>
@@ -4386,7 +4386,7 @@ function WorkflowBuilderContent() {
               </DialogContent>
             </Dialog>
             {/* Admin-only maintenance: Clean up Add Action buttons */}
-            <OrganizationRoleGuard requiredRole="admin">
+            <RoleGuard requiredRole="admin">
               <Button variant="outline" onClick={() => {
                 try {
                   const allNodes = getNodes()
@@ -4455,7 +4455,7 @@ function WorkflowBuilderContent() {
                   toast({ title: 'Cleanup failed', description: 'Could not reposition add buttons.', variant: 'destructive' })
                 }
               }}>Clean Up Add Buttons</Button>
-            </OrganizationRoleGuard>
+            </RoleGuard>
             <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
             {hasUnsavedChanges && (
               <Badge variant="outline" className="text-orange-600 border-orange-600">

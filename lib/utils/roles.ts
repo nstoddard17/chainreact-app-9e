@@ -60,27 +60,28 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   },
   'beta-pro': {
     name: 'beta-pro',
-    displayName: 'Beta-Pro',
-    color: 'text-blue-600 dark:text-blue-400',
-    badgeColor: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white border border-blue-600 dark:border-blue-500',
-    description: 'Beta testing Pro features',
+    displayName: 'Beta Tester',
+    color: 'text-purple-600 dark:text-purple-400',
+    badgeColor: 'bg-gradient-to-r from-purple-500 to-blue-500 text-white border border-purple-600 dark:border-purple-500',
+    description: 'Beta testing Pro features with generous limits',
     features: [
-      'Up to 20 workflows',
-      'Advanced integrations',
-      '20 AI messages per month',
-      'Priority support',
+      'Up to 50 workflows (Beta)',
+      'All integrations',
+      '100 AI messages per month',
+      'Priority beta support',
       'Custom templates',
-      'Early access to new features'
+      'Early access to new features',
+      'Direct feedback channel'
     ],
     limits: {
-      workflows: 20,
-      integrations: 15,
-      executions: 1000,
-      ai_assistant_calls: 20,
-      ai_compose_uses: 20,
-      ai_agent_executions: 20
+      workflows: 50,
+      integrations: 30,
+      executions: 5000,
+      ai_assistant_calls: 100,
+      ai_compose_uses: 100,
+      ai_agent_executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant'],
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant', '/webhooks'],
     isSecret: true
   },
   business: {
