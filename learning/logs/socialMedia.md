@@ -4,6 +4,16 @@
 
 ## January 12, 2025
 
+### Fixed Notion Database Fetching and Action Selection Issues
+
+Resolved critical issues with Notion integration in the workflow builder. Fixed the "No source node for action" error that occurred when trying to add Notion database actions by properly setting sourceAddNode state in all scenarios, including when opening action dialogs from configuration modals or AI Agent builders. Enhanced the Notion database fetching to include comprehensive logging and detection of inline databases, synced blocks, and linked database views, ensuring all database types are visible in dropdowns. The improvements make Notion workflow creation more reliable and intuitive.
+
+### Fixed Integration Fetch Loop and Cookie Parsing Errors
+
+Resolved two critical performance issues that were degrading the workflow builder experience. First, fixed an infinite loop causing dozens of redundant API calls to `/api/integrations` when opening a workflow. The issue was a dependency cycle in the `useIntegrationSelection` hook where the useEffect was watching `storeIntegrations` in its dependency array, which gets updated by `fetchIntegrations`, causing it to re-run and trigger more fetches. By removing the dependencies and running the effect only once on mount, we eliminated the cascade of repeated requests that were slowing down workflow loading. Second, fixed cookie parsing errors that were appearing in the console ("Failed to parse cookie string: Unexpected token 'b', 'base64-eyJ'...") by migrating all API routes from the deprecated `createRouteHandlerClient` to the new `createClient` from our centralized Supabase server utilities. This ensures proper cookie encoding handling and eliminates the JSON parsing errors that were cluttering logs and potentially causing auth issues. These fixes significantly improve the workflow builder's performance and reliability.
+
+## January 11, 2025
+
 ### Human-Readable Variable Display for Better Workflow Understanding
 
 Implemented a user-friendly variable display system that shows human-readable labels for workflow variables while preserving the underlying technical references. When users connect nodes together and reference outputs from previous steps, they now see intuitive labels like "Google Drive: File Object" or "Gmail: Subject" instead of cryptic IDs like "{{node-1757693731824-lcnytyi3g.output.file}}". The system intelligently detects when users are viewing variables and displays the friendly name in blue text, but switches back to the actual reference when editing to ensure technical accuracy. This dual-mode approach provides the best of both worlds: clear understanding for users building workflows and precise variable references for the execution engine. The feature automatically extracts node titles and field labels from workflow metadata, creating descriptions that immediately convey what data is being referenced without requiring users to decode node IDs or remember which node produced which output.

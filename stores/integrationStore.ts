@@ -261,6 +261,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           const integrations = await IntegrationService.fetchIntegrations(force)
           
+          // Debug log to see what we got from the API
+          console.log('📦 [IntegrationStore] Fetched integrations:', {
+            count: integrations?.length,
+            firstFew: integrations?.slice(0, 3).map(i => ({ 
+              provider: i.provider, 
+              status: i.status,
+              id: i.id 
+            }))
+          });
+          
           setLoading('integrations', false)
           set({
             integrations,

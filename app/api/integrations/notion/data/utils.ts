@@ -114,8 +114,49 @@ export function getPageTitle(page: any): string {
  * Get database title from Notion database
  */
 export function getDatabaseTitle(database: any): string {
-  if (!database?.title) return 'Untitled Database'
-  return extractPlainText(database.title) || 'Untitled Database'
+  // First try the standard title field (array of rich text)
+  if (database?.title && Array.isArray(database.title) && database.title.length > 0) {
+    const title = extractPlainText(database.title)
+    if (title) return title
+  }
+  
+  // Some databases have title as a single rich text object
+  if (database?.title?.plain_text) {
+    return database.title.plain_text
+  }
+  
+  // Check if title is in properties (for database views or linked databases)
+  if (database?.properties) {
+    // Look for any property with type 'title'
+    for (const [propName, prop] of Object.entries(database.properties)) {
+      if ((prop as any).type === 'title' && (prop as any).title) {
+        const title = extractPlainText((prop as any).title)
+        if (title) return title
+      }
+    }
+    
+    // Common property names that might contain the database name
+    const titlePropertyNames = ['Name', 'name', 'Title', 'title', 'Database', 'database']
+    for (const propName of titlePropertyNames) {
+      if (database.properties[propName]) {
+        const prop = database.properties[propName]
+        if ((prop as any).title) {
+          const title = extractPlainText((prop as any).title)
+          if (title) return title
+        }
+      }
+    }
+  }
+  
+  // For database views, the description might contain the view name
+  if (database?.description && Array.isArray(database.description) && database.description.length > 0) {
+    const desc = extractPlainText(database.description)
+    if (desc && desc.includes('View of')) {
+      return desc // This might be "View of Global Offices"
+    }
+  }
+  
+  return 'Untitled Database'
 }
 
 /**
@@ -132,11 +173,20 @@ export async function validateNotionToken(integration: any): Promise<{ success: 
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper encryption/decryption and refresh logic
+    // Decrypt the access token
+    const { decrypt } = await import('@/lib/security/encryption')
+    const decryptedToken = decrypt(integration.access_token)
+    
+    if (!decryptedToken) {
+      return {
+        success: false,
+        error: "Failed to decrypt access token"
+      }
+    }
+
     return {
       success: true,
-      token: integration.access_token
+      token: decryptedToken
     }
   } catch (error: any) {
     return {

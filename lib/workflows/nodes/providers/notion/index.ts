@@ -4,12 +4,12 @@ import { NodeComponent } from "../../types"
 // Import Notion action metadata if it exists
 const NOTION_CREATE_PAGE_METADATA = { key: "notion_action_create_page", name: "Create Page", description: "Create a new page in Notion" }
 
-// Import comprehensive actions if they exist separately
-import { notionComprehensiveActions } from './comprehensive-actions'
+// Import unified actions instead of comprehensive actions
+import { notionUnifiedActions } from './unified-actions'
 
-// Combine existing nodes with comprehensive actions
+// Use unified actions instead of individual actions
 export const notionNodes: NodeComponent[] = [
-  ...notionComprehensiveActions,
+  ...notionUnifiedActions,
   {
     type: "notion_trigger_new_page",
     title: "New Page in Database",
@@ -74,6 +74,8 @@ export const notionNodes: NodeComponent[] = [
       { name: "createdAt", label: "Created At", type: "string", description: "When the comment was created" }
     ]
   },
+  // DEPRECATED: Replaced by notion_action_manage_page with operation="create"
+  /*
   {
     type: "notion_action_create_page",
     title: "Create Page",
@@ -239,6 +241,9 @@ export const notionNodes: NodeComponent[] = [
       }
     ]
   },
+  */
+  // DEPRECATED: Replaced by notion_action_manage_page with operation="append"
+  /*
   {
     type: "notion_action_append_to_page",
     title: "Append to Page",
@@ -252,6 +257,9 @@ export const notionNodes: NodeComponent[] = [
       { name: "content", label: "Content", type: "textarea", required: true, placeholder: "Content to append" }
     ]
   },
+  */
+  // DEPRECATED: Replaced by notion_action_manage_database with operation="create"
+  /*
   {
     type: "notion_action_create_database",
     title: "Create Database",
@@ -386,6 +394,9 @@ export const notionNodes: NodeComponent[] = [
       }
     ]
   },
+  */
+  // DEPRECATED: Replaced by notion_action_search
+  /*
   {
     type: "notion_action_search_pages",
     title: "Search Pages",
@@ -404,6 +415,9 @@ export const notionNodes: NodeComponent[] = [
       { name: "maxResults", label: "Max Results", type: "number", required: false, defaultValue: 10, placeholder: "10" }
     ]
   },
+  */
+  // DEPRECATED: Replaced by notion_action_manage_page with operation="update"
+  /*
   {
     type: "notion_action_update_page",
     title: "Update Page",
@@ -419,4 +433,5 @@ export const notionNodes: NodeComponent[] = [
       { name: "content", label: "Content", type: "textarea", required: false, placeholder: "New page content" }
     ]
   },
+  */
 ]

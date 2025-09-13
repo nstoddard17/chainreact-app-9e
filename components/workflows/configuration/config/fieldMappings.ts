@@ -389,7 +389,7 @@ const hubspotMappings: Record<string, FieldMapping> = {
 const notionMappings: Record<string, FieldMapping> = {
   notion_action_retrieve_page: {
     workspace: "notion_workspaces",
-    page_id: "notion_pages",
+    page: "notion_pages",
   },
   notion_action_archive_page: {
     workspace: "notion_workspaces",
@@ -450,6 +450,7 @@ const notionMappings: Record<string, FieldMapping> = {
     database_id: "notion_databases",
   },
   notion_action_update_page: {
+    workspace: "notion_workspaces",
     page: "notion_pages",
   },
   notion_action_search_pages: {
@@ -463,11 +464,42 @@ const notionMappings: Record<string, FieldMapping> = {
     page: "notion_pages",
   },
   notion_action_append_to_page: {
+    workspace: "notion_workspaces",
     page: "notion_pages",
   },
   notion_action_create_database: {
     workspace: "notion_workspaces",
     template: "notion_database_templates",
+  },
+  notion_action_get_page_details: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  // Unified Notion actions
+  notion_action_manage_page: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+    database: "notion_databases",
+    destinationPage: "notion_pages",
+  },
+  notion_action_manage_database: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
+  notion_action_manage_blocks: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_search: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_manage_users: {
+    workspace: "notion_workspaces",
+    userId: "notion_users",
+  },
+  notion_action_manage_comments: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
   },
 };
 
