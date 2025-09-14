@@ -96,20 +96,28 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Check if there's already an active request for this exact field/dependency combination
     const activeRequestKey = cacheKey;
     if (!forceRefresh && activeRequests.current.has(activeRequestKey)) {
+      console.log(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
       try {
         await activeRequests.current.get(activeRequestKey);
+        // Check if this request is still the most recent one
+        if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded, skipping`);
+          return;
+        }
         return; // Data should now be available
       } catch (error) {
+        console.log(`⚠️ [useDynamicOptions] Previous request failed, continuing with new request`);
         // Continue with new request
       }
     }
     
     // Prevent duplicate calls for the same field (unless forcing refresh)
-    if (!forceRefresh && loadingFields.current.has(cacheKey)) {
-      // Only log for Discord fields to avoid spam
-      if (fieldName === 'filterAuthor' || (fieldName === 'guildId' && providerId === 'discord')) {
-        // Skip duplicate call
-      }
+    // But allow if it's been more than 1 second since the field started loading
+    const isStaleLoading = loadingFields.current.has(cacheKey) && 
+      Date.now() - (loadingFields.current as any).getTime?.(cacheKey) > 1000;
+    
+    if (!forceRefresh && loadingFields.current.has(cacheKey) && !isStaleLoading) {
+      console.log(`🚫 [useDynamicOptions] Skipping duplicate call for ${cacheKey}`);
       return;
     }
     
@@ -1129,24 +1137,25 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         [fieldName]: []
       }));
       
-      // Only clear loading state for non-abort errors
-      // But only if this is still the current request
+      // Don't clear loading state here - it's handled in the finally block
+      // This prevents duplicate cleanup and ensures consistency
+    } finally {
+      // Always clean up loading state and request tracking
+      // This ensures loading state doesn't get stuck even if there's an error
       if (activeRequestIds.current.get(cacheKey) === requestId) {
+        // Only clear if this is still the current request
         loadingFields.current.delete(cacheKey);
         setLoading(false);
         
-        // Clean up the abort controller and request ID on error
+        // Clean up tracking
         abortControllers.current.delete(cacheKey);
         activeRequestIds.current.delete(cacheKey);
+        
+        // Clear loading state via callback if not in silent mode
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false);
+        }
       }
-      
-      // Only clear loading states if not in silent mode
-      if (!silent) {
-        onLoadingChangeRef.current?.(fieldName, false);
-      }
-    } finally {
-      // Only perform cleanup if not aborted
-      // This is handled in the catch block now
     }
     })();
     
