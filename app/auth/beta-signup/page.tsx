@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabaseClient"
@@ -11,7 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, CheckCircle, Sparkles, Zap, Shield, Users } from "lucide-react"
 import Link from "next/link"
 
-export default function BetaSignupPage() {
+function BetaSignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -340,5 +341,30 @@ export default function BetaSignupPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+// Loading fallback component
+function BetaSignupLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Main component with Suspense boundary
+export default function BetaSignupPage() {
+  return (
+    <Suspense fallback={<BetaSignupLoading />}>
+      <BetaSignupContent />
+    </Suspense>
   )
 }
