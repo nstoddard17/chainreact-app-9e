@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
   const state = url.searchParams.get('state')
 
   const baseUrl = getBaseUrl()
+  console.log('📍 Slack callback - Base URL:', baseUrl)
+  console.log('📍 Slack callback - Request URL:', request.url)
+  
   const supabase = createAdminClient()
 
   if (!code || !state) {

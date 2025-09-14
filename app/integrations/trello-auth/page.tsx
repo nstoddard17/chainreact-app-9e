@@ -1,144 +1,191 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { createBrowserClient } from "@supabase/ssr"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { redirect } from "next/navigation"
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default function TrelloAuthPage() {
-  const [processing, setProcessing] = useState(true)
+export default function TrelloAuthCallback() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { toast } = useToast()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   useEffect(() => {
-    const handleTrelloCallback = async () => {
+    // Trello returns the token in the URL fragment (after #)
+    const handleTrelloAuth = async () => {
       try {
-        // Get current user from Supabase with proper session handling
-        const {
-          data: { user: authUser },
-          error: userError,
-        } = await supabase.auth.getUser()
-
-        if (userError || !authUser) {
-          console.error("No authenticated user found")
-          notifyParentAndClose("error", "Please log in to connect integrations")
-          return
+        // Get the fragment from the URL
+        const fragment = window.location.hash.substring(1)
+        
+        if (!fragment) {
+          throw new Error('No token found in URL')
         }
 
-        // Get session for access token
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.access_token) {
-          console.error("No valid session found")
-          notifyParentAndClose("error", "Session expired. Please log in again")
-          return
-        }
-
-        // Get the state from URL params
-        const state = searchParams.get("state")
-        if (!state) {
-          console.error("No state parameter found in URL")
-          notifyParentAndClose("error", "Invalid authentication request")
-          return
-        }
-
-        // Get the token from the URL fragment
-        const hash = window.location.hash
-        if (!hash) {
-          console.error("No hash fragment found in URL")
-          notifyParentAndClose("error", "No token received from Trello")
-          return
-        }
-
-        const urlParams = new URLSearchParams(hash.substring(1)) // Remove the # and parse
-        const token = urlParams.get("token")
-
+        // Parse the fragment to get the token
+        const params = new URLSearchParams(fragment)
+        const token = params.get('token')
+        
+        // Get state from query params (before the #)
+        const urlParams = new URLSearchParams(window.location.search)
+        const state = urlParams.get('state')
+        
         if (!token) {
-          console.error("No token found in URL fragment")
-          notifyParentAndClose("error", "No token received from Trello")
-          return
+          throw new Error('No token found in URL fragment')
         }
 
-        console.log("Processing Trello token")
-        const response = await fetch("/api/integrations/trello/process-token", {
-          method: "POST",
+        // Decode the state to get userId
+        let userId = null
+        if (state) {
+          try {
+            const stateData = JSON.parse(atob(state))
+            userId = stateData.userId
+          } catch (e) {
+            console.error('Failed to parse state:', e)
+          }
+        }
+
+        if (!userId) {
+          throw new Error('User ID not found in state')
+        }
+
+        // Send the token to our backend to save
+        const response = await fetch('/api/integrations/trello/process-token', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            token: token,
-            userId: authUser.id,
+            token,
+            userId,
           }),
         })
 
-        const result = await response.json()
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to process Trello token")
+          const error = await response.json()
+          throw new Error(error.message || 'Failed to save Trello integration')
         }
 
-        // Notify parent window of success and close this popup
-        notifyParentAndClose("success", "Trello connected successfully!")
-      } catch (error: any) {
-        console.error("Error processing Trello callback:", error)
-        notifyParentAndClose("error", error.message || "Failed to connect Trello integration")
-      } finally {
-        setProcessing(false)
-      }
-    }
-
-    // Function to notify parent window and close this popup
-    const notifyParentAndClose = (type: "success" | "error", message: string) => {
-      const baseUrl = getBaseUrl()
-      
-      if (window.opener) {
-        // Use the format that IntegrationsContent.tsx expects
-        window.opener.postMessage({ 
-          type: `oauth-${type}`,
-          status: type,  // This is what the parent window checks for
-          provider: "trello", 
-          message 
-        }, baseUrl)
+        // Send success message to parent window if it exists
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth-complete',
+            success: true,
+            provider: 'trello',
+            message: 'Trello connected successfully'
+          }, window.location.origin)
+        }
         
-        // Short delay before closing to ensure message is received
-        setTimeout(() => window.close(), 300)
-      } else {
-        // If there's no opener, we need to redirect back to integrations page
-        const status = type === "success" ? "success=true" : "error=trello_auth_failed"
-        const encodedMsg = encodeURIComponent(message)
-        router.replace(`/integrations?${status}&provider=trello&message=${encodedMsg}&t=${Date.now()}`)
+        // Also store in localStorage as backup for COOP restrictions
+        const timestamp = Date.now()
+        const storageKey = `oauth_response_trello_${timestamp}`
+        localStorage.setItem(storageKey, JSON.stringify({
+          type: 'oauth-complete',
+          success: true,
+          provider: 'trello',
+          message: 'Trello connected successfully',
+          timestamp: new Date().toISOString()
+        }))
+        console.log('Stored OAuth response in localStorage with key:', storageKey)
+
+        // Show success message with app theme
+        document.body.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif; background: white;">
+            <div style="text-align: center; padding: 2rem; background: #f3f4f6; border-radius: 12px; border: 2px solid #d1d5db;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #10b981;">
+                <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <h2 style="margin: 0 0 0.5rem; color: #111827; font-weight: 600;">Success!</h2>
+              <p style="margin: 0 0 1rem; color: #6b7280;">Trello has been connected successfully.</p>
+              <p style="margin: 0; color: #9ca3af; font-size: 0.875rem;">This window will close automatically...</p>
+            </div>
+          </div>
+        `
+
+        // Close the window after a short delay
+        setTimeout(() => {
+          window.close()
+        }, 2000)
+
+      } catch (error: any) {
+        console.error('Trello auth error:', error)
+        
+        // Send error message to parent window if it exists
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth-complete',
+            success: false,
+            provider: 'trello',
+            error: error.message || 'Failed to connect Trello'
+          }, window.location.origin)
+        }
+        
+        // Also store in localStorage as backup
+        const timestamp = Date.now()
+        const storageKey = `oauth_response_trello_${timestamp}`
+        localStorage.setItem(storageKey, JSON.stringify({
+          type: 'oauth-complete',
+          success: false,
+          provider: 'trello',
+          error: error.message || 'Failed to connect Trello',
+          timestamp: new Date().toISOString()
+        }))
+        console.log('Stored OAuth error in localStorage with key:', storageKey)
+
+        // Show error message with app theme
+        document.body.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif; background: white;">
+            <div style="text-align: center; padding: 2rem; background: #fef2f2; border-radius: 12px; border: 2px solid #fca5a5;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+                <path d="M12 9V13M12 17H12.01M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <h2 style="margin: 0 0 0.5rem; color: #111827; font-weight: 600;">Connection Failed</h2>
+              <p style="margin: 0 0 1rem; color: #6b7280;">${error.message || 'Failed to connect Trello'}</p>
+              <p style="margin: 0; color: #9ca3af; font-size: 0.875rem;">This window will close automatically...</p>
+            </div>
+          </div>
+        `
+
+        // Close the window after a longer delay for errors
+        setTimeout(() => {
+          window.close()
+        }, 3000)
       }
     }
 
-    // Add a small delay to ensure the page is fully loaded
-    const timer = setTimeout(handleTrelloCallback, 100)
-    return () => clearTimeout(timer)
-  }, [router, searchParams, toast, supabase.auth])
+    handleTrelloAuth()
+  }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-      <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm max-w-md w-full mx-4">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-slate-900">
-            {processing ? "Connecting Trello..." : "Processing Complete"}
-          </h2>
-          <p className="text-slate-600">
-            {processing
-              ? "Please wait while we complete your Trello integration setup."
-              : "Connecting to integrations..."}
-          </p>
-        </div>
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      height: '100vh',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      background: 'white'
+    }}>
+      <div style={{ 
+        textAlign: 'center',
+        padding: '2rem',
+        background: '#f9fafb',
+        borderRadius: '12px',
+        border: '2px solid #e5e7eb'
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '3px solid #e5e7eb',
+          borderTop: '3px solid #6b7280',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 1rem'
+        }}></div>
+        <h2 style={{ margin: '0 0 0.5rem', color: '#111827', fontWeight: '600' }}>Connecting to Trello</h2>
+        <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>Please wait while we complete the connection...</p>
       </div>
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

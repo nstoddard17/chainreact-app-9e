@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -87,6 +87,11 @@ export default function WorkflowsContent() {
     open: false,
     title: "",
     message: "",
+  })
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ open: boolean; workflowId: string | null; workflowName: string }>({
+    open: false,
+    workflowId: null,
+    workflowName: "",
   })
   const { toast } = useToast()
 
@@ -266,23 +271,29 @@ export default function WorkflowsContent() {
     }
   }
 
-  const handleDeleteWorkflow = async (id: string) => {
-    if (confirm("Are you sure you want to delete this workflow?")) {
-      try {
-        await deleteWorkflowById(id)
-        toast({
-          title: "Success",
-          description: "Workflow deleted successfully",
-        })
-      } catch (error) {
-        console.error("Failed to delete workflow:", error)
-        toast({
-          title: "Error",
-          description: "Failed to delete workflow",
-          variant: "destructive",
-        })
-      }
+  const handleDeleteWorkflow = async () => {
+    if (!deleteConfirmation.workflowId) return
+
+    try {
+      await deleteWorkflowById(deleteConfirmation.workflowId)
+      toast({
+        title: "Success",
+        description: "Workflow deleted successfully",
+      })
+      setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
+    } catch (error) {
+      console.error("Failed to delete workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete workflow",
+        variant: "destructive",
+      })
+      setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
     }
+  }
+
+  const openDeleteConfirmation = (id: string, name: string) => {
+    setDeleteConfirmation({ open: true, workflowId: id, workflowName: name })
   }
 
   const handleGenerateWithAI = async () => {
@@ -567,7 +578,7 @@ export default function WorkflowsContent() {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        <OrganizationRoleGuard requiredRole="admin">
+                        <RoleGuard requiredRole="admin">
                           <div className="flex items-center gap-4 ml-4">
                             <div className="flex items-center gap-2">
                               <Switch id="ai-debug" checked={aiDebugMode} onCheckedChange={setAiDebugMode} />
@@ -578,7 +589,7 @@ export default function WorkflowsContent() {
                               <Label htmlFor="ai-strict" className="text-sm text-muted-foreground">Strict Mode</Label>
                             </div>
                           </div>
-                        </OrganizationRoleGuard>
+                        </RoleGuard>
                       </div>
                       {/* Removed example prompt buttons for a cleaner UI */}
                     </div>
@@ -847,7 +858,7 @@ export default function WorkflowsContent() {
                                 variant="ghost"
                                 onClick={(e) => {
                                   e.preventDefault()
-                                  handleDeleteWorkflow(workflow.id)
+                                  openDeleteConfirmation(workflow.id, workflow.name)
                                 }}
                                 className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
                               >
@@ -1074,6 +1085,31 @@ export default function WorkflowsContent() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setErrorModal({ open: false, title: "", message: "" })}>
               OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Workflow Confirmation Modal */}
+      <AlertDialog open={deleteConfirmation.open} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the workflow "{deleteConfirmation.workflowName}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteWorkflow}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -327,7 +327,15 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Get integration for other providers
       integration = getIntegrationByProvider(providerId);
       
+      console.log('🔍 [useDynamicOptions] Looking for integration:', {
+        providerId,
+        fieldName,
+        integrationFound: !!integration,
+        integrationId: integration?.id
+      });
+      
       if (!integration) {
+        console.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
         // Clear the field data
         setDynamicOptions(prev => ({
           ...prev,
@@ -684,6 +692,15 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Load integration data with proper options
       options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
+      
+      // Special handling for Notion page blocks - API expects pageId instead of page
+      if (resourceType === 'notion_page_blocks' && dependsOn === 'page') {
+        const formValues = getFormValues?.() || {};
+        options = { 
+          pageId: dependsOnValue,
+          workspace: formValues.workspace // Include workspace for proper token selection
+        };
+      }
       
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {

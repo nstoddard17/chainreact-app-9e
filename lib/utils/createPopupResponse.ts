@@ -1,4 +1,99 @@
 /**
+ * Creates a connecting/loading response for OAuth popup windows
+ */
+export function createConnectingResponse(provider: string) {
+  const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Connecting to ${safeProvider}</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body { 
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: white;
+          }
+          
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            animation: fadeIn 0.3s ease-out;
+          }
+          
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          
+          .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #6b7280;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+          }
+          
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          h2 { 
+            margin: 0 0 0.5rem; 
+            color: #111827;
+            font-size: 1.5rem;
+            font-weight: 600;
+          }
+          
+          .message { 
+            margin: 0; 
+            color: #6b7280;
+            font-size: 0.875rem;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="spinner"></div>
+          <h2>Connecting to ${safeProvider}</h2>
+          <p class="message">Please wait while we complete the connection...</p>
+        </div>
+      </body>
+    </html>
+  `
+  
+  return new Response(html, { 
+    status: 200, 
+    headers: { "Content-Type": "text/html" } 
+  })
+}
+
+/**
  * Creates a response for OAuth popup windows that communicates with the parent window
  * using both postMessage and localStorage for COOP policy compatibility
  */
@@ -19,8 +114,8 @@ export function createPopupResponse(
   const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
   const safeMessage = message.replace(/[\\'"]/g, '\\$&');
   
-  // Create a unique storage key for this response
-  const storageKey = `oauth_response_${safeProvider}_${Date.now()}`;
+  // Create a unique storage key for this response (sanitize for key safety)
+  const storageKey = `oauth_response_${provider.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}`;
   
   // Determine if this is a personal account error that shouldn't auto-close
   const isPersonalAccountError = type === 'error' && 
@@ -38,13 +133,17 @@ export function createPopupResponse(
       // Flag to track if we've already sent a response
       window.sentResponse = false;
       
-      // Create response data object
+      // Store provider and message as JavaScript variables (properly escaped)
+      const providerName = '${safeProvider}';
+      const messageText = '${safeMessage}';
+      
+      // Create response data object using the variables
       const responseData = {
-        type: '${type === 'success' ? 'oauth-success' : 'oauth-error'}',
+        type: 'oauth-complete', // Use consistent message type
         success: ${type === 'success'},
-        provider: '${safeProvider}',
-        message: '${safeMessage}',
-        error: ${type === 'error' ? `'${safeMessage}'` : 'null'},
+        provider: providerName.replace(/\\\\(.)/g, '$1'), // Unescape the provider name
+        message: messageText.replace(/\\\\(.)/g, '$1'), // Unescape the message
+        error: ${type === 'error'} ? messageText.replace(/\\\\(.)/g, '$1') : null,
         timestamp: new Date().toISOString()
       };
       
@@ -52,6 +151,7 @@ export function createPopupResponse(
       try {
         localStorage.setItem('${storageKey}', JSON.stringify(responseData));
         console.log('Response stored in localStorage with key: ${storageKey}');
+        console.log('Response data:', responseData);
       } catch (e) {
         console.error('Failed to store in localStorage:', e);
       }
@@ -63,7 +163,7 @@ export function createPopupResponse(
             // Store cancellation in localStorage
             const cancelData = {
               type: 'oauth-cancelled',
-              provider: '${safeProvider}',
+              provider: providerName.replace(/\\\\(.)/g, '$1'), // Use unescaped provider name
               message: 'Authorization cancelled',
               timestamp: new Date().toISOString()
             };
@@ -157,191 +257,85 @@ export function createPopupResponse(
           }
           
           body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             display: flex; 
             align-items: center; 
             justify-content: center; 
             height: 100vh; 
             margin: 0;
-            background: ${type === "success" 
-              ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" 
-              : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
+            background: white;
             color: #1a202c;
-            overflow: hidden;
           }
           
           .container { 
             text-align: center; 
-            padding: 3rem 2rem;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            max-width: 400px;
-            width: 90%;
-            animation: slideUp 0.5s ease-out;
+            padding: 2rem;
+            background: ${type === "success" ? "#f3f4f6" : "#fef2f2"};
+            border-radius: 12px;
+            border: 2px solid ${type === "success" ? "#d1d5db" : "#fca5a5"};
+            animation: fadeIn 0.3s ease-out;
           }
           
-          @keyframes slideUp {
+          @keyframes fadeIn {
             from {
               opacity: 0;
-              transform: translateY(30px);
+              transform: scale(0.95);
             }
             to {
               opacity: 1;
-              transform: translateY(0);
+              transform: scale(1);
             }
           }
           
-          .logo {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 1.5rem;
-            display: block;
-          }
-          
           .status-icon { 
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            background: ${type === "success" 
-              ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" 
-              : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"};
-            color: white;
-            box-shadow: 0 10px 25px -5px ${type === "success" ? "rgba(16, 185, 129, 0.4)" : "rgba(239, 68, 68, 0.4)"};
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem;
+            color: ${type === "success" ? "#10b981" : "#ef4444"};
           }
           
-          h1 { 
-            margin: 0 0 1rem 0; 
-            font-size: 1.75rem; 
-            font-weight: 700;
-            color: #1a202c;
-            line-height: 1.2;
-          }
-          
-          .provider-name {
-            color: ${type === "success" ? "#059669" : "#dc2626"};
-            font-weight: 800;
+          h2 { 
+            margin: 0 0 0.5rem; 
+            color: #111827;
+            font-size: 1.5rem;
+            font-weight: 600;
           }
           
           .message { 
-            margin: 1rem 0; 
+            margin: 0 0 1rem; 
+            color: #6b7280;
             font-size: 1rem;
-            color: #4a5568;
-            line-height: 1.5;
           }
           
           .subtitle {
-            margin: 1.5rem 0 0.5rem;
+            margin: 0;
+            color: #9ca3af;
             font-size: 0.875rem;
-            color: #718096;
-            font-weight: 500;
-          }
-          
-          .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #e2e8f0;
-            border-radius: 2px;
-            overflow: hidden;
-            margin: 1rem 0;
-          }
-          
-          .progress-fill {
-            height: 100%;
-            background: ${type === "success" 
-              ? "linear-gradient(90deg, #10b981 0%, #059669 100%)" 
-              : "linear-gradient(90deg, #ef4444 0%, #dc2626 100%)"};
-            width: 0%;
-            animation: fillProgress 2s ease-out forwards;
-            border-radius: 2px;
-          }
-          
-          @keyframes fillProgress {
-            to { width: 100%; }
-          }
-          
-          .close-button {
-            margin-top: 1.5rem;
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-          }
-          
-          .close-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-          }
-          
-          .close-button:active {
-            transform: translateY(0);
-          }
-          
-          .brand-footer {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e2e8f0;
-            font-size: 0.75rem;
-            color: #a0aec0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-          }
-          
-          .brand-footer img {
-            width: 16px;
-            height: 16px;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          <img src="/logo.svg" alt="ChainReact" class="logo" onerror="this.style.display='none'">
-          
-          <div class="status-icon">
-            ${type === "success" ? "✓" : "✗"}
-          </div>
-          
-          <h1>
-            ${type === "success" 
-              ? `<span class="provider-name">${safeProvider}</span> Connected!` 
-              : `<span class="provider-name">${safeProvider}</span> Connection Failed`
-            }
-          </h1>
-          
-          <p class="message">${safeMessage}</p>
-          
           ${type === "success" 
-            ? `<p class="subtitle">Redirecting you back to ChainReact...</p>
-               <div class="progress-bar">
-                 <div class="progress-fill"></div>
-               </div>` 
-            : isPersonalAccountError 
-              ? `<button class="close-button" onclick="window.close()">Close</button>
-                 <p class="subtitle" style="margin-top: 1rem; color: #e53e3e;">
-                   Please use a work or school Microsoft account instead.
-                 </p>`
-              : `<button class="close-button" onclick="window.close()">Try Again</button>`
+            ? `<svg class="status-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>`
+            : `<svg class="status-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9V13M12 17H12.01M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>`
           }
           
-          <div class="brand-footer">
-            <img src="/logo.svg" alt="ChainReact" onerror="this.style.display='none'">
-            <span>Powered by ChainReact</span>
-          </div>
+          <h2>${type === "success" ? "Success!" : "Connection Failed"}</h2>
+          
+          <p class="message">${safeProvider} ${type === "success" ? "has been connected successfully." : "connection failed."}</p>
+          
+          ${type === "success" 
+            ? `<p class="subtitle">This window will close automatically...</p>` 
+            : isPersonalAccountError 
+              ? `<p class="subtitle">Please use a work or school Microsoft account instead.</p>`
+              : `<p class="subtitle">Please try again or contact support if the issue persists.</p>`
+          }
         </div>
         ${script}
       </body>

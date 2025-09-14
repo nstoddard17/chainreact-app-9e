@@ -82,6 +82,10 @@ import {
   searchNotionPages,
 } from './notion'
 
+// Notion unified action handlers
+import { executeNotionManageDatabase } from './notion/manageDatabase'
+import { executeNotionManageUsers } from './notion/manageUsers'
+
 // Notion actions - comprehensive new handlers
 import {
   notionCreatePage,
@@ -103,6 +107,9 @@ import {
   notionDuplicatePage,
   notionSyncDatabaseEntries,
 } from './notion/handlers'
+
+// Notion get page details action
+import { notionGetPageDetails } from './notion/getPageDetails'
 
 // GitHub actions
 import {
@@ -309,9 +316,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_create_page": createNotionPage,
   "notion_action_update_page": updateNotionPage,
   "notion_action_search_pages": searchNotionPages,
-  
+
+  // Notion unified actions
+  "notion_action_manage_database": executeNotionManageDatabase,
+  "notion_action_manage_users": executeNotionManageUsers,
+
   // Notion actions - comprehensive API v2 actions
-  "notion_action_retrieve_page": notionRetrievePage,
+  // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead
   "notion_action_archive_page": notionArchivePage,
   "notion_action_query_database": notionQueryDatabase,
   "notion_action_update_database": notionUpdateDatabase,
@@ -326,6 +337,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_search": notionSearch,
   "notion_action_duplicate_page": notionDuplicatePage,
   "notion_action_sync_database_entries": notionSyncDatabaseEntries,
+  "notion_action_get_page_details": notionGetPageDetails,
   
   // GitHub actions
   "github_action_create_issue": createGitHubIssue,

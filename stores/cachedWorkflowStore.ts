@@ -156,6 +156,14 @@ export async function createWorkflow(name: string, description?: string): Promis
     throw new Error("User not authenticated")
   }
 
+  // Log the user details for debugging
+  console.log("🔐 [Workflow Creation] User details:", {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    appMetadata: user.app_metadata
+  })
+
   // Don't include ID - let the database generate it
   // Also don't include timestamps - let the database handle them
   const newWorkflow = {
@@ -201,6 +209,14 @@ export async function createWorkflow(name: string, description?: string): Promis
   if (!data) {
     throw new Error("No data returned from workflow creation")
   }
+
+  // Log the created workflow for debugging
+  console.log("✅ [Workflow Creation] Workflow created successfully:", {
+    id: data.id,
+    name: data.name,
+    user_id: data.user_id,
+    status: data.status
+  })
 
   // Update the workflows list store with the actual saved data
   const currentWorkflows = useWorkflowsListStore.getState().data || []

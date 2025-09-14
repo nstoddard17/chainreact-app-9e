@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import { render } from '@react-email/render'
 import WelcomeEmail from '../../emails/welcome'
 import PasswordResetEmail from '../../emails/password-reset'
+import BetaInvitationEmail from '../../emails/beta-invitation'
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('Missing RESEND_API_KEY environment variable')
@@ -170,6 +171,48 @@ export async function sendBulkEmails(
     return { success: true, successful, failed, results }
   } catch (error) {
     console.error('Error sending bulk emails:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Send beta tester invitation email
+ */
+export async function sendBetaInvitationEmail(
+  email: string,
+  signupUrl: string,
+  testerData: {
+    maxWorkflows?: number
+    maxExecutions?: number
+    expiresInDays?: number
+  }
+) {
+  try {
+    const emailHtml = await render(BetaInvitationEmail({
+      email,
+      signupUrl,
+      maxWorkflows: testerData.maxWorkflows || 50,
+      maxExecutions: testerData.maxExecutions || 5000,
+      expiresInDays: testerData.expiresInDays || 30,
+    }))
+
+    const result = await resend.emails.send({
+      from: 'ChainReact <noreply@chainreact.app>',
+      to: email,
+      subject: '🚀 Your Exclusive ChainReact Beta Access Awaits!',
+      html: emailHtml,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'X-Mailer': 'ChainReact Beta Program',
+      },
+    })
+
+    console.log('Beta invitation email sent successfully:', result.data?.id)
+    return { success: true, id: result.data?.id }
+  } catch (error) {
+    console.error('Error sending beta invitation email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

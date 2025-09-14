@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useAirtableFieldHandler } from './providers/useAirtableFieldHandler';
 import { useDiscordFieldHandler } from './providers/useDiscordFieldHandler';
 import { useGoogleSheetsFieldHandler } from './providers/useGoogleSheetsFieldHandler';
+import { useNotionFieldHandler } from './providers/useNotionFieldHandler';
 
 interface UseFieldChangeHandlerProps {
   nodeInfo: any;
@@ -160,6 +161,16 @@ export function useFieldChangeHandler({
     setGoogleSheetsSortField,
     setGoogleSheetsSortDirection,
     setGoogleSheetsSelectedRows
+  });
+
+  const { handleFieldChange: handleNotionField } = useNotionFieldHandler({
+    nodeInfo,
+    values,
+    setValue,
+    loadOptions,
+    setLoadingFields,
+    resetOptions,
+    dynamicOptions
   });
 
   /**
@@ -684,6 +695,10 @@ export function useFieldChangeHandler({
    */
   const handleProviderFieldChange = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
     // Try provider-specific handlers from modular hooks
+    if (await handleNotionField(fieldName, value)) {
+      return true;
+    }
+
     if (await handleDiscordField(fieldName, value)) {
       return true;
     }
@@ -702,7 +717,7 @@ export function useFieldChangeHandler({
     }
 
     return false;
-  }, [handleDiscordField, handleGoogleSheetsField, handleAirtableField, handleGenericDependentField]);
+  }, [handleNotionField, handleDiscordField, handleGoogleSheetsField, handleAirtableField, handleGenericDependentField]);
 
   /**
    * Main field change handler - the single entry point for all field changes

@@ -16,6 +16,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'page': 'pages',
         'page_id': 'pages',
         'databaseProperties': 'properties',
+        'databaseFields': 'database_fields',
         'after': 'blocks',
         'block_id': 'blocks',
         'user_id': 'users',
@@ -47,6 +48,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       
       // Add other dependencies
       if (fieldName === 'databaseProperties' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+      } else if (fieldName === 'databaseFields' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
       } else if (fieldName === 'after' && dependsOnValue) {
         requestBody.options.pageId = dependsOnValue
@@ -119,6 +122,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
             value: prop.id,
             label: prop.name
           })) || []
+
+        case 'database_fields':
+          // Database fields returns the actual field definitions with current values
+          // This is used for dynamic_fields type
+          return Array.isArray(data) ? data : []
           
         case 'blocks':
           return (Array.isArray(data) ? data : data.blocks)?.map((block: any) => ({
@@ -190,6 +198,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'after': ['page_id'],
       'block_id': ['page_id'],
       'databaseProperties': ['database'],
+      'databaseFields': ['database'],
     }
     
     return dependencies[fieldName] || []

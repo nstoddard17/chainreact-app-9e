@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { supabase } from "@/lib/supabase-singleton"
+import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 
 export interface WorkflowNode {
   id: string
@@ -205,6 +206,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
             },
             created_at: new Date().toISOString()
           })
+
+          // Track beta tester activity
+          await trackBetaTesterActivity({
+            userId: user.id,
+            activityType: 'workflow_created',
+            activityData: {
+              workflowId: data.id,
+              workflowName: data.name
+            }
+          })
         }
       } catch (auditError) {
         console.warn("Failed to log workflow creation:", auditError)
@@ -309,6 +320,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
                 workflow_description: workflowToDelete.description
               },
               created_at: new Date().toISOString()
+            })
+
+            // Track beta tester activity
+            await trackBetaTesterActivity({
+              userId: user.id,
+              activityType: 'workflow_deleted',
+              activityData: {
+                workflowId: id,
+                workflowName: workflowToDelete.name
+              }
             })
           }
         } catch (auditError) {

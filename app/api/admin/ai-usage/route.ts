@@ -30,40 +30,32 @@ export async function GET(request: NextRequest) {
 
     // Fetch usage data for all users
     const userUsagePromises = users.map(async (user) => {
-      // Get user's budget
-      const { data: budget } = await supabase
-        .from('ai_usage_budgets')
-        .select('monthly_budget_usd, current_usage_usd, enforcement_mode')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .gte('budget_period_end', now.toISOString())
-        .single()
+      // Note: ai_usage_budgets table doesn't exist, using default budget
+      // This can be implemented later with proper subscription/plan management
+      const monthlyBudget = 10.00  // Default budget
 
-      // Get usage stats
+      // Get usage stats from ai_cost_logs table
       const [todayStats, monthStats, allTimeStats] = await Promise.all([
         // Today
         supabase
-          .from('ai_usage_records')
-          .select('total_tokens, cost_usd')
+          .from('ai_cost_logs')
+          .select('input_tokens, output_tokens, cost')
           .eq('user_id', user.id)
-          .gte('created_at', startOfToday.toISOString())
-          .eq('status', 'completed'),
-        
+          .gte('created_at', startOfToday.toISOString()),
+
         // This month
         supabase
-          .from('ai_usage_records')
-          .select('total_tokens, cost_usd')
+          .from('ai_cost_logs')
+          .select('input_tokens, output_tokens, cost')
           .eq('user_id', user.id)
           .gte('created_at', startOfMonth.toISOString())
-          .lte('created_at', endOfMonth.toISOString())
-          .eq('status', 'completed'),
-        
+          .lte('created_at', endOfMonth.toISOString()),
+
         // All time
         supabase
-          .from('ai_usage_records')
-          .select('total_tokens, cost_usd')
+          .from('ai_cost_logs')
+          .select('input_tokens, output_tokens, cost')
           .eq('user_id', user.id)
-          .eq('status', 'completed')
       ])
 
       const calculateTotals = (records: any[] | null) => {
@@ -72,8 +64,8 @@ export async function GET(request: NextRequest) {
         }
         return {
           requests: records.length,
-          tokens: records.reduce((sum, r) => sum + (r.total_tokens || 0), 0),
-          cost_usd: records.reduce((sum, r) => sum + (parseFloat(r.cost_usd) || 0), 0)
+          tokens: records.reduce((sum, r) => sum + ((r.input_tokens || 0) + (r.output_tokens || 0)), 0),
+          cost_usd: records.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0)
         }
       }
 
@@ -81,7 +73,6 @@ export async function GET(request: NextRequest) {
       const monthTotals = calculateTotals(monthStats.data)
       const allTimeTotals = calculateTotals(allTimeStats.data)
 
-      const monthlyBudget = budget?.monthly_budget_usd || 10.00
       const usagePercent = Math.round((monthTotals.cost_usd / monthlyBudget) * 100)
 
       return {
@@ -94,7 +85,7 @@ export async function GET(request: NextRequest) {
         budget: {
           monthly_limit_usd: monthlyBudget,
           usage_percent: usagePercent,
-          enforcement_mode: budget?.enforcement_mode || 'soft'
+          enforcement_mode: 'soft'  // Default enforcement mode
         }
       }
     })

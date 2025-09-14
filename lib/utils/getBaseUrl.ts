@@ -1,7 +1,21 @@
 export function getBaseUrl(): string {
-  // Priority order: NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > environment detection > fallback
+  // Priority order: localhost detection > NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > fallback
   
-  // If NEXT_PUBLIC_BASE_URL is explicitly set, use it
+  // FIRST: Check if we're running on localhost (highest priority for local development)
+  if (typeof window !== 'undefined') {
+    // Client-side
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `${window.location.protocol}//${window.location.host}`
+    }
+  } else {
+    // Server-side - check NODE_ENV for development
+    if (process.env.NODE_ENV === 'development') {
+      const port = process.env.PORT || '3000'
+      return `http://localhost:${port}`
+    }
+  }
+  
+  // If not localhost, check for explicit base URL configuration
   if (process.env.NEXT_PUBLIC_BASE_URL) {
     return process.env.NEXT_PUBLIC_BASE_URL
   }
@@ -9,20 +23,6 @@ export function getBaseUrl(): string {
   // If NEXT_PUBLIC_APP_URL is set, use it
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
-  }
-  
-  // In development, use localhost
-  if (typeof window !== 'undefined') {
-    // Client-side
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return `${window.location.protocol}//${window.location.host}`
-    }
-  } else {
-    // Server-side
-    if (process.env.NODE_ENV === 'development') {
-      const port = process.env.PORT || '3000'
-      return `http://localhost:${port}`
-    }
   }
   
   // Fallback to production URL
@@ -31,19 +31,9 @@ export function getBaseUrl(): string {
 
 // Separate function for API calls that should use localhost in development
 export function getApiBaseUrl(): string {
-  // Priority order: NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > environment detection > fallback
+  // Priority order: localhost detection > NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > fallback
   
-  // If NEXT_PUBLIC_BASE_URL is explicitly set, use it
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL
-  }
-  
-  // If NEXT_PUBLIC_APP_URL is set, use it
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-  
-  // In development, use localhost
+  // FIRST: Check if we're running on localhost (highest priority for local development)
   if (typeof window !== 'undefined') {
     // Client-side - use the current window location to get the correct port
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -58,6 +48,16 @@ export function getApiBaseUrl(): string {
     }
   }
   
+  // If not localhost, check for explicit base URL configuration
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL
+  }
+  
+  // If NEXT_PUBLIC_APP_URL is set, use it
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  
   // Fallback to production URL
   return "https://chainreact.app"
 }
@@ -67,22 +67,7 @@ export function getApiBaseUrl(): string {
  * This function prioritizes environment variables and provides clear fallbacks
  */
 export function getWebhookBaseUrl(): string {
-  // Priority 1: Explicit webhook base URL for testing
-  if (process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL) {
-    return process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
-  }
-  
-  // Priority 2: General base URL
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL
-  }
-  
-  // Priority 3: App URL
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-  
-  // Priority 4: Environment detection
+  // Priority 1: Environment detection (localhost/ngrok takes precedence)
   if (typeof window !== 'undefined') {
     // Client-side detection
     const hostname = window.location.hostname
@@ -99,6 +84,21 @@ export function getWebhookBaseUrl(): string {
       const port = process.env.PORT || '3000'
       return `http://localhost:${port}`
     }
+  }
+  
+  // Priority 2: Explicit webhook base URL for testing
+  if (process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL) {
+    return process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
+  }
+  
+  // Priority 3: General base URL
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL
+  }
+  
+  // Priority 4: App URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
   }
   
   // Fallback to production URL

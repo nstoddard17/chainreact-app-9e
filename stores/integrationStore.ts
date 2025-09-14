@@ -261,6 +261,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           const integrations = await IntegrationService.fetchIntegrations(force)
           
+          // Debug log to see what we got from the API
+          console.log('📦 [IntegrationStore] Fetched integrations:', {
+            count: integrations?.length,
+            firstFew: integrations?.slice(0, 3).map(i => ({ 
+              provider: i.provider, 
+              status: i.status,
+              id: i.id 
+            }))
+          });
+          
           setLoading('integrations', false)
           set({
             integrations,
@@ -346,11 +356,23 @@ export const useIntegrationStore = create<IntegrationStore>()(
             integrationId: existingIntegration.id,
             integration: existingIntegration,
             onSuccess: () => {
+              // Immediately update the existing integration to show as connected
+              set((state) => {
+                const updatedIntegrations = state.integrations.map(i =>
+                  i.id === existingIntegration.id
+                    ? { ...i, status: 'connected' as const, error_message: null, updated_at: new Date().toISOString() }
+                    : i
+                )
+                return { integrations: updatedIntegrations }
+              })
+
               setLoading(`connect-${providerId}`, false)
+              emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
+
+              // Still fetch from server after a short delay to ensure consistency
               setTimeout(() => {
                 fetchIntegrations(true) // Force refresh from server
-                emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
-              }, 1000)
+              }, 1500)
             },
             onError: (error) => {
               setError(error)
@@ -365,11 +387,46 @@ export const useIntegrationStore = create<IntegrationStore>()(
           result = await OAuthConnectionFlow.startConnection({
             providerId,
             onSuccess: (data) => {
+              // Immediately update the local state to show as connected
+              set((state) => {
+                const existingIndex = state.integrations.findIndex(i => i.provider === providerId)
+                const newIntegration: Integration = {
+                  id: data.integrationId || `temp-${providerId}-${Date.now()}`,
+                  provider: providerId,
+                  status: 'connected',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  expires_at: data.expiresAt || null,
+                  user_id: state.currentUserId || '',
+                  encrypted_data: null,
+                  error_message: null,
+                  name: provider?.name || providerId,
+                  provider_user_id: data.userId || null,
+                  provider_email: data.email || null,
+                  provider_account_name: data.accountName || null,
+                  scopes: data.scopes || null,
+                  metadata: data.metadata || null
+                }
+
+                let newIntegrations = [...state.integrations]
+                if (existingIndex >= 0) {
+                  // Update existing integration
+                  newIntegrations[existingIndex] = newIntegration
+                } else {
+                  // Add new integration
+                  newIntegrations.push(newIntegration)
+                }
+
+                return { integrations: newIntegrations }
+              })
+
               setLoading(`connect-${providerId}`, false)
+              emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+
+              // Still fetch from server after a short delay to ensure consistency
               setTimeout(() => {
-                fetchIntegrations(true) // Force refresh from server
-                emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-              }, 1000)
+                fetchIntegrations(true) // Force refresh from server to get real data
+              }, 1500)
             },
             onError: (error) => {
               setError(error)
@@ -546,11 +603,23 @@ export const useIntegrationStore = create<IntegrationStore>()(
           integrationId,
           integration,
           onSuccess: () => {
+            // Immediately update the integration to show as connected
+            set((state) => {
+              const updatedIntegrations = state.integrations.map(i =>
+                i.id === integrationId
+                  ? { ...i, status: 'connected' as const, error_message: null, updated_at: new Date().toISOString() }
+                  : i
+              )
+              return { integrations: updatedIntegrations }
+            })
+
             setLoading(`reconnect-${integrationId}`, false)
+            emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
+
+            // Still fetch from server after a short delay to ensure consistency
             setTimeout(() => {
               fetchIntegrations(true)
-              emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
-            }, 1000)
+            }, 1500)
           },
           onError: (error) => {
             setError(error)

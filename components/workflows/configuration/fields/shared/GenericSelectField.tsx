@@ -156,7 +156,7 @@ export function GenericSelectField({
         placeholder={field.placeholder || "Select an option..."}
         searchPlaceholder="Search options..."
         emptyPlaceholder="No options found"
-        disabled={isLoading || field.disabled}
+        disabled={isLoading}
         creatable={isAirtableRecordField} // Allow custom input for Airtable fields
         onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -182,12 +182,14 @@ export function GenericSelectField({
         value={value ?? ""} 
         onValueChange={onChange}
         onOpenChange={handleFieldOpen}
+        disabled={isLoading}
       >
         <SelectTrigger 
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 pr-8",
             error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
           )}
+          disabled={isLoading}
         >
           <SelectValue placeholder={field.placeholder || "Select an option..."}>
             {displayValue || (field.placeholder || "Select an option...")}
@@ -216,8 +218,8 @@ export function GenericSelectField({
           )}
         </SelectContent>
       </Select>
-      {/* Clear button */}
-      {value && (
+      {/* Clear button - only show if clearable is not false */}
+      {value && field.clearable !== false && (
         <button
           type="button"
           onClick={(e) => {

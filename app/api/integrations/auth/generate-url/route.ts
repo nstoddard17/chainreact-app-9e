@@ -5,6 +5,19 @@ import crypto from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+// List of providers that don't support localhost redirect URIs
+const PROVIDERS_WITHOUT_LOCALHOST_SUPPORT = [
+  'facebook',      // Facebook requires HTTPS for OAuth redirects
+  'instagram',     // Instagram requires HTTPS for OAuth redirects  
+  'linkedin',      // LinkedIn doesn't allow localhost in production apps
+  'twitter',       // Twitter (X) doesn't allow localhost URLs
+  'tiktok',        // TikTok requires verified domains
+  'youtube',       // YouTube requires verified domains in production
+  'youtube-studio', // YouTube Studio requires verified domains
+  'stripe',        // Stripe requires HTTPS in production mode
+  'paypal',        // PayPal doesn't allow localhost in production mode
+];
+
 export async function POST(request: NextRequest) {
   try {
     cookies()
@@ -30,6 +43,27 @@ export async function POST(request: NextRequest) {
 
     if (!provider) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
+    }
+
+    // Check if we're running on localhost and the provider doesn't support it
+    const baseUrl = getBaseUrl()
+    const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
+    
+    if (isLocalhost && PROVIDERS_WITHOUT_LOCALHOST_SUPPORT.includes(provider.toLowerCase())) {
+      console.log(`⚠️ ${provider} doesn't support localhost redirect URIs`)
+      return NextResponse.json({ 
+        error: `${provider} doesn't support localhost redirect URIs`, 
+        message: `The ${provider} OAuth provider requires HTTPS and doesn't allow localhost URLs. Please use ngrok or deploy to a staging environment to test ${provider} integration.`,
+        details: {
+          provider,
+          suggestion: "Use 'ngrok http 3000' to create a public HTTPS tunnel to your local development server",
+          alternativeSolutions: [
+            "Deploy to a staging environment",
+            "Use ngrok to create an HTTPS tunnel",
+            "Test in production environment"
+          ]
+        }
+      }, { status: 400 })
     }
 
     // Special handling for Teams integration - check user role
@@ -246,23 +280,22 @@ export async function POST(request: NextRequest) {
 function generateSlackAuthUrl(state: string): string {
   const clientId = process.env.SLACK_CLIENT_ID
   if (!clientId) throw new Error("Slack client ID not configured")
+  
   const baseUrl = getBaseUrl()
 
+  // For Slack OAuth v2, we need to specify scopes
+  // Bot scopes for app-level permissions
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "channels:read,groups:write,chat:write,users:read,team:read", // Bot permissions (if user has admin access)
-    user_scope: "channels:read,groups:write,chat:write,users:read,team:read", // User permissions (fallback)
+    scope: "chat:write,channels:read,groups:read,im:read,users:read,team:read",
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
-    response_type: "code",
   })
 
-  // Add this parameter to force Slack to show the workspace selector
-  // This is critical for users who don't have a workspace yet
-  params.append("multiple_workspaces", "true")
-
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
-  console.log(`Generated Slack auth URL: ${authUrl}`)
+  console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
+  console.log(`🔑 Using Client ID: ${clientId}`)
+  console.log(`📍 Using base URL: ${baseUrl}`)
   
   return authUrl
 }
