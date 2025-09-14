@@ -87,6 +87,9 @@ export const createCacheStore = <T>(name: string) => {
   )
 }
 
+// Track active loading operations to prevent duplicate requests
+const activeRequests = new Map<string, Promise<any>>()
+
 // Helper function for loading data once
 export async function loadOnce<T>({
   getter,
@@ -104,6 +107,7 @@ export async function loadOnce<T>({
     onSuccess?: (data: T) => void
     setLoading?: (loading: boolean) => void
     checkStale?: () => boolean
+    requestKey?: string // Optional key to deduplicate requests
   }
 }): Promise<T | null> {
   const { 
@@ -112,8 +116,15 @@ export async function loadOnce<T>({
     onError,
     onSuccess,
     setLoading,
-    checkStale 
+    checkStale,
+    requestKey
   } = options
+
+  // If there's an active request with the same key, return it
+  if (requestKey && activeRequests.has(requestKey)) {
+    console.log(`⏳ Waiting for existing request: ${requestKey}`)
+    return activeRequests.get(requestKey)
+  }
 
   // Get current data from store
   const currentData = getter()
@@ -123,41 +134,66 @@ export async function loadOnce<T>({
   const shouldFetch = forceRefresh || !currentData || isStale
 
   if (!shouldFetch) {
-    return currentData
-  }
-
-  // Set loading state if provided
-  if (setLoading) {
-    setLoading(true)
-  }
-
-  try {
-    // Fetch data
-    const data = await fetcher()
-    
-    // Update store
-    setter(data)
-    
-    // Call success callback if provided
-    if (onSuccess) {
-      onSuccess(data)
-    }
-    
-    return data
-  } catch (error) {
-    // Call error callback if provided
-    if (onError) {
-      onError(error)
-    }
-    
-    console.error("Error loading data:", error)
-    return null
-  } finally {
-    // Clear loading state
+    // Make sure loading is false when returning cached data
     if (setLoading) {
       setLoading(false)
     }
+    return currentData
   }
+
+  // Create the fetch promise
+  const fetchPromise = (async () => {
+    // Set loading state if provided
+    if (setLoading) {
+      setLoading(true)
+    }
+
+    try {
+      // Add small delay to ensure UI updates
+      await new Promise(resolve => setTimeout(resolve, 10))
+      
+      // Fetch data
+      const data = await fetcher()
+      
+      // Update store
+      setter(data)
+      
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess(data)
+      }
+      
+      return data
+    } catch (error) {
+      // Call error callback if provided
+      if (onError) {
+        onError(error)
+      }
+      
+      console.error("Error loading data:", error)
+      
+      // Return existing data on error if available
+      return currentData || null
+    } finally {
+      // Always clear loading state
+      if (setLoading) {
+        // Use setTimeout to ensure state update happens after render
+        setTimeout(() => setLoading(false), 0)
+      }
+      
+      // Remove from active requests
+      if (requestKey) {
+        activeRequests.delete(requestKey)
+      }
+    }
+  })()
+
+  // Store the active request if key provided
+  if (requestKey) {
+    activeRequests.set(requestKey, fetchPromise)
+  }
+
+  return fetchPromise
 }
 
 // Registry of stores for auth-based clearing

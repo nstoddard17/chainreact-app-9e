@@ -49,6 +49,18 @@ export function GenericSelectField({
     }
   }
 
+  // Track if we've attempted to load for this field to prevent repeated attempts
+  const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
+  const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
+  
+  // Reset load attempt tracking when dependencies change
+  React.useEffect(() => {
+    if (field.dependsOn && parentValues[field.dependsOn]) {
+      setHasAttemptedLoad(false);
+      setLastLoadTimestamp(0);
+    }
+  }, [field.dependsOn, parentValues[field.dependsOn]]);
+  
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
     console.log('🔍 [GenericSelectField] handleFieldOpen called:', {
@@ -59,15 +71,30 @@ export function GenericSelectField({
       hasOnDynamicLoad: !!onDynamicLoad,
       isLoading,
       optionsLength: options?.length || 0,
-      options,
-      willTriggerLoad: open && field.dynamic && onDynamicLoad && !isLoading && (options?.length === 0)
+      hasAttemptedLoad,
+      timeSinceLastLoad: Date.now() - lastLoadTimestamp,
+      willTriggerLoad: open && field.dynamic && onDynamicLoad && !isLoading
     });
     
-    if (open && field.dynamic && onDynamicLoad && !isLoading && (options?.length === 0)) {
+    // Load options when:
+    // 1. Opening and field is dynamic
+    // 2. Has a loader function
+    // 3. Not currently loading
+    // 4. Either: no options, hasn't attempted load yet, or it's been >2 seconds since last attempt
+    const shouldLoad = open && 
+      field.dynamic && 
+      onDynamicLoad && 
+      !isLoading && 
+      (options?.length === 0 || !hasAttemptedLoad || (Date.now() - lastLoadTimestamp > 2000));
+    
+    if (shouldLoad) {
       console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
         dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
       });
+      
+      setHasAttemptedLoad(true);
+      setLastLoadTimestamp(Date.now());
       
       // If field has dependencies, pass them
       if (field.dependsOn && parentValues[field.dependsOn]) {
@@ -82,7 +109,9 @@ export function GenericSelectField({
         hasDynamic: !!field.dynamic,
         hasLoader: !!onDynamicLoad,
         notLoading: !isLoading,
-        emptyOptions: (options?.length === 0)
+        emptyOptions: (options?.length === 0),
+        hasAttemptedLoad,
+        timeSinceLastLoad: Date.now() - lastLoadTimestamp
       });
     }
   };
