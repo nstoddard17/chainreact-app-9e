@@ -254,6 +254,8 @@ const useWorkflowBuilderState = () => {
   const [isStepByStep, setIsStepByStep] = useState(false)
   const [stepContinueCallback, setStepContinueCallback] = useState<(() => void) | null>(null)
   const [skipCallback, setSkipCallback] = useState<(() => void) | null>(null)
+  const [connectingIntegrationId, setConnectingIntegrationId] = useState<string | null>(null)
+  const [, forceUpdate] = useState({})
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -341,14 +343,16 @@ const useWorkflowBuilderState = () => {
     const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
     if (systemIntegrations.includes(integrationId)) return true;
     
+    // Always get fresh data from the store
+    const freshIntegrations = useIntegrationStore.getState().integrations;
+    
     // Debug logging to see what's in the store
-    if (integrationId === 'gmail' || integrationId === 'discord') {
-      console.log(`🔍 Checking connection for ${integrationId}:`, {
-        storeIntegrations: storeIntegrations,
-        integrationCount: storeIntegrations?.length,
-        firstFew: storeIntegrations?.slice(0, 3).map(i => ({ provider: i.provider, status: i.status }))
-      });
-    }
+    console.log(`🔍 Checking connection for ${integrationId}:`, {
+      freshIntegrations: freshIntegrations,
+      integrationCount: freshIntegrations?.length,
+      relevantIntegration: freshIntegrations?.find(i => i.provider === integrationId),
+      allProviders: freshIntegrations?.map(i => i.provider)
+    });
     
     // Create a mapping of integration config IDs to possible database provider values
     // This handles cases where the integration ID doesn't match the database provider value
@@ -381,7 +385,7 @@ const useWorkflowBuilderState = () => {
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
       const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail',
                               'google_drive', 'google_sheets', 'google_docs', 'google_calendar'];
-      const connectedGoogleService = storeIntegrations.find(i => 
+      const connectedGoogleService = freshIntegrations?.find(i => 
         googleServices.includes(i.provider) && 
         i.status === 'connected'
       );
@@ -405,7 +409,7 @@ const useWorkflowBuilderState = () => {
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
       const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive',
                                  'onenote', 'outlook', 'teams'];
-      const connectedMicrosoftService = storeIntegrations.find(i => 
+      const connectedMicrosoftService = freshIntegrations?.find(i => 
         microsoftServices.includes(i.provider) && 
         i.status === 'connected'
       );
@@ -422,7 +426,7 @@ const useWorkflowBuilderState = () => {
     const possibleProviders = providerMappings[integrationId] || [integrationId];
     
     // Also check with simple provider name matching (discord -> discord, etc)
-    const integration = storeIntegrations.find(i => {
+    const integration = freshIntegrations?.find(i => {
       // Check if status is connected
       if (i.status !== 'connected') return false;
       
@@ -454,14 +458,14 @@ const useWorkflowBuilderState = () => {
     if (integrationId === 'gmail' || integrationId === 'discord') {
       console.log(`📌 Connection result for ${integrationId}:`, {
         found: isConnected,
-        integration: integration?.provider,
+        integrationProvider: integration ? integration.provider : 'not found',
         connectedProviders,
         possibleProviders
       });
     }
     
     return isConnected;
-  }, [storeIntegrations, getConnectedProviders])
+  }, [getConnectedProviders])
 
 
 
@@ -2301,7 +2305,22 @@ const useWorkflowBuilderState = () => {
           const response = await fetch(`/api/workflows/${workflowId}`)
         
         if (!response.ok) {
-          throw new Error(`Failed to load workflow: ${response.statusText}`)
+          const errorData = await response.json().catch(() => null)
+          console.error('❌ [WorkflowBuilder] Failed to load workflow:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData,
+            workflowId
+          })
+          
+          // If it's a 404, it might be a user ID mismatch
+          if (response.status === 404) {
+            throw new Error('Workflow not found. This might be due to a permissions issue. Please try refreshing the page.')
+          } else if (response.status === 403) {
+            throw new Error('You do not have permission to access this workflow.')
+          } else {
+            throw new Error(`Failed to load workflow: ${response.statusText}`)
+          }
         }
         
         const data = await response.json()
@@ -3917,7 +3936,12 @@ const useWorkflowBuilderState = () => {
     getNodes,
     getEdges,
     // Execution state setters
-    setIsExecuting
+    setIsExecuting,
+    // OAuth loading state
+    connectingIntegrationId,
+    setConnectingIntegrationId,
+    // Force update function
+    forceUpdate
   }
 }
 
@@ -4083,7 +4107,11 @@ function WorkflowBuilderContent() {
     // React Flow functions
     getNodes, getEdges,
     // Execution state setters
-    setIsExecuting
+    setIsExecuting,
+    // OAuth loading state
+    connectingIntegrationId, setConnectingIntegrationId,
+    // Force update function
+    forceUpdate
   } = useWorkflowBuilderState()
 
   // Helper: normalize Add Action buttons to always appear at end of each AI Agent chain
@@ -4950,8 +4978,11 @@ function WorkflowBuilderContent() {
                           size="sm"
                           variant="outline"
                           className="mr-2"
+                          disabled={connectingIntegrationId === integration.id}
                           onClick={async (e) => {
                             e.stopPropagation();
+                            setConnectingIntegrationId(integration.id);
+                            
                             // Check if this integration needs reauthorization
                             const integrationRecord = integrations?.find(i => i.provider === integration.id);
                             const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
@@ -4990,6 +5021,7 @@ function WorkflowBuilderContent() {
                                 
                                 if (!popup || popup.closed || typeof popup.closed == 'undefined') {
                                   console.error('Popup was blocked!');
+                                  setConnectingIntegrationId(null);
                                   // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
@@ -5005,44 +5037,203 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
+                                  console.log('📨 Received message:', {
+                                    type: event.data?.type,
+                                    data: event.data,
+                                    origin: event.origin
+                                  });
+                                  
                                   if (event.data?.type === 'oauth-complete') {
+                                    console.log('✅ OAuth complete message received!', event.data);
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
                                     }
                                     
+                                    // Clear connecting state immediately
+                                    setConnectingIntegrationId(null);
+                                    
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      // Force refresh integrations
-                                      await fetchIntegrations(true);
+                                      console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Force re-render of the modal by toggling it
-                                      const currentIntegration = selectedIntegration;
+                                      // Force refresh both integration stores
+                                      const [integrationsResult, cachedResult] = await Promise.all([
+                                        fetchIntegrations(true),
+                                        loadIntegrationsOnce(true)
+                                      ]);
+                                      
+                                      console.log('📦 Integration refresh results:', {
+                                        fetchIntegrationsResult: integrationsResult,
+                                        loadIntegrationsOnceResult: cachedResult
+                                      });
+                                      
+                                      // Small delay to ensure stores are updated
+                                      await new Promise(resolve => setTimeout(resolve, 500));
+                                      
+                                      // Log the updated integrations
+                                      const updatedStoreIntegrations = useIntegrationStore.getState().integrations;
+                                      const updatedCachedIntegrations = useIntegrationsStore.getState().data;
+                                      console.log('✅ Integrations refreshed:', {
+                                        provider: integration.id,
+                                        storeIntegrations: updatedStoreIntegrations?.map(i => ({ 
+                                          provider: i.provider, 
+                                          status: i.status 
+                                        })),
+                                        cachedIntegrations: updatedCachedIntegrations?.map(i => ({ 
+                                          provider: i.provider, 
+                                          status: i.status 
+                                        }))
+                                      });
+                                      
+                                      // Check if the integration is now in the store
+                                      const isNowConnected = updatedStoreIntegrations?.some(i => 
+                                        i.provider === integration.id && i.status === 'connected'
+                                      );
+                                      console.log(`🔍 Is ${integration.id} now connected?`, isNowConnected);
+                                      
+                                      // Force complete re-render by closing and reopening the dialog
+                                      const currentSelected = selectedIntegration;
+                                      const wasShowingAction = showActionDialog;
+                                      const wasShowingTrigger = showTriggerDialog;
+                                      
+                                      // Close the dialog
+                                      if (wasShowingAction) {
+                                        setShowActionDialog(false);
+                                      }
+                                      if (wasShowingTrigger) {
+                                        setShowTriggerDialog(false);
+                                      }
+                                      
+                                      // Reset selected integration
                                       setSelectedIntegration(null);
+                                      
+                                      // Reopen after a delay to force complete refresh
                                       setTimeout(() => {
-                                        setSelectedIntegration(currentIntegration);
-                                      }, 50);
+                                        if (wasShowingAction) {
+                                          setShowActionDialog(true);
+                                        }
+                                        if (wasShowingTrigger) {
+                                          setShowTriggerDialog(true);
+                                        }
+                                        setSelectedIntegration(currentSelected);
+                                        // Also force update to ensure UI refreshes
+                                        forceUpdate({});
+                                      }, 500);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
                                         description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integration.name}`,
                                       });
+                                    } else {
+                                      console.log('❌ OAuth failed:', event.data.error);
+                                      toast({
+                                        title: "Connection Failed",
+                                        description: event.data.error || "Failed to connect. Please try again.",
+                                        variant: "destructive"
+                                      });
                                     }
+                                    
+                                    // Clear loading state
+                                    setConnectingIntegrationId(null);
                                   }
                                 };
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Also poll localStorage as a fallback (COOP-safe)
+                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                const pollLocalStorage = () => {
+                                  try {
+                                    // Check for OAuth response in localStorage
+                                    const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
+                                    
+                                    if (keys.length > 0) {
+                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      
+                                      for (const key of keys) {
+                                        const rawData = localStorage.getItem(key);
+                                        console.log(`📋 Raw data from ${key}:`, rawData);
+                                        
+                                        const data = JSON.parse(rawData || '{}');
+                                        console.log(`📦 Parsed data from ${key}:`, data);
+                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
+                                        
+                                        if (data.provider === integration.id) {
+                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          localStorage.removeItem(key);
+                                          
+                                          // Process the OAuth response
+                                          handleMessage({ 
+                                            data: {
+                                              type: 'oauth-complete',
+                                              success: data.success,
+                                              error: data.error,
+                                              provider: data.provider,
+                                              message: data.message
+                                            },
+                                            origin: window.location.origin
+                                          } as MessageEvent);
+                                          
+                                          if (localStoragePolling) {
+                                            clearInterval(localStoragePolling);
+                                            localStoragePolling = null;
+                                          }
+                                          break;
+                                        } else {
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error('Error checking localStorage:', e);
+                                  }
+                                };
+                                
+                                // Start polling localStorage
+                                console.log('🔄 Starting localStorage polling for OAuth response...');
+                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                
+                                // Do an immediate check as well
+                                pollLocalStorage();
+                                
+                                // DEBUG: Check all localStorage keys immediately
+                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
+                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
+                                
+                                // DEBUG: Test localStorage by manually setting a test entry
+                                const testKey = `oauth_response_test_${Date.now()}`;
+                                localStorage.setItem(testKey, JSON.stringify({
+                                  type: 'oauth-complete',
+                                  success: false,
+                                  provider: 'test',
+                                  message: 'This is a test entry',
+                                  timestamp: new Date().toISOString()
+                                }));
+                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
                                     window.removeEventListener('message', handleMessage);
+                                    
+                                    // Check localStorage one final time
+                                    setTimeout(pollLocalStorage, 100);
+                                    
+                                    // Clear loading state after a delay if no response
+                                    setTimeout(() => {
+                                      setConnectingIntegrationId(null);
+                                    }, 2000);
                                   }
                                 }, 1000);
                               }
                             } catch (error) {
                               console.error('Error generating OAuth URL:', error);
+                              setConnectingIntegrationId(null);
                               toast({
                                 title: needsReauth ? "Reconnection Error" : "Connection Error",
                                 description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
@@ -5051,7 +5242,12 @@ function WorkflowBuilderContent() {
                             }
                           }}
                         >
-                          {(() => {
+                          {connectingIntegrationId === integration.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (() => {
                             const integrationRecord = integrations?.find(i => i.provider === integration.id);
                             // Check for various states that need reauthorization
                             const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
@@ -5128,6 +5324,7 @@ function WorkflowBuilderContent() {
                                 
                                 if (!popup || popup.closed || typeof popup.closed == 'undefined') {
                                   console.error('Popup was blocked!');
+                                  setConnectingIntegrationId(null);
                                   // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
@@ -5143,7 +5340,8 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
-                                  if (event.data?.type === 'oauth-complete') {
+                                  // Handle both oauth-complete (from oauth/callback page) and oauth-success (from createPopupResponse)
+                                  if (event.data?.type === 'oauth-complete' || event.data?.type === 'oauth-success') {
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
@@ -5171,16 +5369,99 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Also poll localStorage as a fallback (COOP-safe)
+                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                const pollLocalStorage = () => {
+                                  try {
+                                    // Check for OAuth response in localStorage
+                                    const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
+                                    
+                                    if (keys.length > 0) {
+                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      
+                                      for (const key of keys) {
+                                        const rawData = localStorage.getItem(key);
+                                        console.log(`📋 Raw data from ${key}:`, rawData);
+                                        
+                                        const data = JSON.parse(rawData || '{}');
+                                        console.log(`📦 Parsed data from ${key}:`, data);
+                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
+                                        
+                                        if (data.provider === integration.id) {
+                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          localStorage.removeItem(key);
+                                          
+                                          // Process the OAuth response
+                                          handleMessage({ 
+                                            data: {
+                                              type: 'oauth-complete',
+                                              success: data.success,
+                                              error: data.error,
+                                              provider: data.provider,
+                                              message: data.message
+                                            },
+                                            origin: window.location.origin
+                                          } as MessageEvent);
+                                          
+                                          if (localStoragePolling) {
+                                            clearInterval(localStoragePolling);
+                                            localStoragePolling = null;
+                                          }
+                                          break;
+                                        } else {
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error('Error checking localStorage:', e);
+                                  }
+                                };
+                                
+                                // Start polling localStorage
+                                console.log('🔄 Starting localStorage polling for OAuth response...');
+                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                
+                                // Do an immediate check as well
+                                pollLocalStorage();
+                                
+                                // DEBUG: Check all localStorage keys immediately
+                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
+                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
+                                
+                                // DEBUG: Test localStorage by manually setting a test entry
+                                const testKey = `oauth_response_test_${Date.now()}`;
+                                localStorage.setItem(testKey, JSON.stringify({
+                                  type: 'oauth-complete',
+                                  success: false,
+                                  provider: 'test',
+                                  message: 'This is a test entry',
+                                  timestamp: new Date().toISOString()
+                                }));
+                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
                                     window.removeEventListener('message', handleMessage);
+                                    
+                                    // Check localStorage one final time
+                                    setTimeout(pollLocalStorage, 100);
+                                    
+                                    // Clear loading state after a delay if no response
+                                    setTimeout(() => {
+                                      setConnectingIntegrationId(null);
+                                    }, 2000);
                                   }
                                 }, 1000);
                               }
                             } catch (error) {
                               console.error('Error generating OAuth URL:', error);
+                              setConnectingIntegrationId(null);
                               toast({
                                 title: needsReauth ? "Reconnection Error" : "Connection Error",
                                 description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
@@ -5477,8 +5758,11 @@ function WorkflowBuilderContent() {
                           size="sm"
                           variant="outline"
                           className="mr-2"
+                          disabled={connectingIntegrationId === integration.id}
                           onClick={async (e) => {
                             e.stopPropagation();
+                            setConnectingIntegrationId(integration.id);
+                            
                             // Check if this integration needs reauthorization
                             const integrationRecord = integrations?.find(i => i.provider === integration.id);
                             const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
@@ -5517,6 +5801,7 @@ function WorkflowBuilderContent() {
                                 
                                 if (!popup || popup.closed || typeof popup.closed == 'undefined') {
                                   console.error('Popup was blocked!');
+                                  setConnectingIntegrationId(null);
                                   // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
@@ -5532,44 +5817,203 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
+                                  console.log('📨 Received message:', {
+                                    type: event.data?.type,
+                                    data: event.data,
+                                    origin: event.origin
+                                  });
+                                  
                                   if (event.data?.type === 'oauth-complete') {
+                                    console.log('✅ OAuth complete message received!', event.data);
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
                                     }
                                     
+                                    // Clear connecting state immediately
+                                    setConnectingIntegrationId(null);
+                                    
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      // Force refresh integrations
-                                      await fetchIntegrations(true);
+                                      console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Force re-render of the modal by toggling it
-                                      const currentIntegration = selectedIntegration;
+                                      // Force refresh both integration stores
+                                      const [integrationsResult, cachedResult] = await Promise.all([
+                                        fetchIntegrations(true),
+                                        loadIntegrationsOnce(true)
+                                      ]);
+                                      
+                                      console.log('📦 Integration refresh results:', {
+                                        fetchIntegrationsResult: integrationsResult,
+                                        loadIntegrationsOnceResult: cachedResult
+                                      });
+                                      
+                                      // Small delay to ensure stores are updated
+                                      await new Promise(resolve => setTimeout(resolve, 500));
+                                      
+                                      // Log the updated integrations
+                                      const updatedStoreIntegrations = useIntegrationStore.getState().integrations;
+                                      const updatedCachedIntegrations = useIntegrationsStore.getState().data;
+                                      console.log('✅ Integrations refreshed:', {
+                                        provider: integration.id,
+                                        storeIntegrations: updatedStoreIntegrations?.map(i => ({ 
+                                          provider: i.provider, 
+                                          status: i.status 
+                                        })),
+                                        cachedIntegrations: updatedCachedIntegrations?.map(i => ({ 
+                                          provider: i.provider, 
+                                          status: i.status 
+                                        }))
+                                      });
+                                      
+                                      // Check if the integration is now in the store
+                                      const isNowConnected = updatedStoreIntegrations?.some(i => 
+                                        i.provider === integration.id && i.status === 'connected'
+                                      );
+                                      console.log(`🔍 Is ${integration.id} now connected?`, isNowConnected);
+                                      
+                                      // Force complete re-render by closing and reopening the dialog
+                                      const currentSelected = selectedIntegration;
+                                      const wasShowingAction = showActionDialog;
+                                      const wasShowingTrigger = showTriggerDialog;
+                                      
+                                      // Close the dialog
+                                      if (wasShowingAction) {
+                                        setShowActionDialog(false);
+                                      }
+                                      if (wasShowingTrigger) {
+                                        setShowTriggerDialog(false);
+                                      }
+                                      
+                                      // Reset selected integration
                                       setSelectedIntegration(null);
+                                      
+                                      // Reopen after a delay to force complete refresh
                                       setTimeout(() => {
-                                        setSelectedIntegration(currentIntegration);
-                                      }, 50);
+                                        if (wasShowingAction) {
+                                          setShowActionDialog(true);
+                                        }
+                                        if (wasShowingTrigger) {
+                                          setShowTriggerDialog(true);
+                                        }
+                                        setSelectedIntegration(currentSelected);
+                                        // Also force update to ensure UI refreshes
+                                        forceUpdate({});
+                                      }, 500);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
                                         description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integration.name}`,
                                       });
+                                    } else {
+                                      console.log('❌ OAuth failed:', event.data.error);
+                                      toast({
+                                        title: "Connection Failed",
+                                        description: event.data.error || "Failed to connect. Please try again.",
+                                        variant: "destructive"
+                                      });
                                     }
+                                    
+                                    // Clear loading state
+                                    setConnectingIntegrationId(null);
                                   }
                                 };
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Also poll localStorage as a fallback (COOP-safe)
+                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                const pollLocalStorage = () => {
+                                  try {
+                                    // Check for OAuth response in localStorage
+                                    const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
+                                    
+                                    if (keys.length > 0) {
+                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      
+                                      for (const key of keys) {
+                                        const rawData = localStorage.getItem(key);
+                                        console.log(`📋 Raw data from ${key}:`, rawData);
+                                        
+                                        const data = JSON.parse(rawData || '{}');
+                                        console.log(`📦 Parsed data from ${key}:`, data);
+                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
+                                        
+                                        if (data.provider === integration.id) {
+                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          localStorage.removeItem(key);
+                                          
+                                          // Process the OAuth response
+                                          handleMessage({ 
+                                            data: {
+                                              type: 'oauth-complete',
+                                              success: data.success,
+                                              error: data.error,
+                                              provider: data.provider,
+                                              message: data.message
+                                            },
+                                            origin: window.location.origin
+                                          } as MessageEvent);
+                                          
+                                          if (localStoragePolling) {
+                                            clearInterval(localStoragePolling);
+                                            localStoragePolling = null;
+                                          }
+                                          break;
+                                        } else {
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error('Error checking localStorage:', e);
+                                  }
+                                };
+                                
+                                // Start polling localStorage
+                                console.log('🔄 Starting localStorage polling for OAuth response...');
+                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                
+                                // Do an immediate check as well
+                                pollLocalStorage();
+                                
+                                // DEBUG: Check all localStorage keys immediately
+                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
+                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
+                                
+                                // DEBUG: Test localStorage by manually setting a test entry
+                                const testKey = `oauth_response_test_${Date.now()}`;
+                                localStorage.setItem(testKey, JSON.stringify({
+                                  type: 'oauth-complete',
+                                  success: false,
+                                  provider: 'test',
+                                  message: 'This is a test entry',
+                                  timestamp: new Date().toISOString()
+                                }));
+                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
                                     window.removeEventListener('message', handleMessage);
+                                    
+                                    // Check localStorage one final time
+                                    setTimeout(pollLocalStorage, 100);
+                                    
+                                    // Clear loading state after a delay if no response
+                                    setTimeout(() => {
+                                      setConnectingIntegrationId(null);
+                                    }, 2000);
                                   }
                                 }, 1000);
                               }
                             } catch (error) {
                               console.error('Error generating OAuth URL:', error);
+                              setConnectingIntegrationId(null);
                               toast({
                                 title: needsReauth ? "Reconnection Error" : "Connection Error",
                                 description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,
@@ -5578,7 +6022,12 @@ function WorkflowBuilderContent() {
                             }
                           }}
                         >
-                          {(() => {
+                          {connectingIntegrationId === integration.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (() => {
                             const integrationRecord = integrations?.find(i => i.provider === integration.id);
                             // Check for various states that need reauthorization
                             const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
@@ -5655,6 +6104,7 @@ function WorkflowBuilderContent() {
                                 
                                 if (!popup || popup.closed || typeof popup.closed == 'undefined') {
                                   console.error('Popup was blocked!');
+                                  setConnectingIntegrationId(null);
                                   // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
@@ -5670,7 +6120,8 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
-                                  if (event.data?.type === 'oauth-complete') {
+                                  // Handle both oauth-complete (from oauth/callback page) and oauth-success (from createPopupResponse)
+                                  if (event.data?.type === 'oauth-complete' || event.data?.type === 'oauth-success') {
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
@@ -5698,16 +6149,99 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Also poll localStorage as a fallback (COOP-safe)
+                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                const pollLocalStorage = () => {
+                                  try {
+                                    // Check for OAuth response in localStorage
+                                    const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
+                                    
+                                    if (keys.length > 0) {
+                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      
+                                      for (const key of keys) {
+                                        const rawData = localStorage.getItem(key);
+                                        console.log(`📋 Raw data from ${key}:`, rawData);
+                                        
+                                        const data = JSON.parse(rawData || '{}');
+                                        console.log(`📦 Parsed data from ${key}:`, data);
+                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
+                                        
+                                        if (data.provider === integration.id) {
+                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          localStorage.removeItem(key);
+                                          
+                                          // Process the OAuth response
+                                          handleMessage({ 
+                                            data: {
+                                              type: 'oauth-complete',
+                                              success: data.success,
+                                              error: data.error,
+                                              provider: data.provider,
+                                              message: data.message
+                                            },
+                                            origin: window.location.origin
+                                          } as MessageEvent);
+                                          
+                                          if (localStoragePolling) {
+                                            clearInterval(localStoragePolling);
+                                            localStoragePolling = null;
+                                          }
+                                          break;
+                                        } else {
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error('Error checking localStorage:', e);
+                                  }
+                                };
+                                
+                                // Start polling localStorage
+                                console.log('🔄 Starting localStorage polling for OAuth response...');
+                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                
+                                // Do an immediate check as well
+                                pollLocalStorage();
+                                
+                                // DEBUG: Check all localStorage keys immediately
+                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
+                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
+                                
+                                // DEBUG: Test localStorage by manually setting a test entry
+                                const testKey = `oauth_response_test_${Date.now()}`;
+                                localStorage.setItem(testKey, JSON.stringify({
+                                  type: 'oauth-complete',
+                                  success: false,
+                                  provider: 'test',
+                                  message: 'This is a test entry',
+                                  timestamp: new Date().toISOString()
+                                }));
+                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
                                     window.removeEventListener('message', handleMessage);
+                                    
+                                    // Check localStorage one final time
+                                    setTimeout(pollLocalStorage, 100);
+                                    
+                                    // Clear loading state after a delay if no response
+                                    setTimeout(() => {
+                                      setConnectingIntegrationId(null);
+                                    }, 2000);
                                   }
                                 }, 1000);
                               }
                             } catch (error) {
                               console.error('Error generating OAuth URL:', error);
+                              setConnectingIntegrationId(null);
                               toast({
                                 title: needsReauth ? "Reconnection Error" : "Connection Error",
                                 description: `Failed to ${needsReauth ? 'reconnect' : 'connect'}. Please try again.`,

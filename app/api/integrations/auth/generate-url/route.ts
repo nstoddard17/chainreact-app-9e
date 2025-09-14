@@ -248,21 +248,24 @@ function generateSlackAuthUrl(state: string): string {
   if (!clientId) throw new Error("Slack client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // For publicly distributed apps, DO NOT include scope in the OAuth URL
+  // Scopes should be configured in the app settings on api.slack.com
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "channels:read,groups:write,chat:write,users:read,team:read", // Bot permissions (if user has admin access)
-    user_scope: "channels:read,groups:write,chat:write,users:read,team:read", // User permissions (fallback)
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
-    response_type: "code",
+    // response_type is optional for Slack OAuth v2, defaults to 'code'
   })
 
-  // Add this parameter to force Slack to show the workspace selector
-  // This is critical for users who don't have a workspace yet
-  params.append("multiple_workspaces", "true")
+  // IMPORTANT: For distributed apps:
+  // - NO 'scope' parameter (configure in app settings instead)
+  // - NO 'user_scope' parameter (configure in app settings instead)  
+  // - NO 'team' parameter (allows any workspace)
+  // The scopes must be configured in your Slack app settings
 
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
   console.log(`Generated Slack auth URL: ${authUrl}`)
+  console.log('Distributed app - scopes configured in app settings, not in URL')
   
   return authUrl
 }

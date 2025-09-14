@@ -82,6 +82,10 @@ import {
   searchNotionPages,
 } from './notion'
 
+// Notion unified action handlers
+import { executeNotionManageDatabase } from './notion/manageDatabase'
+import { executeNotionManageUsers } from './notion/manageUsers'
+
 // Notion actions - comprehensive new handlers
 import {
   notionCreatePage,
@@ -312,7 +316,11 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_create_page": createNotionPage,
   "notion_action_update_page": updateNotionPage,
   "notion_action_search_pages": searchNotionPages,
-  
+
+  // Notion unified actions
+  "notion_action_manage_database": executeNotionManageDatabase,
+  "notion_action_manage_users": executeNotionManageUsers,
+
   // Notion actions - comprehensive API v2 actions
   // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead
   "notion_action_archive_page": notionArchivePage,

@@ -81,12 +81,22 @@ export default function WorkflowDialog({
           throw new Error("Workflow created but no ID returned")
         }
         
+        console.log("✅ [WorkflowDialog] New workflow created:", {
+          id: newWorkflow.id,
+          name: newWorkflow.name,
+          user_id: newWorkflow.user_id
+        })
+        
         onOpenChange(false)
         setName("")
         setDescription("")
         
-        // Navigate to the workflow builder for new workflows
-        router.push(`/workflows/builder?id=${newWorkflow.id}`)
+        // Add a small delay to ensure the database has propagated the new workflow
+        setTimeout(() => {
+          console.log("🚀 [WorkflowDialog] Navigating to workflow builder:", newWorkflow.id)
+          // Navigate to the workflow builder for new workflows
+          router.push(`/workflows/builder?id=${newWorkflow.id}`)
+        }, 100)
       }
     } catch (error: any) {
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} workflow:`, error)
