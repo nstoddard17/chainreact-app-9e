@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
 import { type UserRole } from "@/lib/utils/roles"
+import { LightningLoader } from "@/components/ui/lightning-loader"
 
 // Critical components loaded immediately
 import LandingNavigation from './LandingNavigation'
@@ -95,8 +96,8 @@ export default function LandingPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          <p className="text-blue-200 mb-4">Loading...</p>
+          <LightningLoader size="xl" color="blue" className="mx-auto mb-4" />
+          <p className="text-blue-200 mb-4">Loading ChainReact...</p>
           <button 
             onClick={() => window.location.reload()}
             className="text-blue-300 hover:text-blue-100 text-sm underline"

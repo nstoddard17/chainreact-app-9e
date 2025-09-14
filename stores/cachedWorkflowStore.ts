@@ -112,7 +112,8 @@ export async function loadWorkflows(forceRefresh = false): Promise<Workflow[]> {
       forceRefresh,
       setLoading: (loading) => useWorkflowsListStore.getState().setLoading(loading),
       onError: (error) => useWorkflowsListStore.getState().setError(error.message),
-      checkStale: () => useWorkflowsListStore.getState().isStale(0) // No caching - always fetch fresh data
+      checkStale: () => useWorkflowsListStore.getState().isStale(0), // No caching - always fetch fresh data
+      requestKey: 'workflows-list' // Prevent duplicate requests
     }
   })
 
@@ -133,7 +134,8 @@ export async function loadWorkflow(id: string, forceRefresh = false): Promise<Wo
     options: {
       forceRefresh,
       setLoading: (loading) => useCurrentWorkflowStore.getState().setLoading(loading),
-      onError: (error) => useCurrentWorkflowStore.getState().setError(error.message)
+      onError: (error) => useCurrentWorkflowStore.getState().setError(error.message),
+      requestKey: `workflow-${id}` // Prevent duplicate requests for the same workflow
     }
   })
 
