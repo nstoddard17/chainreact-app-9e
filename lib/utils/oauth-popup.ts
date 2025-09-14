@@ -73,14 +73,29 @@ export function openOAuthPopup({
 /**
  * Send OAuth completion message from callback page
  */
-export function sendOAuthComplete(success: boolean, error?: string) {
-  if (window.opener && !window.opener.closed) {
-    window.opener.postMessage({
-      type: 'oauth-complete',
-      success,
-      error
-    }, window.location.origin)
+export function sendOAuthComplete(success: boolean, error?: string, provider?: string) {
+  const message = {
+    type: 'oauth-complete',
+    success,
+    error,
+    provider: provider || 'unknown',
+    message: success ? `${provider || 'Integration'} connected successfully` : error || 'Connection failed'
   }
+  
+  // Try to send via postMessage first
+  if (window.opener && !window.opener.closed) {
+    console.log('Sending OAuth complete via postMessage:', message)
+    window.opener.postMessage(message, window.location.origin)
+  }
+  
+  // Also store in localStorage as backup for COOP restrictions
+  const timestamp = Date.now()
+  const storageKey = `oauth_response_${provider || 'unknown'}_${timestamp}`
+  localStorage.setItem(storageKey, JSON.stringify({
+    ...message,
+    timestamp: new Date().toISOString()
+  }))
+  console.log('Stored OAuth response in localStorage with key:', storageKey)
   
   // Close the popup after a short delay
   setTimeout(() => {

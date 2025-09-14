@@ -347,12 +347,6 @@ const useWorkflowBuilderState = () => {
     const freshIntegrations = useIntegrationStore.getState().integrations;
     
     // Debug logging to see what's in the store
-    console.log(`🔍 Checking connection for ${integrationId}:`, {
-      freshIntegrations: freshIntegrations,
-      integrationCount: freshIntegrations?.length,
-      relevantIntegration: freshIntegrations?.find(i => i.provider === integrationId),
-      allProviders: freshIntegrations?.map(i => i.provider)
-    });
     
     // Create a mapping of integration config IDs to possible database provider values
     // This handles cases where the integration ID doesn't match the database provider value
@@ -456,12 +450,6 @@ const useWorkflowBuilderState = () => {
     
     // Debug logging for non-system integrations
     if (integrationId === 'gmail' || integrationId === 'discord') {
-      console.log(`📌 Connection result for ${integrationId}:`, {
-        found: isConnected,
-        integrationProvider: integration ? integration.provider : 'not found',
-        connectedProviders,
-        possibleProviders
-      });
     }
     
     return isConnected;
@@ -491,10 +479,8 @@ const useWorkflowBuilderState = () => {
         
         if (response.ok) {
         } else {
-          console.warn(`⚠️ Failed to clear all preferences:`, response.status)
         }
       } catch (error) {
-        console.error(`❌ Error clearing all preferences:`, error)
       }
     }
     
@@ -515,15 +501,6 @@ const useWorkflowBuilderState = () => {
     const providerId = nodeToConfigure.data.providerId as keyof typeof INTEGRATION_CONFIGS
     const integration = INTEGRATION_CONFIGS[providerId]
     if (integration && nodeComponent) {
-      console.log('🔍 [WorkflowBuilder] Setting up configuration for node:');
-      console.log('  - Node ID:', nodeId);
-      console.log('  - Node Type:', nodeToConfigure.data.type);
-      console.log('  - Provider ID:', providerId);
-      console.log('  - Node Data:', nodeToConfigure.data);
-      console.log('  - Saved Config:', nodeToConfigure.data.config);
-      console.log('  - Has Config:', !!nodeToConfigure.data.config);
-      console.log('  - Config Keys:', nodeToConfigure.data.config ? Object.keys(nodeToConfigure.data.config) : []);
-      console.log('  - Config Values:', nodeToConfigure.data.config);
       
       // Try to load configuration from our persistence system first
       let config = nodeToConfigure.data.config || {}
@@ -536,28 +513,19 @@ const useWorkflowBuilderState = () => {
           const workflowId = builderIndex !== -1 && pathParts.length > builderIndex + 1 ? pathParts[builderIndex + 1] : null
           
           if (workflowId) {
-            console.log('🔍 [WorkflowBuilder] Attempting to load from persistence system:', {
-              workflowId,
-              nodeId,
-              nodeType: nodeToConfigure.data.type
-            });
             
             // IMPORTANT: await the async loadNodeConfig function
             const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type as string)
             if (savedNodeData && savedNodeData.config) {
-              console.log('✅ [WorkflowBuilder] Loaded configuration from persistence system:', savedNodeData.config);
               config = savedNodeData.config
             } else {
-              console.log('📋 [WorkflowBuilder] No saved configuration found in persistence system, using workflow store config');
             }
           }
         } catch (error) {
-          console.error('Failed to load from persistence system:', error);
           // Fall back to workflow store config
         }
       }
       
-      console.log('🔍 [WorkflowBuilder] Final config being set to configuringNode:', config);
       setConfiguringNode({ id: nodeId, integration, nodeComponent, config })
     }
   }, [getNodes])
@@ -606,7 +574,6 @@ const useWorkflowBuilderState = () => {
 
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
-    console.log('🔄 [WorkflowBuilder] handleInsertAction called:', { sourceNodeId, targetNodeId })
     setSourceAddNode({ 
       id: `insert-${sourceNodeId}-${targetNodeId}`, 
       parentId: sourceNodeId,
@@ -631,7 +598,6 @@ const useWorkflowBuilderState = () => {
 
   // Handle trigger selection
   const handleTriggerSelect = useCallback((integration: IntegrationInfo, trigger: NodeComponent) => {
-    console.log('🔄 [WorkflowBuilder] Trigger selected:', { integration, trigger })
     
     // Create a new trigger node
     const newNodeId = 'trigger'
@@ -708,10 +674,8 @@ const useWorkflowBuilderState = () => {
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
-    console.log('🔄 [WorkflowBuilder] Action selected:', { integration, action, sourceAddNode })
     
     if (!sourceAddNode) {
-      console.error('No source node for action. Please use the "Add Action" button to add nodes.')
       toast({
         title: "Cannot Add Action",
         description: "Please use the 'Add Action' button on a node to add new actions.",
@@ -897,25 +861,10 @@ const useWorkflowBuilderState = () => {
     
     // NOTION WORKSPACE DEBUG: Log configuration for Notion nodes
     if (configuringNodeInfo?.providerId === 'notion' && config.workspace) {
-      console.log('🔍 [NOTION DEBUG] Saving Notion configuration:', {
-        workspace: config.workspace,
-        workspaceType: typeof config.workspace,
-        fullConfig: config,
-        nodeType: configuringNodeInfo?.type
-      })
     }
     
     // GMAIL ATTACHMENT DEBUG: Log configuration for Gmail nodes
     if (configuringNodeInfo?.providerId === 'gmail' && configuringNodeInfo?.type === 'gmail_action_send_email') {
-      console.log('📎 [GMAIL DEBUG] Saving Gmail configuration:', {
-        sourceType: config.sourceType,
-        uploadedFiles: config.uploadedFiles,
-        uploadedFilesType: typeof config.uploadedFiles,
-        uploadedFilesIsArray: Array.isArray(config.uploadedFiles),
-        uploadedFilesLength: Array.isArray(config.uploadedFiles) ? config.uploadedFiles.length : 'N/A',
-        fullConfig: config,
-        nodeType: configuringNodeInfo?.type
-      })
     }
     
     try {
@@ -1018,12 +967,6 @@ const useWorkflowBuilderState = () => {
         setPendingNode(null)
       } else {
         // This is an existing node - just update its configuration
-        console.log('📎 [handleConfigurationSave] Updating existing node config:', {
-          nodeId: configuringNode.id,
-          config: config,
-          uploadedFiles: config.uploadedFiles,
-          sourceType: config.sourceType
-        });
         
         setNodes((nds) =>
           nds.map((node) => {
@@ -1050,7 +993,6 @@ const useWorkflowBuilderState = () => {
       // Return the node ID for any post-save processing
       return configuringNode.id
     } catch (error) {
-      console.error('Failed to save configuration:', error)
       throw error
     }
   }, [configuringNode, pendingNode, getNodes, setNodes, setEdges, handleConfigureNode, handleAddActionClick])
@@ -1081,7 +1023,6 @@ const useWorkflowBuilderState = () => {
       // Return the node ID for any post-save processing
       return node.id
     } catch (error) {
-      console.error('Failed to save configuration:', error)
       throw error
     }
   }, [setNodes])
@@ -1172,18 +1113,9 @@ const useWorkflowBuilderState = () => {
     // If it's an AI Agent, collect all child nodes to delete
     let nodesToDelete = [nodeId]
     if (isAIAgent) {
-      console.log('🗑️ [WorkflowBuilder] Deleting AI Agent node and all its chains')
-      console.log('  - AI Agent ID:', nodeId)
-      console.log('  - Total nodes to check:', allNodes.length)
       
       // First, let's log all Add Action nodes to see what we have
       const allAddActionNodes = allNodes.filter(n => n.type === 'addAction')
-      console.log('  - All Add Action nodes in workflow:', allAddActionNodes.map(n => ({
-        id: n.id,
-        parentAIAgentId: n.data?.parentAIAgentId,
-        parentId: n.data?.parentId,
-        chainIndex: n.data?.parentChainIndex
-      })))
       
       // Find all nodes that are children of this AI Agent
       const childNodes = allNodes.filter(n => {
@@ -1192,13 +1124,11 @@ const useWorkflowBuilderState = () => {
         
         // Check if it's a direct child of the AI Agent (has parentAIAgentId)
         if (n.data?.parentAIAgentId === nodeId) {
-          console.log(`  - Found child via parentAIAgentId: ${n.id} (type: ${n.data?.type})`)
           return true
         }
         
         // Check if it's marked as an AI Agent child
         if (n.data?.isAIAgentChild && n.data?.parentAIAgentId === nodeId) {
-          console.log(`  - Found AI Agent child: ${n.id} (type: ${n.data?.type})`)
           return true
         }
         
@@ -1207,13 +1137,11 @@ const useWorkflowBuilderState = () => {
         if (n.type === 'addAction') {
           // Delete chain Add Action nodes (marked with isChainAddAction or parentAIAgentId)
           if (n.data?.parentAIAgentId === nodeId) {
-            console.log(`  - Found chain Add Action via parentAIAgentId: ${n.id}`)
             return true
           }
           // Also check if the parentId points to a node that's a child of this AI Agent
           const parentNode = allNodes.find(pn => pn.id === n.data?.parentId)
           if (parentNode?.data?.isAIAgentChild && parentNode?.data?.parentAIAgentId === nodeId) {
-            console.log(`  - Found Add Action via parent node: ${n.id}`)
             return true
           }
         }
@@ -1221,7 +1149,6 @@ const useWorkflowBuilderState = () => {
         // Check if it's part of an AI Agent chain (has the AI Agent ID in its ID)
         // This catches chain placeholders and other nodes created with the AI Agent ID pattern
         if (n.id.includes(`${nodeId}-chain`) || n.id.includes(`${nodeId}-rt-chain`)) {
-          console.log(`  - Found chain node via ID pattern: ${n.id} (type: ${n.data?.type})`)
           return true
         }
         
@@ -1231,10 +1158,8 @@ const useWorkflowBuilderState = () => {
       // Add all child nodes to the delete list
       childNodes.forEach(child => {
         nodesToDelete.push(child.id)
-        console.log(`  ✓ Will delete: ${child.id} (${child.data?.title || child.data?.type || 'Add Action'})`)
       })
       
-      console.log(`🗑️ [WorkflowBuilder] Total nodes to delete: ${nodesToDelete.length}`)
     }
     
     // Check if we're deleting from an AI Agent chain
@@ -1260,7 +1185,6 @@ const useWorkflowBuilderState = () => {
       // Only reposition if there are remaining nodes in the chain
       // If the chain is empty, no repositioning is needed since nodes stay in place
       if (remainingChainNodes.length > 0) {
-        console.log('🔄 [WorkflowBuilder] Deleting node from AI Agent chain, will reposition nodes')
         
         // Find all nodes below the deleted node in the SAME chain only
         const deletedNodePos = nodeToRemove.position
@@ -1285,11 +1209,7 @@ const useWorkflowBuilderState = () => {
         repositionAmount = -120
         nodesToReposition = nodesBelow.map(n => n.id)
         
-        console.log('🔄 [WorkflowBuilder] Nodes to move up (same chain only):', nodesToReposition)
-        console.log('🔄 [WorkflowBuilder] Move amount:', repositionAmount)
-        console.log('🔄 [WorkflowBuilder] Deleted node chain:', deletedNodeChainIndex, 'parent:', deletedNodeParentId)
       } else {
-        console.log('🔄 [WorkflowBuilder] Chain emptied, no repositioning needed')
       }
     }
     
@@ -1307,17 +1227,10 @@ const useWorkflowBuilderState = () => {
           // Clear our enhanced config persistence data
           if (currentWorkflow?.id && deletingNodeId && nodeType) {
             try {
-              console.log('🔄 [WorkflowBuilder] Clearing saved node config:', {
-                workflowId: currentWorkflow.id,
-                nodeId: deletingNodeId,
-                nodeType: nodeType
-              });
               
               await clearNodeConfig(currentWorkflow.id, deletingNodeId, nodeType as string)
               
-              console.log('✅ [WorkflowBuilder] Node configuration cleared from persistence layer');
             } catch (configError) {
-              console.error('❌ [WorkflowBuilder] Failed to clear node configuration from persistence layer:', configError);
             }
           }
           
@@ -1334,11 +1247,6 @@ const useWorkflowBuilderState = () => {
             
             if (nodeType && fileUploadNodeTypes.includes(nodeType)) {
               try {
-                console.log('🗑️ [WorkflowBuilder] Cleaning up files for deleted node:', {
-                  workflowId: currentWorkflow.id,
-                  nodeId: deletingNodeId,
-                  nodeType: nodeType
-                });
                 
                 // Get the user session for auth
                 const { data: { session } } = await supabase.auth.getSession();
@@ -1355,13 +1263,10 @@ const useWorkflowBuilderState = () => {
                   );
                   
                   if (response.ok) {
-                    console.log('✅ [WorkflowBuilder] Files cleaned up for deleted node');
                   } else {
-                    console.warn('⚠️ [WorkflowBuilder] Failed to clean up files for deleted node');
                   }
                 }
               } catch (fileError) {
-                console.error('❌ [WorkflowBuilder] Error cleaning up files for deleted node:', fileError);
               }
             }
           }
@@ -1375,14 +1280,11 @@ const useWorkflowBuilderState = () => {
             })
             
             if (response.ok) {
-              console.log('✅ [WorkflowBuilder] Node preferences cleared');
             } else {
-              console.warn(`⚠️ Failed to clear preferences for ${nodeType}:`, response.status)
             }
           }
         }
       } catch (error) {
-        console.error(`❌ Error clearing preferences for deleted node:`, error)
       }
     }
     
@@ -1403,10 +1305,8 @@ const useWorkflowBuilderState = () => {
           
           if (response.ok) {
           } else {
-            console.warn(`⚠️ Failed to clear all preferences:`, response.status)
           }
         } catch (error) {
-          console.error(`❌ Error clearing all preferences:`, error)
         }
       }
       
@@ -1444,7 +1344,6 @@ const useWorkflowBuilderState = () => {
     // Additional cleanup: Remove orphaned Add Action buttons from AI Agent chains
     // when the last action in a chain is deleted
     if (isAIAgentChainNode && !isAIAgent) {
-      console.log('🧹 [WorkflowBuilder] Checking for orphaned Add Action buttons after AI Agent chain node deletion')
       
       // Find the parent AI Agent node
       const parentAIAgentId = nodeToRemove.data?.parentAIAgentId
@@ -1459,11 +1358,9 @@ const useWorkflowBuilderState = () => {
           n.type !== 'addAction' // Don't count Add Action buttons
         )
         
-        console.log(`🧹 [WorkflowBuilder] Chain ${chainIndex} has ${remainingChainNodes.length} remaining nodes`)
         
         // If no nodes remain in this chain, remove its Add Action button and mark chain as emptied
         if (remainingChainNodes.length === 0) {
-          console.log(`🧹 [WorkflowBuilder] No nodes left in chain ${chainIndex}, removing Add Action button completely`)
           
           // Find and remove the Add Action button for this chain
           const removedAddActionIds: string[] = []
@@ -1471,7 +1368,6 @@ const useWorkflowBuilderState = () => {
             if (n.type === 'addAction' && 
                 n.data?.parentAIAgentId === parentAIAgentId &&
                 n.data?.parentChainIndex === chainIndex) {
-              console.log(`  ✓ Removing orphaned Add Action button: ${n.id}`)
               removedAddActionIds.push(n.id)
               return false
             }
@@ -1483,7 +1379,6 @@ const useWorkflowBuilderState = () => {
             edgesAfterRemoval = edgesAfterRemoval.filter(e => 
               !removedAddActionIds.includes(e.source) && !removedAddActionIds.includes(e.target)
             )
-            console.log(`  ✓ Removed edges connected to orphaned Add Action buttons`)
           }
           
           // Mark this chain as intentionally emptied in the AI Agent node's data
@@ -1495,8 +1390,6 @@ const useWorkflowBuilderState = () => {
                 emptiedChains.push(chainIndex)
               }
               
-              console.log(`  ✓ Marked chain ${chainIndex} as intentionally emptied in AI Agent node`)
-              console.log(`  ✓ emptiedChains is now:`, emptiedChains)
               
               return {
                 ...n,
@@ -1519,11 +1412,6 @@ const useWorkflowBuilderState = () => {
     
     if (previousNodeId && outgoingEdges.length > 0) {
       // This is a middle node deletion - need to reconnect the chain
-      console.log('🔄 [WorkflowBuilder] Deleting middle node, reconnecting chain:', {
-        deletedNode: nodeId,
-        previousNode: previousNodeId,
-        nextNodes: outgoingEdges.map(e => e.target)
-      })
       
       // Connect the previous node to all nodes that were after the deleted node
       outgoingEdges.forEach(outgoingEdge => {
@@ -1576,12 +1464,10 @@ const useWorkflowBuilderState = () => {
         // For main workflow nodes, use standard spacing of 160px
         if (!isAIAgentChainNode) {
           shiftAmount = 160
-          console.log('🔄 [WorkflowBuilder] Moving main workflow nodes up by:', shiftAmount)
         } else {
           // AI Agent chains are already handled by the repositioning logic above
           shiftAmount = 0
           nodesToShift = [] // Clear the shift list since we're handling it differently
-          console.log('🔄 [WorkflowBuilder] Skipping middle node shift for AI Agent chain (handled separately)')
         }
       }
     }
@@ -1625,11 +1511,6 @@ const useWorkflowBuilderState = () => {
     setNodes(finalNodes)
     setEdges(updatedEdges)
     
-    console.log('🔄 [WorkflowBuilder] After deletion - edges:', updatedEdges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target
-    })))
     
     // Remove all deleted nodes from the workflow store
     nodesToDelete.forEach(deletedNodeId => {
@@ -1901,7 +1782,6 @@ const useWorkflowBuilderState = () => {
         // Find if this node was updated with emptiedChains in cleanedNodes
         const updatedNode = cleanedNodes.find(cn => cn.id === n.id && cn.data?.emptiedChains)
         if (updatedNode && n.data?.type === 'ai_agent') {
-          console.log(`🔄 [WorkflowBuilder] Transferring emptiedChains to final AI Agent node ${n.id}:`, updatedNode.data.emptiedChains)
           return {
             ...n,
             data: {
@@ -1942,8 +1822,6 @@ const useWorkflowBuilderState = () => {
           const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
             // Log AI Agent nodes to check emptiedChains
             if (n.data?.type === 'ai_agent') {
-              console.log(`🔍 [WorkflowBuilder] Saving AI Agent node ${n.id} with emptiedChains:`, n.data.emptiedChains || 'undefined')
-              console.log(`🔍 [WorkflowBuilder] Full AI Agent node data:`, n.data)
             }
             const position = {
               x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
@@ -1984,10 +1862,8 @@ const useWorkflowBuilderState = () => {
             nodes: mappedNodes, 
             connections: mappedConnections 
           })
-          console.log('✅ [WorkflowBuilder] Workflow saved after node deletion')
         }
       } catch (error) {
-        console.error('❌ [WorkflowBuilder] Failed to save workflow after node deletion:', error)
       } finally {
         // Clear the deletion flag after save completes
         setTimeout(() => {
@@ -2024,7 +1900,6 @@ const useWorkflowBuilderState = () => {
 
   // Handle adding a node between two existing nodes
   const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
-    console.log('🔄 [WorkflowBuilder] handleAddNodeBetween called:', { sourceId, targetId, position })
     
     // Check if this is an AI Agent chain (nodes have isAIAgentChild flag)
     const allNodes = getNodes()
@@ -2033,7 +1908,6 @@ const useWorkflowBuilderState = () => {
     
     // Store context for AI Agent chains
     if (sourceNode?.data?.isAIAgentChild || targetNode?.data?.isAIAgentChild) {
-      console.log('🤖 [WorkflowBuilder] Inserting into AI Agent chain')
     }
     
     // Set up for insertion - parentId is the source, insertBefore is the target
@@ -2078,13 +1952,6 @@ const useWorkflowBuilderState = () => {
     const newChainNumber = highestChainIndex + 2 // +2 because highestChainIndex is 0-based, and we want the display number
     const newChainIndex = highestChainIndex + 1 // The actual 0-based index for this new chain
     
-    console.log('🔄 [WorkflowBuilder] Creating new chain:', {
-      aiAgentNodeId,
-      existingChildNodes: childNodes.length,
-      highestChainIndex,
-      newChainNumber,
-      newChainIndex
-    })
     
     // Calculate position with proper spacing
     const horizontalSpacing = 550  // Increased gap between chains to prevent overlap
@@ -2269,13 +2136,11 @@ const useWorkflowBuilderState = () => {
       if (!workflowId) {
         // No workflow ID - this might be a new workflow
         // Show the trigger selection dialog for new workflows
-        console.log('🆕 New workflow - showing trigger selection dialog')
         setShowTriggerDialog(true)
         return
       }
       
       // Clear any existing nodes/edges first to ensure clean slate
-      console.log('🧹 Clearing existing nodes before loading workflow')
       setNodes([])
       setEdges([])
       
@@ -2285,22 +2150,14 @@ const useWorkflowBuilderState = () => {
       // Debounce the workflow loading to prevent rapid API calls
       timeoutId = setTimeout(async () => {
         if (!mounted) {
-          console.log('⏭️ Component unmounted quickly, skipping workflow load')
           return;
         }
         
         try {
-          console.log('🔄 Loading workflow:', workflowId)
           const response = await fetch(`/api/workflows/${workflowId}`)
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
-          console.error('❌ [WorkflowBuilder] Failed to load workflow:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData,
-            workflowId
-          })
           
           // If it's a 404, it might be a user ID mismatch
           if (response.status === 404) {
@@ -2428,12 +2285,6 @@ const useWorkflowBuilderState = () => {
             allEdges.push(...flowEdges)
           }
           
-          console.log('📊 Setting nodes and edges:', {
-            nodesCount: allNodes.length,
-            edgesCount: allEdges.length,
-            nodes: allNodes,
-            edges: allEdges
-          })
           
           setNodes(allNodes)
           setEdges(allEdges)
@@ -2441,10 +2292,8 @@ const useWorkflowBuilderState = () => {
           // Don't call fitView here - it's not available in this context
           // The fitView will be handled by a separate effect
           
-          console.log('✅ Workflow loaded successfully with Add Action nodes')
         }
       } catch (error) {
-        console.error('Failed to load workflow:', error)
         // Could show an error toast here
       }
       }, 300); // 300ms debounce to wait for component to stabilize
@@ -2457,7 +2306,6 @@ const useWorkflowBuilderState = () => {
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      console.log('🛑 Component unmounting, cancelling pending loads')
       // Don't clear the workflow data here - it causes issues with navigation
       // The data will be properly cleared when loading a new workflow
     }
@@ -2469,7 +2317,6 @@ const useWorkflowBuilderState = () => {
       // Small delay to ensure ReactFlow has rendered the nodes
       const timer = setTimeout(() => {
         fitView({ padding: 0.2, duration: 200 })
-        console.log('🔍 Auto-fitting view for', nodes.length, 'nodes')
       }, 100)
       
       return () => clearTimeout(timer)
@@ -2479,47 +2326,27 @@ const useWorkflowBuilderState = () => {
   // Fetch integrations when component mounts - only if not already loaded - WITH DEBOUNCE
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
-    console.log('🚨 [WorkflowBuilder] MOUNT EFFECT RUNNING', {
-      workflowId,
-      hasIntegrations: storeIntegrations?.length > 0,
-      timestamp: new Date().toISOString(),
-      componentId
-    });
     
     // Always fetch integrations on mount to ensure we have the latest data
     // This is critical for showing connection status correctly
     const loadIntegrations = async () => {
-      console.log('📥 [WorkflowBuilder] Fetching integrations on mount', { componentId });
       await fetchIntegrations(true); // Force fetch to ensure we have the latest
-      console.log('✅ Integrations fetch completed');
     }
     
     loadIntegrations();
     
     // Cleanup function
     return () => {
-      console.log('🚨 [WorkflowBuilder] UNMOUNT EFFECT CLEANUP', {
-        workflowId,
-        timestamp: new Date().toISOString(),
-        componentId
-      });
     }
   }, []) // Empty dependency array - only run on mount
   
   // Fetch integrations when action or trigger dialog opens
   useEffect(() => {
     if (showActionDialog || showTriggerDialog) {
-      console.log('📥 [WorkflowBuilder] Dialog opened, checking integrations', {
-        showActionDialog,
-        showTriggerDialog,
-        timestamp: new Date().toISOString(),
-        hasIntegrations: storeIntegrations.length > 0
-      });
       
       // Only fetch if we don't have integrations loaded yet
       if (storeIntegrations.length === 0) {
         fetchIntegrations(false).then(() => {
-          console.log('✅ Integrations fetched for dialog');
         });
       }
     }
@@ -2528,12 +2355,10 @@ const useWorkflowBuilderState = () => {
   // Main save function for the workflow
   const handleSave = async () => {
     if (!currentWorkflow) {
-      console.error("No workflow to save")
       return
     }
     
     if (isSaving) {
-      console.log("Save already in progress, skipping")
       return
     }
     
@@ -2588,19 +2413,6 @@ const useWorkflowBuilderState = () => {
         ? workflowName 
         : currentWorkflow.name || 'Untitled Workflow'
       
-      console.log('💾 Saving workflow with:', {
-        id: currentWorkflow.id,
-        name: nameToSave,
-        nodesCount: mappedNodes.length,
-        connectionsCount: mappedConnections.length,
-        firstNode: mappedNodes[0],
-        // Check Gmail nodes specifically
-        gmailNodes: mappedNodes.filter(n => n.data.type === 'gmail_action_send_email').map(n => ({
-          id: n.id,
-          config: n.data.config,
-          uploadedFiles: n.data.config?.uploadedFiles
-        }))
-      })
       
       // Save to database
       const savedWorkflow = await updateWorkflow(currentWorkflow.id, {
@@ -2627,7 +2439,6 @@ const useWorkflowBuilderState = () => {
       setHasUnsavedChanges(false)
       
     } catch (error: any) {
-      console.error("Failed to save workflow:", error)
       
       let errorMessage = "Could not save your changes. Please try again."
       if (error.message?.includes("network")) {
@@ -2657,7 +2468,6 @@ const useWorkflowBuilderState = () => {
     
     // Set a new timeout for the save operation
     pendingSaveTimeoutRef.current = setTimeout(async () => {
-      console.log("🔄 Executing debounced save operation")
       await handleSave()
       pendingSaveTimeoutRef.current = null
     }, 500) // 500ms debounce delay
@@ -2737,7 +2547,6 @@ const useWorkflowBuilderState = () => {
         variant: newStatus === 'active' ? 'default' : 'secondary',
       })
     } catch (error) {
-      console.error('Error updating workflow status:', error)
       toast({
         title: "Error",
         description: "Failed to update workflow status",
@@ -2816,7 +2625,6 @@ const useWorkflowBuilderState = () => {
       await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
       
     } catch (error: any) {
-      console.error('Error testing workflow:', error)
       toast({
         title: "Test Failed",
         description: error.message || "Failed to test workflow.",
@@ -2839,7 +2647,6 @@ const useWorkflowBuilderState = () => {
     skipCurrent: boolean = false
   ): Promise<void> => {
     // Update visual status
-    console.log(`[executeNodeStepByStep] Starting node ${node.id}, isPaused: ${isPaused}, isStepMode: ${isStepMode}`)
     setCurrentNode(node.id)
     setNodeStatus(node.id, 'waiting')
     addToExecutionPath(node.id)
@@ -2850,7 +2657,6 @@ const useWorkflowBuilderState = () => {
     
     // If the node was already skipped, don't wait for user input
     if (currentStatus === 'success') {
-      console.log(`Node ${node.id} was skipped (already marked as success), moving to next nodes without waiting`)
       // Skip execution but continue to next nodes
       result = { output: inputData } // Pass through input data
     } else {
@@ -2860,17 +2666,14 @@ const useWorkflowBuilderState = () => {
       const stepStore = useWorkflowStepExecutionStore.getState()
       const currentlyPaused = stepStore.isPaused
       
-      console.log(`Node ${node.id} - Checking pause state: ${currentlyPaused}`)
       
       if (currentlyPaused) {
-        console.log(`Node ${node.id} - Execution paused, waiting for continue`)
         
         await new Promise<void>((resolve) => {
           const checkContinue = setInterval(() => {
             const store = useWorkflowStepExecutionStore.getState()
             if (!store.isPaused || !store.isStepMode) {
               clearInterval(checkContinue)
-              console.log(`Node ${node.id} - Resuming execution`)
               resolve()
             }
           }, 100)
@@ -2878,7 +2681,6 @@ const useWorkflowBuilderState = () => {
           // Store the callback for the continue button
           const callback = () => {
             clearInterval(checkContinue)
-            console.log(`Node ${node.id} - Resuming via continue button`)
             resolve()
           }
           setStepContinueCallback(() => callback)
@@ -2895,7 +2697,6 @@ const useWorkflowBuilderState = () => {
         return
       }
       // Update to running status
-      console.log(`Setting node ${node.id} to running status`)
       setNodeStatus(node.id, 'running')
       
       try {
@@ -2989,7 +2790,6 @@ const useWorkflowBuilderState = () => {
       
       // Wait if there are unsaved changes or if currently saving
       if (hasUnsavedChanges || isSaving) {
-        console.log('⏳ [WorkflowBuilder] Detected unsaved changes or save in progress, waiting...')
         
         // Wait for save to complete (max 3 seconds)
         let waitTime = 0
@@ -3002,9 +2802,7 @@ const useWorkflowBuilderState = () => {
         }
         
         if (hasUnsavedChanges || isSaving) {
-          console.warn('⚠️ [WorkflowBuilder] Save may not have completed after waiting 3 seconds')
         } else {
-          console.log('✅ [WorkflowBuilder] Save completed, proceeding with execution')
         }
       }
       
@@ -3015,41 +2813,15 @@ const useWorkflowBuilderState = () => {
       const currentNodes = nodes
       const currentEdges = edges
       
-      console.log('🔍 [WorkflowBuilder] Using nodes from state:', {
-        nodesCount: currentNodes.length,
-        edgesCount: currentEdges.length,
-        nodesFromGetNodes: getNodes().length,
-        edgesFromGetEdges: getEdges().length
-      })
       
       // Log the Google Calendar node config if present
       const calendarNode = currentNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
       if (calendarNode) {
-        console.log('📅 [WorkflowBuilder] Google Calendar node config at execution:', {
-          nodeId: calendarNode.id,
-          config: calendarNode.data?.config,
-          hasConfig: !!calendarNode.data?.config,
-          configKeys: Object.keys(calendarNode.data?.config || {}),
-          title: calendarNode.data?.config?.title,
-          startDate: calendarNode.data?.config?.startDate
-        })
       }
       
       // Log the Google Sheets node config if present
       const sheetsNode = currentNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
       if (sheetsNode) {
-        console.log('📊 [WorkflowBuilder] Google Sheets node config at execution:', {
-          nodeId: sheetsNode.id,
-          config: sheetsNode.data?.config,
-          hasConfig: !!sheetsNode.data?.config,
-          configKeys: Object.keys(sheetsNode.data?.config || {}),
-          action: sheetsNode.data?.config?.action,
-          updateMapping: sheetsNode.data?.config?.updateMapping,
-          rowNumber: sheetsNode.data?.config?.rowNumber,
-          findRowBy: sheetsNode.data?.config?.findRowBy,
-          spreadsheetId: sheetsNode.data?.config?.spreadsheetId,
-          sheetName: sheetsNode.data?.config?.sheetName
-        })
       }
       
       // Execute the workflow immediately with test data but REAL external calls
@@ -3089,16 +2861,9 @@ const useWorkflowBuilderState = () => {
         } catch {
           errorData = { error: errorText || 'Unknown error' }
         }
-        console.error('❌ [WorkflowBuilder] Execution failed:', {
-          status: response.status,
-          error: errorData,
-          workflowId: currentWorkflow.id,
-          nodesCount: currentNodes.length
-        })
         throw new Error(errorData.error || errorData.message || 'Failed to execute workflow')
       }
     } catch (error: any) {
-      console.error('Error executing live workflow:', error)
       toast({
         title: "Live Execution Failed",
         description: error.message || "Failed to execute workflow with live data.",
@@ -3144,7 +2909,6 @@ const useWorkflowBuilderState = () => {
           // In listening mode, Execute button runs in TEST MODE (simulation)
           const isTestMode = true // When in listening/test mode, always simulate
           
-          console.log(`🔄 ${isTestMode ? 'Testing' : 'Executing'} manual trigger workflow from Execute button`)
           
           // Execute the workflow directly
           try {
@@ -3188,11 +2952,9 @@ const useWorkflowBuilderState = () => {
               return
             } else {
               const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-              console.error('Failed to execute workflow:', errorData)
               throw new Error(errorData.error || 'Failed to execute workflow')
             }
           } catch (error: any) {
-            console.error('Error executing manual workflow:', error)
             toast({
               title: isTestMode ? "Test Failed" : "Execution Failed",
               description: error.message || "Failed to run workflow. Please check the console for details.",
@@ -3295,7 +3057,6 @@ const useWorkflowBuilderState = () => {
         
         // Skip webhook registration for manual triggers
         if (providerId === 'manual' || nodeData?.type === 'manual') {
-          console.log('⏩ Skipping webhook registration for manual trigger')
           continue
         }
         
@@ -3325,11 +3086,8 @@ const useWorkflowBuilderState = () => {
               }
             } else {
               const errorText = await webhookResponse.text()
-              console.error(`❌ Failed to register webhook for ${providerId}:`, errorText)
-              console.error(`❌ Response status: ${webhookResponse.status}`)
             }
           } catch (error) {
-            console.error(`❌ Error registering webhook for ${providerId}:`, error)
           }
         }
       }
@@ -3343,7 +3101,6 @@ const useWorkflowBuilderState = () => {
       })
       
     } catch (error: any) {
-      console.error("Failed to setup listening mode:", error)
       
       let errorMessage = error.message || "Failed to setup listening mode"
       
@@ -3456,11 +3213,9 @@ const useWorkflowBuilderState = () => {
     const handleGlobalError = (event: ErrorEvent) => {
       // Skip null or undefined errors
       if (event.error === null || event.error === undefined) {
-        console.debug("🔍 Workflow builder ignoring null/undefined error event")
         return
       }
       
-      console.error("Global error caught:", event.error)
       // Reset loading states on any global error
       setIsSaving(false)
       setIsExecuting(false)
@@ -3468,7 +3223,6 @@ const useWorkflowBuilderState = () => {
     }
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error("Unhandled promise rejection:", event.reason)
       // Reset loading states on unhandled promise rejection
       setIsSaving(false)
       setIsExecuting(false)
@@ -3648,7 +3402,6 @@ const useWorkflowBuilderState = () => {
         router.push(pendingNavigation)
       }
     } catch (error) {
-      console.error('Failed to save before navigation:', error)
       toast({ 
         title: "Save Failed", 
         description: "Could not save your changes. Please try again.", 
@@ -3801,7 +3554,6 @@ const useWorkflowBuilderState = () => {
         setEdges(initialEdges);
       }
     } catch (error) {
-      console.error('Error reloading workflow:', error);
     }
   }, [workflowId, handleConfigureNode, handleDeleteNodeWithConfirmation, handleChangeTrigger, handleAddActionClick, setNodes, setEdges, setCurrentWorkflow]);
 
@@ -4068,7 +3820,6 @@ const CustomEdgeWithButton = ({
                     if (sourceId && targetId) {
                       onAddNode(sourceId, targetId, { x: labelX, y: labelY })
                     } else {
-                      console.warn('Could not parse edge ID for insertion:', id)
                     }
                   }
                 }
@@ -4170,7 +3921,6 @@ function WorkflowBuilderContent() {
       if (newNodes.length) setNodes(nds => [...nds, ...newNodes])
       if (newEdges.length) setEdges(eds => [...eds, ...newEdges])
     } catch (e) {
-      console.warn('Normalize Add Action failed:', e)
     }
   }, [getNodes, getEdges, setNodes, setEdges])
 
@@ -4305,13 +4055,6 @@ function WorkflowBuilderContent() {
   }
 
   // Debug loading states (reduced frequency)
-  // console.log('🔍 Loading states:', {
-  //   currentWorkflow: !!currentWorkflow,
-  //   integrationsLoading,
-  //   workflowLoading,
-  //   workflowsLength: workflows.length,
-  //   workflowId
-  // })
 
   // Use a more robust loading condition that prevents double loading
   // Only show loading if we're actually in a loading state AND we don't have the required data
@@ -4514,7 +4257,6 @@ function WorkflowBuilderContent() {
                   setEdges(eds => [...eds, ...newAddEdges])
                   toast({ title: 'Add buttons cleaned', description: `${newAddNodes.length} buttons repositioned at chain ends.` })
                 } catch (e) {
-                  console.error('Cleanup failed:', e)
                   toast({ title: 'Cleanup failed', description: 'Could not reposition add buttons.', variant: 'destructive' })
                 }
               }}>Clean Up Add Buttons</Button>
@@ -4797,20 +4539,16 @@ function WorkflowBuilderContent() {
             currentNodeName={currentNodeId ? getNodes().find((n: Node) => n.id === currentNodeId)?.data?.title : undefined}
             currentNodeIsTrigger={currentNodeId ? getNodes().find((n: Node) => n.id === currentNodeId)?.data?.isTrigger : false}
             onContinue={() => {
-              console.log(`Continue button clicked, stepContinueCallback exists: ${!!stepContinueCallback}`)
               
               if (stepContinueCallback) {
-                console.log('Calling stepContinueCallback')
                 stepContinueCallback()
                 setStepContinueCallback(null)
               } else {
-                console.log('No stepContinueCallback set!')
               }
             }}
             onSkip={async () => {
               // Skip the current node and move to next
               if (currentNodeId) {
-                console.log(`Skipping node ${currentNodeId}`)
                 
                 // Access the store functions from the outer scope
                 const stepStore = useWorkflowStepExecutionStore.getState()
@@ -4827,7 +4565,6 @@ function WorkflowBuilderContent() {
                 if (nextEdge) {
                   const nextNode = nodes.find(n => n.id === nextEdge.target)
                   if (nextNode) {
-                    console.log(`Moving to next node ${nextNode.id}`)
                     
                     // If there's a continue callback waiting, resolve it to unblock the current node
                     if (stepContinueCallback) {
@@ -4844,7 +4581,6 @@ function WorkflowBuilderContent() {
                   }
                 } else {
                   // No more nodes, workflow complete
-                  console.log('No more nodes, workflow complete')
                   stepStore.setCurrentNode(null)
                   toast({
                     title: "Workflow Complete", 
@@ -5021,27 +4757,54 @@ function WorkflowBuilderContent() {
                                 const top = window.innerHeight / 2 - height / 2;
                                 
                                 console.log('Opening OAuth popup with URL:', url);
+                                console.log('Integration:', integration.id);
+                                
                                 const popup = window.open(
                                   url,
                                   `${integration.id}_oauth`,
                                   `width=${width},height=${height},left=${left},top=${top}`
                                 );
                                 
-                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
-                                  console.error('Popup was blocked!');
+                                // Check if popup was successfully opened
+                                if (!popup) {
+                                  console.error('Popup was blocked or failed to open!');
                                   setConnectingIntegrationId(null);
-                                  // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
                                     description: "Please allow popups for this site or we'll redirect you instead.",
                                     variant: "destructive",
                                   });
-                                  // Optional: fallback to redirect
+                                  // Fallback to redirect
                                   setTimeout(() => {
                                     window.location.href = url;
                                   }, 2000);
                                   return;
                                 }
+                                
+                                // Check if popup was immediately closed (could indicate an error)
+                                let popupCheckTimeout = setTimeout(() => {
+                                  if (popup.closed) {
+                                    console.warn('Popup closed immediately after opening - possible popup blocker');
+                                    console.warn('URL was:', url);
+                                    setConnectingIntegrationId(null);
+                                    
+                                    // Don't process this as a success - popup was likely blocked
+                                    window.removeEventListener('message', handleMessage);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
+                                    
+                                    // Show popup blocked message
+                                    toast({
+                                      title: "Popup Blocked",
+                                      description: "Please allow popups for this site and try again.",
+                                      variant: "destructive",
+                                    });
+                                    return; // Exit early to prevent further processing
+                                  } else {
+                                    console.log('Popup is still open after 100ms - good sign');
+                                  }
+                                }, 100);
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
@@ -5063,78 +4826,26 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      console.log('🔄 OAuth success, refreshing integrations...');
+                                      // Force refresh integrations using the store directly
+                                      await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // The main handler will refresh integrations
-                                      // We don't need to do it here in the nested function
-                                      console.log('📦 OAuth success - integrations will be refreshed by main handler');
+                                      // Store the integration to select
+                                      const integrationToSelect = integration;
                                       
-                                      // Small delay to ensure stores are updated
-                                      await new Promise(resolve => setTimeout(resolve, 500));
-                                      
-                                      // Log the updated integrations
-                                      const updatedStoreIntegrations = useIntegrationStore.getState().integrations;
-                                      const updatedCachedIntegrations = useIntegrationsStore.getState().data;
-                                      console.log('✅ Integrations refreshed:', {
-                                        provider: integration.id,
-                                        storeIntegrations: updatedStoreIntegrations?.map(i => ({ 
-                                          provider: i.provider, 
-                                          status: i.status 
-                                        })),
-                                        cachedIntegrations: updatedCachedIntegrations?.map(i => ({ 
-                                          provider: i.provider, 
-                                          status: i.status 
-                                        }))
-                                      });
-                                      
-                                      // Check if the integration is now in the store
-                                      const isNowConnected = updatedStoreIntegrations?.some(i => 
-                                        i.provider === integration.id && i.status === 'connected'
-                                      );
-                                      console.log(`🔍 Is ${integration.id} now connected?`, isNowConnected);
-                                      
-                                      // Force complete re-render by closing and reopening the dialog
-                                      const currentSelected = selectedIntegration;
-                                      const wasShowingAction = showActionDialog;
-                                      const wasShowingTrigger = showTriggerDialog;
-                                      
-                                      // Close the dialog
-                                      if (wasShowingAction) {
-                                        setShowActionDialog(false);
-                                      }
-                                      if (wasShowingTrigger) {
-                                        setShowTriggerDialog(false);
-                                      }
-                                      
-                                      // Reset selected integration
+                                      // Force a re-render by clearing and resetting selection
                                       setSelectedIntegration(null);
                                       
-                                      // Reopen after a delay to force complete refresh
-                                      setTimeout(async () => {
-                                        if (wasShowingAction) {
-                                          setShowActionDialog(true);
-                                        }
-                                        if (wasShowingTrigger) {
-                                          setShowTriggerDialog(true);
-                                        }
-                                        
-                                        // Fetch integrations one more time to ensure we have the latest status
-                                        // Use the store directly since fetchIntegrations is not in scope
-                                        await useIntegrationStore.getState().fetchIntegrations(true);
-                                        
-                                        // Force a small delay to ensure store is updated
-                                        await new Promise(resolve => setTimeout(resolve, 100));
-                                        
-                                        // Select the integration that was just connected
-                                        setSelectedIntegration(integration);
-                                        
-                                        // Force re-render to update connection status UI
-                                        forceUpdate({});
-                                        
-                                        // Scroll to the integration after dialog renders with retry mechanism
-                                        const scrollToIntegration = (retryCount = 0) => {
-                                          const element = document.getElementById(`action-integration-${integration.id}`);
-                                          console.log(`🎯 Attempt ${retryCount + 1}: Scrolling to integration:`, integration.id, 'Element found:', !!element);
+                                      // Wait a bit for the store to update
+                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      
+                                      // Now select the integration
+                                      setSelectedIntegration(integrationToSelect);
+                                      
+                                      // Scroll to the integration after modal reopens
+                                      setTimeout(() => {
+                                        if (integrationToSelect && integrationToSelect.id) {
+                                          const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                          console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
                                           
                                           if (element) {
                                             // Get the scrollable container (ScrollArea viewport)
@@ -5149,11 +4860,6 @@ function WorkflowBuilderContent() {
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
                                               
-                                              console.log('📏 Scroll calculation:', {
-                                                currentScroll,
-                                                relativeTop,
-                                                targetScroll
-                                              });
                                               
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
@@ -5161,18 +4867,11 @@ function WorkflowBuilderContent() {
                                                 behavior: 'smooth'
                                               });
                                             }
-                                          } else if (retryCount < 3) {
-                                            // Retry up to 3 times with increasing delays
-                                            setTimeout(() => scrollToIntegration(retryCount + 1), 300 * (retryCount + 1));
                                           }
-                                        };
-                                        
-                                        // Start scrolling after a delay to ensure dialog is rendered
-                                        setTimeout(() => scrollToIntegration(0), 800);
-                                        
-                                        // Also force update to ensure UI refreshes
-                                        forceUpdate({});
-                                      }, 500);
+                                        } else {
+                                          console.log('⚠️ No integration to select or scroll to');
+                                        }
+                                      }, 800);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
@@ -5206,14 +4905,28 @@ function WorkflowBuilderContent() {
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
-                                        console.log(`📋 Raw data from ${key}:`, rawData);
                                         
                                         const data = JSON.parse(rawData || '{}');
-                                        console.log(`📦 Parsed data from ${key}:`, data);
-                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
                                         
-                                        if (data.provider === integration.id) {
+                                        // More flexible provider matching - handle case differences and name variations
+                                        const providerLower = (data.provider || '').toLowerCase();
+                                        const integrationIdLower = integration?.id?.toLowerCase() || '';
+                                        const integrationNameLower = integration?.name?.toLowerCase() || '';
+                                        
+                                        // Skip if integration is null or missing ID
+                                        if (!integration || !integrationIdLower) {
+                                          continue;
+                                        }
+                                        
+                                        // Check if provider matches integration ID or name (case-insensitive)
+                                        const isMatch = providerLower === integrationIdLower || 
+                                                       providerLower === integrationNameLower ||
+                                                       providerLower.includes(integrationIdLower) ||
+                                                       integrationIdLower.includes(providerLower);
+                                        
+                                        if (isMatch) {
                                           console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -5234,7 +4947,7 @@ function WorkflowBuilderContent() {
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
@@ -5254,7 +4967,6 @@ function WorkflowBuilderContent() {
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
                                 keysToClean.forEach(key => {
                                   localStorage.removeItem(key);
-                                  console.log('🧹 Cleaned up test entry:', key);
                                 });
                                 
                                 // Clean up if popup is closed manually
@@ -5387,8 +5099,15 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
+                                  console.log('📨 Received message:', {
+                                    type: event.data?.type,
+                                    data: event.data,
+                                    origin: event.origin
+                                  });
+                                  
                                   // Handle both oauth-complete (from oauth/callback page) and oauth-success (from createPopupResponse)
                                   if (event.data?.type === 'oauth-complete' || event.data?.type === 'oauth-success') {
+                                    console.log('✅ OAuth complete message received!', event.data);
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
@@ -5399,14 +5118,41 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
+                                      console.log('🔄 OAuth success! Refreshing integrations...');
+                                      
                                       // Force refresh integrations using the store directly
                                       await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // Wait a bit for stores to update
+                                      // Wait a bit longer for stores to fully update
+                                      await new Promise(resolve => setTimeout(resolve, 500));
+                                      
+                                      // Get the latest integrations after refresh
+                                      const updatedIntegrations = useIntegrationStore.getState().integrations;
+                                      
+                                      // Store the integration to select (use the selectedIntegration from the click event)
+                                      const integrationToSelect = selectedIntegration;
+                                      
+                                      // Force the modal to close and reopen to ensure complete refresh
+                                      const wasShowingAction = showActionDialog;
+                                      const wasShowingTrigger = showTriggerDialog;
+                                      
+                                      // Close the dialog
+                                      setShowActionDialog(false);
+                                      setShowTriggerDialog(false);
+                                      
+                                      // Wait a moment for the close to process
                                       await new Promise(resolve => setTimeout(resolve, 100));
                                       
-                                      // Store the integration to select
-                                      const integrationToSelect = selectedIntegration;
+                                      // Reopen the dialog
+                                      if (wasShowingAction) {
+                                        setShowActionDialog(true);
+                                      }
+                                      if (wasShowingTrigger) {
+                                        setShowTriggerDialog(true);
+                                      }
+                                      
+                                      // Wait for dialog to render
+                                      await new Promise(resolve => setTimeout(resolve, 200));
                                       
                                       // Select the integration that was just connected
                                       setSelectedIntegration(integrationToSelect);
@@ -5416,40 +5162,39 @@ function WorkflowBuilderContent() {
                                       
                                       // Scroll to the integration after a delay to ensure DOM is updated
                                       setTimeout(() => {
-                                        const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
-                                        console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
-                                        
-                                        if (element) {
-                                          // Get the scrollable container (ScrollArea viewport)
-                                          const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
-                                          console.log('📜 Scroll container found:', !!scrollContainer);
+                                        if (integrationToSelect && integrationToSelect.id) {
+                                          const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                          console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
                                           
-                                          if (scrollContainer) {
-                                            // Calculate the exact position
-                                            const containerRect = scrollContainer.getBoundingClientRect();
-                                            const elementRect = element.getBoundingClientRect();
-                                            const relativeTop = elementRect.top - containerRect.top;
-                                            const currentScroll = scrollContainer.scrollTop;
-                                            const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                          if (element) {
+                                            // Get the scrollable container (ScrollArea viewport)
+                                            const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                            console.log('📜 Scroll container found:', !!scrollContainer);
                                             
-                                            console.log('📏 Scroll calculation:', {
-                                              currentScroll,
-                                              relativeTop,
-                                              targetScroll
-                                            });
-                                            
-                                            // Scroll to the calculated position
-                                            scrollContainer.scrollTo({
-                                              top: targetScroll,
-                                              behavior: 'smooth'
-                                            });
+                                            if (scrollContainer) {
+                                              // Calculate the exact position
+                                              const containerRect = scrollContainer.getBoundingClientRect();
+                                              const elementRect = element.getBoundingClientRect();
+                                              const relativeTop = elementRect.top - containerRect.top;
+                                              const currentScroll = scrollContainer.scrollTop;
+                                              const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                              
+                                              
+                                              // Scroll to the calculated position
+                                              scrollContainer.scrollTo({
+                                                top: targetScroll,
+                                                behavior: 'smooth'
+                                              });
+                                            }
                                           }
+                                        } else {
+                                          console.log('⚠️ No integration to select or scroll to');
                                         }
-                                      }, 500);
+                                      }, 800);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
-                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integrationToSelect.name}`,
                                       });
                                     } else {
                                       // Show error toast if connection failed
@@ -5476,14 +5221,28 @@ function WorkflowBuilderContent() {
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
-                                        console.log(`📋 Raw data from ${key}:`, rawData);
                                         
                                         const data = JSON.parse(rawData || '{}');
-                                        console.log(`📦 Parsed data from ${key}:`, data);
-                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
                                         
-                                        if (data.provider === integration.id) {
+                                        // More flexible provider matching - handle case differences and name variations
+                                        const providerLower = (data.provider || '').toLowerCase();
+                                        const integrationIdLower = selectedIntegration?.id?.toLowerCase() || '';
+                                        const integrationNameLower = selectedIntegration?.name?.toLowerCase() || '';
+                                        
+                                        // Skip if selectedIntegration is null or missing ID
+                                        if (!selectedIntegration || !integrationIdLower) {
+                                          continue;
+                                        }
+                                        
+                                        // Check if provider matches integration ID or name (case-insensitive)
+                                        const isMatch = providerLower === integrationIdLower || 
+                                                       providerLower === integrationNameLower ||
+                                                       providerLower.includes(integrationIdLower) ||
+                                                       integrationIdLower.includes(providerLower);
+                                        
+                                        if (isMatch) {
                                           console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -5504,7 +5263,7 @@ function WorkflowBuilderContent() {
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
@@ -5524,7 +5283,6 @@ function WorkflowBuilderContent() {
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
                                 keysToClean.forEach(key => {
                                   localStorage.removeItem(key);
-                                  console.log('🧹 Cleaned up test entry:', key);
                                 });
                                 
                                 // Clean up if popup is closed manually
@@ -5882,27 +5640,54 @@ function WorkflowBuilderContent() {
                                 const top = window.innerHeight / 2 - height / 2;
                                 
                                 console.log('Opening OAuth popup with URL:', url);
+                                console.log('Integration:', integration.id);
+                                
                                 const popup = window.open(
                                   url,
                                   `${integration.id}_oauth`,
                                   `width=${width},height=${height},left=${left},top=${top}`
                                 );
                                 
-                                if (!popup || popup.closed || typeof popup.closed == 'undefined') {
-                                  console.error('Popup was blocked!');
+                                // Check if popup was successfully opened
+                                if (!popup) {
+                                  console.error('Popup was blocked or failed to open!');
                                   setConnectingIntegrationId(null);
-                                  // Fallback to redirect if popup is blocked
                                   toast({
                                     title: "Popup Blocked",
                                     description: "Please allow popups for this site or we'll redirect you instead.",
                                     variant: "destructive",
                                   });
-                                  // Optional: fallback to redirect
+                                  // Fallback to redirect
                                   setTimeout(() => {
                                     window.location.href = url;
                                   }, 2000);
                                   return;
                                 }
+                                
+                                // Check if popup was immediately closed (could indicate an error)
+                                let popupCheckTimeout = setTimeout(() => {
+                                  if (popup.closed) {
+                                    console.warn('Popup closed immediately after opening - possible popup blocker');
+                                    console.warn('URL was:', url);
+                                    setConnectingIntegrationId(null);
+                                    
+                                    // Don't process this as a success - popup was likely blocked
+                                    window.removeEventListener('message', handleMessage);
+                                    if (localStoragePolling) {
+                                      clearInterval(localStoragePolling);
+                                    }
+                                    
+                                    // Show popup blocked message
+                                    toast({
+                                      title: "Popup Blocked",
+                                      description: "Please allow popups for this site and try again.",
+                                      variant: "destructive",
+                                    });
+                                    return; // Exit early to prevent further processing
+                                  } else {
+                                    console.log('Popup is still open after 100ms - good sign');
+                                  }
+                                }, 100);
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
@@ -5924,78 +5709,26 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      console.log('🔄 OAuth success, refreshing integrations...');
+                                      // Force refresh integrations using the store directly
+                                      await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // The main handler will refresh integrations
-                                      // We don't need to do it here in the nested function
-                                      console.log('📦 OAuth success - integrations will be refreshed by main handler');
+                                      // Store the integration to select
+                                      const integrationToSelect = integration;
                                       
-                                      // Small delay to ensure stores are updated
-                                      await new Promise(resolve => setTimeout(resolve, 500));
-                                      
-                                      // Log the updated integrations
-                                      const updatedStoreIntegrations = useIntegrationStore.getState().integrations;
-                                      const updatedCachedIntegrations = useIntegrationsStore.getState().data;
-                                      console.log('✅ Integrations refreshed:', {
-                                        provider: integration.id,
-                                        storeIntegrations: updatedStoreIntegrations?.map(i => ({ 
-                                          provider: i.provider, 
-                                          status: i.status 
-                                        })),
-                                        cachedIntegrations: updatedCachedIntegrations?.map(i => ({ 
-                                          provider: i.provider, 
-                                          status: i.status 
-                                        }))
-                                      });
-                                      
-                                      // Check if the integration is now in the store
-                                      const isNowConnected = updatedStoreIntegrations?.some(i => 
-                                        i.provider === integration.id && i.status === 'connected'
-                                      );
-                                      console.log(`🔍 Is ${integration.id} now connected?`, isNowConnected);
-                                      
-                                      // Force complete re-render by closing and reopening the dialog
-                                      const currentSelected = selectedIntegration;
-                                      const wasShowingAction = showActionDialog;
-                                      const wasShowingTrigger = showTriggerDialog;
-                                      
-                                      // Close the dialog
-                                      if (wasShowingAction) {
-                                        setShowActionDialog(false);
-                                      }
-                                      if (wasShowingTrigger) {
-                                        setShowTriggerDialog(false);
-                                      }
-                                      
-                                      // Reset selected integration
+                                      // Force a re-render by clearing and resetting selection
                                       setSelectedIntegration(null);
                                       
-                                      // Reopen after a delay to force complete refresh
-                                      setTimeout(async () => {
-                                        if (wasShowingAction) {
-                                          setShowActionDialog(true);
-                                        }
-                                        if (wasShowingTrigger) {
-                                          setShowTriggerDialog(true);
-                                        }
-                                        
-                                        // Fetch integrations one more time to ensure we have the latest status
-                                        // Use the store directly since fetchIntegrations is not in scope
-                                        await useIntegrationStore.getState().fetchIntegrations(true);
-                                        
-                                        // Force a small delay to ensure store is updated
-                                        await new Promise(resolve => setTimeout(resolve, 100));
-                                        
-                                        // Select the integration that was just connected
-                                        setSelectedIntegration(integration);
-                                        
-                                        // Force re-render to update connection status UI
-                                        forceUpdate({});
-                                        
-                                        // Scroll to the integration after dialog renders with retry mechanism
-                                        const scrollToIntegration = (retryCount = 0) => {
-                                          const element = document.getElementById(`action-integration-${integration.id}`);
-                                          console.log(`🎯 Attempt ${retryCount + 1}: Scrolling to integration:`, integration.id, 'Element found:', !!element);
+                                      // Wait a bit for the store to update
+                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      
+                                      // Now select the integration
+                                      setSelectedIntegration(integrationToSelect);
+                                      
+                                      // Scroll to the integration after modal reopens
+                                      setTimeout(() => {
+                                        if (integrationToSelect && integrationToSelect.id) {
+                                          const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                          console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
                                           
                                           if (element) {
                                             // Get the scrollable container (ScrollArea viewport)
@@ -6010,11 +5743,6 @@ function WorkflowBuilderContent() {
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
                                               
-                                              console.log('📏 Scroll calculation:', {
-                                                currentScroll,
-                                                relativeTop,
-                                                targetScroll
-                                              });
                                               
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
@@ -6022,18 +5750,11 @@ function WorkflowBuilderContent() {
                                                 behavior: 'smooth'
                                               });
                                             }
-                                          } else if (retryCount < 3) {
-                                            // Retry up to 3 times with increasing delays
-                                            setTimeout(() => scrollToIntegration(retryCount + 1), 300 * (retryCount + 1));
                                           }
-                                        };
-                                        
-                                        // Start scrolling after a delay to ensure dialog is rendered
-                                        setTimeout(() => scrollToIntegration(0), 800);
-                                        
-                                        // Also force update to ensure UI refreshes
-                                        forceUpdate({});
-                                      }, 500);
+                                        } else {
+                                          console.log('⚠️ No integration to select or scroll to');
+                                        }
+                                      }, 800);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
@@ -6067,14 +5788,28 @@ function WorkflowBuilderContent() {
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
-                                        console.log(`📋 Raw data from ${key}:`, rawData);
                                         
                                         const data = JSON.parse(rawData || '{}');
-                                        console.log(`📦 Parsed data from ${key}:`, data);
-                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
                                         
-                                        if (data.provider === integration.id) {
+                                        // More flexible provider matching - handle case differences and name variations
+                                        const providerLower = (data.provider || '').toLowerCase();
+                                        const integrationIdLower = integration?.id?.toLowerCase() || '';
+                                        const integrationNameLower = integration?.name?.toLowerCase() || '';
+                                        
+                                        // Skip if integration is null or missing ID
+                                        if (!integration || !integrationIdLower) {
+                                          continue;
+                                        }
+                                        
+                                        // Check if provider matches integration ID or name (case-insensitive)
+                                        const isMatch = providerLower === integrationIdLower || 
+                                                       providerLower === integrationNameLower ||
+                                                       providerLower.includes(integrationIdLower) ||
+                                                       integrationIdLower.includes(providerLower);
+                                        
+                                        if (isMatch) {
                                           console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -6095,7 +5830,7 @@ function WorkflowBuilderContent() {
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}" or "${integration.name}"`);
                                         }
                                       }
                                     }
@@ -6115,7 +5850,6 @@ function WorkflowBuilderContent() {
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
                                 keysToClean.forEach(key => {
                                   localStorage.removeItem(key);
-                                  console.log('🧹 Cleaned up test entry:', key);
                                 });
                                 
                                 // Clean up if popup is closed manually
@@ -6248,8 +5982,15 @@ function WorkflowBuilderContent() {
                                 
                                 // Listen for OAuth completion
                                 const handleMessage = async (event: MessageEvent) => {
+                                  console.log('📨 Received message:', {
+                                    type: event.data?.type,
+                                    data: event.data,
+                                    origin: event.origin
+                                  });
+                                  
                                   // Handle both oauth-complete (from oauth/callback page) and oauth-success (from createPopupResponse)
                                   if (event.data?.type === 'oauth-complete' || event.data?.type === 'oauth-success') {
+                                    console.log('✅ OAuth complete message received!', event.data);
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) {
                                       popup.close();
@@ -6260,14 +6001,41 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
+                                      console.log('🔄 OAuth success! Refreshing integrations...');
+                                      
                                       // Force refresh integrations using the store directly
                                       await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // Wait a bit for stores to update
+                                      // Wait a bit longer for stores to fully update
+                                      await new Promise(resolve => setTimeout(resolve, 500));
+                                      
+                                      // Get the latest integrations after refresh
+                                      const updatedIntegrations = useIntegrationStore.getState().integrations;
+                                      
+                                      // Store the integration to select (use the selectedIntegration from the click event)
+                                      const integrationToSelect = selectedIntegration;
+                                      
+                                      // Force the modal to close and reopen to ensure complete refresh
+                                      const wasShowingAction = showActionDialog;
+                                      const wasShowingTrigger = showTriggerDialog;
+                                      
+                                      // Close the dialog
+                                      setShowActionDialog(false);
+                                      setShowTriggerDialog(false);
+                                      
+                                      // Wait a moment for the close to process
                                       await new Promise(resolve => setTimeout(resolve, 100));
                                       
-                                      // Store the integration to select
-                                      const integrationToSelect = selectedIntegration;
+                                      // Reopen the dialog
+                                      if (wasShowingAction) {
+                                        setShowActionDialog(true);
+                                      }
+                                      if (wasShowingTrigger) {
+                                        setShowTriggerDialog(true);
+                                      }
+                                      
+                                      // Wait for dialog to render
+                                      await new Promise(resolve => setTimeout(resolve, 200));
                                       
                                       // Select the integration that was just connected
                                       setSelectedIntegration(integrationToSelect);
@@ -6277,40 +6045,39 @@ function WorkflowBuilderContent() {
                                       
                                       // Scroll to the integration after a delay to ensure DOM is updated
                                       setTimeout(() => {
-                                        const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
-                                        console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
-                                        
-                                        if (element) {
-                                          // Get the scrollable container (ScrollArea viewport)
-                                          const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
-                                          console.log('📜 Scroll container found:', !!scrollContainer);
+                                        if (integrationToSelect && integrationToSelect.id) {
+                                          const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                          console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
                                           
-                                          if (scrollContainer) {
-                                            // Calculate the exact position
-                                            const containerRect = scrollContainer.getBoundingClientRect();
-                                            const elementRect = element.getBoundingClientRect();
-                                            const relativeTop = elementRect.top - containerRect.top;
-                                            const currentScroll = scrollContainer.scrollTop;
-                                            const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                          if (element) {
+                                            // Get the scrollable container (ScrollArea viewport)
+                                            const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                            console.log('📜 Scroll container found:', !!scrollContainer);
                                             
-                                            console.log('📏 Scroll calculation:', {
-                                              currentScroll,
-                                              relativeTop,
-                                              targetScroll
-                                            });
-                                            
-                                            // Scroll to the calculated position
-                                            scrollContainer.scrollTo({
-                                              top: targetScroll,
-                                              behavior: 'smooth'
-                                            });
+                                            if (scrollContainer) {
+                                              // Calculate the exact position
+                                              const containerRect = scrollContainer.getBoundingClientRect();
+                                              const elementRect = element.getBoundingClientRect();
+                                              const relativeTop = elementRect.top - containerRect.top;
+                                              const currentScroll = scrollContainer.scrollTop;
+                                              const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                              
+                                              
+                                              // Scroll to the calculated position
+                                              scrollContainer.scrollTo({
+                                                top: targetScroll,
+                                                behavior: 'smooth'
+                                              });
+                                            }
                                           }
+                                        } else {
+                                          console.log('⚠️ No integration to select or scroll to');
                                         }
-                                      }, 500);
+                                      }, 800);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
-                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                        description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${integrationToSelect.name}`,
                                       });
                                     } else {
                                       // Show error toast if connection failed
@@ -6337,14 +6104,28 @@ function WorkflowBuilderContent() {
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
-                                        console.log(`📋 Raw data from ${key}:`, rawData);
                                         
                                         const data = JSON.parse(rawData || '{}');
-                                        console.log(`📦 Parsed data from ${key}:`, data);
-                                        console.log(`🔄 Comparing provider "${data.provider}" with integration.id "${integration.id}"`);
                                         
-                                        if (data.provider === integration.id) {
+                                        // More flexible provider matching - handle case differences and name variations
+                                        const providerLower = (data.provider || '').toLowerCase();
+                                        const integrationIdLower = selectedIntegration?.id?.toLowerCase() || '';
+                                        const integrationNameLower = selectedIntegration?.name?.toLowerCase() || '';
+                                        
+                                        // Skip if selectedIntegration is null or missing ID
+                                        if (!selectedIntegration || !integrationIdLower) {
+                                          continue;
+                                        }
+                                        
+                                        // Check if provider matches integration ID or name (case-insensitive)
+                                        const isMatch = providerLower === integrationIdLower || 
+                                                       providerLower === integrationNameLower ||
+                                                       providerLower.includes(integrationIdLower) ||
+                                                       integrationIdLower.includes(providerLower);
+                                        
+                                        if (isMatch) {
                                           console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -6365,7 +6146,7 @@ function WorkflowBuilderContent() {
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}"`);
+                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
@@ -6385,7 +6166,6 @@ function WorkflowBuilderContent() {
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
                                 keysToClean.forEach(key => {
                                   localStorage.removeItem(key);
-                                  console.log('🧹 Cleaned up test entry:', key);
                                 });
                                 
                                 // Clean up if popup is closed manually
@@ -6569,12 +6349,10 @@ function WorkflowBuilderContent() {
               }}
               onAddActionToWorkflow={(configuringNode.id === 'pending-action' || configuringNode.id === 'pending-trigger') ? undefined : (action, config) => {
                 // Handle adding a new action from the AI Agent modal
-                console.log('🎯 [WorkflowBuilder] Adding action from AI Agent modal:', action, config);
                 
                 // Find the AI Agent node
                 const aiAgentNode = nodes.find(n => n.data?.type === 'ai_agent');
                 if (!aiAgentNode) {
-                  console.error('AI Agent node not found in workflow');
                   return;
                 }
                 
@@ -6684,23 +6462,9 @@ function WorkflowBuilderContent() {
                 }
               }}
               onSave={async (config) => {
-                console.log('🤖 [WorkflowBuilder] AI Agent config received:', config);
-                console.log('🤖 [WorkflowBuilder] ConfiguringNode:', configuringNode);
-                console.log('🤖 [WorkflowBuilder] AI Agent layout:', config.chainsLayout);
-                console.log('🤖 [WorkflowBuilder] Layout detail:', config.chainsLayout);
                 
                 // Store the chains layout data before saving configuration
                 const chainsToProcess = config.chainsLayout;
-                console.log('🔍 [WorkflowBuilder] chainsToProcess structure:', {
-                  hasNodes: !!chainsToProcess?.nodes,
-                  nodesCount: chainsToProcess?.nodes?.length || 0,
-                  hasEdges: !!chainsToProcess?.edges,
-                  edgesCount: chainsToProcess?.edges?.length || 0,
-                  hasChains: !!chainsToProcess?.chains,
-                  chainsCount: chainsToProcess?.chains?.length || 0,
-                  isArray: Array.isArray(chainsToProcess),
-                  type: typeof chainsToProcess
-                });
                 
                 // Save the AI Agent configuration and get the new node ID if it's a pending node
                 let finalAIAgentNodeId = configuringNode.id;
@@ -6709,7 +6473,6 @@ function WorkflowBuilderContent() {
                   const newNodeId = await handleSaveConfiguration(configuringNode, config);
                   if (newNodeId) {
                     finalAIAgentNodeId = newNodeId;
-                    // console.log('🔄 [WorkflowBuilder] New AI Agent node created with ID:', newNodeId);
                   }
                 } else {
                   await handleSaveConfiguration(configuringNode, config);
@@ -6717,7 +6480,6 @@ function WorkflowBuilderContent() {
                 
                 // Prevent duplicate chain processing - check and set flag immediately
                 if (isProcessingChainsRef.current) {
-                  console.log('⚠️ [WorkflowBuilder] Already processing chains, skipping duplicate call');
                   return;
                 }
                 
@@ -6736,14 +6498,6 @@ function WorkflowBuilderContent() {
                   const aiAgentPosition = chainsToProcess?.aiAgentPosition;
                   const layoutConfig = chainsToProcess?.layout || { verticalSpacing: 120, horizontalSpacing: 150 };
                   
-                  console.log('🎯 [WorkflowBuilder] Chain processing decision:', {
-                    hasFullLayout,
-                    chainsDataIsArray: Array.isArray(chainsData),
-                    chainsDataLength: Array.isArray(chainsData) ? chainsData.length : 'not array',
-                    nodesLength: chainsToProcess?.nodes?.length || 0,
-                    willProcessFullLayout: hasFullLayout && chainsToProcess.nodes && chainsToProcess.nodes.length > 0,
-                    willProcessFallback: !hasFullLayout && chainsData && Array.isArray(chainsData) && chainsData.length > 0
-                  });
                   
                   // Check if there are any chains to process (including empty chains with placeholders)
                   if ((hasFullLayout && (
@@ -6751,7 +6505,6 @@ function WorkflowBuilderContent() {
                         (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
                       )) || 
                       (chainsData && Array.isArray(chainsData) && chainsData.length > 0)) {
-                    // console.log('🔄 [WorkflowBuilder] Processing chains from AI Agent');
                     
                     const aiAgentNodeId = aiAgentNodeIdToUse;
                   
@@ -6776,28 +6529,21 @@ function WorkflowBuilderContent() {
                           const bTime = parseInt(b.id.split('-')[1] || '0');
                           return bTime - aTime; // Most recent first
                         })[0];
-                      // console.log('🔄 [WorkflowBuilder] Found AI Agent node by type:', aiAgentNode?.id);
                     } else {
                       aiAgentNode = workingNodes.find(n => n.id === aiAgentNodeId);
                     }
                     
-                    // console.log('🔄 [WorkflowBuilder] Looking for AI Agent node with ID:', aiAgentNodeId);
-                    // console.log('🔄 [WorkflowBuilder] Current nodes:', workingNodes.map(n => ({ id: n.id, type: n.data?.type })));
-                    // console.log('🔄 [WorkflowBuilder] AI Agent node found:', aiAgentNode);
                     
                     if (!aiAgentNode) {
-                      console.log('❌ [WorkflowBuilder] AI Agent node not found, skipping chain creation');
                       return currentNodes; // Return unchanged nodes
                     }
                     
                     // Use the actual found node ID consistently throughout
                     const actualAIAgentId = aiAgentNode.id;
-                    console.log(`🔄 [WorkflowBuilder] Using AI Agent node ID: ${actualAIAgentId}`);
                     
                     // Clear the emptiedChains flag when adding chains from the visual builder
                     const aiAgentNodeIndex = workingNodes.findIndex(n => n.id === actualAIAgentId);
                     if (aiAgentNodeIndex !== -1 && workingNodes[aiAgentNodeIndex].data?.emptiedChains) {
-                      console.log(`🔄 [WorkflowBuilder] Clearing emptiedChains for AI Agent ${actualAIAgentId}`);
                       workingNodes[aiAgentNodeIndex] = {
                         ...workingNodes[aiAgentNodeIndex],
                         data: {
@@ -6814,7 +6560,6 @@ function WorkflowBuilderContent() {
                     );
                     
                     if (existingChainNodes.length > 0) {
-                      console.log(`🔄 [WorkflowBuilder] AI Agent ${actualAIAgentId} already has ${existingChainNodes.length} chain nodes, removing old ones before adding updated chains`);
                       
                       // Remove existing chain nodes and their edges
                       const chainNodeIds = existingChainNodes.map(n => n.id);
@@ -6845,11 +6590,6 @@ function WorkflowBuilderContent() {
                           (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
                         )) {
                       // If we have full layout data, recreate the exact structure
-                      console.log('🎯 [WorkflowBuilder] Using full layout data to recreate exact structure');
-                      console.log('🎯 [WorkflowBuilder] Nodes to add:', chainsToProcess.nodes?.length || 0);
-                      console.log('🎯 [WorkflowBuilder] Edges to add:', chainsToProcess.edges?.length || 0);
-                      console.log('🎯 [WorkflowBuilder] Placeholder positions:', chainsToProcess.chainPlaceholderPositions?.length || 0);
-                      console.log('🎯 [WorkflowBuilder] Full chainsToProcess data:', chainsToProcess);
                       
                       // Create nodes with exact positions from AI Agent builder (if any)
                       if (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
@@ -6865,16 +6605,6 @@ function WorkflowBuilderContent() {
                         const offsetX = aiAgentNode.position.x - (aiAgentPosition?.x || 400);
                         const offsetY = aiAgentNode.position.y - (aiAgentPosition?.y || 200);
                         
-                        console.log(`📍 [WorkflowBuilder] Positioning node ${nodeData.id}:`, {
-                          originalPosition: nodeData.position,
-                          aiAgentInModal: aiAgentPosition || { x: 400, y: 200 },
-                          aiAgentInWorkflow: aiAgentNode.position,
-                          offset: { x: offsetX, y: offsetY },
-                          finalPosition: {
-                            x: nodeData.position.x + offsetX,
-                            y: nodeData.position.y + offsetY
-                          }
-                        });
                         
                         const newNode = {
                           id: newNodeId,
@@ -6905,7 +6635,6 @@ function WorkflowBuilderContent() {
                           newNodesToAdd.push(newNode);
                           addedNodeIds.add(newNode.id);
                         } else {
-                          console.warn(`⚠️ [WorkflowBuilder] Preventing duplicate node addition: ${newNode.id}`);
                         }
                       });
                       }
@@ -6954,8 +6683,6 @@ function WorkflowBuilderContent() {
                       const chainGroups = new Map(); // chainStartNodeId -> array of nodes in chain
                       const processedInChain = new Set();
                       
-                      console.log('🔗 [WorkflowBuilder] Chain start nodes:', Array.from(chainStartNodes));
-                      console.log('🔗 [WorkflowBuilder] All new edges:', newEdgesToAdd);
                       
                       // Process each chain starting from nodes directly connected to AI Agent
                       // Convert chainStartNodes to array and sort by X position to ensure consistent ordering
@@ -7000,16 +6727,12 @@ function WorkflowBuilderContent() {
                       });
                       
                       // Add Add Action button at the end of each chain
-                      console.log('🔗 [WorkflowBuilder] Chain groups found:', chainGroups.size, 'chains');
                       chainGroups.forEach((nodes, startId) => {
-                        console.log(`  Chain starting at ${startId}: ${nodes.length} nodes`);
                       });
                       
                       // Determine expected number of chains from the layout data
                       const expectedChainCount = chainsToProcess.chains?.length || 2;
                       const placeholderPositions = chainsToProcess.chainPlaceholderPositions || [];
-                      console.log(`🔗 [WorkflowBuilder] Expected ${expectedChainCount} chains from layout`);
-                      console.log(`🔗 [WorkflowBuilder] Placeholder positions:`, placeholderPositions);
                       
                       // Process all chains, including empty ones
                       for (let chainIndex = 0; chainIndex < expectedChainCount; chainIndex++) {
@@ -7042,7 +6765,6 @@ function WorkflowBuilderContent() {
                             newNodesToAdd.push(addActionNode);
                             addedNodeIds.add(addActionNode.id);
                           } else {
-                            console.warn(`⚠️ [WorkflowBuilder] Preventing duplicate Add Action node: ${addActionNode.id}`);
                           }
                           
                           // Add edge to Add Action node
@@ -7080,12 +6802,8 @@ function WorkflowBuilderContent() {
                     } else if (chainsData && Array.isArray(chainsData) && chainsData.length > 0) {
                       // Fallback to old chain-based logic if we don't have full layout data
                       // For each chain, create the action nodes
-                      console.log(`🔄 [WorkflowBuilder] Using fallback chain-based processing`);
-                      console.log(`🔄 [WorkflowBuilder] Processing ${chainsData.length} chains`);
-                      console.log(`🔄 [WorkflowBuilder] Chains data:`, JSON.stringify(chainsData, null, 2));
                       
                       chainsData.forEach((chain: any, chainIndex: number) => {
-                      console.log(`🔄 [WorkflowBuilder] Processing chain ${chainIndex} with ${chain?.length || 0} actions:`, chain);
                       // Process all chains, even empty ones
                       if (Array.isArray(chain)) {
                         if (chain.length > 0) {
@@ -7138,13 +6856,11 @@ function WorkflowBuilderContent() {
                             }
                           };
                           
-                          console.log(`🔄 [WorkflowBuilder] Creating node for action:`, action, 'as node:', newNode);
                           // Check for duplicate before adding
                           if (!addedNodeIds.has(newNode.id)) {
                             newNodesToAdd.push(newNode);
                             addedNodeIds.add(newNode.id);
                           } else {
-                            console.warn(`⚠️ [WorkflowBuilder] Preventing duplicate action node: ${newNode.id}`);
                           }
                           
                           // Create edge - first node connects to AI Agent, rest connect to previous
@@ -7192,7 +6908,6 @@ function WorkflowBuilderContent() {
                         // Step 3: For each chain's final action node, verify an AddAction node exists
                         // Add an "Add Action" node at the end of each chain
                         if (previousNodeId && lastPosition) {
-                          console.log(`🔄 [WorkflowBuilder] Creating Add Action for chain ${chainIndex}, last node: ${previousNodeId}`);
                           
                           const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
                           const randomId = Math.random().toString(36).substr(2, 9);
@@ -7218,7 +6933,6 @@ function WorkflowBuilderContent() {
                             }
                           };
                           newNodesToAdd.push(addActionNode);
-                          console.log(`🔄 [WorkflowBuilder] Created Add Action node for chain ${chainIndex}: ${addActionId} with parent AI Agent: ${actualAIAgentId}`);
                           
                           // Add edge to Add Action node - use unique timestamp and random for edge ID
                           const edgeRandomId = Math.random().toString(36).substr(2, 9);
@@ -7238,7 +6952,6 @@ function WorkflowBuilderContent() {
                         }
                         } else {
                           // Empty chain - create Add Action button directly connected to AI Agent
-                          console.log(`🔄 [WorkflowBuilder] Creating Add Action for empty chain ${chainIndex}`);
                           
                           // Calculate position for the empty chain's Add Action
                           const baseX = aiAgentNode.position.x + (chainIndex * 250) + 150;
@@ -7267,7 +6980,6 @@ function WorkflowBuilderContent() {
                             }
                           };
                           newNodesToAdd.push(addActionNode);
-                          console.log(`🔄 [WorkflowBuilder] Created Add Action node for empty chain ${chainIndex}: ${addActionId}`);
                           
                           // Add edge from AI Agent to Add Action
                           const edgeRandomId = Math.random().toString(36).substr(2, 9);
@@ -7290,40 +7002,28 @@ function WorkflowBuilderContent() {
                     
                     // Log summary and verify we have one Add Action per chain
                     const addActionNodesCreated = newNodesToAdd.filter(n => n.type === 'addAction');
-                    console.log(`🔄 [WorkflowBuilder] Created ${addActionNodesCreated.length} Add Action nodes for ${chainsData.length} chains`);
                     
                     // Verify each chain has exactly one Add Action node
                     const chainAddActionCounts: Record<number, number> = {};
                     addActionNodesCreated.forEach(n => {
                       const chainIdx = n.data.parentChainIndex;
                       chainAddActionCounts[chainIdx] = (chainAddActionCounts[chainIdx] || 0) + 1;
-                      console.log(`  - Add Action node: ${n.id} for chain ${chainIdx}`);
                     });
                     
                     // Check if any chain is missing an Add Action node
                     for (let i = 0; i < chainsData.length; i++) {
                       if (!chainAddActionCounts[i]) {
-                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} is missing an Add Action node!`);
                       } else if (chainAddActionCounts[i] > 1) {
-                        console.warn(`⚠️ [WorkflowBuilder] Chain ${i} has ${chainAddActionCounts[i]} Add Action nodes (should be 1)`);
                       }
                     }
                     
                     // Update nodes - remove existing AI Agent children and add new ones
-                    console.log(`🔄 [WorkflowBuilder] Adding ${newNodesToAdd.length} nodes and ${newEdgesToAdd.length} edges`);
                     
                     // First remove any existing AI Agent child nodes and Add Action nodes
                     // Use the actual AI Agent node ID found above
-                    console.log(`🔄 [WorkflowBuilder] Filtering nodes for AI Agent: ${actualAIAgentId}`);
                     
                     // Log all Add Action nodes before filtering
                     const allAddActionNodes = currentNodes.filter(n => n.type === 'addAction');
-                    console.log(`🔄 [WorkflowBuilder] All Add Action nodes before filtering:`, allAddActionNodes.map(n => ({
-                      id: n.id,
-                      parentAIAgentId: n.data?.parentAIAgentId,
-                      parentId: n.data?.parentId,
-                      chainIndex: n.data?.parentChainIndex
-                    })));
                     
                     // Create a set of new node IDs we're about to add
                     const newNodeIds = new Set(newNodesToAdd.map(n => n.id));
@@ -7351,21 +7051,13 @@ function WorkflowBuilderContent() {
                       // Keep all other nodes
                       return true;
                     });
-                    console.log(`🔄 [WorkflowBuilder] Removed ${removedNodes.length} nodes:`, removedNodes);
                     
                     // Log the Add Action nodes we're about to add
                     const newAddActionNodes = newNodesToAdd.filter(n => n.type === 'addAction');
-                    console.log(`🔄 [WorkflowBuilder] New Add Action nodes to add:`, newAddActionNodes.map(n => ({
-                      id: n.id,
-                      parentAIAgentId: n.data?.parentAIAgentId,
-                      parentId: n.data?.parentId,
-                      chainIndex: n.data?.parentChainIndex
-                    })));
                     
                     // Update the AI Agent node to remove onAddChain
                     const updatedFilteredNodes = filteredNodes.map(node => {
                       if (node.id === actualAIAgentId) {
-                        console.log(`🔄 [WorkflowBuilder] Updating AI Agent node ${actualAIAgentId} to remove onAddChain`);
                         // Preserve any existing hasChains flag from handleSaveConfiguration
                         return {
                           ...node,
@@ -7382,13 +7074,11 @@ function WorkflowBuilderContent() {
                       return node;
                     });
                     
-                    console.log(`🔄 [WorkflowBuilder] Filtered ${workingNodes.length - filteredNodes.length} existing AI Agent child nodes`);
                     
                     // Check for duplicate node IDs before adding
                     const existingNodeIds = new Set(updatedFilteredNodes.map(n => n.id));
                     const uniqueNewNodes = newNodesToAdd.filter(newNode => {
                       if (existingNodeIds.has(newNode.id)) {
-                        console.warn(`⚠️ [WorkflowBuilder] Skipping duplicate node ID: ${newNode.id}`);
                         return false;
                       }
                       existingNodeIds.add(newNode.id);
@@ -7397,15 +7087,9 @@ function WorkflowBuilderContent() {
                     
                     // Then add new nodes
                     const updatedNodes = [...updatedFilteredNodes, ...uniqueNewNodes];
-                    console.log(`🔄 [WorkflowBuilder] Total nodes after update: ${updatedNodes.length} (${newNodesToAdd.length - uniqueNewNodes.length} duplicates removed)`);
                     
                     // Log final Add Action nodes in the updated nodes
                     const finalAddActionNodes = updatedNodes.filter(n => n.type === 'addAction');
-                    console.log(`🔄 [WorkflowBuilder] Final Add Action nodes in workflow:`, finalAddActionNodes.map(n => ({
-                      id: n.id,
-                      parentAIAgentId: n.data?.parentAIAgentId,
-                      chainIndex: n.data?.parentChainIndex
-                    })));
                     
                     // Store edges to add them after nodes are updated
                     if (newEdgesToAdd.length > 0) {
@@ -7425,15 +7109,12 @@ function WorkflowBuilderContent() {
                           const edgeIdSet = new Set(filteredEdges.map(e => e.id));
                           const uniqueNewEdges = newEdgesToAdd.filter(edge => {
                             if (edgeIdSet.has(edge.id)) {
-                              console.log(`⚠️ [WorkflowBuilder] Skipping duplicate edge: ${edge.id}`);
                               return false;
                             }
                             edgeIdSet.add(edge.id);
                             return true;
                           });
                           
-                          console.log(`🔄 [WorkflowBuilder] Adding ${uniqueNewEdges.length} edges to workflow`);
-                          console.log(`🔄 [WorkflowBuilder] New edge IDs:`, uniqueNewEdges.map(e => e.id));
                           return [...filteredEdges, ...uniqueNewEdges];
                         });
                       }, 100);
@@ -7449,7 +7130,6 @@ function WorkflowBuilderContent() {
                   // Auto-save after chains are added and update view
                   setTimeout(() => {
                     // Auto-save the workflow with the chains
-                    // console.log('🔄 [WorkflowBuilder] Triggering save after adding AI Agent chains');
                     handleSave();
                     
                     // Fit view to show all nodes with proper settings
@@ -7463,10 +7143,8 @@ function WorkflowBuilderContent() {
                           minZoom: 0.1
                         });
                       } else {
-                        console.log('⚠️ [WorkflowBuilder] fitView is not available');
                       }
                     } catch (error) {
-                      console.log('❌ [WorkflowBuilder] Error fitting view:', error);
                     }
                     
                     const chainCount = chainsData?.length || 0;

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Send,
   Calculator,
@@ -16,7 +17,9 @@ import {
   Sparkles,
   Database,
   DollarSign,
-  Hash
+  Hash,
+  User,
+  RefreshCw
 } from 'lucide-react'
 
 interface TestResult {
@@ -32,30 +35,87 @@ interface TestResult {
   }
   timestamp: string
   databaseVerified?: boolean
+  selectedUser?: string
+  userBalanceBefore?: number
+  userBalanceAfter?: number
+}
+
+interface UserOption {
+  id: string
+  email: string
+  username?: string
+  current_month_cost: number
 }
 
 export default function AIUsageTest() {
   const [prompt, setPrompt] = useState('What is 2+2? Please answer in exactly one word.')
   const [model, setModel] = useState('gpt-3.5-turbo')
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [users, setUsers] = useState<UserOption[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const [loading, setLoading] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Load users on component mount
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const response = await fetch('/api/admin/ai-usage')
+      if (response.ok) {
+        const data = await response.json()
+        const userOptions: UserOption[] = data.users.map((user: any) => ({
+          id: user.user_id,
+          email: user.email,
+          username: user.username,
+          current_month_cost: user.current_month.cost_usd
+        }))
+        setUsers(userOptions)
+        // Select first user by default
+        if (userOptions.length > 0 && !selectedUserId) {
+          setSelectedUserId(userOptions[0].id)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
 
   const runTest = async () => {
     setLoading(true)
     setError(null)
     setTestResult(null)
 
+    if (!selectedUserId) {
+      setError('Please select a user to test with')
+      setLoading(false)
+      return
+    }
+
     try {
-      // Step 1: Make the AI request
-      console.log('🚀 Making AI request...')
+      // Step 1: Get the selected user's current balance
+      const selectedUser = users.find(u => u.id === selectedUserId)
+      const userBalanceBefore = selectedUser?.current_month_cost || 0
+      console.log('📊 User balance before test:', userBalanceBefore)
+
+      // Step 2: Make the AI request with test user ID
+      console.log('🚀 Making AI request for user:', selectedUser?.email)
       const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Test-User-Id': selectedUserId  // Pass the test user ID
+        },
         body: JSON.stringify({
           messages: [{ role: 'user', content: prompt }],
           model,
-          action: 'test_tracking',
+          action: 'admin_test_tracking',
           temperature: 0.3,
           max_tokens: 100
         })
@@ -79,10 +139,12 @@ export default function AIUsageTest() {
         prompt,
         response: responseContent,
         usage: aiData.usage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        selectedUser: selectedUser?.email,
+        userBalanceBefore
       }
 
-      // Step 2: Calculate expected cost
+      // Step 3: Calculate expected cost
       const expectedCost = calculateExpectedCost(model, aiData.usage)
       console.log('💰 Expected cost calculation:', {
         model,
@@ -92,17 +154,33 @@ export default function AIUsageTest() {
         reportedCost: aiData.usage.cost_usd
       })
 
-      // Step 3: Verify in database (wait a moment for the record to be saved)
+      // Step 4: Verify in database (wait a moment for the record to be saved)
       console.log('⏳ Waiting for database write...')
       await new Promise(resolve => setTimeout(resolve, 2000))
 
-      // Check the user's usage to see if it increased
-      const usageResponse = await fetch('/api/ai/usage')
-      if (usageResponse.ok) {
-        const usageData = await usageResponse.json()
-        console.log('📊 User usage data:', usageData)
+      // Step 5: Reload users to check if the balance increased
+      const updatedResponse = await fetch('/api/admin/ai-usage')
+      if (updatedResponse.ok) {
+        const updatedData = await updatedResponse.json()
+        const updatedUser = updatedData.users.find((u: any) => u.user_id === selectedUserId)
+        const userBalanceAfter = updatedUser?.current_month?.cost_usd || 0
+        result.userBalanceAfter = userBalanceAfter
         result.databaseVerified = true
+
+        // Also update the local users state with fresh data
+        const userOptions: UserOption[] = updatedData.users.map((user: any) => ({
+          id: user.user_id,
+          email: user.email,
+          username: user.username,
+          current_month_cost: user.current_month.cost_usd
+        }))
+        setUsers(userOptions)
+      } else {
+        result.databaseVerified = false
       }
+
+      console.log('📊 User balance after test:', result.userBalanceAfter)
+      console.log('💸 Balance increase:', (result.userBalanceAfter || 0) - userBalanceBefore)
 
       setTestResult(result)
 
@@ -154,6 +232,45 @@ export default function AIUsageTest() {
       <CardContent className="space-y-6">
         {/* Test Configuration */}
         <div className="space-y-4">
+          <div>
+            <Label htmlFor="user">Test User</Label>
+            <div className="flex gap-2">
+              <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={loading || loadingUsers}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a user"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          <span>{user.email}</span>
+                          {user.username && <span className="text-xs text-muted-foreground">(@{user.username})</span>}
+                        </div>
+                        <span className="text-xs text-muted-foreground ml-4">
+                          ${user.current_month_cost.toFixed(4)}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={loadUsers}
+                disabled={loadingUsers}
+                title="Refresh users"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingUsers ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Select which user account to add the test cost to
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="model">Model</Label>
             <select
@@ -287,12 +404,39 @@ export default function AIUsageTest() {
                 <Database className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Database Tracking</span>
               </div>
-              <div className="text-sm">
+              <div className="text-sm space-y-2">
                 {testResult.databaseVerified ? (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Usage record saved to database</span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Usage record saved to database</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Test User:</span>
+                        <span className="font-medium">{testResult.selectedUser}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Balance Before:</span>
+                        <span className="font-mono">${testResult.userBalanceBefore?.toFixed(6)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Balance After:</span>
+                        <span className="font-mono">${testResult.userBalanceAfter?.toFixed(6)}</span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span>Cost Added:</span>
+                        <span className="font-mono text-green-600">
+                          +${((testResult.userBalanceAfter || 0) - (testResult.userBalanceBefore || 0)).toFixed(6)}
+                        </span>
+                      </div>
+                      {Math.abs(((testResult.userBalanceAfter || 0) - (testResult.userBalanceBefore || 0)) - testResult.usage.cost_usd) < 0.000001 ? (
+                        <Badge variant="secondary" className="bg-green-100 mt-2">✓ Balance update verified</Badge>
+                      ) : (
+                        <Badge variant="destructive" className="mt-2">Balance mismatch detected</Badge>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   <div className="flex items-center gap-2 text-orange-600">
                     <AlertCircle className="h-4 w-4" />
@@ -303,7 +447,7 @@ export default function AIUsageTest() {
               <div className="mt-2 text-xs text-muted-foreground">
                 Check the AI Usage tab to see this request in the usage data.
                 <br />
-                Look in Supabase for the ai_usage_records table to verify the exact values.
+                Look in Supabase for the ai_cost_logs table to verify the exact values.
               </div>
             </div>
 
@@ -314,9 +458,10 @@ export default function AIUsageTest() {
               <AlertDescription className="space-y-2 mt-2">
                 <div>1. ✅ AI request completed with token counts</div>
                 <div>2. ✅ Cost calculated: ${testResult.usage.cost_usd.toFixed(6)}</div>
-                <div>3. 📊 Check Supabase → ai_usage_records table</div>
-                <div>4. 🔍 Find record with request_id: {testResult.requestId}</div>
-                <div>5. ✓ Verify: prompt_tokens, completion_tokens, total_tokens, cost_usd match</div>
+                <div>3. ✅ User balance updated: ${testResult.userBalanceBefore?.toFixed(6)} → ${testResult.userBalanceAfter?.toFixed(6)}</div>
+                <div>4. 📊 Check Supabase → ai_cost_logs table</div>
+                <div>5. 🔍 Find record with metadata→request_id: {testResult.requestId}</div>
+                <div>6. ✓ Verify: input_tokens, output_tokens, cost match the displayed values</div>
               </AlertDescription>
             </Alert>
           </div>
