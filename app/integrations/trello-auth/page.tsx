@@ -81,17 +81,17 @@ export default function TrelloAuthCallback() {
           timestamp
         }))
 
-        // Show success message
+        // Show success message with app theme
         document.body.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif;">
-            <div style="text-align: center; padding: 2rem; background: #f0f9ff; border-radius: 12px; border: 2px solid #0ea5e9;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #0ea5e9;">
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif; background: white;">
+            <div style="text-align: center; padding: 2rem; background: #f3f4f6; border-radius: 12px; border: 2px solid #d1d5db;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #10b981;">
                 <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <h2 style="margin: 0 0 0.5rem; color: #0c4a6e;">Success!</h2>
-              <p style="margin: 0 0 1rem; color: #64748b;">Trello has been connected successfully.</p>
-              <p style="margin: 0; color: #94a3b8; font-size: 0.875rem;">This window will close automatically...</p>
+              <h2 style="margin: 0 0 0.5rem; color: #111827; font-weight: 600;">Success!</h2>
+              <p style="margin: 0 0 1rem; color: #6b7280;">Trello has been connected successfully.</p>
+              <p style="margin: 0; color: #9ca3af; font-size: 0.875rem;">This window will close automatically...</p>
             </div>
           </div>
         `
@@ -124,16 +124,16 @@ export default function TrelloAuthCallback() {
           timestamp
         }))
 
-        // Show error message
+        // Show error message with app theme
         document.body.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif;">
-            <div style="text-align: center; padding: 2rem; background: #fef2f2; border-radius: 12px; border: 2px solid #ef4444;">
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif; background: white;">
+            <div style="text-align: center; padding: 2rem; background: #fef2f2; border-radius: 12px; border: 2px solid #fca5a5;">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
                 <path d="M12 9V13M12 17H12.01M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <h2 style="margin: 0 0 0.5rem; color: #991b1b;">Connection Failed</h2>
-              <p style="margin: 0 0 1rem; color: #64748b;">${error.message || 'Failed to connect Trello'}</p>
-              <p style="margin: 0; color: #94a3b8; font-size: 0.875rem;">This window will close automatically...</p>
+              <h2 style="margin: 0 0 0.5rem; color: #111827; font-weight: 600;">Connection Failed</h2>
+              <p style="margin: 0 0 1rem; color: #6b7280;">${error.message || 'Failed to connect Trello'}</p>
+              <p style="margin: 0; color: #9ca3af; font-size: 0.875rem;">This window will close automatically...</p>
             </div>
           </div>
         `
@@ -154,20 +154,27 @@ export default function TrelloAuthCallback() {
       alignItems: 'center', 
       justifyContent: 'center', 
       height: '100vh',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      background: 'white'
     }}>
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ 
+        textAlign: 'center',
+        padding: '2rem',
+        background: '#f9fafb',
+        borderRadius: '12px',
+        border: '2px solid #e5e7eb'
+      }}>
         <div style={{
           width: '48px',
           height: '48px',
-          border: '4px solid #e5e7eb',
-          borderTop: '4px solid #3b82f6',
+          border: '3px solid #e5e7eb',
+          borderTop: '3px solid #6b7280',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           margin: '0 auto 1rem'
         }}></div>
-        <h2 style={{ margin: '0 0 0.5rem', color: '#1f2937' }}>Connecting to Trello...</h2>
-        <p style={{ margin: 0, color: '#6b7280' }}>Please wait while we complete the connection.</p>
+        <h2 style={{ margin: '0 0 0.5rem', color: '#111827', fontWeight: '600' }}>Connecting to Trello</h2>
+        <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>Please wait while we complete the connection...</p>
       </div>
       <style jsx>{`
         @keyframes spin {
