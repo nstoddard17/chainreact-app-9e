@@ -190,6 +190,9 @@ export class IntegrationService {
         throw new Error("Authentication expired. Please log in again.")
       } else if (response.status === 403) {
         throw new Error("Access denied. You may not have permission to connect this integration.")
+      } else if (response.status === 400 && errorData.message?.includes("localhost")) {
+        // Special handling for localhost redirect URI errors
+        throw new Error(errorData.message || errorData.error)
       } else {
         throw new Error(errorData.error || `Failed to generate OAuth URL`)
       }

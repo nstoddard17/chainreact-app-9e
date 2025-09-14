@@ -67,11 +67,11 @@ export async function POST(request: NextRequest) {
       nodeId
     } = body
 
-    // Check for existing request (idempotency)
+    // Check for existing request in ai_cost_logs (idempotency)
     const { data: existingRequest } = await supabase
-      .from('ai_usage_records')
+      .from('ai_cost_logs')
       .select('*')
-      .eq('request_id', requestId)
+      .eq('metadata->request_id', requestId)
       .single()
 
     if (existingRequest) {
@@ -79,63 +79,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         requestId,
         cached: true,
-        content: existingRequest.response_content,
+        content: existingRequest.metadata?.response_content || '',
         usage: {
-          prompt_tokens: existingRequest.prompt_tokens,
-          completion_tokens: existingRequest.completion_tokens,
-          total_tokens: existingRequest.total_tokens,
-          cost_usd: existingRequest.cost_usd
+          prompt_tokens: existingRequest.input_tokens,
+          completion_tokens: existingRequest.output_tokens,
+          total_tokens: existingRequest.input_tokens + existingRequest.output_tokens,
+          cost_usd: existingRequest.cost
         }
       })
     }
 
-    // Check user's budget
-    const { data: budget } = await supabase
-      .from('ai_usage_budgets')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .gte('budget_period_end', new Date().toISOString())
-      .single()
-
-    if (budget) {
-      const usagePercent = (budget.current_usage_usd / budget.monthly_budget_usd) * 100
-      
-      // Hard stop at 100%
-      if (budget.enforcement_mode === 'hard' && usagePercent >= 100) {
-        return NextResponse.json({
-          error: 'Monthly AI usage limit exceeded',
-          usage_percent: usagePercent,
-          upgrade_url: '/settings/billing'
-        }, { status: 429 })
-      }
-      
-      // Soft warning at 100%
-      if (budget.enforcement_mode === 'soft' && usagePercent >= 100) {
-        console.warn(`User ${user.id} exceeded soft limit at ${usagePercent}%`)
-      }
-    }
-
-    // Create initial usage record
-    const { data: usageRecord, error: insertError } = await supabase
-      .from('ai_usage_records')
-      .insert({
-        request_id: requestId,
-        user_id: user.id,
-        provider: 'openai',
-        model,
-        action,
-        workflow_id: workflowId,
-        node_id: nodeId,
-        status: 'pending'
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      console.error('Failed to create usage record:', insertError)
-      // Continue anyway but log the error
-    }
+    // Note: Budget checking removed as ai_usage_budgets table doesn't exist
+    // This can be implemented later with proper subscription/plan management
 
     try {
       // Make OpenAI API call
@@ -154,34 +109,32 @@ export async function POST(request: NextRequest) {
       const cost = calculateCost(model, promptTokens, completionTokens)
       const responseContent = completion.choices[0]?.message?.content || ''
 
-      // Update usage record if it was created
-      if (usageRecord) {
-        await supabase
-          .from('ai_usage_records')
-          .update({
-            prompt_tokens: promptTokens,
-            completion_tokens: completionTokens,
-            total_tokens: totalTokens,
-            cost_usd: cost,
-            status: 'completed',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', usageRecord.id)
-      }
+      // Save to ai_cost_logs table
+      const { data: costLog, error: costLogError } = await supabase
+        .from('ai_cost_logs')
+        .insert({
+          user_id: user.id,
+          model,
+          feature: action || 'chat',
+          input_tokens: promptTokens,
+          output_tokens: completionTokens,
+          cost,
+          calculated_cost: cost,
+          metadata: {
+            request_id: requestId,
+            workflow_id: workflowId,
+            node_id: nodeId,
+            response_content: responseContent,
+            messages,
+            temperature,
+            max_tokens
+          }
+        })
+        .select()
+        .single()
 
-      // Update budget if exists
-      if (budget) {
-        await supabase
-          .from('ai_usage_budgets')
-          .update({
-            current_usage_usd: budget.current_usage_usd + cost,
-            last_updated: new Date().toISOString()
-          })
-          .eq('id', budget.id)
-        
-        // Check for alerts
-        const newUsagePercent = ((budget.current_usage_usd + cost) / budget.monthly_budget_usd) * 100
-        await checkAndSendAlerts(supabase, user.id, newUsagePercent, budget)
+      if (costLogError) {
+        console.error('Failed to save cost log:', costLogError)
       }
 
       // Save to chat history for backward compatibility
@@ -215,19 +168,27 @@ export async function POST(request: NextRequest) {
       })
       
     } catch (error) {
-      // Update usage record with error if it exists
-      if (usageRecord) {
-        await supabase
-          .from('ai_usage_records')
-          .update({
-            status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', usageRecord.id)
-      }
-
+      // Log the error for debugging
       console.error('OpenAI API error:', error)
+
+      // Still try to save error to cost logs for tracking
+      await supabase
+        .from('ai_cost_logs')
+        .insert({
+          user_id: user.id,
+          model,
+          feature: action || 'chat',
+          input_tokens: 0,
+          output_tokens: 0,
+          cost: 0,
+          calculated_cost: 0,
+          metadata: {
+            request_id: requestId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            status: 'failed'
+          }
+        })
+
       return NextResponse.json(
         { error: 'AI service error', message: error instanceof Error ? error.message : 'Unknown error' },
         { status: 500 }
@@ -247,38 +208,3 @@ function calculateCost(model: string, promptTokens: number, completionTokens: nu
   return parseFloat((promptCost + completionCost).toFixed(6))
 }
 
-async function checkAndSendAlerts(supabase: any, userId: string, usagePercent: number, budget: any) {
-  const thresholds = [
-    { percent: 75, type: 'usage_75', level: 'warning' },
-    { percent: 90, type: 'usage_90', level: 'alert' },
-    { percent: 100, type: 'usage_100', level: 'error' }
-  ]
-
-  // Check which alerts have already been sent this period
-  const { data: existingAlerts } = await supabase
-    .from('ai_usage_alerts')
-    .select('alert_type')
-    .eq('user_id', userId)
-    .gte('created_at', budget.budget_period_start)
-
-  const sentAlertTypes = new Set(existingAlerts?.map((a: any) => a.alert_type) || [])
-
-  // Send new alerts
-  for (const threshold of thresholds) {
-    if (usagePercent >= threshold.percent && !sentAlertTypes.has(threshold.type)) {
-      await supabase
-        .from('ai_usage_alerts')
-        .insert({
-          user_id: userId,
-          alert_type: threshold.type,
-          alert_level: threshold.level,
-          message: `You've used ${Math.round(usagePercent)}% of your monthly AI budget`,
-          metadata: {
-            usage_percent: usagePercent,
-            budget_usd: budget.monthly_budget_usd,
-            current_usage_usd: budget.current_usage_usd
-          }
-        })
-    }
-  }
-}
