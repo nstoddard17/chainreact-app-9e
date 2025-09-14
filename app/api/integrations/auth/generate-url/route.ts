@@ -284,8 +284,9 @@ function generateSlackAuthUrl(state: string): string {
   const baseUrl = getBaseUrl()
 
   // For Slack OAuth v2 with user tokens (not bot tokens)
-  // Using user_scope parameter for user-level permissions
-  // This avoids the "invalid_team_for_non_distributed_app" error
+  // IMPORTANT: If you get "invalid_team_for_non_distributed_app" error, you need to:
+  // 1. Enable distribution for your Slack app at https://api.slack.com/apps/[APP_ID]/manage-distribution
+  // 2. OR set SLACK_TEAM_ID in your .env to restrict to a specific workspace
   const params = new URLSearchParams({
     client_id: clientId,
     user_scope: "chat:write,channels:read,channels:write,groups:read,groups:write,im:read,im:write,users:read,team:read,files:read,files:write",
@@ -293,11 +294,25 @@ function generateSlackAuthUrl(state: string): string {
     state,
   })
 
+  // Optional: Add team parameter to restrict to a specific workspace
+  // This can help avoid the "invalid_team_for_non_distributed_app" error
+  const teamId = process.env.SLACK_TEAM_ID
+  if (teamId) {
+    params.append('team', teamId)
+    console.log(`🏢 Restricting Slack OAuth to team: ${teamId}`)
+  }
+
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
   console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
   console.log(`🔑 Using Client ID: ${clientId}`)
   console.log(`📍 Using base URL: ${baseUrl}`)
-  console.log(`📋 Using user_scope (not bot scope) to avoid non-distributed app issues`)
+  console.log(`📋 Using user_scope for user-level permissions`)
+  
+  if (!teamId) {
+    console.log(`⚠️  No SLACK_TEAM_ID set. If you get "invalid_team_for_non_distributed_app" error:`)
+    console.log(`    1. Enable app distribution at: https://api.slack.com/apps/${clientId}/manage-distribution`)
+    console.log(`    2. OR add SLACK_TEAM_ID to your .env file`)
+  }
   
   return authUrl
 }
