@@ -147,7 +147,17 @@ export function createPopupResponse(
         timestamp: new Date().toISOString()
       };
       
-      // Store in localStorage for parent window to find (COOP-safe)
+      // Method 1: Try BroadcastChannel (works across same-origin contexts)
+      try {
+        const channel = new BroadcastChannel('oauth_channel');
+        channel.postMessage(responseData);
+        console.log('📡 Sent OAuth response via BroadcastChannel');
+        channel.close();
+      } catch (e) {
+        console.log('BroadcastChannel not available or failed:', e);
+      }
+      
+      // Method 2: Store in localStorage for parent window to find (COOP-safe)
       try {
         localStorage.setItem('${storageKey}', JSON.stringify(responseData));
         console.log('Response stored in localStorage with key: ${storageKey}');
