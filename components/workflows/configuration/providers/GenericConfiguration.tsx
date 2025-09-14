@@ -27,6 +27,7 @@ interface GenericConfigurationProps {
   aiFields?: Record<string, boolean>;
   setAiFields?: (fields: Record<string, boolean>) => void;
   isConnectedToAIAgent?: boolean;
+  loadingFields?: Set<string>;
 }
 
 export function GenericConfiguration({
@@ -49,9 +50,14 @@ export function GenericConfiguration({
   aiFields = {},
   setAiFields = () => {},
   isConnectedToAIAgent = false,
+  loadingFields: loadingFieldsProp,
 }: GenericConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
+  const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
+  
+  // Use prop if provided, otherwise use local state
+  const loadingFields = loadingFieldsProp || localLoadingFields;
+  const setLoadingFields = loadingFieldsProp ? () => {} : setLocalLoadingFields;
 
   // Handle dynamic field loading
   const handleDynamicLoad = useCallback(async (
@@ -191,13 +197,9 @@ export function GenericConfiguration({
       }
     }
     
-    // If field has hidden: true and dependsOn, only show if dependency is satisfied
-    if (field.hidden && field.dependsOn) {
-      const dependencyValue = values[field.dependsOn];
-      return !!dependencyValue; // Show only if dependency has a value
-    }
-    
-    // If field has hidden: true but no dependsOn, don't show it
+    // If field has hidden: true, don't show it
+    // This must be checked AFTER all visibility conditions
+    // because NotionConfiguration sets hidden: true for fields that should be hidden
     if (field.hidden) return false;
     
     // Otherwise show the field
@@ -205,9 +207,13 @@ export function GenericConfiguration({
   };
 
   // Separate fields
-  const baseFields = nodeInfo?.configSchema?.filter((field: any) => 
-    !field.advanced && shouldShowField(field)
-  ) || [];
+  const baseFields = nodeInfo?.configSchema?.filter((field: any) => {
+    const shouldShow = !field.advanced && shouldShowField(field);
+    if (field.hidden !== undefined) {
+      console.log(`🔍 [GenericConfig] Field ${field.name} - hidden: ${field.hidden}, shouldShow: ${shouldShow}`);
+    }
+    return shouldShow;
+  }) || [];
   
   const advancedFields = nodeInfo?.configSchema?.filter((field: any) => 
     field.advanced && shouldShowField(field)

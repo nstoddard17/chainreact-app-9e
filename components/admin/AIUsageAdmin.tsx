@@ -8,19 +8,25 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
+import {
+  Users,
+  TrendingUp,
+  DollarSign,
   Activity,
   Search,
   Settings,
   AlertCircle,
   Download,
-  RefreshCw
+  RefreshCw,
+  MoreHorizontal,
+  RotateCcw,
+  Edit
 } from 'lucide-react'
+import AIUsageTest from './AIUsageTest'
+import WorkflowCostTest from './WorkflowCostTest'
 
 interface UserUsage {
   user_id: string
@@ -68,6 +74,9 @@ export default function AIUsageAdmin() {
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false)
   const [newBudget, setNewBudget] = useState('')
   const [newEnforcement, setNewEnforcement] = useState<'soft' | 'hard'>('soft')
+  const [balanceDialogOpen, setBalanceDialogOpen] = useState(false)
+  const [balanceAction, setBalanceAction] = useState<'reset' | 'set'>('set')
+  const [newBalance, setNewBalance] = useState('')
 
   useEffect(() => {
     fetchUsageData()
@@ -112,6 +121,34 @@ export default function AIUsageAdmin() {
       }
     } catch (error) {
       console.error('Error updating budget:', error)
+    }
+  }
+
+  const updateUserBalance = async () => {
+    if (!selectedUser) return
+    if (balanceAction === 'set' && !newBalance) return
+
+    try {
+      const response = await fetch('/api/admin/ai-usage/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: selectedUser.user_id,
+          action: balanceAction,
+          amount: balanceAction === 'set' ? parseFloat(newBalance) : undefined
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Balance updated:', data)
+        await fetchUsageData()
+        setBalanceDialogOpen(false)
+        setSelectedUser(null)
+        setNewBalance('')
+      }
+    } catch (error) {
+      console.error('Error updating balance:', error)
     }
   }
 
@@ -175,6 +212,11 @@ export default function AIUsageAdmin() {
 
   return (
     <div className="space-y-6">
+      {/* Test Components */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AIUsageTest />
+        <WorkflowCostTest />
+      </div>
 
       {/* Statistics Cards */}
       {stats && (
@@ -369,18 +411,50 @@ export default function AIUsageAdmin() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(user)
-                          setNewBudget(user.budget.monthly_limit_usd.toString())
-                          setNewEnforcement(user.budget.enforcement_mode === 'hard' ? 'hard' : 'soft')
-                          setBudgetDialogOpen(true)
-                        }}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUser(user)
+                              setNewBudget(user.budget.monthly_limit_usd.toString())
+                              setNewEnforcement(user.budget.enforcement_mode === 'hard' ? 'hard' : 'soft')
+                              setBudgetDialogOpen(true)
+                            }}
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            Edit Budget
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUser(user)
+                              setBalanceAction('set')
+                              setNewBalance(user.current_month.cost_usd.toString())
+                              setBalanceDialogOpen(true)
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Set Balance
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUser(user)
+                              setBalanceAction('reset')
+                              setBalanceDialogOpen(true)
+                            }}
+                            className="text-destructive"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reset Balance
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -430,6 +504,61 @@ export default function AIUsageAdmin() {
             </Button>
             <Button onClick={updateUserBudget}>
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Balance Management Dialog */}
+      <Dialog open={balanceDialogOpen} onOpenChange={setBalanceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {balanceAction === 'reset' ? 'Reset User Balance' : 'Set User Balance'}
+            </DialogTitle>
+            <DialogDescription>
+              {balanceAction === 'reset'
+                ? `Reset the current month balance to $0.00 for ${selectedUser?.email}`
+                : `Set a specific balance amount for ${selectedUser?.email}`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          {balanceAction === 'set' && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="balance">New Balance (USD)</Label>
+                <Input
+                  id="balance"
+                  type="number"
+                  step="0.01"
+                  value={newBalance}
+                  onChange={(e) => setNewBalance(e.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Current balance: ${selectedUser?.current_month.cost_usd.toFixed(4)}
+                </p>
+              </div>
+            </div>
+          )}
+          {balanceAction === 'reset' && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                This will delete all AI usage records for this user in the current month.
+                This action cannot be undone.
+              </AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBalanceDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={updateUserBalance}
+              variant={balanceAction === 'reset' ? 'destructive' : 'default'}
+            >
+              {balanceAction === 'reset' ? 'Reset Balance' : 'Set Balance'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -225,6 +225,33 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     console.log("[Stripe Webhook] Successfully saved subscription:", result.data)
   }
 
+  // Update user's role to 'pro' after successful subscription (skip beta testers)
+  if (userId && subscription.status === 'active') {
+    // Check if user is a beta tester first
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single()
+
+    if (profileData?.role !== 'beta-pro') {
+      console.log("[Stripe Webhook] Updating user role to 'pro' for user:", userId)
+      const { error: roleUpdateError } = await supabase
+        .from("profiles")
+        .update({ role: 'pro', updated_at: new Date().toISOString() })
+        .eq("id", userId)
+
+      if (roleUpdateError) {
+        console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+        // Don't throw - subscription is saved, role update is secondary
+      } else {
+        console.log("[Stripe Webhook] Successfully updated user role to 'pro'")
+      }
+    } else {
+      console.log("[Stripe Webhook] User is a beta tester, skipping role update")
+    }
+  }
+
   // Store invoice if available
   if (subscription.latest_invoice) {
     const invoice = typeof subscription.latest_invoice === 'string' 
@@ -297,11 +324,37 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   } else {
     console.log("[Stripe Webhook] Successfully created subscription")
   }
+
+  // Update user's role to 'pro' for active subscriptions
+  if (existingCustomer.user_id && subscription.status === 'active') {
+    console.log("[Stripe Webhook] Updating user role to 'pro' for user:", existingCustomer.user_id)
+    const { error: roleUpdateError } = await supabase
+      .from("profiles")
+      .update({ role: 'pro', updated_at: new Date().toISOString() })
+      .eq("id", existingCustomer.user_id)
+
+    if (roleUpdateError) {
+      console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+      // Don't throw - subscription is saved, role update is secondary
+    } else {
+      console.log("[Stripe Webhook] Successfully updated user role to 'pro'")
+    }
+  }
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabase: any) {
   console.log("[Stripe Webhook] handleSubscriptionUpdated - ID:", subscription.id)
-  
+  console.log("[Stripe Webhook] Subscription status:", subscription.status)
+
+  // First get the user_id from the subscription
+  const { data: existingSubscription } = await supabase
+    .from("subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", subscription.id)
+    .single()
+
+  const userId = existingSubscription?.user_id
+
   const updateData = {
     status: subscription.status,
     current_period_start: safeTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
@@ -320,14 +373,49 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   } else {
     console.log("[Stripe Webhook] Successfully updated subscription")
   }
+
+  // Update user's role based on subscription status
+  if (userId) {
+    // Determine the appropriate role based on subscription status
+    let newRole = 'free'
+    if (subscription.status === 'active' || subscription.status === 'trialing') {
+      newRole = 'pro'
+    }
+    // For past_due, you might want to keep pro access for a grace period
+    // Uncomment the next line if you want to maintain access during payment issues
+    // else if (subscription.status === 'past_due') { newRole = 'pro' }
+
+    console.log(`[Stripe Webhook] Updating user role to '${newRole}' for user:`, userId)
+    const { error: roleUpdateError } = await supabase
+      .from("profiles")
+      .update({ role: newRole, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+
+    if (roleUpdateError) {
+      console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+      // Don't throw - subscription update is primary, role update is secondary
+    } else {
+      console.log(`[Stripe Webhook] Successfully updated user role to '${newRole}'`)
+    }
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
   console.log("[Stripe Webhook] handleSubscriptionDeleted - ID:", subscription.id)
-  
+
+  // First get the user_id from the subscription
+  const { data: existingSubscription } = await supabase
+    .from("subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", subscription.id)
+    .single()
+
+  const userId = existingSubscription?.user_id
+
+  // Update the subscription status
   const { error } = await supabase
     .from("subscriptions")
-    .update({ 
+    .update({
       status: "canceled",
       // Removed canceled_at - column doesn't exist
       updated_at: new Date().toISOString()
@@ -339,6 +427,22 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
     throw error
   } else {
     console.log("[Stripe Webhook] Successfully marked subscription as canceled")
+  }
+
+  // Downgrade user's role back to 'free'
+  if (userId) {
+    console.log("[Stripe Webhook] Downgrading user role to 'free' for user:", userId)
+    const { error: roleUpdateError } = await supabase
+      .from("profiles")
+      .update({ role: 'free', updated_at: new Date().toISOString() })
+      .eq("id", userId)
+
+    if (roleUpdateError) {
+      console.error("[Stripe Webhook] Failed to downgrade user role:", roleUpdateError)
+      // Don't throw - subscription update is primary, role update is secondary
+    } else {
+      console.log("[Stripe Webhook] Successfully downgraded user role to 'free'")
+    }
   }
 }
 

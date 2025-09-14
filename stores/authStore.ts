@@ -74,12 +74,19 @@ export const useAuthStore = create<AuthState>()(
           console.log('Auth already initialized or loading, skipping...')
           return
         }
+        
+        // Temporary bypass for debugging
+        if (typeof window !== 'undefined' && window.location.search.includes('bypass_auth=true')) {
+          console.warn('Auth bypass enabled - skipping auth initialization')
+          set({ loading: false, initialized: true, error: null, user: null })
+          return
+        }
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
           console.warn('Auth initialization timed out, forcing completion...')
-          set({ loading: false, initialized: true, error: null })
-        }, 3000) // 3 seconds timeout for initialization
+          set({ loading: false, initialized: true, error: null, user: null })
+        }, 5000) // 5 seconds timeout for initialization
 
         try {
           set({ loading: true, error: null })
@@ -112,20 +119,25 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Get current user from Supabase with timeout (reduced from 3s to 1.5s)
+          // Get current user from Supabase with timeout
+          console.log('Fetching user from Supabase...')
           const userPromise = supabase.auth.getUser()
           const userTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('User fetch timeout')), 1500) // 1.5 seconds timeout for user fetch
+            setTimeout(() => reject(new Error('User fetch timeout')), 2000) // 2 seconds timeout for user fetch
           )
           
           let userResult
           try {
             userResult = await Promise.race([userPromise, userTimeout])
+            console.log('User fetch completed successfully')
           } catch (timeoutError) {
+            console.warn('User fetch timed out, trying fallback...', timeoutError)
             // Try one more time without timeout as fallback
             try {
               userResult = await userPromise
+              console.log('Fallback user fetch completed')
             } catch (fallbackError) {
+              console.error('Fallback user fetch failed:', fallbackError)
               set({ user: null, loading: false, initialized: true })
               clearTimeout(initTimeout)
               return

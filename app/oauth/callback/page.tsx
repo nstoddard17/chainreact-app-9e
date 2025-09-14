@@ -12,9 +12,10 @@ function OAuthCallbackContent() {
     // Check if we have success or error in the URL params
     const success = searchParams.get('success') === 'true'
     const error = searchParams.get('error')
+    const provider = searchParams.get('provider') || 'unknown'
     
-    // Send message to parent window
-    sendOAuthComplete(success, error || undefined)
+    // Send message to parent window with provider information
+    sendOAuthComplete(success, error || undefined, provider)
     
     // If no parent window, redirect to integrations page after a delay
     if (!window.opener || window.opener.closed) {

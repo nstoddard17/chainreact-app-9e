@@ -18,8 +18,6 @@ import {
   Crown,
   Star,
   Bot,
-  Heart,
-  CreditCard,
   HelpCircle,
   Webhook,
 } from "lucide-react"
@@ -247,42 +245,6 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             </>
           )}
 
-          {/* Support Buttons - Dynamic placement after last navigation item */}
-          <div className="pt-4 border-t border-border space-y-2">
-            {!isCollapsed && (
-              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Support Us
-              </div>
-            )}
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "w-full justify-start text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20",
-                  isCollapsed && "justify-center px-2"
-                )}
-                onClick={() => router.push('/donate')}
-                title={isCollapsed ? "Donate" : undefined}
-              >
-                <CreditCard className="w-4 h-4" />
-                {!isCollapsed && <span className="ml-2">Donate</span>}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "w-full justify-start text-pink-600 border-pink-200 hover:bg-pink-50 hover:text-pink-700 dark:text-pink-400 dark:border-pink-700 dark:hover:bg-pink-900/20",
-                  isCollapsed && "justify-center px-2"
-                )}
-                onClick={() => window.open('https://patreon.com/chainreact', '_blank')}
-                title={isCollapsed ? "Patreon" : undefined}
-              >
-                <Heart className="w-4 h-4" />
-                {!isCollapsed && <span className="ml-2">Patreon</span>}
-              </Button>
-            </div>
-          </div>
         </nav>
       </div>
 

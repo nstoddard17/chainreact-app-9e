@@ -19,40 +19,28 @@ export async function GET(request: NextRequest) {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-    // Get current budget
-    const { data: budget } = await supabase
-      .from('ai_usage_budgets')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .gte('budget_period_end', now.toISOString())
-      .single()
-
-    // Get usage statistics for different periods
+    // Get usage statistics for different periods from ai_cost_logs
     const [monthStats, todayStats, allTimeStats] = await Promise.all([
       // This month
       supabase
-        .from('ai_usage_records')
-        .select('total_tokens, cost_usd')
+        .from('ai_cost_logs')
+        .select('input_tokens, output_tokens, cost')
         .eq('user_id', user.id)
         .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString())
-        .eq('status', 'completed'),
-      
+        .lte('created_at', endOfMonth.toISOString()),
+
       // Today
       supabase
-        .from('ai_usage_records')
-        .select('total_tokens, cost_usd')
+        .from('ai_cost_logs')
+        .select('input_tokens, output_tokens, cost')
         .eq('user_id', user.id)
-        .gte('created_at', startOfToday.toISOString())
-        .eq('status', 'completed'),
-      
+        .gte('created_at', startOfToday.toISOString()),
+
       // All time
       supabase
-        .from('ai_usage_records')
-        .select('total_tokens, cost_usd')
+        .from('ai_cost_logs')
+        .select('input_tokens, output_tokens, cost')
         .eq('user_id', user.id)
-        .eq('status', 'completed')
     ])
 
     // Calculate totals
@@ -62,8 +50,8 @@ export async function GET(request: NextRequest) {
       }
       return {
         requests: records.length,
-        tokens: records.reduce((sum, r) => sum + (r.total_tokens || 0), 0),
-        cost_usd: records.reduce((sum, r) => sum + (parseFloat(r.cost_usd) || 0), 0)
+        tokens: records.reduce((sum, r) => sum + ((r.input_tokens || 0) + (r.output_tokens || 0)), 0),
+        cost_usd: records.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0)
       }
     }
 
@@ -71,32 +59,31 @@ export async function GET(request: NextRequest) {
     const todayTotals = calculateTotals(todayStats.data)
     const allTimeTotals = calculateTotals(allTimeStats.data)
 
-    // Calculate usage percentage and remaining
-    const monthlyBudget = budget?.monthly_budget_usd || 10.00
+    // Calculate usage percentage and remaining (using a default budget of $10)
+    const monthlyBudget = 10.00  // Default budget, can be made configurable later
     const usagePercent = Math.round((monthTotals.cost_usd / monthlyBudget) * 100)
     const remainingBudget = Math.max(0, monthlyBudget - monthTotals.cost_usd)
 
     // Get recent usage for estimates (last 10 similar requests)
     const { data: recentUsage } = await supabase
-      .from('ai_usage_records')
-      .select('action, model, total_tokens')
+      .from('ai_cost_logs')
+      .select('feature, model, input_tokens, output_tokens')
       .eq('user_id', user.id)
-      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(10)
 
     // Calculate median tokens for estimates
     let estimatedRemainingUses = { min: 0, max: 0, confidence: 'low' as const }
     if (recentUsage && recentUsage.length > 0) {
-      const tokens = recentUsage.map(r => r.total_tokens).sort((a, b) => a - b)
+      const tokens = recentUsage.map(r => (r.input_tokens || 0) + (r.output_tokens || 0)).sort((a, b) => a - b)
       const medianTokens = tokens[Math.floor(tokens.length / 2)]
       const avgCostPerRequest = monthTotals.cost_usd / monthTotals.requests
-      
+
       if (avgCostPerRequest > 0) {
         const remainingRequests = Math.floor(remainingBudget / avgCostPerRequest)
         const variance = Math.max(...tokens) - Math.min(...tokens)
         const confidence = variance < medianTokens * 0.5 ? 'high' : variance < medianTokens ? 'medium' : 'low'
-        
+
         estimatedRemainingUses = {
           min: Math.max(0, Math.floor(remainingRequests * 0.8)),
           max: Math.ceil(remainingRequests * 1.2),
@@ -104,15 +91,6 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-
-    // Get any active alerts
-    const { data: alerts } = await supabase
-      .from('ai_usage_alerts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(5)
 
     return NextResponse.json({
       current_period: {
@@ -125,11 +103,11 @@ export async function GET(request: NextRequest) {
         remaining_budget_usd: remainingBudget,
         usage_percent: usagePercent,
         estimated_remaining_uses: estimatedRemainingUses,
-        enforcement_mode: budget?.enforcement_mode || 'soft'
+        enforcement_mode: 'soft'  // Default enforcement mode
       },
       today: todayTotals,
       all_time: allTimeTotals,
-      alerts: alerts || [],
+      alerts: [],  // No alerts table exists yet
       thresholds: {
         warning: 75,
         alert: 90,

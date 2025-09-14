@@ -328,23 +328,10 @@ export class OAuthPopupManager {
       }
       onCancel = () => {
         originalOnCancel()
-        // For HubSpot and Microsoft providers, don't reject - the cancel handler will check if it actually succeeded
-        // These providers may close the popup before sending the success message
-        const providersToResolve = [
-          'hubspot', 
-          'microsoft-onenote', 
-          'onenote',
-          'microsoft-outlook',
-          'outlook',
-          'teams',
-          'onedrive'
-        ]
-        
-        if (providersToResolve.includes(provider)) {
-          resolve() // Resolve instead of reject for these providers
-        } else {
-          reject(new Error("OAuth cancelled by user"))
-        }
+        // Don't reject with an error for any provider - handle cancellation gracefully
+        // Some providers (HubSpot, Microsoft, Notion) may close the popup before sending the success message
+        // For all providers, we'll resolve without error to prevent error messages when users cancel
+        resolve() // Resolve without error for graceful cancellation
       }
     })
 
@@ -444,7 +431,8 @@ export class OAuthPopupManager {
           }
           window.removeEventListener("message", handleMessage)
           this.currentPopup = null
-          reject(new Error("OAuth reconnection was cancelled"))
+          // Resolve gracefully on cancellation instead of rejecting with error
+          resolve()
         }
       }
 
@@ -467,7 +455,8 @@ export class OAuthPopupManager {
               console.warn('  2. Authorization was cancelled')
               console.warn('  3. Success message was blocked or delayed')
             }
-            reject(new Error("User cancelled the reconnection"))
+            // Resolve gracefully on cancellation instead of rejecting with error
+            resolve()
           }
         } catch (error) {
           // COOP policy may block popup.closed access
@@ -515,7 +504,8 @@ export class OAuthPopupManager {
                   window.removeEventListener("message", handleMessage)
                   this.currentPopup = null
                   localStorage.removeItem(key)
-                  reject(new Error("OAuth reconnection was cancelled"))
+                  // Resolve gracefully on cancellation instead of rejecting with error
+          resolve()
                   return
                 }
               }

@@ -5,6 +5,7 @@ interface UserStats {
   totalUsers: number
   freeUsers: number
   proUsers: number
+  betaUsers: number
   businessUsers: number
   enterpriseUsers: number
   adminUsers: number
@@ -23,6 +24,7 @@ export const useAdminStore = create<AdminState>((set) => ({
     totalUsers: 0,
     freeUsers: 0,
     proUsers: 0,
+    betaUsers: 0,
     businessUsers: 0,
     enterpriseUsers: 0,
     adminUsers: 0,

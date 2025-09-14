@@ -2,7 +2,29 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 14, 2025
+
+### Fixed Slack OAuth Integration and Modal Refresh Issues
+
+Resolved two critical issues preventing Slack connections from working properly. First, fixed the "invalid_team_for_non_distributed_app" error that occurred when users tried to connect Slack. The root cause was our OAuth configuration requesting bot-level permissions and using multi-workspace parameters that are only valid for distributed Slack apps. By switching to user-token authentication only, users can now connect their Slack accounts without needing workspace admin approval, dramatically simplifying the connection process. Second, fixed the action selection modal not updating after OAuth completion. The issue involved stale integration data in React components and provider name escaping in localStorage. By implementing fresh data fetching from the store, proper provider name handling, and a modal refresh strategy that closes and reopens the dialog after successful authentication, the integration status now updates immediately when users complete the OAuth flow. These fixes make connecting Slack and other integrations seamless and instant.
+
+## January 13, 2025
+
+### Enhanced Notion Integration with Smart Property Detection and Organized UI
+
+Revolutionized the Notion workflow integration by implementing intelligent database schema detection that automatically fetches and displays the exact dropdown options from Notion databases. When users select a page to edit, the system now retrieves the full database schema, populating select and multi-select fields with the actual options defined in Notion - including all available tags, statuses, and categories with their associated colors. The interface has been redesigned with a clear visual hierarchy: content blocks (paragraphs, headings, lists) appear at the top in a dedicated "Content Blocks" section, while database properties (select fields, dates, checkboxes, relations) are organized in a separate "Database Properties" section below with a distinct visual treatment. This smart detection eliminates manual configuration and ensures workflows always use the correct, up-to-date options from Notion, making automation more reliable and user-friendly. The system seamlessly handles both regular pages and database pages, adapting the interface to match the exact structure of each Notion page.
+
 ## January 12, 2025
+
+### Fixed Notion Database Fetching and Action Selection Issues
+
+Resolved critical issues with Notion integration in the workflow builder. Fixed the "No source node for action" error that occurred when trying to add Notion database actions by properly setting sourceAddNode state in all scenarios, including when opening action dialogs from configuration modals or AI Agent builders. Enhanced the Notion database fetching to include comprehensive logging and detection of inline databases, synced blocks, and linked database views, ensuring all database types are visible in dropdowns. The improvements make Notion workflow creation more reliable and intuitive.
+
+### Fixed Integration Fetch Loop and Cookie Parsing Errors
+
+Resolved two critical performance issues that were degrading the workflow builder experience. First, fixed an infinite loop causing dozens of redundant API calls to `/api/integrations` when opening a workflow. The issue was a dependency cycle in the `useIntegrationSelection` hook where the useEffect was watching `storeIntegrations` in its dependency array, which gets updated by `fetchIntegrations`, causing it to re-run and trigger more fetches. By removing the dependencies and running the effect only once on mount, we eliminated the cascade of repeated requests that were slowing down workflow loading. Second, fixed cookie parsing errors that were appearing in the console ("Failed to parse cookie string: Unexpected token 'b', 'base64-eyJ'...") by migrating all API routes from the deprecated `createRouteHandlerClient` to the new `createClient` from our centralized Supabase server utilities. This ensures proper cookie encoding handling and eliminates the JSON parsing errors that were cluttering logs and potentially causing auth issues. These fixes significantly improve the workflow builder's performance and reliability.
+
+## January 11, 2025
 
 ### Human-Readable Variable Display for Better Workflow Understanding
 

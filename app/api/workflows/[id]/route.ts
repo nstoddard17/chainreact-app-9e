@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  cookies()
+  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
@@ -24,57 +24,77 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
     }
 
-    // First try to get the workflow by owner
-    let { data, error } = await supabase
+    // First try to get the workflow by ID only to see if it exists
+    const { data: workflowExists, error: existsError } = await supabase
       .from("workflows")
-      .select("*")
+      .select("id, user_id")
       .eq("id", resolvedParams.id)
-      .eq("user_id", user.id)
       .single()
 
-    // If not found as owner, check if user has shared access
-    if (error && (error.code === 'PGRST116' || error.message.includes('No rows'))) {
-      const { data: sharedData, error: sharedError } = await supabase
-        .from("workflows")
-        .select(`
-          *,
-          workflow_shares!inner(
-            permission,
-            shared_with
-          )
-        `)
-        .eq("id", resolvedParams.id)
-        .eq("workflow_shares.shared_with", user.id)
-        .single()
-
-      data = sharedData
-      error = sharedError
+    if (existsError || !workflowExists) {
+      console.error('Workflow does not exist:', resolvedParams.id, existsError)
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
     }
 
-    if (error) {
-      // Check if it's a "not found" error vs actual server error
-      if (error.code === 'PGRST116' || error.message.includes('No rows')) {
-        return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
-      }
-      console.error('Workflow fetch error:', error)
-      return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
-    }
-
-    if (!data) {
-      return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
-    }
-
-    console.log('🔍 [Workflow API] Returning workflow data:', {
-      id: data.id,
-      name: data.name,
-      nameType: typeof data.name,
-      nameIsEmpty: !data.name,
-      nameIsNull: data.name === null,
-      nameIsUndefined: data.name === undefined,
-      nameValue: JSON.stringify(data.name)
+    // Log for debugging
+    console.log('🔍 [Workflow API] Checking access:', {
+      workflowId: resolvedParams.id,
+      workflowOwnerId: workflowExists.user_id,
+      currentUserId: user.id,
+      isOwner: workflowExists.user_id === user.id
     })
 
-    return NextResponse.json(data)
+    // Check if user is the owner
+    if (workflowExists.user_id === user.id) {
+      // User is the owner, fetch full data
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", resolvedParams.id)
+        .single()
+
+      if (error) {
+        console.error('Error fetching owned workflow:', error)
+        return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
+      }
+
+      return NextResponse.json(data)
+    }
+
+    // Not the owner, check if user has shared access
+    const { data: sharedData, error: sharedError } = await supabase
+      .from("workflows")
+      .select(`
+        *,
+        workflow_shares!inner(
+          permission,
+          shared_with
+        )
+      `)
+      .eq("id", resolvedParams.id)
+      .eq("workflow_shares.shared_with", user.id)
+      .single()
+
+    if (sharedError || !sharedData) {
+      console.error('User does not have access to workflow:', {
+        workflowId: resolvedParams.id,
+        userId: user.id,
+        error: sharedError
+      })
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    console.log('🔍 [Workflow API] Returning shared workflow data:', {
+      id: sharedData.id,
+      name: sharedData.name,
+      nameType: typeof sharedData.name,
+      nameIsEmpty: !sharedData.name,
+      nameIsNull: sharedData.name === null,
+      nameIsUndefined: sharedData.name === undefined,
+      nameValue: JSON.stringify(sharedData.name)
+    })
+
+    return NextResponse.json(sharedData)
   } catch (error) {
     console.error('Workflow API error:', error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -82,7 +102,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  cookies()
+  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
@@ -127,7 +147,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  cookies()
+  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {

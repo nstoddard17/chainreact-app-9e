@@ -22,11 +22,11 @@ export async function GET() {
     }
 
     try {
-        // Use service client to get auth users data
+        // Use service client to bypass RLS and get all users
         const adminSupabase = await createSupabaseServiceClient()
-        
-        // Get all users with their profiles
-        const { data: profiles, error: profilesError } = await supabase
+
+        // Get all users with their profiles using service client
+        const { data: profiles, error: profilesError } = await adminSupabase
             .from('user_profiles')
             .select('id, full_name, username, role, created_at, avatar_url')
             .order('created_at', { ascending: false })
@@ -51,9 +51,9 @@ export async function GET() {
             createdAtMap.set(authUser.id, authUser.created_at)
         })
 
-        // Get online users (active in last 5 minutes)
+        // Get online users (active in last 5 minutes) using service client
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-        const { data: onlineUsers } = await supabase
+        const { data: onlineUsers } = await adminSupabase
             .from('user_presence')
             .select('id')
             .gte('last_seen', fiveMinutesAgo.toISOString())

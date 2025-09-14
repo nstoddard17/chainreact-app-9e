@@ -18,12 +18,20 @@ export function useIntegrationSelection() {
   const { getConnectedProviders, fetchIntegrations, integrations: storeIntegrations, loading } = useIntegrationStore()
   const { data: integrations } = useIntegrationsStore()
   
-  // Fetch integrations once on mount - always fetch if store is empty
+  // Fetch integrations once on mount if store is empty
   useEffect(() => {
-    if (!loading && (!storeIntegrations || storeIntegrations.length === 0)) {
-      fetchIntegrations(true) // Force fetch to ensure fresh data
-    }
-  }, [loading, storeIntegrations, fetchIntegrations])
+    // Use a ref to track if we've already initiated a fetch
+    let didFetch = false;
+    
+    const loadIntegrations = async () => {
+      if (!didFetch && !loading && (!storeIntegrations || storeIntegrations.length === 0)) {
+        didFetch = true;
+        await fetchIntegrations(true); // Force fetch to ensure fresh data
+      }
+    };
+    
+    loadIntegrations();
+  }, []) // Only run once on mount
 
   const getIntegrationsFromNodes = useCallback((): IntegrationInfo[] => {
     const integrationMap: Record<string, IntegrationInfo> = {}
