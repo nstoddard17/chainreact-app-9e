@@ -283,11 +283,12 @@ function generateSlackAuthUrl(state: string): string {
   
   const baseUrl = getBaseUrl()
 
-  // For Slack OAuth v2, we need to specify scopes
-  // Bot scopes for app-level permissions
+  // For Slack OAuth v2 with user tokens (not bot tokens)
+  // Using user_scope parameter for user-level permissions
+  // This avoids the "invalid_team_for_non_distributed_app" error
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "chat:write,channels:read,groups:read,im:read,users:read,team:read",
+    user_scope: "chat:write,channels:read,channels:write,groups:read,groups:write,im:read,im:write,users:read,team:read,files:read,files:write",
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
   })
@@ -296,6 +297,7 @@ function generateSlackAuthUrl(state: string): string {
   console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
   console.log(`🔑 Using Client ID: ${clientId}`)
   console.log(`📍 Using base URL: ${baseUrl}`)
+  console.log(`📋 Using user_scope (not bot scope) to avoid non-distributed app issues`)
   
   return authUrl
 }
