@@ -5057,16 +5057,10 @@ function WorkflowBuilderContent() {
                                     if (event.data.success) {
                                       console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Force refresh both integration stores
-                                      const [integrationsResult, cachedResult] = await Promise.all([
-                                        fetchIntegrations(true),
-                                        loadIntegrationsOnce(true)
-                                      ]);
+                                      // Refresh the cached integrations store
+                                      await loadIntegrationsOnce(true);
                                       
-                                      console.log('📦 Integration refresh results:', {
-                                        fetchIntegrationsResult: integrationsResult,
-                                        loadIntegrationsOnceResult: cachedResult
-                                      });
+                                      console.log('📦 Integration refresh completed');
                                       
                                       // Small delay to ensure stores are updated
                                       await new Promise(resolve => setTimeout(resolve, 500));
@@ -5197,20 +5191,12 @@ function WorkflowBuilderContent() {
                                 // Do an immediate check as well
                                 pollLocalStorage();
                                 
-                                // DEBUG: Check all localStorage keys immediately
-                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
-                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
-                                
-                                // DEBUG: Test localStorage by manually setting a test entry
-                                const testKey = `oauth_response_test_${Date.now()}`;
-                                localStorage.setItem(testKey, JSON.stringify({
-                                  type: 'oauth-complete',
-                                  success: false,
-                                  provider: 'test',
-                                  message: 'This is a test entry',
-                                  timestamp: new Date().toISOString()
-                                }));
-                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                // Clean up old test entries
+                                const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
+                                keysToClean.forEach(key => {
+                                  localStorage.removeItem(key);
+                                  console.log('🧹 Cleaned up test entry:', key);
+                                });
                                 
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
@@ -5220,6 +5206,8 @@ function WorkflowBuilderContent() {
                                       clearInterval(localStoragePolling);
                                     }
                                     window.removeEventListener('message', handleMessage);
+                                    // Clear the connecting state when popup is closed
+                                    setConnectingIntegrationId(null);
                                     
                                     // Check localStorage one final time
                                     setTimeout(pollLocalStorage, 100);
@@ -5347,6 +5335,9 @@ function WorkflowBuilderContent() {
                                       popup.close();
                                     }
                                     
+                                    // Clear the connecting state
+                                    setConnectingIntegrationId(null);
+                                    
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
                                       // Force refresh integrations
@@ -5362,6 +5353,13 @@ function WorkflowBuilderContent() {
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
                                         description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                      });
+                                    } else {
+                                      // Show error toast if connection failed
+                                      toast({
+                                        title: "Connection Failed",
+                                        description: event.data.error || event.data.message || "Failed to connect integration",
+                                        variant: "destructive",
                                       });
                                     }
                                   }
@@ -5425,20 +5423,12 @@ function WorkflowBuilderContent() {
                                 // Do an immediate check as well
                                 pollLocalStorage();
                                 
-                                // DEBUG: Check all localStorage keys immediately
-                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
-                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
-                                
-                                // DEBUG: Test localStorage by manually setting a test entry
-                                const testKey = `oauth_response_test_${Date.now()}`;
-                                localStorage.setItem(testKey, JSON.stringify({
-                                  type: 'oauth-complete',
-                                  success: false,
-                                  provider: 'test',
-                                  message: 'This is a test entry',
-                                  timestamp: new Date().toISOString()
-                                }));
-                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                // Clean up old test entries
+                                const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
+                                keysToClean.forEach(key => {
+                                  localStorage.removeItem(key);
+                                  console.log('🧹 Cleaned up test entry:', key);
+                                });
                                 
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
@@ -5448,6 +5438,8 @@ function WorkflowBuilderContent() {
                                       clearInterval(localStoragePolling);
                                     }
                                     window.removeEventListener('message', handleMessage);
+                                    // Clear the connecting state when popup is closed
+                                    setConnectingIntegrationId(null);
                                     
                                     // Check localStorage one final time
                                     setTimeout(pollLocalStorage, 100);
@@ -5837,16 +5829,10 @@ function WorkflowBuilderContent() {
                                     if (event.data.success) {
                                       console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Force refresh both integration stores
-                                      const [integrationsResult, cachedResult] = await Promise.all([
-                                        fetchIntegrations(true),
-                                        loadIntegrationsOnce(true)
-                                      ]);
+                                      // Refresh the cached integrations store
+                                      await loadIntegrationsOnce(true);
                                       
-                                      console.log('📦 Integration refresh results:', {
-                                        fetchIntegrationsResult: integrationsResult,
-                                        loadIntegrationsOnceResult: cachedResult
-                                      });
+                                      console.log('📦 Integration refresh completed');
                                       
                                       // Small delay to ensure stores are updated
                                       await new Promise(resolve => setTimeout(resolve, 500));
@@ -5977,20 +5963,12 @@ function WorkflowBuilderContent() {
                                 // Do an immediate check as well
                                 pollLocalStorage();
                                 
-                                // DEBUG: Check all localStorage keys immediately
-                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
-                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
-                                
-                                // DEBUG: Test localStorage by manually setting a test entry
-                                const testKey = `oauth_response_test_${Date.now()}`;
-                                localStorage.setItem(testKey, JSON.stringify({
-                                  type: 'oauth-complete',
-                                  success: false,
-                                  provider: 'test',
-                                  message: 'This is a test entry',
-                                  timestamp: new Date().toISOString()
-                                }));
-                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                // Clean up old test entries
+                                const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
+                                keysToClean.forEach(key => {
+                                  localStorage.removeItem(key);
+                                  console.log('🧹 Cleaned up test entry:', key);
+                                });
                                 
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
@@ -6000,6 +5978,8 @@ function WorkflowBuilderContent() {
                                       clearInterval(localStoragePolling);
                                     }
                                     window.removeEventListener('message', handleMessage);
+                                    // Clear the connecting state when popup is closed
+                                    setConnectingIntegrationId(null);
                                     
                                     // Check localStorage one final time
                                     setTimeout(pollLocalStorage, 100);
@@ -6127,6 +6107,9 @@ function WorkflowBuilderContent() {
                                       popup.close();
                                     }
                                     
+                                    // Clear the connecting state
+                                    setConnectingIntegrationId(null);
+                                    
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
                                       // Force refresh integrations
@@ -6142,6 +6125,13 @@ function WorkflowBuilderContent() {
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
                                         description: `Successfully ${needsReauth ? 'reconnected' : 'connected'} to ${selectedIntegration.name}`,
+                                      });
+                                    } else {
+                                      // Show error toast if connection failed
+                                      toast({
+                                        title: "Connection Failed",
+                                        description: event.data.error || event.data.message || "Failed to connect integration",
+                                        variant: "destructive",
                                       });
                                     }
                                   }
@@ -6205,20 +6195,12 @@ function WorkflowBuilderContent() {
                                 // Do an immediate check as well
                                 pollLocalStorage();
                                 
-                                // DEBUG: Check all localStorage keys immediately
-                                console.log('🗒️ DEBUG - All localStorage keys:', Object.keys(localStorage));
-                                console.log('🗒️ DEBUG - OAuth-related keys:', Object.keys(localStorage).filter(k => k.includes('oauth')));
-                                
-                                // DEBUG: Test localStorage by manually setting a test entry
-                                const testKey = `oauth_response_test_${Date.now()}`;
-                                localStorage.setItem(testKey, JSON.stringify({
-                                  type: 'oauth-complete',
-                                  success: false,
-                                  provider: 'test',
-                                  message: 'This is a test entry',
-                                  timestamp: new Date().toISOString()
-                                }));
-                                console.log('🧪 DEBUG - Created test localStorage entry:', testKey);
+                                // Clean up old test entries
+                                const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
+                                keysToClean.forEach(key => {
+                                  localStorage.removeItem(key);
+                                  console.log('🧹 Cleaned up test entry:', key);
+                                });
                                 
                                 // Clean up if popup is closed manually
                                 const checkClosed = setInterval(() => {
@@ -6228,6 +6210,8 @@ function WorkflowBuilderContent() {
                                       clearInterval(localStoragePolling);
                                     }
                                     window.removeEventListener('message', handleMessage);
+                                    // Clear the connecting state when popup is closed
+                                    setConnectingIntegrationId(null);
                                     
                                     // Check localStorage one final time
                                     setTimeout(pollLocalStorage, 100);

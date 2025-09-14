@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
+import {
+  Users,
+  TrendingUp,
+  DollarSign,
   Activity,
   Search,
   Settings,
@@ -21,6 +21,7 @@ import {
   Download,
   RefreshCw
 } from 'lucide-react'
+import AIUsageTest from './AIUsageTest'
 
 interface UserUsage {
   user_id: string
@@ -175,6 +176,8 @@ export default function AIUsageAdmin() {
 
   return (
     <div className="space-y-6">
+      {/* Test Component */}
+      <AIUsageTest />
 
       {/* Statistics Cards */}
       {stats && (
