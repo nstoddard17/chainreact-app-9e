@@ -30,7 +30,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
-import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
+import { useIntegrationsStore } from "@/stores/integrationCacheStore"
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { useWorkflowStepExecutionStore } from "@/stores/workflowStepExecutionStore"
 import { StepExecutionPanel } from "./StepExecutionPanel"
@@ -465,7 +465,7 @@ const useWorkflowBuilderState = () => {
     }
     
     return isConnected;
-  }, [getConnectedProviders])
+  }, [getConnectedProviders, storeIntegrations])
 
 
 
@@ -2516,6 +2516,22 @@ const useWorkflowBuilderState = () => {
       });
     }
   }, []) // Empty dependency array - only run on mount
+  
+  // Fetch integrations when action or trigger dialog opens
+  useEffect(() => {
+    if (showActionDialog || showTriggerDialog) {
+      console.log('📥 [WorkflowBuilder] Dialog opened, fetching integrations', {
+        showActionDialog,
+        showTriggerDialog,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Fetch the latest integrations to ensure we have current connection status
+      fetchIntegrations(true).then(() => {
+        console.log('✅ Integrations fetched for dialog');
+      });
+    }
+  }, [showActionDialog, showTriggerDialog, fetchIntegrations])
   
   // Main save function for the workflow
   const handleSave = async () => {
@@ -5057,10 +5073,9 @@ function WorkflowBuilderContent() {
                                     if (event.data.success) {
                                       console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Refresh the cached integrations store
-                                      await loadIntegrationsOnce(true);
-                                      
-                                      console.log('📦 Integration refresh completed');
+                                      // The main handler will refresh integrations
+                                      // We don't need to do it here in the nested function
+                                      console.log('📦 OAuth success - integrations will be refreshed by main handler');
                                       
                                       // Small delay to ensure stores are updated
                                       await new Promise(resolve => setTimeout(resolve, 500));
@@ -5103,14 +5118,66 @@ function WorkflowBuilderContent() {
                                       setSelectedIntegration(null);
                                       
                                       // Reopen after a delay to force complete refresh
-                                      setTimeout(() => {
+                                      setTimeout(async () => {
                                         if (wasShowingAction) {
                                           setShowActionDialog(true);
                                         }
                                         if (wasShowingTrigger) {
                                           setShowTriggerDialog(true);
                                         }
-                                        setSelectedIntegration(currentSelected);
+                                        
+                                        // Fetch integrations one more time to ensure we have the latest status
+                                        // Use the store directly since fetchIntegrations is not in scope
+                                        await useIntegrationStore.getState().fetchIntegrations(true);
+                                        
+                                        // Force a small delay to ensure store is updated
+                                        await new Promise(resolve => setTimeout(resolve, 100));
+                                        
+                                        // Select the integration that was just connected
+                                        setSelectedIntegration(integration);
+                                        
+                                        // Force re-render to update connection status UI
+                                        forceUpdate({});
+                                        
+                                        // Scroll to the integration after dialog renders with retry mechanism
+                                        const scrollToIntegration = (retryCount = 0) => {
+                                          const element = document.getElementById(`action-integration-${integration.id}`);
+                                          console.log(`🎯 Attempt ${retryCount + 1}: Scrolling to integration:`, integration.id, 'Element found:', !!element);
+                                          
+                                          if (element) {
+                                            // Get the scrollable container (ScrollArea viewport)
+                                            const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                            console.log('📜 Scroll container found:', !!scrollContainer);
+                                            
+                                            if (scrollContainer) {
+                                              // Calculate the exact position
+                                              const containerRect = scrollContainer.getBoundingClientRect();
+                                              const elementRect = element.getBoundingClientRect();
+                                              const relativeTop = elementRect.top - containerRect.top;
+                                              const currentScroll = scrollContainer.scrollTop;
+                                              const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                              
+                                              console.log('📏 Scroll calculation:', {
+                                                currentScroll,
+                                                relativeTop,
+                                                targetScroll
+                                              });
+                                              
+                                              // Scroll to the calculated position
+                                              scrollContainer.scrollTo({
+                                                top: targetScroll,
+                                                behavior: 'smooth'
+                                              });
+                                            }
+                                          } else if (retryCount < 3) {
+                                            // Retry up to 3 times with increasing delays
+                                            setTimeout(() => scrollToIntegration(retryCount + 1), 300 * (retryCount + 1));
+                                          }
+                                        };
+                                        
+                                        // Start scrolling after a delay to ensure dialog is rendered
+                                        setTimeout(() => scrollToIntegration(0), 800);
+                                        
                                         // Also force update to ensure UI refreshes
                                         forceUpdate({});
                                       }, 500);
@@ -5340,15 +5407,53 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      // Force refresh integrations
-                                      await fetchIntegrations(true);
+                                      // Force refresh integrations using the store directly
+                                      await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // Force re-render of the modal by toggling selected integration
-                                      const currentIntegration = selectedIntegration;
-                                      setSelectedIntegration(null);
+                                      // Wait a bit for stores to update
+                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      
+                                      // Store the integration to select
+                                      const integrationToSelect = selectedIntegration;
+                                      
+                                      // Select the integration that was just connected
+                                      setSelectedIntegration(integrationToSelect);
+                                      
+                                      // Force a re-render
+                                      forceUpdate({});
+                                      
+                                      // Scroll to the integration after a delay to ensure DOM is updated
                                       setTimeout(() => {
-                                        setSelectedIntegration(currentIntegration);
-                                      }, 50);
+                                        const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                        console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
+                                        
+                                        if (element) {
+                                          // Get the scrollable container (ScrollArea viewport)
+                                          const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                          console.log('📜 Scroll container found:', !!scrollContainer);
+                                          
+                                          if (scrollContainer) {
+                                            // Calculate the exact position
+                                            const containerRect = scrollContainer.getBoundingClientRect();
+                                            const elementRect = element.getBoundingClientRect();
+                                            const relativeTop = elementRect.top - containerRect.top;
+                                            const currentScroll = scrollContainer.scrollTop;
+                                            const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                            
+                                            console.log('📏 Scroll calculation:', {
+                                              currentScroll,
+                                              relativeTop,
+                                              targetScroll
+                                            });
+                                            
+                                            // Scroll to the calculated position
+                                            scrollContainer.scrollTo({
+                                              top: targetScroll,
+                                              behavior: 'smooth'
+                                            });
+                                          }
+                                        }
+                                      }, 500);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
@@ -5829,10 +5934,9 @@ function WorkflowBuilderContent() {
                                     if (event.data.success) {
                                       console.log('🔄 OAuth success, refreshing integrations...');
                                       
-                                      // Refresh the cached integrations store
-                                      await loadIntegrationsOnce(true);
-                                      
-                                      console.log('📦 Integration refresh completed');
+                                      // The main handler will refresh integrations
+                                      // We don't need to do it here in the nested function
+                                      console.log('📦 OAuth success - integrations will be refreshed by main handler');
                                       
                                       // Small delay to ensure stores are updated
                                       await new Promise(resolve => setTimeout(resolve, 500));
@@ -5875,14 +5979,66 @@ function WorkflowBuilderContent() {
                                       setSelectedIntegration(null);
                                       
                                       // Reopen after a delay to force complete refresh
-                                      setTimeout(() => {
+                                      setTimeout(async () => {
                                         if (wasShowingAction) {
                                           setShowActionDialog(true);
                                         }
                                         if (wasShowingTrigger) {
                                           setShowTriggerDialog(true);
                                         }
-                                        setSelectedIntegration(currentSelected);
+                                        
+                                        // Fetch integrations one more time to ensure we have the latest status
+                                        // Use the store directly since fetchIntegrations is not in scope
+                                        await useIntegrationStore.getState().fetchIntegrations(true);
+                                        
+                                        // Force a small delay to ensure store is updated
+                                        await new Promise(resolve => setTimeout(resolve, 100));
+                                        
+                                        // Select the integration that was just connected
+                                        setSelectedIntegration(integration);
+                                        
+                                        // Force re-render to update connection status UI
+                                        forceUpdate({});
+                                        
+                                        // Scroll to the integration after dialog renders with retry mechanism
+                                        const scrollToIntegration = (retryCount = 0) => {
+                                          const element = document.getElementById(`action-integration-${integration.id}`);
+                                          console.log(`🎯 Attempt ${retryCount + 1}: Scrolling to integration:`, integration.id, 'Element found:', !!element);
+                                          
+                                          if (element) {
+                                            // Get the scrollable container (ScrollArea viewport)
+                                            const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                            console.log('📜 Scroll container found:', !!scrollContainer);
+                                            
+                                            if (scrollContainer) {
+                                              // Calculate the exact position
+                                              const containerRect = scrollContainer.getBoundingClientRect();
+                                              const elementRect = element.getBoundingClientRect();
+                                              const relativeTop = elementRect.top - containerRect.top;
+                                              const currentScroll = scrollContainer.scrollTop;
+                                              const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                              
+                                              console.log('📏 Scroll calculation:', {
+                                                currentScroll,
+                                                relativeTop,
+                                                targetScroll
+                                              });
+                                              
+                                              // Scroll to the calculated position
+                                              scrollContainer.scrollTo({
+                                                top: targetScroll,
+                                                behavior: 'smooth'
+                                              });
+                                            }
+                                          } else if (retryCount < 3) {
+                                            // Retry up to 3 times with increasing delays
+                                            setTimeout(() => scrollToIntegration(retryCount + 1), 300 * (retryCount + 1));
+                                          }
+                                        };
+                                        
+                                        // Start scrolling after a delay to ensure dialog is rendered
+                                        setTimeout(() => scrollToIntegration(0), 800);
+                                        
                                         // Also force update to ensure UI refreshes
                                         forceUpdate({});
                                       }, 500);
@@ -6112,15 +6268,53 @@ function WorkflowBuilderContent() {
                                     
                                     // Refresh integrations to get updated status
                                     if (event.data.success) {
-                                      // Force refresh integrations
-                                      await fetchIntegrations(true);
+                                      // Force refresh integrations using the store directly
+                                      await useIntegrationStore.getState().fetchIntegrations(true);
                                       
-                                      // Force re-render of the modal by toggling selected integration
-                                      const currentIntegration = selectedIntegration;
-                                      setSelectedIntegration(null);
+                                      // Wait a bit for stores to update
+                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      
+                                      // Store the integration to select
+                                      const integrationToSelect = selectedIntegration;
+                                      
+                                      // Select the integration that was just connected
+                                      setSelectedIntegration(integrationToSelect);
+                                      
+                                      // Force a re-render
+                                      forceUpdate({});
+                                      
+                                      // Scroll to the integration after a delay to ensure DOM is updated
                                       setTimeout(() => {
-                                        setSelectedIntegration(currentIntegration);
-                                      }, 50);
+                                        const element = document.getElementById(`action-integration-${integrationToSelect.id}`);
+                                        console.log(`🎯 Scrolling to integration:`, integrationToSelect.id, 'Element found:', !!element);
+                                        
+                                        if (element) {
+                                          // Get the scrollable container (ScrollArea viewport)
+                                          const scrollContainer = element.closest('[data-radix-scroll-area-viewport]');
+                                          console.log('📜 Scroll container found:', !!scrollContainer);
+                                          
+                                          if (scrollContainer) {
+                                            // Calculate the exact position
+                                            const containerRect = scrollContainer.getBoundingClientRect();
+                                            const elementRect = element.getBoundingClientRect();
+                                            const relativeTop = elementRect.top - containerRect.top;
+                                            const currentScroll = scrollContainer.scrollTop;
+                                            const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
+                                            
+                                            console.log('📏 Scroll calculation:', {
+                                              currentScroll,
+                                              relativeTop,
+                                              targetScroll
+                                            });
+                                            
+                                            // Scroll to the calculated position
+                                            scrollContainer.scrollTo({
+                                              top: targetScroll,
+                                              behavior: 'smooth'
+                                            });
+                                          }
+                                        }
+                                      }, 500);
                                       
                                       toast({
                                         title: needsReauth ? "Reconnection Successful" : "Connection Successful",
