@@ -298,7 +298,7 @@ function ConfigurationForm({
     
     // Find fields that should load on mount
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => 
-      field.loadOnMount === true && field.dynamic === true
+      field.loadOnMount === true && field.dynamic
     );
     
     if (fieldsToLoad.length > 0) {
