@@ -58,7 +58,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   // Removed localStorage management for auto-refresh toggles
 
-  // Smart refresh on tab focus - only if user was away for more than 5 minutes
+  // Smart refresh on tab focus - refresh immediately after OAuth or if away for > 5 minutes
   useEffect(() => {
     let lastHiddenTime: number | null = null;
     
@@ -69,9 +69,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       } else if (document.visibilityState === 'visible' && wasHidden && lastHiddenTime) {
         const timeAway = Date.now() - lastHiddenTime;
         const fiveMinutes = 5 * 60 * 1000;
+        const thirtySeconds = 30 * 1000;
         
-        // Only refresh if user was away for more than 5 minutes
-        if (timeAway > fiveMinutes) {
+        // Refresh immediately if user was away for less than 30 seconds (likely OAuth flow)
+        // OR if user was away for more than 5 minutes (stale data)
+        if (timeAway < thirtySeconds || timeAway > fiveMinutes) {
+          console.log(`🔄 Refreshing integrations after ${timeAway < thirtySeconds ? 'OAuth flow' : 'extended absence'}`);
           fetchIntegrations(true);
           fetchMetrics();
         }
@@ -86,6 +89,40 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [wasHidden, fetchIntegrations]);
+
+  // Listen for OAuth completion events to immediately refresh integrations
+  useEffect(() => {
+    const handleOAuthComplete = (event: MessageEvent) => {
+      if (event.data?.type === 'oauth-complete' && event.data?.success) {
+        console.log(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
+        fetchIntegrations(true);
+        fetchMetrics();
+      }
+    };
+
+    // Listen for postMessage events
+    window.addEventListener('message', handleOAuthComplete);
+
+    // Also listen for BroadcastChannel events
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      broadcastChannel = new BroadcastChannel('oauth_channel');
+      broadcastChannel.onmessage = (event) => {
+        if (event.data?.type === 'oauth-complete' && event.data?.success) {
+          console.log(`✅ OAuth completed via BroadcastChannel for ${event.data.provider}, refreshing integrations...`);
+          fetchIntegrations(true);
+          fetchMetrics();
+        }
+      };
+    } catch (e) {
+      console.log('BroadcastChannel not available');
+    }
+
+    return () => {
+      window.removeEventListener('message', handleOAuthComplete);
+      broadcastChannel?.close();
+    };
+  }, [fetchIntegrations]);
 
   useEffect(() => {
     if (providers.length === 0) {
