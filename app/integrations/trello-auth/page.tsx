@@ -72,14 +72,16 @@ export default function TrelloAuthCallback() {
         }
         
         // Also store in localStorage as backup for COOP restrictions
-        const timestamp = new Date().toISOString()
-        localStorage.setItem(`oauth_response_${timestamp}`, JSON.stringify({
+        const timestamp = Date.now()
+        const storageKey = `oauth_response_trello_${timestamp}`
+        localStorage.setItem(storageKey, JSON.stringify({
           type: 'oauth-complete',
           success: true,
           provider: 'trello',
           message: 'Trello connected successfully',
-          timestamp
+          timestamp: new Date().toISOString()
         }))
+        console.log('Stored OAuth response in localStorage with key:', storageKey)
 
         // Show success message with app theme
         document.body.innerHTML = `
@@ -115,14 +117,16 @@ export default function TrelloAuthCallback() {
         }
         
         // Also store in localStorage as backup
-        const timestamp = new Date().toISOString()
-        localStorage.setItem(`oauth_response_${timestamp}`, JSON.stringify({
+        const timestamp = Date.now()
+        const storageKey = `oauth_response_trello_${timestamp}`
+        localStorage.setItem(storageKey, JSON.stringify({
           type: 'oauth-complete',
           success: false,
           provider: 'trello',
           error: error.message || 'Failed to connect Trello',
-          timestamp
+          timestamp: new Date().toISOString()
         }))
+        console.log('Stored OAuth error in localStorage with key:', storageKey)
 
         // Show error message with app theme
         document.body.innerHTML = `

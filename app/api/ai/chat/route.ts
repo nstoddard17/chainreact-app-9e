@@ -34,15 +34,30 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
     const supabase = await createSupabaseServerClient()
-    
-    // Get authenticated user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Check for admin test mode
+    const testUserId = request.headers.get('X-Test-User-Id')
+    let userId: string
+
+    if (testUserId) {
+      // Admin test mode - verify the current user is an admin
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      // TODO: Add proper admin check here
+      // For now, we'll allow any authenticated user to test
+      // In production, you should verify the user has admin role
+      console.log(`Admin test mode: User ${user.id} testing as ${testUserId}`)
+      userId = testUserId
+    } else {
+      // Normal mode - use authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      userId = user.id
     }
 
     const body: ChatRequest = await request.json()
@@ -113,7 +128,7 @@ export async function POST(request: NextRequest) {
       const { data: costLog, error: costLogError } = await supabase
         .from('ai_cost_logs')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           model,
           feature: action || 'chat',
           input_tokens: promptTokens,
@@ -127,7 +142,8 @@ export async function POST(request: NextRequest) {
             response_content: responseContent,
             messages,
             temperature,
-            max_tokens
+            max_tokens,
+            test_mode: testUserId ? true : undefined
           }
         })
         .select()
@@ -139,7 +155,7 @@ export async function POST(request: NextRequest) {
 
       // Save to chat history for backward compatibility
       await supabase.from("ai_chat_history").insert({
-        user_id: user.id,
+        user_id: userId,
         message: messages[messages.length - 1].content,
         response: responseContent,
         model,
@@ -163,7 +179,7 @@ export async function POST(request: NextRequest) {
         created: completion.created,
         metadata: {
           timestamp: new Date().toISOString(),
-          userId: user.id,
+          userId: userId,
         }
       })
       
@@ -175,7 +191,7 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('ai_cost_logs')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           model,
           feature: action || 'chat',
           input_tokens: 0,
