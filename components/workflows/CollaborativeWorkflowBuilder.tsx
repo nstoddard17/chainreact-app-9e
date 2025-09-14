@@ -3848,6 +3848,9 @@ function WorkflowBuilderContent() {
   const { setCurrentWorkflow } = useWorkflowStore()
   const { data: integrations } = useIntegrationsStore()
   
+  // Store polling instances to prevent conflicts when connecting multiple integrations
+  const pollingInstancesRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  
   const {
     nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
@@ -4790,8 +4793,11 @@ function WorkflowBuilderContent() {
                                     
                                     // Don't process this as a success - popup was likely blocked
                                     window.removeEventListener('message', handleMessage);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(selectedIntegration.id);
+                                      console.log(`🔒 [${selectedIntegration.id}] Cleared polling after popup closed`);
                                     }
                                     
                                     // Show popup blocked message
@@ -4832,11 +4838,38 @@ function WorkflowBuilderContent() {
                                       // Store the integration to select
                                       const integrationToSelect = integration;
                                       
+                                      // Wait for the integration to actually be connected in the store
+                                      let retries = 0;
+                                      const maxRetries = 10;
+                                      while (retries < maxRetries) {
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                        
+                                        // Check if the integration is now connected
+                                        const storeIntegrations = useIntegrationStore.getState().integrations;
+                                        const connectedIntegration = storeIntegrations.find(
+                                          i => i.provider === integrationToSelect.id && i.status === 'connected'
+                                        );
+                                        
+                                        if (connectedIntegration) {
+                                          console.log('✅ Integration confirmed as connected:', integrationToSelect.id);
+                                          break;
+                                        }
+                                        
+                                        console.log(`⏳ Waiting for integration to be connected... (attempt ${retries + 1}/${maxRetries})`);
+                                        
+                                        // Try fetching again
+                                        if (retries % 2 === 0) {
+                                          await useIntegrationStore.getState().fetchIntegrations(true);
+                                        }
+                                        
+                                        retries++;
+                                      }
+                                      
                                       // Force a re-render by clearing and resetting selection
                                       setSelectedIntegration(null);
                                       
-                                      // Wait a bit for the store to update
-                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      // Small delay to ensure state update
+                                      await new Promise(resolve => setTimeout(resolve, 50));
                                       
                                       // Now select the integration
                                       setSelectedIntegration(integrationToSelect);
@@ -4893,15 +4926,42 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Set up BroadcastChannel listener for Trello and other same-origin OAuth flows
+                                let broadcastChannel: BroadcastChannel | null = null;
+                                try {
+                                  broadcastChannel = new BroadcastChannel('oauth_channel');
+                                  broadcastChannel.onmessage = (event) => {
+                                    console.log('📡 Received OAuth via BroadcastChannel:', event.data);
+                                    if (event.data.provider === integration.id.toLowerCase()) {
+                                      handleMessage({ 
+                                        data: event.data,
+                                        origin: window.location.origin 
+                                      } as MessageEvent);
+                                      broadcastChannel?.close();
+                                    }
+                                  };
+                                } catch (e) {
+                                  console.log('BroadcastChannel not available');
+                                }
+                                
                                 // Also poll localStorage as a fallback (COOP-safe)
-                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                // Create a unique key for this polling instance
+                                const pollingKey = `${selectedIntegration.id}_${Date.now()}`;
+                                
+                                // Clear ALL existing polling instances to prevent conflicts
+                                pollingInstancesRef.current.forEach((polling, key) => {
+                                  console.log(`🛑 Clearing existing polling for ${key}`);
+                                  clearInterval(polling);
+                                });
+                                pollingInstancesRef.current.clear();
+                                
                                 const pollLocalStorage = () => {
                                   try {
                                     // Check for OAuth response in localStorage
                                     const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
                                     
                                     if (keys.length > 0) {
-                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      console.log(`🔍 [${selectedIntegration.id}] Found localStorage keys starting with oauth_response_:`, keys);
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
@@ -4925,8 +4985,9 @@ function WorkflowBuilderContent() {
                                                        integrationIdLower.includes(providerLower);
                                         
                                         if (isMatch) {
-                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`✅ [${integration.id}] Provider match found! Processing OAuth response:`, data);
                                           console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
+                                          console.log(`Integration details:`, { id: integration.id, name: integration.name, provider: integration.provider });
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -4941,27 +5002,52 @@ function WorkflowBuilderContent() {
                                             origin: window.location.origin
                                           } as MessageEvent);
                                           
-                                          if (localStoragePolling) {
-                                            clearInterval(localStoragePolling);
-                                            localStoragePolling = null;
+                                          // Clear the polling for this integration
+                                          const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                          if (polling) {
+                                            clearInterval(polling);
+                                            pollingInstancesRef.current.delete(selectedIntegration.id);
+                                            console.log(`✅ [${selectedIntegration.id}] Cleared polling after successful match`);
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
+                                          console.log(`❌ [${selectedIntegration.id}] Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
                                   } catch (e) {
-                                    console.error('Error checking localStorage:', e);
+                                    console.error(`Error checking localStorage for ${selectedIntegration.id}:`, e);
                                   }
                                 };
                                 
-                                // Start polling localStorage
-                                console.log('🔄 Starting localStorage polling for OAuth response...');
-                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                // Clean up old OAuth responses for this provider before starting
+                                const oldOAuthKeys = Object.keys(localStorage).filter(k => 
+                                  k.startsWith('oauth_response_') && k.includes(selectedIntegration.id.toLowerCase())
+                                );
+                                oldOAuthKeys.forEach(key => {
+                                  console.log(`🧹 [${selectedIntegration.id}] Cleaning up old OAuth response: ${key}`);
+                                  localStorage.removeItem(key);
+                                });
                                 
-                                // Do an immediate check as well
-                                pollLocalStorage();
+                                // Start polling localStorage
+                                console.log(`🔄 [${selectedIntegration.id}] Starting localStorage polling for OAuth response...`);
+                                const localStoragePolling = setInterval(pollLocalStorage, 500);
+                                pollingInstancesRef.current.set(selectedIntegration.id, localStoragePolling);
+                                
+                                // Do an immediate check as well but delay slightly to avoid race condition
+                                setTimeout(() => {
+                                  pollLocalStorage();
+                                }, 100);
+                                
+                                // Stop polling after 30 seconds (increased from default)
+                                setTimeout(() => {
+                                  const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                  if (polling) {
+                                    clearInterval(polling);
+                                    pollingInstancesRef.current.delete(selectedIntegration.id);
+                                    console.log(`⏱️ [${selectedIntegration.id}] Stopped localStorage polling after 30 seconds`);
+                                  }
+                                }, 30000);
                                 
                                 // Clean up old test entries
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
@@ -4973,8 +5059,11 @@ function WorkflowBuilderContent() {
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(selectedIntegration.id);
+                                      console.log(`🔒 [${selectedIntegration.id}] Cleared polling after popup closed`);
                                     }
                                     window.removeEventListener('message', handleMessage);
                                     // Clear the connecting state when popup is closed
@@ -5209,15 +5298,42 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Set up BroadcastChannel listener for Trello and other same-origin OAuth flows
+                                let broadcastChannel: BroadcastChannel | null = null;
+                                try {
+                                  broadcastChannel = new BroadcastChannel('oauth_channel');
+                                  broadcastChannel.onmessage = (event) => {
+                                    console.log('📡 Received OAuth via BroadcastChannel:', event.data);
+                                    if (event.data.provider === integration.id.toLowerCase()) {
+                                      handleMessage({ 
+                                        data: event.data,
+                                        origin: window.location.origin 
+                                      } as MessageEvent);
+                                      broadcastChannel?.close();
+                                    }
+                                  };
+                                } catch (e) {
+                                  console.log('BroadcastChannel not available');
+                                }
+                                
                                 // Also poll localStorage as a fallback (COOP-safe)
-                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                // Create a unique key for this polling instance
+                                const pollingKey = `${selectedIntegration.id}_${Date.now()}`;
+                                
+                                // Clear ALL existing polling instances to prevent conflicts
+                                pollingInstancesRef.current.forEach((polling, key) => {
+                                  console.log(`🛑 Clearing existing polling for ${key}`);
+                                  clearInterval(polling);
+                                });
+                                pollingInstancesRef.current.clear();
+                                
                                 const pollLocalStorage = () => {
                                   try {
                                     // Check for OAuth response in localStorage
                                     const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
                                     
                                     if (keys.length > 0) {
-                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      console.log(`🔍 [${selectedIntegration.id}] Found localStorage keys starting with oauth_response_:`, keys);
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
@@ -5241,8 +5357,9 @@ function WorkflowBuilderContent() {
                                                        integrationIdLower.includes(providerLower);
                                         
                                         if (isMatch) {
-                                          console.log('✅ Provider match found! Processing OAuth response:', data);
-                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
+                                          console.log(`✅ [${selectedIntegration.id}] Provider match found! Processing OAuth response:`, data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${selectedIntegration.id}"`);
+                                          console.log(`Integration details:`, { id: selectedIntegration.id, name: selectedIntegration.name, provider: selectedIntegration.provider });
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -5257,27 +5374,52 @@ function WorkflowBuilderContent() {
                                             origin: window.location.origin
                                           } as MessageEvent);
                                           
-                                          if (localStoragePolling) {
-                                            clearInterval(localStoragePolling);
-                                            localStoragePolling = null;
+                                          // Clear the polling for this integration
+                                          const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                          if (polling) {
+                                            clearInterval(polling);
+                                            pollingInstancesRef.current.delete(selectedIntegration.id);
+                                            console.log(`✅ [${selectedIntegration.id}] Cleared polling after successful match`);
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
+                                          console.log(`❌ [${selectedIntegration.id}] Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
                                   } catch (e) {
-                                    console.error('Error checking localStorage:', e);
+                                    console.error(`Error checking localStorage for ${selectedIntegration.id}:`, e);
                                   }
                                 };
                                 
-                                // Start polling localStorage
-                                console.log('🔄 Starting localStorage polling for OAuth response...');
-                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                // Clean up old OAuth responses for this provider before starting
+                                const oldOAuthKeys = Object.keys(localStorage).filter(k => 
+                                  k.startsWith('oauth_response_') && k.includes(selectedIntegration.id.toLowerCase())
+                                );
+                                oldOAuthKeys.forEach(key => {
+                                  console.log(`🧹 [${selectedIntegration.id}] Cleaning up old OAuth response: ${key}`);
+                                  localStorage.removeItem(key);
+                                });
                                 
-                                // Do an immediate check as well
-                                pollLocalStorage();
+                                // Start polling localStorage
+                                console.log(`🔄 [${selectedIntegration.id}] Starting localStorage polling for OAuth response...`);
+                                const localStoragePolling = setInterval(pollLocalStorage, 500);
+                                pollingInstancesRef.current.set(selectedIntegration.id, localStoragePolling);
+                                
+                                // Do an immediate check as well but delay slightly to avoid race condition
+                                setTimeout(() => {
+                                  pollLocalStorage();
+                                }, 100);
+                                
+                                // Stop polling after 30 seconds (increased from default)
+                                setTimeout(() => {
+                                  const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                  if (polling) {
+                                    clearInterval(polling);
+                                    pollingInstancesRef.current.delete(selectedIntegration.id);
+                                    console.log(`⏱️ [${selectedIntegration.id}] Stopped localStorage polling after 30 seconds`);
+                                  }
+                                }, 30000);
                                 
                                 // Clean up old test entries
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
@@ -5289,8 +5431,11 @@ function WorkflowBuilderContent() {
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(selectedIntegration.id);
+                                      console.log(`🔒 [${selectedIntegration.id}] Cleared polling after popup closed`);
                                     }
                                     window.removeEventListener('message', handleMessage);
                                     // Clear the connecting state when popup is closed
@@ -5673,8 +5818,11 @@ function WorkflowBuilderContent() {
                                     
                                     // Don't process this as a success - popup was likely blocked
                                     window.removeEventListener('message', handleMessage);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(selectedIntegration.id);
+                                      console.log(`🔒 [${selectedIntegration.id}] Cleared polling after popup closed`);
                                     }
                                     
                                     // Show popup blocked message
@@ -5715,11 +5863,38 @@ function WorkflowBuilderContent() {
                                       // Store the integration to select
                                       const integrationToSelect = integration;
                                       
+                                      // Wait for the integration to actually be connected in the store
+                                      let retries = 0;
+                                      const maxRetries = 10;
+                                      while (retries < maxRetries) {
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                        
+                                        // Check if the integration is now connected
+                                        const storeIntegrations = useIntegrationStore.getState().integrations;
+                                        const connectedIntegration = storeIntegrations.find(
+                                          i => i.provider === integrationToSelect.id && i.status === 'connected'
+                                        );
+                                        
+                                        if (connectedIntegration) {
+                                          console.log('✅ Integration confirmed as connected:', integrationToSelect.id);
+                                          break;
+                                        }
+                                        
+                                        console.log(`⏳ Waiting for integration to be connected... (attempt ${retries + 1}/${maxRetries})`);
+                                        
+                                        // Try fetching again
+                                        if (retries % 2 === 0) {
+                                          await useIntegrationStore.getState().fetchIntegrations(true);
+                                        }
+                                        
+                                        retries++;
+                                      }
+                                      
                                       // Force a re-render by clearing and resetting selection
                                       setSelectedIntegration(null);
                                       
-                                      // Wait a bit for the store to update
-                                      await new Promise(resolve => setTimeout(resolve, 100));
+                                      // Small delay to ensure state update
+                                      await new Promise(resolve => setTimeout(resolve, 50));
                                       
                                       // Now select the integration
                                       setSelectedIntegration(integrationToSelect);
@@ -5776,15 +5951,42 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Set up BroadcastChannel listener for Trello and other same-origin OAuth flows
+                                let broadcastChannel: BroadcastChannel | null = null;
+                                try {
+                                  broadcastChannel = new BroadcastChannel('oauth_channel');
+                                  broadcastChannel.onmessage = (event) => {
+                                    console.log('📡 Received OAuth via BroadcastChannel:', event.data);
+                                    if (event.data.provider === integration.id.toLowerCase()) {
+                                      handleMessage({ 
+                                        data: event.data,
+                                        origin: window.location.origin 
+                                      } as MessageEvent);
+                                      broadcastChannel?.close();
+                                    }
+                                  };
+                                } catch (e) {
+                                  console.log('BroadcastChannel not available');
+                                }
+                                
                                 // Also poll localStorage as a fallback (COOP-safe)
-                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                // Create a unique key for this polling instance
+                                const pollingKey = `${integration.id}_${Date.now()}`;
+                                
+                                // Clear ALL existing polling instances to prevent conflicts
+                                pollingInstancesRef.current.forEach((polling, key) => {
+                                  console.log(`🛑 Clearing existing polling for ${key}`);
+                                  clearInterval(polling);
+                                });
+                                pollingInstancesRef.current.clear();
+                                
                                 const pollLocalStorage = () => {
                                   try {
                                     // Check for OAuth response in localStorage
                                     const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
                                     
                                     if (keys.length > 0) {
-                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      console.log(`🔍 [${integration.id}] Found localStorage keys starting with oauth_response_:`, keys);
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
@@ -5808,8 +6010,9 @@ function WorkflowBuilderContent() {
                                                        integrationIdLower.includes(providerLower);
                                         
                                         if (isMatch) {
-                                          console.log('✅ Provider match found! Processing OAuth response:', data);
+                                          console.log(`✅ [${integration.id}] Provider match found! Processing OAuth response:`, data);
                                           console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
+                                          console.log(`Integration details:`, { id: integration.id, name: integration.name, provider: integration.provider });
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -5824,27 +6027,53 @@ function WorkflowBuilderContent() {
                                             origin: window.location.origin
                                           } as MessageEvent);
                                           
-                                          if (localStoragePolling) {
-                                            clearInterval(localStoragePolling);
-                                            localStoragePolling = null;
+                                          // Clear the polling for this integration
+                                          const polling = pollingInstancesRef.current.get(integration.id);
+                                          if (polling) {
+                                            clearInterval(polling);
+                                            pollingInstancesRef.current.delete(integration.id);
+                                            console.log(`✅ [${integration.id}] Cleared polling after successful match`);
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${integration.id}" or "${integration.name}"`);
+                                          console.log(`❌ [${integration.id}] Provider mismatch: "${data.provider}" !== "${integration.id}" or "${integration.name}"`);
                                         }
                                       }
                                     }
                                   } catch (e) {
-                                    console.error('Error checking localStorage:', e);
+                                    console.error(`Error checking localStorage for ${integration.id}:`, e);
                                   }
                                 };
                                 
-                                // Start polling localStorage
-                                console.log('🔄 Starting localStorage polling for OAuth response...');
-                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                // Clean up ALL old OAuth responses before starting a new one
+                                // This prevents race conditions where old responses interfere
+                                const oldOAuthKeys = Object.keys(localStorage).filter(k => 
+                                  k.startsWith('oauth_response_')
+                                );
+                                oldOAuthKeys.forEach(key => {
+                                  console.log(`🧹 [${integration.id}] Cleaning up old OAuth response: ${key}`);
+                                  localStorage.removeItem(key);
+                                });
                                 
-                                // Do an immediate check as well
-                                pollLocalStorage();
+                                // Start polling localStorage
+                                console.log(`🔄 [${integration.id}] Starting localStorage polling for OAuth response...`);
+                                const localStoragePolling = setInterval(pollLocalStorage, 500);
+                                pollingInstancesRef.current.set(integration.id, localStoragePolling);
+                                
+                                // Do an immediate check as well but delay slightly to avoid race condition
+                                setTimeout(() => {
+                                  pollLocalStorage();
+                                }, 100);
+                                
+                                // Stop polling after 30 seconds (increased from default)
+                                setTimeout(() => {
+                                  const polling = pollingInstancesRef.current.get(integration.id);
+                                  if (polling) {
+                                    clearInterval(polling);
+                                    pollingInstancesRef.current.delete(integration.id);
+                                    console.log(`⏱️ [${integration.id}] Stopped localStorage polling after 30 seconds`);
+                                  }
+                                }, 30000);
                                 
                                 // Clean up old test entries
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
@@ -5856,20 +6085,27 @@ function WorkflowBuilderContent() {
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(integration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(integration.id);
+                                      console.log(`🔒 [${integration.id}] Cleared polling after popup closed`);
                                     }
                                     window.removeEventListener('message', handleMessage);
-                                    // Clear the connecting state when popup is closed
-                                    setConnectingIntegrationId(null);
                                     
-                                    // Check localStorage one final time
-                                    setTimeout(pollLocalStorage, 100);
-                                    
-                                    // Clear loading state after a delay if no response
+                                    // Check localStorage one final time with a longer delay
+                                    // This catches OAuth responses that arrive just as the popup closes
                                     setTimeout(() => {
-                                      setConnectingIntegrationId(null);
-                                    }, 2000);
+                                      console.log(`🔍 [${integration.id}] Final check after popup close...`);
+                                      pollLocalStorage();
+                                      
+                                      // Check again after a short delay
+                                      setTimeout(() => {
+                                        pollLocalStorage();
+                                        // Clear the connecting state only after final checks
+                                        setConnectingIntegrationId(null);
+                                      }, 500);
+                                    }, 100);
                                   }
                                 }, 1000);
                               }
@@ -6092,15 +6328,42 @@ function WorkflowBuilderContent() {
                                 
                                 window.addEventListener('message', handleMessage);
                                 
+                                // Set up BroadcastChannel listener for Trello and other same-origin OAuth flows
+                                let broadcastChannel: BroadcastChannel | null = null;
+                                try {
+                                  broadcastChannel = new BroadcastChannel('oauth_channel');
+                                  broadcastChannel.onmessage = (event) => {
+                                    console.log('📡 Received OAuth via BroadcastChannel:', event.data);
+                                    if (event.data.provider === integration.id.toLowerCase()) {
+                                      handleMessage({ 
+                                        data: event.data,
+                                        origin: window.location.origin 
+                                      } as MessageEvent);
+                                      broadcastChannel?.close();
+                                    }
+                                  };
+                                } catch (e) {
+                                  console.log('BroadcastChannel not available');
+                                }
+                                
                                 // Also poll localStorage as a fallback (COOP-safe)
-                                let localStoragePolling: NodeJS.Timeout | null = null;
+                                // Create a unique key for this polling instance
+                                const pollingKey = `${selectedIntegration.id}_${Date.now()}`;
+                                
+                                // Clear ALL existing polling instances to prevent conflicts
+                                pollingInstancesRef.current.forEach((polling, key) => {
+                                  console.log(`🛑 Clearing existing polling for ${key}`);
+                                  clearInterval(polling);
+                                });
+                                pollingInstancesRef.current.clear();
+                                
                                 const pollLocalStorage = () => {
                                   try {
                                     // Check for OAuth response in localStorage
                                     const keys = Object.keys(localStorage).filter(k => k.startsWith('oauth_response_'));
                                     
                                     if (keys.length > 0) {
-                                      console.log('🔍 Found localStorage keys starting with oauth_response_:', keys);
+                                      console.log(`🔍 [${selectedIntegration.id}] Found localStorage keys starting with oauth_response_:`, keys);
                                       
                                       for (const key of keys) {
                                         const rawData = localStorage.getItem(key);
@@ -6124,8 +6387,9 @@ function WorkflowBuilderContent() {
                                                        integrationIdLower.includes(providerLower);
                                         
                                         if (isMatch) {
-                                          console.log('✅ Provider match found! Processing OAuth response:', data);
-                                          console.log(`Matched: provider="${data.provider}" with integration="${integration.id}"`);
+                                          console.log(`✅ [${selectedIntegration.id}] Provider match found! Processing OAuth response:`, data);
+                                          console.log(`Matched: provider="${data.provider}" with integration="${selectedIntegration.id}"`);
+                                          console.log(`Integration details:`, { id: selectedIntegration.id, name: selectedIntegration.name, provider: selectedIntegration.provider });
                                           localStorage.removeItem(key);
                                           
                                           // Process the OAuth response
@@ -6140,27 +6404,52 @@ function WorkflowBuilderContent() {
                                             origin: window.location.origin
                                           } as MessageEvent);
                                           
-                                          if (localStoragePolling) {
-                                            clearInterval(localStoragePolling);
-                                            localStoragePolling = null;
+                                          // Clear the polling for this integration
+                                          const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                          if (polling) {
+                                            clearInterval(polling);
+                                            pollingInstancesRef.current.delete(selectedIntegration.id);
+                                            console.log(`✅ [${selectedIntegration.id}] Cleared polling after successful match`);
                                           }
                                           break;
                                         } else {
-                                          console.log(`❌ Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
+                                          console.log(`❌ [${selectedIntegration.id}] Provider mismatch: "${data.provider}" !== "${selectedIntegration.id}" or "${selectedIntegration.name}"`);
                                         }
                                       }
                                     }
                                   } catch (e) {
-                                    console.error('Error checking localStorage:', e);
+                                    console.error(`Error checking localStorage for ${selectedIntegration.id}:`, e);
                                   }
                                 };
                                 
-                                // Start polling localStorage
-                                console.log('🔄 Starting localStorage polling for OAuth response...');
-                                localStoragePolling = setInterval(pollLocalStorage, 500);
+                                // Clean up old OAuth responses for this provider before starting
+                                const oldOAuthKeys = Object.keys(localStorage).filter(k => 
+                                  k.startsWith('oauth_response_') && k.includes(selectedIntegration.id.toLowerCase())
+                                );
+                                oldOAuthKeys.forEach(key => {
+                                  console.log(`🧹 [${selectedIntegration.id}] Cleaning up old OAuth response: ${key}`);
+                                  localStorage.removeItem(key);
+                                });
                                 
-                                // Do an immediate check as well
-                                pollLocalStorage();
+                                // Start polling localStorage
+                                console.log(`🔄 [${selectedIntegration.id}] Starting localStorage polling for OAuth response...`);
+                                const localStoragePolling = setInterval(pollLocalStorage, 500);
+                                pollingInstancesRef.current.set(selectedIntegration.id, localStoragePolling);
+                                
+                                // Do an immediate check as well but delay slightly to avoid race condition
+                                setTimeout(() => {
+                                  pollLocalStorage();
+                                }, 100);
+                                
+                                // Stop polling after 30 seconds (increased from default)
+                                setTimeout(() => {
+                                  const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                  if (polling) {
+                                    clearInterval(polling);
+                                    pollingInstancesRef.current.delete(selectedIntegration.id);
+                                    console.log(`⏱️ [${selectedIntegration.id}] Stopped localStorage polling after 30 seconds`);
+                                  }
+                                }, 30000);
                                 
                                 // Clean up old test entries
                                 const keysToClean = Object.keys(localStorage).filter(k => k.includes('oauth_response_test'));
@@ -6172,8 +6461,11 @@ function WorkflowBuilderContent() {
                                 const checkClosed = setInterval(() => {
                                   if (popup && popup.closed) {
                                     clearInterval(checkClosed);
-                                    if (localStoragePolling) {
-                                      clearInterval(localStoragePolling);
+                                    const polling = pollingInstancesRef.current.get(selectedIntegration.id);
+                                    if (polling) {
+                                      clearInterval(polling);
+                                      pollingInstancesRef.current.delete(selectedIntegration.id);
+                                      console.log(`🔒 [${selectedIntegration.id}] Cleared polling after popup closed`);
                                     }
                                     window.removeEventListener('message', handleMessage);
                                     // Clear the connecting state when popup is closed

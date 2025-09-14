@@ -61,7 +61,32 @@ export default function TrelloAuthCallback() {
           throw new Error(error.message || 'Failed to save Trello integration')
         }
 
-        // Send success message to parent window if it exists
+        // Create OAuth response data
+        const timestamp = Date.now()
+        const storageKey = `oauth_response_trello_${timestamp}`
+        const oauthData = {
+          type: 'oauth-complete',
+          success: true,
+          provider: 'trello',
+          message: 'Trello connected successfully',
+          timestamp: new Date().toISOString()
+        }
+        
+        // Method 1: Try BroadcastChannel (works across same-origin contexts)
+        try {
+          const channel = new BroadcastChannel('oauth_channel')
+          channel.postMessage(oauthData)
+          console.log('Sent OAuth response via BroadcastChannel')
+          channel.close()
+        } catch (e) {
+          console.log('BroadcastChannel not available or failed:', e)
+        }
+        
+        // Method 2: Store in localStorage (both current and parent if possible)
+        localStorage.setItem(storageKey, JSON.stringify(oauthData))
+        console.log('Stored OAuth response in localStorage with key:', storageKey)
+        
+        // Method 3: PostMessage to parent window
         if (window.opener) {
           window.opener.postMessage({
             type: 'oauth-complete',
@@ -69,19 +94,16 @@ export default function TrelloAuthCallback() {
             provider: 'trello',
             message: 'Trello connected successfully'
           }, window.location.origin)
+          console.log('Sent OAuth response via postMessage')
+          
+          // Try to access parent localStorage (may fail due to COOP)
+          try {
+            window.opener.localStorage.setItem(storageKey, JSON.stringify(oauthData))
+            console.log('Also stored in parent localStorage')
+          } catch (e) {
+            console.log('Could not access parent localStorage due to COOP')
+          }
         }
-        
-        // Also store in localStorage as backup for COOP restrictions
-        const timestamp = Date.now()
-        const storageKey = `oauth_response_trello_${timestamp}`
-        localStorage.setItem(storageKey, JSON.stringify({
-          type: 'oauth-complete',
-          success: true,
-          provider: 'trello',
-          message: 'Trello connected successfully',
-          timestamp: new Date().toISOString()
-        }))
-        console.log('Stored OAuth response in localStorage with key:', storageKey)
 
         // Show success message with app theme
         document.body.innerHTML = `
@@ -114,19 +136,38 @@ export default function TrelloAuthCallback() {
             provider: 'trello',
             error: error.message || 'Failed to connect Trello'
           }, window.location.origin)
+          
+          // ALSO store in parent window's localStorage for COOP restrictions
+          try {
+            const timestamp = Date.now()
+            const storageKey = `oauth_response_trello_${timestamp}`
+            const oauthData = JSON.stringify({
+              type: 'oauth-complete',
+              success: false,
+              provider: 'trello',
+              error: error.message || 'Failed to connect Trello',
+              timestamp: new Date().toISOString()
+            })
+            
+            // Try to store in parent window's localStorage
+            window.opener.localStorage.setItem(storageKey, oauthData)
+            console.log('Stored OAuth error in parent localStorage with key:', storageKey)
+          } catch (e) {
+            console.log('Could not access parent localStorage due to COOP, will rely on postMessage')
+          }
+        } else {
+          // No parent window, store in current window's localStorage as fallback
+          const timestamp = Date.now()
+          const storageKey = `oauth_response_trello_${timestamp}`
+          localStorage.setItem(storageKey, JSON.stringify({
+            type: 'oauth-complete',
+            success: false,
+            provider: 'trello',
+            error: error.message || 'Failed to connect Trello',
+            timestamp: new Date().toISOString()
+          }))
+          console.log('No parent window, stored OAuth error in current localStorage with key:', storageKey)
         }
-        
-        // Also store in localStorage as backup
-        const timestamp = Date.now()
-        const storageKey = `oauth_response_trello_${timestamp}`
-        localStorage.setItem(storageKey, JSON.stringify({
-          type: 'oauth-complete',
-          success: false,
-          provider: 'trello',
-          error: error.message || 'Failed to connect Trello',
-          timestamp: new Date().toISOString()
-        }))
-        console.log('Stored OAuth error in localStorage with key:', storageKey)
 
         // Show error message with app theme
         document.body.innerHTML = `
