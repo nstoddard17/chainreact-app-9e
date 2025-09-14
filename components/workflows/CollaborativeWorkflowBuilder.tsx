@@ -2281,6 +2281,11 @@ const useWorkflowBuilderState = () => {
         return
       }
       
+      // Clear any existing nodes/edges first to ensure clean slate
+      console.log('🧹 Clearing existing nodes before loading workflow')
+      setNodes([])
+      setEdges([])
+      
       // REMOVED the cache check - always load fresh data when opening a workflow
       // This ensures we get the latest saved data from the database
       
@@ -2415,8 +2420,18 @@ const useWorkflowBuilderState = () => {
             allEdges.push(...flowEdges)
           }
           
+          console.log('📊 Setting nodes and edges:', {
+            nodesCount: allNodes.length,
+            edgesCount: allEdges.length,
+            nodes: allNodes,
+            edges: allEdges
+          })
+          
           setNodes(allNodes)
           setEdges(allEdges)
+          
+          // Don't call fitView here - it's not available in this context
+          // The fitView will be handled by a separate effect
           
           console.log('✅ Workflow loaded successfully with Add Action nodes')
         }
@@ -2429,17 +2444,29 @@ const useWorkflowBuilderState = () => {
     
     loadWorkflow()
     
-    // Cleanup function - clear the workflow when leaving the page
+    // Cleanup function - cancel pending loads but don't clear data
+    // The data will be cleared when loading a new workflow or on the next mount
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      console.log('🧹 Clearing workflow cache on unmount')
-      setCurrentWorkflow(null)
-      setWorkflowName('')
-      setNodes([])
-      setEdges([])
+      console.log('🛑 Component unmounting, cancelling pending loads')
+      // Don't clear the workflow data here - it causes issues with navigation
+      // The data will be properly cleared when loading a new workflow
     }
   }, [workflowId]) // Only re-run if workflowId changes
+  
+  // Auto-fit view when nodes are loaded
+  useEffect(() => {
+    if (nodes.length > 0) {
+      // Small delay to ensure ReactFlow has rendered the nodes
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.2, duration: 200 })
+        console.log('🔍 Auto-fitting view for', nodes.length, 'nodes')
+      }, 100)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [nodes.length, fitView])
   
   // Fetch integrations when component mounts - only if not already loaded - WITH DEBOUNCE
   useEffect(() => {

@@ -7,7 +7,8 @@ import { useAdminStore } from "@/stores/adminStore"
 import AppLayout from "@/components/layout/AppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
 import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
-import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles } from "lucide-react"
+import BetaTestersContent from "@/components/admin/BetaTestersContent"
+import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles, TestTube, FlaskConical } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
@@ -95,7 +96,7 @@ export default function AdminPage() {
 
         {/* Admin Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Overview
@@ -103,6 +104,10 @@ export default function AdminPage() {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               User Management
+            </TabsTrigger>
+            <TabsTrigger value="beta-testers" className="flex items-center gap-2">
+              <TestTube className="h-4 w-4" />
+              Beta Testers
             </TabsTrigger>
             <TabsTrigger value="ai-usage" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -175,7 +180,22 @@ export default function AdminPage() {
             </div>
 
             {/* Admin Stats - Second Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-card rounded-2xl shadow-lg border border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Beta Testers</CardTitle>
+                  <FlaskConical className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loading ? "Loading..." : userStats.betaUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Active beta testers
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card className="bg-card rounded-2xl shadow-lg border border-border">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Enterprise Users</CardTitle>
@@ -210,6 +230,10 @@ export default function AdminPage() {
 
           <TabsContent value="users" className="space-y-6">
             <UserRoleManagement />
+          </TabsContent>
+
+          <TabsContent value="beta-testers" className="space-y-6">
+            <BetaTestersContent />
           </TabsContent>
 
           <TabsContent value="ai-usage" className="space-y-6">
