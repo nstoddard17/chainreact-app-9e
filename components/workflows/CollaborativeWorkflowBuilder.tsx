@@ -594,24 +594,13 @@ const useWorkflowBuilderState = () => {
       setSearchQuery("")
       setShowTriggerDialog(true)
     } else {
-      // Ensure integrations are loaded before opening dialog
-      if (storeIntegrations.length === 0 && !integrationsLoading) {
-        console.log('🔄 Fetching integrations before opening action dialog...')
-        fetchIntegrations(false).then(() => {
-          setSourceAddNode({ id: nodeId, parentId })
-          setSelectedIntegration(null)
-          setSelectedAction(null)
-          setSearchQuery("")
-          setShowActionDialog(true)
-        })
-      } else {
-        // Normal action adding
-        setSourceAddNode({ id: nodeId, parentId })
-        setSelectedIntegration(null)
-        setSelectedAction(null)
-        setSearchQuery("")
-        setShowActionDialog(true)
-      }
+      // Normal action adding - just open the dialog
+      // The useEffect will fetch integrations when the dialog opens
+      setSourceAddNode({ id: nodeId, parentId })
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
+      setShowActionDialog(true)
     }
   }, [getNodes, storeIntegrations, integrationsLoading, fetchIntegrations])
 
@@ -2520,18 +2509,21 @@ const useWorkflowBuilderState = () => {
   // Fetch integrations when action or trigger dialog opens
   useEffect(() => {
     if (showActionDialog || showTriggerDialog) {
-      console.log('📥 [WorkflowBuilder] Dialog opened, fetching integrations', {
+      console.log('📥 [WorkflowBuilder] Dialog opened, checking integrations', {
         showActionDialog,
         showTriggerDialog,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        hasIntegrations: storeIntegrations.length > 0
       });
       
-      // Fetch the latest integrations to ensure we have current connection status
-      fetchIntegrations(true).then(() => {
-        console.log('✅ Integrations fetched for dialog');
-      });
+      // Only fetch if we don't have integrations loaded yet
+      if (storeIntegrations.length === 0) {
+        fetchIntegrations(false).then(() => {
+          console.log('✅ Integrations fetched for dialog');
+        });
+      }
     }
-  }, [showActionDialog, showTriggerDialog, fetchIntegrations])
+  }, [showActionDialog, showTriggerDialog, fetchIntegrations, storeIntegrations])
   
   // Main save function for the workflow
   const handleSave = async () => {
