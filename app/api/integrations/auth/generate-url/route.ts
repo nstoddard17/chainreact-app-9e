@@ -283,19 +283,19 @@ function generateSlackAuthUrl(state: string): string {
   
   const baseUrl = getBaseUrl()
 
-  // For Slack OAuth v2 with user tokens (not bot tokens)
-  // IMPORTANT: If you get "invalid_team_for_non_distributed_app" error, you need to:
-  // 1. Enable distribution for your Slack app at https://api.slack.com/apps/[APP_ID]/manage-distribution
-  // 2. OR set SLACK_TEAM_ID in your .env to restrict to a specific workspace
+  // Using Slack's recommended scopes from their shareable link
+  // This includes both bot scopes AND user scopes as configured in the Slack app
   const params = new URLSearchParams({
     client_id: clientId,
-    user_scope: "chat:write,channels:read,channels:write,groups:read,groups:write,im:read,im:write,users:read,team:read,files:read,files:write",
+    // Bot scopes for workspace-level actions
+    scope: "channels:join,channels:read,chat:write,chat:write.public,files:write,groups:read,im:read,reactions:write,team:read,users:read",
+    // User scopes for user-level actions
+    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read",
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
   })
 
   // Optional: Add team parameter to restrict to a specific workspace
-  // This can help avoid the "invalid_team_for_non_distributed_app" error
   const teamId = process.env.SLACK_TEAM_ID
   if (teamId) {
     params.append('team', teamId)
@@ -306,13 +306,7 @@ function generateSlackAuthUrl(state: string): string {
   console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
   console.log(`🔑 Using Client ID: ${clientId}`)
   console.log(`📍 Using base URL: ${baseUrl}`)
-  console.log(`📋 Using user_scope for user-level permissions`)
-  
-  if (!teamId) {
-    console.log(`⚠️  No SLACK_TEAM_ID set. If you get "invalid_team_for_non_distributed_app" error:`)
-    console.log(`    1. Enable app distribution at: https://api.slack.com/apps/${clientId}/manage-distribution`)
-    console.log(`    2. OR add SLACK_TEAM_ID to your .env file`)
-  }
+  console.log(`📋 Using both bot scopes and user scopes as configured in Slack app`)
   
   return authUrl
 }

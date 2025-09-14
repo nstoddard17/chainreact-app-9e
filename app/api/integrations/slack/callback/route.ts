@@ -65,20 +65,25 @@ export async function GET(request: NextRequest) {
       app_id: tokenData.app_id,
       authed_user: tokenData.authed_user ? { id: tokenData.authed_user.id } : null,
       team: tokenData.team,
-      has_access_token: !!tokenData.access_token,
-      has_authed_user_token: tokenData.authed_user && !!tokenData.authed_user.access_token,
+      has_bot_token: !!tokenData.access_token,
+      has_user_token: tokenData.authed_user && !!tokenData.authed_user.access_token,
       has_refresh_token: !!tokenData.refresh_token,
       has_authed_user_refresh_token: tokenData.authed_user && !!tokenData.authed_user.refresh_token,
-      scope: tokenData.scope,
+      bot_scope: tokenData.scope,
+      user_scope: tokenData.authed_user?.scope,
       token_type: tokenData.token_type,
     });
 
-    // For user token flow, the token is in authed_user.access_token
-    const accessToken = tokenData.authed_user?.access_token || tokenData.access_token;
-    const refreshToken = tokenData.authed_user?.refresh_token || tokenData.refresh_token;
-    const tokenType = tokenData.authed_user?.access_token ? 'user' : 'bot';
-    const scopes = tokenData.authed_user?.scope ? tokenData.authed_user.scope.split(' ') : 
-                  (tokenData.scope ? tokenData.scope.split(' ') : []);
+    // Prefer bot token if available (has workspace-level permissions)
+    // Fall back to user token if no bot token
+    const accessToken = tokenData.access_token || tokenData.authed_user?.access_token;
+    const refreshToken = tokenData.refresh_token || tokenData.authed_user?.refresh_token;
+    const tokenType = tokenData.access_token ? 'bot' : 'user';
+    
+    // Combine both bot and user scopes if both are present
+    const botScopes = tokenData.scope ? tokenData.scope.split(' ') : [];
+    const userScopes = tokenData.authed_user?.scope ? tokenData.authed_user.scope.split(' ') : [];
+    const scopes = [...new Set([...botScopes, ...userScopes])];
 
     const expiresIn = tokenData.authed_user?.expires_in || tokenData.expires_in; // Typically in seconds
 
