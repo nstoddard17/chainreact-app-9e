@@ -2,6 +2,12 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 14, 2025
+
+### Fixed Slack OAuth Integration and Modal Refresh Issues
+
+Resolved two critical issues preventing Slack connections from working properly. First, fixed the "invalid_team_for_non_distributed_app" error that occurred when users tried to connect Slack. The root cause was our OAuth configuration requesting bot-level permissions and using multi-workspace parameters that are only valid for distributed Slack apps. By switching to user-token authentication only, users can now connect their Slack accounts without needing workspace admin approval, dramatically simplifying the connection process. Second, fixed the action selection modal not updating after OAuth completion. The issue involved stale integration data in React components and provider name escaping in localStorage. By implementing fresh data fetching from the store, proper provider name handling, and a modal refresh strategy that closes and reopens the dialog after successful authentication, the integration status now updates immediately when users complete the OAuth flow. These fixes make connecting Slack and other integrations seamless and instant.
+
 ## January 13, 2025
 
 ### Enhanced Notion Integration with Smart Property Detection and Organized UI

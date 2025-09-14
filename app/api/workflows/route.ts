@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function GET() {
+  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
@@ -33,6 +34,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {

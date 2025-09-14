@@ -19,8 +19,8 @@ export function createPopupResponse(
   const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
   const safeMessage = message.replace(/[\\'"]/g, '\\$&');
   
-  // Create a unique storage key for this response
-  const storageKey = `oauth_response_${safeProvider}_${Date.now()}`;
+  // Create a unique storage key for this response (sanitize for key safety)
+  const storageKey = `oauth_response_${provider.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}`;
   
   // Determine if this is a personal account error that shouldn't auto-close
   const isPersonalAccountError = type === 'error' && 
@@ -38,13 +38,17 @@ export function createPopupResponse(
       // Flag to track if we've already sent a response
       window.sentResponse = false;
       
-      // Create response data object
+      // Store provider and message as JavaScript variables (properly escaped)
+      const providerName = '${safeProvider}';
+      const messageText = '${safeMessage}';
+      
+      // Create response data object using the variables
       const responseData = {
-        type: '${type === 'success' ? 'oauth-success' : 'oauth-error'}',
+        type: 'oauth-complete', // Use consistent message type
         success: ${type === 'success'},
-        provider: '${safeProvider}',
-        message: '${safeMessage}',
-        error: ${type === 'error' ? `'${safeMessage}'` : 'null'},
+        provider: providerName.replace(/\\\\(.)/g, '$1'), // Unescape the provider name
+        message: messageText.replace(/\\\\(.)/g, '$1'), // Unescape the message
+        error: ${type === 'error'} ? messageText.replace(/\\\\(.)/g, '$1') : null,
         timestamp: new Date().toISOString()
       };
       
@@ -52,6 +56,7 @@ export function createPopupResponse(
       try {
         localStorage.setItem('${storageKey}', JSON.stringify(responseData));
         console.log('Response stored in localStorage with key: ${storageKey}');
+        console.log('Response data:', responseData);
       } catch (e) {
         console.error('Failed to store in localStorage:', e);
       }
@@ -63,7 +68,7 @@ export function createPopupResponse(
             // Store cancellation in localStorage
             const cancelData = {
               type: 'oauth-cancelled',
-              provider: '${safeProvider}',
+              provider: providerName.replace(/\\\\(.)/g, '$1'), // Use unescaped provider name
               message: 'Authorization cancelled',
               timestamp: new Date().toISOString()
             };

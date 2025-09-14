@@ -1,6 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
+import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 
 export async function POST(request: Request) {
   try {
@@ -167,6 +168,18 @@ export async function POST(request: Request) {
     )
     
     console.log("Workflow execution completed successfully")
+
+    // Track beta tester activity
+    await trackBetaTesterActivity({
+      userId: user.id,
+      activityType: 'workflow_executed',
+      activityData: {
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        testMode: effectiveTestMode,
+        executionMode
+      }
+    })
 
     // Check if we have intercepted actions (sandbox mode)
     if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {

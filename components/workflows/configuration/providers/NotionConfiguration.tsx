@@ -27,8 +27,9 @@ interface NotionConfigurationProps {
 }
 
 export function NotionConfiguration(props: NotionConfigurationProps) {
-  const { nodeInfo, values, loadOptions, loadingFields = new Set() } = props;
+  const { nodeInfo, values, loadOptions, loadingFields = new Set(), dynamicOptions, setValue } = props;
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
+  const [databaseMetadata, setDatabaseMetadata] = useState<{ title: string; description: string } | null>(null);
   
   // Only apply special visibility handling for actions that have visibility conditions
   const hasVisibilityConditions = nodeInfo?.configSchema?.some((field: any) => 
@@ -143,12 +144,13 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
       const isVisible = isFieldVisible(field);
       return isVisible ? field : { ...field, hidden: true };
     });
-    
+
     return {
       ...nodeInfo,
       configSchema: filteredSchema
     };
   }, [nodeInfo, values, hasVisibilityConditions]);
+
   
   // Load workspaces immediately when component mounts
   useEffect(() => {
@@ -282,7 +284,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
   
   // Pass modified props to GenericConfiguration
   return (
-    <GenericConfiguration 
+    <GenericConfiguration
       {...props}
       nodeInfo={modifiedNodeInfo}
       loadingFields={modifiedLoadingFields}
