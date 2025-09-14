@@ -46,6 +46,7 @@ export async function GET() {
         const roleCounts: Record<string, number> = {
             free: 0,
             pro: 0,
+            'beta-pro': 0,
             business: 0,
             enterprise: 0,
             admin: 0
@@ -62,6 +63,7 @@ export async function GET() {
             totalUsers: totalUsers || 0,
             freeUsers: roleCounts.free,
             proUsers: roleCounts.pro,
+            betaUsers: roleCounts['beta-pro'],
             businessUsers: roleCounts.business,
             enterpriseUsers: roleCounts.enterprise,
             adminUsers: roleCounts.admin
