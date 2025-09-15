@@ -635,52 +635,51 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }
 
       
-      // Check for provider-specific loader first (for providers like HubSpot)
-      if (providerId === 'hubspot') {
+      // Check for provider-specific loader first (for all providers that have custom loaders)
+      try {
+        // Import provider registry
+        const { providerRegistry } = await import('../providers/registry');
+        const loader = providerRegistry.getLoader(providerId, fieldName);
         
-        try {
-          // Import provider registry
-          const { providerRegistry } = await import('../providers/registry');
-          const loader = providerRegistry.getLoader(providerId, fieldName);
+        if (loader) {
+          console.log(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
           
-          if (loader) {
-            
-            const formattedOptions = await loader.loadOptions({
-              fieldName,
-              nodeType,
-              providerId,
-              integrationId: integration.id,
-              dependsOn,
-              dependsOnValue,
-              forceRefresh,
-              extraOptions
-            });
-            
-            // Check if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) !== requestId) {
-              return;
-            }
-            
-            setDynamicOptions(prev => ({
-              ...prev,
-              [fieldName]: formattedOptions
-            }));
-            
-            // Clear loading state
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
-              setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
-              if (!silent) {
-                onLoadingChangeRef.current?.(fieldName, false);
-              }
-            }
-            
+          const formattedOptions = await loader.loadOptions({
+            fieldName,
+            nodeType,
+            providerId,
+            integrationId: integration.id,
+            dependsOn,
+            dependsOnValue,
+            forceRefresh,
+            extraOptions
+          });
+          
+          // Check if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
             return;
           }
-        } catch (error) {
-          // Fall through to use regular integration data loading
+          
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: formattedOptions
+          }));
+          
+          // Clear loading state
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            activeRequestIds.current.delete(cacheKey);
+            if (!silent) {
+              onLoadingChangeRef.current?.(fieldName, false);
+            }
+          }
+          
+          return;
         }
+      } catch (error) {
+        console.log(`⚠️ [useDynamicOptions] Error using custom loader for ${providerId}, falling back to default: ${error}`);
+        // Fall through to use regular integration data loading
       }
       
       if (!resourceType) {
