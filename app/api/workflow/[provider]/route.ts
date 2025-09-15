@@ -334,6 +334,11 @@ async function findWorkflowsForProvider(provider: string, payload?: any): Promis
 
   console.log(`🔍 Found ${workflows.length} workflows (draft/active) for provider: ${provider}`)
 
+  // For Discord, log the incoming channel for debugging
+  if (provider === 'discord' && payload?.channel_id) {
+    console.log(`📨 Incoming Discord message from channel: ${payload.channel_id}, guild: ${payload.guild_id}`)
+  }
+
   // Filter workflows that have triggers for this provider
   const matchingWorkflows = workflows.filter(workflow => {
     try {
@@ -353,6 +358,14 @@ async function findWorkflowsForProvider(provider: string, payload?: any): Promis
       if (provider === 'discord' && payload?.channel_id) {
         const hasMatchingChannel = providerTriggers.some((trigger: any) => {
           const configuredChannelId = trigger.data?.config?.channelId
+
+          // Log the trigger configuration for debugging
+          console.log(`🔍 Checking Discord trigger in workflow "${workflow.name}":`, {
+            configuredChannelId: configuredChannelId || 'NOT_CONFIGURED',
+            triggerType: trigger.data?.type,
+            hasConfig: !!trigger.data?.config,
+            allConfigKeys: trigger.data?.config ? Object.keys(trigger.data.config) : []
+          })
 
           // If no channel is configured, skip this trigger
           if (!configuredChannelId) {
