@@ -26,11 +26,11 @@ registerStore({
  */
 async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
   console.log('🔍 fetchDiscordGuilds called');
-  
+
   try {
     // NOTE: We don't validate Discord bot config here because fetching user's guilds
     // only requires OAuth connection, not bot configuration
-    
+
     // Get the Discord integration ID
     const { getIntegrationByProvider } = useIntegrationStore.getState()
     const integration = getIntegrationByProvider("discord")
@@ -113,29 +113,43 @@ async function fetchDiscordGuilds(): Promise<DiscordGuild[]> {
 
     console.log('✅ Successfully fetched Discord guilds:', response.data.length);
     return response.data || []
-  } catch (error) {
+  } catch (error: any) {
+    // Check if it's a rate limit error
+    if (error?.message?.includes('rate limit')) {
+      console.warn('⚠️ Discord API rate limit hit, not retrying');
+      // Don't throw for rate limit, just return empty array
+      // This prevents cascading errors
+      return [];
+    }
+
     console.error("Error fetching Discord guilds:", error)
-    // Return mock data if there's an error (for testing)
-    const mockGuilds: DiscordGuild[] = [
-      {
-        id: 'test-guild-1',
-        name: 'Test Server 1',
-        value: 'test-guild-1',
-        icon: null,
-        owner: true,
-        permissions: '8'
-      },
-      {
-        id: 'test-guild-2',
-        name: 'Test Server 2',
-        value: 'test-guild-2',
-        icon: null,
-        owner: false,
-        permissions: '2146958847'
-      }
-    ];
-    console.warn('⚠️ Using mock guilds due to error');
-    return mockGuilds;
+
+    // For development, return mock data only if explicitly enabled
+    if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+      const mockGuilds: DiscordGuild[] = [
+        {
+          id: 'test-guild-1',
+          name: 'Test Server 1',
+          value: 'test-guild-1',
+          icon: null,
+          owner: true,
+          permissions: '8'
+        },
+        {
+          id: 'test-guild-2',
+          name: 'Test Server 2',
+          value: 'test-guild-2',
+          icon: null,
+          owner: false,
+          permissions: '2146958847'
+        }
+      ];
+      console.warn('⚠️ Using mock guilds for development');
+      return mockGuilds;
+    }
+
+    // Re-throw the error for proper handling upstream
+    throw error;
   }
 }
 

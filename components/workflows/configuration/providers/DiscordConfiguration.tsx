@@ -69,6 +69,33 @@ export function DiscordConfiguration({
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const isLoadingChannels = useRef(false);
   const hasInitializedServers = useRef(false);
+
+  // Log initial values when component mounts
+  useEffect(() => {
+    console.log('🔍 [Discord] Component mounted with initial values:', {
+      nodeType: nodeInfo?.type,
+      currentNodeId,
+      guildId: values.guildId,
+      channelId: values.channelId,
+      message: values.message,
+      allValues: values,
+      dynamicOptionsGuilds: dynamicOptions.guildId?.length,
+      dynamicOptionsChannels: dynamicOptions.channelId?.length
+    });
+
+    // Also log if values change
+    console.log('🔄 [Discord] Values received from parent:', JSON.stringify(values, null, 2));
+  }, []);
+
+  // Track when values prop changes
+  useEffect(() => {
+    console.log('📝 [Discord] Values prop changed:', {
+      guildId: values.guildId,
+      channelId: values.channelId,
+      message: values.message,
+      timestamp: new Date().toISOString()
+    });
+  }, [values.guildId, values.channelId, values.message]);
   
   // Use Discord state hook for advanced features
   const discordState = useDiscordState({
@@ -91,10 +118,10 @@ export function DiscordConfiguration({
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     const newErrors: Record<string, string> = {};
-    
+
     if (nodeInfo?.configSchema) {
       for (const field of nodeInfo.configSchema) {
         if (field.required && !values[field.name]) {
@@ -102,12 +129,19 @@ export function DiscordConfiguration({
         }
       }
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(newErrors);
       return;
     }
-    
+
+    console.log('🚀 [Discord] Submitting configuration with values:', {
+      guildId: values.guildId,
+      channelId: values.channelId,
+      message: values.message,
+      allValues: values
+    });
+
     await onSubmit(values);
   };
 
@@ -407,10 +441,12 @@ export function DiscordConfiguration({
     // 1. This is a Discord node (action or trigger)
     // 2. We haven't already initialized
     // 3. The guildId field exists in the schema
+    // 4. We don't already have servers loaded
     if (isDiscordNode && !hasInitializedServers.current) {
       const hasGuildField = nodeInfo?.configSchema?.some((field: any) => field.name === 'guildId');
+      const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
 
-      if (hasGuildField) {
+      if (hasGuildField && !serversAlreadyLoaded) {
         console.log('🚀 [Discord] Auto-loading servers for Discord node:', nodeInfo?.type);
         hasInitializedServers.current = true;
 
@@ -424,30 +460,16 @@ export function DiscordConfiguration({
         // Add a small delay to ensure component is fully mounted (helps with production)
         const loadServers = async () => {
           try {
-            // In production, there might be a delay in establishing the connection
-            // Add a retry mechanism for production environments
-            let retries = 0;
-            const maxRetries = 3;
-
-            while (retries < maxRetries) {
-              try {
-                await loadOptions('guildId', undefined, undefined, true);
-                console.log('✅ [Discord] Servers loaded successfully');
-                break;
-              } catch (error: any) {
-                retries++;
-                console.warn(`⚠️ [Discord] Attempt ${retries}/${maxRetries} failed:`, error);
-
-                if (retries < maxRetries) {
-                  // Wait before retrying (exponential backoff)
-                  await new Promise(resolve => setTimeout(resolve, 1000 * retries));
-                } else {
-                  throw error;
-                }
-              }
+            // Only try once to avoid rate limits
+            await loadOptions('guildId', undefined, undefined, false); // Don't force reload
+            console.log('✅ [Discord] Servers loaded successfully');
+          } catch (error: any) {
+            // Check if it's a rate limit error
+            if (error?.message?.includes('rate limit')) {
+              console.warn('⚠️ [Discord] Rate limited, will not retry automatically');
+            } else {
+              console.error('❌ [Discord] Failed to load servers:', error);
             }
-          } catch (error) {
-            console.error('❌ [Discord] Failed to load servers after retries:', error);
             // Reset the flag so user can trigger reload manually if needed
             hasInitializedServers.current = false;
           } finally {
@@ -463,10 +485,54 @@ export function DiscordConfiguration({
         setTimeout(() => {
           loadServers();
         }, 100);
+      } else if (serversAlreadyLoaded) {
+        console.log('✅ [Discord] Servers already loaded, skipping auto-load');
+        hasInitializedServers.current = true;
       }
     }
-  }, [nodeInfo?.type, loadOptions]); // Include loadOptions in dependencies
-  
+  }, [nodeInfo?.type, dynamicOptions.guildId]); // Watch dynamicOptions.guildId to know if servers are loaded
+
+  // Auto-load channels when component mounts with saved guildId
+  useEffect(() => {
+    // Only load for Discord nodes
+    const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
+    if (!isDiscordNode) return;
+
+    // If we have a saved guildId and channelId but no channel options loaded yet
+    if (values.guildId && values.channelId && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
+      console.log('🔄 [Discord] Loading channels for saved guildId:', values.guildId, 'with saved channelId:', values.channelId);
+
+      // Debounce to avoid multiple calls
+      const timeoutId = setTimeout(() => {
+        // Load the channels for the saved guild
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('channelId');
+          return newSet;
+        });
+
+        loadOptions('channelId', 'guildId', values.guildId, false).then(() => {
+          console.log('✅ [Discord] Channels loaded for saved configuration');
+        }).catch((error: any) => {
+          // Don't log rate limit errors as errors
+          if (error?.message?.includes('rate limit')) {
+            console.warn('⚠️ [Discord] Rate limited when loading channels, user can select manually');
+          } else {
+            console.error('❌ [Discord] Failed to load channels for saved configuration:', error);
+          }
+        }).finally(() => {
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.delete('channelId');
+            return newSet;
+          });
+        });
+      }, 500); // Wait 500ms before loading to debounce
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [values.guildId, values.channelId, nodeInfo?.type]); // Add nodeInfo.type to dependencies
+
   // Listen for bot connection events
   useEffect(() => {
     const handleBotConnected = (event: CustomEvent) => {

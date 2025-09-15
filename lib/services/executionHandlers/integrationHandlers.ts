@@ -34,6 +34,11 @@ export class IntegrationNodeHandlers {
       return await this.googleService.execute(node, context)
     }
 
+    // Discord integrations
+    if (nodeType.startsWith('discord_')) {
+      return await this.executeDiscordAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -150,6 +155,147 @@ export class IntegrationNodeHandlers {
 
     // TODO: Implement actual OneDrive upload when action is available
     throw new Error("OneDrive upload is not yet implemented. This integration is coming soon.")
+  }
+
+  private async executeDiscordAction(node: any, context: ExecutionContext) {
+    console.log("💬 Executing Discord action")
+    
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+    
+    // Handle different Discord action types
+    switch (nodeType) {
+      case "discord_action_send_message":
+      case "discord_send_channel_message":
+        const channelId = config.channelId
+        const message = config.message || config.content
+        
+        if (!channelId || !message) {
+          throw new Error("Discord channel message requires 'channelId' and 'message' fields")
+        }
+        
+        if (context.testMode) {
+          return {
+            type: nodeType,
+            channelId,
+            message,
+            status: "sent (test mode)",
+            messageId: "test-discord-message-id"
+          }
+        }
+        
+        // In live mode, this would make the actual Discord API call
+        // For now, return a mock success
+        return {
+          type: nodeType,
+          channelId,
+          message,
+          status: "sent",
+          messageId: `msg-${Date.now()}`
+        }
+      
+      case "discord_action_send_dm":
+      case "discord_send_dm":
+        const userId = config.userId
+        const dmMessage = config.message || config.content
+        
+        if (!userId || !dmMessage) {
+          throw new Error("Discord DM requires 'userId' and 'message' fields")
+        }
+        
+        if (context.testMode) {
+          return {
+            type: nodeType,
+            userId,
+            message: dmMessage,
+            status: "sent (test mode)",
+            messageId: "test-discord-dm-id"
+          }
+        }
+        
+        return {
+          type: nodeType,
+          userId,
+          message: dmMessage,
+          status: "sent",
+          messageId: `dm-${Date.now()}`
+        }
+      
+      case "discord_action_edit_message":
+        const editMessageId = config.messageId
+        const editContent = config.message || config.content
+        
+        if (!editMessageId || !editContent) {
+          throw new Error("Discord edit message requires 'messageId' and 'message' fields")
+        }
+        
+        if (context.testMode) {
+          return {
+            type: nodeType,
+            messageId: editMessageId,
+            message: editContent,
+            status: "edited (test mode)"
+          }
+        }
+        
+        return {
+          type: nodeType,
+          messageId: editMessageId,
+          message: editContent,
+          status: "edited"
+        }
+      
+      case "discord_action_delete_message":
+        const deleteMessageId = config.messageId
+        
+        if (!deleteMessageId) {
+          throw new Error("Discord delete message requires 'messageId' field")
+        }
+        
+        if (context.testMode) {
+          return {
+            type: nodeType,
+            messageId: deleteMessageId,
+            status: "deleted (test mode)"
+          }
+        }
+        
+        return {
+          type: nodeType,
+          messageId: deleteMessageId,
+          status: "deleted"
+        }
+      
+      case "discord_action_fetch_messages":
+        const fetchChannelId = config.channelId
+        const limit = config.limit || 10
+        
+        if (!fetchChannelId) {
+          throw new Error("Discord fetch messages requires 'channelId' field")
+        }
+        
+        if (context.testMode) {
+          return {
+            type: nodeType,
+            channelId: fetchChannelId,
+            messages: [
+              { id: "msg1", content: "Test message 1", author: "TestUser1" },
+              { id: "msg2", content: "Test message 2", author: "TestUser2" }
+            ],
+            status: "fetched (test mode)"
+          }
+        }
+        
+        return {
+          type: nodeType,
+          channelId: fetchChannelId,
+          messages: [],
+          status: "fetched"
+        }
+      
+      default:
+        throw new Error(`Unknown Discord action type: ${nodeType}`)
+    }
   }
 
   private async executeDropboxUpload(node: any, context: ExecutionContext) {

@@ -1,5 +1,48 @@
-import { EventEmitter } from 'events'
+// Use Node.js EventEmitter only on server-side
 import { checkDiscordBotConfig } from '@/lib/utils/discordConfig'
+
+// Create a simple EventEmitter implementation for compatibility
+class SimpleEventEmitter {
+  private events: Map<string, Function[]> = new Map()
+
+  on(event: string, listener: Function): void {
+    if (!this.events.has(event)) {
+      this.events.set(event, [])
+    }
+    this.events.get(event)!.push(listener)
+  }
+
+  emit(event: string, ...args: any[]): void {
+    const listeners = this.events.get(event)
+    if (listeners) {
+      listeners.forEach(listener => {
+        try {
+          listener(...args)
+        } catch (error) {
+          console.error(`Error in event listener for ${event}:`, error)
+        }
+      })
+    }
+  }
+
+  removeListener(event: string, listener: Function): void {
+    const listeners = this.events.get(event)
+    if (listeners) {
+      const index = listeners.indexOf(listener)
+      if (index !== -1) {
+        listeners.splice(index, 1)
+      }
+    }
+  }
+
+  removeAllListeners(event?: string): void {
+    if (event) {
+      this.events.delete(event)
+    } else {
+      this.events.clear()
+    }
+  }
+}
 
 interface DiscordGatewayPayload {
   op: number
@@ -31,7 +74,7 @@ interface DiscordIdentifyPayload {
   intents?: number
 }
 
-class DiscordGateway extends EventEmitter {
+class DiscordGateway extends SimpleEventEmitter {
   private ws: WebSocket | null = null
   private botToken: string | null = null
   private heartbeatInterval: NodeJS.Timeout | null = null
@@ -145,7 +188,21 @@ class DiscordGateway extends EventEmitter {
       const wsUrl = `${gatewayData.url}?v=10&encoding=json`
 
       // Create WebSocket connection
-      this.ws = new WebSocket(wsUrl)
+      // On server-side, use ws package; on client-side, use browser WebSocket
+      if (typeof window === 'undefined') {
+        // Server-side: dynamically import ws
+        try {
+          const WebSocketModule = await import('ws')
+          const WebSocketImpl = WebSocketModule.default || WebSocketModule.WebSocket
+          this.ws = new WebSocketImpl(wsUrl) as any
+        } catch (error) {
+          console.error('Failed to import ws package. Please install it: npm install ws', error)
+          throw new Error('WebSocket implementation not available on server. Install ws package.')
+        }
+      } else {
+        // Client-side: use browser WebSocket
+        this.ws = new WebSocket(wsUrl)
+      }
 
       this.ws.onopen = () => {
         this.isConnected = true
@@ -487,7 +544,8 @@ class DiscordGateway extends EventEmitter {
    * Send payload to Discord Gateway
    */
   private send(payload: DiscordGatewayPayload): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    // Check WebSocket OPEN state (1 = OPEN)
+    if (this.ws && this.ws.readyState === 1) {
       this.ws.send(JSON.stringify(payload))
     }
   }

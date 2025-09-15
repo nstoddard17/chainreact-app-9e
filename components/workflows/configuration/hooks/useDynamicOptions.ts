@@ -13,6 +13,7 @@ interface UseDynamicOptionsProps {
   providerId?: string;
   onLoadingChange?: (fieldName: string, isLoading: boolean) => void;
   getFormValues?: () => Record<string, any>;
+  initialOptions?: DynamicOptionsState;
 }
 
 interface DynamicOption {
@@ -29,12 +30,12 @@ interface DynamicOption {
 let authErrorRetryCount = 0;
 const MAX_AUTH_RETRIES = 1;
 
-export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFormValues }: UseDynamicOptionsProps) => {
+export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
   // Store callback in ref to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   onLoadingChangeRef.current = onLoadingChange;
-  // State
-  const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>({});
+  // State - initialize with initial options if provided
+  const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>(initialOptions || {});
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
   
@@ -166,25 +167,33 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Special handling for Discord guilds
       if (fieldName === 'guildId' && providerId === 'discord') {
         try {
+          // Check if we have a Discord integration first to avoid unnecessary API calls
+          const discordIntegration = getIntegrationByProvider('discord');
+          if (!discordIntegration || discordIntegration.status !== 'connected') {
+            console.log('⚠️ [DynamicOptions] Discord not connected, skipping guild load');
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            return;
+          }
+
           // Always force refresh if we're explicitly asked to or if we detect an issue
           const shouldForceRefresh = forceRefresh || false;
-          
+
           const guilds = await loadDiscordGuildsOnce(shouldForceRefresh);
-          
+
           if (!guilds || guilds.length === 0) {
-            // Check if we have a Discord integration - if not, this is expected
-            const discordIntegration = getIntegrationByProvider('discord');
-            
-            if (!discordIntegration) {
-            } else {
-              // Try one more time with force refresh
+            // Only retry if we didn't already force refresh (to avoid rate limits)
+            if (!shouldForceRefresh) {
+              console.log('⚠️ [DynamicOptions] No guilds found, attempting one refresh');
               const refreshedGuilds = await loadDiscordGuildsOnce(true);
               if (refreshedGuilds && refreshedGuilds.length > 0) {
                 const formattedOptions = refreshedGuilds.map(guild => ({
                   value: guild.id,
                   label: guild.name,
                 }));
-                
+
                 setDynamicOptions(prev => ({
                   ...prev,
                   [fieldName]: formattedOptions

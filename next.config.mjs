@@ -16,6 +16,7 @@ const nextConfig = {
   // Enable experimental features for better performance
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    instrumentationHook: true, // Enable instrumentation for server-side initialization
   },
   // Fix Cross-Origin-Opener-Policy for OAuth popups
   async headers() {

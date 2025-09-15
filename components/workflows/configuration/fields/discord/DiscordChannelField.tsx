@@ -4,6 +4,7 @@ import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { RefreshCw } from "lucide-react";
 
 interface DiscordChannelFieldProps {
   field: any;
@@ -140,11 +141,36 @@ function DiscordChannelFieldComponent({
     }
   }, [processedOptions.length, isLoading, value, onDynamicLoad, field.dynamic, field.name]);
   
-  // Determine if we should show loading state
-  const showLoadingState = (processedOptions.length === 0 && !value) || (field.dynamic && isLoading);
-  
   // Ensure value is always defined to prevent uncontrolled/controlled warning
   const selectValue = value === undefined || value === null ? "" : String(value);
+
+  // When we have a saved value, always show it immediately while options load in background
+  let displayOptions = processedOptions;
+  if (selectValue) {
+    // Check if the saved value exists in loaded options
+    const savedOptionExists = processedOptions.some(opt =>
+      String(opt.value || opt.id) === selectValue
+    );
+
+    // If the saved value doesn't exist in options yet, create a temporary placeholder
+    if (!savedOptionExists) {
+      // Create a nicer label for the temporary option
+      const tempLabel = processedOptions.length === 0
+        ? `Loading channel...` // While loading, show a loading message
+        : `Channel ID: ${selectValue}`; // If loaded but not found, show the ID
+
+      // Add the temporary option at the beginning
+      displayOptions = [{
+        value: selectValue,
+        id: selectValue,
+        label: tempLabel,
+        temporary: true
+      }, ...processedOptions];
+    }
+  }
+
+  // Never disable the dropdown - let users interact even while loading
+  const showLoadingState = false;
 
   // Always return the same structure
   return (
@@ -163,7 +189,22 @@ function DiscordChannelFieldComponent({
         <SelectValue placeholder={showLoadingState ? "Loading Discord channels..." : (field.placeholder || "Select Discord channel...")} />
       </SelectTrigger>
       <SelectContent>
-        {processedOptions
+        {/* Show loading state inside dropdown if options are being fetched */}
+        {isLoading && (
+          <div className="px-2 py-4 text-sm text-slate-400 text-center">
+            <RefreshCw className="h-4 w-4 animate-spin inline-block mr-2" />
+            Loading Discord channels...
+          </div>
+        )}
+
+        {/* Show channel count when not loading */}
+        {!isLoading && displayOptions.filter(opt => !opt.temporary).length > 0 && (
+          <div className="px-2 py-1.5 text-xs text-slate-400 border-b border-slate-700 mb-1">
+            {displayOptions.filter(opt => !opt.temporary).length} channel{displayOptions.filter(opt => !opt.temporary).length !== 1 ? 's' : ''} available
+          </div>
+        )}
+
+        {displayOptions
           .filter((option: any) => {
             const optionValue = option.value || option.id;
             return !!optionValue; // Only include options with valid values
@@ -171,17 +212,22 @@ function DiscordChannelFieldComponent({
           .map((option: any) => {
             const optionValue = option.value || option.id;
             const optionLabel = option.label || option.name || option.value || option.id;
-            
+            const isTemp = option.temporary;
+
             // Format channel name with # prefix for text channels ONLY if not already formatted
-            const formattedLabel = option.type === 0 && !optionLabel.startsWith('#') ? `#${optionLabel}` : optionLabel;
-            
+            const formattedLabel = !isTemp && option.type === 0 && !optionLabel.startsWith('#') ? `#${optionLabel}` : optionLabel;
+
             return (
-              <SelectItem 
-                key={String(optionValue)} 
+              <SelectItem
+                key={String(optionValue)}
                 value={String(optionValue)}
+                className={isTemp ? "italic text-slate-400" : ""}
               >
                 <div className="flex items-center gap-2">
                   <span>{formattedLabel}</span>
+                  {isTemp && processedOptions.length === 0 && (
+                    <span className="ml-2 text-xs">(Current selection)</span>
+                  )}
                 </div>
               </SelectItem>
             );

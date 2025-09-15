@@ -75,7 +75,19 @@ function ConfigurationForm({
   // FIRST: All hooks must be called before any conditional returns
   
   // Common state and hooks
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, any>>(() => {
+    // Extract real config values, excluding the __dynamicOptions key
+    const { __dynamicOptions, ...configValues } = initialData || {};
+    console.log('🔄 [ConfigForm] Initializing values with initialData:', {
+      nodeType: nodeInfo?.type,
+      currentNodeId,
+      initialData: configValues,
+      hasGuildId: !!configValues?.guildId,
+      hasChannelId: !!initialData?.channelId,
+      hasMessage: !!initialData?.message
+    });
+    return configValues || {};
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -123,6 +135,9 @@ function ConfigurationForm({
   const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
+  // Extract saved dynamic options from initialData if present
+  const savedDynamicOptions = initialData?.__dynamicOptions;
+
   // Dynamic options hook
   const {
     dynamicOptions,
@@ -134,7 +149,8 @@ function ConfigurationForm({
     nodeType: nodeInfo?.type,
     providerId: nodeInfo?.providerId || provider,
     onLoadingChange,
-    getFormValues: () => values
+    getFormValues: () => values,
+    initialOptions: savedDynamicOptions
   });
 
   // Base value setter (without provider logic)
@@ -317,38 +333,52 @@ function ConfigurationForm({
   // Load options for dynamic fields with saved values
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;
-    
+
     console.log('🔍 [ConfigForm] Checking for dynamic fields with saved values...');
-    
+
     // Find dynamic fields that have saved values
     const fieldsWithValues = nodeInfo.configSchema.filter((field: any) => {
       // Check if it's a dynamic field
       if (!field.dynamic) return false;
-      
+
       // Skip fields that have loadOnMount (they're handled by another useEffect)
       if (field.loadOnMount) return false;
-      
+
       // Check if it has a saved value
       const savedValue = values[field.name];
       if (!savedValue) return false;
-      
+
       // Check if options are already loaded
       const fieldOptions = dynamicOptions[field.name];
       const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
-      
+
+      // Always load for dependent fields if parent has value, even if options exist
+      // This ensures the saved value displays correctly
+      if (field.dependsOn && values[field.dependsOn]) {
+        // For dependent fields, check if the saved value exists in current options
+        if (hasOptions) {
+          const valueExists = fieldOptions.some((opt: any) =>
+            (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
+          );
+          // If value doesn't exist in options, we need to reload
+          return !valueExists;
+        }
+        return true; // No options yet, need to load
+      }
+
       // Only load if we have a value but no options yet
       return !hasOptions;
     });
-    
+
     if (fieldsWithValues.length > 0) {
-      console.log('🚀 [ConfigForm] Loading options for fields with saved values:', 
+      console.log('🚀 [ConfigForm] Loading options for fields with saved values:',
         fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name] }))
       );
-      
+
       // Load options for each field with a saved value
       fieldsWithValues.forEach((field: any) => {
         console.log(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
-        
+
         // Check if field has dependencies
         if (field.dependsOn) {
           const dependsOnValue = values[field.dependsOn];
@@ -450,7 +480,11 @@ function ConfigurationForm({
         }
       }
       
-      await onSave(submissionValues);
+      // Include dynamicOptions with the saved values so they can be stored with the node
+      await onSave({
+        ...submissionValues,
+        __dynamicOptions: dynamicOptions
+      });
     } catch (error) {
       console.error('Error saving configuration:', error);
     } finally {
