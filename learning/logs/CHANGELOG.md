@@ -1,5 +1,33 @@
 # Learning Folder Changelog
 
+## [2025-09-15] – Discord Edit Message API Limitation Handling
+
+- **Discord API Limitation Clarified**: Discord bots can only edit their own messages, not messages from other users
+- **Bot Message Filtering**: Added filtering to only show bot's own messages in edit action dropdown
+- **Clear Error Messages**: Enhanced error handling to explain Discord API limitations when edit fails
+- **UI Improvements**: Updated labels and descriptions to clarify bot-only editing restriction
+
+### Key Features:
+- **API Compliance**: Edit message action now only shows messages the bot can actually edit (its own)
+- **Automatic Filtering**: Messages API filters to show only bot messages when action type is 'discord_action_edit_message'
+- **User Guidance**: Clear error message suggests using Delete + Send Message for modifying other users' content
+- **Backward Compatible**: Other Discord actions (reactions, replies, etc.) continue to show all messages
+
+### Technical Implementation:
+- **Discord API Fact**: Bots cannot edit other users' messages - this is a hard limitation by Discord for security
+- **Action Type Propagation**: Added `extraOptions` parameter to pass action type through options loading chain
+- **Bot ID Verification**: Uses `DISCORD_CLIENT_ID` environment variable to identify bot messages
+- **Enhanced Error Handling**: Detects 403 errors with code 50005 and provides helpful alternative solution
+
+### Files Modified:
+- `app/api/integrations/discord/data/handlers/messages.ts` - Added bot-only filtering for edit actions
+- `components/workflows/configuration/providers/discord/DiscordOptionsLoader.ts` - Pass action type to API
+- `components/workflows/configuration/providers/DiscordConfiguration.tsx` - Include action type in loadOptions
+- `components/workflows/configuration/hooks/providers/useDiscordFieldHandler.ts` - Pass action type for messages
+- `components/workflows/configuration/hooks/useFieldChangeHandler.ts` - Include action type in Discord field handling
+- `lib/workflows/actions/discord.ts` - Enhanced error messages for edit failures
+- `lib/workflows/nodes/providers/discord/index.ts` - Updated descriptions to clarify bot-only editing
+
 ## [2025-08-19] – Gmail Label Management System with Cache Bypass
 
 - **Gmail Label Management Modal**: Implemented comprehensive in-app label creation and deletion

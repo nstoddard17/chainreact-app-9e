@@ -7,8 +7,8 @@ import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
 export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
-    const { channelId } = options
-    
+    const { channelId, actionType } = options
+
     if (!channelId) {
       // Instead of throwing an error, return empty array for messageId fields that don't have channelId yet
       return []
@@ -42,8 +42,31 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       )
 
 
-      const processedMessages = (data || [])
-        .filter((message: any) => message.type === 0 || message.type === undefined)
+      // Get bot ID for filtering if this is for an edit action
+      // IMPORTANT: Discord API limitation - bots can ONLY edit their own messages
+      const botId = process.env.DISCORD_CLIENT_ID
+      const isEditAction = actionType === 'discord_action_edit_message'
+
+      // Filter messages based on action type
+      let filteredMessages = (data || []).filter((message: any) => {
+        // Filter out system messages
+        if (message.type !== 0 && message.type !== undefined) {
+          return false
+        }
+
+        // For edit actions, only show bot's own messages (Discord API limitation)
+        if (isEditAction && botId) {
+          return message.author?.id === botId
+        }
+
+        return true
+      })
+
+      if (isEditAction && filteredMessages.length === 0 && data.length > 0) {
+        console.log(`⚠️ [Discord Messages] No editable messages found. Discord API limitation: Bots can only edit their own messages, not messages from other users.`);
+      }
+
+      const processedMessages = filteredMessages
         .map((message: any) => {
           // Format the timestamp
           const messageDate = message.timestamp ? new Date(message.timestamp) : null
@@ -111,7 +134,10 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
           }
         })
 
-      // Debug: Log message reaction data
+      // Debug: Log message data
+      if (isEditAction) {
+        console.log(`📝 [Discord Messages] Edit action: Found ${processedMessages.length} bot messages that can be edited (Discord API only allows editing own messages)`);
+      }
       const messagesWithReactions = processedMessages.filter(msg => msg.reactions && msg.reactions.length > 0);
       console.log(`🔍 [Discord Messages] Processed ${processedMessages.length} messages, ${messagesWithReactions.length} have reactions`);
       

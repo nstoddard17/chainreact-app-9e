@@ -16,8 +16,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     'guildId',
     'channelId',
     'messageId',
+    'messageIds',  // Support plural for multi-select
     'filterAuthor',
     'userId',
+    'userIds',     // Support plural for multi-select
     'roleId',
     'parentId',
     'categoryId',
@@ -70,11 +72,13 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
               break;
             
             case 'messageId':
+            case 'messageIds':  // Handle both singular and plural
               result = await this.loadMessages(params);
               break;
             
             case 'filterAuthor':
             case 'userId':
+            case 'userIds':     // Handle plural
             case 'allowedUsers':
               result = await this.loadMembers(params);
               break;
@@ -186,12 +190,15 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   }
 
   private async loadMessages(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { dependsOnValue: channelId, integrationId, signal } = params;
-    
+    const { dependsOnValue: channelId, integrationId, signal, nodeType, extraOptions } = params;
+
     if (!channelId || !integrationId) {
       console.log('🔍 [Discord] Cannot load messages without channelId and integrationId');
       return [];
     }
+
+    // Get the action type from node type or extra options
+    const actionType = nodeType || extraOptions?.actionType;
 
     try {
       const response = await fetch('/api/integrations/discord/data', {
@@ -200,7 +207,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         body: JSON.stringify({
           integrationId,
           dataType: 'discord_messages',
-          options: { channelId }
+          options: { channelId, actionType }
         }),
         signal
       });
@@ -365,6 +372,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       case 'channelId':
       case 'filterAuthor':
       case 'userId':
+      case 'userIds':      // Plural version
       case 'roleId':
       case 'roleFilter':
       case 'parentId':
@@ -373,8 +381,9 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       case 'allowedUsers':
       case 'allowedRoles':
         return ['guildId'];
-      
+
       case 'messageId':
+      case 'messageIds':   // Plural version
         return ['channelId'];
       
       default:

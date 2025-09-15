@@ -788,15 +788,21 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
     // Edit the message
     const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
       method: "PATCH",
-      headers: { 
-        Authorization: `Bot ${botToken}`, 
-        "Content-Type": "application/json" 
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({ content })
     })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+
+      // Provide clearer error message for common Discord API limitation
+      if (response.status === 403 && (errorData.message?.includes('Cannot edit a message authored by another user') || errorData.code === 50005)) {
+        throw new Error("Discord API limitation: Bots can only edit their own messages. To modify content from other users, consider using the 'Delete Message' action followed by 'Send Message' instead.")
+      }
+
       throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
     }
 
@@ -833,7 +839,7 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
 export async function deleteDiscordMessage(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { channelId, messageIds, userId: filterUserId, userIds: filterUserIds, keywords } = resolvedConfig
+    const { channelId, messageIds, userId: filterUserId, userIds: filterUserIds, keywords, keywordMatchType = "partial" } = resolvedConfig
     
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
@@ -879,12 +885,34 @@ export async function deleteDiscordMessage(config: any, userId: string, input: R
           return false
         }
         
-        // Filter by keywords
+        // Filter by keywords with different match types
         if (keywords && keywords.length > 0) {
-          const messageContent = (msg.content || "").toLowerCase()
-          const hasKeyword = keywords.some((keyword: string) => 
-            messageContent.includes(keyword.toLowerCase())
-          )
+          const messageContent = msg.content || ""
+          let hasKeyword = false
+
+          if (keywordMatchType === "exact") {
+            // Exact case-sensitive match
+            hasKeyword = keywords.some((keyword: string) =>
+              messageContent.includes(keyword)
+            )
+          } else if (keywordMatchType === "whole") {
+            // Whole word match (case-insensitive)
+            const messageLower = messageContent.toLowerCase()
+            hasKeyword = keywords.some((keyword: string) => {
+              const keywordLower = keyword.toLowerCase()
+              // Create word boundary regex
+              const escapedKeyword = keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const regex = new RegExp(`\\b${escapedKeyword}\\b`)
+              return regex.test(messageLower)
+            })
+          } else {
+            // Default: partial match (case-insensitive)
+            const messageLower = messageContent.toLowerCase()
+            hasKeyword = keywords.some((keyword: string) =>
+              messageLower.includes(keyword.toLowerCase())
+            )
+          }
+
           if (!hasKeyword) {
             return false
           }

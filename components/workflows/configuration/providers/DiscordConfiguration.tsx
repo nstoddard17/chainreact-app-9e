@@ -33,7 +33,7 @@ interface DiscordConfigurationProps {
   currentNodeId?: string;
   dynamicOptions: Record<string, any[]>;
   loadingDynamic: boolean;
-  loadOptions: (fieldName: string, parentField?: string, parentValue?: any, forceReload?: boolean) => Promise<void>;
+  loadOptions: (fieldName: string, parentField?: string, parentValue?: any, forceReload?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => Promise<void>;
   integrationName?: string;
   needsConnection?: boolean;
   onConnectIntegration?: () => void;
@@ -223,10 +223,44 @@ export function DiscordConfiguration({
               });
             });
         }, 500); // Increased delay to 500ms
+
+        // Also load members if we have a userIds field (for delete message action)
+        const hasUsersField = nodeInfo?.configSchema?.some((field: any) => field.name === 'userIds');
+        if (hasUsersField) {
+          // Clear users value when server changes
+          setValue('userIds', []);
+
+          // Set loading state for users
+          setLocalLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.add('userIds');
+            return newSet;
+          });
+
+          // Load guild members with a delay
+          setTimeout(() => {
+            console.log('👥 [Discord] Loading guild members for server:', value);
+            loadOptions('userIds', 'guildId', value, true)
+              .then(() => {
+                console.log('✅ [Discord] Guild members loaded successfully');
+              })
+              .catch((error) => {
+                console.error('❌ [Discord] Error loading guild members:', error);
+              })
+              .finally(() => {
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('userIds');
+                  return newSet;
+                });
+              });
+          }, 600); // Slightly longer delay to avoid overwhelming the API
+        }
       } else {
         // If server is cleared, clear dependent fields
         setValue('channelId', '');
         setValue('messageId', '');
+        setValue('userIds', []);
       }
     }
     
@@ -283,7 +317,9 @@ export function DiscordConfiguration({
         // Load messages with a delay - force refresh to get new format
         setTimeout(() => {
           // Loading messages for channel
-          loadOptions('messageId', 'channelId', value, true) // true forces refresh
+          // Pass the action type to filter messages if this is an edit action
+          const actionType = nodeInfo?.type;
+          loadOptions('messageId', 'channelId', value, true, false, { actionType }) // true forces refresh
             .then(() => {
               // Messages loaded successfully
             })
@@ -368,39 +404,8 @@ export function DiscordConfiguration({
           }, 300);
         }
         
-        // Check if we have a userIds field (for delete message user filter - new multi-select)
-        const hasUsersField = nodeInfo?.configSchema?.some((field: any) => field.name === 'userIds');
-        
-        if (hasUsersField) {
-          // Clear users value when channel changes
-          setValue('userIds', []);
-          
-          // Set loading state for users
-          setLocalLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.add('userIds');
-            return newSet;
-          });
-          
-          // Load channel members with a delay
-          setTimeout(() => {
-            console.log('👥 [Discord] Loading channel members for multi-select:', value);
-            loadOptions('userIds', 'channelId', value, true)
-              .then(() => {
-                console.log('✅ [Discord] Channel members loaded successfully for multi-select');
-              })
-              .catch((error) => {
-                console.error('❌ [Discord] Error loading channel members:', error);
-              })
-              .finally(() => {
-                setLocalLoadingFields(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete('userIds');
-                  return newSet;
-                });
-              });
-          }, 300);
-        }
+        // Note: userIds field is now loaded when server (guildId) is selected,
+        // not when channel is selected, since userIds depends on guildId
       }
     }
     
@@ -647,9 +652,13 @@ export function DiscordConfiguration({
                 return null;
               }
               
-              // For delete message action - hide messages, userIds/userId, and keywords fields if no channel selected
+              // For delete message action - hide messages, userIds/userId, keywords, and keywordMatchType fields if no channel selected
               if (nodeInfo?.type === 'discord_action_delete_message') {
-                if ((field.name === 'messageIds' || field.name === 'userIds' || field.name === 'userId' || field.name === 'keywords') && !values.channelId) {
+                if ((field.name === 'messageIds' || field.name === 'userIds' || field.name === 'userId' || field.name === 'keywords' || field.name === 'keywordMatchType') && !values.channelId) {
+                  return null;
+                }
+                // Hide keywordMatchType field if no keywords are entered
+                if (field.name === 'keywordMatchType' && (!values.keywords || values.keywords.length === 0)) {
                   return null;
                 }
               }

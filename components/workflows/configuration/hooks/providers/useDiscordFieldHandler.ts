@@ -95,6 +95,7 @@ export function useDiscordFieldHandler({
     
     // Check for dependent fields
     const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
+    const hasMessagesField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageIds'); // Plural for delete action
     const hasAuthorFilter = nodeInfo.configSchema?.some((field: any) => field.name === 'authorFilter');
     
     // Clear dependent fields
@@ -106,6 +107,16 @@ export function useDiscordFieldHandler({
         return newSet;
       });
       resetOptions('messageId');
+    }
+
+    if (hasMessagesField) {
+      setValue('messageIds', []);
+      setLoadingFields((prev: Set<string>) => {
+        const newSet = new Set(prev);
+        newSet.add('messageIds');
+        return newSet;
+      });
+      resetOptions('messageIds');
     }
     
     if (hasAuthorFilter) {
@@ -119,10 +130,26 @@ export function useDiscordFieldHandler({
       // Load messages if needed
       if (hasMessageField) {
         setTimeout(() => {
-          loadOptions('messageId', 'channelId', value, true).finally(() => {
+          // Pass the action type to filter messages if this is an edit action
+          const actionType = nodeInfo?.type;
+          loadOptions('messageId', 'channelId', value, true, false, { actionType }).finally(() => {
             setLoadingFields((prev: Set<string>) => {
               const newSet = new Set(prev);
               newSet.delete('messageId');
+              return newSet;
+            });
+          });
+        }, 10);
+      }
+
+      // Load messages for multi-select (delete action)
+      if (hasMessagesField) {
+        setTimeout(() => {
+          const actionType = nodeInfo?.type;
+          loadOptions('messageIds', 'channelId', value, true, false, { actionType }).finally(() => {
+            setLoadingFields((prev: Set<string>) => {
+              const newSet = new Set(prev);
+              newSet.delete('messageIds');
               return newSet;
             });
           });
@@ -168,6 +195,7 @@ export function useDiscordFieldHandler({
       setLoadingFields((prev: Set<string>) => {
         const newSet = new Set(prev);
         if (hasMessageField) newSet.delete('messageId');
+        if (hasMessagesField) newSet.delete('messageIds');
         if (hasAuthorFilter) newSet.delete('authorFilter');
         return newSet;
       });
