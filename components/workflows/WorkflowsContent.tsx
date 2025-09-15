@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
-import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
 import { TemplateGallery } from "@/components/templates/TemplateGallery"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -485,7 +484,6 @@ export default function WorkflowsContent() {
         <div className="flex items-center justify-center h-64">
           <LightningLoader size="xl" color="primary" />
         </div>
-        <AIChatAssistant />
       </AppLayout>
     )
   }
@@ -497,7 +495,6 @@ export default function WorkflowsContent() {
           <div className="text-red-500 mb-4">Error loading workflows: {error}</div>
           <Button onClick={() => loadAllWorkflows(true)}>Retry</Button>
         </div>
-        <AIChatAssistant />
       </AppLayout>
     )
   }
@@ -505,12 +502,7 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
-        <div className="flex items-center justify-between">
-          <OrganizationRoleGuard requiredRole="admin">
-            <Link href="/admin/ai-prompt" className="inline-flex">
-              <Button variant="outline" size="sm">AI Prompt Admin</Button>
-            </Link>
-          </OrganizationRoleGuard>
+        <div className="flex items-center justify-end">
           <CreateWorkflowDialog />
         </div>
 
@@ -1115,7 +1107,6 @@ export default function WorkflowsContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AIChatAssistant />
     </AppLayout>
   )
 }

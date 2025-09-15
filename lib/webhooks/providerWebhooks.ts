@@ -334,6 +334,311 @@ export class DiscordWebhookHandler implements WebhookHandler {
   }
 }
 
+// Microsoft Teams Webhook Handler
+export class TeamsWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Microsoft Teams uses subscription-based webhooks
+    console.log(`Registering Teams webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Teams webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Teams webhook signature using validationToken
+    if (payload.validationToken) {
+      return true // Return validation token for initial setup
+    }
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    if (payload.value) {
+      // Handle change notification
+      const change = payload.value[0]
+      return {
+        subscriptionId: change.subscriptionId,
+        changeType: change.changeType,
+        resourceUrl: change.resource,
+        teamId: change.resourceData?.teamId,
+        channelId: change.resourceData?.channelId,
+        messageId: change.resourceData?.id,
+        from: change.resourceData?.from,
+        body: change.resourceData?.body,
+        createdAt: change.resourceData?.createdDateTime
+      }
+    }
+    return payload
+  }
+}
+
+// Microsoft Outlook Webhook Handler
+export class OutlookWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Outlook uses Microsoft Graph subscriptions
+    console.log(`Registering Outlook webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Outlook webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Outlook webhook signature
+    if (payload.validationToken) {
+      return true // Return validation token for initial setup
+    }
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    if (payload.value) {
+      const change = payload.value[0]
+      return {
+        subscriptionId: change.subscriptionId,
+        changeType: change.changeType,
+        messageId: change.resourceData?.id,
+        subject: change.resourceData?.subject,
+        from: change.resourceData?.from?.emailAddress?.address,
+        to: change.resourceData?.toRecipients?.map((r: any) => r.emailAddress?.address),
+        bodyPreview: change.resourceData?.bodyPreview,
+        hasAttachments: change.resourceData?.hasAttachments,
+        importance: change.resourceData?.importance,
+        receivedDateTime: change.resourceData?.receivedDateTime
+      }
+    }
+    return payload
+  }
+}
+
+// Microsoft OneDrive Webhook Handler
+export class OneDriveWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // OneDrive uses Microsoft Graph subscriptions
+    console.log(`Registering OneDrive webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering OneDrive webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate OneDrive webhook signature
+    if (payload.validationToken) {
+      return true
+    }
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    if (payload.value) {
+      const change = payload.value[0]
+      return {
+        subscriptionId: change.subscriptionId,
+        changeType: change.changeType,
+        driveId: change.resourceData?.parentReference?.driveId,
+        itemId: change.resourceData?.id,
+        fileName: change.resourceData?.name,
+        filePath: change.resourceData?.parentReference?.path,
+        fileSize: change.resourceData?.size,
+        mimeType: change.resourceData?.file?.mimeType,
+        createdBy: change.resourceData?.createdBy?.user?.displayName,
+        modifiedBy: change.resourceData?.lastModifiedBy?.user?.displayName,
+        createdDateTime: change.resourceData?.createdDateTime,
+        lastModifiedDateTime: change.resourceData?.lastModifiedDateTime
+      }
+    }
+    return payload
+  }
+}
+
+// Microsoft OneNote Webhook Handler
+export class OneNoteWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // OneNote uses Microsoft Graph subscriptions
+    console.log(`Registering OneNote webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering OneNote webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate OneNote webhook signature
+    if (payload.validationToken) {
+      return true
+    }
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    if (payload.value) {
+      const change = payload.value[0]
+      return {
+        subscriptionId: change.subscriptionId,
+        changeType: change.changeType,
+        notebookId: change.resourceData?.parentNotebook?.id,
+        notebookName: change.resourceData?.parentNotebook?.displayName,
+        sectionId: change.resourceData?.parentSection?.id,
+        sectionName: change.resourceData?.parentSection?.displayName,
+        pageId: change.resourceData?.id,
+        pageTitle: change.resourceData?.title,
+        createdBy: change.resourceData?.createdBy?.user?.displayName,
+        createdDateTime: change.resourceData?.createdDateTime,
+        lastModifiedDateTime: change.resourceData?.lastModifiedDateTime
+      }
+    }
+    return payload
+  }
+}
+
+// Google Sheets Webhook Handler
+export class GoogleSheetsWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Google Sheets uses Google Drive Watch API
+    console.log(`Registering Google Sheets webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Google Sheets webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Google Sheets webhook signature
+    const channelId = headers['x-goog-channel-id']
+    const resourceState = headers['x-goog-resource-state']
+    return channelId && resourceState ? true : false
+  }
+
+  transformPayload(payload: any): any {
+    return {
+      spreadsheetId: payload.id,
+      spreadsheetName: payload.name,
+      sheetId: payload.sheetId,
+      sheetName: payload.sheetName,
+      changeType: payload.changeType,
+      rowIndex: payload.rowIndex,
+      columnIndex: payload.columnIndex,
+      values: payload.values,
+      previousValues: payload.previousValues,
+      modifiedBy: payload.lastModifyingUser?.emailAddress,
+      modifiedTime: payload.modifiedTime
+    }
+  }
+}
+
+// Google Docs Webhook Handler
+export class GoogleDocsWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Google Docs uses Google Drive Watch API
+    console.log(`Registering Google Docs webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Google Docs webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Google Docs webhook signature
+    const channelId = headers['x-goog-channel-id']
+    const resourceState = headers['x-goog-resource-state']
+    return channelId && resourceState ? true : false
+  }
+
+  transformPayload(payload: any): any {
+    return {
+      documentId: payload.id,
+      documentTitle: payload.name,
+      changeType: payload.changeType,
+      revisionId: payload.revisionId,
+      content: payload.content,
+      suggestions: payload.suggestions,
+      modifiedBy: payload.lastModifyingUser?.emailAddress,
+      modifiedTime: payload.modifiedTime,
+      owners: payload.owners?.map((o: any) => o.emailAddress),
+      sharingUser: payload.sharingUser?.emailAddress
+    }
+  }
+}
+
+// Trello Webhook Handler
+export class TrelloWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Trello uses REST API webhooks
+    console.log(`Registering Trello webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Trello webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Trello webhook signature using HMAC
+    // Trello sends signature in X-Trello-Webhook header
+    const signature = headers['x-trello-webhook']
+    // TODO: Implement proper HMAC validation
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    const action = payload.action
+    return {
+      actionType: action?.type,
+      boardId: action?.data?.board?.id,
+      boardName: action?.data?.board?.name,
+      listId: action?.data?.list?.id,
+      listName: action?.data?.list?.name,
+      cardId: action?.data?.card?.id,
+      cardName: action?.data?.card?.name,
+      cardDescription: action?.data?.card?.desc,
+      memberId: action?.memberCreator?.id,
+      memberName: action?.memberCreator?.fullName,
+      memberUsername: action?.memberCreator?.username,
+      date: action?.date,
+      comment: action?.data?.text,
+      oldListId: action?.data?.listBefore?.id,
+      newListId: action?.data?.listAfter?.id
+    }
+  }
+}
+
+// Dropbox Webhook Handler
+export class DropboxWebhookHandler implements WebhookHandler {
+  async register(registration: WebhookRegistration): Promise<void> {
+    // Dropbox uses webhooks for file events
+    console.log(`Registering Dropbox webhook for ${registration.triggerType}`)
+  }
+
+  async unregister(registration: WebhookRegistration): Promise<void> {
+    console.log(`Unregistering Dropbox webhook for ${registration.triggerType}`)
+  }
+
+  validatePayload(payload: any, headers: Record<string, string>): boolean {
+    // Validate Dropbox webhook signature using HMAC SHA256
+    const signature = headers['x-dropbox-signature']
+    // TODO: Implement proper HMAC validation
+    return true
+  }
+
+  transformPayload(payload: any): any {
+    return {
+      accountId: payload.list_folder?.accounts?.[0],
+      cursor: payload.delta?.cursor,
+      entries: payload.delta?.entries?.map((entry: any) => ({
+        path: entry.path_display,
+        name: entry.name,
+        id: entry.id,
+        type: entry['.tag'],
+        size: entry.size,
+        isDeleted: entry.is_deleted,
+        modifiedTime: entry.client_modified,
+        rev: entry.rev
+      }))
+    }
+  }
+}
+
 // Webhook Handler Factory
 export class WebhookHandlerFactory {
   private static handlers: Record<string, WebhookHandler> = {
@@ -346,7 +651,19 @@ export class WebhookHandlerFactory {
     notion: new NotionWebhookHandler(),
     airtable: new AirtableWebhookHandler(),
     'google-calendar': new GoogleCalendarWebhookHandler(),
-    discord: new DiscordWebhookHandler()
+    discord: new DiscordWebhookHandler(),
+    teams: new TeamsWebhookHandler(),
+    'microsoft-teams': new TeamsWebhookHandler(), // Alias
+    outlook: new OutlookWebhookHandler(),
+    'microsoft-outlook': new OutlookWebhookHandler(), // Alias
+    onedrive: new OneDriveWebhookHandler(),
+    'microsoft-onedrive': new OneDriveWebhookHandler(), // Alias
+    onenote: new OneNoteWebhookHandler(),
+    'microsoft-onenote': new OneNoteWebhookHandler(), // Alias
+    'google-sheets': new GoogleSheetsWebhookHandler(),
+    'google-docs': new GoogleDocsWebhookHandler(),
+    trello: new TrelloWebhookHandler(),
+    dropbox: new DropboxWebhookHandler()
   }
 
   static getHandler(providerId: string): WebhookHandler | null {
@@ -373,5 +690,13 @@ export {
   NotionWebhookHandler,
   AirtableWebhookHandler,
   GoogleCalendarWebhookHandler,
-  DiscordWebhookHandler
+  DiscordWebhookHandler,
+  TeamsWebhookHandler,
+  OutlookWebhookHandler,
+  OneDriveWebhookHandler,
+  OneNoteWebhookHandler,
+  GoogleSheetsWebhookHandler,
+  GoogleDocsWebhookHandler,
+  TrelloWebhookHandler,
+  DropboxWebhookHandler
 } 

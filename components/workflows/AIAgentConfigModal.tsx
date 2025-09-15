@@ -218,7 +218,7 @@ export function AIAgentConfigModal({
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
-  const { comingSoonIntegrations, isIntegrationConnected, availableIntegrations } = useIntegrationSelection()
+  const { comingSoonIntegrations, isIntegrationConnected, availableIntegrations, categories } = useIntegrationSelection()
   
   // Progressive disclosure state
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
@@ -274,6 +274,7 @@ export function AIAgentConfigModal({
   const [isAIMode, setIsAIMode] = useState(true)
   const [actionSearchQuery, setActionSearchQuery] = useState('')
   const [actionFilterCategory, setActionFilterCategory] = useState('all')
+  const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon by default
   const [selectedActionIntegration, setSelectedActionIntegration] = useState<any>(null)
   const [selectedActionInModal, setSelectedActionInModal] = useState<any>(null)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
@@ -458,12 +459,24 @@ export function AIAgentConfigModal({
     }
   }
 
+  // Helper function to capitalize category names
+  const formatCategoryName = (category: string): string => {
+    if (category === 'all') return 'All Categories';
+    if (category === 'ai') return 'AI';
+    if (category === 'crm') return 'CRM';
+    // Capitalize each word
+    return category
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   // Get available integrations for action selector
   const getFilteredIntegrations = () => {
     // Get unique integrations from ALL_NODE_COMPONENTS
     const integrationMap = new Map()
-    
-    ALL_NODE_COMPONENTS.filter(node => 
+
+    ALL_NODE_COMPONENTS.filter(node =>
       !node.isTrigger &&  // Properly exclude triggers
       node.type !== 'ai_agent' &&
       !node.type.includes('trigger')
@@ -473,7 +486,7 @@ export function AIAgentConfigModal({
         // Get the proper integration name from INTEGRATION_CONFIGS
         const integrationConfig = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
         const integrationName = integrationConfig?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
-        
+
         integrationMap.set(providerId, {
           id: providerId,
           name: integrationName,
@@ -482,8 +495,13 @@ export function AIAgentConfigModal({
       }
       integrationMap.get(providerId).actions.push(node)
     })
-    
+
     let integrations = Array.from(integrationMap.values())
+
+    // Filter out coming soon integrations by default
+    if (!showComingSoon) {
+      integrations = integrations.filter(int => !comingSoonIntegrations.has(int.id));
+    }
     
     // Apply category filter
     if (actionFilterCategory !== 'all') {
@@ -1897,28 +1915,39 @@ export function AIAgentConfigModal({
             </DialogHeader>
             
             <div className="pt-3 pb-3 border-b border-slate-200">
-              <div className="flex items-center space-x-4">
-                <div className="relative flex-grow">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search integrations or actions..."
-                    className="pl-10"
-                    value={actionSearchQuery}
-                    onChange={(e) => setActionSearchQuery(e.target.value)}
-                  />
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center space-x-4">
+                  <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search integrations or actions..."
+                      className="pl-10"
+                      value={actionSearchQuery}
+                      onChange={(e) => setActionSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select value={actionFilterCategory} onValueChange={setActionFilterCategory}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{formatCategoryName(cat)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Select value={actionFilterCategory} onValueChange={setActionFilterCategory}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Communication">Communication</SelectItem>
-                    <SelectItem value="Productivity">Productivity</SelectItem>
-                    <SelectItem value="Data">Data</SelectItem>
-                    <SelectItem value="AI">AI</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-end">
+                  <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showComingSoon}
+                      onChange={(e) => setShowComingSoon(e.target.checked)}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span>Show Coming Soon</span>
+                  </label>
+                </div>
               </div>
             </div>
             
