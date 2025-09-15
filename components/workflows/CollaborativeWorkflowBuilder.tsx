@@ -3216,6 +3216,13 @@ const useWorkflowBuilderState = () => {
     />
   }
 
+  // Get categories and comingSoonIntegrations from the shared hook to maintain single source of truth
+  const { comingSoonIntegrations: hookComingSoonIntegrations, categories: hookCategories } = useIntegrationSelection();
+
+  // Use the hook's coming soon integrations list and categories
+  const comingSoonIntegrations = hookComingSoonIntegrations;
+  const categories = hookCategories;
+
   const filteredIntegrations = useMemo(() => {
     // If integrations are still loading, show all integrations to avoid empty state
     if (integrationsLoading) {
@@ -3700,6 +3707,8 @@ const useWorkflowBuilderState = () => {
     setFilterCategory,
     showConnectedOnly,
     setShowConnectedOnly,
+    showComingSoon,
+    setShowComingSoon,
     filteredIntegrations,
     displayedTriggers,
     deletingNode,
@@ -3767,7 +3776,11 @@ const useWorkflowBuilderState = () => {
     connectingIntegrationId,
     setConnectingIntegrationId,
     // Force update function
-    forceUpdate
+    forceUpdate,
+    // Categories for filtering
+    categories,
+    // Coming soon integrations set
+    comingSoonIntegrations
   }
 }
 
@@ -3923,7 +3936,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, handleConfigurationClose, handleConfigurationSave,
     configuringNodeInfo, configuringIntegrationName, configuringInitialData, collaborators, pendingNode, setPendingNode,
-    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly, showComingSoon, setShowComingSoon,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, setSourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
@@ -3939,7 +3952,11 @@ function WorkflowBuilderContent() {
     // OAuth loading state
     connectingIntegrationId, setConnectingIntegrationId,
     // Force update function
-    forceUpdate
+    forceUpdate,
+    // Categories for filtering
+    categories,
+    // Coming soon integrations set
+    comingSoonIntegrations
   } = useWorkflowBuilderState()
 
   // Helper: normalize Add Action buttons to always appear at end of each AI Agent chain
@@ -4103,13 +4120,6 @@ function WorkflowBuilderContent() {
       return edge
     })
   }, [edges, handleAddNodeBetween])
-
-  // Get categories and comingSoonIntegrations from the shared hook to maintain single source of truth
-  const { comingSoonIntegrations: hookComingSoonIntegrations, categories: hookCategories } = useIntegrationSelection();
-
-  // Use the hook's coming soon integrations list and categories
-  const comingSoonIntegrations = hookComingSoonIntegrations;
-  const categories = hookCategories;
 
   // Helper function to capitalize category names
   const formatCategoryName = (category: string): string => {

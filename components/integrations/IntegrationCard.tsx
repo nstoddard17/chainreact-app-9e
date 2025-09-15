@@ -52,6 +52,8 @@ export function IntegrationCard({
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [showTeamsWarningDialog, setShowTeamsWarningDialog] = useState(false)
+  const [showOneNoteWarningDialog, setShowOneNoteWarningDialog] = useState(false)
+  const [showOutlookWarningDialog, setShowOutlookWarningDialog] = useState(false)
   
   // Check if this integration is coming soon
   const isComingSoon = useMemo(() => {
@@ -174,9 +176,17 @@ export function IntegrationCard({
   ].filter(Boolean).join(' \n ')
 
   const handleConnectClick = () => {
-    // Show warning dialog for Teams integration
+    // Show warning dialog for Microsoft integrations that require work/school accounts
     if (provider.id === 'teams') {
       setShowTeamsWarningDialog(true);
+      return;
+    }
+    if (provider.id === 'microsoft-onenote') {
+      setShowOneNoteWarningDialog(true);
+      return;
+    }
+    if (provider.id === 'microsoft-outlook') {
+      setShowOutlookWarningDialog(true);
       return;
     }
     
@@ -223,14 +233,16 @@ export function IntegrationCard({
               >
                 {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
               </h3>
-              {provider.id === 'teams' && !isComingSoon && (
+              {(provider.id === 'teams' || provider.id === 'microsoft-onenote' || provider.id === 'microsoft-outlook') && !isComingSoon && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowTeamsWarningDialog(true);
+                          if (provider.id === 'teams') setShowTeamsWarningDialog(true);
+                          if (provider.id === 'microsoft-onenote') setShowOneNoteWarningDialog(true);
+                          if (provider.id === 'microsoft-outlook') setShowOutlookWarningDialog(true);
                         }}
                         className="p-0 hover:scale-110 transition-transform"
                       >
@@ -238,7 +250,7 @@ export function IntegrationCard({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Click for Teams requirements info</p>
+                      <p>Important requirements</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -453,6 +465,112 @@ export function IntegrationCard({
               Cancel
             </Button>
             <Button onClick={handleTeamsConnect}>
+              Continue to Connect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OneNote Warning Dialog */}
+      <Dialog open={showOneNoteWarningDialog} onOpenChange={setShowOneNoteWarningDialog}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Microsoft OneNote Requirements
+            </DialogTitle>
+            <DialogDescription>
+              Please review these requirements before connecting Microsoft OneNote.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Work/School Account Required:</strong> Microsoft OneNote integration only works with work or school accounts that have Microsoft 365 subscription. Personal accounts (@outlook.com, @hotmail.com) are not supported.
+                </div>
+              </div>
+            </div>
+            
+            {showTeamsUpgradeMessage && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Business Plan Required:</strong> OneNote integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowOneNoteWarningDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setShowOneNoteWarningDialog(false);
+              if (status === "expired") {
+                onReconnect();
+              } else {
+                onConnect();
+              }
+            }}>
+              Continue to Connect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Outlook Warning Dialog */}
+      <Dialog open={showOutlookWarningDialog} onOpenChange={setShowOutlookWarningDialog}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Microsoft Outlook Requirements
+            </DialogTitle>
+            <DialogDescription>
+              Please review these requirements before connecting Microsoft Outlook.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Work/School Account Required:</strong> Microsoft Outlook integration only works with work or school accounts that have Microsoft 365 subscription. Personal accounts (@outlook.com, @hotmail.com) are not supported.
+                </div>
+              </div>
+            </div>
+            
+            {showTeamsUpgradeMessage && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Business Plan Required:</strong> Outlook integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowOutlookWarningDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setShowOutlookWarningDialog(false);
+              if (status === "expired") {
+                onReconnect();
+              } else {
+                onConnect();
+              }
+            }}>
               Continue to Connect
             </Button>
           </DialogFooter>
