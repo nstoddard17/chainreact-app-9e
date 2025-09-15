@@ -2419,13 +2419,26 @@ const useWorkflowBuilderState = () => {
     if (!currentWorkflow) {
       return
     }
-    
+
     if (isSaving) {
+      console.log('⚠️ Already saving, skipping duplicate save');
       return
     }
-    
+
+    // Set a timeout to prevent infinite loading
+    const saveTimeout = setTimeout(() => {
+      console.error('❌ Save timeout - forcefully resetting loading state');
+      setIsSaving(false);
+      toast({
+        title: "Save Timeout",
+        description: "The save operation took too long. Please try again.",
+        variant: "destructive"
+      });
+    }, 30000); // 30 second timeout
+
     try {
-      setIsSaving(true)
+      setIsSaving(true);
+      console.log('💾 Starting workflow save...')
       
       // Get current nodes and edges from React Flow
       const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
@@ -2498,9 +2511,13 @@ const useWorkflowBuilderState = () => {
       })
       
       // Clear unsaved changes flag
-      setHasUnsavedChanges(false)
-      
+      setHasUnsavedChanges(false);
+
+      // Clear the timeout since save succeeded
+      clearTimeout(saveTimeout);
+
     } catch (error: any) {
+      clearTimeout(saveTimeout);
       
       let errorMessage = "Could not save your changes. Please try again."
       if (error.message?.includes("network")) {
@@ -2517,7 +2534,9 @@ const useWorkflowBuilderState = () => {
         variant: "destructive" 
       })
     } finally {
-      setIsSaving(false)
+      clearTimeout(saveTimeout);
+      setIsSaving(false);
+      console.log('✅ Save operation complete, loading state cleared');
     }
   }
   
@@ -3459,36 +3478,81 @@ const useWorkflowBuilderState = () => {
 
   // Handle navigation with unsaved changes warning
   const handleNavigation = useCallback((path: string) => {
-    if (hasUnsavedChanges) {
-      setPendingNavigation(path)
-      setShowUnsavedChangesModal(true)
-    } else {
-      router.push(path)
+    console.log('🗺️ Navigating to:', path, 'Has unsaved changes:', hasUnsavedChanges);
+
+    // Reset any stuck loading states before navigation
+    if (isSaving || isExecuting) {
+      console.log('⚠️ Resetting loading states before navigation');
+      setIsSaving(false);
+      setIsExecuting(false);
+      isSavingRef.current = false;
     }
-  }, [hasUnsavedChanges, router])
+
+    if (hasUnsavedChanges) {
+      setPendingNavigation(path);
+      setShowUnsavedChangesModal(true);
+    } else {
+      // Use replace to avoid navigation stack issues
+      router.replace(path);
+    }
+  }, [hasUnsavedChanges, router, isSaving, isExecuting])
 
   // Handle save and continue navigation
   const handleSaveAndNavigate = async () => {
+    console.log('🔄 Starting save and navigate...');
+
+    // Prevent multiple clicks
+    if (isSaving) {
+      console.log('⚠️ Already saving, skipping...');
+      return;
+    }
+
     try {
-      await handleSave()
+      setIsSaving(true);
+      await handleSave();
+
+      // Add a small delay to ensure state updates are complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       if (pendingNavigation) {
-        router.push(pendingNavigation)
+        console.log('✅ Save complete, navigating to:', pendingNavigation);
+        // Clear unsaved changes flag before navigation
+        setHasUnsavedChanges(false);
+        setShowUnsavedChangesModal(false);
+        setPendingNavigation(null);
+
+        // Use replace instead of push to avoid navigation issues
+        router.replace(pendingNavigation);
+      } else {
+        console.log('✅ Save complete, navigating to workflows page');
+        setHasUnsavedChanges(false);
+        setShowUnsavedChangesModal(false);
+        router.replace('/workflows');
       }
     } catch (error) {
-      toast({ 
-        title: "Save Failed", 
-        description: "Could not save your changes. Please try again.", 
-        variant: "destructive" 
-      })
+      console.error('❌ Save and navigate failed:', error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save your changes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      // Ensure loading state is cleared
+      setIsSaving(false);
     }
   }
 
   // Handle navigation without saving
   const handleNavigateWithoutSaving = () => {
-    setHasUnsavedChanges(false)
-    setPendingNavigation(null)
+    console.log('⚠️ Navigating without saving');
+    setHasUnsavedChanges(false);
+    setShowUnsavedChangesModal(false);
+    setPendingNavigation(null);
+
     if (pendingNavigation) {
-      router.push(pendingNavigation)
+      router.replace(pendingNavigation);
+    } else {
+      router.replace('/workflows');
     }
   }
 

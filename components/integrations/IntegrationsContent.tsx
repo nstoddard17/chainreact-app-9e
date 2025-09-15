@@ -88,7 +88,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wasHidden, fetchIntegrations]);
+  }, [wasHidden, fetchIntegrations, fetchMetrics]);
 
   // Listen for OAuth completion events to immediately refresh integrations
   useEffect(() => {
@@ -122,7 +122,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('message', handleOAuthComplete);
       broadcastChannel?.close();
     };
-  }, [fetchIntegrations]);
+  }, [fetchIntegrations, fetchMetrics]);
 
   useEffect(() => {
     if (providers.length === 0) {
@@ -132,11 +132,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   useEffect(() => {
     if (user && providers.length > 0) {
-      // Fetch immediately without delay for faster loading
-      fetchIntegrations(true) // Force refresh
+      // Only fetch if we don't have integrations yet
+      if (integrations.length === 0) {
+        fetchIntegrations(true) // Force refresh on initial load
+      }
       fetchMetrics()
     }
-  }, [user, providers.length]) // Remove fetchIntegrations from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, providers.length, fetchMetrics]) // Remove fetchIntegrations from deps to prevent infinite loop
 
   // Add a fallback to prevent infinite loading
   useEffect(() => {
@@ -164,7 +167,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
   }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!user) return
     
     // Add timeout to prevent hanging
@@ -200,7 +203,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     } finally {
       setLoadingMetrics(false)
     }
-  }
+  }, [user])
 
   // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
   useEffect(() => {
@@ -224,7 +227,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }, 600000) // 10 minutes - less aggressive
 
     return () => clearInterval(interval)
-  }, [user])
+  }, [user, fetchMetrics])
 
   // Listen for integration change events
   useEffect(() => {
@@ -285,12 +288,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('integration-reconnected', handleIntegrationReconnected)
       window.removeEventListener('integrations-updated', handleIntegrationsUpdated)
     }
-  }, [user, fetchMetrics, toast])
+  }, [user, fetchMetrics, toast, fetchIntegrations])
   
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchIntegrations(true) // Force refresh
     fetchMetrics()
-  }
+  }, [fetchIntegrations, fetchMetrics])
 
   const handleConnect = useCallback(
     async (providerId: string) => {

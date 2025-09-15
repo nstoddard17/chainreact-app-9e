@@ -97,7 +97,30 @@ export async function GET(
 ) {
   const { provider } = await params
   
-  // Health check endpoint
+  // Handle webhook verification challenges
+  const url = new URL(request.url)
+  const challenge = url.searchParams.get('challenge')
+  
+  // Dropbox webhook verification
+  if (provider === 'dropbox' && challenge) {
+    console.log(`[Dropbox] Responding to challenge: ${challenge}`)
+    return new NextResponse(challenge, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
+    })
+  }
+  
+  // Slack webhook verification
+  if (provider === 'slack' && challenge) {
+    console.log(`[Slack] Responding to challenge: ${challenge}`)
+    return NextResponse.json({ challenge })
+  }
+  
+  // Other webhook verification patterns can be added here
+  
+  // Default health check endpoint
   return NextResponse.json({ 
     status: 'healthy', 
     provider,
