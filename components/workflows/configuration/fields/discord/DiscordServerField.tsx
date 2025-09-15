@@ -196,6 +196,18 @@ function DiscordServerFieldComponent({
   // Ensure value is always defined to prevent uncontrolled/controlled warning
   const selectValue = value === undefined || value === null ? "" : String(value);
 
+  // Try to get saved label from localStorage for immediate display
+  const getSavedLabel = (serverId: string): string | null => {
+    if (!serverId) return null;
+    try {
+      const storageKey = `discord_server_label_${serverId}`;
+      return localStorage.getItem(storageKey);
+    } catch (e) {
+      console.error('Error reading saved label:', e);
+      return null;
+    }
+  };
+
   // When we have a saved value, always show it immediately while options load in background
   let displayOptions = processedOptions;
   if (selectValue) {
@@ -206,10 +218,14 @@ function DiscordServerFieldComponent({
 
     // If the saved value doesn't exist in options yet, create a temporary placeholder
     if (!savedOptionExists) {
+      // Try to get the saved label from localStorage first for immediate display
+      const savedLabel = getSavedLabel(selectValue);
+
       // Create a nicer label for the temporary option
-      const tempLabel = processedOptions.length === 0
-        ? `Loading server...` // While loading, show a loading message
-        : `Server ID: ${selectValue}`; // If loaded but not found, show the ID
+      const tempLabel = savedLabel ||
+        (processedOptions.length === 0
+          ? `Server (${selectValue.substring(0, 8)}...)` // Show truncated ID while loading
+          : `Server ID: ${selectValue}`); // If loaded but not found, show the ID
 
       // Add the temporary option at the beginning
       displayOptions = [{
@@ -225,7 +241,22 @@ function DiscordServerFieldComponent({
     <div className="flex items-center gap-2">
       <Select
         value={selectValue}
-        onValueChange={onChange}
+        onValueChange={(newValue) => {
+          // When value changes, also try to store the label for future use
+          const selectedOption = displayOptions.find(opt =>
+            String(opt.value || opt.id) === newValue
+          );
+          if (selectedOption && !selectedOption.temporary) {
+            // Pass both value and label if we have them
+            const label = selectedOption.label || selectedOption.name;
+            // Store label in localStorage for immediate access on next load
+            if (label && newValue) {
+              const storageKey = `discord_server_label_${newValue}`;
+              localStorage.setItem(storageKey, label);
+            }
+          }
+          onChange(newValue);
+        }}
         onOpenChange={handleServerFieldOpen}
         className="flex-1"
         disabled={isRefreshing}
