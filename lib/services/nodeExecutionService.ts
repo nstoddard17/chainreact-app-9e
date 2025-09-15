@@ -3,6 +3,7 @@ import { TriggerNodeHandlers } from "./executionHandlers/triggerHandlers"
 import { ActionNodeHandlers } from "./executionHandlers/actionHandlers"
 import { IntegrationNodeHandlers } from "./executionHandlers/integrationHandlers"
 import { ExecutionContext } from "./workflowExecutionService"
+import { executionHistoryService } from "./executionHistoryService"
 
 export class NodeExecutionService {
   // Force recompilation - Gmail actions added
@@ -17,13 +18,41 @@ export class NodeExecutionService {
   }
 
   async executeNode(
-    node: any, 
-    allNodes: any[], 
-    connections: any[], 
+    node: any,
+    allNodes: any[],
+    connections: any[],
     context: ExecutionContext
   ): Promise<any> {
     const startTime = Date.now()
     console.log(`🔧 Executing node: ${node.id} (${node.data.type})`)
+
+    // Record step start in history
+    let stepRecorded = false
+    if (context.executionHistoryId) {
+      try {
+        // Prepare test mode preview if in test mode
+        let testModePreview = undefined
+        if (context.testMode && this.isExternalAction(node.data.type)) {
+          testModePreview = {
+            action: node.data.type,
+            config: node.data.config,
+            wouldSend: this.getTestModePreview(node.data.type, node.data.config)
+          }
+        }
+
+        await executionHistoryService.recordStep(
+          context.executionHistoryId,
+          node.id,
+          node.data.type,
+          node.data.title || node.data.type,
+          node.data.config,
+          testModePreview
+        )
+        stepRecorded = true
+      } catch (error) {
+        console.error('Failed to record execution step:', error)
+      }
+    }
 
     try {
       // Set current node in data flow manager and store metadata
@@ -88,12 +117,44 @@ export class NodeExecutionService {
       const executionTime = Date.now() - startTime
       console.log(`✅ Node ${node.id} completed in ${executionTime}ms`)
 
+      // Record successful step completion
+      if (stepRecorded && context.executionHistoryId) {
+        try {
+          await executionHistoryService.completeStep(
+            context.executionHistoryId,
+            node.id,
+            'completed',
+            nodeResult?.output || nodeResult,
+            undefined,
+            undefined
+          )
+        } catch (error) {
+          console.error('Failed to complete execution step:', error)
+        }
+      }
+
       return nodeResult
 
     } catch (error: any) {
       const executionTime = Date.now() - startTime
       console.error(`❌ Node ${node.id} failed after ${executionTime}ms:`, error.message)
-      
+
+      // Record failed step
+      if (stepRecorded && context.executionHistoryId) {
+        try {
+          await executionHistoryService.completeStep(
+            context.executionHistoryId,
+            node.id,
+            'failed',
+            undefined,
+            error.message,
+            { stack: error.stack, details: error }
+          )
+        } catch (recordError) {
+          console.error('Failed to record failed step:', recordError)
+        }
+      }
+
       // Store error in context
       if (!context.results.errors) {
         context.results.errors = []
@@ -267,5 +328,65 @@ export class NodeExecutionService {
     )
     
     return (hasExternalKeyword || hasExternalPrefix) && !isReadOnly
+  }
+
+  private getTestModePreview(nodeType: string, config: any): any {
+    // Generate a preview of what would be sent in test mode
+    switch (nodeType) {
+      case 'gmail_action_send_email':
+      case 'gmail_send':
+        return {
+          to: config.to || 'recipient@example.com',
+          subject: config.subject || 'Test Email',
+          body: config.body || 'Email content',
+          cc: config.cc,
+          bcc: config.bcc
+        }
+
+      case 'slack_send_message':
+        return {
+          channel: config.channel || '#general',
+          text: config.text || 'Test message',
+          blocks: config.blocks
+        }
+
+      case 'discord_action_send_message':
+        return {
+          channelId: config.channelId,
+          message: config.message || 'Test message',
+          embeds: config.embeds
+        }
+
+      case 'google_sheets_append_row':
+      case 'google-sheets:append_row':
+        return {
+          spreadsheetId: config.spreadsheetId,
+          sheetName: config.sheetName || 'Sheet1',
+          values: config.values || ['Test', 'Data']
+        }
+
+      case 'airtable_create_record':
+        return {
+          baseId: config.baseId,
+          tableId: config.tableId,
+          fields: config.fields || {}
+        }
+
+      case 'webhook':
+      case 'webhook_call':
+        return {
+          url: config.url,
+          method: config.method || 'POST',
+          headers: config.headers,
+          body: config.body
+        }
+
+      default:
+        return {
+          action: nodeType,
+          config: config,
+          message: 'Would execute this action with the provided configuration'
+        }
+    }
   }
 }

@@ -163,7 +163,7 @@ export const discordNodes: NodeComponent[] = [
   {
     type: "discord_action_edit_message",
     title: "Edit Message",
-    description: "Edit a message in a Discord channel.",
+    description: "Edit a bot's own message in a Discord channel. Note: Discord API only allows bots to edit their own messages.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
@@ -172,25 +172,30 @@ export const discordNodes: NodeComponent[] = [
     configSchema: [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
-      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
+      { name: "messageId", label: "Message (Bot's Own)", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a bot message to edit" },
       { name: "content", label: "New Content", type: "discord-rich-text", provider: "discord", required: true, placeholder: "Enter new message content with formatting, mentions, and emojis" }
     ]
   },
   {
     type: "discord_action_delete_message",
     title: "Delete Message(s)",
-    description: "Delete messages in a Discord channel by selection, user, or keywords.",
+    description: "Delete messages in a Discord channel. Can bulk delete up to 100 recent messages based on filters.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: true, required: true, placeholder: "Select a Discord server" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, dependsOn: "guildId", placeholder: "Select a channel" },
-      { name: "messageIds", label: "Messages", type: "multi-select", dynamic: "discord_messages", required: false, dependsOn: "channelId", placeholder: "Select messages to delete (optional)", showWhen: { channelId: "!empty" } },
-      { name: "userIds", label: "Users", type: "multi-select", dynamic: "discord_channel_members", required: false, dependsOn: "channelId", placeholder: "Filter by users (optional)", showWhen: { channelId: "!empty" } },
-      { name: "keywords", label: "Keywords", type: "tag-input", required: false, placeholder: "Enter keywords and press Enter", description: "Delete messages containing any of these keywords" }
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageIds", label: "Messages", type: "multi-select", dynamic: "discord_messages", required: false, dependsOn: "channelId", placeholder: "Select specific messages OR use filters below", description: "Leave empty to use user/keyword filters instead" },
+      { name: "userIds", label: "Users", type: "multi-select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Filter by users (optional)", description: "Delete all messages from selected users (last 100 messages)" },
+      { name: "keywords", label: "Keywords", type: "tag-input", required: false, placeholder: "Enter keywords and press Enter", description: "Delete messages containing these keywords (case-insensitive, partial match)" },
+      { name: "keywordMatchType", label: "Keyword Match Type", type: "select", required: false, options: [
+        { value: "partial", label: "Partial Match (default) - 'trans' matches 'transistor'" },
+        { value: "whole", label: "Whole Word - 'trans' won't match 'transistor'" },
+        { value: "exact", label: "Exact Match - case-sensitive exact match" }
+      ], defaultValue: "partial", description: "How to match keywords in messages" }
     ]
   },
   {

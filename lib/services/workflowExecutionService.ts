@@ -1,6 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
 import { NodeExecutionService } from "./nodeExecutionService"
+import { executionHistoryService } from "./executionHistoryService"
 
 export interface ExecutionContext {
   userId: string
@@ -11,6 +12,8 @@ export interface ExecutionContext {
   results: Record<string, any>
   dataFlowManager: any
   interceptedActions?: any[]
+  executionHistoryId?: string
+  executionId?: string
 }
 
 export class WorkflowExecutionService {
@@ -84,14 +87,36 @@ export class WorkflowExecutionService {
       throw new Error("Workflow has no trigger nodes")
     }
 
+    // Generate execution ID
+    const executionId = `exec-${Date.now()}-${Math.random().toString(36).substring(7)}`
+
+    // Start execution history tracking
+    let executionHistoryId: string | null = null
+    try {
+      executionHistoryId = await executionHistoryService.startExecution(
+        workflow.id,
+        userId,
+        executionId,
+        testMode,
+        inputData
+      )
+    } catch (error) {
+      console.error('Failed to start execution history tracking:', error)
+      // Continue execution even if history tracking fails
+    }
+
     // Initialize execution context
     const executionContext = await this.createExecutionContext(
-      workflow, 
-      inputData, 
-      userId, 
-      testMode, 
+      workflow,
+      inputData,
+      userId,
+      testMode,
       supabase
     )
+
+    // Add execution tracking to context
+    executionContext.executionHistoryId = executionHistoryId || undefined
+    executionContext.executionId = executionId
 
     // Execute from each trigger node
     const results = []
@@ -113,17 +138,35 @@ export class WorkflowExecutionService {
     }
 
     console.log("✅ Workflow execution completed successfully")
-    
+
+    // Complete execution history tracking
+    if (executionHistoryId) {
+      try {
+        await executionHistoryService.completeExecution(
+          executionHistoryId,
+          'completed',
+          results,
+          undefined
+        )
+      } catch (error) {
+        console.error('Failed to complete execution history:', error)
+      }
+    }
+
     // If in test mode and we have intercepted actions, return them separately
     if (testMode && executionContext.interceptedActions.length > 0) {
       console.log(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
       return {
         results,
-        interceptedActions: executionContext.interceptedActions
+        interceptedActions: executionContext.interceptedActions,
+        executionHistoryId
       }
     }
-    
-    return results
+
+    return {
+      results,
+      executionHistoryId
+    }
   }
 
   private async createExecutionContext(

@@ -240,7 +240,8 @@ export function useFieldChangeHandler({
       
       // Check for messageId field
       const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
-      
+      const hasMessagesField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageIds'); // Plural for delete action
+
       if (hasMessageField) {
         // Clear and set loading for messageId
         setValue('messageId', '');
@@ -251,15 +252,42 @@ export function useFieldChangeHandler({
         });
         resetOptions('messageId');
       }
+
+      if (hasMessagesField) {
+        // Clear and set loading for messageIds (plural)
+        setValue('messageIds', []);
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add('messageIds');
+          return newSet;
+        });
+        resetOptions('messageIds');
+      }
       
       if (value && values.guildId) {
         // Load messages if needed
         if (hasMessageField) {
           setTimeout(() => {
-            loadOptions('messageId', 'channelId', value, true).finally(() => {
+            // Pass the action type to filter messages if this is an edit action
+            const actionType = nodeInfo?.type;
+            loadOptions('messageId', 'channelId', value, true, false, { actionType }).finally(() => {
               setLoadingFields((prev: Set<string>) => {
                 const newSet = new Set(prev);
                 newSet.delete('messageId');
+                return newSet;
+              });
+            });
+          }, 10);
+        }
+
+        // Load messages for multi-select (delete action)
+        if (hasMessagesField) {
+          setTimeout(() => {
+            const actionType = nodeInfo?.type;
+            loadOptions('messageIds', 'channelId', value, true, false, { actionType }).finally(() => {
+              setLoadingFields((prev: Set<string>) => {
+                const newSet = new Set(prev);
+                newSet.delete('messageIds');
                 return newSet;
               });
             });
@@ -270,13 +298,22 @@ export function useFieldChangeHandler({
         if (nodeInfo?.type?.startsWith('discord_action_')) {
           discordState?.checkChannelBotStatus(value, values.guildId);
         }
-      } else if (hasMessageField) {
+      } else {
         // Clear loading state
-        setLoadingFields((prev: Set<string>) => {
-          const newSet = new Set(prev);
-          newSet.delete('messageId');
-          return newSet;
-        });
+        if (hasMessageField) {
+          setLoadingFields((prev: Set<string>) => {
+            const newSet = new Set(prev);
+            newSet.delete('messageId');
+            return newSet;
+          });
+        }
+        if (hasMessagesField) {
+          setLoadingFields((prev: Set<string>) => {
+            const newSet = new Set(prev);
+            newSet.delete('messageIds');
+            return newSet;
+          });
+        }
       }
       
       return true;
