@@ -233,6 +233,7 @@ const useWorkflowBuilderState = () => {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
   const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Show all integrations including "Coming soon" ones
+  const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon integrations by default
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [isActionAIMode, setIsActionAIMode] = useState(false) // AI mode for action selection
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
@@ -3220,9 +3221,13 @@ const useWorkflowBuilderState = () => {
     if (integrationsLoading) {
       return availableIntegrations;
     }
-    
+
     const result = availableIntegrations
       .filter(int => {
+        // Filter out coming soon integrations by default
+        if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
+          return false;
+        }
         if (showConnectedOnly) {
           const isConnected = isIntegrationConnected(int.id);
           return isConnected;
@@ -3236,25 +3241,25 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         const searchLower = searchQuery.toLowerCase();
         if (searchLower === "") return true;
-        
+
         // Search in integration name, description, and category
         const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
                                  int.description.toLowerCase().includes(searchLower) ||
                                  int.category.toLowerCase().includes(searchLower);
-        
+
         // Search in trigger names, descriptions, and types
-        const triggerMatches = int.triggers.some(t => 
+        const triggerMatches = int.triggers.some(t =>
           (t.title && t.title.toLowerCase().includes(searchLower)) ||
           (t.description && t.description.toLowerCase().includes(searchLower)) ||
           (t.type && t.type.toLowerCase().includes(searchLower))
         );
-        
+
         return integrationMatches || triggerMatches;
       });
-    
-    
+
+
     return result;
-  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected, integrationsLoading]);
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, showComingSoon, comingSoonIntegrations, isIntegrationConnected, integrationsLoading]);
   
   const displayedTriggers = useMemo(() => {
     if (!selectedIntegration) return [];
@@ -4099,17 +4104,24 @@ function WorkflowBuilderContent() {
     })
   }, [edges, handleAddNodeBetween])
 
-  const categories = useMemo(() => {
-    const allCategories = availableIntegrations
-      .map(int => int.category);
-    return ['all', ...Array.from(new Set(allCategories))];
-  }, [availableIntegrations]);
+  // Get categories and comingSoonIntegrations from the shared hook to maintain single source of truth
+  const { comingSoonIntegrations: hookComingSoonIntegrations, categories: hookCategories } = useIntegrationSelection();
 
-  // Get comingSoonIntegrations from the shared hook to maintain single source of truth
-  const { comingSoonIntegrations: hookComingSoonIntegrations } = useIntegrationSelection();
-  
-  // Use the hook's coming soon integrations list
+  // Use the hook's coming soon integrations list and categories
   const comingSoonIntegrations = hookComingSoonIntegrations;
+  const categories = hookCategories;
+
+  // Helper function to capitalize category names
+  const formatCategoryName = (category: string): string => {
+    if (category === 'all') return 'All Categories';
+    if (category === 'ai') return 'AI';
+    if (category === 'crm') return 'CRM';
+    // Capitalize each word
+    return category
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
 
   const handleOpenTriggerDialog = () => {
     setSelectedIntegration(null);
@@ -4716,26 +4728,39 @@ function WorkflowBuilderContent() {
           </DialogHeader>
           
           <div className="pt-3 pb-3 border-b border-slate-200">
-            <div className="flex items-center space-x-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input 
-                  placeholder="Search integrations or triggers..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            <div className="flex flex-col space-y-3">
+              <div className="flex items-center space-x-4">
+                <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search integrations or triggers..."
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{formatCategoryName(cat)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-end">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showComingSoon}
+                    onChange={(e) => setShowComingSoon(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span>Show Coming Soon</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -5690,26 +5715,39 @@ function WorkflowBuilderContent() {
           </DialogHeader>
           
           <div className="pt-3 pb-3 border-b border-slate-200">
-            <div className="flex items-center space-x-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input 
-                  placeholder="Search integrations or actions..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            <div className="flex flex-col space-y-3">
+              <div className="flex items-center space-x-4">
+                <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search integrations or actions..."
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{formatCategoryName(cat)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-end">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showComingSoon}
+                    onChange={(e) => setShowComingSoon(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span>Show Coming Soon</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -5719,11 +5757,16 @@ function WorkflowBuilderContent() {
               {(() => {
                 // Filter integrations for action dialog
                 const filteredIntegrationsForActions = availableIntegrations.filter(int => {
+                  // Filter out coming soon integrations by default
+                  if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
+                    return false;
+                  }
+
                   // Filter by category if selected
                   if (filterCategory !== 'all' && int.category !== filterCategory) {
                     return false
                   }
-                  
+
                   // Core integration only has triggers, not actions - filter it out from action dialog
                   if (int.id === 'core') {
                     return false
