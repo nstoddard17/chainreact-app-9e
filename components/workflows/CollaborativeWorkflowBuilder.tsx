@@ -236,7 +236,7 @@ const useWorkflowBuilderState = () => {
   const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon integrations by default
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [isActionAIMode, setIsActionAIMode] = useState(false) // AI mode for action selection
-  const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
+  const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any>; dynamicOptions?: Record<string, any[]> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
   const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
@@ -504,6 +504,14 @@ const useWorkflowBuilderState = () => {
     const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === nodeToConfigure.data.type)
     if (!nodeComponent) return
 
+    console.log('🔧 [WorkflowBuilder] handleConfigureNode called for:', {
+      nodeId,
+      nodeType: nodeToConfigure.data.type,
+      existingConfig: nodeToConfigure.data.config,
+      savedDynamicOptions: nodeToConfigure.data.savedDynamicOptions,
+      nodeData: nodeToConfigure.data
+    });
+
     const providerId = nodeToConfigure.data.providerId as keyof typeof INTEGRATION_CONFIGS
     const integration = INTEGRATION_CONFIGS[providerId]
 
@@ -522,6 +530,7 @@ const useWorkflowBuilderState = () => {
 
       // Try to load configuration from our persistence system first
       let config = nodeToConfigure.data.config || {}
+      let dynamicOptions = nodeToConfigure.data.savedDynamicOptions || {}
 
       if (typeof window !== "undefined") {
         try {
@@ -533,20 +542,29 @@ const useWorkflowBuilderState = () => {
           if (workflowId) {
             // IMPORTANT: await the async loadNodeConfig function
             const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type as string)
-            if (savedNodeData && savedNodeData.config) {
-              config = savedNodeData.config
+            if (savedNodeData) {
+              // Use saved config and dynamicOptions if available
+              config = savedNodeData.config || config
+              dynamicOptions = savedNodeData.dynamicOptions || dynamicOptions
+              console.log('📋 [WorkflowBuilder] Loaded saved config from persistence:', {
+                nodeId,
+                config,
+                dynamicOptions
+              });
             }
           }
         } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to load from persistence:', error);
           // Fall back to workflow store config
         }
       }
 
-      setConfiguringNode({ id: nodeId, integration: coreIntegration, nodeComponent, config })
+      setConfiguringNode({ id: nodeId, integration: coreIntegration, nodeComponent, config, dynamicOptions })
     } else if (integration && nodeComponent) {
 
       // Try to load configuration from our persistence system first
       let config = nodeToConfigure.data.config || {}
+      let dynamicOptions = nodeToConfigure.data.savedDynamicOptions || {}
 
       if (typeof window !== "undefined") {
         try {
@@ -559,17 +577,32 @@ const useWorkflowBuilderState = () => {
 
             // IMPORTANT: await the async loadNodeConfig function
             const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type as string)
-            if (savedNodeData && savedNodeData.config) {
-              config = savedNodeData.config
-            } else {
+            if (savedNodeData) {
+              // Use saved config and dynamicOptions if available
+              config = savedNodeData.config || config
+              dynamicOptions = savedNodeData.dynamicOptions || dynamicOptions
+              console.log('📋 [WorkflowBuilder] Loaded saved config from persistence:', {
+                nodeId,
+                config,
+                dynamicOptions
+              });
             }
           }
         } catch (error) {
+          console.error('❌ [WorkflowBuilder] Failed to load from persistence:', error);
           // Fall back to workflow store config
         }
       }
 
-      setConfiguringNode({ id: nodeId, integration, nodeComponent, config })
+      console.log('📋 [WorkflowBuilder] Setting configuringNode with config:', {
+        nodeId,
+        nodeType: nodeComponent.type,
+        configFromNode: nodeToConfigure.data.config,
+        configFromPersistence: config,
+        finalConfig: config,
+        dynamicOptions
+      });
+      setConfiguringNode({ id: nodeId, integration, nodeComponent, config, dynamicOptions })
     }
   }, [getNodes])
 
@@ -715,11 +748,14 @@ const useWorkflowBuilderState = () => {
 
     // Skip configuration for manual trigger - it doesn't need any
     if (trigger.type === 'manual') {
-      console.log('✅ Manual trigger added - no configuration needed')
       toast({
         title: "Manual Trigger Added",
         description: "Your workflow will run when you click the 'Test Workflow' button."
       })
+      // Ensure the view fits to show the new trigger node
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 200 })
+      }, 100)
     } else if (trigger.type === 'schedule' || (nodeNeedsConfiguration && nodeNeedsConfiguration(trigger))) {
       console.log('⏰ Opening configuration modal for node:', newNodeId)
       setTimeout(() => {
@@ -727,7 +763,7 @@ const useWorkflowBuilderState = () => {
         handleConfigureNode(newNodeId)
       }, 100)
     }
-  }, [setNodes, setEdges, handleConfigureNode, handleChangeTrigger, handleAddActionClick])
+  }, [setNodes, setEdges, handleConfigureNode, handleChangeTrigger, handleAddActionClick, fitView])
 
   // Forward declare these functions to avoid initialization issues
   // They will be properly defined later but we need references for handleActionSelect
@@ -920,15 +956,27 @@ const useWorkflowBuilderState = () => {
 
   const handleConfigurationSave = useCallback(async (config: Record<string, any>) => {
     if (!configuringNode) return
-    
+
+    // Extract dynamicOptions from the config (if included)
+    const { __dynamicOptions, ...actualConfig } = config;
+
+    console.log('💾 [WorkflowBuilder] handleConfigurationSave called with:', {
+      nodeId: configuringNode.id,
+      nodeType: configuringNodeInfo?.type,
+      providerId: configuringNodeInfo?.providerId,
+      config: actualConfig,
+      dynamicOptions: __dynamicOptions,
+      configuringNode
+    });
+
     // NOTION WORKSPACE DEBUG: Log configuration for Notion nodes
     if (configuringNodeInfo?.providerId === 'notion' && config.workspace) {
     }
-    
+
     // GMAIL ATTACHMENT DEBUG: Log configuration for Gmail nodes
     if (configuringNodeInfo?.providerId === 'gmail' && configuringNodeInfo?.type === 'gmail_action_send_email') {
     }
-    
+
     try {
       // Check if this is a pending node that needs to be added
       if (pendingNode && (pendingNode as any).nodeId === configuringNode.id) {
@@ -949,7 +997,8 @@ const useWorkflowBuilderState = () => {
           data: {
             ...pendingNode.nodeComponent,
             providerId: pendingNode.integration.id,
-            config: config,
+            config: actualConfig,
+            savedDynamicOptions: __dynamicOptions,
             onConfigure: handleConfigureNode,
             onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
             onRename: (id: string, title: string) => handleRenameNodeRef.current?.(id, title)
@@ -1037,7 +1086,8 @@ const useWorkflowBuilderState = () => {
                 ...node,
                 data: {
                   ...node.data,
-                  config: config
+                  config: actualConfig,
+                  savedDynamicOptions: __dynamicOptions
                 }
               }
             }
@@ -1102,7 +1152,18 @@ const useWorkflowBuilderState = () => {
 
   const configuringInitialData = useMemo(() => {
     if (!configuringNode) return {}
-    return configuringNode.config || {}
+    console.log('📊 [WorkflowBuilder] configuringInitialData computed:', {
+      nodeId: configuringNode.id,
+      config: configuringNode.config,
+      hasConfig: !!configuringNode.config,
+      configKeys: configuringNode.config ? Object.keys(configuringNode.config) : [],
+      hasDynamicOptions: !!configuringNode.dynamicOptions
+    });
+    // Return both config and dynamicOptions for the modal
+    return {
+      ...(configuringNode.config || {}),
+      __dynamicOptions: configuringNode.dynamicOptions // Pass dynamic options with a special key
+    }
   }, [configuringNode])
 
   // Memoize the recalculateLayout function to prevent unnecessary calls
@@ -2462,6 +2523,7 @@ const useWorkflowBuilderState = () => {
             label: n.data.label as string,
             type: n.data.type as string,
             config: n.data.config || {},
+            savedDynamicOptions: n.data.savedDynamicOptions || {},
             providerId: n.data.providerId as string | undefined,
             isTrigger: n.data.isTrigger as boolean | undefined,
             title: n.data.title as string | undefined,
@@ -2605,16 +2667,69 @@ const useWorkflowBuilderState = () => {
       
       const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
       
-      const { error } = await supabase
-        .from('workflows')
-        .update({ 
-          status: newStatus,
-          is_enabled: newStatus === 'active',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', currentWorkflow.id)
+      console.log('🔄 Attempting to update workflow status:', {
+        workflowId: currentWorkflow.id,
+        currentStatus: currentWorkflow.status,
+        newStatus: newStatus,
+        nodes: nodes.length,
+        edges: edges.length
+      })
+      
+      // Use the API endpoint to handle RLS-protected updates
+      // This will use the service role key on the server side
+      const updatePayload = {
+        status: newStatus,
+        // Include current nodes and connections
+        nodes: nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: n.data
+        })),
+        connections: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: e.type || 'straight'
+        }))
+      }
+      
+      console.log('📤 Sending update payload:', updatePayload)
+      
+      // Get the session for auth
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      const response = await fetch(`/api/workflows/${currentWorkflow.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token && {
+            'Authorization': `Bearer ${session.access_token}`
+          })
+        },
+        body: JSON.stringify(updatePayload),
+      })
 
-      if (error) throw error
+      console.log('📨 Response status:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        let errorData
+        const responseText = await response.text()
+        console.log('📨 Raw error response:', responseText)
+        
+        try {
+          errorData = JSON.parse(responseText)
+        } catch (e) {
+          console.error('Failed to parse error response as JSON:', e)
+          errorData = { error: responseText || `Server error: ${response.status}` }
+        }
+        
+        console.error('❌ API update error:', errorData)
+        throw new Error(errorData.error || errorData.message || 'Failed to update workflow status')
+      }
+      
+      const data = await response.json()
+      console.log('✅ Workflow updated successfully:', data)
 
       // Update the local state
       setCurrentWorkflow({
@@ -2641,7 +2756,7 @@ const useWorkflowBuilderState = () => {
   // Handle Test mode (sandbox) - safe testing without external calls
   const handleTestSandbox = async () => {
     if (isExecuting && !isStepMode) return
-    
+
     // If already in step mode, stop it completely
     if (isStepMode) {
       setListeningMode(false)
@@ -2650,9 +2765,9 @@ const useWorkflowBuilderState = () => {
       setShowSandboxPreview(false) // Hide preview panel
       stopStepExecution() // Stop step execution and clear all statuses
       setIsStepByStep(false)
-      
+
       // Clear all node execution statuses to remove visual feedback
-      setNodes((nds) => 
+      setNodes((nds) =>
         nds.map((node) => {
           if (node.type === 'custom') {
             return {
@@ -2667,45 +2782,121 @@ const useWorkflowBuilderState = () => {
           return node
         })
       )
-      
+
       toast({
         title: "Test Mode Stopped",
         description: "Test mode has been disabled.",
       })
       return
     }
-    
+
     try {
       if (!currentWorkflow) {
         throw new Error("No workflow selected")
       }
-      
+
+      // SAVE WORKFLOW AS DRAFT BEFORE STARTING TEST MODE
+      console.log('📝 Saving workflow as draft before test mode...')
+
+      // Get current nodes and edges from React Flow
+      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      const reactFlowEdges = getEdges().filter((e: Edge) =>
+        reactFlowNodes.some((n: Node) => n.id === e.source) &&
+        reactFlowNodes.some((n: Node) => n.id === e.target)
+      )
+
+      // Map nodes to database format, ensuring all config values are preserved
+      const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
+        const position = {
+          x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
+          y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
+        }
+
+        return {
+          id: n.id,
+          type: 'custom',
+          position: position,
+          data: {
+            label: n.data.label as string,
+            type: n.data.type as string,
+            config: n.data.config || {}, // Preserve all config values
+            providerId: n.data.providerId as string | undefined,
+            isTrigger: n.data.isTrigger as boolean | undefined,
+            title: n.data.title as string | undefined,
+            description: n.data.description as string | undefined,
+            // Preserve all other data fields
+            isAIAgentChild: n.data.isAIAgentChild,
+            parentAIAgentId: n.data.parentAIAgentId,
+            parentChainIndex: n.data.parentChainIndex,
+            chainsLayout: n.data.chainsLayout,
+            aiAgentConfig: n.data.aiAgentConfig
+          }
+        }
+      })
+
+      // Map connections to database format
+      const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle ?? undefined,
+        targetHandle: e.targetHandle ?? undefined
+      }))
+
+      // Determine the name to save
+      const nameToSave = workflowName && workflowName.trim() !== ''
+        ? workflowName
+        : currentWorkflow.name || 'Untitled Workflow'
+
+      // Save to database with status as draft
+      const savedWorkflow = await updateWorkflow(currentWorkflow.id, {
+        name: nameToSave,
+        nodes: mappedNodes,
+        connections: mappedConnections,
+        status: 'draft' // Set status to draft for test mode
+      })
+
+      // Update the current workflow with the saved data
+      if (savedWorkflow) {
+        setCurrentWorkflow(savedWorkflow)
+        // Also update the name if it was saved
+        if (savedWorkflow.name) {
+          setWorkflowName(savedWorkflow.name)
+        }
+      }
+
+      // Clear unsaved changes flag since we just saved
+      setHasUnsavedChanges(false)
+
+      console.log('✅ Workflow saved as draft, starting test mode...')
+
       // Start step-by-step execution mode
       setIsExecuting(true)
       setListeningMode(true)
       setIsStepByStep(true)
       startStepExecution()
-      
+
       // Get all valid nodes for execution
       const allNodes = getNodes().filter((n: Node) => n.type === 'custom')
       const allEdges = getEdges()
-      
+
       // Find the trigger node
       const triggerNode = allNodes.find(n => n.data?.isTrigger)
       if (!triggerNode) {
         throw new Error("No trigger found in workflow")
       }
-      
+
       // Show initial message
       toast({
         title: "Step-by-Step Test Started",
-        description: "Click 'Continue' to execute each node. The workflow will pause between nodes for inspection.",
+        description: "Workflow saved as draft. Click 'Continue' to execute each node.",
       })
-      
+
       // Execute nodes step by step
       await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
-      
+
     } catch (error: any) {
+      console.error('❌ Test mode error:', error)
       toast({
         title: "Test Failed",
         description: error.message || "Failed to test workflow.",

@@ -163,42 +163,8 @@ function DiscordServerFieldComponent({
   const processedError = error ? handleDiscordError(error) : undefined;
 
 
-  // Show loading state with simplified UI
-  // Only show loading state if:
-  // 1. We're actually refreshing (user clicked refresh)
-  // 2. OR it's the initial load and we haven't received options yet
-  // 3. BUT NOT if we already have a value and options (which means field is already loaded)
-  const hasValueAndOptions = value && processedOptions.length > 0;
-  const showLoadingState = field.dynamic && !hasValueAndOptions && (isRefreshing || (isInitialLoad && !hasReceivedOptions));
-  
-  if (showLoadingState) {
-    return (
-      <div className="flex items-center gap-2">
-        <Select disabled value="">
-          <SelectTrigger 
-            className={cn(
-              "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex-1",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-            )}
-          >
-            <SelectValue placeholder="Loading Discord servers..." />
-          </SelectTrigger>
-        </Select>
-        
-        {/* Refresh button spinning while loading */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={true}
-          className="h-10 px-3"
-          title="Loading servers..."
-        >
-          <RefreshCw className="h-4 w-4 animate-spin" />
-        </Button>
-      </div>
-    );
-  }
+  // We no longer show a separate loading state - saved values are shown immediately
+  // and options load in the background
 
   // Special case when no Discord servers are available after loading
   // Only show this if we've actually received a response (not still in initial load)
@@ -229,17 +195,42 @@ function DiscordServerFieldComponent({
 
   // Ensure value is always defined to prevent uncontrolled/controlled warning
   const selectValue = value === undefined || value === null ? "" : String(value);
-  
+
+  // When we have a saved value, always show it immediately while options load in background
+  let displayOptions = processedOptions;
+  if (selectValue) {
+    // Check if the saved value exists in loaded options
+    const savedOptionExists = processedOptions.some(opt =>
+      String(opt.value || opt.id) === selectValue
+    );
+
+    // If the saved value doesn't exist in options yet, create a temporary placeholder
+    if (!savedOptionExists) {
+      // Create a nicer label for the temporary option
+      const tempLabel = processedOptions.length === 0
+        ? `Loading server...` // While loading, show a loading message
+        : `Server ID: ${selectValue}`; // If loaded but not found, show the ID
+
+      // Add the temporary option at the beginning
+      displayOptions = [{
+        value: selectValue,
+        id: selectValue,
+        label: tempLabel,
+        temporary: true
+      }, ...processedOptions];
+    }
+  }
+
   return (
     <div className="flex items-center gap-2">
-      <Select 
-        value={selectValue} 
+      <Select
+        value={selectValue}
         onValueChange={onChange}
         onOpenChange={handleServerFieldOpen}
         className="flex-1"
         disabled={isRefreshing}
       >
-        <SelectTrigger 
+        <SelectTrigger
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
             error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2",
@@ -248,31 +239,48 @@ function DiscordServerFieldComponent({
         >
           <SelectValue placeholder={isRefreshing ? "Refreshing servers..." : (field.placeholder || "Select Discord server...")} />
         </SelectTrigger>
-        <SelectContent 
+        <SelectContent
           className="bg-slate-900 text-white max-h-[200px]"
-          position="popper" 
+          position="popper"
           sideOffset={4}
-          style={{ 
+          style={{
             backgroundColor: 'hsl(0 0% 10%)',
-            color: 'white' 
+            color: 'white'
           }}
         >
-          {/* Add refresh option at the top */}
-          <div className="px-2 py-1.5 text-xs text-slate-400 border-b border-slate-700 mb-1">
-            {processedOptions.length} server{processedOptions.length !== 1 ? 's' : ''} available
-          </div>
-          
-          {processedOptions.map((option: any, index: number) => {
+          {/* Show loading state inside dropdown if options are being fetched */}
+          {isLoading && (
+            <div className="px-2 py-4 text-sm text-slate-400 text-center">
+              <RefreshCw className="h-4 w-4 animate-spin inline-block mr-2" />
+              Loading Discord servers...
+            </div>
+          )}
+
+          {/* Show server count when not loading */}
+          {!isLoading && (
+            <div className="px-2 py-1.5 text-xs text-slate-400 border-b border-slate-700 mb-1">
+              {displayOptions.filter(opt => !opt.temporary).length} server{displayOptions.filter(opt => !opt.temporary).length !== 1 ? 's' : ''} available
+            </div>
+          )}
+
+          {displayOptions.map((option: any, index: number) => {
             const optionValue = option.value || option.id;
             const optionLabel = option.label || option.name || option.value || option.id;
             if (!optionValue) return null;
-            
+
+            // Mark temporary options with a different style
+            const isTemp = option.temporary;
+
             return (
-              <SelectItem 
-                key={String(optionValue)} 
+              <SelectItem
+                key={String(optionValue)}
                 value={String(optionValue)}
+                className={isTemp ? "italic text-slate-400" : ""}
               >
                 <span>{optionLabel}</span>
+                {isTemp && processedOptions.length === 0 && (
+                  <span className="ml-2 text-xs">(Current selection)</span>
+                )}
               </SelectItem>
             );
           })}

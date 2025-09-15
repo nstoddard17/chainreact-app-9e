@@ -1,4 +1,4 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -128,20 +128,43 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       connectionsCount: body.connections?.length
     })
 
-    const { data, error } = await supabase
+    // First verify the user owns this workflow using the regular client
+    const { data: workflow, error: checkError } = await supabase
       .from("workflows")
-      .update(body)
+      .select("id, user_id")
       .eq("id", resolvedParams.id)
-      .eq("user_id", user.id)
+      .single()
+
+    if (checkError || !workflow) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+    }
+
+    if (workflow.user_id !== user.id) {
+      return NextResponse.json({ error: "Not authorized to update this workflow" }, { status: 403 })
+    }
+
+    // Use service client to bypass RLS for the actual update
+    const serviceClient = await createSupabaseServiceClient()
+
+    const { data, error } = await serviceClient
+      .from("workflows")
+      .update({
+        ...body,
+        updated_at: new Date().toISOString() // Ensure updated_at is set
+      })
+      .eq("id", resolvedParams.id)
       .select()
       .single()
 
     if (error) {
+      console.error('❌ [Workflow API] Update error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
     return NextResponse.json(data)
   } catch (error) {
+    console.error('❌ [Workflow API] Error in PUT handler:', error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

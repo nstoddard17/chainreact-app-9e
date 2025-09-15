@@ -12,10 +12,15 @@ export interface WorkflowNode {
     label: string
     type: string
     config: Record<string, any>
+    savedDynamicOptions?: Record<string, any[]>
     providerId?: string
     isTrigger?: boolean
     title?: string
     description?: string
+    isAIAgentChild?: boolean
+    parentAIAgentId?: string
+    parentChainIndex?: number
+    emptiedChains?: number[]
   }
 }
 
@@ -229,19 +234,27 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   updateWorkflow: async (id: string, updates: Partial<Workflow>) => {
-    if (!supabase) {
-      throw new Error("Supabase not available")
-    }
-
     try {
       // Get the current workflow to compare status changes
       const currentWorkflow = get().workflows.find(w => w.id === id)
       const oldStatus = currentWorkflow?.status
       const newStatus = updates.status
 
-      const { data, error } = await supabase.from("workflows").update(updates).eq("id", id).select().single()
+      // Use API endpoint to handle RLS-protected updates
+      const response = await fetch(`/api/workflows/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update workflow')
+      }
+
+      const data = await response.json()
 
       set((state) => ({
         workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...data } : w)),
@@ -250,36 +263,40 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       }))
 
       // Log workflow update
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const logDetails: any = {
-            workflow_id: id,
-            workflow_name: data.name,
-            workflow_description: data.description,
-            updated_fields: Object.keys(updates)
-          }
-
-          // Add status change details if status was updated
-          if (oldStatus && newStatus && oldStatus !== newStatus) {
-            logDetails.status_change = {
-              old_status: oldStatus,
-              new_status: newStatus
+      if (supabase) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const logDetails: any = {
+              workflow_id: id,
+              workflow_name: data.name,
+              workflow_description: data.description,
+              updated_fields: Object.keys(updates)
             }
-          }
 
-          await supabase.from("audit_logs").insert({
-            user_id: user.id,
-            action: oldStatus !== newStatus ? "workflow_status_changed" : "workflow_updated",
-            resource_type: "workflow",
-            resource_id: id,
-            details: logDetails,
-            created_at: new Date().toISOString()
-          })
+            // Add status change details if status was updated
+            if (oldStatus && newStatus && oldStatus !== newStatus) {
+              logDetails.status_change = {
+                old_status: oldStatus,
+                new_status: newStatus
+              }
+            }
+
+            await supabase.from("audit_logs").insert({
+              user_id: user.id,
+              action: oldStatus !== newStatus ? "workflow_status_changed" : "workflow_updated",
+              resource_type: "workflow",
+              resource_id: id,
+              details: logDetails,
+              created_at: new Date().toISOString()
+            })
+          }
+        } catch (auditError) {
+          console.warn("Failed to log workflow update:", auditError)
         }
-      } catch (auditError) {
-        console.warn("Failed to log workflow update:", auditError)
       }
+
+      return data
     } catch (error: any) {
       console.error("Error updating workflow:", error)
       throw error
@@ -454,17 +471,29 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       // Update status: 'active' if complete, 'draft' if incomplete
       const newStatus = isComplete ? 'active' : 'draft'
       
+      // Ensure nodes and connections are properly serialized
+      const updateData = {
+        nodes: JSON.parse(JSON.stringify(currentWorkflow.nodes)),
+        connections: JSON.parse(JSON.stringify(currentWorkflow.connections)),
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }
+      
+      // Validate the data structure before sending
+      if (!Array.isArray(updateData.nodes) || !Array.isArray(updateData.connections)) {
+        throw new Error("Invalid workflow data structure")
+      }
+      
       const { error } = await supabase
         .from("workflows")
-        .update({
-          nodes: currentWorkflow.nodes,
-          connections: currentWorkflow.connections,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", currentWorkflow.id)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating workflow:", error)
+        console.error("Update data was:", updateData)
+        throw error
+      }
 
       // Update the workflow in the list
       set((state) => ({

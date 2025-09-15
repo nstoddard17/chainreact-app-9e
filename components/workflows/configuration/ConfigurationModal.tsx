@@ -117,9 +117,24 @@ export function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
+  // Debug: Log initialData when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🎯 [ConfigModal] Modal opened with initialData:', {
+        currentNodeId,
+        nodeType: nodeInfo?.type,
+        initialData,
+        hasGuildId: !!initialData?.guildId,
+        hasChannelId: !!initialData?.channelId,
+        hasMessage: !!initialData?.message,
+        allKeys: Object.keys(initialData || {})
+      });
+    }
+  }, [isOpen, initialData, currentNodeId, nodeInfo?.type]);
+
   // Track node type to prevent unnecessary re-renders
   const prevNodeTypeRef = React.useRef(nodeInfo?.type);
-  
+
   // Track node type changes
   if (prevNodeTypeRef.current !== nodeInfo?.type) {
     prevNodeTypeRef.current = nodeInfo?.type;

@@ -71,6 +71,7 @@
     "@types/better-sqlite3": "latest",
     "@types/pg": "latest",
     "@types/sql.js": "latest",
+    "@types/ws": "^8.18.1",
     "@upstash/redis": "latest",
     "@vercel/postgres": "latest",
     "@xata.io/client": "latest",
@@ -126,7 +127,7 @@
     "url": "latest",
     "use-sync-external-store": "latest",
     "vaul": "latest",
-    "ws": "latest",
+    "ws": "^8.18.3",
     "zod": "latest",
     "zustand": "latest"
   },
