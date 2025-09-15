@@ -682,12 +682,26 @@ async function generateDropboxAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store Dropbox OAuth state: ${error.message}`)
   }
 
+  // Define required scopes for Dropbox
+  // Based on our workflow actions:
+  // - files.content.write: Upload files
+  // - files.content.read: Read/download files  
+  // - files.metadata.read: List folders and file metadata
+  // - account_info.read: Get account info
+  const scopes = [
+    "files.content.write",
+    "files.content.read",
+    "files.metadata.read", 
+    "account_info.read"
+  ]
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/dropbox/callback`,
     response_type: "code",
     state,
     token_access_type: "offline",
+    scope: scopes.join(" "),
   })
 
   return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
