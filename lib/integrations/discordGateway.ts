@@ -255,7 +255,10 @@ class DiscordGateway extends EventEmitter {
         this.handleMessageCreate(payload.d)
         break
       default:
-        // Handle other events as needed
+        // Log other events for debugging
+        if (payload.t) {
+          console.log(`📡 Discord event received: ${payload.t}`)
+        }
         break
     }
   }
@@ -265,6 +268,12 @@ class DiscordGateway extends EventEmitter {
    */
   private handleReady(data: any): void {
     this.sessionId = data.session_id
+    console.log('🎉 Discord bot ready!', {
+      sessionId: this.sessionId,
+      username: data.user?.username,
+      userId: data.user?.id,
+      guildCount: data.guilds?.length || 0
+    })
     this.emit('ready', data)
   }
 
@@ -279,14 +288,26 @@ class DiscordGateway extends EventEmitter {
    * Handle MESSAGE_CREATE event and trigger workflows
    */
   private handleMessageCreate(messageData: any): void {
+    console.log('🔵 Discord MESSAGE_CREATE received:', {
+      messageId: messageData.id,
+      channelId: messageData.channel_id,
+      guildId: messageData.guild_id,
+      content: messageData.content?.substring(0, 100),
+      author: messageData.author?.username,
+      isBot: messageData.author?.bot
+    })
+
     // Ignore messages from bots (including our own bot)
     if (messageData.author?.bot) {
+      console.log('🤖 Ignoring bot message')
       return
     }
 
+    console.log('💬 Processing user message for workflows')
+
     // Emit message event for workflow processing
     this.emit('message', messageData)
-    
+
     // Trigger workflow processing
     this.processDiscordMessageForWorkflows(messageData)
   }
@@ -297,8 +318,61 @@ class DiscordGateway extends EventEmitter {
   private async processDiscordMessageForWorkflows(messageData: any): Promise<void> {
     try {
       // Get the base URL for internal API calls
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      
+      let baseUrl: string
+
+      // Check for explicitly configured URL first
+      if (process.env.NEXT_PUBLIC_APP_URL) {
+        baseUrl = process.env.NEXT_PUBLIC_APP_URL
+        console.log(`📍 Using configured URL: ${baseUrl}`)
+      } else if (process.env.NODE_ENV === 'production') {
+        // In production, use deployment URL
+        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
+                  process.env.RENDER_EXTERNAL_URL ||
+                  'https://chainreact.app' // Your production domain
+      } else {
+        // In development, check for NEXT_PUBLIC_APP_URL first
+        baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
+        if (!baseUrl) {
+          // Try to detect the port dynamically in development
+          const ports = ['3001', '3000', '3002', '3003']
+
+          for (const port of ports) {
+            const testUrl = `http://localhost:${port}`
+            try {
+              // Quick health check to see if server is running on this port
+              const testResponse = await fetch(`${testUrl}/api/workflow/discord`, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(500) // 500ms timeout
+              }).catch(() => null)
+
+              if (testResponse) {
+                baseUrl = testUrl
+                console.log(`✅ Discord Gateway found Next.js server at port ${port}`)
+                break
+              }
+            } catch {
+              // Try next port
+            }
+          }
+
+          // Default fallback for development
+          if (!baseUrl) {
+            baseUrl = 'http://localhost:3000'
+            console.warn('⚠️ Discord Gateway using default port 3000 - may not be correct')
+          }
+        }
+      }
+
+      console.log(`📤 Sending Discord message to workflow endpoint: ${baseUrl}/api/workflow/discord`)
+      console.log(`📨 Message details:`, {
+        messageId: messageData.id,
+        channelId: messageData.channel_id,
+        guildId: messageData.guild_id,
+        content: messageData.content?.substring(0, 50) + '...',
+        author: messageData.author?.username
+      })
+
       // Send to webhook processing endpoint
       const response = await fetch(`${baseUrl}/api/workflow/discord`, {
         method: 'POST',
@@ -351,10 +425,17 @@ class DiscordGateway extends EventEmitter {
     }
 
     // Calculate required intents for bot functionality
-    const requiredIntents = 
-      INTENTS.GUILDS | 
-      INTENTS.GUILD_MESSAGES | 
+    const requiredIntents =
+      INTENTS.GUILDS |
+      INTENTS.GUILD_MESSAGES |
       INTENTS.MESSAGE_CONTENT
+
+    console.log('🔑 Sending identify with intents:', {
+      GUILDS: true,
+      GUILD_MESSAGES: true,
+      MESSAGE_CONTENT: true,
+      intentsValue: requiredIntents
+    })
 
     const identify: DiscordIdentifyPayload = {
       token: this.botToken!,

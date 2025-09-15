@@ -204,6 +204,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 15,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/dropbox/callback",
+    scope: "files.content.write files.content.read files.metadata.read account_info.read",
   },
   twitter: {
     id: "twitter",

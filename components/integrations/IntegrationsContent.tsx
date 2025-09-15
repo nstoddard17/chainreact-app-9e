@@ -56,6 +56,45 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const { user } = useAuthStore()
   const router = useRouter()
 
+  // Define fetchMetrics early to avoid initialization errors
+  const fetchMetrics = useCallback(async () => {
+    if (!user) return
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    
+    try {
+      setLoadingMetrics(true)
+      const response = await fetch("/api/analytics/integration-metrics", {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        // Don't throw error, just log it
+        console.warn("Failed to fetch integration metrics:", response.status)
+        return
+      }
+      
+      const data = await response.json()
+      if (data.success && data.data) {
+        setMetrics(data.data)
+      }
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        console.warn("Integration metrics request timeout")
+      } else {
+        console.error("Error fetching integration metrics:", error)
+      }
+      // Don't show error to user - metrics are non-critical
+    } finally {
+      setLoadingMetrics(false)
+    }
+  }, [user])
+
   // Removed localStorage management for auto-refresh toggles
 
   // Smart refresh on tab focus - refresh immediately after OAuth or if away for > 5 minutes
@@ -166,44 +205,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       return () => clearTimeout(timeout)
     }
   }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
-
-  const fetchMetrics = useCallback(async () => {
-    if (!user) return
-    
-    // Add timeout to prevent hanging
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-    
-    try {
-      setLoadingMetrics(true)
-      const response = await fetch("/api/analytics/integration-metrics", {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        // Don't throw error, just log it
-        console.warn("Failed to fetch integration metrics:", response.status)
-        return
-      }
-      
-      const data = await response.json()
-      if (data.success && data.data) {
-        setMetrics(data.data)
-      }
-    } catch (error: any) {
-      clearTimeout(timeoutId)
-      if (error.name === 'AbortError') {
-        console.warn("Integration metrics request timeout")
-      } else {
-        console.error("Error fetching integration metrics:", error)
-      }
-      // Don't show error to user - metrics are non-critical
-    } finally {
-      setLoadingMetrics(false)
-    }
-  }, [user])
 
   // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
   useEffect(() => {
