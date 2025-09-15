@@ -159,140 +159,79 @@ export class IntegrationNodeHandlers {
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
     console.log("💬 Executing Discord action")
-    
+
     const nodeType = node.data.type
     const config = node.data.config || {}
-    
+
+    // Import the actual Discord action handlers
+    const { sendDiscordMessage } = await import("@/lib/workflows/actions/discord")
+
     // Handle different Discord action types
     switch (nodeType) {
       case "discord_action_send_message":
       case "discord_send_channel_message":
-        const channelId = config.channelId
-        const message = config.message || config.content
-        
-        if (!channelId || !message) {
-          throw new Error("Discord channel message requires 'channelId' and 'message' fields")
+        // Use the actual Discord message sending function
+        const result = await sendDiscordMessage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!result.success) {
+          throw new Error(result.message || "Failed to send Discord message")
         }
-        
-        if (context.testMode) {
-          return {
-            type: nodeType,
-            channelId,
-            message,
-            status: "sent (test mode)",
-            messageId: "test-discord-message-id"
-          }
-        }
-        
-        // In live mode, this would make the actual Discord API call
-        // For now, return a mock success
-        return {
-          type: nodeType,
-          channelId,
-          message,
-          status: "sent",
-          messageId: `msg-${Date.now()}`
-        }
+
+        return result.output
       
       case "discord_action_send_dm":
       case "discord_send_dm":
-        const userId = config.userId
-        const dmMessage = config.message || config.content
-        
-        if (!userId || !dmMessage) {
-          throw new Error("Discord DM requires 'userId' and 'message' fields")
+        const { sendDiscordDirectMessage } = await import("@/lib/workflows/actions/discord")
+        const dmResult = await sendDiscordDirectMessage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+        if (!dmResult.success) {
+          throw new Error(dmResult.message || "Failed to send Discord DM")
         }
-        
-        if (context.testMode) {
-          return {
-            type: nodeType,
-            userId,
-            message: dmMessage,
-            status: "sent (test mode)",
-            messageId: "test-discord-dm-id"
-          }
-        }
-        
-        return {
-          type: nodeType,
-          userId,
-          message: dmMessage,
-          status: "sent",
-          messageId: `dm-${Date.now()}`
-        }
-      
+        return dmResult.output
+
       case "discord_action_edit_message":
-        const editMessageId = config.messageId
-        const editContent = config.message || config.content
-        
-        if (!editMessageId || !editContent) {
-          throw new Error("Discord edit message requires 'messageId' and 'message' fields")
+        const { editDiscordMessage } = await import("@/lib/workflows/actions/discord")
+        const editResult = await editDiscordMessage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+        if (!editResult.success) {
+          throw new Error(editResult.message || "Failed to edit Discord message")
         }
-        
-        if (context.testMode) {
-          return {
-            type: nodeType,
-            messageId: editMessageId,
-            message: editContent,
-            status: "edited (test mode)"
-          }
-        }
-        
-        return {
-          type: nodeType,
-          messageId: editMessageId,
-          message: editContent,
-          status: "edited"
-        }
-      
+        return editResult.output
+
       case "discord_action_delete_message":
-        const deleteMessageId = config.messageId
-        
-        if (!deleteMessageId) {
-          throw new Error("Discord delete message requires 'messageId' field")
+        const { deleteDiscordMessage } = await import("@/lib/workflows/actions/discord")
+        const deleteResult = await deleteDiscordMessage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+        if (!deleteResult.success) {
+          throw new Error(deleteResult.message || "Failed to delete Discord message")
         }
-        
-        if (context.testMode) {
-          return {
-            type: nodeType,
-            messageId: deleteMessageId,
-            status: "deleted (test mode)"
-          }
-        }
-        
-        return {
-          type: nodeType,
-          messageId: deleteMessageId,
-          status: "deleted"
-        }
-      
+        return deleteResult.output
+
       case "discord_action_fetch_messages":
-        const fetchChannelId = config.channelId
-        const limit = config.limit || 10
-        
-        if (!fetchChannelId) {
-          throw new Error("Discord fetch messages requires 'channelId' field")
+        const { fetchDiscordMessages } = await import("@/lib/workflows/actions/discord")
+        const fetchResult = await fetchDiscordMessages(
+          config,
+          context.userId,
+          context.data || {}
+        )
+        if (!fetchResult.success) {
+          throw new Error(fetchResult.message || "Failed to fetch Discord messages")
         }
-        
-        if (context.testMode) {
-          return {
-            type: nodeType,
-            channelId: fetchChannelId,
-            messages: [
-              { id: "msg1", content: "Test message 1", author: "TestUser1" },
-              { id: "msg2", content: "Test message 2", author: "TestUser2" }
-            ],
-            status: "fetched (test mode)"
-          }
-        }
-        
-        return {
-          type: nodeType,
-          channelId: fetchChannelId,
-          messages: [],
-          status: "fetched"
-        }
-      
+        return fetchResult.output
+
       default:
         throw new Error(`Unknown Discord action type: ${nodeType}`)
     }

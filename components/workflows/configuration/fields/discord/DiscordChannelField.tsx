@@ -144,6 +144,18 @@ function DiscordChannelFieldComponent({
   // Ensure value is always defined to prevent uncontrolled/controlled warning
   const selectValue = value === undefined || value === null ? "" : String(value);
 
+  // Try to get saved label from localStorage for immediate display
+  const getSavedLabel = (channelId: string): string | null => {
+    if (!channelId) return null;
+    try {
+      const storageKey = `discord_channel_label_${channelId}`;
+      return localStorage.getItem(storageKey);
+    } catch (e) {
+      console.error('Error reading saved label:', e);
+      return null;
+    }
+  };
+
   // When we have a saved value, always show it immediately while options load in background
   let displayOptions = processedOptions;
   if (selectValue) {
@@ -154,10 +166,14 @@ function DiscordChannelFieldComponent({
 
     // If the saved value doesn't exist in options yet, create a temporary placeholder
     if (!savedOptionExists) {
-      // Create a nicer label for the temporary option
-      const tempLabel = processedOptions.length === 0
-        ? `Loading channel...` // While loading, show a loading message
-        : `Channel ID: ${selectValue}`; // If loaded but not found, show the ID
+      // Try to get the saved label from localStorage first for immediate display
+      const savedLabel = getSavedLabel(selectValue);
+
+      // Create a nicer label for the temporary option - always prefix with # for Discord channels
+      const tempLabel = savedLabel ||
+        (processedOptions.length === 0
+          ? `#channel-${selectValue.substring(0, 6)}...` // Show truncated ID while loading
+          : `Channel ID: ${selectValue}`); // If loaded but not found, show the ID
 
       // Add the temporary option at the beginning
       displayOptions = [{
@@ -174,9 +190,25 @@ function DiscordChannelFieldComponent({
 
   // Always return the same structure
   return (
-    <Select 
-      value={selectValue} 
-      onValueChange={onChange}
+    <Select
+      value={selectValue}
+      onValueChange={(newValue) => {
+        // When value changes, also try to store the label for future use
+        const selectedOption = displayOptions.find(opt =>
+          String(opt.value || opt.id) === newValue
+        );
+        if (selectedOption && !selectedOption.temporary) {
+          // Get the formatted label
+          const optionLabel = selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id;
+          const formattedLabel = selectedOption.type === 0 && !optionLabel.startsWith('#') ? `#${optionLabel}` : optionLabel;
+          // Store label in localStorage for immediate access on next load
+          if (formattedLabel && newValue) {
+            const storageKey = `discord_channel_label_${newValue}`;
+            localStorage.setItem(storageKey, formattedLabel);
+          }
+        }
+        onChange(newValue);
+      }}
       onOpenChange={handleChannelFieldOpen}
       disabled={showLoadingState}
     >
