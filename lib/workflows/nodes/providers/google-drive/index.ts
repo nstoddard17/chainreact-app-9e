@@ -176,17 +176,11 @@ export const googleDriveNodes: NodeComponent[] = [
       }
     ],
     outputSchema: [
-      { 
-        name: "file", 
-        label: "File", 
-        type: "object", 
-        description: "The complete file object ready for use as an attachment",
-        properties: {
-          content: { type: "string", description: "Base64 encoded file content" },
-          filename: { type: "string", description: "The file name with extension" },
-          mimeType: { type: "string", description: "The MIME type of the file" },
-          size: { type: "number", description: "File size in bytes" }
-        }
+      {
+        name: "file",
+        label: "File",
+        type: "object",
+        description: "The complete file object ready for use as an attachment (includes content, filename, mimeType, and size properties)"
       },
       { 
         name: "fileName", 

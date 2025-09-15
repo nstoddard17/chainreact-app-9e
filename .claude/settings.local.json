@@ -78,7 +78,8 @@
       "mcp__playwright__browser_file_upload",
       "Bash(timeout:*)",
       "Bash(dir /s /b C:Usersmarcusourcereposchainreact-app-9e-1libworkflowsnodesproviders*.ts)",
-      "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\components\\workflows\\configuration\\providers\\gmail\")"
+      "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\components\\workflows\\configuration\\providers\\gmail\")",
+      "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\lib\\workflows\")"
     ],
     "defaultMode": "acceptEdits"
   }
