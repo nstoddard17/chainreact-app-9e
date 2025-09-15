@@ -195,7 +195,8 @@ export async function POST(
     }
 
     // Find all active workflows that have triggers for this provider
-    const workflows = await findWorkflowsForProvider(provider)
+    // Pass the payload for provider-specific filtering (e.g., Discord channel matching)
+    const workflows = await findWorkflowsForProvider(provider, payload)
     
     if (workflows.length === 0) {
       console.log(`[${requestId}] No active workflows found for provider: ${provider}`)
@@ -320,7 +321,7 @@ export async function GET(
   })
 }
 
-async function findWorkflowsForProvider(provider: string): Promise<any[]> {
+async function findWorkflowsForProvider(provider: string, payload?: any): Promise<any[]> {
   const { data: workflows, error } = await supabase
     .from('workflows')
     .select('*')
@@ -337,16 +338,48 @@ async function findWorkflowsForProvider(provider: string): Promise<any[]> {
   const matchingWorkflows = workflows.filter(workflow => {
     try {
       const nodes = workflow.nodes || []
-      const hasProviderTrigger = nodes.some((node: any) => 
-        node.data?.providerId === provider && 
+
+      // Find trigger nodes for this provider
+      const providerTriggers = nodes.filter((node: any) =>
+        node.data?.providerId === provider &&
         node.data?.isTrigger === true
       )
-      
-      if (hasProviderTrigger) {
-        console.log(`✅ Found matching workflow: ${workflow.name} (${workflow.id}) - status: ${workflow.status}`)
+
+      if (providerTriggers.length === 0) {
+        return false
       }
-      
-      return hasProviderTrigger
+
+      // For Discord, check if the channel matches
+      if (provider === 'discord' && payload?.channel_id) {
+        const hasMatchingChannel = providerTriggers.some((trigger: any) => {
+          const configuredChannelId = trigger.data?.config?.channelId
+
+          // If no channel is configured, skip this trigger
+          if (!configuredChannelId) {
+            console.log(`⚠️ Discord trigger in workflow ${workflow.name} has no channel configured`)
+            return false
+          }
+
+          // Check if the incoming message's channel matches the configured channel
+          const matches = configuredChannelId === payload.channel_id
+
+          if (matches) {
+            console.log(`✅ Channel match! Message from ${payload.channel_id} matches trigger config ${configuredChannelId} in workflow: ${workflow.name}`)
+          } else {
+            console.log(`❌ Channel mismatch: Message from ${payload.channel_id} doesn't match trigger config ${configuredChannelId} in workflow: ${workflow.name}`)
+          }
+
+          return matches
+        })
+
+        if (!hasMatchingChannel) {
+          return false
+        }
+      }
+
+      console.log(`✅ Found matching workflow: ${workflow.name} (${workflow.id}) - status: ${workflow.status}`)
+      return true
+
     } catch (error) {
       console.error('Error checking workflow nodes:', error)
       return false

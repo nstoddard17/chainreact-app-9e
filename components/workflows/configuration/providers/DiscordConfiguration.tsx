@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, ChevronLeft, AlertCircle, ExternalLink, CheckCircle } from "lucide-react";
+import { AlertTriangle, ChevronLeft, AlertCircle, ExternalLink, CheckCircle, Check } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useDiscordState } from '../hooks/useDiscordState';
 import { cn } from "@/lib/utils";
@@ -409,36 +409,63 @@ export function DiscordConfiguration({
     // 3. The guildId field exists in the schema
     if (isDiscordNode && !hasInitializedServers.current) {
       const hasGuildField = nodeInfo?.configSchema?.some((field: any) => field.name === 'guildId');
-      
+
       if (hasGuildField) {
-        console.log('🚀 [Discord] Auto-loading servers for Discord node');
+        console.log('🚀 [Discord] Auto-loading servers for Discord node:', nodeInfo?.type);
         hasInitializedServers.current = true;
-        
+
         // Set loading state for the server field
         setLocalLoadingFields(prev => {
           const newSet = new Set(prev);
           newSet.add('guildId');
           return newSet;
         });
-        
-        // Load servers immediately
-        loadOptions('guildId', undefined, undefined, true)
-          .then(() => {
-            console.log('✅ [Discord] Servers loaded successfully');
-          })
-          .catch((error) => {
-            console.error('❌ [Discord] Error loading servers:', error);
-          })
-          .finally(() => {
+
+        // Add a small delay to ensure component is fully mounted (helps with production)
+        const loadServers = async () => {
+          try {
+            // In production, there might be a delay in establishing the connection
+            // Add a retry mechanism for production environments
+            let retries = 0;
+            const maxRetries = 3;
+
+            while (retries < maxRetries) {
+              try {
+                await loadOptions('guildId', undefined, undefined, true);
+                console.log('✅ [Discord] Servers loaded successfully');
+                break;
+              } catch (error: any) {
+                retries++;
+                console.warn(`⚠️ [Discord] Attempt ${retries}/${maxRetries} failed:`, error);
+
+                if (retries < maxRetries) {
+                  // Wait before retrying (exponential backoff)
+                  await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+                } else {
+                  throw error;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('❌ [Discord] Failed to load servers after retries:', error);
+            // Reset the flag so user can trigger reload manually if needed
+            hasInitializedServers.current = false;
+          } finally {
             setLocalLoadingFields(prev => {
               const newSet = new Set(prev);
               newSet.delete('guildId');
               return newSet;
             });
-          });
+          }
+        };
+
+        // Small delay to ensure component is ready
+        setTimeout(() => {
+          loadServers();
+        }, 100);
       }
     }
-  }, [nodeInfo?.type]); // Only depend on node type to prevent re-runs
+  }, [nodeInfo?.type, loadOptions]); // Include loadOptions in dependencies
   
   // Listen for bot connection events
   useEffect(() => {
@@ -476,6 +503,7 @@ export function DiscordConfiguration({
   // Check if we need to show channel permission warning
   const showChannelWarning = values.channelId && channelBotStatus && !channelBotStatus.canSendMessages && !isChannelBotStatusChecking;
   const isAction = nodeInfo?.type?.startsWith('discord_action_');
+  const isTrigger = nodeInfo?.type?.startsWith('discord_trigger_');
 
   // Simple UI with advanced features
   return (
@@ -627,32 +655,88 @@ export function DiscordConfiguration({
                     setAiFields={setAiFields}
                     isConnectedToAIAgent={isConnectedToAIAgent}
                   />
-                  
-                  {/* Show bot status warning after server field ONLY if bot is not connected */}
-                  {field.name === 'guildId' && values.guildId && botStatus && !botStatus.isInGuild && !isBotStatusChecking && !isAction && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
-                            Bot Not in Server
-                          </h4>
-                          <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                            The ChainReact bot needs to be added to this Discord server to receive messages.
-                          </p>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleInviteBot(values.guildId)}
-                            className="border-yellow-600 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-500 dark:text-yellow-300 dark:hover:bg-yellow-900/40"
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Add Bot to Server
-                          </Button>
-                        </div>
-                      </div>
+
+                  {/* Manual reload button if servers didn't load (production fallback) */}
+                  {field.name === 'guildId' && !isFieldLoading('guildId') && (!dynamicOptions.guildId || dynamicOptions.guildId.length === 0) && (
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          console.log('🔄 [Discord] Manual server reload triggered');
+                          hasInitializedServers.current = false;
+                          setLocalLoadingFields(prev => {
+                            const newSet = new Set(prev);
+                            newSet.add('guildId');
+                            return newSet;
+                          });
+                          loadOptions('guildId', undefined, undefined, true)
+                            .then(() => {
+                              console.log('✅ [Discord] Servers reloaded successfully');
+                            })
+                            .catch((error) => {
+                              console.error('❌ [Discord] Error reloading servers:', error);
+                            })
+                            .finally(() => {
+                              setLocalLoadingFields(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete('guildId');
+                                return newSet;
+                              });
+                            });
+                        }}
+                      >
+                        Load Discord Servers
+                      </Button>
                     </div>
+                  )}
+
+                  {/* Show bot status after server field */}
+                  {field.name === 'guildId' && values.guildId && botStatus && !isBotStatusChecking && (
+                    <>
+                      {/* Show warning if bot is NOT in server */}
+                      {!botStatus.isInGuild && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
+                                Bot Not in Server
+                              </h4>
+                              <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                                {isTrigger
+                                  ? "The ChainReact bot needs to be added to this Discord server to receive messages."
+                                  : "The ChainReact bot needs to be added to this Discord server to send messages."
+                                }
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleInviteBot(values.guildId)}
+                                className="border-yellow-600 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-500 dark:text-yellow-300 dark:hover:bg-yellow-900/40"
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Add Bot to Server
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show success indicator if bot IS in server - only for triggers */}
+                      {botStatus.isInGuild && isTrigger && (
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <p className="text-sm text-green-700 dark:text-green-300">
+                              Bot connected - ready to receive messages from this server
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </React.Fragment>
               );
