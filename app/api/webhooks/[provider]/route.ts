@@ -101,13 +101,17 @@ export async function GET(
   const url = new URL(request.url)
   const challenge = url.searchParams.get('challenge')
   
+  console.log(`[Webhook GET] Provider: ${provider}, Challenge: ${challenge}`)
+  
   // Dropbox webhook verification
   if (provider === 'dropbox' && challenge) {
     console.log(`[Dropbox] Responding to challenge: ${challenge}`)
-    return new NextResponse(challenge, {
+    // Return ONLY the challenge string as plain text, nothing else
+    return new Response(challenge, {
       status: 200,
       headers: {
-        'Content-Type': 'text/plain'
+        'Content-Type': 'text/plain',
+        'X-Content-Type-Options': 'nosniff'
       }
     })
   }
