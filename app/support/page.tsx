@@ -55,16 +55,302 @@ const categoryIcons = {
   technical_support: FileText,
 }
 
+// Helper function to get formatted browser/system info
+const getBrowserSystemInfo = () => {
+  if (typeof navigator === 'undefined') return ''
+  
+  const userAgent = navigator.userAgent
+  const platform = navigator.platform
+  
+  // Detect browser
+  let browser = 'Unknown Browser'
+  let browserVersion = ''
+  
+  if (userAgent.includes('Firefox/')) {
+    browser = 'Firefox'
+    browserVersion = userAgent.match(/Firefox\/(\d+\.\d+)/)?.[1] || ''
+  } else if (userAgent.includes('Edg/')) {
+    browser = 'Edge'
+    browserVersion = userAgent.match(/Edg\/(\d+\.\d+)/)?.[1] || ''
+  } else if (userAgent.includes('Chrome/') && !userAgent.includes('Edg')) {
+    browser = 'Chrome'
+    browserVersion = userAgent.match(/Chrome\/(\d+\.\d+)/)?.[1] || ''
+  } else if (userAgent.includes('Safari/') && !userAgent.includes('Chrome')) {
+    browser = 'Safari'
+    browserVersion = userAgent.match(/Version\/(\d+\.\d+)/)?.[1] || ''
+  }
+  
+  // Detect OS
+  let os = 'Unknown OS'
+  if (userAgent.includes('Windows NT 10.0')) os = 'Windows 10'
+  else if (userAgent.includes('Windows NT 11.0')) os = 'Windows 11'
+  else if (userAgent.includes('Mac OS X')) {
+    const version = userAgent.match(/Mac OS X (\d+[._]\d+)/)?.[1]?.replace('_', '.') || ''
+    os = `macOS ${version}`
+  } else if (userAgent.includes('Linux')) os = 'Linux'
+  else if (userAgent.includes('Android')) os = 'Android'
+  else if (userAgent.includes('iOS')) os = 'iOS'
+  
+  // Get screen resolution
+  const screenRes = typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : 'Unknown'
+  
+  // Get language
+  const language = navigator.language || 'Unknown'
+  
+  // Format the info
+  return `Browser: ${browser} ${browserVersion}
+OS: ${os}
+Platform: ${platform}
+Screen Resolution: ${screenRes}
+Language: ${language}
+Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+}
+
+// Reusable ticket creation form component
+const TicketCreationForm = ({ 
+  newTicket, 
+  setNewTicket, 
+  createTicket, 
+  creatingTicket,
+  onCancel
+}: {
+  newTicket: any
+  setNewTicket: any
+  createTicket: () => void
+  creatingTicket: boolean
+  onCancel?: () => void
+}) => {
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  
+  // Determine if there are advanced fields to show
+  const hasAdvancedFields = 
+    newTicket.category === 'bug' || 
+    newTicket.category === 'integration_issue' || 
+    newTicket.category === 'technical_support'
+  
+  // Update browser info when component mounts or category changes to bug/technical
+  useEffect(() => {
+    if (newTicket.category === 'bug' || newTicket.category === 'technical_support') {
+      setNewTicket((prev: any) => ({
+        ...prev,
+        browserInfo: getBrowserSystemInfo()
+      }))
+    }
+  }, [newTicket.category, setNewTicket])
+  
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="subject">Subject *</Label>
+        <Input
+          id="subject"
+          value={newTicket.subject}
+          onChange={(e) => setNewTicket((prev: any) => ({ ...prev, subject: e.target.value }))}
+          placeholder="Brief description of your issue"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <Select
+            value={newTicket.category}
+            onValueChange={(value: any) => setNewTicket((prev: any) => ({ ...prev, category: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General</SelectItem>
+              <SelectItem value="bug">Bug Report</SelectItem>
+              <SelectItem value="feature_request">Feature Request</SelectItem>
+              <SelectItem value="integration_issue">Integration Issue</SelectItem>
+              <SelectItem value="billing">Billing</SelectItem>
+              <SelectItem value="technical_support">Technical Support</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="priority">Priority</Label>
+          <Select
+            value={newTicket.priority}
+            onValueChange={(value: any) => setNewTicket((prev: any) => ({ ...prev, priority: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="description">Description *</Label>
+        <Textarea
+          id="description"
+          value={newTicket.description}
+          onChange={(e) => setNewTicket((prev: any) => ({ ...prev, description: e.target.value }))}
+          placeholder="Please provide detailed information about your issue..."
+          rows={6}
+        />
+      </div>
+      
+      {/* Advanced Options Toggle - only show if there are advanced fields */}
+      {hasAdvancedFields && (
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full"
+          >
+            {showAdvanced ? 'Hide' : 'Show'} Advanced Options
+          </Button>
+        </div>
+      )}
+
+      {/* Advanced Fields */}
+      {showAdvanced && (
+        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+          {/* Bug-specific fields */}
+          {newTicket.category === 'bug' && (
+            <>
+              <div>
+                <Label htmlFor="stepsToReproduce">Steps to Reproduce</Label>
+                <Textarea
+                  id="stepsToReproduce"
+                  value={newTicket.stepsToReproduce}
+                  onChange={(e) => setNewTicket((prev: any) => ({ ...prev, stepsToReproduce: e.target.value }))}
+                  placeholder="1. Go to...\n2. Click on...\n3. See error..."
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="expectedBehavior">Expected Behavior</Label>
+                  <Textarea
+                    id="expectedBehavior"
+                    value={newTicket.expectedBehavior}
+                    onChange={(e) => setNewTicket((prev: any) => ({ ...prev, expectedBehavior: e.target.value }))}
+                    placeholder="What should happen..."
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="actualBehavior">Actual Behavior</Label>
+                  <Textarea
+                    id="actualBehavior"
+                    value={newTicket.actualBehavior}
+                    onChange={(e) => setNewTicket((prev: any) => ({ ...prev, actualBehavior: e.target.value }))}
+                    placeholder="What actually happens..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Integration issue field */}
+          {newTicket.category === 'integration_issue' && (
+            <div>
+              <Label htmlFor="affectedIntegration">Affected Integration</Label>
+              <Input
+                id="affectedIntegration"
+                value={newTicket.affectedIntegration}
+                onChange={(e) => setNewTicket((prev: any) => ({ ...prev, affectedIntegration: e.target.value }))}
+                placeholder="e.g., Gmail, Slack, Discord..."
+              />
+            </div>
+          )}
+
+          {/* Technical support / workflow field */}
+          {(newTicket.category === 'technical_support' || newTicket.category === 'bug') && (
+            <div>
+              <Label htmlFor="affectedWorkflow">Affected Workflow (if applicable)</Label>
+              <Input
+                id="affectedWorkflow"
+                value={newTicket.affectedWorkflow}
+                onChange={(e) => setNewTicket((prev: any) => ({ ...prev, affectedWorkflow: e.target.value }))}
+                placeholder="Name or ID of the workflow experiencing issues"
+              />
+            </div>
+          )}
+
+          {/* Browser info (only show for bug/technical support) */}
+          {(newTicket.category === 'bug' || newTicket.category === 'technical_support') && (
+            <div>
+              <Label htmlFor="browserInfo">Browser/System Information</Label>
+              <Textarea
+                id="browserInfo"
+                value={newTicket.browserInfo}
+                onChange={(e) => setNewTicket((prev: any) => ({ ...prev, browserInfo: e.target.value }))}
+                placeholder="Automatically detected..."
+                rows={6}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This helps us reproduce issues in your environment
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end space-x-2">
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            setNewTicket({
+              subject: "",
+              description: "",
+              priority: "medium",
+              category: "general",
+              affectedWorkflow: "",
+              affectedIntegration: "",
+              stepsToReproduce: "",
+              expectedBehavior: "",
+              actualBehavior: "",
+              browserInfo: "",
+            })
+            onCancel?.()
+          }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={createTicket}
+          disabled={creatingTicket || !newTicket.subject || !newTicket.description}
+          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+        >
+          {creatingTicket ? 'Creating...' : 'Create Ticket'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function SupportPage() {
   const router = useRouter()
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [creatingTicket, setCreatingTicket] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [emptyDialogOpen, setEmptyDialogOpen] = useState(false)
   const [newTicket, setNewTicket] = useState({
     subject: "",
     description: "",
     priority: "medium" as const,
     category: "general" as const,
+    affectedWorkflow: "",
+    affectedIntegration: "",
+    stepsToReproduce: "",
+    expectedBehavior: "",
+    actualBehavior: "",
+    browserInfo: "",
   })
 
   useEffect(() => {
@@ -96,12 +382,44 @@ export default function SupportPage() {
 
     setCreatingTicket(true)
     try {
+      // Build the ticket data with advanced fields when present
+      const ticketData: any = {
+        subject: newTicket.subject,
+        description: newTicket.description,
+        priority: newTicket.priority,
+        category: newTicket.category,
+      }
+
+      // Add advanced fields to description if they're filled out
+      let enhancedDescription = newTicket.description
+      
+      if (newTicket.category === 'bug' && newTicket.stepsToReproduce) {
+        enhancedDescription += `\n\n**Steps to Reproduce:**\n${newTicket.stepsToReproduce}`
+      }
+      if (newTicket.category === 'bug' && newTicket.expectedBehavior) {
+        enhancedDescription += `\n\n**Expected Behavior:**\n${newTicket.expectedBehavior}`
+      }
+      if (newTicket.category === 'bug' && newTicket.actualBehavior) {
+        enhancedDescription += `\n\n**Actual Behavior:**\n${newTicket.actualBehavior}`
+      }
+      if (newTicket.affectedWorkflow) {
+        enhancedDescription += `\n\n**Affected Workflow:** ${newTicket.affectedWorkflow}`
+      }
+      if (newTicket.affectedIntegration) {
+        enhancedDescription += `\n\n**Affected Integration:** ${newTicket.affectedIntegration}`
+      }
+      if (newTicket.browserInfo) {
+        enhancedDescription += `\n\n**Browser Info:** ${newTicket.browserInfo}`
+      }
+
+      ticketData.description = enhancedDescription
+
       const response = await fetch('/api/support/tickets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newTicket),
+        body: JSON.stringify(ticketData),
       })
 
       if (response.ok) {
@@ -112,7 +430,15 @@ export default function SupportPage() {
           description: "",
           priority: "medium",
           category: "general",
+          affectedWorkflow: "",
+          affectedIntegration: "",
+          stepsToReproduce: "",
+          expectedBehavior: "",
+          actualBehavior: "",
+          browserInfo: "",
         })
+        setDialogOpen(false) // Close main dialog on success
+        setEmptyDialogOpen(false) // Close empty state dialog on success
         fetchTickets()
       } else {
         const error = await response.json()
@@ -165,96 +491,27 @@ export default function SupportPage() {
             <h1 className="text-3xl font-bold">Support Center</h1>
             <p className="text-muted-foreground">Get help with ChainReact and track your support tickets</p>
           </div>
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                 <Plus className="w-4 h-4 mr-2" />
                 New Ticket
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create Support Ticket</DialogTitle>
                 <DialogDescription>
                   Describe your issue or request and we'll get back to you as soon as possible.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Input
-                    id="subject"
-                    value={newTicket.subject}
-                    onChange={(e) => setNewTicket(prev => ({ ...prev, subject: e.target.value }))}
-                    placeholder="Brief description of your issue"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Select
-                      value={newTicket.category}
-                      onValueChange={(value: any) => setNewTicket(prev => ({ ...prev, category: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="bug">Bug Report</SelectItem>
-                        <SelectItem value="feature_request">Feature Request</SelectItem>
-                        <SelectItem value="integration_issue">Integration Issue</SelectItem>
-                        <SelectItem value="billing">Billing</SelectItem>
-                        <SelectItem value="technical_support">Technical Support</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select
-                      value={newTicket.priority}
-                      onValueChange={(value: any) => setNewTicket(prev => ({ ...prev, priority: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="description">Description *</Label>
-                  <Textarea
-                    id="description"
-                    value={newTicket.description}
-                    onChange={(e) => setNewTicket(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Please provide detailed information about your issue..."
-                    rows={6}
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setNewTicket({
-                    subject: "",
-                    description: "",
-                    priority: "medium",
-                    category: "general",
-                  })}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={createTicket}
-                    disabled={creatingTicket || !newTicket.subject || !newTicket.description}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                  >
-                    {creatingTicket ? 'Creating...' : 'Create Ticket'}
-                  </Button>
-                </div>
-              </div>
+              <TicketCreationForm
+                newTicket={newTicket}
+                setNewTicket={setNewTicket}
+                createTicket={createTicket}
+                creatingTicket={creatingTicket}
+                onCancel={() => setDialogOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -327,14 +584,28 @@ export default function SupportPage() {
                   <p className="text-muted-foreground text-center mb-4">
                     You don't have any open support tickets. Create a new ticket if you need help.
                   </p>
-                  <Dialog>
+                  <Dialog open={emptyDialogOpen} onOpenChange={setEmptyDialogOpen}>
                     <DialogTrigger asChild>
                       <Button>
                         <Plus className="w-4 h-4 mr-2" />
                         Create Ticket
                       </Button>
                     </DialogTrigger>
-                    {/* Same dialog content as above */}
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Create Support Ticket</DialogTitle>
+                        <DialogDescription>
+                          Describe your issue or request and we'll get back to you as soon as possible.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <TicketCreationForm
+                        newTicket={newTicket}
+                        setNewTicket={setNewTicket}
+                        createTicket={createTicket}
+                        creatingTicket={creatingTicket}
+                        onCancel={() => setEmptyDialogOpen(false)}
+                      />
+                    </DialogContent>
                   </Dialog>
                 </CardContent>
               </Card>

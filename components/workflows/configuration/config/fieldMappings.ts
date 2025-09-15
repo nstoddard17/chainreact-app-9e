@@ -72,8 +72,30 @@ const discordMappings: Record<string, FieldMapping> = {
 
 // Slack field mappings
 const slackMappings: Record<string, FieldMapping> = {
+  slack_action_send_message: {
+    channel: "slack_channels",
+  },
   slack_action_create_channel: {
-    workspaceId: "slack_workspaces",
+    workspace: "slack_workspaces",
+    users: "slack_users",
+  },
+  slack_trigger_message_channels: {
+    channel: "slack_channels",
+  },
+  slack_trigger_message_groups: {
+    channel: "slack_channels",
+  },
+  slack_trigger_reaction_added: {
+    channel: "slack_channels",
+  },
+  slack_trigger_reaction_removed: {
+    channel: "slack_channels",
+  },
+  slack_trigger_member_joined_channel: {
+    channel: "slack_channels",
+  },
+  slack_trigger_member_left_channel: {
+    channel: "slack_channels",
   },
 };
 
@@ -100,6 +122,9 @@ const trelloMappings: Record<string, FieldMapping> = {
     boardId: "trello_boards",
     listId: "trello_lists",
     template: "trello-card-templates",
+  },
+  trello_action_create_board: {
+    template: "trello_board_templates",
   },
   trello_action_create_list: {
     boardId: "trello_boards",

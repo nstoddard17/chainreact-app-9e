@@ -459,6 +459,22 @@ export function FieldRenderer({
         const selectOptions = Array.isArray(field.options) 
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
+        
+        // Debug logging for board field
+        if (field.name === 'boardId') {
+          console.log('[FieldRenderer] Board field select options:', {
+            fieldName: field.name,
+            hasStaticOptions: !!field.options,
+            staticOptionsCount: field.options?.length || 0,
+            isDynamic: field.dynamic,
+            fieldOptions: fieldOptions,
+            fieldOptionsCount: fieldOptions.length,
+            selectOptions: selectOptions,
+            selectOptionsCount: selectOptions.length,
+            dynamicOptions: dynamicOptions,
+            dynamicOptionsBoardId: dynamicOptions?.boardId
+          });
+        }
 
         // Special handling for Discord fields - render them without nested conditionals
         if (integrationProvider === 'discord' && field.name === 'guildId') {

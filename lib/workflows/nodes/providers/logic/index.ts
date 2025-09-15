@@ -1,6 +1,5 @@
-import { 
-  Filter, 
-  GitBranch, 
+import {
+  GitBranch,
   Code,
   Clock,
   Repeat
@@ -8,18 +7,6 @@ import {
 import { NodeComponent } from "../../types"
 
 export const logicNodes: NodeComponent[] = [
-  {
-    type: "filter",
-    title: "Filter",
-    description: "Filter data based on conditions",
-    icon: Filter,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    configSchema: [
-      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100", description: "JavaScript expression to evaluate as filter condition" },
-    ],
-  },
   {
     type: "if_then_condition",
     title: "If/Then",
@@ -61,87 +48,116 @@ export const logicNodes: NodeComponent[] = [
       }
     ],
     configSchema: [
+      // Basic fields (always visible)
       {
-        name: "conditionType",
-        label: "Condition Type",
+        name: "field",
+        label: "If",
+        type: "text",
+        required: true,
+        placeholder: "Select or type a value",
+        description: "Choose what to check",
+        hasVariablePicker: true,
+        uiTab: "basic"
+      },
+      {
+        name: "operator",
+        label: "Is",
         type: "select",
         required: true,
+        defaultValue: "equals",
+        options: [
+          { value: "equals", label: "Equal to" },
+          { value: "not_equals", label: "Not equal to" },
+          { value: "contains", label: "Contains" },
+          { value: "not_contains", label: "Does not contain" },
+          { value: "greater_than", label: "Greater than" },
+          { value: "less_than", label: "Less than" },
+          { value: "is_empty", label: "Empty" },
+          { value: "is_not_empty", label: "Not empty" }
+        ],
+        description: "How to compare",
+        uiTab: "basic"
+      },
+      {
+        name: "value",
+        label: "Value",
+        type: "text",
+        placeholder: "Enter value to compare",
+        description: "What to compare against",
+        hasVariablePicker: true,
+        uiTab: "basic",
+        showWhen: {
+          operator: ["equals", "not_equals", "contains", "not_contains", "greater_than", "less_than"]
+        }
+      },
+      {
+        name: "continueOnFalse",
+        label: "Continue even if condition is false",
+        type: "boolean",
+        defaultValue: false,
+        description: "By default, workflow stops if condition is false",
+        uiTab: "basic"
+      },
+
+      // Advanced fields (only shown in advanced tab)
+      {
+        name: "conditionType",
+        label: "Condition Mode",
+        type: "select",
         defaultValue: "simple",
         options: [
           { value: "simple", label: "Simple Comparison" },
           { value: "multiple", label: "Multiple Conditions" },
-          { value: "advanced", label: "Advanced Expression" }
+          { value: "advanced", label: "JavaScript Expression" }
         ],
-        description: "Choose how to define your condition"
-      },
-      {
-        name: "field",
-        label: "Field to Check",
-        type: "text",
-        required: true,
-        placeholder: "e.g., {{data.status}}, {{trigger.email}}, {{previous.result}}",
-        description: "The field or variable to evaluate"
-      },
-      {
-        name: "operator",
-        label: "Operator",
-        type: "select",
-        required: true,
-        options: [
-          { value: "equals", label: "Equals (=)" },
-          { value: "not_equals", label: "Not Equals (≠)" },
-          { value: "greater_than", label: "Greater Than (>)" },
-          { value: "less_than", label: "Less Than (<)" },
-          { value: "greater_equal", label: "Greater Than or Equal (≥)" },
-          { value: "less_equal", label: "Less Than or Equal (≤)" },
-          { value: "contains", label: "Contains" },
-          { value: "not_contains", label: "Does Not Contain" },
-          { value: "starts_with", label: "Starts With" },
-          { value: "ends_with", label: "Ends With" },
-          { value: "is_empty", label: "Is Empty" },
-          { value: "is_not_empty", label: "Is Not Empty" },
-          { value: "exists", label: "Exists" },
-          { value: "not_exists", label: "Does Not Exist" }
-        ],
-        description: "How to compare the field"
-      },
-      {
-        name: "value",
-        label: "Value to Compare",
-        type: "text",
-        placeholder: "e.g., 'approved', 100, {{data.threshold}}",
-        description: "The value to compare against (leave empty for existence checks)"
+        description: "Choose condition complexity",
+        uiTab: "advanced"
       },
       {
         name: "logicOperator",
-        label: "Logic Operator",
+        label: "Combine Conditions With",
         type: "select",
         defaultValue: "and",
         options: [
-          { value: "and", label: "AND (all conditions must be true)" },
-          { value: "or", label: "OR (any condition can be true)" }
+          { value: "and", label: "AND (all must be true)" },
+          { value: "or", label: "OR (any can be true)" }
         ],
-        description: "How to combine multiple conditions"
+        description: "How to combine multiple conditions",
+        uiTab: "advanced",
+        showWhen: { conditionType: "multiple" }
       },
       {
         name: "additionalConditions",
         label: "Additional Conditions",
         type: "custom",
-        description: "Add more conditions for complex logic"
+        description: "Add more conditions for complex logic",
+        uiTab: "advanced",
+        showWhen: { conditionType: "multiple" }
       },
       {
         name: "advancedExpression",
-        label: "Advanced Expression",
+        label: "JavaScript Expression",
         type: "textarea",
-        placeholder: "e.g., {{data.score}} > 80 && {{data.status}} === 'active'",
-        description: "Write a custom JavaScript expression for complex conditions"
+        placeholder: "// Example:\ndata.score > 80 && data.status === 'active'\n\n// Available variables:\n// data, trigger, previous, nodeOutputs",
+        description: "Write custom JavaScript for complex conditions",
+        uiTab: "advanced",
+        showWhen: { conditionType: "advanced" }
       },
       {
-        name: "continueOnFalse",
-        label: "Continue Workflow if False",
-        type: "boolean",
-        defaultValue: false,
-        description: "If unchecked, workflow stops when condition is false"
+        name: "advancedOperatorOptions",
+        label: "Advanced Operator Options",
+        type: "select",
+        options: [
+          { value: "greater_equal", label: "Greater than or equal (≥)" },
+          { value: "less_equal", label: "Less than or equal (≤)" },
+          { value: "starts_with", label: "Starts with" },
+          { value: "ends_with", label: "Ends with" },
+          { value: "exists", label: "Exists" },
+          { value: "not_exists", label: "Does not exist" }
+        ],
+        description: "Additional comparison operators",
+        uiTab: "advanced",
+        showWhen: { conditionType: "simple" }
       }
     ],
   },
@@ -220,18 +236,6 @@ export const logicNodes: NodeComponent[] = [
     ],
   },
   {
-    type: "conditional",
-    title: "Conditional Logic",
-    description: "Branch workflow based on conditions",
-    icon: GitBranch,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    configSchema: [
-      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'", description: "JavaScript expression to determine workflow branching" },
-    ],
-  },
-  {
     type: "custom_script",
     title: "Custom Script",
     description: "Run custom Javascript code",
@@ -239,6 +243,7 @@ export const logicNodes: NodeComponent[] = [
     category: "Logic",
     providerId: "logic",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };", description: "Custom JavaScript code to execute (must return an object)" },
     ],
@@ -251,6 +256,7 @@ export const logicNodes: NodeComponent[] = [
     category: "Logic",
     providerId: "logic",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}", description: "Array or list of items to iterate through" },
     ],

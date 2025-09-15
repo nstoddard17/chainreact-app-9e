@@ -1053,22 +1053,79 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           throw error; // Re-throw to be caught by the outer catch block
         }
       }
-      const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
+      // Check session storage for cached templates (for fields that support caching)
+      let formattedOptions: any[] = [];
+      let dataFetched = false;
       
-      // Check if this is still the current request
-      // This is crucial because loadIntegrationData might not support abort signals
-      if (activeRequestIds.current.get(cacheKey) !== requestId) {
-        // Special handling for authorFilter - always use the data if we got it
-        if (fieldName === 'authorFilter') {
-          // Continue to update state for authorFilter
-        } else {
-          return; // Don't update state if this request was superseded for other fields
+      if (resourceType === 'trello_board_templates' && !forceRefresh) {
+        // Try to get from session storage
+        const sessionCacheKey = `chainreact_cache_${resourceType}`;
+        try {
+          const cached = sessionStorage.getItem(sessionCacheKey);
+          if (cached) {
+            const parsedCache = JSON.parse(cached);
+            // Check if cache is less than 1 hour old
+            if (parsedCache.timestamp && Date.now() - parsedCache.timestamp < 3600000) {
+              console.log('📦 [useDynamicOptions] Using cached board templates');
+              formattedOptions = parsedCache.data;
+              dataFetched = true;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to read from session storage:', e);
         }
       }
       
-      // Format the results - extract data array from response object if needed
-      const dataArray = result.data || result;
-      const formattedOptions = formatOptionsForField(fieldName, dataArray);
+      // If not cached or cache disabled, fetch from API
+      if (!dataFetched) {
+        const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
+        
+        // Check if this is still the current request
+        // This is crucial because loadIntegrationData might not support abort signals
+        if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          // Special handling for fields that should always use fresh data when available
+          // Include Slack channels and Trello boards since they're critical for actions
+          if (fieldName === 'authorFilter' || 
+              fieldName === 'channel' || 
+              resourceType === 'slack_channels' ||
+              fieldName === 'boardId' ||
+              resourceType === 'trello_boards') {
+            console.log(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
+            // Continue to update state for these critical fields
+          } else {
+            console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
+            return; // Don't update state if this request was superseded for other fields
+          }
+        }
+        
+        // Format the results - extract data array from response object if needed
+        const dataArray = result.data || result;
+        formattedOptions = formatOptionsForField(fieldName, dataArray);
+        
+        // Cache board templates in session storage
+        if (resourceType === 'trello_board_templates' && formattedOptions.length > 0) {
+          const sessionCacheKey = `chainreact_cache_${resourceType}`;
+          try {
+            sessionStorage.setItem(sessionCacheKey, JSON.stringify({
+              data: formattedOptions,
+              timestamp: Date.now()
+            }));
+            console.log('💾 [useDynamicOptions] Cached board templates to session storage');
+          } catch (e) {
+            console.warn('Failed to write to session storage:', e);
+          }
+        }
+      }
+      
+      // Log successful data formatting for critical fields
+      if (fieldName === 'channel' || resourceType === 'slack_channels') {
+        console.log(`📊 [useDynamicOptions] Formatted ${fieldName} options:`, {
+          fieldName,
+          resourceType,
+          optionsCount: formattedOptions.length,
+          sampleOptions: formattedOptions.slice(0, 3).map((opt: any) => opt.label)
+        });
+      }
       
       // Special handling for Discord channels - if empty and we have a guildId, it likely means bot is not in server
       if (fieldName === 'channelId' && resourceType === 'discord_channels' && 
@@ -1084,10 +1141,24 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         updateObject[`${fieldName}_${dependsOnValue}`] = formattedOptions;
       }
       
-      setDynamicOptions(prev => ({
-        ...prev,
-        ...updateObject
-      }));
+      setDynamicOptions(prev => {
+        const updated = {
+          ...prev,
+          ...updateObject
+        };
+        
+        // Log state update for critical fields
+        if (fieldName === 'channel' || resourceType === 'slack_channels') {
+          console.log(`✅ [useDynamicOptions] Updated state for ${fieldName}:`, {
+            fieldName,
+            hadPrevious: !!prev[fieldName],
+            previousCount: prev[fieldName]?.length || 0,
+            newCount: formattedOptions.length
+          });
+        }
+        
+        return updated;
+      });
       
       // Clear loading state on successful completion
       // For authorFilter, always clear the loading state when we have data
@@ -1260,7 +1331,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Preload fields that don't depend on other fields
     // Note: Exclude email fields (like 'email') since they should load on-demand only
     // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
-    const independentFields = ['baseId', 'guildId', 'workspaceId', 'boardId'];
+    // Also exclude fields with loadOnMount: true as they are handled by ConfigurationForm
+    const independentFields = ['baseId', 'guildId', 'workspaceId'];
     
     independentFields.forEach(fieldName => {
       // Check if this field exists for this node type

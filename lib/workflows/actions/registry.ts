@@ -42,7 +42,7 @@ import {
 } from './airtable'
 
 // Slack actions
-import { createSlackChannel } from './slack'
+import { createSlackChannel, slackActionSendMessage } from './slack'
 
 // Trello actions
 import {
@@ -179,7 +179,6 @@ import {
 
 // Generic actions
 import {
-  executeFilterAction,
   executeDelayAction,
   executeGenericAction
 } from './generic'
@@ -283,6 +282,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
   
   // Slack actions
   "slack_action_create_channel": createSlackChannel,
+  "slack_action_send_message": slackActionSendMessage,
   
   // Trello actions
   "trello_action_create_list": createTrelloList,
@@ -389,7 +389,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   
   // Workflow control actions - special handling needed for wait_for_time
   "if_then_condition": executeIfThenCondition,
-  "filter": executeFilterAction,
   "delay": executeDelayAction,
   "ai_agent": executeAIAgentWrapper
 }

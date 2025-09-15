@@ -93,23 +93,78 @@ export function GenericConfiguration({
         await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload);
       } 
       // No dependencies, just load the field
-      else {
+      else if (!field.dependsOn) {
         console.log('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
         await loadOptions(fieldName, undefined, undefined, forceReload);
+      } else {
+        // Field has dependency but no value yet - don't try to load
+        console.log('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
       }
     } catch (error) {
       console.error('❌ [GenericConfig] Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions]);
+  
+  // Handle field value changes and trigger dependent field loading
+  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+    // Update the field value
+    setValue(fieldName, value);
+    
+    // Special handling for Trello board selection
+    if (nodeInfo?.providerId === 'trello' && fieldName === 'boardId' && value) {
+      console.log('🔄 [GenericConfig] Board selected, loading dependent fields:', value);
+      
+      // Find all fields that depend on boardId
+      const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'boardId' && f.dynamic) || [];
+      
+      // For Move Card action, load both cardId and listId simultaneously
+      if (nodeInfo?.type === 'trello_action_move_card') {
+        // Load all dependent fields in parallel for better performance
+        Promise.all(
+          dependentFields.map(async (field: any) => {
+            console.log(`  Loading ${field.name} with boardId: ${value}`);
+            try {
+              await loadOptions(field.name, 'boardId', value, true);
+            } catch (error) {
+              console.error(`  Failed to load ${field.name}:`, error);
+            }
+          })
+        );
+      } else {
+        // For other actions, load sequentially as before
+        dependentFields.forEach(async (field: any) => {
+          console.log(`  Loading ${field.name} with boardId: ${value}`);
+          try {
+            await loadOptions(field.name, 'boardId', value, true);
+          } catch (error) {
+            console.error(`  Failed to load ${field.name}:`, error);
+          }
+        });
+      }
+      
+      // Clear values of dependent fields when board changes
+      dependentFields.forEach((field: any) => {
+        if (values[field.name]) {
+          setValue(field.name, '');
+        }
+      });
+    }
+  }, [nodeInfo, setValue, values, loadOptions]);
 
   // Background load options for dynamic fields with saved values
   useEffect(() => {
-    if (!nodeInfo?.configSchema || !isEditMode) return;
+    if (!nodeInfo?.configSchema) return;
 
-    // Find all dynamic fields with saved values that need background loading
+    // Find all dynamic fields that need loading
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
       if (!field.dynamic) return false;
-      if (!field.loadOnMount) return false; // Only load fields marked with loadOnMount
+      
+      // Skip fields with loadOnMount in GenericConfiguration
+      // These are handled by ConfigurationForm's loadOnMount useEffect
+      if (field.loadOnMount) return false;
+      
+      // In edit mode, only load if has saved value and not marked for loadOnMount
+      if (!isEditMode) return false;
       
       const savedValue = values[field.name];
       if (!savedValue) return false;
@@ -163,12 +218,40 @@ export function GenericConfiguration({
     
     // Check showWhen condition (preferred format)
     if (field.showWhen) {
-      const { field: dependentField, value: expectedValue } = field.showWhen;
-      const actualValue = values[dependentField];
-      
-      // Check if the condition is met
-      if (actualValue !== expectedValue) {
-        return false;
+      // Support MongoDB-style operators
+      for (const [dependentField, condition] of Object.entries(field.showWhen)) {
+        const actualValue = values[dependentField];
+        
+        // Handle different condition types
+        if (typeof condition === 'object' && condition !== null) {
+          // MongoDB-style operators
+          for (const [operator, expectedValue] of Object.entries(condition)) {
+            switch (operator) {
+              case '$ne': // not equal
+                if (actualValue === expectedValue) return false;
+                break;
+              case '$eq': // equal
+                if (actualValue !== expectedValue) return false;
+                break;
+              case '$exists': // field exists/has value
+                if (expectedValue && (!actualValue || actualValue === '')) return false;
+                if (!expectedValue && actualValue && actualValue !== '') return false;
+                break;
+              case '$gt': // greater than
+                if (!(actualValue > expectedValue)) return false;
+                break;
+              case '$lt': // less than
+                if (!(actualValue < expectedValue)) return false;
+                break;
+              default:
+                // Unknown operator, treat as equality check
+                if (actualValue !== expectedValue) return false;
+            }
+          }
+        } else {
+          // Simple equality check (legacy format)
+          if (actualValue !== condition) return false;
+        }
       }
     }
     
@@ -197,10 +280,54 @@ export function GenericConfiguration({
       }
     }
     
-    // If field has hidden: true, don't show it
-    // This must be checked AFTER all visibility conditions
-    // because NotionConfiguration sets hidden: true for fields that should be hidden
-    if (field.hidden) return false;
+    // Check hidden property with MongoDB-style operators (used by Trello)
+    if (field.hidden && typeof field.hidden === 'object' && field.hidden.$condition) {
+      const condition = field.hidden.$condition;
+      
+      // Evaluate each condition in the $condition object
+      for (const [dependentField, conditionValue] of Object.entries(condition)) {
+        const actualValue = values[dependentField];
+        
+        // Handle MongoDB-style operators
+        if (typeof conditionValue === 'object' && conditionValue !== null) {
+          for (const [operator, expectedValue] of Object.entries(conditionValue)) {
+            switch (operator) {
+              case '$exists':
+                // $exists: false means "hide when field doesn't exist (no value)"
+                // $exists: true means "hide when field exists (has value)"
+                if (expectedValue === false) {
+                  // Hide when field doesn't exist
+                  if (!actualValue || actualValue === '') {
+                    return false; // Field should be hidden
+                  }
+                } else if (expectedValue === true) {
+                  // Hide when field exists
+                  if (actualValue && actualValue !== '') {
+                    return false; // Field should be hidden
+                  }
+                }
+                break;
+              case '$eq':
+                if (actualValue === expectedValue) return false;
+                break;
+              case '$ne':
+                if (actualValue !== expectedValue) return false;
+                break;
+              default:
+                // For unknown operators, treat as equality
+                if (actualValue === expectedValue) return false;
+            }
+          }
+        } else {
+          // Simple value check - hide if values match
+          if (actualValue === conditionValue) return false;
+        }
+      }
+    }
+    // If field has hidden: true (simple boolean), don't show it
+    else if (field.hidden === true) {
+      return false;
+    }
     
     // Otherwise show the field
     return true;
@@ -247,7 +374,7 @@ export function GenericConfiguration({
           <Component
             field={field}
             value={values[field.name]}
-            onChange={(value) => setValue(field.name, value)}
+            onChange={(value) => handleFieldChange(field.name, value)}
             error={errors[field.name] || validationErrors[field.name]}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
@@ -328,8 +455,8 @@ export function GenericConfiguration({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
+      <div className="flex-1 px-8 py-5">
+        <ScrollArea className="h-[calc(90vh-180px)] pr-6">
           <div className="space-y-4">
             {/* Base fields */}
             {baseFields.length > 0 && (
@@ -353,7 +480,7 @@ export function GenericConfiguration({
         </ScrollArea>
       </div>
       
-      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
+      <div className="border-t border-slate-200 dark:border-slate-700 px-8 py-4 bg-white dark:bg-slate-900">
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onBack || onCancel}>
             <ChevronLeft className="w-4 h-4 mr-1" />

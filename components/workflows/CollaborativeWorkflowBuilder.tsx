@@ -283,14 +283,19 @@ const useWorkflowBuilderState = () => {
   }, [])
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
-    // All trigger nodes should have configuration
+    // Manual trigger doesn't need configuration
+    if (nodeComponent.type === 'manual') {
+      return false;
+    }
+
+    // All other trigger nodes should have configuration
     if (nodeComponent.isTrigger) {
       return true;
     }
-    
+
     // For non-trigger nodes, check if they have a configuration schema
     const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0);
-    
+
     // Node needs configuration if it has a config schema
     return hasConfigSchema;
   }
@@ -500,20 +505,57 @@ const useWorkflowBuilderState = () => {
 
     const providerId = nodeToConfigure.data.providerId as keyof typeof INTEGRATION_CONFIGS
     const integration = INTEGRATION_CONFIGS[providerId]
-    if (integration && nodeComponent) {
-      
+
+    // Handle core triggers (schedule, webhook) that don't have an integration config
+    if (!integration && providerId === 'core' && nodeComponent) {
+      // Create a minimal integration config for core triggers
+      const coreIntegration: IntegrationConfig = {
+        id: 'core',
+        name: 'Core',
+        description: 'System-level triggers and actions',
+        category: 'system',
+        color: '#6B7280',
+        supportedActions: [],
+        supportedTriggers: ['manual', 'schedule', 'webhook']
+      }
+
       // Try to load configuration from our persistence system first
       let config = nodeToConfigure.data.config || {}
-      
+
       if (typeof window !== "undefined") {
         try {
           // Extract workflow ID from URL
           const pathParts = window.location.pathname.split('/')
           const builderIndex = pathParts.indexOf('builder')
           const workflowId = builderIndex !== -1 && pathParts.length > builderIndex + 1 ? pathParts[builderIndex + 1] : null
-          
+
           if (workflowId) {
-            
+            // IMPORTANT: await the async loadNodeConfig function
+            const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type as string)
+            if (savedNodeData && savedNodeData.config) {
+              config = savedNodeData.config
+            }
+          }
+        } catch (error) {
+          // Fall back to workflow store config
+        }
+      }
+
+      setConfiguringNode({ id: nodeId, integration: coreIntegration, nodeComponent, config })
+    } else if (integration && nodeComponent) {
+
+      // Try to load configuration from our persistence system first
+      let config = nodeToConfigure.data.config || {}
+
+      if (typeof window !== "undefined") {
+        try {
+          // Extract workflow ID from URL
+          const pathParts = window.location.pathname.split('/')
+          const builderIndex = pathParts.indexOf('builder')
+          const workflowId = builderIndex !== -1 && pathParts.length > builderIndex + 1 ? pathParts[builderIndex + 1] : null
+
+          if (workflowId) {
+
             // IMPORTANT: await the async loadNodeConfig function
             const savedNodeData = await loadNodeConfig(workflowId, nodeId, nodeToConfigure.data.type as string)
             if (savedNodeData && savedNodeData.config) {
@@ -525,7 +567,7 @@ const useWorkflowBuilderState = () => {
           // Fall back to workflow store config
         }
       }
-      
+
       setConfiguringNode({ id: nodeId, integration, nodeComponent, config })
     }
   }, [getNodes])
@@ -662,8 +704,27 @@ const useWorkflowBuilderState = () => {
     setHasUnsavedChanges(true)
     
     // Open configuration if needed
-    if (nodeNeedsConfiguration && nodeNeedsConfiguration(trigger)) {
-      setTimeout(() => handleConfigureNode(newNodeId), 100)
+    // Manual trigger should NOT open configuration
+    // Schedule trigger should always open configuration
+    console.log('🔧 [Trigger Config Check]', {
+      triggerType: trigger.type,
+      needsConfig: nodeNeedsConfiguration && nodeNeedsConfiguration(trigger),
+      willOpenConfig: trigger.type === 'schedule' || (trigger.type !== 'manual' && nodeNeedsConfiguration && nodeNeedsConfiguration(trigger))
+    })
+
+    // Skip configuration for manual trigger - it doesn't need any
+    if (trigger.type === 'manual') {
+      console.log('✅ Manual trigger added - no configuration needed')
+      toast({
+        title: "Manual Trigger Added",
+        description: "Your workflow will run when you click the 'Test Workflow' button."
+      })
+    } else if (trigger.type === 'schedule' || (nodeNeedsConfiguration && nodeNeedsConfiguration(trigger))) {
+      console.log('⏰ Opening configuration modal for node:', newNodeId)
+      setTimeout(() => {
+        console.log('⏰ Calling handleConfigureNode for:', newNodeId)
+        handleConfigureNode(newNodeId)
+      }, 100)
     }
   }, [setNodes, setEdges, handleConfigureNode, handleChangeTrigger, handleAddActionClick])
 
@@ -4715,11 +4776,11 @@ function WorkflowBuilderContent() {
                         <Badge variant="secondary" className="ml-2 shrink-0">
                           Coming soon
                         </Badge>
-                      ) : !isConnected && 
-                           integration.id !== 'core' && 
-                           integration.id !== 'logic' && 
-                           integration.id !== 'webhook' && 
-                           integration.id !== 'scheduler' && 
+                      ) : !isConnected &&
+                           integration.id !== 'core' &&
+                           integration.id !== 'logic' &&
+                           integration.id !== 'schedule' &&
+                           integration.id !== 'manual' &&
                            integration.id !== 'ai' ? (
                         <Button
                           size="sm"
@@ -5740,11 +5801,11 @@ function WorkflowBuilderContent() {
                         <Badge variant="secondary" className="ml-2 shrink-0">
                           Coming soon
                         </Badge>
-                      ) : !isConnected && 
-                           integration.id !== 'core' && 
-                           integration.id !== 'logic' && 
-                           integration.id !== 'webhook' && 
-                           integration.id !== 'scheduler' && 
+                      ) : !isConnected &&
+                           integration.id !== 'core' &&
+                           integration.id !== 'logic' &&
+                           integration.id !== 'schedule' &&
+                           integration.id !== 'manual' &&
                            integration.id !== 'ai' ? (
                         <Button
                           size="sm"

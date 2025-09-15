@@ -1,4 +1,4 @@
-import { MessageSquare, MessageCircle, Heart, HeartOff, Hash, UserPlus, UserMinus, FileText } from "lucide-react"
+import { MessageSquare, MessageCircle, Heart, HeartOff, Hash, UserPlus, UserMinus } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const slackNodes: NodeComponent[] = [
@@ -274,6 +274,7 @@ export const slackNodes: NodeComponent[] = [
         type: "select",
         required: true,
         dynamic: "slack_channels",
+        loadOnMount: true,
         description: "Select the Slack channel where you want to send the message"
       },
       {
@@ -282,7 +283,8 @@ export const slackNodes: NodeComponent[] = [
         type: "rich-text",
         required: true,
         placeholder: "Type your message...",
-        description: "The message content with rich text formatting (bold, italic, links, etc.)"
+        description: "The message content with rich text formatting (bold, italic, links, etc.)",
+        showWhen: { channel: { $ne: "" } }
       },
       { 
         name: "attachments", 
@@ -293,7 +295,8 @@ export const slackNodes: NodeComponent[] = [
         multiple: true,
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
         maxSize: 25 * 1024 * 1024, // 25MB limit
-        description: "Attach files from your computer or select files from previous workflow nodes"
+        description: "Attach files from your computer or select files from previous workflow nodes",
+        showWhen: { channel: { $ne: "" } }
       },
       { 
         name: "sendAsBot", 
@@ -301,7 +304,8 @@ export const slackNodes: NodeComponent[] = [
         type: "boolean", 
         required: false,
         defaultValue: true,
-        description: "Send the message as the bot user"
+        description: "Send the message as the bot user",
+        showWhen: { channel: { $ne: "" } }
       },
       { 
         name: "username", 
@@ -309,23 +313,28 @@ export const slackNodes: NodeComponent[] = [
         type: "text", 
         required: false,
         placeholder: "Custom bot name",
-        description: "Override the bot's username for this message"
+        description: "Override the bot's username for this message",
+        showWhen: { channel: { $ne: "" }, sendAsBot: true }
       },
       { 
         name: "iconEmoji", 
-        label: "Bot Icon Emoji (Optional)", 
-        type: "text", 
+        label: "Bot Icon (Optional)", 
+        type: "file", 
         required: false,
-        placeholder: ":robot_face:",
-        description: "Override the bot's icon with an emoji"
+        accept: "image/*",
+        maxSize: 2 * 1024 * 1024, // 2MB limit for icons
+        placeholder: "Upload an icon or use emoji like :robot_face:",
+        description: "Override the bot's icon with an image or emoji. You can upload an image file or enter an emoji code like :robot_face:",
+        showWhen: { channel: { $ne: "" }, sendAsBot: true }
       },
       { 
         name: "threadTimestamp", 
-        label: "Thread Timestamp (Optional)", 
-        type: "text", 
+        label: "Reply to Thread (Optional)", 
+        type: "datetime", 
         required: false,
-        placeholder: "1234567890.123456",
-        description: "Reply in a thread by providing its timestamp"
+        placeholder: "Select message time to reply to",
+        description: "Reply in a thread by selecting the timestamp of the original message. This creates a threaded conversation.",
+        showWhen: { channel: { $ne: "" } }
       },
       { 
         name: "unfurlLinks", 
@@ -333,7 +342,8 @@ export const slackNodes: NodeComponent[] = [
         type: "boolean", 
         required: false,
         defaultValue: true,
-        description: "Enable link previews in the message"
+        description: "Enable link previews in the message",
+        showWhen: { channel: { $ne: "" } }
       },
       { 
         name: "unfurlMedia", 
@@ -341,7 +351,221 @@ export const slackNodes: NodeComponent[] = [
         type: "boolean", 
         required: false,
         defaultValue: true,
-        description: "Enable media previews in the message"
+        description: "Enable media previews in the message",
+        showWhen: { channel: { $ne: "" } }
+      },
+      {
+        name: "messageType",
+        label: "Message Type",
+        type: "select",
+        required: false,
+        defaultValue: "simple",
+        options: [
+          { value: "simple", label: "Simple Message" },
+          { value: "buttons", label: "Message with Buttons" },
+          { value: "status", label: "Status Update" },
+          { value: "approval", label: "Approval Request" },
+          { value: "poll", label: "Poll/Survey" },
+          { value: "custom", label: "Custom Block Kit" }
+        ],
+        description: "Choose the type of message to send",
+        showWhen: { channel: { $ne: "" } }
+      },
+      
+      // Button Configuration
+      {
+        name: "buttonConfig",
+        label: "Button Configuration",
+        type: "array",
+        required: false,
+        showWhen: { messageType: "buttons" },
+        description: "Add up to 5 buttons to your message",
+        maxItems: 5,
+        itemSchema: {
+          buttonText: {
+            type: "text",
+            label: "Button Text",
+            required: true,
+            placeholder: "Click Me"
+          },
+          buttonAction: {
+            type: "text",
+            label: "Action ID",
+            required: true,
+            placeholder: "button_click",
+            description: "Unique identifier for this button action"
+          },
+          buttonStyle: {
+            type: "select",
+            label: "Style",
+            options: [
+              { value: "primary", label: "Primary (Green)" },
+              { value: "danger", label: "Danger (Red)" },
+              { value: "default", label: "Default (Gray)" }
+            ],
+            defaultValue: "default"
+          },
+          buttonUrl: {
+            type: "text",
+            label: "URL (Optional)",
+            placeholder: "https://example.com",
+            description: "Open this URL when clicked"
+          }
+        }
+      },
+      
+      // Status Update Configuration
+      {
+        name: "statusColor",
+        label: "Status Color",
+        type: "select",
+        required: false,
+        showWhen: { messageType: "status" },
+        options: [
+          { value: "good", label: "Good (Green)" },
+          { value: "warning", label: "Warning (Yellow)" },
+          { value: "danger", label: "Danger (Red)" },
+          { value: "#439FE0", label: "Info (Blue)" }
+        ],
+        defaultValue: "good",
+        description: "Color of the status sidebar"
+      },
+      {
+        name: "statusTitle",
+        label: "Status Title",
+        type: "text",
+        required: false,
+        showWhen: { messageType: "status" },
+        placeholder: "System Status Update",
+        description: "Title of the status message"
+      },
+      {
+        name: "statusFields",
+        label: "Status Fields",
+        type: "array",
+        required: false,
+        showWhen: { messageType: "status" },
+        description: "Add key-value pairs to display",
+        maxItems: 10,
+        itemSchema: {
+          title: {
+            type: "text",
+            label: "Field Name",
+            required: true,
+            placeholder: "Status"
+          },
+          value: {
+            type: "text",
+            label: "Field Value",
+            required: true,
+            placeholder: "Operational"
+          },
+          short: {
+            type: "boolean",
+            label: "Short Field",
+            defaultValue: true,
+            description: "Display as half-width"
+          }
+        }
+      },
+      
+      // Approval Configuration
+      {
+        name: "approvalText",
+        label: "Approval Question",
+        type: "text",
+        required: false,
+        showWhen: { messageType: "approval" },
+        placeholder: "Do you approve this request?",
+        defaultValue: "Do you approve this request?",
+        description: "Question to ask for approval"
+      },
+      {
+        name: "approveButtonText",
+        label: "Approve Button Text",
+        type: "text",
+        required: false,
+        showWhen: { messageType: "approval" },
+        placeholder: "Approve",
+        defaultValue: "Approve"
+      },
+      {
+        name: "denyButtonText",
+        label: "Deny Button Text",
+        type: "text",
+        required: false,
+        showWhen: { messageType: "approval" },
+        placeholder: "Deny",
+        defaultValue: "Deny"
+      },
+      
+      // Poll Configuration
+      {
+        name: "pollQuestion",
+        label: "Poll Question",
+        type: "text",
+        required: false,
+        showWhen: { messageType: "poll" },
+        placeholder: "What's your favorite feature?",
+        description: "The question to ask in the poll"
+      },
+      {
+        name: "pollOptions",
+        label: "Poll Options",
+        type: "array",
+        required: false,
+        showWhen: { messageType: "poll" },
+        description: "Add poll options (2-5 options)",
+        minItems: 2,
+        maxItems: 5,
+        itemSchema: {
+          optionText: {
+            type: "text",
+            label: "Option Text",
+            required: true,
+            placeholder: "Option 1"
+          },
+          optionValue: {
+            type: "text",
+            label: "Option Value",
+            required: true,
+            placeholder: "option_1",
+            description: "Unique value for this option"
+          }
+        }
+      },
+      
+      // Custom Block Kit
+      {
+        name: "customBlocks",
+        label: "Custom Block Kit JSON",
+        type: "json",
+        required: false,
+        showWhen: { messageType: "custom" },
+        placeholder: '[\n  {\n    "type": "section",\n    "text": {\n      "type": "mrkdwn",\n      "text": "Your custom blocks here"\n    }\n  }\n]',
+        description: "Design custom blocks at app.slack.com/block-kit-builder and paste the JSON here"
+      },
+      
+      // Legacy Attachment Option (hidden by default)
+      {
+        name: "useLegacyAttachments",
+        label: "Use Legacy Attachments",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Use the older attachment format (not recommended)",
+        showWhen: { channel: { $ne: "" } },
+        advanced: true
+      },
+      {
+        name: "legacyAttachments",
+        label: "Legacy Attachments JSON",
+        type: "json",
+        required: false,
+        showWhen: { useLegacyAttachments: true },
+        placeholder: '[\n  {\n    "color": "good",\n    "title": "Status",\n    "text": "All systems operational"\n  }\n]',
+        description: "Legacy attachment format (Slack recommends using Block Kit instead)",
+        advanced: true
       }
     ]
   },
@@ -361,12 +585,13 @@ export const slackNodes: NodeComponent[] = [
         type: "select",
         required: true,
         dynamic: "slack_workspaces",
+        loadOnMount: true,
         description: "Select the Slack workspace."
       },
       {
         name: "template",
         label: "Template",
-        type: "combobox",
+        type: "select",
         required: true,
         defaultValue: "blank",
         options: [
@@ -388,8 +613,7 @@ export const slackNodes: NodeComponent[] = [
           { value: "new-hire-onboarding", label: "New Hire Onboarding" },
           { value: "feedback-intake", label: "Feedback Intake" },
           { value: "team-support", label: "Team Support" },
-        ] as const,
-        description: "Choose a channel template."
+        ] as const
       },
       {
         name: "channelName",
@@ -421,52 +645,9 @@ export const slackNodes: NodeComponent[] = [
         type: "multi-select",
         required: false,
         dynamic: "slack_users",
+        dependsOn: "workspace",
         placeholder: "Select users to add",
-        description: "Choose users to add to the channel"
-      }
-    ]
-  },
-  {
-    type: "slack_action_post_interactive",
-    title: "Post Interactive Message",
-    description: "Send an interactive message with buttons and actions",
-    icon: FileText,
-    providerId: "slack",
-    requiredScopes: ["chat:write", "chat:write.public"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "channel",
-        label: "Channel",
-        type: "select",
-        required: true,
-        dynamic: "slack_channels",
-        description: "Select the channel to post the interactive message"
-      },
-      {
-        name: "text",
-        label: "Message Text",
-        type: "textarea",
-        required: true,
-        placeholder: "Main message text",
-        description: "The primary text of the message"
-      },
-      {
-        name: "blocks",
-        label: "Message Blocks",
-        type: "json",
-        required: false,
-        placeholder: "Enter Block Kit JSON",
-        description: "Advanced: Define custom Block Kit blocks for rich formatting"
-      },
-      {
-        name: "attachments",
-        label: "Attachments",
-        type: "json",
-        required: false,
-        placeholder: "Enter attachments JSON",
-        description: "Legacy attachments format (use blocks instead when possible)"
+        description: "Choose users to add to the channel (select workspace first)"
       }
     ]
   }

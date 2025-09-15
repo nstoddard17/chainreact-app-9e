@@ -115,11 +115,11 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board" },
-      { name: "template", label: "Card Template", type: "select", required: false, dynamic: "trello_card_templates", dependsOn: "boardId", placeholder: "Select a card template (optional)" },
-      { name: "listId", label: "List", type: "select", required: true, dynamic: "trello_lists", dependsOn: "boardId", placeholder: "Select a list" },
-      { name: "name", label: "Card Name", type: "text", required: true, dependsOn: "boardId", placeholder: "Enter card name" },
-      { name: "desc", label: "Description", type: "textarea", required: false, dependsOn: "boardId", placeholder: "Enter card description (optional)" }
+      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board", loadOnMount: true },
+      { name: "template", label: "Card Template", type: "select", required: false, dynamic: "trello_card_templates", dependsOn: "boardId", placeholder: "Select a card template (optional)", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "listId", label: "List", type: "select", required: true, dynamic: "trello_lists", dependsOn: "boardId", placeholder: "Select a list", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "name", label: "Card Name", type: "text", required: true, placeholder: "Enter card name", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "desc", label: "Description", type: "textarea", required: false, placeholder: "Enter card description (optional)", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } }
     ]
   },
   {
@@ -132,6 +132,16 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
+      { 
+        name: "template", 
+        label: "Board Template", 
+        type: "select", 
+        required: false, 
+        dynamic: "trello_board_templates",
+        placeholder: "Select a template (optional)",
+        loadOnMount: true,
+        cacheKey: "trello-board-templates", // Enable caching for this field
+      },
       { name: "name", label: "Board Name", type: "text", required: true, placeholder: "Enter board name" },
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Board description" },
       { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
@@ -151,8 +161,8 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board" },
-      { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name" }
+      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board", loadOnMount: true },
+      { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } }
     ]
   },
   {
@@ -165,10 +175,10 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board" },
-      { name: "cardId", label: "Card", type: "select", required: true, dynamic: "trello_cards", dependsOn: "boardId", placeholder: "Select a card to move" },
-      { name: "listId", label: "Target List", type: "select", required: true, dynamic: "trello_lists", dependsOn: "boardId", placeholder: "Select target list" },
-      { name: "position", label: "Position", type: "select", required: false, defaultValue: "bottom", options: [
+      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board", loadOnMount: true },
+      { name: "cardId", label: "Card", type: "select", required: true, dynamic: "trello_cards", dependsOn: "boardId", placeholder: "Select a card to move", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "listId", label: "Target List", type: "select", required: true, dynamic: "trello_lists", dependsOn: "boardId", placeholder: "Select target list", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "position", label: "Position", type: "select", required: false, defaultValue: "bottom", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }, options: [
         { value: "top", label: "Top" },
         { value: "bottom", label: "Bottom" }
       ] }

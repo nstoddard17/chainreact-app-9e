@@ -1,4 +1,4 @@
-import { encrypt } from "@/lib/security/encryption"
+import { encrypt, decrypt, safeDecrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 
 /**
@@ -67,4 +67,27 @@ export async function prepareIntegrationData(
   }
 
   return baseData
+}
+
+/**
+ * Decrypts an OAuth token that was previously encrypted
+ * @param encryptedToken The encrypted token to decrypt
+ * @returns Decrypted token string or null if decryption fails
+ */
+export async function decryptToken(encryptedToken: string): Promise<string | null> {
+  if (!encryptedToken) {
+    return null
+  }
+
+  try {
+    // Get the encryption key - use default if not set
+    const secret = await getSecret("encryption_key") || "0123456789abcdef0123456789abcdef"
+    
+    // Use safeDecrypt which handles both encrypted and unencrypted tokens
+    return safeDecrypt(encryptedToken, secret)
+  } catch (error) {
+    console.error('Failed to decrypt token:', error)
+    // Return the token as-is if decryption fails (might not be encrypted)
+    return encryptedToken
+  }
 }
