@@ -102,8 +102,9 @@ function formatMessageField(data: any[]): FormattedOption[] {
  */
 function formatBoardField(data: any[]): FormattedOption[] {
   return data.map((item: any) => ({
-    value: item.id,
-    label: item.name || item.id,
+    // Handle both formats: API returns value/label, but we expect id/name
+    value: item.value || item.id,
+    label: item.label || item.name || item.value || item.id,
   }));
 }
 

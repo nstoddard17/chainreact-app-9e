@@ -173,10 +173,21 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Triggers",
     isTrigger: true,
     producesOutput: true,
+    comingSoon: true,
     configSchema: [
       { name: "path", label: "Path", type: "text", placeholder: "/webhook-path", description: "The URL path for your webhook endpoint (e.g., /webhook-path)" },
       { name: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"], description: "The HTTP method that will trigger this webhook" },
     ],
+    outputSchema: [
+      { name: "type", label: "Trigger Type", type: "string", description: "The type of trigger (webhook)", example: "webhook" },
+      { name: "triggered", label: "Triggered", type: "boolean", description: "Whether the webhook was triggered", example: true },
+      { name: "data", label: "Request Data", type: "object", description: "The data received from the webhook request", example: { "key": "value" } },
+      { name: "headers", label: "Request Headers", type: "object", description: "HTTP headers from the webhook request", example: { "content-type": "application/json" } },
+      { name: "query", label: "Query Parameters", type: "object", description: "Query parameters from the webhook URL", example: { "param": "value" } },
+      { name: "method", label: "HTTP Method", type: "string", description: "The HTTP method used", example: "POST" },
+      { name: "path", label: "Request Path", type: "string", description: "The path that was requested", example: "/webhook-path" },
+      { name: "timestamp", label: "Timestamp", type: "string", description: "When the webhook was triggered", example: "2025-01-14T12:00:00Z" }
+    ]
   },
   {
     type: "schedule",
@@ -189,6 +200,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *", description: "Cron expression for scheduling (minute hour day month weekday)" },
       { name: "timezone", label: "Timezone", type: "text", placeholder: "UTC", description: "Timezone for the schedule (e.g., UTC, America/New_York)" },
     ],
+    outputSchema: [
+      { name: "type", label: "Trigger Type", type: "string", description: "The type of trigger (schedule)", example: "schedule" },
+      { name: "triggered", label: "Triggered", type: "boolean", description: "Whether the schedule was triggered", example: true },
+      { name: "scheduledTime", label: "Scheduled Time", type: "string", description: "The scheduled execution time", example: "2025-01-14T12:00:00Z" },
+      { name: "cronExpression", label: "Cron Expression", type: "string", description: "The cron expression that triggered this execution", example: "0 * * * *" },
+      { name: "timezone", label: "Timezone", type: "string", description: "The timezone used for scheduling", example: "UTC" },
+      { name: "nextRun", label: "Next Run", type: "string", description: "When the next scheduled run will occur", example: "2025-01-14T13:00:00Z" },
+      { name: "data", label: "Schedule Data", type: "object", description: "Additional data for the scheduled execution", example: {} }
+    ]
   },
   {
     type: "manual",
@@ -198,6 +218,16 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Triggers",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      { name: "inputData", label: "Input Data (Optional)", type: "textarea", placeholder: '{"key": "value"}', description: "Optional JSON data to pass to the workflow" }
+    ],
+    outputSchema: [
+      { name: "type", label: "Trigger Type", type: "string", description: "The type of trigger (manual)", example: "manual" },
+      { name: "triggered", label: "Triggered", type: "boolean", description: "Whether the manual trigger was activated", example: true },
+      { name: "triggeredBy", label: "Triggered By", type: "string", description: "User who manually triggered the workflow", example: "user@example.com" },
+      { name: "manualData", label: "Manual Input Data", type: "object", description: "Data provided when manually triggering", example: { "reason": "testing" } },
+      { name: "timestamp", label: "Timestamp", type: "string", description: "When the workflow was manually triggered", example: "2025-01-14T12:00:00Z" }
+    ]
   },
 
   // Generic Actions

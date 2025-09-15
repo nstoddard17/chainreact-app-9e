@@ -371,72 +371,6 @@ function generateMockResponse(actionType: string, config: any, input: any): any 
   }
 }
 
-/**
- * Generic filter action
- */
-export async function executeFilterAction(
-  config: any,
-  userId: string,
-  input: Record<string, any>
-): Promise<ActionResult> {
-  try {
-    const resolvedConfig = resolveValue(config, { input })
-    
-    const { condition, field, operator, value } = resolvedConfig
-    
-    // Simple condition evaluation
-    let result = false
-    
-    if (condition && typeof condition === 'string') {
-      // For now, just check if condition contains "true" or evaluates to true
-      result = condition.includes('true') || condition.includes('1')
-    } else if (field && operator && value !== undefined) {
-      // Basic field comparison
-      const fieldValue = input[field]
-      
-      switch (operator) {
-        case 'equals':
-          result = fieldValue === value
-          break
-        case 'not_equals':
-          result = fieldValue !== value
-          break
-        case 'contains':
-          result = String(fieldValue).includes(String(value))
-          break
-        case 'greater_than':
-          result = Number(fieldValue) > Number(value)
-          break
-        case 'less_than':
-          result = Number(fieldValue) < Number(value)
-          break
-        default:
-          result = true
-      }
-    } else {
-      result = true // Default to true if no condition specified
-    }
-    
-    return {
-      success: true,
-      output: {
-        ...input,
-        conditionResult: result,
-        conditionPath: result ? "true" : "false",
-        evaluatedAt: new Date().toISOString()
-      },
-      message: `Filter condition evaluated to ${result}`
-    }
-    
-  } catch (error: any) {
-    console.error("Filter action error:", error)
-    return {
-      success: false,
-      output: {},
-      message: error.message || "Failed to execute filter action"
-    }
-  }
-}
 
 /**
  * Generic delay action
@@ -496,13 +430,12 @@ export async function executeDelayAction(
     return {
       success: true,
       output: {
-        ...input,
-        delayCompleted: true,
-        delayDuration: delayMs,
         delayDurationSeconds: delayMs / 1000,
+        delayDuration: delayMs,
         delayUnit: unit,
         startTime: new Date(Date.now() - delayMs).toISOString(),
-        completedAt: new Date().toISOString()
+        endTime: new Date().toISOString(),
+        success: true
       },
       message: `Delay completed after ${duration} ${unit}`
     }

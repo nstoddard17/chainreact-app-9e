@@ -40,6 +40,8 @@ import { PayPalConfiguration } from './providers/PayPalConfiguration';
 import { TikTokConfiguration } from './providers/TikTokConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { GmailFetchConfiguration } from './providers/gmail/GmailFetchConfiguration';
+import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
+import { IfThenConfiguration } from './providers/IfThenConfiguration';
 
 interface ConfigurationFormProps {
   nodeInfo: any;
@@ -323,6 +325,9 @@ function ConfigurationForm({
       // Check if it's a dynamic field
       if (!field.dynamic) return false;
       
+      // Skip fields that have loadOnMount (they're handled by another useEffect)
+      if (field.loadOnMount) return false;
+      
       // Check if it has a saved value
       const savedValue = values[field.name];
       if (!savedValue) return false;
@@ -525,11 +530,22 @@ function ConfigurationForm({
 
   // THIRD THING: Route to the correct provider component
   // Check for specific node types that need custom configuration
+  if (nodeInfo?.type === 'schedule') {
+    console.log('⏰ [ConfigForm] Routing to Schedule configuration');
+    return <ScheduleConfiguration {...commonProps} />;
+  }
+
+  // Check for if/then condition node
+  if (nodeInfo?.type === 'if_then_condition') {
+    console.log('🔀 [ConfigForm] Routing to If/Then configuration');
+    return <IfThenConfiguration {...commonProps} />;
+  }
+
   if (provider === 'gmail' && nodeInfo?.type === 'gmail_action_search_email') {
     console.log('📧 [ConfigForm] Routing to Gmail Fetch configuration');
     return <GmailFetchConfiguration {...commonProps} />;
   }
-  
+
   switch (provider) {
     // Communication
     case 'discord':

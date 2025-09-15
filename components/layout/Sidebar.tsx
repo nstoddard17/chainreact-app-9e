@@ -38,14 +38,14 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, minRole: 'free' },
-  { name: "AI Assistant", href: "/ai-assistant", icon: Bot, minRole: 'free' },
+  { name: "AI Assistant", href: "/ai-assistant", icon: Bot, minRole: 'free', comingSoon: true },
   { name: "Workflows", href: "/workflows", icon: Workflow, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
-  { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro' },
-  { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro' },
+  { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro', comingSoon: true },
+  { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro', comingSoon: true },
   { name: "Teams", href: "/teams", icon: Building2, minRole: 'business' },
-  { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free' },
-  { name: "Community", href: "/community", icon: Users, minRole: 'free' },
+  { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free', comingSoon: true },
+  { name: "Community", href: "/community", icon: Users, minRole: 'free', comingSoon: true },
   { name: "Enterprise", href: "/enterprise", icon: Shield, minRole: 'enterprise' },
   {
     name: "Support",
@@ -89,6 +89,13 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
   } | null>(null)
 
   const handleNavigationClick = (item: typeof navigation[0], e: React.MouseEvent) => {
+    // Check if it's a coming soon feature (only accessible to admins)
+    if (item.comingSoon && !isAdmin) {
+      e.preventDefault()
+      // You could show a coming soon message here if desired
+      return
+    }
+    
     // If user can access the page, let the link work normally
     if (canAccessPage(userRole, item.href)) {
       onMobileMenuChange(false)
@@ -170,18 +177,19 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             const RoleIcon = roleIcons[item.minRole as keyof typeof roleIcons]
             const showRoleBadge = item.minRole !== 'free'
             const canAccess = canAccessPage(userRole, item.href)
+            const isComingSoon = item.comingSoon && !isAdmin
             
             return (
               <Link
                 key={item.name}
-                href={canAccess ? item.href : "#"}
+                href={canAccess && !isComingSoon ? item.href : "#"}
                 onClick={(e) => handleNavigationClick(item, e)}
                 className={cn(
                   "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group",
                   isCollapsed && "justify-center px-2",
-                  isActive
+                  isActive && !isComingSoon
                     ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                    : canAccess
+                    : canAccess && !isComingSoon
                     ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     : "text-muted-foreground/50 hover:bg-muted/50 cursor-pointer opacity-75",
                 )}
@@ -192,8 +200,18 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                   {!isCollapsed && <span className="font-medium">{item.name}</span>}
                 </div>
                 
-                {/* Role Badge - show for all non-free roles */}
-                {!isCollapsed && showRoleBadge && (
+                {/* Coming Soon Badge for non-admins */}
+                {!isCollapsed && isComingSoon && (
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs px-1.5 py-0.5 ml-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
+                  >
+                    Coming Soon
+                  </Badge>
+                )}
+                
+                {/* Role Badge - show for all non-free roles (but not if coming soon is shown) */}
+                {!isCollapsed && showRoleBadge && !isComingSoon && (
                   <Badge 
                     variant="secondary" 
                     className={cn(

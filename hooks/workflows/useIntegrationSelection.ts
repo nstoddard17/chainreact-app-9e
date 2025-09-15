@@ -104,7 +104,7 @@ export function useIntegrationSelection() {
     // Process all node components
     ALL_NODE_COMPONENTS.forEach(node => {
       const providerId = node.providerId || node.integration
-      
+
       if (providerId === 'ai') {
         if (node.type === 'ai_agent') {
           integrationMap['ai'].actions.push(node)
@@ -114,6 +114,18 @@ export function useIntegrationSelection() {
           integrationMap[providerId].triggers.push(node)
         } else {
           integrationMap[providerId].actions.push(node)
+        }
+      } else if (!providerId) {
+        // Handle nodes without a providerId - these go to Core
+        // This includes manual, schedule, and webhook triggers
+        if (node.isTrigger) {
+          // Core triggers: manual, schedule, webhook
+          if (['manual', 'schedule', 'webhook'].includes(node.type)) {
+            integrationMap['core'].triggers.push(node)
+          }
+        } else {
+          // Core actions (if any)
+          integrationMap['core'].actions.push(node)
         }
       }
     })
@@ -130,7 +142,8 @@ export function useIntegrationSelection() {
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
     // Special integrations that don't require connection
-    if (['webhook', 'scheduler', 'ai', 'core', 'logic', 'manual'].includes(integrationId)) {
+    // Note: webhook is removed from this list so it shows as "coming soon"
+    if (['schedule', 'ai', 'core', 'logic', 'manual'].includes(integrationId)) {
       return true
     }
     
@@ -236,6 +249,7 @@ export function useIntegrationSelection() {
     'tiktok',
     'youtube',
     'youtube-studio',
+    'webhook',
   ]), [])
 
   // Method to manually refresh integrations

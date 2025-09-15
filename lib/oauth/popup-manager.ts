@@ -167,20 +167,30 @@ export class OAuthPopupManager {
       // Silently handle any errors
     }
     
+    // Set up BroadcastChannel for same-origin communication
+    let broadcastChannel: BroadcastChannel | null = null
+    
     const cleanup = () => {
       if (popupCheckTimer) clearInterval(popupCheckTimer)
       if (storageCheckTimer) clearInterval(storageCheckTimer)
       if (connectionTimeout) clearTimeout(connectionTimeout)
       window.removeEventListener("message", messageHandler)
+      broadcastChannel?.close()
       this.currentPopup = null
     }
 
-    const messageHandler = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return
-
-      const data = event.data as PopupResponse
-
-      if (data && data.type === "oauth-success") {
+    const handleOAuthResponse = (data: any) => {
+      // Handle OAuth response from any source (postMessage, BroadcastChannel, or localStorage)
+      if (data && data.type === "oauth-complete" && data.success) {
+        closedByMessage = true
+        cleanup()
+        try {
+          popup.close()
+        } catch (error) {
+          console.warn("Failed to close popup:", error)
+        }
+        onSuccess(data)
+      } else if (data && data.type === "oauth-success") {
         closedByMessage = true
         cleanup()
         try {
@@ -196,12 +206,12 @@ export class OAuthPopupManager {
         if (onInfo) {
           onInfo(data.message || "OAuth info received")
         }
-      } else if (data && data.type === "oauth-error") {
+      } else if (data && (data.type === "oauth-error" || (data.type === "oauth-complete" && !data.success))) {
         // Handle errors silently for all providers
         closedByMessage = true
         cleanup()
         popup?.close()
-        onError(data.message || "OAuth error occurred")
+        onError(data.error || data.message || "OAuth error occurred")
       } else if (data && data.type === "oauth-cancelled") {
         closedByMessage = true
         cleanup()
@@ -209,7 +219,26 @@ export class OAuthPopupManager {
       }
     }
 
+    const messageHandler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      handleOAuthResponse(event.data)
+    }
+
     window.addEventListener("message", messageHandler)
+
+    // Set up BroadcastChannel listener
+    try {
+      broadcastChannel = new BroadcastChannel('oauth_channel')
+      broadcastChannel.onmessage = (event) => {
+        console.log(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
+        // Check if this response is for our provider
+        if (event.data?.provider?.toLowerCase() === provider.toLowerCase()) {
+          handleOAuthResponse(event.data)
+        }
+      }
+    } catch (e) {
+      console.log('BroadcastChannel not available, falling back to postMessage and localStorage')
+    }
 
     // Add popup close detection (manual close by user)
     let cancelCheckScheduled = false
@@ -268,19 +297,19 @@ export class OAuthPopupManager {
             const responseData = JSON.parse(localStorage.getItem(key) || '')
             
             if (responseData && responseData.type) {
-              if (responseData.type === 'oauth-success') {
+              if (responseData.type === 'oauth-success' || (responseData.type === 'oauth-complete' && responseData.success)) {
                 // Handle success silently for all providers
                 closedByMessage = true
                 cleanup()
                 localStorage.removeItem(key)
                 onSuccess(responseData)
                 return
-              } else if (responseData.type === 'oauth-error') {
+              } else if (responseData.type === 'oauth-error' || (responseData.type === 'oauth-complete' && !responseData.success)) {
                 // Handle errors silently for all providers
                 closedByMessage = true
                 cleanup()
                 localStorage.removeItem(key)
-                onError(responseData.message || "OAuth error occurred")
+                onError(responseData.error || responseData.message || "OAuth error occurred")
                 return
               } else if (responseData.type === 'oauth-cancelled') {
                 closedByMessage = true

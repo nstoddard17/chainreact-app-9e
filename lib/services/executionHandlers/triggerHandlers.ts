@@ -34,45 +34,92 @@ export class TriggerNodeHandlers {
 
   private async executeWebhookTrigger(node: any, context: ExecutionContext) {
     console.log("🪝 Executing webhook trigger")
-    
+
+    const timestamp = new Date().toISOString()
+    const config = node.data?.config || {}
+
     // In test mode, return mock data
     if (context.testMode) {
       return {
         type: "webhook",
         triggered: true,
-        data: context.data || { message: "Test webhook data" },
-        timestamp: new Date().toISOString()
+        data: context.data || { message: "Test webhook data", test: true },
+        headers: { "content-type": "application/json", "x-test-mode": "true" },
+        query: { test: "true" },
+        method: config.method || "POST",
+        path: config.path || "/webhook-path",
+        timestamp
       }
     }
 
-    // In real execution, the webhook data comes from the input
+    // In real execution, extract webhook data from context
+    // Context should contain the full webhook request data including headers, query params, etc.
     return {
       type: "webhook",
       triggered: true,
-      data: context.data,
-      timestamp: new Date().toISOString()
+      data: context.data?.body || context.data || {},
+      headers: context.data?.headers || {},
+      query: context.data?.query || {},
+      method: context.data?.method || config.method || "POST",
+      path: context.data?.path || config.path || "/webhook-path",
+      timestamp
     }
   }
 
   private async executeScheduleTrigger(node: any, context: ExecutionContext) {
     console.log("⏰ Executing schedule trigger")
-    
+
+    const config = node.data?.config || {}
+    const scheduledTime = new Date().toISOString()
+
+    // Calculate next run time based on cron expression
+    // For now, we'll just add 1 hour as a placeholder
+    const nextRunDate = new Date()
+    nextRunDate.setHours(nextRunDate.getHours() + 1)
+    const nextRun = nextRunDate.toISOString()
+
     return {
       type: "schedule",
       triggered: true,
-      scheduledTime: new Date().toISOString(),
+      scheduledTime,
+      cronExpression: config.cron || "0 * * * *",
+      timezone: config.timezone || "UTC",
+      nextRun,
       data: context.data || {}
     }
   }
 
   private async executeManualTrigger(node: any, context: ExecutionContext) {
     console.log("👆 Executing manual trigger")
-    
+
+    const config = node.data?.config || {}
+    const timestamp = new Date().toISOString()
+
+    // Parse input data if provided in config
+    let inputData = {}
+    if (config.inputData) {
+      try {
+        inputData = typeof config.inputData === 'string'
+          ? JSON.parse(config.inputData)
+          : config.inputData
+      } catch (e) {
+        console.warn("Failed to parse manual trigger input data:", e)
+        inputData = { raw: config.inputData }
+      }
+    }
+
+    // Merge config input data with context data
+    const manualData = {
+      ...inputData,
+      ...(context.data || {})
+    }
+
     return {
       type: "manual",
       triggered: true,
-      manualData: context.data || {},
-      timestamp: new Date().toISOString()
+      triggeredBy: context.userId || "unknown",
+      manualData,
+      timestamp
     }
   }
 

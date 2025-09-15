@@ -12,6 +12,7 @@ export const webhookTrigger: NodeComponent = {
   category: "Triggers",
   isTrigger: true,
   producesOutput: true,
+  comingSoon: true,
   configSchema: [
     { 
       name: "path", 

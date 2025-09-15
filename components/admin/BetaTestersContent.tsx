@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import {
   UserPlus,
@@ -88,8 +89,11 @@ export default function BetaTestersContent() {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false)
   const [showSendAllDialog, setShowSendAllDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showMassInviteDialog, setShowMassInviteDialog] = useState(false)
   const [selectedTester, setSelectedTester] = useState<BetaTester | null>(null)
+  const [selectedTesters, setSelectedTesters] = useState<Set<string>>(new Set())
   const [sendingOffer, setSendingOffer] = useState<string | null>(null)
+  const [sendingMassInvites, setSendingMassInvites] = useState(false)
   const { toast } = useToast()
 
   // Form states
@@ -400,6 +404,70 @@ export default function BetaTestersContent() {
     }
   }
 
+  const handleSendMassInvites = async () => {
+    setSendingMassInvites(true)
+    try {
+      const testerIds = Array.from(selectedTesters)
+      const response = await fetch("/api/admin/beta-testers/send-offer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          testerIds,
+          sendToAll: false
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Invites Sent",
+          description: `Successfully sent ${testerIds.length} beta invitation${testerIds.length === 1 ? '' : 's'}`,
+        })
+        setSelectedTesters(new Set())
+        setShowMassInviteDialog(false)
+        fetchBetaTesters()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send invites",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send invites",
+        variant: "destructive"
+      })
+    } finally {
+      setSendingMassInvites(false)
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedTesters.size === betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length) {
+      setSelectedTesters(new Set())
+    } else {
+      const eligibleIds = betaTesters
+        .filter(t => t.status === 'active' && !t.conversion_offer_sent_at)
+        .map(t => t.id)
+      setSelectedTesters(new Set(eligibleIds))
+    }
+  }
+
+  const toggleSelectTester = (testerId: string) => {
+    const newSelected = new Set(selectedTesters)
+    if (newSelected.has(testerId)) {
+      newSelected.delete(testerId)
+    } else {
+      newSelected.add(testerId)
+    }
+    setSelectedTesters(newSelected)
+  }
+
   const handleExportData = () => {
     const csvContent = [
       ["Email", "Status", "Added", "Expires", "Workflows Created", "Executions", "Feedback Count"],
@@ -531,6 +599,15 @@ export default function BetaTestersContent() {
             <span className="hidden sm:inline">Add Beta Tester</span>
             <span className="sm:hidden">Add</span>
           </Button>
+          {selectedTesters.size > 0 && (
+            <Button
+              onClick={() => setShowMassInviteDialog(true)}
+              className="flex-shrink-0"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              <span>Send Invites ({selectedTesters.size})</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setShowSendAllDialog(true)}
@@ -580,6 +657,13 @@ export default function BetaTestersContent() {
                     <table className="w-full">
                       <thead className="border-b bg-muted/50">
                         <tr>
+                          <th className="text-left p-4 font-medium w-12">
+                            <Checkbox
+                              checked={selectedTesters.size === betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length && betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length > 0}
+                              onCheckedChange={toggleSelectAll}
+                              aria-label="Select all eligible testers"
+                            />
+                          </th>
                           <th className="text-left p-4 font-medium">Email</th>
                           <th className="text-left p-4 font-medium">Status</th>
                           <th className="text-left p-4 font-medium">Usage</th>
@@ -592,14 +676,24 @@ export default function BetaTestersContent() {
                       <tbody>
                         {betaTesters.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                            <td colSpan={8} className="text-center p-8 text-muted-foreground">
                               No beta testers found. Click "Add Beta Tester" to get started.
                             </td>
                           </tr>
                         ) : (
-                          betaTesters.map((tester) => (
-                            <tr key={tester.id} className="border-b hover:bg-muted/50 transition-colors">
-                              <td className="p-4">
+                          betaTesters.map((tester) => {
+                            const isEligible = tester.status === 'active' && !tester.conversion_offer_sent_at
+                            return (
+                              <tr key={tester.id} className="border-b hover:bg-muted/50 transition-colors">
+                                <td className="p-4">
+                                  <Checkbox
+                                    checked={selectedTesters.has(tester.id)}
+                                    onCheckedChange={() => toggleSelectTester(tester.id)}
+                                    disabled={!isEligible}
+                                    aria-label={`Select ${tester.email}`}
+                                  />
+                                </td>
+                                <td className="p-4">
                                 <div>
                                   <p className="font-medium">{tester.email}</p>
                                   {tester.notes && (
@@ -704,7 +798,8 @@ export default function BetaTestersContent() {
                                 </div>
                               </td>
                             </tr>
-                          ))
+                            )
+                          })
                         )}
                       </tbody>
                     </table>
@@ -1242,6 +1337,68 @@ export default function BetaTestersContent() {
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete Beta Tester
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Mass Invite Dialog */}
+        <Dialog open={showMassInviteDialog} onOpenChange={setShowMassInviteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Beta Invitations</DialogTitle>
+              <DialogDescription>
+                Send beta invitations to selected testers
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Mail className="w-5 h-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">Ready to send invitations to:</p>
+                    <ul className="mt-2 space-y-1 text-blue-800 dark:text-blue-200">
+                      <li>• {selectedTesters.size} selected tester{selectedTesters.size === 1 ? '' : 's'}</li>
+                      <li>• All will receive personalized invitation emails</li>
+                      <li>• Each gets a unique signup link with their email pre-filled</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-48 overflow-y-auto border rounded-lg p-3">
+                <div className="text-sm space-y-1">
+                  {Array.from(selectedTesters).map(testerId => {
+                    const tester = betaTesters.find(t => t.id === testerId)
+                    return tester ? (
+                      <div key={testerId} className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span>{tester.email}</span>
+                      </div>
+                    ) : null
+                  })}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowMassInviteDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendMassInvites}
+                disabled={sendingMassInvites}
+              >
+                {sendingMassInvites ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send {selectedTesters.size} Invitation{selectedTesters.size === 1 ? '' : 's'}
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

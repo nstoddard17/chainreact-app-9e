@@ -35,6 +35,17 @@ export function GenericSelectField({
   selectedValues = [],
   parentValues = {},
 }: GenericSelectFieldProps) {
+  // Debug logging for board field
+  if (field.name === 'boardId') {
+    console.log('[GenericSelectField] Board field props:', {
+      fieldName: field.name,
+      options: options,
+      optionsLength: options?.length || 0,
+      isLoading,
+      firstOption: options?.[0]
+    });
+  }
+  
   // For Airtable create record fields, we need to get the bubble values from the form
   // Since we can't pass them through easily, we'll get them from window object
   const isAirtableCreateRecord = nodeInfo?.type === 'airtable_action_create_record' && 
