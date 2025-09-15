@@ -398,20 +398,20 @@ export function DiscordConfiguration({
     }
   };
   
-  // Auto-load Discord servers for ALL Discord actions on mount
+  // Auto-load Discord servers for ALL Discord nodes (actions and triggers) on mount
   useEffect(() => {
-    // Check if this is a Discord action (not trigger)
-    const isDiscordAction = nodeInfo?.type?.startsWith('discord_action_');
-    
+    // Check if this is a Discord node (action or trigger)
+    const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
+
     // Only auto-load servers if:
-    // 1. This is a Discord action
+    // 1. This is a Discord node (action or trigger)
     // 2. We haven't already initialized
     // 3. The guildId field exists in the schema
-    if (isDiscordAction && !hasInitializedServers.current) {
+    if (isDiscordNode && !hasInitializedServers.current) {
       const hasGuildField = nodeInfo?.configSchema?.some((field: any) => field.name === 'guildId');
       
       if (hasGuildField) {
-        console.log('🚀 [Discord] Auto-loading servers for Discord action');
+        console.log('🚀 [Discord] Auto-loading servers for Discord node');
         hasInitializedServers.current = true;
         
         // Set loading state for the server field
@@ -519,8 +519,21 @@ export function DiscordConfiguration({
             {fields.map((field: any, index: number) => {
               // Skip hidden fields
               if (field.type === 'hidden') return null;
-              
-              // Conditionally hide channelId if no guild selected
+
+              // Progressive field disclosure for Discord trigger (new message in channel)
+              if (nodeInfo?.type === 'discord_trigger_new_message_in_channel') {
+                // Only show guildId first
+                if (!values.guildId && field.name !== 'guildId') {
+                  return null;
+                }
+                // Show channelId after guildId is selected
+                if (values.guildId && !values.channelId && field.name !== 'guildId' && field.name !== 'channelId') {
+                  return null;
+                }
+                // Show all fields after both are selected
+              }
+
+              // Conditionally hide channelId if no guild selected (for other Discord nodes)
               if (field.name === 'channelId' && !values.guildId) {
                 return null;
               }
