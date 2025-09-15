@@ -157,11 +157,11 @@ export function useIntegrationSelection() {
       return hasSpecific || hasBase
     }
     
-    // Check for Microsoft services
+    // Check for Microsoft services - each service needs its own connection
+    // Unlike Google services, Microsoft services don't share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      const hasSpecific = connectedProviders.includes(integrationId)
-      const hasBase = connectedProviders.includes('microsoft')
-      return hasSpecific || hasBase
+      // Only check for the specific service connection
+      return connectedProviders.includes(integrationId)
     }
     
     // Direct provider match

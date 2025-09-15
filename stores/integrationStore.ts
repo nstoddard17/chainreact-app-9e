@@ -696,18 +696,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
       }
       
-      // Microsoft services might also share authentication
-      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive']
-      const hasAnyMicrosoftService = connectedProviders.some(provider => microsoftServices.includes(provider))
-      
-      if (hasAnyMicrosoftService) {
-        // Add all Microsoft service IDs since they might share authentication
-        microsoftServices.forEach(service => {
-          if (!connectedProviders.includes(service)) {
-            connectedProviders.push(service)
-          }
-        })
-      }
+      // Microsoft services DO NOT share authentication - each requires separate connection
+      // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive) each need
+      // their own OAuth connection and should not be considered connected just because one is connected
       
       return connectedProviders
     },
