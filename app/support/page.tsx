@@ -483,14 +483,10 @@ export default function SupportPage() {
   const closedTickets = tickets.filter(ticket => ticket.status === 'closed' || ticket.status === 'resolved')
 
   return (
-    <AppLayout title="Support Center" subtitle="Get help with ChainReact">
+    <AppLayout title="Support Center" subtitle="Get help with ChainReact and track your support tickets">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Support Center</h1>
-            <p className="text-muted-foreground">Get help with ChainReact and track your support tickets</p>
-          </div>
+        {/* Create Ticket Button */}
+        <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
