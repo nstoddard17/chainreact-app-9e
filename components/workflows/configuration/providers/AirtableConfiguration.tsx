@@ -573,11 +573,31 @@ export function AirtableConfiguration({
     }
   }, [nodeInfo, values, loadOptions, dynamicFields, dynamicOptions]);
 
+  // Load schema on initial mount if we have baseId and tableName
+  useEffect(() => {
+    // Check if we're reopening the modal with existing values
+    if (values.baseId && values.tableName && !airtableTableSchema && !isLoadingTableSchema) {
+      console.log('📂 [INITIAL LOAD] Modal opened with existing values, loading schema:', {
+        baseId: values.baseId,
+        tableName: values.tableName,
+        isEditMode
+      });
+
+      // Load the table schema so fields are visible
+      fetchAirtableTableSchema(values.baseId, values.tableName).then(() => {
+        // For update record, also load the records
+        if (isUpdateRecord) {
+          loadAirtableRecords(values.baseId, values.tableName);
+        }
+      });
+    }
+  }, []); // Only run on mount
+
   // Combine loading logic to prevent duplicate API calls
   // Use refs to track previous values and prevent infinite loops
   const prevTableName = React.useRef(values.tableName);
   const prevBaseId = React.useRef(values.baseId);
-  
+
   useEffect(() => {
     // Only trigger if values actually changed
     const tableChanged = prevTableName.current !== values.tableName;
@@ -874,13 +894,16 @@ export function AirtableConfiguration({
     }
   }, [dynamicFields.length, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
   
-  // Initialize bubbles from existing values (for editing existing records)
+  // Initialize bubbles from existing values (for editing existing workflows)
   useEffect(() => {
     if (!dynamicFields.length || !values) return;
-    
-    // Only initialize if we have a selected record (recordId exists)
-    if (!values.recordId) {
-      console.log('🟢 [BUBBLE INIT] No record selected yet, skipping initialization');
+
+    // Initialize bubbles for create record too (when reopening saved workflow)
+    const shouldInitialize = isEditMode || values.recordId ||
+      (Object.keys(values).some(key => key.startsWith('airtable_field_') && values[key]));
+
+    if (!shouldInitialize) {
+      console.log('🟢 [BUBBLE INIT] No existing values to initialize');
       return;
     }
     
@@ -918,8 +941,10 @@ export function AirtableConfiguration({
           isArray: Array.isArray(existingValue)
         });
         
-        // Handle linked record fields
-        if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
+        // Handle linked record fields and fields marked as multiple with dynamic data
+        if (field.airtableFieldType === 'multipleRecordLinks' ||
+            field.airtableFieldType === 'singleRecordLink' ||
+            (field.multiple && field.dynamic && typeof field.dynamic === 'string')) {
           // Existing values for linked records are typically arrays of record IDs
           const recordIds = Array.isArray(existingValue) ? existingValue : [existingValue];
           
@@ -963,7 +988,7 @@ export function AirtableConfiguration({
             }));
             
             // Auto-activate all existing bubbles
-            if (field.airtableFieldType === 'multipleRecordLinks') {
+            if (field.airtableFieldType === 'multipleRecordLinks' || field.multiple) {
               setActiveBubbles(prev => ({
                 ...prev,
                 [actualFieldName]: bubbles.map((_, idx) => idx)
