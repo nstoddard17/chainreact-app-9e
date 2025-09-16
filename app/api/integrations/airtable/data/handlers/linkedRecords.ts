@@ -11,6 +11,51 @@ interface LinkedRecordOption {
   label: string
 }
 
+// Helper function to extract task name from what might be a longer description
+function extractTaskName(taskText: string): string {
+  // If it's already a short name (less than 50 chars), return as is
+  if (taskText.length < 50) {
+    return taskText
+  }
+
+  // Common patterns for task names:
+  // 1. If it starts with something like "Design User Flow for Onboarding", take the first line or sentence
+  // 2. If it has a colon or dash, take the part before it
+  // 3. Otherwise, take the first 50 characters and add ellipsis
+
+  // Check for line breaks and take the first line
+  if (taskText.includes('\n')) {
+    const firstLine = taskText.split('\n')[0].trim()
+    if (firstLine.length > 0 && firstLine.length < 100) {
+      return firstLine
+    }
+  }
+
+  // Check for colon or dash separators
+  if (taskText.includes(':')) {
+    const beforeColon = taskText.split(':')[0].trim()
+    if (beforeColon.length > 0 && beforeColon.length < 100) {
+      return beforeColon
+    }
+  }
+
+  if (taskText.includes(' - ')) {
+    const beforeDash = taskText.split(' - ')[0].trim()
+    if (beforeDash.length > 0 && beforeDash.length < 100) {
+      return beforeDash
+    }
+  }
+
+  // Check for sentence end (period followed by space)
+  const firstSentence = taskText.match(/^[^.!?]+[.!?]/)
+  if (firstSentence && firstSentence[0].length < 100) {
+    return firstSentence[0].trim()
+  }
+
+  // If still too long, take first 50 characters and add ellipsis
+  return taskText.substring(0, 50).trim() + '...'
+}
+
 // Map field names to their likely linked table names
 const fieldToTableMap: Record<string, string> = {
   'associated project': 'Projects',
@@ -74,22 +119,51 @@ export const getLinkedTableRecords = async (
           const fields = record.fields
           let label = record.id
 
-          // Try to find a good display field
-          const possibleNameFields = ['Name', 'name', 'Title', 'title', 'Description', 'description']
-          for (const fieldName of possibleNameFields) {
-            if (fields[fieldName]) {
-              label = String(fields[fieldName])
-              break
-            }
-          }
-
-          // If no name field found, use the first string field
-          if (label === record.id) {
-            const firstTextField = Object.entries(fields).find(
-              ([_, value]) => typeof value === 'string' && value.length > 0
+          // For Tasks table, prefer 'Name' or 'Task Name' field, then extract from description if needed
+          if (linkedTableName === 'Tasks') {
+            // Check for task name fields first
+            const taskNameField = ['Name', 'name', 'Task Name', 'TaskName', 'Task'].find(
+              fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
             )
-            if (firstTextField) {
-              label = String(firstTextField[1])
+
+            if (taskNameField) {
+              label = extractTaskName(String(fields[taskNameField]))
+            } else {
+              // If no name field, check Description or other text fields
+              const descField = ['Description', 'description', 'Details', 'details'].find(
+                fieldName => fields[fieldName] && typeof fields[fieldName] === 'string'
+              )
+
+              if (descField) {
+                label = extractTaskName(String(fields[descField]))
+              } else {
+                // Use first string field as fallback
+                const firstTextField = Object.entries(fields).find(
+                  ([_, value]) => typeof value === 'string' && value.length > 0
+                )
+                if (firstTextField) {
+                  label = extractTaskName(String(firstTextField[1]))
+                }
+              }
+            }
+          } else {
+            // For non-Tasks tables, use the original logic
+            const possibleNameFields = ['Name', 'name', 'Title', 'title', 'Description', 'description']
+            for (const fieldName of possibleNameFields) {
+              if (fields[fieldName]) {
+                label = String(fields[fieldName])
+                break
+              }
+            }
+
+            // If no name field found, use the first string field
+            if (label === record.id) {
+              const firstTextField = Object.entries(fields).find(
+                ([_, value]) => typeof value === 'string' && value.length > 0
+              )
+              if (firstTextField) {
+                label = String(firstTextField[1])
+              }
             }
           }
 
