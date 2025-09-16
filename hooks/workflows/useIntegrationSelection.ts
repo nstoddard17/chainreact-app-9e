@@ -146,9 +146,9 @@ export function useIntegrationSelection() {
     if (['schedule', 'ai', 'core', 'logic', 'manual'].includes(integrationId)) {
       return true
     }
-    
+
     const connectedProviders = getConnectedProviders()
-    
+
     // Check if there's a base 'google' integration that covers all Google services
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
       // Check for either the specific service or the base google provider
@@ -156,14 +156,14 @@ export function useIntegrationSelection() {
       const hasBase = connectedProviders.includes('google')
       return hasSpecific || hasBase
     }
-    
+
     // Check for Microsoft services - each service needs its own connection
     // Unlike Google services, Microsoft services don't share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
       // Only check for the specific service connection
       return connectedProviders.includes(integrationId)
     }
-    
+
     // Direct provider match
     return connectedProviders.includes(integrationId)
   }, [getConnectedProviders])
