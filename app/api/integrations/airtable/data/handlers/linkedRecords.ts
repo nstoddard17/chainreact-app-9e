@@ -167,8 +167,9 @@ export const getLinkedTableRecords = async (
             }
           }
 
+          // Return value in id::name format so the frontend can parse it
           options.push({
-            value: record.id,
+            value: `${record.id}::${label}`,
             label: label
           })
         }

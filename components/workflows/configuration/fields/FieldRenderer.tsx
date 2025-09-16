@@ -59,6 +59,7 @@ interface FieldProps {
   onDynamicLoad?: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => Promise<void>;
   nodeInfo?: any; // Node information for context-aware field behavior
   bubbleValues?: string[]; // Values that have bubbles created
+  selectedValues?: string[]; // Selected values from bubbles for multi-select fields
   parentValues?: Record<string, any>; // All form values for dependency resolution
   aiFields?: Record<string, boolean>; // Track which fields are set to AI mode
   setAiFields?: (fields: Record<string, boolean>) => void; // Update AI fields
@@ -102,6 +103,7 @@ export function FieldRenderer({
   onDynamicLoad,
   nodeInfo,
   bubbleValues = [],
+  selectedValues = [],
   parentValues = {},
   aiFields,
   setAiFields,
@@ -428,7 +430,7 @@ export function FieldRenderer({
                 isLoading={loadingDynamic}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
-                selectedValues={bubbleValues}
+                selectedValues={selectedValues}
                 parentValues={parentValues}
               />
             );
@@ -534,7 +536,7 @@ export function FieldRenderer({
                 isLoading={loadingDynamic}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
-                selectedValues={bubbleValues}
+                selectedValues={selectedValues}
                 parentValues={parentValues}
               />
               {(field as any).showManageButton && (
@@ -562,7 +564,7 @@ export function FieldRenderer({
             isLoading={loadingDynamic}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
-            selectedValues={bubbleValues}
+            selectedValues={selectedValues}
             parentValues={parentValues}
           />
         );
@@ -587,7 +589,7 @@ export function FieldRenderer({
             isLoading={loadingDynamic}
             onDynamicLoad={onDynamicLoad}
             nodeInfo={nodeInfo}
-            selectedValues={bubbleValues}
+            selectedValues={selectedValues}
             parentValues={parentValues}
           />
         );

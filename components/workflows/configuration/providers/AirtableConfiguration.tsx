@@ -95,7 +95,10 @@ export function AirtableConfiguration({
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const loadingFields = parentLoadingFields ?? localLoadingFields;
   const setLoadingFields = parentLoadingFields ? () => {} : setLocalLoadingFields;
-  
+
+  // Track which dropdown fields have been loaded to prevent reloading
+  const [loadedDropdownFields, setLoadedDropdownFields] = useState<Set<string>>(new Set());
+
   const [localAirtableRecords, setLocalAirtableRecords] = useState<any[]>([]);
   const airtableRecords = parentAirtableRecords ?? localAirtableRecords;
   const setAirtableRecords = parentSetAirtableRecords ?? setLocalAirtableRecords;
@@ -390,6 +393,12 @@ export function AirtableConfiguration({
         fieldNameLower.includes('feedback') ||
         fieldNameLower.includes('tasks');
 
+      // Check if this is an image field based on name
+      const isImageField = fieldNameLower.includes('draft image') ||
+                          fieldNameLower.includes('image') ||
+                          fieldNameLower.includes('photo') ||
+                          fieldNameLower.includes('picture');
+
       // Determine the dynamic data type based on field name
       let dynamicDataType = null;
       if (fieldNameLower.includes('draft name')) {
@@ -407,9 +416,15 @@ export function AirtableConfiguration({
       // Use the helper function to determine field type
       let fieldType = getAirtableFieldTypeFromSchema(field);
 
-      // Override field type to select for specific fields
+      // Override field type for specific fields
       if (shouldUseDynamicDropdown) {
         fieldType = 'select';
+      }
+
+      // Override field type for image fields to ensure they use the image component
+      if (isImageField && (field.type === 'multipleAttachments' || field.type === 'attachment' || fieldType === 'file')) {
+        // Keep the original field type to trigger the image component
+        fieldType = 'file';
       }
 
       // Extract options for select fields
@@ -433,7 +448,10 @@ export function AirtableConfiguration({
         airtableFieldId: field.id,  // Store the ID separately if needed
         options: fieldOptions,
         dependsOn: shouldUseDynamicDropdown ? 'tableName' : undefined,
-        multiple: fieldNameLower.includes('tasks'), // Tasks field should allow multiple selection
+        multiple: fieldNameLower.includes('tasks') ||
+                 fieldNameLower.includes('associated project') ||
+                 fieldNameLower.includes('feedback') ||
+                 field.type === 'multipleRecordLinks', // Multiple selection for linked fields
         // Add metadata for special field types
         ...(field.type === 'multipleAttachments' && { multiple: true }),
         ...(field.type === 'rating' && { max: field.options?.max || 5 }),
@@ -479,8 +497,15 @@ export function AirtableConfiguration({
       fieldName,
       dependsOn,
       dependsOnValue,
-      forceReload
+      forceReload,
+      hasExistingOptions: !!(dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0)
     });
+
+    // Check if options are already loaded (don't reload on every dropdown open)
+    if (!forceReload && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+      console.log('✅ [AirtableConfig] Options already loaded for field:', fieldName);
+      return;
+    }
 
     // Prepare extraOptions with baseId and tableName for Airtable fields
     const extraOptions = {
@@ -546,7 +571,7 @@ export function AirtableConfiguration({
     } catch (error) {
       console.error('Error loading dynamic options:', error);
     }
-  }, [nodeInfo, values, loadOptions, dynamicFields]);
+  }, [nodeInfo, values, loadOptions, dynamicFields, dynamicOptions]);
 
   // Combine loading logic to prevent duplicate API calls
   // Use refs to track previous values and prevent infinite loops
@@ -569,6 +594,9 @@ export function AirtableConfiguration({
     
     // Only proceed if table actually changed and both values exist
     if (tableChanged && values.tableName && values.baseId) {
+      // Clear loaded dropdown fields when table changes so they reload for new table
+      setLoadedDropdownFields(new Set());
+
       // For update record, load both schema and records
       if (isUpdateRecord) {
         // Load schema first, then records (records loading checks for schema)
@@ -701,8 +729,8 @@ export function AirtableConfiguration({
               [fieldName]: [...(prev[fieldName] || []), newBubble]
             }));
             
-            // Auto-activate new bubbles for multi-record links
-            if (field.airtableFieldType === 'multipleRecordLinks') {
+            // Auto-activate new bubbles for multi-record links or fields marked as multiple
+            if (field.airtableFieldType === 'multipleRecordLinks' || field.multiple) {
               setActiveBubbles(prev => {
                 const current = Array.isArray(prev[fieldName]) ? prev[fieldName] as number[] : [];
                 const newIndex = (fieldSuggestions[fieldName]?.length || 0);
@@ -785,8 +813,18 @@ export function AirtableConfiguration({
 
     console.log('🔄 [DROPDOWN FIELDS] Checking for dropdown fields to load');
 
-    // Find dropdown fields that need loading
+    // Find dropdown fields that need loading (and haven't been loaded yet)
     const dropdownFieldsToLoad = dynamicFields.filter(field => {
+      // Skip if already loaded
+      if (loadedDropdownFields.has(field.name)) return false;
+
+      // Also skip if options are already present in dynamicOptions
+      if (dynamicOptions[field.name] && dynamicOptions[field.name].length > 0) {
+        // Mark as loaded so we don't try again
+        setLoadedDropdownFields(prev => new Set([...prev, field.name]));
+        return false;
+      }
+
       // Check if it's a dropdown field with dynamic data
       if (typeof field.dynamic !== 'string') return false;
 
@@ -803,8 +841,15 @@ export function AirtableConfiguration({
     if (dropdownFieldsToLoad.length > 0) {
       console.log('🔄 [DROPDOWN FIELDS] Loading options for dropdown fields:', dropdownFieldsToLoad.map(f => f.name));
 
-      // Load options for each dropdown field
-      dropdownFieldsToLoad.forEach(field => {
+      // Mark all fields as loaded first to prevent duplicate loads
+      setLoadedDropdownFields(prev => {
+        const newSet = new Set(prev);
+        dropdownFieldsToLoad.forEach(field => newSet.add(field.name));
+        return newSet;
+      });
+
+      // Load options for all dropdown fields in parallel
+      const loadPromises = dropdownFieldsToLoad.map(field => {
         const extraOptions = {
           baseId: values.baseId,
           tableName: values.tableName
@@ -816,11 +861,18 @@ export function AirtableConfiguration({
           extraOptions
         });
 
-        // Load the options
-        loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions);
+        // Load the options (returns a promise)
+        return loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions);
+      });
+
+      // Wait for all to complete in parallel
+      Promise.all(loadPromises).then(() => {
+        console.log('✅ [DROPDOWN FIELDS] All dropdown fields loaded');
+      }).catch(error => {
+        console.error('❌ [DROPDOWN FIELDS] Error loading dropdown fields:', error);
       });
     }
-  }, [dynamicFields.length, values.tableName, values.baseId, loadOptions]);
+  }, [dynamicFields.length, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
   
   // Initialize bubbles from existing values (for editing existing records)
   useEffect(() => {
@@ -1056,6 +1108,25 @@ export function AirtableConfiguration({
         firstOption: dynamicOptions[field.name]?.[0]
       });
 
+      // Get active bubble values for this field
+      const altFieldName = `airtable_field_${field.label}`;
+      const activeBubblesForField = activeBubbles[field.name] || activeBubbles[altFieldName];
+      const suggestionsForField = fieldSuggestions[field.name] || fieldSuggestions[altFieldName];
+      let selectedBubbleValues: string[] = [];
+
+      if (suggestionsForField && activeBubblesForField !== undefined) {
+        if (Array.isArray(activeBubblesForField)) {
+          // Multiple selection
+          selectedBubbleValues = activeBubblesForField.map(idx =>
+            suggestionsForField[idx]?.value
+          ).filter(v => v !== undefined);
+        } else if (typeof activeBubblesForField === 'number') {
+          // Single selection
+          const value = suggestionsForField[activeBubblesForField]?.value;
+          if (value) selectedBubbleValues = [value];
+        }
+      }
+
       return (
       <React.Fragment key={`field-${field.name}-${index}`}>
         <FieldRenderer
@@ -1070,6 +1141,7 @@ export function AirtableConfiguration({
           nodeInfo={nodeInfo}
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}
+          selectedValues={selectedBubbleValues}
         />
         
         {/* Bubble display for multi-select fields */}
@@ -1087,10 +1159,10 @@ export function AirtableConfiguration({
               fieldName={actualFieldName}
               suggestions={suggestions}
               activeBubbles={active}
-            isMultiple={field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select'}
+            isMultiple={field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select' || field.multiple}
               onBubbleClick={(idx, suggestion) => {
                 // Toggle active state
-                if (field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select') {
+                if (field.airtableFieldType === 'multipleSelects' || field.type === 'multi_select' || field.multiple) {
                   setActiveBubbles(prev => {
                     const current = Array.isArray(prev[actualFieldName]) ? prev[actualFieldName] as number[] : [];
                     if (current.includes(idx)) {
