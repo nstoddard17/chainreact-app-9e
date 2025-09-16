@@ -1308,9 +1308,9 @@ export function AirtableConfiguration({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-          <div className="space-y-3">
+      <div className="flex-1 px-6 py-4 overflow-hidden">
+        <ScrollArea className="h-[calc(90vh-180px)]">
+          <div className="space-y-3 pr-8">
             {/* Base fields */}
             {renderFields(baseFields)}
             
@@ -1450,8 +1450,22 @@ export function AirtableConfiguration({
             
             {/* Dynamic fields for create/update */}
             {(isCreateRecord || (isUpdateRecord && selectedRecord)) && dynamicFields.length > 0 && (
-              <div className="mt-6 space-y-3">
-                {renderFields(dynamicFields, true)}
+              <div className="mt-6">
+                <div className="border border-slate-200 rounded-lg bg-slate-50/50 overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-100 border-b border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-700">Table Fields</h3>
+                    <p className="text-xs text-slate-500 mt-1">Configure the values for each field in the {values.tableName} table</p>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {dynamicFields.map((field, index) => (
+                        <div key={`field-${field.name}-${index}`} className="min-w-0">
+                          {renderFields([field], true)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
             

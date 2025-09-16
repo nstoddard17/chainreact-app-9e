@@ -227,7 +227,7 @@ export function IntegrationCard({
           {renderLogo()}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 
+              <h3
                 className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
                 title={provider.name}
               >
@@ -278,14 +278,8 @@ export function IntegrationCard({
             </div>
           </div>
         </div>
-        {isComingSoon ? (
-          <Badge 
-            className="px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-          >
-            Coming Soon
-          </Badge>
-        ) : (
-          <Badge 
+        {!isComingSoon && (
+          <Badge
             className={cn(
               "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 flex items-center gap-1",
               badgeClass
@@ -358,8 +352,11 @@ export function IntegrationCard({
       <CardFooter className="px-5 py-4 pt-0 flex flex-col gap-2">
         {isComingSoon ? (
           <Button disabled className="w-full" variant="outline">
-            <Clock className="mr-2 h-4 w-4" />
-            Coming Soon
+            <Clock className="mr-0 sm:mr-2 h-4 w-4" />
+            {/* No text on extra small screens, just icon */}
+            <span className="hidden sm:inline md:hidden">Soon</span>
+            {/* "Coming Soon" on medium and larger screens */}
+            <span className="hidden md:inline">Coming Soon</span>
           </Button>
         ) : (
           <div className="flex w-full justify-between gap-2">

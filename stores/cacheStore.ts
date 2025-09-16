@@ -120,10 +120,20 @@ export async function loadOnce<T>({
     requestKey
   } = options
 
-  // If there's an active request with the same key, return it
+  // If there's an active request with the same key, check if it's still valid
   if (requestKey && activeRequests.has(requestKey)) {
-    console.log(`⏳ Waiting for existing request: ${requestKey}`)
-    return activeRequests.get(requestKey)
+    const existingRequest = activeRequests.get(requestKey)
+
+    // Add a timeout check - if the request has been active for more than 30 seconds, remove it
+    const requestInfo = activeRequests.get(`${requestKey}_info`) as { startTime: number } | undefined
+    if (requestInfo && Date.now() - requestInfo.startTime > 30000) {
+      console.warn(`⚠️ Request ${requestKey} timed out after 30s, creating new request`)
+      activeRequests.delete(requestKey)
+      activeRequests.delete(`${requestKey}_info`)
+    } else {
+      console.log(`⏳ Waiting for existing request: ${requestKey}`)
+      return existingRequest
+    }
   }
 
   // Get current data from store
@@ -184,6 +194,7 @@ export async function loadOnce<T>({
       // Remove from active requests
       if (requestKey) {
         activeRequests.delete(requestKey)
+        activeRequests.delete(`${requestKey}_info`)
       }
     }
   })()
@@ -191,9 +202,45 @@ export async function loadOnce<T>({
   // Store the active request if key provided
   if (requestKey) {
     activeRequests.set(requestKey, fetchPromise)
+    // Store metadata about when the request started
+    activeRequests.set(`${requestKey}_info`, { startTime: Date.now() })
   }
 
   return fetchPromise
+}
+
+/**
+ * Clear stuck or timed-out requests from the active requests map
+ * @param maxAge Maximum age in milliseconds (default: 30000ms = 30s)
+ */
+export function clearStuckRequests(maxAge = 30000) {
+  const now = Date.now()
+  const keysToDelete: string[] = []
+
+  activeRequests.forEach((value, key) => {
+    // Skip info entries
+    if (key.endsWith('_info')) return
+
+    // Check if this request has timed out
+    const infoKey = `${key}_info`
+    const requestInfo = activeRequests.get(infoKey) as { startTime: number } | undefined
+
+    if (requestInfo && now - requestInfo.startTime > maxAge) {
+      console.warn(`🧹 Clearing stuck request: ${key} (age: ${now - requestInfo.startTime}ms)`)
+      keysToDelete.push(key)
+      keysToDelete.push(infoKey)
+    } else if (!requestInfo && !key.endsWith('_info')) {
+      // If there's no info for this request, it's orphaned - clean it up
+      console.warn(`🧹 Clearing orphaned request: ${key}`)
+      keysToDelete.push(key)
+    }
+  })
+
+  keysToDelete.forEach(key => activeRequests.delete(key))
+
+  if (keysToDelete.length > 0) {
+    console.log(`✅ Cleared ${keysToDelete.length} stuck/orphaned requests`)
+  }
 }
 
 // Registry of stores for auth-based clearing

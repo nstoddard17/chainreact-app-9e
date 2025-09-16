@@ -30,6 +30,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
+import { clearStuckRequests } from "@/stores/cacheStore"
 import { useIntegrationsStore } from "@/stores/integrationCacheStore"
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { useWorkflowStepExecutionStore } from "@/stores/workflowStepExecutionStore"
@@ -2486,6 +2487,9 @@ const useWorkflowBuilderState = () => {
       return
     }
 
+    // Clear any stuck workflow requests before saving
+    clearStuckRequests()
+
     // Set a timeout to prevent infinite loading
     const saveTimeout = setTimeout(() => {
       console.error('❌ Save timeout - forcefully resetting loading state');
@@ -2495,7 +2499,7 @@ const useWorkflowBuilderState = () => {
         description: "The save operation took too long. Please try again.",
         variant: "destructive"
       });
-    }, 30000); // 30 second timeout
+    }, 25000); // 25 second timeout (longer than updateWorkflow's 20s)
 
     try {
       setIsSaving(true);
@@ -2580,20 +2584,24 @@ const useWorkflowBuilderState = () => {
 
     } catch (error: any) {
       clearTimeout(saveTimeout);
-      
+
       let errorMessage = "Could not save your changes. Please try again."
       if (error.message?.includes("network")) {
         errorMessage = "Network error. Please check your connection and try again."
-      } else if (error.message?.includes("timeout")) {
-        errorMessage = "Request timed out. Please try again."
+      } else if (error.message?.includes("timeout") || error.message?.includes("timed out")) {
+        errorMessage = "Save operation timed out. This can happen when first opening a workflow. Please try again."
       } else if (error.message?.includes("unauthorized")) {
         errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message?.includes("abort")) {
+        errorMessage = "Save operation was cancelled. Please try again."
       }
-      
-      toast({ 
-        title: "Error Saving Workflow", 
-        description: errorMessage, 
-        variant: "destructive" 
+
+      console.error('Save error details:', error)
+
+      toast({
+        title: "Error Saving Workflow",
+        description: errorMessage,
+        variant: "destructive"
       })
     } finally {
       clearTimeout(saveTimeout);
@@ -6946,7 +6954,12 @@ function WorkflowBuilderContent() {
                                 </div>
                                 {isComingSoon && (
                                   <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full ml-2">
-                                    Coming Soon
+                                    {/* Icon only on extra small screens */}
+                                    <span className="inline sm:hidden">⏳</span>
+                                    {/* "Soon" on small screens */}
+                                    <span className="hidden sm:inline md:hidden">Soon</span>
+                                    {/* "Coming Soon" on medium and larger screens */}
+                                    <span className="hidden md:inline">Coming Soon</span>
                                   </span>
                                 )}
                                 {isAIAgentDisabled && (
