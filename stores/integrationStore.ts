@@ -346,9 +346,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setLoading(`connect-${providerId}`, true)
       setError(null)
 
+      // Add a timeout to prevent stuck state
+      const connectionTimeout = setTimeout(() => {
+        const currentLoadingState = get().loadingStates[`connect-${providerId}`]
+        if (currentLoadingState) {
+          console.warn(`⚠️ Connection timeout for ${providerId}, resetting state`)
+          setLoading(`connect-${providerId}`, false)
+          setError("Connection timeout. Please try again.")
+        }
+      }, 45000) // 45 second timeout for the entire connection process
+
       try {
         let result
-        
+
         if (isReconnection && existingIntegration) {
           // Use reconnection flow for existing integrations that need reauth
           console.log(`🔄 Starting reconnection flow for ${providerId}`)
@@ -366,6 +376,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 return { integrations: updatedIntegrations }
               })
 
+              clearTimeout(connectionTimeout) // Clear timeout on successful reconnection
               setLoading(`connect-${providerId}`, false)
               emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
 
@@ -375,10 +386,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
               }, 1500)
             },
             onError: (error) => {
+              clearTimeout(connectionTimeout) // Clear timeout on error
               setError(error)
               setLoading(`connect-${providerId}`, false)
             },
             onCancel: () => {
+              clearTimeout(connectionTimeout) // Clear timeout on cancellation
               setLoading(`connect-${providerId}`, false)
             }
           })
@@ -429,6 +442,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               }, 1500)
             },
             onError: (error) => {
+              clearTimeout(connectionTimeout) // Clear timeout on error
               setError(error)
               setLoading(`connect-${providerId}`, false)
             },
@@ -465,7 +479,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
         if (result && !result.success) {
           throw new Error(result.message || "Connection failed")
         }
+        // Clear the timeout on completion
+        clearTimeout(connectionTimeout)
       } catch (error: any) {
+        // Clear the timeout on error
+        clearTimeout(connectionTimeout)
         const errorMessage = error?.message || "Connection failed"
         // Only set error if we have a provider name
         const providerName = provider?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)

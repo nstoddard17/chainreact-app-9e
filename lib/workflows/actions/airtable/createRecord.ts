@@ -1,12 +1,18 @@
 import { Buffer } from 'buffer'
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
+import {
+  deleteTempAttachments,
+  scheduleTempAttachmentCleanup,
+  uploadTempAttachmentToSupabase
+} from './supabaseAttachment'
 
 const tableIdCache = new Map<string, string>()
 
-interface UploadContext {
+export interface UploadContext {
   accessToken: string
   baseId: string
   tableId: string
+  tableName: string
 }
 
 interface ParsedDataUrl {
@@ -14,7 +20,7 @@ interface ParsedDataUrl {
   base64Data: string
 }
 
-type AirtableAttachment = Record<string, any>
+export type AirtableAttachment = Record<string, any>
 
 function parseDataUrl(value: string): ParsedDataUrl | null {
   const dataUrlPattern = /^data:([^;,]+)(?:;charset=[^;,]+)?;base64,(.+)$/i
@@ -50,7 +56,7 @@ function buildDefaultFilename(fieldName: string, index: number, extension: strin
   return `${safeField}-${Date.now()}-${index}.${extension}`
 }
 
-function ensureArray<T>(value: T | T[]): T[] {
+export function ensureArray<T>(value: T | T[]): T[] {
   if (Array.isArray(value)) return value
   return [value]
 }
@@ -63,11 +69,43 @@ function tryParseJson(value: string): any {
   }
 }
 
-function extractAttachmentCandidates(value: any): any[] | null {
+export function extractAttachmentCandidates(value: any): any[] | null {
   if (!value && value !== 0) return null
 
   if (Array.isArray(value)) {
-    return value
+    const attachmentLikeEntries = value.filter((entry) => {
+      if (!entry && entry !== 0) return false
+
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim()
+        return (
+          trimmed.startsWith('http://') ||
+          trimmed.startsWith('https://') ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('{') ||
+          trimmed.startsWith('[')
+        )
+      }
+
+      if (typeof entry === 'object') {
+        if (Array.isArray(entry)) {
+          return extractAttachmentCandidates(entry) !== null
+        }
+
+        return Boolean(
+          entry?.url ||
+            entry?.dataUrl ||
+            entry?.dataURL ||
+            entry?.data ||
+            entry?.base64 ||
+            entry?.base64Data
+        )
+      }
+
+      return false
+    })
+
+    return attachmentLikeEntries.length > 0 ? attachmentLikeEntries : null
   }
 
   if (typeof value === 'string') {
@@ -110,11 +148,12 @@ function extractAttachmentCandidates(value: any): any[] | null {
   return null
 }
 
-async function uploadAirtableAttachment(
+export async function uploadAirtableAttachment(
   dataUrl: string,
   fieldName: string,
   index: number,
-  context: UploadContext,
+  _context: UploadContext,
+  cleanupPaths: string[],
   explicitFilename?: string,
   fieldId?: string
 ): Promise<AirtableAttachment> {
@@ -133,41 +172,22 @@ async function uploadAirtableAttachment(
   const extension = guessFileExtension(mimeType)
   const fileName = explicitFilename || buildDefaultFilename(fieldName, index, extension)
 
-  const uploadUrl = `https://content.airtable.com/v0/bases/${context.baseId}/tables/${encodeURIComponent(context.tableId)}/attachments/upload`
+  console.log(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`) // eslint-disable-line no-console
 
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${context.accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contentType: mimeType,
-      filename: fileName,
-      file: base64Data
-    })
-  })
+  const { url: fileUrl, filePath } = await uploadTempAttachmentToSupabase(buffer, fileName, mimeType)
+  cleanupPaths.push(filePath)
 
-  const responseBody = await response.json().catch(() => ({}))
+  console.log(
+    `📎 [Airtable] Supabase temporary attachment ready for "${fieldName}" at ${filePath}`
+  )
 
-  if (!response.ok) {
-    const message = responseBody?.error?.message || response.statusText || 'Unknown error'
-    throw new Error(`Failed to upload attachment for field "${fieldName}": ${response.status} - ${message}`)
+  return {
+    url: fileUrl,
+    filename: fileName.replace(/\s+/g, '_')
   }
-
-  const attachment: AirtableAttachment | undefined =
-    responseBody?.attachment ||
-    (Array.isArray(responseBody?.attachments) ? responseBody.attachments[0] : undefined) ||
-    responseBody?.uploadedAttachment
-
-  if (!attachment) {
-    throw new Error('Unexpected Airtable upload response format')
-  }
-
-  return attachment
 }
 
-async function resolveTableId(
+export async function resolveTableId(
   baseId: string,
   tableName: string,
   explicitTableId: string | undefined,
@@ -220,11 +240,12 @@ async function resolveTableId(
   return null
 }
 
-async function resolveAttachmentEntry(
+export async function resolveAttachmentEntry(
   entry: any,
   fieldName: string,
   index: number,
-  context: UploadContext
+  context: UploadContext,
+  cleanupPaths: string[]
 ): Promise<AirtableAttachment | null> {
   if (!entry) return null
 
@@ -240,13 +261,13 @@ async function resolveAttachmentEntry(
     }
 
     if (trimmed.startsWith('data:')) {
-      return uploadAirtableAttachment(trimmed, fieldName, index, context)
+      return uploadAirtableAttachment(trimmed, fieldName, index, context, cleanupPaths)
     }
 
     if ((trimmed.startsWith('{') || trimmed.startsWith('['))) {
       const parsed = tryParseJson(trimmed)
       if (parsed) {
-        return resolveAttachmentEntry(parsed, fieldName, index, context)
+        return resolveAttachmentEntry(parsed, fieldName, index, context, cleanupPaths)
       }
     }
 
@@ -258,7 +279,7 @@ async function resolveAttachmentEntry(
     if (Array.isArray(entry)) {
       // Flatten nested arrays
       for (const nested of entry) {
-        const resolved = await resolveAttachmentEntry(nested, fieldName, index, context)
+        const resolved = await resolveAttachmentEntry(nested, fieldName, index, context, cleanupPaths)
         if (resolved) return resolved
       }
       return null
@@ -273,6 +294,7 @@ async function resolveAttachmentEntry(
           fieldName,
           index,
           context,
+          cleanupPaths,
           entry.filename || entry.name,
           entry.fieldId
         )
@@ -301,6 +323,7 @@ async function resolveAttachmentEntry(
           fieldName,
           index,
           context,
+          cleanupPaths,
           entry.filename || entry.name,
           entry.fieldId
         )
@@ -316,6 +339,7 @@ async function resolveAttachmentEntry(
           fieldName,
           index,
           context,
+          cleanupPaths,
           entry.filename || entry.name,
           entry.fieldId
         )
@@ -351,6 +375,9 @@ export async function createAirtableRecord(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
+  const cleanupPaths: string[] = []
+  let recordCreated = false
+
   try {
     // Only log essential info, not the entire config
     console.log("📊 [Airtable] Creating record...")
@@ -408,10 +435,12 @@ export async function createAirtableRecord(
 
     const resolvedTableId = await resolveTableId(baseId, tableName, tableId, accessToken)
 
-    if (!resolvedTableId) {
-      const message = 'Unable to determine Airtable table ID for attachment upload'
-      console.error(message)
-      return { success: false, message }
+    if (resolvedTableId) {
+      console.log(
+        `📎 [Airtable] Using tableId ${resolvedTableId} for table "${tableName}" in base ${baseId}`
+      )
+    } else {
+      console.log('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
     }
 
     // Resolve field values using template variables
@@ -423,7 +452,8 @@ export async function createAirtableRecord(
     const uploadContext: UploadContext = {
       accessToken,
       baseId,
-      tableId: resolvedTableId
+      tableId: resolvedTableId || tableId || tableName,
+      tableName: tableName
     }
 
     for (const [fieldName, fieldValue] of Object.entries(fields)) {
@@ -457,7 +487,13 @@ export async function createAirtableRecord(
           for (let index = 0; index < entries.length; index++) {
             const entry = entries[index]
             try {
-              const attachment = await resolveAttachmentEntry(entry, fieldName, index, uploadContext)
+              const attachment = await resolveAttachmentEntry(
+                entry,
+                fieldName,
+                index,
+                uploadContext,
+                cleanupPaths
+              )
               if (attachment) {
                 attachments.push(attachment)
               } else {
@@ -548,6 +584,7 @@ export async function createAirtableRecord(
 
     const result = await response.json()
     console.log(`📊 [Airtable] Record created successfully with ID: ${result.id}`)
+    recordCreated = true
 
     return {
       success: true,
@@ -567,5 +604,23 @@ export async function createAirtableRecord(
       success: false,
       error: error.message || "An unexpected error occurred while creating the record"
     }
+  } finally {
+    if (cleanupPaths.length > 0) {
+      if (recordCreated) {
+        console.log(
+          `🧹 [Airtable] Scheduling cleanup for ${cleanupPaths.length} temporary attachment(s)`
+        )
+        scheduleTempAttachmentCleanup(cleanupPaths)
+      } else {
+        try {
+          await deleteTempAttachments(cleanupPaths)
+          console.log(
+            `🧹 [Airtable] Removed ${cleanupPaths.length} temporary attachment(s) after failure`
+          )
+        } catch (cleanupError) {
+          console.error('❌ [Airtable] Failed to remove temporary attachments:', cleanupError)
+        }
+      }
+    }
   }
-} 
+}

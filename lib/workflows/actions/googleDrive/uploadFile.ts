@@ -2,6 +2,7 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
+import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
 import { google } from 'googleapis'
 import fetch from 'node-fetch'
 import { Readable } from 'stream'
@@ -19,6 +20,8 @@ export async function uploadGoogleDriveFile(
     userId,
     hasInput: !!input
   });
+
+  const cleanupPaths = new Set<string>()
 
   try {
     const resolvedConfig = resolveValue(config, { input })
@@ -238,7 +241,9 @@ export async function uploadGoogleDriveFile(
               filePath,
               isTemp
             });
-            
+
+            cleanupPaths.add(filePath)
+
             const { createClient } = await import('@supabase/supabase-js');
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
             const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -466,6 +471,10 @@ export async function uploadGoogleDriveFile(
       success: false,
       output: {},
       message: error.message || 'Failed to upload files to Google Drive'
+    }
+  } finally {
+    if (cleanupPaths.size > 0) {
+      await deleteWorkflowTempFiles(cleanupPaths)
     }
   }
 }

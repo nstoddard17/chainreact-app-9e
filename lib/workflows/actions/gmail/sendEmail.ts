@@ -2,6 +2,7 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
+import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
 import { google } from 'googleapis'
 
 /**
@@ -12,6 +13,8 @@ export async function sendGmailEmail(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
+  const cleanupPaths = new Set<string>()
+
   try {
     // Config is already resolved if coming from GmailIntegrationService
     // Only resolve if it contains template variables
@@ -203,7 +206,16 @@ export async function sendGmailEmail(
     for (const attachment of attachmentList) {
       try {
         let fileData: any = null;
-        
+
+        if (
+          attachment &&
+          typeof attachment === 'object' &&
+          attachment.isTemporary &&
+          typeof attachment.filePath === 'string'
+        ) {
+          cleanupPaths.add(attachment.filePath)
+        }
+
         // Check if it's an uploaded file object with id (from file upload field)
         if (attachment && typeof attachment === 'object' && attachment.id) {
           // File uploaded via the standard workflow file upload
@@ -395,6 +407,10 @@ export async function sendGmailEmail(
       success: false,
       output: {},
       message: error.message || 'Failed to send email'
+    }
+  } finally {
+    if (cleanupPaths.size > 0) {
+      await deleteWorkflowTempFiles(cleanupPaths)
     }
   }
 }
