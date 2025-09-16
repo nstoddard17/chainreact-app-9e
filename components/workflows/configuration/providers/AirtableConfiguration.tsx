@@ -3,7 +3,8 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Eye, RefreshCw, ChevronLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useAirtableBubbleHandler } from '../hooks/useAirtableBubbleHandler';
@@ -1307,16 +1308,17 @@ export function AirtableConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4 overflow-hidden">
-        <ScrollArea className="h-[calc(90vh-180px)]">
-          <div className="space-y-3 pr-8">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 min-h-0 px-6 py-4 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="space-y-3 pb-4 pr-4">
             {/* Base fields */}
             {renderFields(baseFields)}
             
             {/* Records table for update record */}
             {isUpdateRecord && values.tableName && values.baseId && (
-              <AirtableRecordsTable
+              <div className="w-full">
+                <AirtableRecordsTable
                 records={airtableRecords}
                 loading={loadingRecords}
                 selectedRecord={selectedRecord}
@@ -1437,34 +1439,51 @@ export function AirtableConfiguration({
                           setValue(actualFieldName, null);
                           
                         } else {
-                          // For non-select fields, just set the value normally
-                          setValue(actualFieldName, value);
+                          // For non-select fields, handle the value properly
+                          let processedValue = value;
+
+                          // Handle Airtable formula/rollup error states
+                          if (typeof value === 'object' && value !== null) {
+                            // Check if it's an error state object from formulas/rollups
+                            if ('state' in value && value.state === 'error') {
+                              // Don't set error objects as field values
+                              processedValue = '';
+                            } else if ('value' in value) {
+                              // Extract the actual value from wrapped objects
+                              processedValue = value.value;
+                            }
+                          }
+
+                          // Convert objects/arrays to appropriate string representation
+                          if (typeof processedValue === 'object' && processedValue !== null) {
+                            if (Array.isArray(processedValue)) {
+                              processedValue = processedValue.join(', ');
+                            } else {
+                              // For other objects, try to extract meaningful data
+                              processedValue = processedValue.name || processedValue.filename || '';
+                            }
+                          }
+
+                          setValue(actualFieldName, processedValue);
                         }
                       }
                     });
                   }
                 }}
-                onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
-              />
+                  onRefresh={() => loadAirtableRecords(values.baseId, values.tableName)}
+                />
+              </div>
             )}
             
             {/* Dynamic fields for create/update */}
             {(isCreateRecord || (isUpdateRecord && selectedRecord)) && dynamicFields.length > 0 && (
-              <div className="mt-6">
-                <div className="border border-slate-200 rounded-lg bg-slate-50/50 overflow-hidden">
-                  <div className="px-4 py-3 bg-slate-100 border-b border-slate-200">
-                    <h3 className="text-sm font-semibold text-slate-700">Table Fields</h3>
-                    <p className="text-xs text-slate-500 mt-1">Configure the values for each field in the {values.tableName} table</p>
-                  </div>
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {dynamicFields.map((field, index) => (
-                        <div key={`field-${field.name}-${index}`} className="min-w-0">
-                          {renderFields([field], true)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              <div className="space-y-3">
+                <div className="mt-6 border-t border-slate-200 pt-4">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Table Fields</h3>
+                  <p className="text-xs text-slate-500 mb-4">Configure the values for each field in the {values.tableName} table</p>
+                </div>
+                <div className="space-y-3">
+                  {renderFields(dynamicFields, true)}
                 </div>
               </div>
             )}

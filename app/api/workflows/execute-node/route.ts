@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
+import { executeAction } from '@/lib/workflows/executeNode'
 
 export async function POST(request: NextRequest) {
   try {
@@ -89,10 +90,32 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // For real execution (not implemented yet)
-    return NextResponse.json({
-      error: 'Real node execution not yet implemented for step mode'
-    }, { status: 501 })
+    // For real execution
+    try {
+      const result = await executeAction({
+        node,
+        input: inputData || {},
+        userId: user.id,
+        workflowId,
+        testMode,
+        executionMode
+      })
+
+      return NextResponse.json({
+        success: result.success,
+        nodeId,
+        output: result.output || result.data,
+        message: result.message,
+        error: result.error
+      })
+    } catch (execError: any) {
+      console.error('Node execution error:', execError)
+      return NextResponse.json({
+        success: false,
+        nodeId,
+        error: execError.message || 'Failed to execute node'
+      }, { status: 500 })
+    }
 
   } catch (error: any) {
     console.error('Error executing node:', error)
