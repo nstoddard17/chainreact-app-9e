@@ -163,45 +163,88 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     };
   }, [fetchIntegrations, fetchMetrics]);
 
+  // Initialize providers and integrations on mount if user is authenticated
   useEffect(() => {
-    if (providers.length === 0) {
-      initializeProviders()
-    }
-  }, [providers.length, initializeProviders])
+    if (!user) return
 
-  useEffect(() => {
-    if (user && providers.length > 0) {
-      // Only fetch if we don't have integrations yet
-      if (integrations.length === 0) {
-        fetchIntegrations(true) // Force refresh on initial load
+    // Initialize everything in parallel for faster loading
+    const initializeData = async () => {
+      try {
+        setIsInitializing(true)
+
+        // Start both operations in parallel
+        const promises = []
+
+        // Initialize providers if not already loaded
+        if (providers.length === 0) {
+          promises.push(initializeProviders())
+        }
+
+        // Fetch integrations (always force refresh on initial load)
+        promises.push(fetchIntegrations(true))
+
+        // Fetch metrics
+        promises.push(fetchMetrics())
+
+        // Wait for all to complete (or fail)
+        await Promise.allSettled(promises)
+
+      } catch (error) {
+        console.error("Error initializing integrations page:", error)
+      } finally {
+        setIsInitializing(false)
       }
-      fetchMetrics()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, providers.length, fetchMetrics]) // Remove fetchIntegrations from deps to prevent infinite loop
 
-  // Add a fallback to prevent infinite loading
+    initializeData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]) // Only depend on user to avoid re-running
+
+  // Add a fallback to prevent infinite loading for both fetches and connections
   useEffect(() => {
     const isLoadingIntegrations = loadingStates?.['integrations'] || false
     const isLoadingProviders = loadingStates?.['providers'] || false
-    const isActuallyLoading = isLoadingIntegrations || isLoadingProviders || loading
-    
+    const isConnecting = Object.keys(loadingStates || {}).some(key => key.startsWith('connect-'))
+    const isActuallyLoading = isLoadingIntegrations || isLoadingProviders || loading || isConnecting
+
     if (isActuallyLoading && user) {
       const timeout = setTimeout(() => {
-        // Silently attempt recovery without logging
-        fetchIntegrations(true).finally(() => {
-          // If still loading after force refresh, reset the state
-          const currentState = useIntegrationStore.getState()
-          const stillLoading = currentState.loadingStates?.['integrations'] || currentState.loadingStates?.['providers'] || currentState.loading
-          if (stillLoading) {
-            // Silently reset loading states without user notification
+        // Check what's stuck
+        const currentState = useIntegrationStore.getState()
+        const stuckLoadingStates = Object.entries(currentState.loadingStates || {})
+          .filter(([_, value]) => value === true)
+          .map(([key, _]) => key)
+
+        if (stuckLoadingStates.length > 0) {
+          console.warn(`⚠️ Clearing stuck loading states: ${stuckLoadingStates.join(', ')}`)
+
+          // Reset all stuck states
+          stuckLoadingStates.forEach(key => {
+            setLoading(key, false)
+          })
+
+          // If it was a connection attempt, notify the user
+          const stuckConnections = stuckLoadingStates.filter(key => key.startsWith('connect-'))
+          if (stuckConnections.length > 0) {
+            toast({
+              title: "Connection Timeout",
+              description: "The connection attempt took too long. Please try again.",
+              variant: "destructive"
+            })
+          }
+        }
+
+        // For fetch operations, try one recovery attempt
+        if (isLoadingIntegrations || isLoadingProviders) {
+          fetchIntegrations(true).catch(() => {
+            // If recovery fails, just reset states
             setLoading("integrations", false)
             setLoading("providers", false)
             setLoading("global", false)
-          }
-        })
-      }, 15000) // Increased to 15 second timeout to give more time for initial load
-      
+          })
+        }
+      }, 30000) // 30 second timeout for connections, increased from 15
+
       return () => clearTimeout(timeout)
     }
   }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
@@ -559,16 +602,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return filtered
   }, [providersWithStatus, activeFilter, searchQuery, metrics.expiring])
 
-  if (isInitializing && !providers.length) {
+  // Show loading state only for the initial load when we have no data
+  if ((isInitializing || loading) && providers.length === 0 && integrations.length === 0) {
     return (
-      <AppLayout title="Loading...">
+      <AppLayout title="Integrations">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <LightningLoader size="xl" color="blue" className="mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your integrations...</p>
-            <p className="text-xs text-gray-500 mt-2">
-              Debug: providers.length={providers.length}, loading={loading}, user={!!user}
-            </p>
           </div>
         </div>
       </AppLayout>
