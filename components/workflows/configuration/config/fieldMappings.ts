@@ -245,6 +245,13 @@ const airtableMappings: Record<string, FieldMapping> = {
   },
 };
 
+// Dropbox field mappings
+const dropboxMappings: Record<string, FieldMapping> = {
+  dropbox_action_upload_file: {
+    path: "dropbox-folders",
+  },
+};
+
 // Microsoft Outlook field mappings
 const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_action_send_email": {
@@ -550,6 +557,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...googleDriveMappings,
   ...googleDocsMappings,
   ...airtableMappings,
+  ...dropboxMappings,
   ...outlookMappings,
   ...teamsMappings,
   ...onenoteMappings,

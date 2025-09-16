@@ -12,42 +12,76 @@ const dropboxTriggerNewFile: NodeComponent = {
   isTrigger: true,
 }
 
-// Dropbox Actions  
+// Dropbox Actions
 const dropboxActionUploadFile: NodeComponent = {
   type: "dropbox_action_upload_file",
   title: "Upload File",
-  description: "Upload a file to Dropbox",
+  description: "Upload a file to Dropbox from various sources",
   icon: Upload,
   providerId: "dropbox",
   requiredScopes: ["files.content.write"],
   category: "Storage",
   isTrigger: false,
   configSchema: [
-    { 
-      name: "fileName", 
-      label: "File Name", 
-      type: "text", 
+    {
+      name: "fileName",
+      label: "File Name",
+      type: "text",
       required: true,
       placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
       description: "File name for the created file. Will be automatically populated when you upload files."
     },
-    { 
-      name: "fileContent", 
-      label: "File Content", 
-      type: "textarea", 
-      required: false,
-      placeholder: "Enter file content (optional if uploading files)",
-      description: "Text content for the file. Leave empty if uploading files."
+    {
+      name: "sourceType",
+      label: "File Source",
+      type: "select",
+      required: true,
+      defaultValue: "file",
+      options: [
+        { value: "file", label: "Upload File" },
+        { value: "url", label: "From URL" },
+        { value: "text", label: "Text Content" },
+        { value: "node", label: "From Previous Node" }
+      ],
+      description: "Choose how to provide the file for upload"
     },
-    { 
-      name: "uploadedFiles", 
-      label: "Upload Files", 
-      type: "file", 
+    {
+      name: "uploadedFiles",
+      label: "Upload Files",
+      type: "file",
       required: false,
       placeholder: "Choose files to upload...",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
       maxSize: 150 * 1024 * 1024, // 150MB limit for Dropbox
-      description: "Upload files to create in Dropbox. Files will be created with their original names and content. The file name field will be auto-populated."
+      description: "Upload files to create in Dropbox (max 150MB per file). Files will be stored and available for workflow execution.",
+      conditional: { field: "sourceType", value: "file" }
+    },
+    {
+      name: "fileUrl",
+      label: "File URL",
+      type: "text",
+      required: false,
+      placeholder: "https://example.com/file.pdf",
+      description: "Direct URL to a publicly accessible file (e.g., image, PDF, document). The file will be downloaded and uploaded to Dropbox.",
+      conditional: { field: "sourceType", value: "url" }
+    },
+    {
+      name: "fileContent",
+      label: "Text Content",
+      type: "textarea",
+      required: false,
+      placeholder: "Enter text content for the file",
+      description: "Text content to create a text file. The file will be saved with the specified file name.",
+      conditional: { field: "sourceType", value: "text" }
+    },
+    {
+      name: "fileFromNode",
+      label: "File Variable",
+      type: "text",
+      required: false,
+      placeholder: "{{node-id.output.file}}",
+      description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
+      conditional: { field: "sourceType", value: "node" }
     },
     {
       name: "path",
@@ -61,34 +95,11 @@ const dropboxActionUploadFile: NodeComponent = {
   ],
 }
 
-const dropboxActionUploadFileFromUrl: NodeComponent = {
-  type: "dropbox_action_upload_file_from_url",
-  title: "Upload File from URL",
-  description: "Upload a file from a URL to Dropbox",
-  icon: Upload,
-  providerId: "dropbox",
-  category: "Storage",
-  isTrigger: false,
-  configSchema: [
-    { name: "fileUrl", label: "File URL", type: "text", required: true, placeholder: "Publicly accessible URL of the file" },
-    { name: "fileName", label: "File Name", type: "text", required: false, placeholder: "e.g., report.pdf (optional - will use original filename if blank)" },
-    {
-      name: "path",
-      label: "Destination Folder",
-      type: "select",
-      dynamic: "dropbox-folders",
-      required: false,
-      placeholder: "Select a folder (optional, defaults to root)",
-    },
-  ],
-}
-
 // Export all Dropbox nodes
 export const dropboxNodes: NodeComponent[] = [
   // Triggers (1)
   dropboxTriggerNewFile,
-  
-  // Actions (2)
+
+  // Actions (1 - consolidated upload file action)
   dropboxActionUploadFile,
-  dropboxActionUploadFileFromUrl,
 ]
