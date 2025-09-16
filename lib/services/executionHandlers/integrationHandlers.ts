@@ -39,6 +39,11 @@ export class IntegrationNodeHandlers {
       return await this.executeDiscordAction(node, context)
     }
 
+    // Airtable integrations
+    if (nodeType.startsWith('airtable_')) {
+      return await this.executeAirtableAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -237,9 +242,54 @@ export class IntegrationNodeHandlers {
     }
   }
 
+  private async executeAirtableAction(node: any, context: ExecutionContext) {
+    console.log("📊 Executing Airtable action")
+
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    // Handle different Airtable action types
+    switch (nodeType) {
+      case "airtable_create_record":
+      case "airtable_action_create_record":  // Handle both naming conventions
+        // Import and use the actual Airtable create record handler
+        const { createAirtableRecord } = await import("@/lib/workflows/actions/airtable/createRecord")
+
+        const result = await createAirtableRecord(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!result.success) {
+          throw new Error(result.error || result.message || "Failed to create Airtable record")
+        }
+
+        return result.output
+
+      case "airtable_update_record":
+      case "airtable_action_update_record":  // Handle both naming conventions
+        // TODO: Implement when update record handler is available
+        throw new Error("Airtable update record is not yet implemented")
+
+      case "airtable_delete_record":
+      case "airtable_action_delete_record":  // Handle both naming conventions
+        // TODO: Implement when delete record handler is available
+        throw new Error("Airtable delete record is not yet implemented")
+
+      case "airtable_list_records":
+      case "airtable_action_list_records":  // Handle both naming conventions
+        // TODO: Implement when list records handler is available
+        throw new Error("Airtable list records is not yet implemented")
+
+      default:
+        throw new Error(`Unknown Airtable action type: ${nodeType}`)
+    }
+  }
+
   private async executeDropboxUpload(node: any, context: ExecutionContext) {
     console.log("📦 Executing Dropbox upload")
-    
+
     const config = node.data.config || {}
     const fileName = config.fileName || "file.txt"
     const fileContent = config.fileContent || config.content
