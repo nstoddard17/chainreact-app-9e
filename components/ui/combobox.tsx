@@ -326,7 +326,24 @@ export function MultiCombobox({
   // Get selected options - include saved values even if not in current options
   const selectedOptions = React.useMemo(() => {
     const optionsMap = new Map(options.map(opt => [opt.value, opt]));
-    return value.map(val => {
+    // Use selectedValues if provided (for bubble-managed fields), otherwise use value
+    const effectiveValues = selectedValues && selectedValues.length > 0 ? selectedValues : value;
+
+    // Debug logging
+    if (placeholder?.toLowerCase().includes('task')) {
+      console.log('🔍 [MultiCombobox] Tasks field debug:', {
+        placeholder,
+        value,
+        valueLength: value.length,
+        selectedValues,
+        selectedValuesLength: selectedValues?.length,
+        effectiveValues,
+        effectiveValuesLength: effectiveValues.length,
+        hideSelectedBadges
+      });
+    }
+
+    return effectiveValues.map(val => {
       // If we have the option in our list, use it (for label)
       if (optionsMap.has(val)) {
         return optionsMap.get(val)!;
@@ -334,13 +351,15 @@ export function MultiCombobox({
       // Otherwise create a temporary option for the saved value
       return { value: val, label: val };
     });
-  }, [options, value])
+  }, [options, value, selectedValues, placeholder, hideSelectedBadges])
 
   const handleSelect = (currentValue: string) => {
     const newValue = value.includes(currentValue)
       ? value.filter((v) => v !== currentValue)
       : [...value, currentValue]
     onChange(newValue)
+    // Don't close the dropdown for multi-select
+    // The dropdown stays open so users can select multiple items
   }
 
   const handleRemove = (valueToRemove: string) => {
@@ -394,10 +413,16 @@ export function MultiCombobox({
         >
           <div className="flex gap-1 flex-1 overflow-hidden">
             {hideSelectedBadges ? (
-              // When badges are hidden, just show placeholder
-              <span className="text-muted-foreground">
-                {placeholder || "Select option(s)..."}
-              </span>
+              // When badges are hidden, show selected count or placeholder
+              selectedOptions.length > 0 ? (
+                <span className="text-white">
+                  {selectedOptions.length} selected
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {placeholder || "Select option(s)..."}
+                </span>
+              )
             ) : selectedOptions.length > 0 ? (
               <>
                 {selectedOptions.length <= 3 ? (
@@ -480,16 +505,60 @@ export function MultiCombobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {options.map((option, index) => (
+              {options.map((option, index) => {
+                // Debug logging for checkmark visibility
+                if (placeholder?.toLowerCase().includes('task') || placeholder?.toLowerCase().includes('project') || placeholder?.toLowerCase().includes('feedback')) {
+                  const isChecked = value.includes(option.value) || (Array.isArray(selectedValues) && selectedValues.some(v => {
+                    if (v === option.value) return true;
+                    if (typeof option.value === 'string' && option.value.includes('::')) {
+                      const [optionId] = option.value.split('::');
+                      return v === optionId;
+                    }
+                    if (typeof v === 'string' && v.includes('::')) {
+                      const [id] = v.split('::');
+                      return id === option.value;
+                    }
+                    return false;
+                  }));
+
+                  console.log(`🔍 [Checkmark] ${option.label}:`, {
+                    optionValue: option.value,
+                    value,
+                    selectedValues,
+                    isChecked
+                  });
+                }
+
+                return (
                 <CommandItem
                   key={`multi-option-${index}-${option.value || 'undefined'}`}
                   value={option.value}
-                  onSelect={handleSelect}
+                  onSelect={() => {
+                    // Just handle the selection, don't close
+                    handleSelect(option.value);
+                  }}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value.includes(option.value) || selectedValues.includes(option.value) ? "opacity-100" : "opacity-0"
+                      value.includes(option.value) || (Array.isArray(selectedValues) && selectedValues.some(v => {
+                        // Handle both direct matches and id::name format
+                        if (v === option.value) return true;
+
+                        // If option value has :: format, extract ID and compare
+                        if (typeof option.value === 'string' && option.value.includes('::')) {
+                          const [optionId] = option.value.split('::');
+                          return v === optionId;
+                        }
+
+                        // If selectedValue has :: format, extract ID and compare
+                        if (typeof v === 'string' && v.includes('::')) {
+                          const [id] = v.split('::');
+                          return id === option.value;
+                        }
+
+                        return false;
+                      })) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col">
@@ -499,7 +568,8 @@ export function MultiCombobox({
                     )}
                   </div>
                 </CommandItem>
-              ))}
+              );
+              })}
               {/* Show create option if inputValue is not empty and not in options */}
               {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
@@ -605,7 +675,7 @@ export function HierarchicalCombobox({
         >
           {selectedOption ? (
             <div className="flex flex-col items-start">
-              <span>{selectedOption.label}</span>
+              <span className="text-white">{selectedOption.label}</span>
               {selectedOption.description && (
                 <span className="text-sm text-muted-foreground">{selectedOption.description}</span>
               )}

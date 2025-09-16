@@ -152,11 +152,13 @@ export function GenericSelectField({
 
   // Handle multiple selection fields
   if ((field as any).multiple) {
-    // Check if this is an Airtable linked record field (which uses bubbles)
-    const isAirtableLinkedField = nodeInfo?.providerId === 'airtable' && 
+    // Check if this is an Airtable field with bubbles (linked records or multi-select fields)
+    const isAirtableLinkedField = nodeInfo?.providerId === 'airtable' &&
       field.name?.startsWith('airtable_field_') &&
-      (field.airtableFieldType === 'multipleRecordLinks' || 
-       field.airtableFieldType === 'multipleSelects');
+      (field.airtableFieldType === 'multipleRecordLinks' ||
+       field.airtableFieldType === 'multipleSelects' ||
+       field.airtableFieldType === 'singleRecordLink' ||
+       field.multiple); // Any Airtable field marked as multiple uses bubbles
     
     return (
       <MultiCombobox
