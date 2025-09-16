@@ -255,22 +255,34 @@ export class IntegrationNodeHandlers {
         // Import and use the actual Airtable create record handler
         const { createAirtableRecord } = await import("@/lib/workflows/actions/airtable/createRecord")
 
-        const result = await createAirtableRecord(
+        const createResult = await createAirtableRecord(
           config,
           context.userId,
           context.data || {}
         )
 
-        if (!result.success) {
-          throw new Error(result.error || result.message || "Failed to create Airtable record")
+        if (!createResult.success) {
+          throw new Error(createResult.error || createResult.message || "Failed to create Airtable record")
         }
 
-        return result.output
+        return createResult.output
 
       case "airtable_update_record":
       case "airtable_action_update_record":  // Handle both naming conventions
-        // TODO: Implement when update record handler is available
-        throw new Error("Airtable update record is not yet implemented")
+        // Import and use the actual Airtable update record handler
+        const { updateAirtableRecord } = await import("@/lib/workflows/actions/airtable/updateRecord")
+
+        const updateResult = await updateAirtableRecord(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!updateResult.success) {
+          throw new Error(updateResult.error || updateResult.message || "Failed to update Airtable record")
+        }
+
+        return updateResult.output
 
       case "airtable_delete_record":
       case "airtable_action_delete_record":  // Handle both naming conventions
@@ -279,8 +291,20 @@ export class IntegrationNodeHandlers {
 
       case "airtable_list_records":
       case "airtable_action_list_records":  // Handle both naming conventions
-        // TODO: Implement when list records handler is available
-        throw new Error("Airtable list records is not yet implemented")
+        // Import and use the actual Airtable list records handler
+        const { listAirtableRecords } = await import("@/lib/workflows/actions/airtable/listRecords")
+
+        const listResult = await listAirtableRecords(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!listResult.success) {
+          throw new Error(listResult.error || listResult.message || "Failed to list Airtable records")
+        }
+
+        return listResult.output
 
       default:
         throw new Error(`Unknown Airtable action type: ${nodeType}`)

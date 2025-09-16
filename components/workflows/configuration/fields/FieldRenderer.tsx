@@ -975,10 +975,10 @@ export function FieldRenderer({
   const fieldContent = renderFieldByType();
 
   return (
-    <Card className="transition-all duration-200 w-full">
+    <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
         {field.type !== "button-toggle" && renderLabel()}
-        <div className="min-w-0 overflow-hidden">
+        <div className="min-w-0 overflow-hidden w-full">
           {fieldContent}
         </div>
         {error && (

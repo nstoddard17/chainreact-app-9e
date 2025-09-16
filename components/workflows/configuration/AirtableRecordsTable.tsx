@@ -75,7 +75,7 @@ export function AirtableRecordsTable({
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden">
+    <div className="bg-gray-900 rounded-lg overflow-hidden w-full">
       {/* Header Section */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
         <div className="flex items-center justify-between">
@@ -131,11 +131,11 @@ export function AirtableRecordsTable({
       </div>
       
       {/* Table Container */}
-      <div 
-        className="overflow-x-auto overflow-y-auto"
+      <div
+        className="overflow-auto"
         style={{ maxHeight: '400px' }}
       >
-        <table className="w-full">
+        <table className="w-full min-w-full table-auto">
           <thead className="sticky top-0 bg-gray-800 z-20">
             <tr className="border-b border-gray-700">
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -238,11 +238,47 @@ export function AirtableRecordsTable({
 
 function renderFieldValue(value: any): string {
   if (value === null || value === undefined) return '';
+
+  // Handle Airtable formula/rollup error states
+  if (typeof value === 'object' && value !== null) {
+    // Check if it's an error state object from formulas/rollups
+    if ('state' in value && value.state === 'error') {
+      // Return empty string or a placeholder for error states
+      return value.errorType === 'emptyDependency' ? '—' : 'Error';
+    }
+
+    // Check if it has a specific value property (some Airtable field types)
+    if ('value' in value) {
+      return renderFieldValue(value.value);
+    }
+  }
+
   if (Array.isArray(value)) {
-    return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+    return value.map(v => {
+      if (typeof v === 'object' && v !== null) {
+        // Handle attachment objects
+        if (v.filename) return v.filename;
+        // Handle linked records
+        if (v.name) return v.name;
+        // Handle other objects
+        return renderFieldValue(v);
+      }
+      return String(v);
+    }).filter(Boolean).join(', ');
   }
+
   if (typeof value === 'object') {
-    return JSON.stringify(value);
+    // Handle attachment objects
+    if (value.filename) return value.filename;
+    // Handle linked records
+    if (value.name) return value.name;
+    // Last resort - stringify but try to make it readable
+    try {
+      return JSON.stringify(value, null, 0);
+    } catch {
+      return '[Complex Object]';
+    }
   }
+
   return String(value);
 }
