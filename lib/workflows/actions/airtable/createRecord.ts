@@ -1,91 +1,351 @@
+import { Buffer } from 'buffer'
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
+
+const tableIdCache = new Map<string, string>()
+
+interface UploadContext {
+  accessToken: string
+  baseId: string
+  tableId: string
+}
+
+interface ParsedDataUrl {
+  mimeType: string
+  base64Data: string
+}
+
+type AirtableAttachment = Record<string, any>
+
+function parseDataUrl(value: string): ParsedDataUrl | null {
+  const dataUrlPattern = /^data:([^;,]+)(?:;charset=[^;,]+)?;base64,(.+)$/i
+  const match = value.match(dataUrlPattern)
+  if (!match) return null
+
+  return {
+    mimeType: match[1] || 'application/octet-stream',
+    base64Data: match[2]
+  }
+}
+
+function guessFileExtension(mimeType: string): string {
+  const normalized = mimeType.toLowerCase()
+  if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg'
+  if (normalized.includes('png')) return 'png'
+  if (normalized.includes('gif')) return 'gif'
+  if (normalized.includes('webp')) return 'webp'
+  if (normalized.includes('svg')) return 'svg'
+  if (normalized.includes('pdf')) return 'pdf'
+  if (normalized.includes('json')) return 'json'
+  if (normalized.includes('plain')) return 'txt'
+  return 'bin'
+}
+
+function buildDefaultFilename(fieldName: string, index: number, extension: string): string {
+  const safeField = fieldName
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-_.]/g, '')
+    .replace(/-{2,}/g, '-') || 'attachment'
+  return `${safeField}-${Date.now()}-${index}.${extension}`
+}
+
+function ensureArray<T>(value: T | T[]): T[] {
+  if (Array.isArray(value)) return value
+  return [value]
+}
+
+function tryParseJson(value: string): any {
+  try {
+    return JSON.parse(value)
+  } catch (err) {
+    return null
+  }
+}
+
+function extractAttachmentCandidates(value: any): any[] | null {
+  if (!value && value !== 0) return null
+
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+      return [trimmed]
+    }
+
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      const parsed = tryParseJson(trimmed)
+      if (parsed !== null && parsed !== undefined) {
+        return extractAttachmentCandidates(parsed) || ensureArray(parsed)
+      }
+    }
+
+    return null
+  }
+
+  if (typeof value === 'object') {
+    if (value === null) return null
+
+    if (Array.isArray(value.attachments)) {
+      return value.attachments
+    }
+
+    if (
+      value.url ||
+      value.dataUrl ||
+      value.dataURL ||
+      value.data ||
+      value.base64 ||
+      value.base64Data
+    ) {
+      return [value]
+    }
+  }
+
+  return null
+}
+
+async function uploadAirtableAttachment(
+  dataUrl: string,
+  fieldName: string,
+  index: number,
+  context: UploadContext,
+  explicitFilename?: string,
+  fieldId?: string
+): Promise<AirtableAttachment> {
+  const parsed = parseDataUrl(dataUrl)
+  if (!parsed) {
+    throw new Error(`Invalid data URL provided for field "${fieldName}"`)
+  }
+
+  const { mimeType, base64Data } = parsed
+  const buffer = Buffer.from(base64Data, 'base64')
+
+  if (!buffer.length) {
+    throw new Error(`No attachment data found for field "${fieldName}"`)
+  }
+
+  const extension = guessFileExtension(mimeType)
+  const fileName = explicitFilename || buildDefaultFilename(fieldName, index, extension)
+
+  const uploadUrl = `https://content.airtable.com/v0/bases/${context.baseId}/tables/${encodeURIComponent(context.tableId)}/attachments/upload`
+
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${context.accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      contentType: mimeType,
+      filename: fileName,
+      file: base64Data
+    })
+  })
+
+  const responseBody = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const message = responseBody?.error?.message || response.statusText || 'Unknown error'
+    throw new Error(`Failed to upload attachment for field "${fieldName}": ${response.status} - ${message}`)
+  }
+
+  const attachment: AirtableAttachment | undefined =
+    responseBody?.attachment ||
+    (Array.isArray(responseBody?.attachments) ? responseBody.attachments[0] : undefined) ||
+    responseBody?.uploadedAttachment
+
+  if (!attachment) {
+    throw new Error('Unexpected Airtable upload response format')
+  }
+
+  return attachment
+}
+
+async function resolveTableId(
+  baseId: string,
+  tableName: string,
+  explicitTableId: string | undefined,
+  accessToken: string
+): Promise<string | null> {
+  if (explicitTableId) {
+    return explicitTableId
+  }
+
+  if (!tableName) {
+    return null
+  }
+
+  const cacheKey = `${baseId}::${tableName.toLowerCase()}`
+  const cached = tableIdCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  try {
+    const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}))
+      console.warn(
+        `⚠️ [Airtable] Failed to resolve table ID for ${tableName}: ${response.status} - ${errorPayload.error?.message || response.statusText}`
+      )
+      return null
+    }
+
+    const data = await response.json()
+    const tables: Array<{ id: string; name: string }> = data?.tables || []
+    const match = tables.find((table) => table.name.toLowerCase() === tableName.toLowerCase())
+
+    if (match?.id) {
+      tableIdCache.set(cacheKey, match.id)
+      return match.id
+    }
+
+    console.warn(`⚠️ [Airtable] Unable to locate table ID for name "${tableName}" in base ${baseId}`)
+  } catch (error) {
+    console.error(`❌ [Airtable] Error resolving table ID for ${tableName}:`, error)
+  }
+
+  return null
+}
+
+async function resolveAttachmentEntry(
+  entry: any,
+  fieldName: string,
+  index: number,
+  context: UploadContext
+): Promise<AirtableAttachment | null> {
+  if (!entry) return null
+
+  // Handle strings (URL, data URL, or JSON string)
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim()
+
+    if (!trimmed) return null
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      const filename = trimmed.split('/').pop() || 'attachment'
+      return { url: trimmed, filename }
+    }
+
+    if (trimmed.startsWith('data:')) {
+      return uploadAirtableAttachment(trimmed, fieldName, index, context)
+    }
+
+    if ((trimmed.startsWith('{') || trimmed.startsWith('['))) {
+      const parsed = tryParseJson(trimmed)
+      if (parsed) {
+        return resolveAttachmentEntry(parsed, fieldName, index, context)
+      }
+    }
+
+    return null
+  }
+
+  // Handle plain objects
+  if (typeof entry === 'object') {
+    if (Array.isArray(entry)) {
+      // Flatten nested arrays
+      for (const nested of entry) {
+        const resolved = await resolveAttachmentEntry(nested, fieldName, index, context)
+        if (resolved) return resolved
+      }
+      return null
+    }
+
+    if (entry.url) {
+      const urlString = String(entry.url).trim()
+
+      if (urlString.startsWith('data:')) {
+        return uploadAirtableAttachment(
+          urlString,
+          fieldName,
+          index,
+          context,
+          entry.filename || entry.name,
+          entry.fieldId
+        )
+      }
+
+      const attachment: AirtableAttachment = {
+        url: urlString,
+        filename: entry.filename || entry.name || entry.title || urlString.split('/').pop() || 'attachment'
+      }
+
+      if (entry.type) attachment.type = entry.type
+      if (entry.size) attachment.size = entry.size
+      if (entry.id) attachment.id = entry.id
+      if (entry.thumbnails) attachment.thumbnails = entry.thumbnails
+      if (entry.expirationTime) attachment.expirationTime = entry.expirationTime
+      if (entry.expiration_time) attachment.expirationTime = entry.expiration_time
+
+      return attachment
+    }
+
+    const dataUrl = entry.dataUrl || entry.dataURL || entry.data || entry.base64 || entry.base64Data
+    if (typeof dataUrl === 'string') {
+      if (dataUrl.startsWith('data:')) {
+        return uploadAirtableAttachment(
+          dataUrl,
+          fieldName,
+          index,
+          context,
+          entry.filename || entry.name,
+          entry.fieldId
+        )
+      }
+
+      const mime = entry.contentType || entry.mimeType || entry.type
+      const trimmed = dataUrl.trim()
+      if (mime && /^[a-z0-9+/=]+$/i.test(trimmed.replace(/\s+/g, ''))) {
+        const normalized = trimmed.replace(/\s+/g, '')
+        const constructedDataUrl = `data:${mime};base64,${normalized}`
+        return uploadAirtableAttachment(
+          constructedDataUrl,
+          fieldName,
+          index,
+          context,
+          entry.filename || entry.name,
+          entry.fieldId
+        )
+      }
+    }
+
+    // If object already looks like an Airtable attachment, return as-is
+    if (entry.id && entry.type && entry.size && entry.url) {
+      return entry
+    }
+  }
+
+  return null
+}
 
 /**
  * Creates a new record in an Airtable table
  *
  * For attachment fields (images, files, etc.):
- * - Supports base64 data URLs (automatically uploads to Airtable, max 5MB)
  * - Supports direct URLs to hosted files
- * - Airtable will store the file in their system
+ * - Supports data URLs/base64 strings via Airtable's attachment upload endpoint
  *
  * Attachment field format:
- * - Base64 data URL: "data:image/png;base64,..."
  * - URL string: "https://example.com/file.pdf"
- * - Or pre-formatted array: [{ url: "https://...", filename: "file.pdf" }]
+ * - Base64/data URL string: "data:image/png;base64,iVBOR..."
+ * - Object with url/filename or dataUrl/base64 fields
+ * - Pre-formatted array: [{ url: "https://...", filename: "file.pdf" }]
  */
 
-/**
- * Uploads a file to Airtable's attachment service
- */
-async function uploadAttachmentToAirtable(
-  accessToken: string,
-  base64Data: string,
-  fieldName: string
-): Promise<{ url: string; filename: string } | null> {
-  try {
-    // Parse the base64 data URL
-    const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/)
-    if (!matches) {
-      console.error(`📊 [Airtable] Invalid base64 format for field "${fieldName}"`)
-      return null
-    }
 
-    const mimeType = matches[1]
-    const base64Content = matches[2]
-
-    // Convert base64 to binary
-    const binaryString = atob(base64Content)
-    const bytes = new Uint8Array(binaryString.length)
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i)
-    }
-
-    // Check file size (5MB limit)
-    const fileSizeMB = bytes.length / (1024 * 1024)
-    if (fileSizeMB > 5) {
-      console.error(`📊 [Airtable] File for field "${fieldName}" is ${fileSizeMB.toFixed(2)}MB, exceeds 5MB limit`)
-      return null
-    }
-
-    console.log(`📊 [Airtable] Uploading attachment for field "${fieldName}" (${fileSizeMB.toFixed(2)}MB)...`)
-
-    // Determine file extension from MIME type
-    const extension = mimeType.split('/')[1] || 'bin'
-    const filename = `upload_${Date.now()}.${extension}`
-
-    // Create FormData for multipart upload
-    const formData = new FormData()
-    const blob = new Blob([bytes], { type: mimeType })
-    formData.append('file', blob, filename)
-
-    // Upload to Airtable's attachment endpoint
-    const uploadResponse = await fetch('https://content.airtable.com/v0/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: formData
-    })
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text()
-      console.error(`📊 [Airtable] Upload failed for field "${fieldName}": ${uploadResponse.status} - ${errorText}`)
-      return null
-    }
-
-    const uploadResult = await uploadResponse.json()
-    console.log(`📊 [Airtable] Upload successful for field "${fieldName}"`)
-
-    // Return the attachment object format Airtable expects
-    return {
-      url: uploadResult.url || uploadResult.signedUrl,
-      filename: filename
-    }
-  } catch (error: any) {
-    console.error(`📊 [Airtable] Error uploading attachment for field "${fieldName}":`, error.message)
-    return null
-  }
-}
 export async function createAirtableRecord(
   config: any,
   userId: string,
@@ -104,6 +364,7 @@ export async function createAirtableRecord(
 
     const baseId = resolveValue(config.baseId, input)
     const tableName = resolveValue(config.tableName, input)
+    const tableId = resolveValue(config.tableId, input)
 
     // Extract fields from config - they may be stored as airtable_field_* keys
     const fields: Record<string, any> = {}
@@ -145,82 +406,118 @@ export async function createAirtableRecord(
       return { success: false, message }
     }
 
+    const resolvedTableId = await resolveTableId(baseId, tableName, tableId, accessToken)
+
+    if (!resolvedTableId) {
+      const message = 'Unable to determine Airtable table ID for attachment upload'
+      console.error(message)
+      return { success: false, message }
+    }
+
     // Resolve field values using template variables
     const resolvedFields: Record<string, any> = {}
     const attachmentFields: string[] = []
+    const attachmentErrors: string[] = []
     const skippedFields: string[] = []
+
+    const uploadContext: UploadContext = {
+      accessToken,
+      baseId,
+      tableId: resolvedTableId
+    }
 
     for (const [fieldName, fieldValue] of Object.entries(fields)) {
       if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
         const resolved = resolveValue(fieldValue, input)
 
         // Check if this is likely an attachment field
-        const lowerFieldName = fieldName.toLowerCase()
+        // Need to handle field names with spaces properly
+        const normalizedFieldName = fieldName.replace(/_/g, ' ').toLowerCase()
         const isLikelyAttachment =
-          lowerFieldName.includes('image') ||
-          lowerFieldName.includes('photo') ||
-          lowerFieldName.includes('attachment') ||
-          lowerFieldName.includes('file') ||
-          lowerFieldName.includes('document') ||
-          lowerFieldName.includes('draft image') // Specific to your use case
+          normalizedFieldName.includes('image') ||
+          normalizedFieldName.includes('photo') ||
+          normalizedFieldName.includes('attachment') ||
+          normalizedFieldName.includes('file') ||
+          normalizedFieldName.includes('document') ||
+          normalizedFieldName.includes('picture') ||
+          normalizedFieldName.includes('media')
 
         // Handle attachment fields
-        if (isLikelyAttachment && resolved) {
-          // If it's a base64 data URL, upload it to Airtable
-          if (typeof resolved === 'string' && resolved.startsWith('data:')) {
-            const uploadedAttachment = await uploadAttachmentToAirtable(accessToken, resolved, fieldName)
+        const candidateEntries = extractAttachmentCandidates(resolved)
 
-            if (uploadedAttachment) {
-              // Add the uploaded attachment to the fields
-              resolvedFields[fieldName] = [uploadedAttachment]
-              attachmentFields.push(fieldName)
-              console.log(`📊 [Airtable] Uploaded and attached file for field "${fieldName}"`)
-            } else {
-              console.log(`📊 [Airtable] Failed to upload attachment for field "${fieldName}" - skipping`)
-              skippedFields.push(fieldName)
+        if ((isLikelyAttachment || candidateEntries) && resolved) {
+          console.log(
+            `📊 [Airtable] Processing attachment field "${fieldName}" (${Array.isArray(candidateEntries) ? candidateEntries.length : 1} value(s))`
+          )
+
+          const entries = candidateEntries ?? ensureArray(resolved)
+          const attachments: AirtableAttachment[] = []
+          let hadAttachmentIssue = false
+
+          for (let index = 0; index < entries.length; index++) {
+            const entry = entries[index]
+            try {
+              const attachment = await resolveAttachmentEntry(entry, fieldName, index, uploadContext)
+              if (attachment) {
+                attachments.push(attachment)
+              } else {
+                console.log(`📊 [Airtable] Ignored attachment entry ${index + 1} for field "${fieldName}" (unrecognized format)`)
+              }
+            } catch (attachmentError) {
+              hadAttachmentIssue = true
+              attachmentErrors.push(fieldName)
+              console.error(`❌ [Airtable] Error processing attachment for field "${fieldName}":`, attachmentError)
             }
-            continue
           }
 
-          // If it's a URL, format it properly for Airtable
-          if (typeof resolved === 'string' && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
-            // Airtable expects an array of attachment objects
-            resolvedFields[fieldName] = [{
-              url: resolved,
-              filename: resolved.split('/').pop() || 'attachment'
-            }]
+          if (attachments.length > 0) {
+            resolvedFields[fieldName] = attachments
             attachmentFields.push(fieldName)
-            console.log(`📊 [Airtable] Formatted attachment field "${fieldName}" with URL: ${resolved}`)
+            console.log(
+              `📊 [Airtable] Prepared ${attachments.length} attachment(s) for field "${fieldName}"`
+            )
             continue
           }
 
-          // If it's already an array (pre-formatted), use as-is
-          if (Array.isArray(resolved)) {
-            resolvedFields[fieldName] = resolved
-            attachmentFields.push(fieldName)
-            continue
-          }
-
-          // Skip any other large data that might be attachment
-          if (typeof resolved === 'string' && resolved.length > 1000) {
-            console.log(`📊 [Airtable] Skipping field "${fieldName}" - unrecognized large data format`)
+          if (hadAttachmentIssue) {
             skippedFields.push(fieldName)
+            console.log(`📊 [Airtable] Skipping field "${fieldName}" due to attachment processing errors`)
             continue
           }
+
         }
 
         // Regular fields - add non-empty resolved values
         if (resolved !== undefined && resolved !== null && resolved !== '') {
+          // Final safety check: if this is base64 data that wasn't detected as an attachment field,
+          // skip it to prevent API errors
+          if (typeof resolved === 'string' && resolved.startsWith('data:') && resolved.includes('base64,')) {
+            console.log(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
+            console.log(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
+            skippedFields.push(fieldName)
+            continue
+          }
+
+          // Additional check for very large string data that might cause issues
+          if (typeof resolved === 'string' && resolved.length > 100000) {
+            console.log(`📊 [Airtable] Field "${fieldName}" contains very large data (${(resolved.length / 1024).toFixed(1)}KB) - skipping`)
+            skippedFields.push(fieldName)
+            continue
+          }
+
           resolvedFields[fieldName] = resolved
         }
       }
     }
 
     if (attachmentFields.length > 0) {
-      console.log(`📊 [Airtable] Processed ${attachmentFields.length} attachment fields: ${attachmentFields.join(', ')}`);
+      console.log(`📊 [Airtable] Prepared attachment fields: ${attachmentFields.join(', ')}`)
+    }
+    if (attachmentErrors.length > 0) {
+      console.log(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
     if (skippedFields.length > 0) {
-      console.log(`📊 [Airtable] Skipped ${skippedFields.length} fields: ${skippedFields.join(', ')}`);
+      console.log(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
     }
     console.log(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
 

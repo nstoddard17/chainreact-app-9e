@@ -1,5 +1,5 @@
 // Use Node.js EventEmitter only on server-side
-import { checkDiscordBotConfig } from '@/lib/utils/discordConfig'
+import { checkDiscordBotConfig, validateDiscordBotToken } from '@/lib/utils/discordConfig'
 
 // Create a simple EventEmitter implementation for compatibility
 class SimpleEventEmitter {
@@ -142,12 +142,31 @@ class DiscordGateway extends SimpleEventEmitter {
   async connect(): Promise<void> {
     try {
       const config = checkDiscordBotConfig()
-      
+
       if (!config.isConfigured) {
+        console.error('❌ Discord bot not configured. Missing environment variables:', config.missingVars)
         throw new Error(`Discord bot not configured. Missing: ${config.missingVars.join(', ')}`)
       }
-      
+
       this.botToken = config.botToken
+
+      // Log token info for debugging (only first and last few chars for security)
+      if (this.botToken) {
+        // Remove quotes if they exist (common mistake in .env files)
+        this.botToken = this.botToken.replace(/^["']|["']$/g, '')
+
+        const tokenPreview = `${this.botToken.substring(0, 10)}...${this.botToken.substring(this.botToken.length - 5)}`
+        console.log(`🔑 Using Discord bot token: ${tokenPreview}`)
+
+        // Basic token format validation
+        if (!validateDiscordBotToken(this.botToken)) {
+          console.error('⚠️ Discord bot token appears to be malformed')
+          console.error('Token should be in format: [base64].[base64].[base64]')
+        }
+      } else {
+        console.error('❌ Discord bot token is null or undefined')
+        throw new Error('Discord bot token is not available')
+      }
 
       // Get gateway URL with retry logic for transient errors
       const gatewayResponse = await this.fetchWithRetry("https://discord.com/api/v10/gateway/bot", {
@@ -174,8 +193,20 @@ class DiscordGateway extends SimpleEventEmitter {
       if (!gatewayResponse.ok) {
         const errorText = await gatewayResponse.text().catch(() => 'Unknown error')
         const isTransientError = gatewayResponse.status === 503 || gatewayResponse.status === 502 || gatewayResponse.status === 500
-        
-        if (isTransientError) {
+
+        if (gatewayResponse.status === 401) {
+          console.error('❌ Discord bot token is invalid or expired (401 Unauthorized)')
+          console.error('Please check:')
+          console.error('1. The DISCORD_BOT_TOKEN in your .env.local file is correct')
+          console.error('2. The bot still exists in Discord Developer Portal')
+          console.error('3. You may need to regenerate the token at: https://discord.com/developers/applications')
+
+          // Disable persistent reconnect to avoid spamming with invalid token
+          this.disablePersistentReconnect()
+          console.log('⚠️ Disabled automatic reconnection due to invalid token')
+
+          throw new Error(`Discord bot token is invalid or expired. Please update DISCORD_BOT_TOKEN in .env.local`)
+        } else if (isTransientError) {
           console.warn(`Discord Gateway transient error ${gatewayResponse.status}: ${errorText}`)
           this.scheduleReconnect(false, true) // Transient error
           return
