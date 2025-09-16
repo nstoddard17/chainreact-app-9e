@@ -3,6 +3,8 @@
 import { useEffect } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
+import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
+import { useAuthStore } from "@/stores/authStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
@@ -13,12 +15,37 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
 
 export default function AnalyticsContent() {
   const { metrics, chartData, executions, fetchMetrics, fetchChartData, fetchExecutions } = useAnalyticsStore()
+  const { user } = useAuthStore()
 
-  useEffect(() => {
-    fetchMetrics()
-    fetchChartData()
-    fetchExecutions()
-  }, [fetchMetrics, fetchChartData, fetchExecutions])
+  // Use timeout loading for fast, reliable data fetching with parallel loading
+  useTimeoutLoading({
+    loadFunction: async (force) => {
+      if (!user) return null
+
+      // Load all analytics data in parallel for maximum speed
+      const promises = [
+        fetchMetrics().catch(error => {
+          console.warn('Failed to fetch metrics:', error)
+          return null
+        }),
+        fetchChartData().catch(error => {
+          console.warn('Failed to fetch chart data:', error)
+          return null
+        }),
+        fetchExecutions().catch(error => {
+          console.warn('Failed to fetch executions:', error)
+          return null
+        })
+      ]
+
+      // Wait for all to complete
+      await Promise.allSettled(promises)
+      return true
+    },
+    timeout: 7000, // 7 second timeout for analytics
+    forceRefreshOnMount: false, // Use cached data for faster loads
+    dependencies: [user]
+  })
 
   // Mock data for additional charts
   const integrationUsage = [

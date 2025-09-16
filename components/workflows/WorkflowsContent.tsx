@@ -22,7 +22,8 @@ import AddToOrganizationDialog from "./AddToOrganizationDialog"
 import WorkflowDialog from "./WorkflowDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/cachedWorkflowStore"
-import { clearAllCachedData } from "@/stores/cacheStore"
+import { clearAllCachedData, clearStuckRequests } from "@/stores/cacheStore"
+import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
 import { RoleGuard, PermissionGuard, OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
@@ -94,48 +95,24 @@ export default function WorkflowsContent() {
   })
   const { toast } = useToast()
 
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null
-    
-    const loadData = async () => {
-      try {
-        // Set a timeout to handle stuck loading states
-        timeoutId = setTimeout(() => {
-          if (loading) {
-            console.warn("Loading timeout - forcing reload")
-            // Force a complete refresh if loading takes too long
-            loadAllWorkflows(true)
-          }
-        }, 5000) // 5 second timeout
-        
-        // Always fetch fresh data when the page loads
-        // This ensures deleted workflows don't appear
-        await loadAllWorkflows(true) // Force refresh to get latest data
-      } catch (err) {
-        console.error("Failed to load workflows:", err)
-        toast({
-          title: "Error loading workflows",
-          description: "Please refresh the page to try again",
-          variant: "destructive",
-        })
-      } finally {
-        // Clear the timeout if loading completes
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-        }
-      }
-    }
-    
-    // Always load fresh data on mount
-    loadData()
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
-  }, []) // Empty dependency array - only run on mount
+  // Use the new timeout loading hook for fast, reliable loading
+  useTimeoutLoading({
+    loadFunction: async (force) => {
+      // Always fetch fresh data for workflows to ensure deleted ones don't appear
+      return await loadAllWorkflows(true)
+    },
+    isLoading: loading,
+    timeout: 10000, // 10 second timeout for workflows
+    forceRefreshOnMount: true, // Always refresh workflows on mount
+    onError: (error) => {
+      toast({
+        title: "Error loading workflows",
+        description: "Please refresh the page to try again",
+        variant: "destructive",
+      })
+    },
+    dependencies: [] // No dependencies - only load on mount
+  })
 
   // Load user profiles for workflow creators
   useEffect(() => {

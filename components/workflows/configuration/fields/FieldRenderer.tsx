@@ -973,12 +973,14 @@ export function FieldRenderer({
 
   // Render the field content
   const fieldContent = renderFieldByType();
-  
+
   return (
-    <Card className="transition-all duration-200">
-      <CardContent className="p-4">
+    <Card className="transition-all duration-200 w-full">
+      <CardContent className="p-4 overflow-hidden">
         {field.type !== "button-toggle" && renderLabel()}
-        {fieldContent}
+        <div className="min-w-0 overflow-hidden">
+          {fieldContent}
+        </div>
         {error && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />

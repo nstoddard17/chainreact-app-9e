@@ -2112,7 +2112,12 @@ export function AIAgentConfigModal({
                                       )}
                                       {isComingSoon && (
                                         <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
-                                          Coming Soon
+                                          {/* Icon only on extra small screens */}
+                                          <span className="inline sm:hidden">⏳</span>
+                                          {/* "Soon" on small screens */}
+                                          <span className="hidden sm:inline md:hidden">Soon</span>
+                                          {/* "Coming Soon" on medium and larger screens */}
+                                          <span className="hidden md:inline">Coming Soon</span>
                                         </span>
                                       )}
                                     </div>

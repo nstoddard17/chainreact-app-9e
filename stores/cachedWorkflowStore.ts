@@ -239,18 +239,14 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
 
   console.log(`📝 Starting workflow update for ${id}`)
 
-  // Get the current workflow from the store
+  // Get the current workflow from the store - but don't try to load it
+  // This avoids potential stuck requests when saving immediately after opening
   let currentWorkflow = useCurrentWorkflowStore.getState().data
-  
-  // If the current workflow is not the one we're updating, load it first
-  if (!currentWorkflow || currentWorkflow.id !== id) {
-    try {
-      currentWorkflow = await loadWorkflow(id)
-    } catch (error) {
-      console.error("Failed to load workflow for update:", error)
-      // If we can't load the workflow, we'll update with just the provided updates
-      currentWorkflow = null
-    }
+
+  // Only use the current workflow if it matches the ID we're updating
+  if (currentWorkflow && currentWorkflow.id !== id) {
+    console.log(`📋 Current workflow doesn't match, proceeding without it`)
+    currentWorkflow = null
   }
   
   // Prepare the update data - only send the fields we're actually updating
@@ -267,21 +263,23 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     name: updateData.name
   })
 
-  // Create a timeout promise
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error("Supabase update timed out after 30 seconds")), 30000)
-  })
-
-  // Race between the update and the timeout
-  const updatePromise = supabase
-    .from("workflows")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .single()
+  // Use AbortController for better timeout handling
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    controller.abort()
+    console.error(`⏱️ Workflow update timeout after 20 seconds`)
+  }, 20000) // 20 second timeout (shorter than the save timeout)
 
   try {
-    const { data: savedData, error } = await Promise.race([updatePromise, timeoutPromise]) as any
+    const { data: savedData, error } = await supabase
+      .from("workflows")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single()
+      .abortSignal(controller.signal)
+
+    clearTimeout(timeoutId)
 
     if (error) {
       console.error(`❌ Supabase update failed for workflow ${id}:`, error)
@@ -308,7 +306,15 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     useWorkflowsListStore.getState().setData(updatedWorkflows)
 
     return savedData
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId) // Clear timeout on error
+
+    // Provide more specific error messages
+    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+      console.error(`⏱️ Workflow update timed out for ${id}`)
+      throw new Error('Update timed out. Please check your connection and try again.')
+    }
+
     console.error(`❌ Failed to update workflow ${id}:`, error)
     throw error
   }

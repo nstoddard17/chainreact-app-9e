@@ -6,6 +6,7 @@ import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
+import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -26,25 +27,39 @@ export default function DashboardContent() {
   const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
 
 
-  useEffect(() => {
-    // Only fetch data when user is available and authenticated
-    if (user) {
-      // Add a small delay to ensure authentication is fully established
-      const timeoutId = setTimeout(() => {
+  // Use timeout loading for all data fetching with parallel loading
+  useTimeoutLoading({
+    loadFunction: async (force) => {
+      if (!user) return null
+
+      // Load all data in parallel for maximum speed
+      const promises = [
         fetchMetrics().catch(error => {
-          console.warn('Failed to fetch metrics on dashboard load:', error)
-        })
+          console.warn('Failed to fetch metrics:', error)
+          return null
+        }),
         fetchChartData().catch(error => {
-          console.warn('Failed to fetch chart data on dashboard load:', error)
-        })
+          console.warn('Failed to fetch chart data:', error)
+          return null
+        }),
         fetchWorkflows().catch(error => {
-          console.warn('Failed to fetch workflows on dashboard load:', error)
+          console.warn('Failed to fetch workflows:', error)
+          return null
+        }),
+        fetchIntegrations(force).catch(error => {
+          console.warn('Failed to fetch integrations:', error)
+          return null
         })
-      }, 100)
-      
-      return () => clearTimeout(timeoutId)
-    }
-  }, [user, fetchMetrics, fetchChartData, fetchWorkflows])
+      ]
+
+      // Wait for all to complete (don't fail if some fail)
+      await Promise.allSettled(promises)
+      return true
+    },
+    timeout: 8000, // 8 second timeout for dashboard
+    forceRefreshOnMount: false, // Dashboard can use cached data
+    dependencies: [user]
+  })
 
   const getFirstName = () => {
     // First try username from profile

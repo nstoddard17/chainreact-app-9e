@@ -68,6 +68,10 @@ export function AirtableImageField({
   }, [value]);
 
   const handleFileSelect = () => {
+    // When replacing an image (images already exist), ensure we're ready for a clean replacement
+    if (images.length > 0 && !field.multiple) {
+      console.log('🔄 [AirtableImageField] Replacing existing image...');
+    }
     fileInputRef.current?.click();
   };
 
@@ -76,15 +80,15 @@ export function AirtableImageField({
     if (!files || files.length === 0) return;
 
     setUploadingFile(true);
-    
+
     try {
       const file = files[0];
-      
+
       // Convert to base64 for storage
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        
+
         // Store as an object that mimics Airtable format
         const newImage = {
           url: base64String,
@@ -96,27 +100,37 @@ export function AirtableImageField({
 
         // If field allows multiple, append to existing
         if (field.multiple && Array.isArray(value)) {
+          console.log('📎 [AirtableImageField] Adding image to multiple:', newImage.filename);
           onChange([...value, newImage]);
         } else {
-          // Single image - replace existing
-          onChange(newImage);
+          // Single image - completely replace existing
+          console.log('🔄 [AirtableImageField] Replacing image. Old:', value?.filename || 'none', '→ New:', newImage.filename);
+
+          // First clear the old value to ensure clean replacement
+          onChange(null);
+
+          // Then set the new value after a microtask to ensure React processes the clear
+          setTimeout(() => {
+            onChange(newImage);
+            console.log('✅ [AirtableImageField] Image replaced successfully');
+          }, 0);
         }
-        
+
         setUploadingFile(false);
       };
-      
+
       reader.onerror = () => {
         console.error('Error reading file');
         setUploadingFile(false);
       };
-      
+
       reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error uploading file:', error);
       setUploadingFile(false);
     }
-    
-    // Reset input
+
+    // Reset input to ensure it can detect the same file being selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -132,6 +146,7 @@ export function AirtableImageField({
   };
 
   const handleClearAll = () => {
+    console.log('🗑️ [AirtableImageField] Clearing all images');
     onChange(null);
   };
 
