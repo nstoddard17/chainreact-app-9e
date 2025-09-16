@@ -10,7 +10,12 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     'baseId',
     'tableName',
     'filterField',
-    'filterValue'
+    'filterValue',
+    'draftName',
+    'designer',
+    'associatedProject',
+    'feedback',
+    'tasks'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -18,36 +23,82 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (providerId === 'airtable' && this.supportedFields.includes(fieldName)) {
       return true;
     }
-    
-    // Handle dynamic Airtable linked record fields
+
+    // Handle dynamic Airtable fields (including our dropdown fields)
     if (providerId === 'airtable' && fieldName.startsWith('airtable_field_')) {
+      // Always handle any field with the airtable_field_ prefix
+      console.log(`✅ [AirtableOptionsLoader] canHandle returning true for ${fieldName}`);
       return true;
     }
-    
+
     return false;
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, integrationId, signal } = params;
+    const { fieldName, integrationId, signal, extraOptions } = params;
 
-    // Handle dynamic linked record fields
+    console.log(`🔍 [AirtableOptionsLoader] loadOptions called for field: ${fieldName}`, {
+      hasExtraOptions: !!extraOptions,
+      baseId: extraOptions?.baseId,
+      tableName: extraOptions?.tableName
+    });
+
+    // Handle dynamic Airtable fields
     if (fieldName.startsWith('airtable_field_')) {
-      return this.loadLinkedRecords(params);
+      // Check if it's one of our special dropdown fields
+      const actualFieldName = fieldName.replace('airtable_field_', '').toLowerCase();
+      console.log(`🔍 [AirtableOptionsLoader] Processing dynamic field, actualFieldName: ${actualFieldName}`);
+
+      if (actualFieldName.includes('draft') && actualFieldName.includes('name')) {
+        console.log(`🔍 [AirtableOptionsLoader] Loading draft names`);
+        return this.loadDynamicFieldOptions(params, 'airtable_draft_names');
+      } else if (actualFieldName.includes('designer')) {
+        console.log(`🔍 [AirtableOptionsLoader] Loading designers`);
+        return this.loadDynamicFieldOptions(params, 'airtable_designers');
+      } else if (actualFieldName.includes('project')) {
+        console.log(`🔍 [AirtableOptionsLoader] Loading projects`);
+        return this.loadDynamicFieldOptions(params, 'airtable_projects');
+      } else if (actualFieldName.includes('feedback')) {
+        console.log(`🔍 [AirtableOptionsLoader] Loading feedback`);
+        return this.loadDynamicFieldOptions(params, 'airtable_feedback');
+      } else if (actualFieldName.includes('task')) {
+        console.log(`🔍 [AirtableOptionsLoader] Loading tasks`);
+        return this.loadDynamicFieldOptions(params, 'airtable_tasks');
+      } else {
+        // Handle linked record fields
+        console.log(`🔍 [AirtableOptionsLoader] Loading linked records`);
+        return this.loadLinkedRecords(params);
+      }
     }
 
     switch (fieldName) {
       case 'baseId':
         return this.loadBases(params);
-      
+
       case 'tableName':
         return this.loadTables(params);
-      
+
       case 'filterField':
         return this.loadFields(params);
-      
+
       case 'filterValue':
         return this.loadFieldValues(params);
-      
+
+      case 'draftName':
+        return this.loadDynamicFieldOptions(params, 'airtable_draft_names');
+
+      case 'designer':
+        return this.loadDynamicFieldOptions(params, 'airtable_designers');
+
+      case 'associatedProject':
+        return this.loadDynamicFieldOptions(params, 'airtable_projects');
+
+      case 'feedback':
+        return this.loadDynamicFieldOptions(params, 'airtable_feedback');
+
+      case 'tasks':
+        return this.loadDynamicFieldOptions(params, 'airtable_tasks');
+
       default:
         return [];
     }
@@ -178,6 +229,121 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       }));
     } catch (error) {
       console.error('❌ [Airtable] Error loading fields:', error);
+      return [];
+    }
+  }
+
+  private async loadDynamicFieldOptions(params: LoadOptionsParams, dataType: string): Promise<FormattedOption[]> {
+    const { extraOptions, integrationId, signal, fieldName } = params;
+
+    console.log(`📊 [loadDynamicFieldOptions] Called with:`, {
+      fieldName,
+      dataType,
+      integrationId,
+      extraOptions
+    });
+
+    if (!integrationId) {
+      console.log(`🔍 [Airtable] Cannot load ${dataType} without integrationId`);
+      return [];
+    }
+
+    const baseId = extraOptions?.baseId;
+    const tableName = extraOptions?.tableName;
+
+    if (!baseId || !tableName) {
+      console.log(`🔍 [Airtable] Cannot load ${dataType} without baseId and tableName`, {
+        baseId,
+        tableName,
+        extraOptions
+      });
+      return [];
+    }
+
+    // For linked record fields, we need to fetch from the linked table
+    if (dataType === 'airtable_projects' || dataType === 'airtable_feedback' || dataType === 'airtable_tasks') {
+      // Map data types to linked table names
+      const linkedTableMap: Record<string, string> = {
+        'airtable_projects': 'Projects',
+        'airtable_feedback': 'Feedback',
+        'airtable_tasks': 'Tasks'
+      };
+
+      const linkedTableName = linkedTableMap[dataType];
+
+      try {
+        const response = await fetch('/api/integrations/airtable/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId,
+            dataType: 'airtable_linked_records',
+            options: {
+              baseId,
+              linkedTableName
+            }
+          }),
+          signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load linked records from ${linkedTableName}: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const options = result.data || [];
+
+        console.log(`📊 [loadDynamicFieldOptions] Linked table response for ${linkedTableName}:`, {
+          status: response.status,
+          dataCount: options.length,
+          firstOption: options[0]
+        });
+
+        return options.map((option: any) => ({
+          value: option.value || option.id,
+          label: option.label || option.name || option.value
+        }));
+      } catch (error) {
+        console.error(`❌ [Airtable] Error loading linked records from ${linkedTableName}:`, error);
+        return [];
+      }
+    }
+
+    // For regular fields, use the existing data handlers
+    try {
+      const response = await fetch('/api/integrations/airtable/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId,
+          dataType,
+          options: {
+            baseId,
+            tableName
+          }
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load ${dataType}: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const options = result.data || [];
+
+      console.log(`📊 [loadDynamicFieldOptions] Regular field response for ${dataType}:`, {
+        status: response.status,
+        dataCount: options.length,
+        firstOption: options[0]
+      });
+
+      return options.map((option: any) => ({
+        value: option.value || option.id,
+        label: option.label || option.name || option.value
+      }));
+    } catch (error) {
+      console.error(`❌ [Airtable] Error loading ${dataType}:`, error);
       return [];
     }
   }
@@ -417,20 +583,41 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   }
 
   getFieldDependencies(fieldName: string): string[] {
+    // Handle dynamic Airtable fields with prefix
+    if (fieldName.startsWith('airtable_field_')) {
+      const actualFieldName = fieldName.replace('airtable_field_', '').toLowerCase();
+
+      // Check if it's one of our special dropdown fields
+      if (actualFieldName.includes('draft name') ||
+          actualFieldName.includes('designer') ||
+          actualFieldName.includes('associated project') ||
+          actualFieldName.includes('feedback') ||
+          actualFieldName.includes('tasks')) {
+        return ['tableName'];
+      }
+
+      // All other dynamic fields depend on tableName
+      return ['tableName'];
+    }
+
     switch (fieldName) {
       case 'tableName':
         return ['baseId'];
-      
+
       case 'filterField':
         return ['tableName'];
-      
+
       case 'filterValue':
         return ['filterField'];
-      
+
+      case 'draftName':
+      case 'designer':
+      case 'associatedProject':
+      case 'feedback':
+      case 'tasks':
+        return ['tableName'];
+
       default:
-        if (fieldName.startsWith('airtable_field_')) {
-          return ['tableName'];
-        }
         return [];
     }
   }

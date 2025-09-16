@@ -232,6 +232,11 @@ const airtableMappings: Record<string, FieldMapping> = {
   airtable_action_create_record: {
     baseId: "airtable_bases",
     tableName: "airtable_tables",
+    draftName: "airtable_draft_names",
+    designer: "airtable_designers",
+    associatedProject: "airtable_projects",
+    feedback: "airtable_feedback",
+    tasks: "airtable_tasks",
   },
   airtable_action_update_record: {
     baseId: "airtable_bases",

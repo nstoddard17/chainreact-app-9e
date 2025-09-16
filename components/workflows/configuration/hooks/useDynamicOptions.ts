@@ -373,71 +373,92 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Special handling for dynamic Airtable fields (linked records)
       if (fieldName.startsWith('airtable_field_') && providerId === 'airtable') {
-        
-        // Get the form values to find the base and linked table info
-        const formValues = getFormValues?.() || {};
-        const baseId = extraOptions?.baseId || formValues.baseId;
-        
-        if (!baseId) {
-          setDynamicOptions(prev => ({
-            ...prev,
-            [fieldName]: []
-          }));
-          // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
-            setLoading(false);
-            activeRequestIds.current.delete(cacheKey);
+
+        // First, check if this is one of our special dropdown fields
+        // Extract the actual field name (without the prefix)
+        const actualFieldName = fieldName.replace('airtable_field_', '');
+        const actualFieldNameLower = actualFieldName.toLowerCase().replace(/\s+/g, ' ');
+        const isDropdownField =
+          actualFieldNameLower.includes('draft name') ||
+          actualFieldNameLower.includes('designer') ||
+          actualFieldNameLower.includes('associated project') ||
+          actualFieldNameLower.includes('feedback') ||
+          actualFieldNameLower.includes('task');
+
+        // If it's a dropdown field, skip all the linked record handling and go to custom loader
+        if (isDropdownField) {
+          console.log(`🔍 [useDynamicOptions] Detected dropdown field ${fieldName}, skipping linked record handling to use custom loader`);
+          // Don't return here - let it fall through to the custom loader section below
+        } else {
+          // It's not a dropdown field, do the normal linked record handling
+
+          // Get the form values to find the base and linked table info
+          const formValues = getFormValues?.() || {};
+          const baseId = extraOptions?.baseId || formValues.baseId;
+
+          if (!baseId) {
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+            }
+            return;
           }
-          return;
-        }
-        
-        // Use tableFields from extraOptions if provided, otherwise try to get from cache
-        let tableFields = extraOptions?.tableFields;
-        
-        if (!tableFields) {
-          // Fallback to trying to get from cache
-          const selectedTable = optionsCache.current.tableName?.find((table: any) => 
-            table.value === formValues.tableName
-          ) || dynamicOptions?.tableName?.find((table: any) => 
-            table.value === formValues.tableName
-          );
-          
-          tableFields = selectedTable?.fields;
-        }
-        
-        if (!tableFields) {
-          setDynamicOptions(prev => ({
-            ...prev,
-            [fieldName]: []
-          }));
-          // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
-            setLoading(false);
-            activeRequestIds.current.delete(cacheKey);
+
+          // Use tableFields from extraOptions if provided, otherwise try to get from cache
+          let tableFields = extraOptions?.tableFields;
+
+          if (!tableFields) {
+            // Fallback to trying to get from cache
+            const selectedTable = optionsCache.current.tableName?.find((table: any) =>
+              table.value === formValues.tableName
+            ) || dynamicOptions?.tableName?.find((table: any) =>
+              table.value === formValues.tableName
+            );
+
+            tableFields = selectedTable?.fields;
           }
-          return;
-        }
-        
+
+          if (!tableFields) {
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+            }
+            return;
+          }
+
         // Find the field configuration by name (not ID)
         // The field name is "airtable_field_Associated Project" so we extract "Associated Project"
-        const actualFieldName = fieldName.replace('airtable_field_', '');
+        // actualFieldName is already declared above
         const tableField = tableFields.find((f: any) => f.name === actualFieldName);
-        
-        
-        if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
-          // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
-            setLoading(false);
-            activeRequestIds.current.delete(cacheKey);
+
+        // We've already checked if it's a dropdown field above, so this should always be a linked record field
+        console.log(`🔍 [useDynamicOptions] Field ${fieldName} is NOT a dropdown field, checking for linked record`);
+        // Only do linked record handling for actual linked record fields
+          if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
+            // Only clear loading and return for non-dropdown fields that aren't linked records
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              loadingFields.current.delete(cacheKey);
+              setLoading(false);
+              activeRequestIds.current.delete(cacheKey);
+            }
+            return;
           }
-          return;
-        }
-        
-        // Get the linked table ID from field options
-        const linkedTableId = tableField.options?.linkedTableId;
+
+          // Get the linked table ID from field options
+          const linkedTableId = tableField.options?.linkedTableId;
         let linkedTableName: string | null = null;
         
         // If no linkedTableId, try to guess the table name from the field name
@@ -641,6 +662,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           }
         }
         return;
+        } // End of else block for linked record handling
       }
 
       
@@ -649,10 +671,22 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         // Import provider registry
         const { providerRegistry } = await import('../providers/registry');
         const loader = providerRegistry.getLoader(providerId, fieldName);
-        
+
         if (loader) {
           console.log(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
-          
+
+          // For Airtable fields that depend on tableName, ensure baseId and tableName are in extraOptions
+          let enhancedExtraOptions = extraOptions || {};
+          if (providerId === 'airtable') {
+            const formValues = getFormValues?.() || {};
+            if (!enhancedExtraOptions.baseId && formValues.baseId) {
+              enhancedExtraOptions.baseId = formValues.baseId;
+            }
+            if (!enhancedExtraOptions.tableName && formValues.tableName) {
+              enhancedExtraOptions.tableName = formValues.tableName;
+            }
+          }
+
           const formattedOptions = await loader.loadOptions({
             fieldName,
             nodeType,
@@ -661,18 +695,37 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             dependsOn,
             dependsOnValue,
             forceRefresh,
-            extraOptions
+            extraOptions: enhancedExtraOptions
           });
-          
+
+          console.log(`📊 [useDynamicOptions] Loader returned options for ${fieldName}:`, {
+            optionsCount: formattedOptions?.length || 0,
+            firstOption: formattedOptions?.[0],
+            requestId,
+            currentRequestId: activeRequestIds.current.get(cacheKey),
+            isCurrentRequest: activeRequestIds.current.get(cacheKey) === requestId
+          });
+
           // Check if this is still the current request
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            console.log(`⚠️ [useDynamicOptions] Request ${requestId} is no longer current for ${fieldName}, skipping state update`);
             return;
           }
-          
-          setDynamicOptions(prev => ({
-            ...prev,
-            [fieldName]: formattedOptions
-          }));
+
+          console.log(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
+
+          setDynamicOptions(prev => {
+            const newState = {
+              ...prev,
+              [fieldName]: formattedOptions
+            };
+            console.log(`📝 [useDynamicOptions] State update for ${fieldName}:`, {
+              previousValue: prev[fieldName],
+              newValue: formattedOptions,
+              fullNewState: newState
+            });
+            return newState;
+          });
           
           // Clear loading state
           if (activeRequestIds.current.get(cacheKey) === requestId) {
@@ -1394,6 +1447,25 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     };
   }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
   
+  // Debug logging for current state
+  useEffect(() => {
+    const airtableFields = Object.keys(dynamicOptions).filter(key =>
+      key.startsWith('airtable_field_')
+    );
+    if (airtableFields.length > 0) {
+      console.log(`🔍 [useDynamicOptions] Current Airtable field options:`,
+        airtableFields.reduce((acc, key) => {
+          acc[key] = {
+            hasOptions: !!dynamicOptions[key],
+            optionCount: dynamicOptions[key]?.length || 0,
+            firstOption: dynamicOptions[key]?.[0]
+          };
+          return acc;
+        }, {} as Record<string, any>)
+      );
+    }
+  }, [dynamicOptions]);
+
   return {
     dynamicOptions,
     loading,

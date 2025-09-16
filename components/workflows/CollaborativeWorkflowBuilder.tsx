@@ -404,20 +404,20 @@ const useWorkflowBuilderState = () => {
       return false;
     }
     
-    // For Microsoft services, check if ANY Microsoft service is connected
-    // Microsoft services might share authentication
+    // For Microsoft services, each service requires its own separate authentication
+    // Unlike Google services, Microsoft services don't share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      const microsoftServices = ['microsoft-onenote', 'microsoft-outlook', 'microsoft-teams', 'onedrive',
-                                 'onenote', 'outlook', 'teams'];
-      const connectedMicrosoftService = freshIntegrations?.find(i => 
-        microsoftServices.includes(i.provider) && 
+      // Check for the specific Microsoft service only
+      const possibleProviders = providerMappings[integrationId] || [integrationId];
+      const connectedMicrosoftService = freshIntegrations?.find(i =>
+        possibleProviders.includes(i.provider) &&
         i.status === 'connected'
       );
-      
+
       if (connectedMicrosoftService) {
         return true;
       }
-      
+
       return false;
     }
     

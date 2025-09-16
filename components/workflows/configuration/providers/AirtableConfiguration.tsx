@@ -379,11 +379,39 @@ export function AirtableConfiguration({
   // Get dynamic fields from schema
   const getDynamicFields = () => {
     if (!airtableTableSchema?.fields) return [];
-    
+
     return airtableTableSchema.fields.map((field: any) => {
+      // Check if this field should use dynamic dropdown data
+      const fieldNameLower = field.name.toLowerCase();
+      const shouldUseDynamicDropdown =
+        fieldNameLower.includes('draft name') ||
+        fieldNameLower.includes('designer') ||
+        fieldNameLower.includes('associated project') ||
+        fieldNameLower.includes('feedback') ||
+        fieldNameLower.includes('tasks');
+
+      // Determine the dynamic data type based on field name
+      let dynamicDataType = null;
+      if (fieldNameLower.includes('draft name')) {
+        dynamicDataType = 'airtable_draft_names';
+      } else if (fieldNameLower.includes('designer')) {
+        dynamicDataType = 'airtable_designers';
+      } else if (fieldNameLower.includes('associated project')) {
+        dynamicDataType = 'airtable_projects';
+      } else if (fieldNameLower.includes('feedback')) {
+        dynamicDataType = 'airtable_feedback';
+      } else if (fieldNameLower.includes('tasks')) {
+        dynamicDataType = 'airtable_tasks';
+      }
+
       // Use the helper function to determine field type
-      const fieldType = getAirtableFieldTypeFromSchema(field);
-      
+      let fieldType = getAirtableFieldTypeFromSchema(field);
+
+      // Override field type to select for specific fields
+      if (shouldUseDynamicDropdown) {
+        fieldType = 'select';
+      }
+
       // Extract options for select fields
       let fieldOptions = null;
       if (field.options?.choices) {
@@ -393,17 +421,19 @@ export function AirtableConfiguration({
           color: choice.color
         }));
       }
-      
+
       return {
         name: `airtable_field_${field.name}`,  // Use field name instead of ID for consistency
         label: field.name,
         type: fieldType,
         required: false,
-        placeholder: `Enter value for ${field.name}`,
-        dynamic: true,
+        placeholder: shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`,
+        dynamic: shouldUseDynamicDropdown ? dynamicDataType : true,
         airtableFieldType: field.type,
         airtableFieldId: field.id,  // Store the ID separately if needed
         options: fieldOptions,
+        dependsOn: shouldUseDynamicDropdown ? 'tableName' : undefined,
+        multiple: fieldNameLower.includes('tasks'), // Tasks field should allow multiple selection
         // Add metadata for special field types
         ...(field.type === 'multipleAttachments' && { multiple: true }),
         ...(field.type === 'rating' && { max: field.options?.max || 5 }),
@@ -445,60 +475,73 @@ export function AirtableConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    console.log('🔍 [AirtableConfig] handleDynamicLoad called:', { 
-      fieldName, 
-      dependsOn, 
+    console.log('🔍 [AirtableConfig] handleDynamicLoad called:', {
+      fieldName,
+      dependsOn,
       dependsOnValue,
-      forceReload 
+      forceReload
     });
-    
+
+    // Prepare extraOptions with baseId and tableName for Airtable fields
+    const extraOptions = {
+      baseId: values.baseId,
+      tableName: values.tableName
+    };
+
+    console.log('🔍 [AirtableConfig] Loading options for dynamic field:', {
+      fieldName,
+      baseId: values.baseId,
+      tableName: values.tableName,
+      extraOptions
+    });
+
     // First check if it's a dynamic Airtable field (linked records, etc.)
     if (fieldName.startsWith('airtable_field_')) {
       // This is a dynamic field from the table schema
       const dynamicField = dynamicFields.find((f: any) => f.name === fieldName);
-      
+
       if (dynamicField) {
         console.log('🔍 [AirtableConfig] Loading options for dynamic field:', {
           fieldName,
           fieldType: dynamicField.airtableFieldType,
-          isLinkedRecord: dynamicField.airtableFieldType === 'multipleRecordLinks' || 
+          isLinkedRecord: dynamicField.airtableFieldType === 'multipleRecordLinks' ||
                          dynamicField.airtableFieldType === 'singleRecordLink'
         });
-        
+
         // For linked record fields, always load the linked records
-        if (dynamicField.airtableFieldType === 'multipleRecordLinks' || 
+        if (dynamicField.airtableFieldType === 'multipleRecordLinks' ||
             dynamicField.airtableFieldType === 'singleRecordLink') {
           // Load linked records - loadOptions will handle this specially
-          await loadOptions(fieldName, undefined, undefined, forceReload);
+          await loadOptions(fieldName, undefined, undefined, forceReload, false, extraOptions);
         }
-        // For other dynamic fields with options
-        else if (dynamicField.options) {
-          // Options are already embedded in the field, no need to load
-          console.log('🔍 [AirtableConfig] Field has embedded options, no loading needed');
+        // For other dynamic dropdown fields, also load with extraOptions
+        else {
+          // Load with extraOptions for dropdown fields
+          await loadOptions(fieldName, undefined, undefined, forceReload, false, extraOptions);
         }
         return;
       }
     }
-    
+
     // Check in the regular config schema
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
       console.warn('Field not found in schema:', fieldName);
       return;
     }
-    
+
     try {
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
-        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
-      } 
+        await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload, false, extraOptions);
+      }
       // Otherwise check field's defined dependencies
       else if (field.dependsOn && values[field.dependsOn]) {
-        await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload);
-      } 
+        await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload, false, extraOptions);
+      }
       // No dependencies, just load the field
       else {
-        await loadOptions(fieldName, undefined, undefined, forceReload);
+        await loadOptions(fieldName, undefined, undefined, forceReload, false, extraOptions);
       }
     } catch (error) {
       console.error('Error loading dynamic options:', error);
@@ -695,25 +738,25 @@ export function AirtableConfiguration({
   // Load linked record options when a record is selected
   useEffect(() => {
     if (!values.recordId || !dynamicFields.length) return;
-    
+
     console.log('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
-    
+
     // Find linked fields that haven't been loaded yet
-    const linkedFieldsToLoad = dynamicFields.filter(field => 
+    const linkedFieldsToLoad = dynamicFields.filter(field =>
       (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') &&
       !loadedLinkedFields.has(field.name)
     );
-    
+
     if (linkedFieldsToLoad.length > 0) {
       console.log('🟢 [LINKED FIELDS] Loading options for linked fields:', linkedFieldsToLoad.map(f => f.name));
-      
+
       // Mark fields as loaded
       setLoadedLinkedFields(prev => {
         const newSet = new Set(prev);
         linkedFieldsToLoad.forEach(field => newSet.add(field.name));
         return newSet;
       });
-      
+
       // Load options for each linked field with table schema context
       linkedFieldsToLoad.forEach(field => {
         // Pass the table schema as extra options so the loader can find the linked table
@@ -722,19 +765,62 @@ export function AirtableConfiguration({
           tableName: values.tableName,
           tableFields: airtableTableSchema?.fields || []
         };
-        
+
         console.log('🟢 [LINKED FIELDS] Loading with context:', {
           fieldName: field.name,
           fieldType: field.airtableFieldType,
           extraOptions
         });
-        
+
         // The loadOptions expects these parameters: fieldName, dependsOn, dependsOnValue, forceRefresh, silent, extraOptions
         // We pass extraOptions at the end
         loadOptions(field.name, undefined, undefined, true, false, extraOptions);
       });
     }
   }, [values.recordId, values.baseId, values.tableName, dynamicFields.length, loadOptions, loadedLinkedFields, airtableTableSchema]); // Include all dependencies
+
+  // Load dropdown options for dynamic fields when they become visible
+  useEffect(() => {
+    if (!dynamicFields.length || !values.tableName || !values.baseId) return;
+
+    console.log('🔄 [DROPDOWN FIELDS] Checking for dropdown fields to load');
+
+    // Find dropdown fields that need loading
+    const dropdownFieldsToLoad = dynamicFields.filter(field => {
+      // Check if it's a dropdown field with dynamic data
+      if (typeof field.dynamic !== 'string') return false;
+
+      const dynamicType = field.dynamic;
+      return (
+        dynamicType === 'airtable_draft_names' ||
+        dynamicType === 'airtable_designers' ||
+        dynamicType === 'airtable_projects' ||
+        dynamicType === 'airtable_feedback' ||
+        dynamicType === 'airtable_tasks'
+      );
+    });
+
+    if (dropdownFieldsToLoad.length > 0) {
+      console.log('🔄 [DROPDOWN FIELDS] Loading options for dropdown fields:', dropdownFieldsToLoad.map(f => f.name));
+
+      // Load options for each dropdown field
+      dropdownFieldsToLoad.forEach(field => {
+        const extraOptions = {
+          baseId: values.baseId,
+          tableName: values.tableName
+        };
+
+        console.log('🔄 [DROPDOWN FIELDS] Loading with context:', {
+          fieldName: field.name,
+          dynamicType: field.dynamic,
+          extraOptions
+        });
+
+        // Load the options
+        loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions);
+      });
+    }
+  }, [dynamicFields.length, values.tableName, values.baseId, loadOptions]);
   
   // Initialize bubbles from existing values (for editing existing records)
   useEffect(() => {
@@ -960,7 +1046,17 @@ export function AirtableConfiguration({
       return isFieldVisible(field);
     });
     
-    return visibleFields.map((field, index) => (
+    return visibleFields.map((field, index) => {
+      console.log(`🎨 [RENDER] Rendering field ${field.name}:`, {
+        fieldName: field.name,
+        fieldType: field.type,
+        dynamic: field.dynamic,
+        hasOptions: !!dynamicOptions[field.name],
+        optionCount: dynamicOptions[field.name]?.length || 0,
+        firstOption: dynamicOptions[field.name]?.[0]
+      });
+
+      return (
       <React.Fragment key={`field-${field.name}-${index}`}>
         <FieldRenderer
           field={field}
@@ -1043,7 +1139,7 @@ export function AirtableConfiguration({
           );
         })()}
       </React.Fragment>
-    ));
+    )});
   };
 
   // Handle form submission
@@ -1258,9 +1354,6 @@ export function AirtableConfiguration({
             {/* Dynamic fields for create/update */}
             {(isCreateRecord || (isUpdateRecord && selectedRecord)) && dynamicFields.length > 0 && (
               <div className="mt-6 space-y-3">
-                <h3 className="text-sm font-medium text-slate-700">
-                  {isCreateRecord ? 'Record Fields' : 'Update Fields'}
-                </h3>
                 {renderFields(dynamicFields, true)}
               </div>
             )}
