@@ -44,6 +44,11 @@ export class IntegrationNodeHandlers {
       return await this.executeAirtableAction(node, context)
     }
 
+    // Notion integrations
+    if (nodeType.startsWith('notion_')) {
+      return await this.executeNotionAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -284,6 +289,109 @@ export class IntegrationNodeHandlers {
 
       default:
         throw new Error(`Unknown Airtable action type: ${nodeType}`)
+    }
+  }
+
+  private async executeNotionAction(node: any, context: ExecutionContext) {
+    console.log("📝 Executing Notion action")
+
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    // Handle different Notion action types
+    switch (nodeType) {
+      case "notion_action_manage_page":
+        // Import and use the actual Notion manage page handler
+        const { executeNotionManagePage } = await import("@/lib/workflows/actions/registry")
+
+        const managePageResult = await executeNotionManagePage(
+          config,
+          context
+        )
+
+        if (!managePageResult.success) {
+          throw new Error(managePageResult.message || "Failed to execute Notion manage page action")
+        }
+
+        return managePageResult.output
+
+      case "notion_action_manage_database":
+        // Import and use the actual Notion manage database handler
+        const { executeNotionManageDatabase } = await import("@/lib/workflows/actions/registry")
+
+        const manageDatabaseResult = await executeNotionManageDatabase(
+          config,
+          context
+        )
+
+        if (!manageDatabaseResult.success) {
+          throw new Error(manageDatabaseResult.message || "Failed to execute Notion manage database action")
+        }
+
+        return manageDatabaseResult.output
+
+      case "notion_action_manage_comments":
+        // Import and use the actual Notion manage comments handler
+        const { executeNotionManageComments } = await import("@/lib/workflows/actions/registry")
+
+        const manageCommentsResult = await executeNotionManageComments(
+          config,
+          context
+        )
+
+        if (!manageCommentsResult.success) {
+          throw new Error(manageCommentsResult.message || "Failed to execute Notion manage comments action")
+        }
+
+        return manageCommentsResult.output
+
+      case "notion_action_manage_users":
+        // Import and use the actual Notion manage users handler
+        const { executeNotionManageUsers } = await import("@/lib/workflows/actions/registry")
+
+        const manageUsersResult = await executeNotionManageUsers(
+          config,
+          context
+        )
+
+        if (!manageUsersResult.success) {
+          throw new Error(manageUsersResult.message || "Failed to execute Notion manage users action")
+        }
+
+        return manageUsersResult.output
+
+      case "notion_action_get_page_details":
+        // Import and use the actual Notion get page details handler
+        const { executeNotionGetPageDetails } = await import("@/lib/workflows/actions/registry")
+
+        const getPageDetailsResult = await executeNotionGetPageDetails(
+          config,
+          context
+        )
+
+        if (!getPageDetailsResult.success) {
+          throw new Error(getPageDetailsResult.message || "Failed to execute Notion get page details action")
+        }
+
+        return getPageDetailsResult.output
+
+      case "notion_action_search":
+        // Import and use the actual Notion search handler
+        const { executeNotionSearch } = await import("@/lib/workflows/actions/registry")
+
+        const searchResult = await executeNotionSearch(
+          config,
+          context
+        )
+
+        if (!searchResult.success) {
+          throw new Error(searchResult.message || "Failed to execute Notion search action")
+        }
+
+        return searchResult.output
+
+      default:
+        throw new Error(`Unknown Notion action type: ${nodeType}`)
     }
   }
 

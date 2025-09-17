@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
 interface NotionConfigurationProps {
@@ -257,56 +257,8 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     loadPages();
   }, [values.workspace, values.operation, nodeInfo, loadOptions, props.dynamicOptions, loadingFields]); // Load when workspace or operation changes
   
-  // Auto-load databases when workspace is selected and operation requires it
-  useEffect(() => {
-    const loadDatabases = async () => {
-      // Check if we have a workspace selected and the database field exists
-      const hasDatabaseField = nodeInfo?.configSchema?.some((field: any) => 
-        field.name === 'database' && field.dependsOn === 'workspace'
-      );
-      
-      if (!hasDatabaseField || !values.workspace) {
-        return;
-      }
-      
-      // For unified actions, check if operation is selected and requires database
-      const isUnifiedAction = nodeInfo?.type?.includes('_manage_');
-      if (isUnifiedAction) {
-        // Check if operation field exists and has a value that shows database field
-        const hasOperationField = nodeInfo?.configSchema?.some((field: any) => 
-          field.name === 'operation'
-        );
-        
-        if (hasOperationField) {
-          // Check if the selected operation shows the database field
-          const databaseField = nodeInfo?.configSchema?.find((field: any) => field.name === 'database');
-          if (databaseField?.visibilityCondition?.operator === 'in') {
-            const operationsRequiringDatabase = databaseField.visibilityCondition.value;
-            if (!operationsRequiringDatabase?.includes(values.operation)) {
-              console.log('🔄 [NotionConfig] Skipping database load - operation does not require database');
-              return;
-            }
-          } else if (!values.operation) {
-            console.log('🔄 [NotionConfig] Skipping database load - operation not selected yet');
-            return;
-          }
-        }
-      }
-      
-      console.log('🔄 [NotionConfig] Auto-loading databases for workspace:', values.workspace);
-      
-      // Check if we already have databases loaded for this workspace
-      if (!props.dynamicOptions['database']?.length && !loadingFields.has('database')) {
-        try {
-          await loadOptions('database', 'workspace', values.workspace, true);
-        } catch (error) {
-          console.error('  ❌ Failed to auto-load databases:', error);
-        }
-      }
-    };
-    
-    loadDatabases();
-  }, [values.workspace, values.operation, nodeInfo, loadOptions, props.dynamicOptions, loadingFields]); // Load when workspace or operation changes
+  // Remove auto-loading - let fields load when they're opened/focused
+  // This prevents the infinite reload loop when there are no options
   
   // Create modified loading fields to include workspace loading state
   const modifiedLoadingFields = useMemo(() => {
