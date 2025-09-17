@@ -249,8 +249,21 @@ export function GenericConfiguration({
             }
           }
         } else {
-          // Simple equality check (legacy format)
-          if (actualValue !== condition) return false;
+          // Handle special string conditions
+          if (condition === "!empty") {
+            // Check if field has a value (not empty, null, or undefined)
+            if (!actualValue || (typeof actualValue === 'string' && actualValue.trim() === '')) {
+              return false;
+            }
+          } else if (condition === "empty") {
+            // Check if field is empty
+            if (actualValue && (typeof actualValue !== 'string' || actualValue.trim() !== '')) {
+              return false;
+            }
+          } else {
+            // Simple equality check (legacy format)
+            if (actualValue !== condition) return false;
+          }
         }
       }
     }

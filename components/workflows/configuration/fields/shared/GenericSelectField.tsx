@@ -234,7 +234,9 @@ export function GenericSelectField({
           disabled={isLoading}
         >
           <SelectValue placeholder={field.placeholder || "Select an option..."}>
-            {displayValue || (field.placeholder || "Select an option...")}
+            {displayValue ? displayValue : (
+              <span className="text-white">{field.placeholder || "Select an option..."}</span>
+            )}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
