@@ -13,13 +13,16 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       const fieldToDataTypeMap: Record<string, string> = {
         'workspace': 'workspaces',
         'database': 'databases',
+        'parentDatabase': 'databases',
         'page': 'pages',
+        'parentPage': 'pages',
         'page_id': 'pages',
         'databaseProperties': 'properties',
         'databaseFields': 'database_fields',
         'after': 'blocks',
         'block_id': 'blocks',
         'user_id': 'users',
+        'userId': 'users',
         'template': 'templates',
         'filter': 'filter_types',
         'database_id': 'databases',
@@ -41,8 +44,9 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       }
       
       // Add workspace filter if present
-      if (dependsOnValue && (fieldName === 'page_id' || fieldName === 'database_id' || fieldName === 'user_id' || 
-          fieldName === 'source_page_id' || fieldName === 'destination_page_id' || fieldName === 'destination_database_id')) {
+      if (dependsOnValue && (fieldName === 'page_id' || fieldName === 'database_id' || fieldName === 'user_id' ||
+          fieldName === 'source_page_id' || fieldName === 'destination_page_id' || fieldName === 'destination_database_id' ||
+          fieldName === 'parentDatabase' || fieldName === 'parentPage' || fieldName === 'page' || fieldName === 'database' || fieldName === 'userId')) {
         requestBody.options.workspaceId = dependsOnValue
       }
       

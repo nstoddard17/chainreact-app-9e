@@ -65,6 +65,57 @@ export const notionUnifiedActions: NodeComponent[] = [
           value: ["update", "append", "get_details", "archive", "duplicate"]
         }
       },
+      // Parent type selection for create operation
+      {
+        name: "parentType",
+        label: "Create In",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "database", label: "Database (as database entry)" },
+          { value: "page", label: "Page (as child page)" }
+        ],
+        placeholder: "Select where to create the page",
+        description: "Choose whether to create the page in a database or under another page",
+        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
+      },
+      // Database selection for create operation when parentType is database
+      {
+        name: "parentDatabase",
+        label: "Select Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: false, // Will be validated conditionally based on parentType
+        placeholder: "Select the database to create the page in",
+        description: "The page will be created as an entry in this database",
+        dependsOn: "workspace",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "create" },
+            { field: "parentType", operator: "equals", value: "database" }
+          ]
+        }
+      },
+      // Parent page selection for create operation when parentType is page
+      {
+        name: "parentPage",
+        label: "Parent Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: false, // Will be validated conditionally based on parentType
+        placeholder: "Search for a parent page...",
+        description: "The page will be created as a child of this page",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "create" },
+            { field: "parentType", operator: "equals", value: "page" }
+          ]
+        }
+      },
       // For update database operation - database selection
       {
         name: "database",
@@ -76,7 +127,20 @@ export const notionUnifiedActions: NodeComponent[] = [
         dependsOn: "workspace",
         visibilityCondition: { field: "operation", operator: "equals", value: "update_database" }
       },
-      // Title field for all operations including update_database
+      // Title field for create/update page operations
+      {
+        name: "title",
+        label: "Page Title",
+        type: "text",
+        required: true,
+        placeholder: "Enter page title",
+        visibilityCondition: {
+          field: "operation",
+          operator: "in",
+          value: ["create", "update"]
+        }
+      },
+      // Title field specifically for database operations
       {
         name: "title",
         label: "Database Title",
@@ -86,7 +150,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         visibilityCondition: {
           field: "operation",
           operator: "in",
-          value: ["create", "create_database", "update", "update_database"]
+          value: ["create_database", "update_database"]
         }
       },
       // Description field specifically for update_database
