@@ -198,8 +198,10 @@ export function AirtableRecordsTable({
                 )}
                 onClick={() => onSelectRecord?.(record)}
               >
-                <td className="px-4 py-3 text-sm text-blue-400 truncate" style={{ width: '20%', minWidth: '120px' }}>
-                  {record.id}
+                <td className="px-4 py-3 text-sm text-blue-400" style={{ width: '20%', minWidth: '120px' }}>
+                  <span className="whitespace-nowrap" title={record.id}>
+                    {record.id}
+                  </span>
                 </td>
                 {fieldNames.map(field => {
                   const value = record.fields?.[field];
@@ -240,9 +242,9 @@ export function AirtableRecordsTable({
                           )}
                         </div>
                       ) : (
-                        <div className="truncate" title={renderFieldValue(value)}>
+                        <span className="whitespace-nowrap" title={renderFieldValue(value)}>
                           {renderFieldValue(value)}
-                        </div>
+                        </span>
                       )}
                     </td>
                   );
