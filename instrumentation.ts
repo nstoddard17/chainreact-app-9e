@@ -1,3 +1,6 @@
+// Track initialization to prevent multiple attempts
+let isDiscordInitialized = false
+
 export async function register() {
   // Only run on server side, not during build, and only in Node.js runtime
   if (
@@ -7,9 +10,20 @@ export async function register() {
   ) {
     console.log('🚀 Starting server-side instrumentation...')
 
+    // Prevent multiple initializations (Next.js may call register multiple times)
+    if (isDiscordInitialized) {
+      console.log('⏭️ Discord bot already initialized, skipping...')
+      return
+    }
+
     // Delay initialization to avoid issues during build
     setTimeout(async () => {
       try {
+        // Double-check we haven't initialized in the meantime
+        if (isDiscordInitialized) {
+          return
+        }
+
         // Dynamically import to avoid build-time issues
         const { checkDiscordBotConfig } = await import('@/lib/utils/discordConfig')
         const config = checkDiscordBotConfig()
@@ -17,10 +31,13 @@ export async function register() {
         if (config.isConfigured) {
           console.log('🤖 Discord bot configured, initializing gateway connection...')
 
+          // Mark as initialized BEFORE attempting connection
+          isDiscordInitialized = true
+
           // Dynamically import Discord gateway
           const { initializeDiscordGateway } = await import('@/lib/integrations/discordGateway')
 
-          // Start the Discord gateway connection
+          // Start the Discord gateway connection (with singleton protection)
           await initializeDiscordGateway()
 
           console.log('✅ Discord bot gateway connection initialized')
@@ -29,6 +46,8 @@ export async function register() {
         }
       } catch (error) {
         console.error('❌ Failed to initialize Discord bot:', error)
+        // Reset flag on error so it can be retried if needed
+        isDiscordInitialized = false
       }
     }, 1000) // 1 second delay to let the server fully initialize
   }

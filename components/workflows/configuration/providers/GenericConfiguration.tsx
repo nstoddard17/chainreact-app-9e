@@ -2,10 +2,10 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 
 interface GenericConfigurationProps {
   nodeInfo: any;
@@ -454,43 +454,30 @@ export function GenericConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 min-h-0 px-8 py-5 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="space-y-4 pr-4">
-            {/* Base fields */}
-            {baseFields.length > 0 && (
-              <div className="space-y-3">
-                {renderFields(baseFields)}
-              </div>
-            )}
-            
-            {/* Advanced fields */}
-            {advancedFields.length > 0 && (
-              <>
-                <div className="border-t border-slate-200 pt-4 mt-6">
-                  <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
-                  <div className="space-y-3">
-                    {renderFields(advancedFields)}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-      
-      <div className="border-t border-slate-200 dark:border-slate-700 px-8 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit">
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
+      {/* Base fields */}
+      {baseFields.length > 0 && (
+        <div className="space-y-3">
+          {renderFields(baseFields)}
         </div>
-      </div>
-    </form>
+      )}
+
+      {/* Advanced fields */}
+      {advancedFields.length > 0 && (
+        <>
+          <div className="border-t border-slate-200 pt-4 mt-6">
+            <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
+            <div className="space-y-3">
+              {renderFields(advancedFields)}
+            </div>
+          </div>
+        </>
+      )}
+    </ConfigurationContainer>
   );
 }

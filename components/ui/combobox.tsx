@@ -431,7 +431,7 @@ export function MultiCombobox({
                     <Badge
                       key={`selected-${index}-${option.value || 'undefined'}`}
                       variant="secondary"
-                      className="flex-shrink-0 max-w-32 truncate"
+                      className="flex-shrink-0 max-w-32 truncate text-white"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemove(option.value)
@@ -448,7 +448,7 @@ export function MultiCombobox({
                       <Badge
                         key={`selected-${index}-${option.value || 'undefined'}`}
                         variant="secondary"
-                        className="flex-shrink-0 max-w-32 truncate"
+                        className="flex-shrink-0 max-w-32 truncate text-white"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemove(option.value)
