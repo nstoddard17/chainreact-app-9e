@@ -11,6 +11,7 @@ import { hubspotOptionsLoader } from './hubspot/hubspotOptionsLoader';
 import { onenoteOptionsLoader } from './onenote/optionsLoader';
 import { notionOptionsLoader } from './notion/options';
 import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoader';
+import { DropboxOptionsLoader } from './dropbox/dropboxOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -45,7 +46,10 @@ class ProviderRegistryImpl implements IProviderRegistry {
     
     // Register Google Drive loader
     this.register('google-drive', new GoogleDriveOptionsLoader());
-    
+
+    // Register Dropbox loader
+    this.register('dropbox', new DropboxOptionsLoader());
+
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
     // this.register('google-sheets', new GoogleSheetsOptionsLoader());

@@ -170,6 +170,9 @@ import {
   listVideosHandler
 } from './youtube/handlers'
 
+// Dropbox actions
+import { uploadDropboxFile } from './dropbox'
+
 // Workflow control actions
 import {
   executeIfThenCondition,
@@ -370,7 +373,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // YouTube actions
   "youtube_action_upload_video": uploadVideoHandler,
   "youtube_action_list_videos": listVideosHandler,
-  
+
+  // Dropbox actions
+  "dropbox_action_upload_file": uploadDropboxFile,
+
   // Twitter actions
   "twitter_action_post_tweet": postTweetHandler,
   "twitter_action_reply_tweet": replyTweetHandler,

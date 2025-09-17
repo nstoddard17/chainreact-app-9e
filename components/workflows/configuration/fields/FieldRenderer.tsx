@@ -1026,11 +1026,11 @@ export function FieldRenderer({
   return (
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
-        {field.type !== "button-toggle" && renderLabel()}
+        {field.type !== "button-toggle" && field.type !== "combobox" && renderLabel()}
         <div className="min-w-0 overflow-hidden w-full">
           {fieldContent}
         </div>
-        {error && (
+        {error && field.type === "combobox" && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />
             {error}
