@@ -59,10 +59,10 @@ export async function notionCreatePage(
     if (parentType === "database" && databaseId) {
       payload.parent = { database_id: databaseId }
       // For database pages, title goes in the Name property or the title property
-      const titleProperty = Object.keys(properties).find(key => 
+      const titleProperty = Object.keys(properties).find(key =>
         properties[key].type === "title" || key.toLowerCase() === "name" || key.toLowerCase() === "title"
       ) || "Name"
-      
+
       payload.properties[titleProperty] = {
         title: [{ type: "text", text: { content: title } }]
       }
@@ -73,6 +73,8 @@ export async function notionCreatePage(
           title: [{ type: "text", text: { content: title } }]
         }
       }
+    } else {
+      throw new Error("Parent location is required. Please select either a database or a parent page.")
     }
 
     // Add icon if provided

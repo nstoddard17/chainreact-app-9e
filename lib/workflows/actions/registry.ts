@@ -74,17 +74,16 @@ import {
   unbanDiscordMember,
 } from './discord'
 
-// Notion actions - existing
+// Notion actions - existing (only keeping search for backward compatibility)
 import {
-  createNotionDatabase,
-  createNotionPage,
-  updateNotionPage,
   searchNotionPages,
 } from './notion'
 
 // Notion unified action handlers
 import { executeNotionManageDatabase } from './notion/manageDatabase'
+import { executeNotionManagePage } from './notion/managePage'
 import { executeNotionManageUsers } from './notion/manageUsers'
+import { executeNotionManageComments } from './notion/manageComments'
 
 // Notion actions - comprehensive new handlers
 import {
@@ -311,15 +310,15 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "discord_action_ban_member": banDiscordMember,
   "discord_action_unban_member": unbanDiscordMember,
   
-  // Notion actions - existing (kept for backward compatibility)
-  "notion_action_create_database": createNotionDatabase,
-  "notion_action_create_page": createNotionPage,
-  "notion_action_update_page": updateNotionPage,
+  // Notion actions - search kept for backward compatibility
   "notion_action_search_pages": searchNotionPages,
 
-  // Notion unified actions
+  // Notion unified actions (primary handlers)
+  "notion_action_manage_page": executeNotionManagePage,
   "notion_action_manage_database": executeNotionManageDatabase,
   "notion_action_manage_users": executeNotionManageUsers,
+  "notion_action_manage_comments": executeNotionManageComments,
+  "notion_action_search": notionSearch,
 
   // Notion actions - comprehensive API v2 actions
   // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead

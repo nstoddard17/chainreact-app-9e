@@ -486,37 +486,40 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     database_id: "notion_databases",
   },
-  notion_action_update_page: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
-  },
+  // Deprecated - replaced by notion_action_manage_page
+  // notion_action_update_page: {
+  //   workspace: "notion_workspaces",
+  //   page: "notion_pages",
+  // },
   notion_action_search_pages: {
     filter: "notion_filter_types",
   },
-  notion_action_create_page: {
-    workspace: "notion_workspaces",
-    database: "notion_databases",
-    databaseProperties: "notion_database_properties",
-    template: "notion_templates",
-    page: "notion_pages",
-  },
-  notion_action_append_to_page: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
-  },
-  notion_action_create_database: {
-    workspace: "notion_workspaces",
-    template: "notion_database_templates",
-  },
-  notion_action_get_page_details: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
-  },
+  // Deprecated - replaced by notion_action_manage_page
+  // notion_action_create_page: {
+  //   workspace: "notion_workspaces",
+  //   database: "notion_databases",
+  //   databaseProperties: "notion_database_properties",
+  //   template: "notion_templates",
+  //   page: "notion_pages",
+  // },
+  // Deprecated - replaced by notion_action_manage_page
+  // notion_action_append_to_page: {
+  //   workspace: "notion_workspaces",
+  //   page: "notion_pages",
+  // },
+  // Deprecated - replaced by notion_action_manage_database
+  // notion_action_create_database: {
+  //   workspace: "notion_workspaces",
+  //   template: "notion_database_templates",
+  // },
+
   // Unified Notion actions
   notion_action_manage_page: {
     workspace: "notion_workspaces",
     page: "notion_pages",
     database: "notion_databases",
+    parentDatabase: "notion_databases",
+    parentPage: "notion_pages",
     destinationPage: "notion_pages",
     pageFields: "notion_page_blocks",
   },
@@ -524,8 +527,20 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     database: "notion_databases",
   },
+  notion_action_manage_users: {
+    workspace: "notion_workspaces",
+    userId: "notion_users",
+  },
+  notion_action_manage_comments: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
   notion_action_search: {
     workspace: "notion_workspaces",
+  },
+  notion_action_get_page_details: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
   },
   notion_action_manage_users: {
     workspace: "notion_workspaces",

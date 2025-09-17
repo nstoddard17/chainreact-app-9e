@@ -20,6 +20,36 @@ interface GenericSelectFieldProps {
 }
 
 /**
+ * Get appropriate empty message based on field name
+ */
+function getEmptyMessage(fieldName: string, fieldLabel?: string): string {
+  const label = fieldLabel?.toLowerCase() || fieldName.toLowerCase();
+
+  // Specific messages for common field types
+  if (fieldName === 'parentDatabase' || label.includes('database')) {
+    return "No databases found. Please create a database in your Notion workspace first.";
+  }
+  if (fieldName === 'parentPage' || label.includes('page')) {
+    return "No pages found. Please create or share pages with your Notion integration.";
+  }
+  if (label.includes('workspace')) {
+    return "No workspaces found. Please connect your Notion account.";
+  }
+  if (label.includes('user')) {
+    return "No users found.";
+  }
+  if (label.includes('channel')) {
+    return "No channels found.";
+  }
+  if (label.includes('server') || label.includes('guild')) {
+    return "No servers found.";
+  }
+
+  // Default message
+  return "No options available";
+}
+
+/**
  * Generic select field for non-integration-specific dropdowns
  * Handles basic select and multi-select functionality
  */
@@ -91,12 +121,12 @@ export function GenericSelectField({
     // 1. Opening and field is dynamic
     // 2. Has a loader function
     // 3. Not currently loading
-    // 4. Either: no options, hasn't attempted load yet, or it's been >2 seconds since last attempt
-    const shouldLoad = open && 
-      field.dynamic && 
-      onDynamicLoad && 
-      !isLoading && 
-      (options?.length === 0 || !hasAttemptedLoad || (Date.now() - lastLoadTimestamp > 2000));
+    // 4. Haven't attempted load yet (don't retry on empty results to avoid infinite loop)
+    const shouldLoad = open &&
+      field.dynamic &&
+      onDynamicLoad &&
+      !isLoading &&
+      !hasAttemptedLoad;
     
     if (shouldLoad) {
       console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
@@ -257,7 +287,7 @@ export function GenericSelectField({
             })
           ) : (
             <div className="p-2 text-sm text-slate-500 text-center">
-              No options available
+              {isLoading ? "Loading..." : getEmptyMessage(field.name, field.label)}
             </div>
           )}
         </SelectContent>

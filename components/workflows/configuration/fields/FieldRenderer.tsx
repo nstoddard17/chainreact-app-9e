@@ -43,6 +43,20 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 
+// Helper function to get contextual empty message for combobox
+function getComboboxEmptyMessage(field: any): string {
+  const fieldName = field.name?.toLowerCase() || '';
+  const label = field.label?.toLowerCase() || '';
+
+  if (fieldName === 'parentpage' || label.includes('parent page')) {
+    return "No pages found. Please create or share pages with your Notion integration.";
+  }
+  if (label.includes('page')) {
+    return "No pages found";
+  }
+  return "No options found";
+}
+
 /**
  * Props for the Field component
  */
@@ -596,11 +610,10 @@ export function FieldRenderer({
 
       case "combobox":
         // Combobox fields with search capability and dynamic loading
-        const comboboxOptions = Array.isArray(field.options) 
+        const comboboxOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
-        
-        
+
         return (
           <div className="space-y-2">
             {!field.hideLabel && (
@@ -625,9 +638,45 @@ export function FieldRenderer({
                 options={comboboxOptions}
                 placeholder={field.placeholder || `Select ${field.label || field.name}...`}
                 searchPlaceholder={`Search ${field.label || field.name}...`}
-                emptyPlaceholder={loadingDynamic ? "Loading options..." : "No options found"}
+                emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
                 disabled={loadingDynamic}
                 creatable={field.creatable || false}
+                onOpenChange={(open) => {
+                  // Only trigger load on actual open (not close) and when truly needed
+                  if (!open) return;
+
+                  // Check if we already have options
+                  if (comboboxOptions.length > 0) return;
+
+                  // Check if already loading
+                  if (loadingDynamic) return;
+
+                  // Check if this is a dynamic field
+                  if (!field.dynamic || !onDynamicLoad) return;
+
+                  // Use a ref-based approach to prevent multiple loads
+                  const loadKey = `combobox_loading_${field.name}_${parentValues?.[field.dependsOn] || 'no-dep'}`;
+
+                  // Check if we're already loading this specific combination
+                  if (window[loadKey]) {
+                    console.log('🔄 [FieldRenderer] Already loading options for:', field.name);
+                    return;
+                  }
+
+                  console.log('🔄 [FieldRenderer] Loading options for combobox:', field.name);
+                  window[loadKey] = true;
+
+                  // Trigger the load
+                  if (field.dependsOn && parentValues?.[field.dependsOn]) {
+                    onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn]).finally(() => {
+                      delete window[loadKey];
+                    });
+                  } else {
+                    onDynamicLoad(field.name).finally(() => {
+                      delete window[loadKey];
+                    });
+                  }
+                }}
               />
             )}
             {error && (
