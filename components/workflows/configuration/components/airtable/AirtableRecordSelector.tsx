@@ -47,11 +47,11 @@ export function AirtableRecordSelector({
     ? filteredRecords 
     : filteredRecords.slice(0, displayCount);
   
-  // Get column headers from first record
+  // Get column headers from first record - show ALL columns
   const columns = filteredRecords.length > 0 && filteredRecords[0].fields
-    ? Object.keys(filteredRecords[0].fields).filter(key => 
+    ? Object.keys(filteredRecords[0].fields).filter(key =>
         !key.startsWith('_') && key !== 'id'
-      ).slice(0, 5) // Show max 5 columns
+      ) // Removed .slice(0, 5) to show all columns
     : [];
 
   return (
@@ -142,8 +142,8 @@ export function AirtableRecordSelector({
           </div>
           
           {/* Table */}
-          <div className="max-h-[400px] overflow-auto">
-            <Table>
+          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+            <Table className="min-w-max">
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
                   <TableHead className="w-[100px] text-xs">Record ID</TableHead>
@@ -167,11 +167,11 @@ export function AirtableRecordSelector({
                       )}
                       onClick={() => onSelectRecord(record)}
                     >
-                      <TableCell className="text-xs font-mono">
+                      <TableCell className="text-xs font-mono whitespace-nowrap px-3">
                         {record.id}
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell key={column} className="text-xs max-w-[200px] truncate">
+                        <TableCell key={column} className="text-xs whitespace-nowrap px-3">
                           {formatFieldValue(record.fields[column])}
                         </TableCell>
                       ))}
