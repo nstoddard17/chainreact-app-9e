@@ -18,6 +18,24 @@ export async function createHubSpotContact(
       name,
       phone,
       hs_lead_status,
+      // Company Information
+      associatedCompanyId,
+      jobtitle,
+      department,
+      industry,
+      // Location Information
+      address,
+      city,
+      state,
+      zip,
+      country,
+      // Social Media
+      website,
+      linkedinbio,
+      twitterhandle,
+      // Lifecycle Stage
+      lifecyclestage,
+      // Legacy fields (keeping for backward compatibility)
       favorite_content_topics,
       preferred_channels,
       additional_properties = [],
@@ -67,17 +85,38 @@ export async function createHubSpotContact(
         }
       }
     }
-    
+
     // Contact Information
     if (phone) properties.phone = phone
-    
+
     // Lead Management
     if (hs_lead_status) properties.hs_lead_status = hs_lead_status
-    
-    // Content Preferences
+
+    // Company Information
+    if (jobtitle) properties.jobtitle = jobtitle
+    if (department) properties.hs_department = department // HubSpot uses hs_department
+    if (industry) properties.industry = industry
+    if (associatedCompanyId) properties.associatedcompanyid = associatedCompanyId
+
+    // Location Information
+    if (address) properties.address = address
+    if (city) properties.city = city
+    if (state) properties.state = state
+    if (zip) properties.zip = zip
+    if (country) properties.country = country
+
+    // Social Media
+    if (website) properties.website = website
+    if (linkedinbio) properties.linkedinbio = linkedinbio
+    if (twitterhandle) properties.twitterhandle = twitterhandle
+
+    // Lifecycle Stage
+    if (lifecyclestage) properties.lifecyclestage = lifecyclestage
+
+    // Legacy - Content Preferences
     if (favorite_content_topics) properties.favorite_content_topics = favorite_content_topics
-    
-    // Communication Preferences
+
+    // Legacy - Communication Preferences
     if (preferred_channels) properties.preferred_channels = preferred_channels
     
     // Add additional properties from dynamic field selector
@@ -152,11 +191,13 @@ export async function createHubSpotContact(
     console.log('HubSpot API response:', result)
     console.log('Created contact properties:', result.properties)
 
-    // Check if we should create a company record
+    // Check if we should associate with existing company or create new one
     let companyId = null
-    const companyName = properties.company || properties.hs_analytics_source_data_1
-    
-    if (companyName && companyName.trim()) {
+    let companyName = null
+
+    // If associatedCompanyId is a string that's not an ID (i.e., a new company name to create)
+    if (associatedCompanyId && typeof associatedCompanyId === 'string' && !associatedCompanyId.match(/^\d+$/)) {
+      companyName = associatedCompanyId
       try {
         console.log('Creating company record for:', companyName)
         
@@ -224,6 +265,26 @@ export async function createHubSpotContact(
         }
       } catch (error) {
         console.warn('Error creating company:', error)
+      }
+    } else if (associatedCompanyId && associatedCompanyId.match(/^\d+$/)) {
+      // If associatedCompanyId is an actual ID, associate the contact with the existing company
+      companyId = associatedCompanyId
+      try {
+        const associationResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${result.id}/associations/companies/${companyId}/contact_to_company`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          }
+        })
+
+        if (associationResponse.ok) {
+          console.log('Successfully associated contact with existing company')
+        } else {
+          console.warn('Failed to associate contact with existing company:', associationResponse.status)
+        }
+      } catch (error) {
+        console.warn('Error associating with existing company:', error)
       }
     }
 

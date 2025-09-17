@@ -56,13 +56,43 @@ export async function uploadDropboxFile(
 
     switch (config.sourceType) {
       case 'file':
-        if (!config.uploadedFiles?.[0]) {
+        if (!config.uploadedFiles) {
           throw new Error('No file uploaded')
         }
-        const fileInfo = config.uploadedFiles[0]
 
-        // If it's a file ID, fetch from storage
-        if (typeof fileInfo === 'string') {
+        // Handle both single file object and array
+        const fileInfo = Array.isArray(config.uploadedFiles) ? config.uploadedFiles[0] : config.uploadedFiles
+
+        if (!fileInfo) {
+          throw new Error('No file uploaded')
+        }
+
+        console.log('[Dropbox Upload] Processing uploaded file:', {
+          type: typeof fileInfo,
+          hasFilePath: !!fileInfo.filePath,
+          hasContent: !!fileInfo.content,
+          fileName: fileInfo.fileName || fileInfo.name
+        })
+
+        // If it's a file with a storage path (uploaded to Supabase)
+        if (fileInfo.filePath) {
+          // Fetch the file from Supabase storage
+          const supabase = await createSupabaseServerClient()
+          const { data: downloadedFile, error: downloadError } = await supabase.storage
+            .from('workflow-files')
+            .download(fileInfo.filePath)
+
+          if (downloadError || !downloadedFile) {
+            throw new Error(`Failed to download file from storage: ${downloadError?.message || 'Unknown error'}`)
+          }
+
+          // Convert blob to buffer
+          const arrayBuffer = await downloadedFile.arrayBuffer()
+          fileData = Buffer.from(arrayBuffer)
+          actualFileName = fileInfo.fileName || fileInfo.name || config.fileName
+        }
+        // If it's a file ID string, fetch from storage service
+        else if (typeof fileInfo === 'string') {
           const fileStorage = new FileStorageService()
           const storedFile = await fileStorage.getFile(fileInfo, userId)
           if (!storedFile) {
@@ -70,9 +100,18 @@ export async function uploadDropboxFile(
           }
           fileData = Buffer.from(storedFile.content, 'base64')
           actualFileName = storedFile.name || config.fileName
-        } else {
+        }
+        // If it has content directly (base64 encoded)
+        else if (fileInfo.content) {
           fileData = Buffer.from(fileInfo.content, 'base64')
-          actualFileName = fileInfo.name || config.fileName
+          actualFileName = fileInfo.fileName || fileInfo.name || config.fileName
+        }
+        // Legacy format with direct file data
+        else if (fileInfo.data) {
+          fileData = Buffer.from(fileInfo.data, 'base64')
+          actualFileName = fileInfo.fileName || fileInfo.name || config.fileName
+        } else {
+          throw new Error('Invalid file format - no content or path available')
         }
         break
 

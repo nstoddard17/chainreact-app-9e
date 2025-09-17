@@ -26,19 +26,31 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
     }
     
     console.log('🔍 Fetching HubSpot industries from API...')
-    const apiUrl = buildHubSpotApiUrl('/properties/v2/companies/properties/industry')
-    
+    // HubSpot v3 API endpoint for getting industry property with its options
+    const apiUrl = buildHubSpotApiUrl('/crm/v3/properties/companies/industry')
+
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
-    
-    const data = await response.json()
-    
+
     if (!response.ok) {
-      console.error(`❌ HubSpot industries API error: ${response.status} ${JSON.stringify(data)}`)
+      const errorText = await response.text()
+      console.error(`❌ HubSpot industries API error: ${response.status} ${errorText.substring(0, 500)}`)
+
+      // If the property doesn't exist or there's an issue, return a default list
+      if (response.status === 404 || response.status === 400) {
+        console.log('⚠️ Using default industries list')
+        return getDefaultIndustries()
+      }
+
       throw new Error(`HubSpot API error: ${response.status}`)
     }
-    
+
+    const data = await response.json()
+
     // Extract options from the property definition
-    const industries = data.options || []
+    const industries = data.options?.map((opt: any) => ({
+      label: opt.label,
+      value: opt.value
+    })) || getDefaultIndustries()
     
     console.log(`✅ HubSpot industries fetched successfully: ${industries.length} industries`)
     return industries
@@ -56,4 +68,29 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
     
     throw new Error(error.message || "Error fetching HubSpot industries")
   }
+}
+
+// Default industries list as fallback
+function getDefaultIndustries(): HubSpotIndustry[] {
+  return [
+    { label: 'Technology', value: 'technology' },
+    { label: 'Healthcare', value: 'healthcare' },
+    { label: 'Finance', value: 'finance' },
+    { label: 'Education', value: 'education' },
+    { label: 'Retail', value: 'retail' },
+    { label: 'Manufacturing', value: 'manufacturing' },
+    { label: 'Real Estate', value: 'real_estate' },
+    { label: 'Construction', value: 'construction' },
+    { label: 'Transportation', value: 'transportation' },
+    { label: 'Hospitality', value: 'hospitality' },
+    { label: 'Media & Entertainment', value: 'media_entertainment' },
+    { label: 'Telecommunications', value: 'telecommunications' },
+    { label: 'Energy', value: 'energy' },
+    { label: 'Agriculture', value: 'agriculture' },
+    { label: 'Legal', value: 'legal' },
+    { label: 'Consulting', value: 'consulting' },
+    { label: 'Government', value: 'government' },
+    { label: 'Non-Profit', value: 'non_profit' },
+    { label: 'Other', value: 'other' }
+  ]
 }

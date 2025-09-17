@@ -3053,8 +3053,11 @@ const useWorkflowBuilderState = () => {
   // Handle Execute mode (live) - one-time execution with real external calls  
   const handleExecuteLive = async () => {
     if (isExecuting) return
-    
+
     try {
+      // Set loading state immediately to show user something is happening
+      setIsExecuting(true)
+
       if (!currentWorkflow || !currentWorkflow.id) {
         // Check if this is a new unsaved workflow
         if (hasUnsavedChanges || !workflowId) {
@@ -3063,30 +3066,51 @@ const useWorkflowBuilderState = () => {
             description: "Please save your workflow before running it live.",
             variant: "destructive"
           })
+          setIsExecuting(false)
           return
         }
+        setIsExecuting(false)
         throw new Error("No workflow selected or workflow not properly loaded")
       }
-      
-      // Wait if there are unsaved changes or if currently saving
-      if (hasUnsavedChanges || isSaving) {
-        
-        // Wait for save to complete (max 3 seconds)
+
+      // If there are unsaved changes, save first
+      if (hasUnsavedChanges && !isSaving) {
+        console.log('🔄 Saving workflow before live execution...')
+        toast({
+          title: "Saving workflow...",
+          description: "Your changes are being saved before execution.",
+        })
+
+        await handleSave()
+
+        // Wait a moment for the save to fully complete
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // Wait if currently saving (from another action)
+      if (isSaving) {
+        console.log('⏳ Waiting for save to complete...')
+
+        // Wait for save to complete (max 5 seconds)
         let waitTime = 0
-        const maxWait = 3000
+        const maxWait = 5000
         const checkInterval = 100
-        
-        while ((hasUnsavedChanges || isSaving) && waitTime < maxWait) {
+
+        while (isSaving && waitTime < maxWait) {
           await new Promise(resolve => setTimeout(resolve, checkInterval))
           waitTime += checkInterval
         }
-        
-        if (hasUnsavedChanges || isSaving) {
-        } else {
+
+        if (isSaving) {
+          toast({
+            title: "Save in Progress",
+            description: "Please wait for the current save to complete and try again.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          return
         }
       }
-      
-      setIsExecuting(true)
       
       // Use the nodes state directly instead of getNodes() to ensure we have the latest data
       // getNodes() might return stale data due to React state batching

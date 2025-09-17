@@ -287,10 +287,16 @@ export function Combobox({
                     setInputValue("")
                     setOpen(false)
                   }}
+                  className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
                 >
-                  <div className="flex items-center">
-                    <span className="text-primary font-semibold">Create "{inputValue.trim()}"</span>
-                    <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
+                  <div className="flex items-center w-full">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">+</span>
+                      </div>
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold">Create folder "{inputValue.trim()}"</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Press Enter</span>
                   </div>
                 </CommandItem>
               )}
