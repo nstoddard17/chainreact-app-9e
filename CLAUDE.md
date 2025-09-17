@@ -556,6 +556,21 @@ Key reminders when refactoring:
 
 This is especially important for files like `availableNodes.ts` which has grown to 8000+ lines and requires systematic refactoring to maintain code quality and developer productivity.
 
+## UI Component Styling Guides
+
+### Combobox and Select Field Styling
+**IMPORTANT**: When modifying dropdown field styles (text color, placeholders, etc.), consult `/learning/docs/combobox-field-styling-guide.md` for:
+- Component routing logic (which fields use Combobox vs MultiCombobox vs Select)
+- Exact line numbers for styling changes
+- Special cases for Airtable fields
+- Common issues and solutions
+
+Key insights:
+- Airtable fields with 'tasks', 'feedback', 'associated project' use **MultiCombobox**
+- Single Airtable fields use **Combobox**
+- Use inline styles `style={{ color: 'white' }}` to override theme colors
+- Check `GenericSelectField.tsx` for field routing logic
+
 ## Security Considerations
 
 - Never log or expose access tokens

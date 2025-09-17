@@ -419,7 +419,7 @@ export function MultiCombobox({
                   {selectedOptions.length} selected
                 </span>
               ) : (
-                <span className="text-muted-foreground">
+                <span className="text-white">
                   {placeholder || "Select option(s)..."}
                 </span>
               )
@@ -465,7 +465,7 @@ export function MultiCombobox({
                 )}
               </>
             ) : (
-              <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
+              <span className="text-white">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
@@ -671,17 +671,18 @@ export function HierarchicalCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between min-h-10"
+          style={{ color: 'white' }}
           disabled={disabled}
         >
           {selectedOption ? (
             <div className="flex flex-col items-start">
-              <span className="text-white">{selectedOption.label}</span>
+              <span>{selectedOption.label}</span>
               {selectedOption.description && (
                 <span className="text-sm text-muted-foreground">{selectedOption.description}</span>
               )}
             </div>
           ) : (
-            <span className="text-muted-foreground">{placeholder || "Select option..."}</span>
+            <span>{placeholder || "Select option..."}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
