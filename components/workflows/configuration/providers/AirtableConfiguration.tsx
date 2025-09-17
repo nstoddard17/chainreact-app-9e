@@ -828,72 +828,63 @@ export function AirtableConfiguration({
     }
   }, [values.recordId, values.baseId, values.tableName, dynamicFields.length, loadOptions, loadedLinkedFields, airtableTableSchema]); // Include all dependencies
 
-  // Load dropdown options for dynamic fields when they become visible
-  useEffect(() => {
+  // Load dropdown options for dynamic fields only when user interacts with them
+  // This prevents auto-expansion when table is loaded
+  const loadDropdownOptionsForField = useCallback(async (fieldName: string) => {
     if (!dynamicFields.length || !values.tableName || !values.baseId) return;
 
-    console.log('🔄 [DROPDOWN FIELDS] Checking for dropdown fields to load');
+    // Skip if already loaded
+    if (loadedDropdownFields.has(fieldName)) return;
 
-    // Find dropdown fields that need loading (and haven't been loaded yet)
-    const dropdownFieldsToLoad = dynamicFields.filter(field => {
-      // Skip if already loaded
-      if (loadedDropdownFields.has(field.name)) return false;
-
-      // Also skip if options are already present in dynamicOptions
-      if (dynamicOptions[field.name] && dynamicOptions[field.name].length > 0) {
-        // Mark as loaded so we don't try again
-        setLoadedDropdownFields(prev => new Set([...prev, field.name]));
-        return false;
-      }
-
-      // Check if it's a dropdown field with dynamic data
-      if (typeof field.dynamic !== 'string') return false;
-
-      const dynamicType = field.dynamic;
-      return (
-        dynamicType === 'airtable_draft_names' ||
-        dynamicType === 'airtable_designers' ||
-        dynamicType === 'airtable_projects' ||
-        dynamicType === 'airtable_feedback' ||
-        dynamicType === 'airtable_tasks'
-      );
-    });
-
-    if (dropdownFieldsToLoad.length > 0) {
-      console.log('🔄 [DROPDOWN FIELDS] Loading options for dropdown fields:', dropdownFieldsToLoad.map(f => f.name));
-
-      // Mark all fields as loaded first to prevent duplicate loads
-      setLoadedDropdownFields(prev => {
-        const newSet = new Set(prev);
-        dropdownFieldsToLoad.forEach(field => newSet.add(field.name));
-        return newSet;
-      });
-
-      // Load options for all dropdown fields in parallel
-      const loadPromises = dropdownFieldsToLoad.map(field => {
-        const extraOptions = {
-          baseId: values.baseId,
-          tableName: values.tableName
-        };
-
-        console.log('🔄 [DROPDOWN FIELDS] Loading with context:', {
-          fieldName: field.name,
-          dynamicType: field.dynamic,
-          extraOptions
-        });
-
-        // Load the options (returns a promise)
-        return loadOptions(field.name, 'tableName', values.tableName, false, false, extraOptions);
-      });
-
-      // Wait for all to complete in parallel
-      Promise.all(loadPromises).then(() => {
-        console.log('✅ [DROPDOWN FIELDS] All dropdown fields loaded');
-      }).catch(error => {
-        console.error('❌ [DROPDOWN FIELDS] Error loading dropdown fields:', error);
-      });
+    // Also skip if options are already present in dynamicOptions
+    if (dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
+      // Mark as loaded so we don't try again
+      setLoadedDropdownFields(prev => new Set([...prev, fieldName]));
+      return;
     }
-  }, [dynamicFields.length, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
+
+    // Find the field
+    const field = dynamicFields.find(f => f.name === fieldName);
+    if (!field) return;
+
+    // Check if it's a dropdown field with dynamic data
+    if (typeof field.dynamic !== 'string') return;
+
+    const dynamicType = field.dynamic;
+    const isDropdownField = (
+      dynamicType === 'airtable_draft_names' ||
+      dynamicType === 'airtable_designers' ||
+      dynamicType === 'airtable_projects' ||
+      dynamicType === 'airtable_feedback' ||
+      dynamicType === 'airtable_tasks'
+    );
+
+    if (!isDropdownField) return;
+
+    console.log('🔄 [DROPDOWN FIELDS] Loading options for field:', fieldName);
+
+    // Mark field as loaded first to prevent duplicate loads
+    setLoadedDropdownFields(prev => new Set([...prev, fieldName]));
+
+    try {
+      const extraOptions = {
+        baseId: values.baseId,
+        tableName: values.tableName
+      };
+
+      console.log('🔄 [DROPDOWN FIELDS] Loading with context:', {
+        fieldName,
+        dynamicType: field.dynamic,
+        extraOptions
+      });
+
+      // Load the options
+      await loadOptions(fieldName, 'tableName', values.tableName, false, false, extraOptions);
+      console.log('✅ [DROPDOWN FIELDS] Field loaded:', fieldName);
+    } catch (error) {
+      console.error('❌ [DROPDOWN FIELDS] Error loading field:', fieldName, error);
+    }
+  }, [dynamicFields, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
   
   // Initialize bubbles from existing values (for editing existing workflows)
   useEffect(() => {
