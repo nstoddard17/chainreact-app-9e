@@ -60,7 +60,7 @@ export function AirtableRecordsTable({
 
   if (loading) {
     return (
-      <div className="bg-gray-900 rounded-lg overflow-hidden w-full">
+      <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
         {/* Header Section - Same as loaded state */}
         <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
           <div className="flex items-center justify-between">
@@ -110,19 +110,19 @@ export function AirtableRecordsTable({
 
   if (records.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-400 bg-gray-900 rounded-lg">
+      <div className="text-center py-8 text-gray-400 bg-gray-900 rounded-lg w-full max-w-full" style={{ minWidth: 0 }}>
         No records found in this table.
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+    <div className="bg-gray-900 rounded-lg w-full" style={{ maxWidth: '100%', overflow: 'hidden' }}>
       {/* Header Section - Same structure as loading state */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           {/* Title and subtitle */}
-          <div>
+          <div className="min-w-0">
             <h3 className="text-white font-medium">
               {isPreview ? 'Preview Data' : `Select Record: ${tableName || 'Records'}`}
             </h3>
@@ -132,7 +132,7 @@ export function AirtableRecordsTable({
           </div>
 
           {/* Search and controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -172,16 +172,16 @@ export function AirtableRecordsTable({
         </div>
       </div>
 
-      {/* Table Container - Same structure as loading state */}
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '400px', minHeight: '200px', maxWidth: '100%' }}>
-        <table className="w-full" style={{ tableLayout: 'fixed' }}>
+      {/* Table Container with horizontal scroll */}
+      <div className="w-full" style={{ maxHeight: '400px', overflowX: 'auto', overflowY: 'auto' }}>
+        <table style={{ minWidth: '100%' }}>
             <thead className="sticky top-0 bg-gray-800 z-20">
               <tr className="border-b border-gray-700">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: '20%', minWidth: '120px' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
                   ID
                 </th>
                 {fieldNames.map(field => (
-                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
+                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
                     {field}
                   </th>
                 ))}
@@ -198,8 +198,8 @@ export function AirtableRecordsTable({
                 )}
                 onClick={() => onSelectRecord?.(record)}
               >
-                <td className="px-4 py-3 text-sm text-blue-400" style={{ width: '20%', minWidth: '120px' }}>
-                  <span className="whitespace-nowrap" title={record.id}>
+                <td className="px-4 py-3 text-sm text-blue-400 whitespace-nowrap">
+                  <span title={record.id}>
                     {record.id}
                   </span>
                 </td>
@@ -212,7 +212,7 @@ export function AirtableRecordsTable({
                   );
 
                   return (
-                    <td key={field} className="px-4 py-3 text-sm text-gray-300" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
+                    <td key={field} className="px-4 py-3 text-sm text-gray-300">
                       {isImage ? (
                         <div className="flex items-center gap-2">
                           {Array.isArray(value) ? (
@@ -242,9 +242,9 @@ export function AirtableRecordsTable({
                           )}
                         </div>
                       ) : (
-                        <span className="whitespace-nowrap" title={renderFieldValue(value)}>
+                        <div className="whitespace-nowrap" title={renderFieldValue(value)}>
                           {renderFieldValue(value)}
-                        </span>
+                        </div>
                       )}
                     </td>
                   );

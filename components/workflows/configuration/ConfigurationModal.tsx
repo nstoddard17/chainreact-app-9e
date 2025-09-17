@@ -1,5 +1,54 @@
 "use client"
 
+/**
+ * ConfigurationModal Layout Structure:
+ *
+ * The modal uses a two-column flexbox layout:
+ *
+ * Classes for identification:
+ * - .modal-container: Main flex container (row layout on desktop, column on mobile)
+ * - .modal-main-column / .config-content-area: Left column - main configuration form
+ * - .modal-sidebar-column / .variable-picker-area: Right column - variable picker panel
+ *
+ * Layout specifications:
+ * - Main column: flex-1 (takes remaining space), min-w-0 (allows shrinking)
+ * - Sidebar column: w-80 (320px) on lg, w-96 (384px) on xl, flex-shrink-0 (fixed width)
+ *
+ * CRITICAL SOLUTION FOR KEEPING CONTENT IN LEFT COLUMN (Preventing overflow into right column):
+ *
+ * Problem: Wide content (like tables) can overflow from left column under the right column.
+ *
+ * Solution Pattern (MUST follow this exact hierarchy):
+ * 1. Form container: Use "overflow-hidden" to clip all overflow
+ * 2. Scrollable wrapper: Use "overflow-y-auto overflow-x-hidden" for vertical scroll only
+ * 3. Content container: Regular div without special overflow rules
+ * 4. Wide content wrapper: Use "w-full overflow-hidden" to constrain width
+ * 5. Actual wide content: Use inline styles with maxWidth: '100%', overflow: 'hidden'
+ * 6. For tables with horizontal scroll:
+ *    - Outer div: style={{ maxWidth: '100%', overflow: 'hidden' }}
+ *    - Scroll container: style={{ overflowX: 'auto', overflowY: 'auto' }}
+ *    - Table element: Can be wider than container (minWidth: '100%')
+ *
+ * Key Rules:
+ * - NEVER use ScrollArea component for containers with wide content (it doesn't constrain properly)
+ * - ALWAYS use overflow-x-hidden on the main scrollable container
+ * - ALWAYS use explicit maxWidth: '100%' on wide content containers
+ * - Use inline styles for overflow control when Tailwind classes don't work
+ *
+ * Example Implementation:
+ * <form className="overflow-hidden">
+ *   <div className="overflow-y-auto overflow-x-hidden">
+ *     <div>
+ *       <div className="w-full overflow-hidden">
+ *         <WideContentComponent style={{ maxWidth: '100%', overflow: 'hidden' }}>
+ *           ...
+ *         </WideContentComponent>
+ *       </div>
+ *     </div>
+ *   </div>
+ * </form>
+ */
+
 import React, { useState, useEffect } from "react"
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
@@ -236,9 +285,10 @@ export function ConfigurationModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <CustomDialogContent className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl">
-        <div className="flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden">
-          {/* Main Configuration Area - Responsive width */}
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Modal Container - Split Layout */}
+        <div className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden">
+          {/* Main Configuration Area - Left Column */}
+          <div className="modal-main-column config-content-area flex flex-col flex-1 min-w-0 max-w-full overflow-hidden" style={{ isolation: 'isolate' }}>
             <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -269,7 +319,7 @@ export function ConfigurationModal({
             </DialogHeader>
             
             {nodeInfo && (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
                 <ConfigurationForm
                   nodeInfo={nodeInfo}
                   initialData={initialData}
@@ -285,9 +335,9 @@ export function ConfigurationModal({
             )}
           </div>
 
-          {/* Variable Picker Side Panel - Responsive: below on mobile, beside on desktop */}
+          {/* Variable Picker Side Panel - Right Column */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 max-h-[40vh] lg:max-h-full overflow-hidden">
+            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 max-h-[40vh] lg:max-h-full overflow-hidden" style={{ isolation: 'isolate' }}>
               <VariablePickerSidePanel
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}

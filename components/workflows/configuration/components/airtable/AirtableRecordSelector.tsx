@@ -3,8 +3,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Database, Search, X } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { filterRecordsbySearch, formatFieldValue } from "../../utils/helpers";
@@ -54,14 +52,7 @@ export function AirtableRecordSelector({
       ) // Removed .slice(0, 5) to show all columns
     : [];
 
-  // Calculate column widths based on number of columns
-  const totalColumns = columns.length + 2; // +2 for Record ID and Action
-
-  // Calculate percentage widths for proper table expansion
-  // Record ID gets 15%, Action gets 10%, data columns share the remaining 75%
-  const recordIdWidth = '15%';
-  const actionWidth = '10%';
-  const dataColumnWidth = columns.length > 0 ? `${75 / columns.length}%` : 'auto';
+  // Remove fixed widths to allow natural table expansion
 
   return (
     <div className="mt-4 space-y-4">
@@ -151,49 +142,57 @@ export function AirtableRecordSelector({
           </div>
           
           {/* Table */}
-          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
-            <Table className="w-full table-fixed">
-              <colgroup>
-                <col style={{ width: recordIdWidth }} />
-                {columns.map((_, index) => (
-                  <col key={index} style={{ width: dataColumnWidth }} />
-                ))}
-                <col style={{ width: actionWidth }} />
-              </colgroup>
-              <TableHeader className="sticky top-0 bg-white z-10">
-                <TableRow>
-                  <TableHead className="text-xs px-3">Record ID</TableHead>
+          <div className="max-h-[400px] overflow-auto">
+            <table className="w-full min-w-full border-collapse">
+              <thead className="sticky top-0 bg-slate-50 z-10 border-b">
+                <tr>
+                  <th className="text-left text-xs px-3 py-2 font-medium text-slate-700 border-r">
+                    Record ID
+                  </th>
                   {columns.map((column) => (
-                    <TableHead key={column} className="text-xs px-3">
-                      <div className="truncate pr-2">{column}</div>
-                    </TableHead>
+                    <th
+                      key={column}
+                      className="text-left text-xs px-3 py-2 font-medium text-slate-700 border-r"
+                    >
+                      {column}
+                    </th>
                   ))}
-                  <TableHead className="text-xs text-center px-3">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  <th className="text-center text-xs px-3 py-2 font-medium text-slate-700">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
                 {paginatedRecords.map((record) => {
                   const isSelected = selectedRecord?.id === record.id;
                   return (
-                    <TableRow
+                    <tr
                       key={record.id}
                       className={cn(
-                        "cursor-pointer hover:bg-slate-50",
-                        isSelected && "bg-blue-50"
+                        "border-b cursor-pointer hover:bg-slate-50 transition-colors",
+                        isSelected && "bg-blue-50 hover:bg-blue-100"
                       )}
                       onClick={() => onSelectRecord(record)}
                     >
-                      <TableCell className="text-xs font-mono px-3">
-                        <div className="truncate pr-2">{record.id}</div>
-                      </TableCell>
+                      <td className="text-xs font-mono px-3 py-2 border-r">
+                        <div className="truncate max-w-[150px]" title={record.id}>
+                          {record.id}
+                        </div>
+                      </td>
                       {columns.map((column) => (
-                        <TableCell key={column} className="text-xs px-3">
-                          <div className="truncate pr-2">
+                        <td
+                          key={column}
+                          className="text-xs px-3 py-2 border-r"
+                        >
+                          <div
+                            className="truncate max-w-[200px]"
+                            title={formatFieldValue(record.fields[column])}
+                          >
                             {formatFieldValue(record.fields[column])}
                           </div>
-                        </TableCell>
+                        </td>
                       ))}
-                      <TableCell className="text-center px-3">
+                      <td className="text-center px-3 py-2">
                         <Button
                           type="button"
                           variant={isSelected ? "default" : "outline"}
@@ -206,12 +205,12 @@ export function AirtableRecordSelector({
                         >
                           {isSelected ? 'Selected' : 'Select'}
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

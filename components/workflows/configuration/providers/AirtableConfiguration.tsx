@@ -2,7 +2,6 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
@@ -422,6 +421,9 @@ export function AirtableConfiguration({
         fieldType = 'select';
       }
 
+      // Store the original Airtable field type before any modifications
+      const originalAirtableType = field.type;
+
       // Override field type for image fields to ensure they use the image component
       if (isImageField && (field.type === 'multipleAttachments' || field.type === 'attachment' || fieldType === 'file')) {
         // Keep the original field type to trigger the image component
@@ -445,7 +447,7 @@ export function AirtableConfiguration({
         required: false,
         placeholder: shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`,
         dynamic: shouldUseDynamicDropdown ? dynamicDataType : true,
-        airtableFieldType: field.type,
+        airtableFieldType: originalAirtableType,  // Use the original type before modifications
         airtableFieldId: field.id,  // Store the ID separately if needed
         options: fieldOptions,
         dependsOn: shouldUseDynamicDropdown ? 'tableName' : undefined,
@@ -454,7 +456,7 @@ export function AirtableConfiguration({
                  fieldNameLower.includes('feedback') ||
                  field.type === 'multipleRecordLinks', // Multiple selection for linked fields
         // Add metadata for special field types
-        ...(field.type === 'multipleAttachments' && { multiple: true }),
+        ...(originalAirtableType === 'multipleAttachments' && { multiple: true }),
         ...(field.type === 'rating' && { max: field.options?.max || 5 }),
         ...(field.type === 'percent' && { min: 0, max: 100 }),
         ...(field.type === 'currency' && { prefix: field.options?.symbol || '$' }),
@@ -636,7 +638,7 @@ export function AirtableConfiguration({
   const handleFieldChange = useCallback((fieldName: string, value: any, skipBubbleCreation = false) => {
     // First, set the actual field value
     setValue(fieldName, value);
-    
+
     // For Airtable fields, handle bubble creation
     if (fieldName.startsWith('airtable_field_') && !skipBubbleCreation && value) {
       const field = dynamicFields.find(f => f.name === fieldName);
@@ -778,11 +780,111 @@ export function AirtableConfiguration({
   
   // Track loaded linked fields to avoid reloading
   const [loadedLinkedFields, setLoadedLinkedFields] = useState<Set<string>>(new Set());
-  
+
+  // Track which fields we've already tried to auto-load
+  const [autoLoadedFields, setAutoLoadedFields] = useState<Set<string>>(new Set());
+
   // Clear loaded fields when record changes
   useEffect(() => {
     setLoadedLinkedFields(new Set());
   }, [values.recordId]);
+
+  // Auto-load all dynamic dropdown fields when they become visible
+  useEffect(() => {
+    // Only for create/update record actions
+    if (!isCreateRecord && !isUpdateRecord) return;
+    if (!values.tableName || !values.baseId) return;
+    if (dynamicFields.length === 0) return;
+
+    console.log('🚀 [AUTO-LOAD] Checking for fields to auto-load', {
+      totalFields: dynamicFields.length,
+      tableName: values.tableName,
+      baseId: values.baseId
+    });
+
+    // Find all dropdown fields that haven't been auto-loaded yet
+    const fieldsToAutoLoad = dynamicFields.filter(field => {
+      // Skip if already auto-loaded
+      if (autoLoadedFields.has(field.name)) {
+        return false;
+      }
+
+      // Check if it's a dropdown field with dynamic data
+      const hasDynamicData = typeof field.dynamic === 'string' &&
+                             field.dynamic !== 'true' &&
+                             field.dynamic !== true;
+
+      // Skip if already has options loaded
+      if (dynamicOptions[field.name]?.length > 0) {
+        // Mark as auto-loaded so we don't try again
+        setAutoLoadedFields(prev => new Set(prev).add(field.name));
+        return false;
+      }
+
+      return hasDynamicData;
+    });
+
+    if (fieldsToAutoLoad.length > 0) {
+      console.log('🚀 [AUTO-LOAD] Auto-loading fields:', fieldsToAutoLoad.map(f => ({
+        name: f.name,
+        label: f.label,
+        dynamic: f.dynamic
+      })));
+
+      // Mark these fields as auto-loaded
+      setAutoLoadedFields(prev => {
+        const newSet = new Set(prev);
+        fieldsToAutoLoad.forEach(field => newSet.add(field.name));
+        return newSet;
+      });
+
+      // Load options for each field
+      fieldsToAutoLoad.forEach(field => {
+        // Set loading state for the field
+        setLoadingFields(prev => new Set(prev).add(field.name));
+
+        // Prepare extra options for context
+        const extraOptions = {
+          baseId: values.baseId,
+          tableName: values.tableName,
+          tableFields: airtableTableSchema?.fields || []
+        };
+
+        console.log(`🔄 [AUTO-LOAD] Loading options for: ${field.label}`, {
+          fieldName: field.name,
+          dynamic: field.dynamic,
+          dependsOn: field.dependsOn
+        });
+
+        // Load the options
+        if (field.dependsOn === 'tableName') {
+          loadOptions(field.name, 'tableName', values.tableName, true, false, extraOptions)
+            .finally(() => {
+              setLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(field.name);
+                return newSet;
+              });
+            });
+        } else {
+          loadOptions(field.name, undefined, undefined, true, false, extraOptions)
+            .finally(() => {
+              setLoadingFields(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(field.name);
+                return newSet;
+              });
+            });
+        }
+      });
+    }
+  }, [dynamicFields, values.tableName, values.baseId, isCreateRecord, isUpdateRecord,
+      dynamicOptions, autoLoadedFields, airtableTableSchema, loadOptions]);
+
+  // Clear auto-loaded fields when table changes
+  useEffect(() => {
+    setAutoLoadedFields(new Set());
+  }, [values.tableName]);
   
   // Load linked record options when a record is selected
   useEffect(() => {
@@ -1300,15 +1402,15 @@ export function AirtableConfiguration({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 min-h-0 px-6 py-4 overflow-hidden">
-        <ScrollArea className="h-full" style={{ maxWidth: '100%' }}>
-          <div className="space-y-3 pb-4 pr-4" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
+          <div className="space-y-3 pb-4 pr-4">
             {/* Base fields */}
             {renderFields(baseFields)}
-            
+
             {/* Records table for update record */}
             {isUpdateRecord && values.tableName && values.baseId && (
-              <div className="min-w-0 max-w-full overflow-hidden">
+              <div className="w-full overflow-hidden">
                 <AirtableRecordsTable
                 records={airtableRecords}
                 loading={loadingRecords}
@@ -1326,13 +1428,31 @@ export function AirtableConfiguration({
                     Object.entries(record.fields).forEach(([key, value]) => {
                       // Try to find field by name (key is the field name from Airtable)
                       const fieldName = `airtable_field_${key}`;
-                      const field = dynamicFields.find(f => 
+                      const field = dynamicFields.find(f =>
                         f.name === fieldName || f.airtableFieldId === key
                       );
-                      
+
                       if (field) {
                         // Use the field's actual name for consistency
                         const actualFieldName = field.name;
+
+                        // Debug logging for all fields with attachment-like values
+                        const hasAttachmentValue = value && (
+                          (Array.isArray(value) && value[0]?.url) ||
+                          (!Array.isArray(value) && value?.url)
+                        );
+
+                        if (hasAttachmentValue || field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
+                          console.log('🔍 [RECORD SELECT] Checking attachment field:', {
+                            key,
+                            fieldName: actualFieldName,
+                            fieldType: field.type,
+                            airtableFieldType: field.airtableFieldType,
+                            value: value,
+                            hasUrl: hasAttachmentValue
+                          });
+                        }
+
                         // For linked record fields, we need to look up the names
                         if ((field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') && value) {
                           const recordIds = Array.isArray(value) ? value : [value];
@@ -1429,6 +1549,45 @@ export function AirtableConfiguration({
                           // Don't set the field value directly
                           setValue(actualFieldName, null);
                           
+                        } else if ((field.airtableFieldType === 'multipleAttachments' || field.type === 'file' ||
+                                   (Array.isArray(value) && value[0]?.url) || value?.url) && value) {
+                          // For attachment/image fields, populate with the image URLs
+                          console.log('🖼️ [RECORD SELECT] Populating image field:', {
+                            fieldName: actualFieldName,
+                            fieldType: field.airtableFieldType,
+                            fieldActualType: field.type,
+                            value: value,
+                            isArray: Array.isArray(value),
+                            hasUrl: Array.isArray(value) ? value[0]?.url : value?.url
+                          });
+
+                          if (Array.isArray(value) && value.length > 0 && value[0].url) {
+                            // For multiple attachments
+                            const attachments = value.map(attachment => ({
+                              url: attachment.url || attachment.thumbnails?.large?.url || attachment.thumbnails?.small?.url,
+                              filename: attachment.filename || 'Image',
+                              type: attachment.type,
+                              thumbnails: attachment.thumbnails,
+                              id: attachment.id,
+                              size: attachment.size
+                            }));
+
+                            // Set the value to the attachments array
+                            setValue(actualFieldName, attachments);
+                            console.log('🖼️ [RECORD SELECT] Set multiple attachments:', attachments);
+                          } else if (!Array.isArray(value) && value.url) {
+                            // Single attachment (convert to array for consistency with AirtableImageField)
+                            const attachment = {
+                              url: value.url || value.thumbnails?.large?.url || value.thumbnails?.small?.url,
+                              filename: value.filename || 'Image',
+                              type: value.type,
+                              thumbnails: value.thumbnails,
+                              id: value.id,
+                              size: value.size
+                            };
+                            setValue(actualFieldName, [attachment]);
+                            console.log('🖼️ [RECORD SELECT] Set single attachment as array:', attachment);
+                          }
                         } else {
                           // For non-select fields, handle the value properly
                           let processedValue = value;
@@ -1445,10 +1604,17 @@ export function AirtableConfiguration({
                             }
                           }
 
-                          // Convert objects/arrays to appropriate string representation
-                          if (typeof processedValue === 'object' && processedValue !== null) {
+                          // Convert objects/arrays to appropriate string representation (but not for attachments)
+                          if (typeof processedValue === 'object' && processedValue !== null && !processedValue.url) {
                             if (Array.isArray(processedValue)) {
-                              processedValue = processedValue.join(', ');
+                              // Check if it's an array of attachments
+                              if (processedValue.length > 0 && processedValue[0]?.url) {
+                                // This is an attachment array - don't convert to string
+                                setValue(actualFieldName, processedValue);
+                                return;
+                              } else {
+                                processedValue = processedValue.join(', ');
+                              }
                             } else {
                               // For other objects, try to extract meaningful data
                               processedValue = processedValue.name || processedValue.filename || '';
@@ -1520,7 +1686,7 @@ export function AirtableConfiguration({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
       
       <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">

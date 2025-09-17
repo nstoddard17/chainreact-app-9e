@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@/components/ui/scroll-area",
+            "message": "❌ DO NOT use ScrollArea in configuration components. Use ConfigurationContainer from '../components/ConfigurationContainer' instead. ScrollArea doesn't properly constrain width and causes content to overflow under the variable picker panel."
+          }
+        ]
+      }
+    ]
+  }
+}
