@@ -47,12 +47,21 @@ export function AirtableRecordSelector({
     ? filteredRecords 
     : filteredRecords.slice(0, displayCount);
   
-  // Get column headers from first record
+  // Get column headers from first record - show ALL columns
   const columns = filteredRecords.length > 0 && filteredRecords[0].fields
-    ? Object.keys(filteredRecords[0].fields).filter(key => 
+    ? Object.keys(filteredRecords[0].fields).filter(key =>
         !key.startsWith('_') && key !== 'id'
-      ).slice(0, 5) // Show max 5 columns
+      ) // Removed .slice(0, 5) to show all columns
     : [];
+
+  // Calculate column widths based on number of columns
+  const totalColumns = columns.length + 2; // +2 for Record ID and Action
+
+  // Calculate percentage widths for proper table expansion
+  // Record ID gets 15%, Action gets 10%, data columns share the remaining 75%
+  const recordIdWidth = '15%';
+  const actionWidth = '10%';
+  const dataColumnWidth = columns.length > 0 ? `${75 / columns.length}%` : 'auto';
 
   return (
     <div className="mt-4 space-y-4">
@@ -142,24 +151,31 @@ export function AirtableRecordSelector({
           </div>
           
           {/* Table */}
-          <div className="max-h-[400px] overflow-auto">
-            <Table>
+          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+            <Table className="w-full table-fixed">
+              <colgroup>
+                <col style={{ width: recordIdWidth }} />
+                {columns.map((_, index) => (
+                  <col key={index} style={{ width: dataColumnWidth }} />
+                ))}
+                <col style={{ width: actionWidth }} />
+              </colgroup>
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
-                  <TableHead className="w-[100px] text-xs">Record ID</TableHead>
+                  <TableHead className="text-xs px-3">Record ID</TableHead>
                   {columns.map((column) => (
-                    <TableHead key={column} className="text-xs">
-                      {column}
+                    <TableHead key={column} className="text-xs px-3">
+                      <div className="truncate pr-2">{column}</div>
                     </TableHead>
                   ))}
-                  <TableHead className="w-[80px] text-xs text-center">Action</TableHead>
+                  <TableHead className="text-xs text-center px-3">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedRecords.map((record) => {
                   const isSelected = selectedRecord?.id === record.id;
                   return (
-                    <TableRow 
+                    <TableRow
                       key={record.id}
                       className={cn(
                         "cursor-pointer hover:bg-slate-50",
@@ -167,15 +183,17 @@ export function AirtableRecordSelector({
                       )}
                       onClick={() => onSelectRecord(record)}
                     >
-                      <TableCell className="text-xs font-mono">
-                        {record.id}
+                      <TableCell className="text-xs font-mono px-3">
+                        <div className="truncate pr-2">{record.id}</div>
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell key={column} className="text-xs max-w-[200px] truncate">
-                          {formatFieldValue(record.fields[column])}
+                        <TableCell key={column} className="text-xs px-3">
+                          <div className="truncate pr-2">
+                            {formatFieldValue(record.fields[column])}
+                          </div>
                         </TableCell>
                       ))}
-                      <TableCell className="text-center">
+                      <TableCell className="text-center px-3">
                         <Button
                           type="button"
                           variant={isSelected ? "default" : "outline"}

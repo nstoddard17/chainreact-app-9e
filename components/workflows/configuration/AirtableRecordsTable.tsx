@@ -60,8 +60,50 @@ export function AirtableRecordsTable({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8 bg-gray-900 rounded-lg">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+      <div className="bg-gray-900 rounded-lg overflow-hidden w-full">
+        {/* Header Section - Same as loaded state */}
+        <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-white font-medium">
+                {isPreview ? 'Preview Data' : `Select Record: ${tableName || 'Records'}`}
+              </h3>
+              <p className="text-gray-400 text-sm mt-0.5">
+                Loading records...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading skeleton with fixed dimensions */}
+        <div className="overflow-auto" style={{ maxHeight: '400px', minHeight: '200px' }}>
+          <div className="animate-pulse">
+            {/* Skeleton table structure */}
+            <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
+              <div className="flex gap-4">
+                <div className="w-24 h-4 bg-gray-700 rounded"></div>
+                <div className="w-32 h-4 bg-gray-700 rounded"></div>
+                <div className="w-28 h-4 bg-gray-700 rounded"></div>
+              </div>
+            </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="px-4 py-3 border-b border-gray-800">
+                <div className="flex gap-4">
+                  <div className="w-20 h-4 bg-gray-700 rounded"></div>
+                  <div className="w-36 h-4 bg-gray-700 rounded"></div>
+                  <div className="w-24 h-4 bg-gray-700 rounded"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer Section */}
+        <div className="bg-gray-800 px-4 py-3 border-t border-gray-700">
+          <div className="text-sm text-gray-400">
+            Loading table data...
+          </div>
+        </div>
       </div>
     );
   }
@@ -75,8 +117,8 @@ export function AirtableRecordsTable({
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden">
-      {/* Header Section */}
+    <div className="bg-gray-900 rounded-lg overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+      {/* Header Section - Same structure as loading state */}
       <div className="bg-gray-800 px-4 py-3 border-b border-gray-700">
         <div className="flex items-center justify-between">
           {/* Title and subtitle */}
@@ -99,7 +141,7 @@ export function AirtableRecordsTable({
                 placeholder="Search records..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
+                className="pl-9 pr-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-40"
               />
             </div>
 
@@ -129,25 +171,22 @@ export function AirtableRecordsTable({
           </div>
         </div>
       </div>
-      
-      {/* Table Container */}
-      <div 
-        className="overflow-x-auto overflow-y-auto"
-        style={{ maxHeight: '400px' }}
-      >
-        <table className="w-full">
-          <thead className="sticky top-0 bg-gray-800 z-20">
-            <tr className="border-b border-gray-700">
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                ID
-              </th>
-              {fieldNames.map(field => (
-                <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  {field}
+
+      {/* Table Container - Same structure as loading state */}
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '400px', minHeight: '200px', maxWidth: '100%' }}>
+        <table className="w-full" style={{ tableLayout: 'fixed' }}>
+            <thead className="sticky top-0 bg-gray-800 z-20">
+              <tr className="border-b border-gray-700">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: '20%', minWidth: '120px' }}>
+                  ID
                 </th>
-              ))}
-            </tr>
-          </thead>
+                {fieldNames.map(field => (
+                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
+                    {field}
+                  </th>
+                ))}
+              </tr>
+            </thead>
           <tbody className="divide-y divide-gray-800">
             {displayRecords.map((record, idx) => (
               <tr
@@ -159,8 +198,10 @@ export function AirtableRecordsTable({
                 )}
                 onClick={() => onSelectRecord?.(record)}
               >
-                <td className="px-4 py-3 text-sm text-blue-400">
-                  {record.id}
+                <td className="px-4 py-3 text-sm text-blue-400" style={{ width: '20%', minWidth: '120px' }}>
+                  <span className="whitespace-nowrap" title={record.id}>
+                    {record.id}
+                  </span>
                 </td>
                 {fieldNames.map(field => {
                   const value = record.fields?.[field];
@@ -169,9 +210,9 @@ export function AirtableRecordsTable({
                     (Array.isArray(value) && value[0]?.url) ||
                     (typeof value === 'object' && value.url)
                   );
-                  
+
                   return (
-                    <td key={field} className="px-4 py-3 text-sm text-gray-300">
+                    <td key={field} className="px-4 py-3 text-sm text-gray-300" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
                       {isImage ? (
                         <div className="flex items-center gap-2">
                           {Array.isArray(value) ? (
@@ -180,7 +221,7 @@ export function AirtableRecordsTable({
                                 key={idx}
                                 src={img.url || img.thumbnails?.small?.url || img.thumbnails?.large?.url}
                                 alt={img.filename || 'Image'}
-                                className="w-10 h-10 object-cover rounded border border-gray-600"
+                                className="w-10 h-10 object-cover rounded border border-gray-600 flex-shrink-0"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
                                 }}
@@ -190,18 +231,20 @@ export function AirtableRecordsTable({
                             <img
                               src={value.url || value.thumbnails?.small?.url || value.thumbnails?.large?.url}
                               alt={value.filename || 'Image'}
-                              className="w-10 h-10 object-cover rounded border border-gray-600"
+                              className="w-10 h-10 object-cover rounded border border-gray-600 flex-shrink-0"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           )}
                           {Array.isArray(value) && value.length > 3 && (
-                            <span className="text-xs text-gray-500">+{value.length - 3}</span>
+                            <span className="text-xs text-gray-500 flex-shrink-0">+{value.length - 3}</span>
                           )}
                         </div>
                       ) : (
-                        renderFieldValue(value)
+                        <span className="whitespace-nowrap" title={renderFieldValue(value)}>
+                          {renderFieldValue(value)}
+                        </span>
                       )}
                     </td>
                   );
@@ -238,11 +281,47 @@ export function AirtableRecordsTable({
 
 function renderFieldValue(value: any): string {
   if (value === null || value === undefined) return '';
+
+  // Handle Airtable formula/rollup error states
+  if (typeof value === 'object' && value !== null) {
+    // Check if it's an error state object from formulas/rollups
+    if ('state' in value && value.state === 'error') {
+      // Return empty string or a placeholder for error states
+      return value.errorType === 'emptyDependency' ? '—' : 'Error';
+    }
+
+    // Check if it has a specific value property (some Airtable field types)
+    if ('value' in value) {
+      return renderFieldValue(value.value);
+    }
+  }
+
   if (Array.isArray(value)) {
-    return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+    return value.map(v => {
+      if (typeof v === 'object' && v !== null) {
+        // Handle attachment objects
+        if (v.filename) return v.filename;
+        // Handle linked records
+        if (v.name) return v.name;
+        // Handle other objects
+        return renderFieldValue(v);
+      }
+      return String(v);
+    }).filter(Boolean).join(', ');
   }
+
   if (typeof value === 'object') {
-    return JSON.stringify(value);
+    // Handle attachment objects
+    if (value.filename) return value.filename;
+    // Handle linked records
+    if (value.name) return value.name;
+    // Last resort - stringify but try to make it readable
+    try {
+      return JSON.stringify(value, null, 0);
+    } catch {
+      return '[Complex Object]';
+    }
   }
+
   return String(value);
 }

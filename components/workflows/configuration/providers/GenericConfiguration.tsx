@@ -454,10 +454,10 @@ export function GenericConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-8 py-5">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-6">
-          <div className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 min-h-0 px-8 py-5 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="space-y-4 pr-4">
             {/* Base fields */}
             {baseFields.length > 0 && (
               <div className="space-y-3">
