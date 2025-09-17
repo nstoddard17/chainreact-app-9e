@@ -110,39 +110,53 @@ class DiscordGateway extends SimpleEventEmitter {
    */
   private async fetchWithRetry(url: string, options: RequestInit, maxRetries: number = 3): Promise<Response | null> {
     let lastError: Error | null = null
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await fetch(url, options)
-        
+        // Create an AbortController for timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout per request
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
         // If we get a transient error, retry
         if (response.status === 503 || response.status === 502 || response.status === 500) {
           const errorText = await response.text().catch(() => 'Service unavailable')
           lastError = new Error(`Discord API ${response.status}: ${errorText}`)
-          
+
           if (attempt < maxRetries) {
-            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Exponential backoff, max 10s
+            const delay = Math.min(1000 * attempt, 3000) // Linear backoff, max 3s
             console.warn(`Discord API ${response.status} error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
         }
-        
+
         // For other status codes (including 429, 401, 403), return immediately
         return response
-        
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Network error')
-        
+
+      } catch (error: any) {
+        // Handle abort error specifically
+        if (error.name === 'AbortError') {
+          lastError = new Error('Discord API request timeout (5s)')
+        } else {
+          lastError = error instanceof Error ? error : new Error('Network error')
+        }
+
         if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Exponential backoff, max 10s
-          console.warn(`Discord API network error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`, error)
+          const delay = Math.min(1000 * attempt, 3000) // Linear backoff, max 3s
+          console.warn(`Discord API network error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
       }
     }
-    
+
     // All retries failed
     console.error(`Discord API failed after ${maxRetries} attempts:`, lastError)
     return null

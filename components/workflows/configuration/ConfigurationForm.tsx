@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from 'lucide-react';
 import { useDynamicOptions } from './hooks/useDynamicOptions';
 import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
@@ -269,6 +269,9 @@ function ConfigurationForm({
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
   
+  // Track if we've already loaded on mount to prevent duplicate calls
+  const hasLoadedOnMount = useRef(false);
+
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
@@ -278,10 +281,19 @@ function ConfigurationForm({
       timestamp: new Date().toISOString(),
       componentId
     });
-    
+
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
-    
+
+    // Reset the flag on mount
+    hasLoadedOnMount.current = false;
+
+    // Clear options for Dropbox path field on mount to ensure fresh load
+    if (nodeInfo?.providerId === 'dropbox' && resetOptions) {
+      console.log('🧹 [ConfigForm] Clearing Dropbox path options on mount');
+      resetOptions('path');
+    }
+
     // Debounce the integration fetch - wait 500ms to see if component stays mounted
     const loadIntegrations = async () => {
       // Wait a bit to see if component stays mounted
@@ -294,9 +306,9 @@ function ConfigurationForm({
         }
       }, 500); // Wait 500ms before fetching
     };
-    
+
     loadIntegrations();
-    
+
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
@@ -306,29 +318,49 @@ function ConfigurationForm({
         componentId
       });
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, []); // Empty deps - cleanup only runs on unmount
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
-    if (!nodeInfo?.configSchema || isInitialLoading) return;
-    
+    if (!nodeInfo?.configSchema || isInitialLoading || hasLoadedOnMount.current) return;
+
     console.log('🚀 [ConfigForm] Checking for loadOnMount fields...');
-    
+
     // Find fields that should load on mount
-    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => 
-      field.loadOnMount === true && field.dynamic
-    );
-    
+    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
+      // Check if field should load on mount
+      if (field.loadOnMount === true && field.dynamic) {
+        // Always load if field has no options yet
+        const fieldOptions = dynamicOptions[field.name];
+        const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
+
+        if (!hasOptions) {
+          console.log(`🔄 [ConfigForm] Field ${field.name} has no options, will load`);
+          return true;
+        }
+
+        console.log(`✅ [ConfigForm] Field ${field.name} already has ${fieldOptions.length} options, skipping`);
+        return false;
+      }
+      return false;
+    });
+
     if (fieldsToLoad.length > 0) {
       console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
-      
-      // Load each field marked with loadOnMount
-      fieldsToLoad.forEach((field: any) => {
-        console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-        loadOptions(field.name);
-      });
+      hasLoadedOnMount.current = true; // Mark that we've loaded
+
+      // Add a small delay to ensure options are cleared first for Dropbox
+      const timeoutId = setTimeout(() => {
+        // Load each field marked with loadOnMount
+        fieldsToLoad.forEach((field: any) => {
+          console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
+          loadOptions(field.name, undefined, undefined, true); // Force refresh
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo, isInitialLoading, loadOptions]);
+  }, [nodeInfo, isInitialLoading, loadOptions]); // loadOptions is stable, won't cause loops
 
   // Load options for dynamic fields with saved values
   useEffect(() => {
