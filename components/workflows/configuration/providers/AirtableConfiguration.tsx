@@ -1308,7 +1308,7 @@ export function AirtableConfiguration({
             
             {/* Records table for update record */}
             {isUpdateRecord && values.tableName && values.baseId && (
-              <div className="w-full max-w-full overflow-hidden">
+              <div className="min-w-0 max-w-full overflow-hidden">
                 <AirtableRecordsTable
                 records={airtableRecords}
                 loading={loadingRecords}

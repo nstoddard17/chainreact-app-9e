@@ -174,15 +174,14 @@ export function AirtableRecordsTable({
 
       {/* Table Container - Same structure as loading state */}
       <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '400px', minHeight: '200px', maxWidth: '100%' }}>
-        <div style={{ minWidth: 'max-content' }}>
-          <table className="w-full" style={{ minWidth: '800px' }}>
+        <table className="w-full" style={{ tableLayout: 'fixed' }}>
             <thead className="sticky top-0 bg-gray-800 z-20">
               <tr className="border-b border-gray-700">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: '120px' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: '20%', minWidth: '120px' }}>
                   ID
                 </th>
                 {fieldNames.map(field => (
-                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: '150px' }}>
+                  <th key={field} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
                     {field}
                   </th>
                 ))}
@@ -199,7 +198,7 @@ export function AirtableRecordsTable({
                 )}
                 onClick={() => onSelectRecord?.(record)}
               >
-                <td className="px-4 py-3 text-sm text-blue-400 truncate" style={{ width: '120px' }}>
+                <td className="px-4 py-3 text-sm text-blue-400 truncate" style={{ width: '20%', minWidth: '120px' }}>
                   {record.id}
                 </td>
                 {fieldNames.map(field => {
@@ -211,7 +210,7 @@ export function AirtableRecordsTable({
                   );
 
                   return (
-                    <td key={field} className="px-4 py-3 text-sm text-gray-300" style={{ width: '150px' }}>
+                    <td key={field} className="px-4 py-3 text-sm text-gray-300" style={{ width: `${80 / fieldNames.length}%`, minWidth: '120px' }}>
                       {isImage ? (
                         <div className="flex items-center gap-2">
                           {Array.isArray(value) ? (
@@ -252,7 +251,6 @@ export function AirtableRecordsTable({
             ))}
           </tbody>
         </table>
-        </div>
       </div>
 
       {/* Footer Section */}
