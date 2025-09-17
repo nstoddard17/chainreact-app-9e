@@ -707,9 +707,21 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           });
 
           // Check if this is still the current request
+          // Exception: If we have no options yet and this request has data, use it anyway
+          const currentOptions = dynamicOptions[fieldName];
+          const hasNoOptions = !currentOptions || currentOptions.length === 0;
+          const hasNewData = formattedOptions && formattedOptions.length > 0;
+
+          let isAcceptingStaleData = false;
           if (activeRequestIds.current.get(cacheKey) !== requestId) {
-            console.log(`⚠️ [useDynamicOptions] Request ${requestId} is no longer current for ${fieldName}, skipping state update`);
-            return;
+            // If we have no options but this request has data, accept it
+            if (hasNoOptions && hasNewData) {
+              console.log(`✅ [useDynamicOptions] Request ${requestId} is not current but accepting data for ${fieldName} since we have no options`);
+              isAcceptingStaleData = true;
+            } else {
+              console.log(`⚠️ [useDynamicOptions] Request ${requestId} is no longer current for ${fieldName}, skipping state update`);
+              return;
+            }
           }
 
           console.log(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
@@ -726,12 +738,17 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             });
             return newState;
           });
-          
-          // Clear loading state
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
+
+          // Clear loading state - also clear when accepting stale data to prevent stuck loading
+          if (activeRequestIds.current.get(cacheKey) === requestId || isAcceptingStaleData) {
             loadingFields.current.delete(cacheKey);
             setLoading(false);
-            activeRequestIds.current.delete(cacheKey);
+
+            // Only clean up request tracking if this is the current request
+            if (activeRequestIds.current.get(cacheKey) === requestId) {
+              activeRequestIds.current.delete(cacheKey);
+            }
+
             if (!silent) {
               onLoadingChangeRef.current?.(fieldName, false);
             }
