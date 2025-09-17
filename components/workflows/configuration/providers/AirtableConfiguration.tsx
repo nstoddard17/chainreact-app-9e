@@ -1301,14 +1301,14 @@ export function AirtableConfiguration({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 min-h-0 px-6 py-4 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="space-y-3 pb-4 pr-4">
+        <ScrollArea className="h-full" style={{ maxWidth: '100%' }}>
+          <div className="space-y-3 pb-4 pr-4" style={{ maxWidth: '100%', overflow: 'hidden' }}>
             {/* Base fields */}
             {renderFields(baseFields)}
             
             {/* Records table for update record */}
             {isUpdateRecord && values.tableName && values.baseId && (
-              <div className="w-full">
+              <div className="w-full max-w-full overflow-hidden">
                 <AirtableRecordsTable
                 records={airtableRecords}
                 loading={loadingRecords}
