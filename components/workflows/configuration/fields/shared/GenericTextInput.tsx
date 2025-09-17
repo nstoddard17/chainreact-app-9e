@@ -200,7 +200,7 @@ export function GenericTextInput({
       if (field.acceptsVariables) {
         // Check if value is a variable string (e.g., {{node.output.file}})
         const isVariable = typeof value === 'string' && value.includes('{{') && value.includes('}}');
-        
+
         if (isVariable) {
           // Show the variable as text input with drag support
           return (
@@ -230,7 +230,7 @@ export function GenericTextInput({
             </div>
           );
         }
-        
+
         // Check if value contains uploaded files
         if (value && Array.isArray(value)) {
           // Show uploaded files
@@ -267,12 +267,20 @@ export function GenericTextInput({
           );
         }
       }
-      
+
       // Standard file upload
-      
+      // Pass the value directly to FileUpload - it handles both File objects and saved metadata
+      // Ensure value is always an array for FileUpload component
+      const fileValue = value ? (Array.isArray(value) ? value : [value]) : undefined;
+      console.log('📎 [GenericTextInput] Passing file value to FileUpload:', {
+        value,
+        fileValue,
+        isArray: Array.isArray(value),
+        firstFile: fileValue?.[0]
+      });
       return (
         <FileUpload
-          value={value}
+          value={fileValue}
           onChange={async (files) => {
             // Convert FileList to array of file objects that can be stored
             if (files && files.length > 0) {

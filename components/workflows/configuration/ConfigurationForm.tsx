@@ -320,6 +320,22 @@ function ConfigurationForm({
     };
   }, []); // Empty deps - cleanup only runs on unmount
 
+  // Reset hasLoadedOnMount and clear options when modal opens (nodeInfo changes)
+  useEffect(() => {
+    hasLoadedOnMount.current = false;
+    console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - modal opened/reopened');
+
+    // Clear dynamic options for loadOnMount fields to force reload
+    if (nodeInfo?.configSchema) {
+      nodeInfo.configSchema.forEach((field: any) => {
+        if (field.loadOnMount && field.dynamic) {
+          console.log(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
+          resetOptions(field.name);
+        }
+      });
+    }
+  }, [nodeInfo?.id, resetOptions]);
+
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading || hasLoadedOnMount.current) return;
@@ -330,17 +346,9 @@ function ConfigurationForm({
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
       // Check if field should load on mount
       if (field.loadOnMount === true && field.dynamic) {
-        // Always load if field has no options yet
-        const fieldOptions = dynamicOptions[field.name];
-        const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
-
-        if (!hasOptions) {
-          console.log(`🔄 [ConfigForm] Field ${field.name} has no options, will load`);
-          return true;
-        }
-
-        console.log(`✅ [ConfigForm] Field ${field.name} already has ${fieldOptions.length} options, skipping`);
-        return false;
+        // Always reload loadOnMount fields when modal reopens
+        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, will load`);
+        return true;
       }
       return false;
     });

@@ -89,7 +89,7 @@ const dropboxActionUploadFile: NodeComponent = {
       type: "combobox",
       dynamic: true,
       loadOnMount: true,
-      allowCustomValue: true,
+      creatable: true,
       required: false,
       placeholder: "Select or type a folder path",
       description: "Choose an existing folder or type a new folder name to create it. Leave empty for root folder.",
