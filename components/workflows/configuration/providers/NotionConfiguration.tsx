@@ -98,9 +98,44 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
       
       // Handle object-based visibility conditions
       if (typeof field.visibilityCondition === 'object') {
+        // Handle 'and' operator for multiple conditions
+        if (field.visibilityCondition.and && Array.isArray(field.visibilityCondition.and)) {
+          const allConditions = field.visibilityCondition.and.every((condition: any) => {
+            const { field: condField, operator, value } = condition;
+            const fieldValue = values[condField];
+
+            switch (operator) {
+              case 'isNotEmpty':
+                return fieldValue !== undefined && fieldValue !== '' && fieldValue !== null;
+              case 'isEmpty':
+                return fieldValue === undefined || fieldValue === '' || fieldValue === null;
+              case 'equals':
+                if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
+                return fieldValue === value;
+              case 'notEquals':
+                return fieldValue !== value;
+              case 'in':
+                if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
+                return Array.isArray(value) && value.includes(fieldValue);
+              default:
+                console.warn(`  ⚠️ Unknown operator in 'and' condition: ${operator}`);
+                return true;
+            }
+          });
+
+          console.log(`  ${allConditions ? '✅' : '❌'} Field '${field.name}' visibility (AND):`, {
+            conditions: field.visibilityCondition.and,
+            values: field.visibilityCondition.and.map((c: any) => ({ [c.field]: values[c.field] })),
+            visible: allConditions
+          });
+
+          return allConditions;
+        }
+
+        // Handle single condition
         const { field: condField, operator } = field.visibilityCondition;
         const fieldValue = values[condField];
-        
+
         const result = (() => {
           switch (operator) {
             case 'isNotEmpty':
@@ -118,7 +153,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
               // Check if fieldValue is in the array of values
               // If fieldValue is undefined/null/empty, hide the field
               if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
-              return Array.isArray(field.visibilityCondition.value) && 
+              return Array.isArray(field.visibilityCondition.value) &&
                      field.visibilityCondition.value.includes(fieldValue);
             default:
               console.warn(`  ⚠️ Unknown operator: ${operator}`);
