@@ -23,7 +23,7 @@ const CustomDialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
         className
       )}
       {...props}
@@ -236,9 +236,9 @@ export function ConfigurationModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <CustomDialogContent className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl">
-        <div className="flex h-full max-h-[95vh]">
-          {/* Main Configuration Area - Fixed width to prevent Variables panel from being pushed off */}
-          <div className="flex flex-col" style={{ width: workflowData && !nodeInfo?.isTrigger ? 'calc(100% - 320px)' : '100%' }}>
+        <div className="flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden">
+          {/* Main Configuration Area - Responsive width */}
+          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
             <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -285,9 +285,9 @@ export function ConfigurationModal({
             )}
           </div>
 
-          {/* Variable Picker Side Panel - Fixed position, always visible */}
+          {/* Variable Picker Side Panel - Responsive: below on mobile, beside on desktop */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <div className="w-80 flex-shrink-0">
+            <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 max-h-[40vh] lg:max-h-full overflow-hidden">
               <VariablePickerSidePanel
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}
