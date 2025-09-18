@@ -74,12 +74,18 @@ export async function GET(request: NextRequest) {
       token_type: tokenData.token_type,
     });
 
-    // Prefer bot token if available (has workspace-level permissions)
-    // Fall back to user token if no bot token
-    const accessToken = tokenData.access_token || tokenData.authed_user?.access_token;
-    const refreshToken = tokenData.refresh_token || tokenData.authed_user?.refresh_token;
-    const tokenType = tokenData.access_token ? 'bot' : 'user';
-    
+    // Store BOTH bot and user tokens for flexibility
+    // Bot token is used by default, user token is used when sending as user
+    const botToken = tokenData.access_token; // xoxb- token
+    const userToken = tokenData.authed_user?.access_token; // xoxp- token
+    const botRefreshToken = tokenData.refresh_token;
+    const userRefreshToken = tokenData.authed_user?.refresh_token;
+
+    // Use bot token as primary (for backward compatibility)
+    // But store user token in metadata for "send as user" functionality
+    const accessToken = botToken || userToken;
+    const refreshToken = botRefreshToken || userRefreshToken;
+
     // Combine both bot and user scopes if both are present
     const botScopes = tokenData.scope ? tokenData.scope.split(' ') : [];
     const userScopes = tokenData.authed_user?.scope ? tokenData.authed_user.scope.split(' ') : [];
@@ -98,6 +104,17 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to check for existing integration: ${fetchError.message}`);
     }
 
+    // Encrypt user token separately for storage in metadata
+    const { encryptTokens } = await import('@/lib/integrations/tokenUtils');
+    let encryptedUserToken = null;
+    let encryptedUserRefreshToken = null;
+
+    if (userToken) {
+      const userTokens = await encryptTokens(userToken, userRefreshToken);
+      encryptedUserToken = userTokens.encryptedAccessToken;
+      encryptedUserRefreshToken = userTokens.encryptedRefreshToken;
+    }
+
     // Prepare integration data with encrypted tokens
     const integrationData = await prepareIntegrationData(
       userId,
@@ -107,11 +124,17 @@ export async function GET(request: NextRequest) {
       scopes,
       expiresIn,
       {
-        token_type: tokenType,
+        token_type: botToken ? 'bot' : 'user',
         team_id: tokenData.team?.id,
         team_name: tokenData.team?.name,
         app_id: tokenData.app_id,
-        authed_user_id: tokenData.authed_user?.id
+        authed_user_id: tokenData.authed_user?.id,
+        // Store encrypted user tokens for "send as user" functionality
+        user_token: encryptedUserToken,
+        user_refresh_token: encryptedUserRefreshToken,
+        has_user_token: !!userToken,
+        bot_scopes: tokenData.scope,
+        user_scopes: tokenData.authed_user?.scope
       }
     );
 

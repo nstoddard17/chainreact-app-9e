@@ -39,8 +39,9 @@ export function FileUpload({
   className,
   placeholder = "Choose files to upload...",
   disabled = false,
-  hideUploadedFiles = false
-}: FileUploadProps) {
+  hideUploadedFiles = false,
+  multiple = false
+}: FileUploadProps & { multiple?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragActive, setDragActive] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])

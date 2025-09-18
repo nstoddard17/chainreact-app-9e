@@ -26,6 +26,32 @@ export class IntegrationNodeHandlers {
 
     // Slack integrations
     if (nodeType.startsWith('slack_')) {
+      // Use the new action handlers for specific actions
+      if (nodeType === 'slack_action_send_message') {
+        const { slackActionSendMessage } = await import('@/lib/workflows/actions/slack')
+        const config = node.data.config || {}
+        const result = await slackActionSendMessage(config, context.userId, context.data || {})
+
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to send Slack message')
+        }
+
+        return result.output
+      }
+
+      if (nodeType === 'slack_action_create_channel') {
+        const { createSlackChannel } = await import('@/lib/workflows/actions/slack')
+        const config = node.data.config || {}
+        const result = await createSlackChannel(config, context.userId, context.data || {})
+
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to create Slack channel')
+        }
+
+        return result.output
+      }
+
+      // Fall back to the service for other Slack actions
       return await this.slackService.execute(node, context)
     }
 

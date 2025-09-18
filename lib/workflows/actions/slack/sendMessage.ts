@@ -6,14 +6,16 @@
 import { ExecutionContext } from '../../executeNode';
 
 export async function sendSlackMessage(context: ExecutionContext): Promise<any> {
-  const { 
-    channel, 
-    message, 
-    sendAsBot = true, 
+  const {
+    channel,
+    message,
+    asUser = false,  // Default to false (don't customize bot appearance)
     username,
-    iconEmoji,
-    threadTimestamp,
+    icon,  // Changed from iconEmoji to match schema
+    attachments,  // Added attachments field from schema
+    linkNames = false,  // Added from schema
     unfurlLinks = true,
+    threadTimestamp,
     unfurlMedia = true,
     messageType = 'simple',
     buttonConfig,
@@ -72,41 +74,108 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Slack access token not found. Please reconnect your Slack account.');
   }
 
+  // Determine which token to use and track if we're actually using user token
+  let tokenToUse = integration.access_token; // Default to bot token
+  let isActuallyUsingUserToken = false;
+
+  // If asUser is true, try to use the user token to send as the actual user
+  if (asUser && integration.metadata?.has_user_token && integration.metadata?.user_token) {
+    console.log('[Slack] Attempting to use user token to send as actual user');
+    // Decrypt the user token from metadata
+    const { decryptToken } = await import('@/lib/integrations/tokenUtils');
+    const userToken = await decryptToken(integration.metadata.user_token);
+
+    if (userToken) {
+      tokenToUse = userToken;
+      isActuallyUsingUserToken = true;
+      console.log('[Slack] Successfully using user token - message will appear as sent by the user');
+    } else {
+      console.warn('[Slack] Failed to decrypt user token, will use bot token with customization');
+    }
+  } else if (asUser) {
+    console.log('[Slack] User requested to send as user, but user token not available. Will customize bot appearance instead.');
+  } else {
+    console.log('[Slack] Using bot token in standard mode');
+  }
+
   try {
     // Prepare the message payload
     const messagePayload: any = {
       channel: channel.startsWith('#') ? channel : `#${channel}`,
       text: message || '',
-      as_user: !sendAsBot,
       unfurl_links: unfurlLinks,
-      unfurl_media: unfurlMedia
+      unfurl_media: unfurlMedia,
+      link_names: linkNames  // Added link_names from schema
     };
 
-    // Add optional fields
-    if (username && sendAsBot) {
-      messagePayload.username = username;
+    if (isActuallyUsingUserToken) {
+      // When using user token, the message is automatically sent as the user
+      // Username/icon customization is ignored by Slack when using user token
+      console.log('[Slack] Message will appear as sent by the actual user');
+      // Don't add any customization fields - the user's actual profile is used
+    } else if (!isActuallyUsingUserToken && (username || icon)) {
+      // Using bot token and have customization fields
+      // This requires chat:write.customize scope
+      console.log('[Slack] Customizing bot appearance');
+
+      // Add custom username if provided
+      if (username) {
+        messagePayload.username = username;
+        console.log('[Slack] Setting custom username:', username);
+      }
+
+      // Handle icon field (can be URL, uploaded file, or emoji)
+      if (icon) {
+        if (typeof icon === 'string') {
+          // Check if it's a URL
+          if (icon.startsWith('http://') || icon.startsWith('https://')) {
+            messagePayload.icon_url = icon;
+            console.log('[Slack] Setting icon_url:', icon);
+          } else if (icon.startsWith(':') && icon.endsWith(':')) {
+            // It's already formatted as an emoji code
+            messagePayload.icon_emoji = icon;
+            console.log('[Slack] Setting icon_emoji:', icon);
+          } else if (icon.length <= 2) {
+            // Likely a raw emoji character, don't wrap actual emoji
+            // Slack expects shortcodes like :smile:, not actual emoji characters
+            console.warn('[Slack] Raw emoji characters not supported. Use shortcodes like :smile: instead');
+          } else {
+            // Assume it's an emoji name without colons
+            messagePayload.icon_emoji = `:${icon}:`;
+            console.log('[Slack] Setting icon_emoji with colons:', messagePayload.icon_emoji);
+          }
+        } else if (icon && typeof icon === 'object') {
+          // Handle uploaded file object
+          if (icon.url) {
+            messagePayload.icon_url = icon.url;
+            console.log('[Slack] Setting icon_url from object:', icon.url);
+          } else if (icon.filePath) {
+            // If it's a file path from upload, convert to URL
+            // Note: This would need to be a publicly accessible URL
+            console.warn('[Slack] File path needs to be converted to public URL for icon');
+          }
+        }
+      }
+    } else {
+      // Using bot token with default appearance
+      console.log('[Slack] Sending as bot with default appearance');
     }
 
-    if (iconEmoji && sendAsBot) {
-      // Handle both emoji text and uploaded image
-      if (typeof iconEmoji === 'string') {
-        // If it's a string, treat it as emoji code
-        if (iconEmoji.startsWith(':') && iconEmoji.endsWith(':')) {
-          messagePayload.icon_emoji = iconEmoji;
-        } else if (iconEmoji.startsWith('http')) {
-          // If it's a URL (from uploaded file), use as icon URL
-          messagePayload.icon_url = iconEmoji;
-        } else {
-          // Add colons if missing
-          messagePayload.icon_emoji = `:${iconEmoji}:`;
-        }
-      } else if (iconEmoji && typeof iconEmoji === 'object') {
-        // If it's a file object from upload
-        if (iconEmoji.url) {
-          messagePayload.icon_url = iconEmoji.url;
-        } else if (iconEmoji.base64) {
-          // Note: Slack doesn't directly support base64 icons, would need to upload first
-          console.warn('[Slack] Base64 icons not directly supported, using default');
+    // Handle file attachments from the schema's attachments field
+    // Note: Slack's chat.postMessage doesn't directly support file uploads
+    // Files need to be uploaded separately using files.upload API
+    if (attachments) {
+      console.log('[Slack] File attachments detected. Note: Files should be uploaded using files.upload API first');
+      // For now, we'll add a note to the message about attachments
+      // In a full implementation, you'd upload files first then reference them
+      if (typeof attachments === 'string' && attachments.startsWith('http')) {
+        // If it's a URL, add it to the message
+        messagePayload.text = messagePayload.text ? `${messagePayload.text}\n\nAttachment: ${attachments}` : `Attachment: ${attachments}`;
+      } else if (Array.isArray(attachments)) {
+        // If multiple attachments
+        const attachmentUrls = attachments.filter(a => typeof a === 'string' || a.url).map(a => typeof a === 'string' ? a : a.url);
+        if (attachmentUrls.length > 0) {
+          messagePayload.text = messagePayload.text ? `${messagePayload.text}\n\nAttachments:\n${attachmentUrls.join('\n')}` : `Attachments:\n${attachmentUrls.join('\n')}`;
         }
       }
     }
@@ -114,7 +183,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     if (threadTimestamp) {
       // Handle datetime field - could be ISO string or Unix timestamp
       let timestamp = threadTimestamp;
-      
+
       // If it's an ISO date string, convert to Slack timestamp format
       if (typeof threadTimestamp === 'string' && threadTimestamp.includes('T')) {
         // Convert ISO date to Unix timestamp with microseconds
@@ -124,7 +193,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
         // If it's a number, ensure it has the right format
         timestamp = threadTimestamp.toFixed(6);
       }
-      
+
       messagePayload.thread_ts = timestamp;
     }
 
@@ -367,14 +436,18 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       channel: messagePayload.channel,
       hasText: !!messagePayload.text,
       hasBlocks: !!messagePayload.blocks,
-      hasAttachments: !!messagePayload.attachments
+      hasAttachments: !!messagePayload.attachments,
+      username: messagePayload.username || 'default',
+      icon_url: messagePayload.icon_url || 'none',
+      icon_emoji: messagePayload.icon_emoji || 'none',
+      customizationEnabled: asUser
     });
 
-    // Send the message using Slack Web API
+    // Send the message using Slack Web API with the appropriate token
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${integration.access_token}`,
+        'Authorization': `Bearer ${tokenToUse}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(messagePayload)
