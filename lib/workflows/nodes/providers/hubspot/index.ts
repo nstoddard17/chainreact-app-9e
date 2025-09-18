@@ -648,91 +648,100 @@ const hubspotTriggerDealDeleted: NodeComponent = {
 const hubspotActionCreateContact: NodeComponent = {
   type: "hubspot_action_create_contact",
   title: "Create Contact",
-  description: "Create a new contact in HubSpot CRM",
+  description: "Create a new contact in HubSpot CRM with dynamic fields from your portal",
   icon: Plus,
   providerId: "hubspot",
   requiredScopes: ["crm.objects.contacts.write"],
   category: "CRM",
   isTrigger: false,
   configSchema: [
-    // Basic Information
-    { name: "name", label: "Name", type: "text", required: true, placeholder: "John Doe" },
-    { name: "email", label: "Email Address", type: "email", required: true, placeholder: "john.doe@example.com" },
-    { name: "phone", label: "Phone Number", type: "text", required: true, placeholder: "+1-555-123-4567" },
-    
-    // Lead Management
-    { 
-      name: "hs_lead_status", 
-      label: "Lead Status", 
-      type: "select",
-      options: [
-        { value: "NEW", label: "New" },
-        { value: "OPEN", label: "Open" },
-        { value: "IN_PROGRESS", label: "In Progress" },
-        { value: "OPEN_DEAL", label: "Open deal" },
-        { value: "UNQUALIFIED", label: "Unqualified" },
-        { value: "ATTEMPTED_TO_CONTACT", label: "Attempted to contact" },
-        { value: "CONNECTED", label: "Connected" },
-        { value: "BAD_TIMING", label: "Bad Timing" }
-      ],
+    // Mode selector - Using toggle_group for pill-style selection
+    {
+      name: "fieldMode",
+      label: "Field Selection Mode",
+      type: "toggle_group",
       required: true,
-      placeholder: "Select lead status"
+      defaultValue: "basic",
+      options: [
+        { value: "basic", label: "Basic Fields" },
+        { value: "custom", label: "Custom Selection" },
+        { value: "all", label: "All Fields" }
+      ],
+      description: "Choose how to configure contact fields"
     },
-    
-    // Company Information
-    { 
-      name: "associatedCompanyId", 
-      label: "Company", 
-      type: "combobox",
-      dynamic: "hubspot_companies",
+
+    // Basic mode fields (shown when fieldMode is "basic")
+    {
+      name: "email",
+      label: "Email",
+      type: "email",
+      required: true,
+      placeholder: "john.doe@example.com",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
+    },
+    {
+      name: "firstname",
+      label: "First Name",
+      type: "text",
       required: false,
-      placeholder: "Select a company or type to create new",
-      creatable: true
+      placeholder: "John",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
     },
-    { 
-      name: "jobtitle", 
-      label: "Job Title", 
-      type: "combobox",
-      dynamic: "hubspot_job_titles",
+    {
+      name: "lastname",
+      label: "Last Name",
+      type: "text",
       required: false,
-      placeholder: "Select or type job title",
-      creatable: true
+      placeholder: "Doe",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
     },
-    { 
-      name: "department", 
-      label: "Department", 
-      type: "combobox",
-      dynamic: "hubspot_departments",
+    {
+      name: "phone",
+      label: "Phone Number",
+      type: "text",
       required: false,
-      placeholder: "Select or type department",
-      creatable: true
+      placeholder: "+1-555-123-4567",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
     },
-    { 
-      name: "industry", 
-      label: "Industry", 
-      type: "combobox",
-      dynamic: "hubspot_industries",
+    {
+      name: "company",
+      label: "Company",
+      type: "text",
       required: false,
-      placeholder: "Select or type industry",
-      creatable: true
+      placeholder: "Acme Inc.",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
     },
-    
-    // Location Information
-    { name: "address", label: "Street Address", type: "text", required: false, placeholder: "123 Main St" },
-    { name: "city", label: "City", type: "text", required: false, placeholder: "New York" },
-    { name: "state", label: "State/Region", type: "text", required: false, placeholder: "NY" },
-    { name: "zip", label: "Postal Code", type: "text", required: false, placeholder: "10001" },
-    { name: "country", label: "Country", type: "text", required: false, placeholder: "United States" },
-    
-    // Social Media
-    { name: "website", label: "Website URL", type: "text", required: false, placeholder: "https://www.example.com" },
-    { name: "linkedinbio", label: "LinkedIn URL", type: "text", required: false, placeholder: "https://www.linkedin.com/in/johndoe" },
-    { name: "twitterhandle", label: "Twitter Handle", type: "text", required: false, placeholder: "@johndoe" },
-    
-    // Lifecycle Stage
-    { 
-      name: "lifecyclestage", 
-      label: "Lifecycle Stage", 
+    {
+      name: "jobtitle",
+      label: "Job Title",
+      type: "combobox",
+      dynamic: true,
+      dynamicDataType: "hubspot_job_titles",
+      required: false,
+      placeholder: "Select or enter job title",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
+    },
+    {
+      name: "lifecyclestage",
+      label: "Lifecycle Stage",
       type: "select",
       options: [
         { value: "subscriber", label: "Subscriber" },
@@ -741,14 +750,105 @@ const hubspotActionCreateContact: NodeComponent = {
         { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
         { value: "opportunity", label: "Opportunity" },
         { value: "customer", label: "Customer" },
-        { value: "evangelist", label: "Evangelist" },
-        { value: "other", label: "Other" }
+        { value: "evangelist", label: "Evangelist" }
       ],
       required: false,
-      defaultValue: "lead",
-      placeholder: "Select lifecycle stage"
+      placeholder: "Select lifecycle stage",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
+    },
+    {
+      name: "hs_lead_status",
+      label: "Lead Status",
+      type: "select",
+      dynamic: true,
+      dynamicDataType: "hubspot_lead_status_options",
+      required: false,
+      placeholder: "Select lead status",
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "basic"
+      }
+    },
+
+    // Custom selection mode (shown when fieldMode is "custom")
+    {
+      name: "selectedProperties",
+      label: "Select Properties",
+      type: "multiselect",
+      dynamic: true,
+      dynamicDataType: "hubspot_contact_available_properties",
+      required: false,
+      placeholder: "Choose properties to include",
+      description: "Select which contact properties you want to set",
+      defaultValue: ["email", "firstname", "lastname"],
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "custom"
+      }
+    },
+    {
+      name: "customProperties",
+      label: "Property Values",
+      type: "dynamic_properties",
+      dynamic: true,
+      dependsOn: "selectedProperties",
+      required: false,
+      metadata: {
+        objectType: "contacts",
+        requiredFields: ["email"]
+      },
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "custom"
+      }
+    },
+
+    // All fields mode (shown when fieldMode is "all")
+    {
+      name: "allProperties",
+      label: "Contact Properties",
+      type: "dynamic_properties_auto",
+      dynamic: true,
+      required: false,
+      metadata: {
+        objectType: "contacts",
+        autoLoad: true,
+        requiredFields: ["email"],
+        excludeReadOnly: true,
+        groupByCategory: true,
+        collapsibleGroups: true
+      },
+      visibleWhen: {
+        field: "fieldMode",
+        equals: "all"
+      }
+    },
+
+    // Company association (available in all modes)
+    {
+      name: "associatedCompanyId",
+      label: "Associated Company (Optional)",
+      type: "combobox",
+      dynamic: true,
+      dynamicDataType: "hubspot_companies",
+      required: false,
+      placeholder: "Select a company or enter new company name",
+      description: "Link this contact to a company"
     }
-  ]
+  ],
+
+  // UI configuration for dynamic properties
+  uiConfig: {
+    supportsDynamicProperties: true,
+    conditionalFields: true,
+    propertyFetchConfig: {
+      endpoint: "/api/integrations/hubspot/properties",
+      objectType: "contacts"
+    }
+  }
 }
 
 const hubspotActionCreateCompany: NodeComponent = {
@@ -994,6 +1094,11 @@ const hubspotActionUpdateDeal: NodeComponent = {
   ]
 }
 
+// Import dynamic nodes
+import { hubspotDynamicNodes } from './dynamicNodes'
+// Import enhanced contact nodes
+import { hubspotActionCreateContactEnhanced, hubspotActionCreateContactFullyDynamic } from './createContactEnhanced'
+
 // Export all HubSpot nodes
 export const hubspotNodes: NodeComponent[] = [
   // Triggers (10)
@@ -1006,11 +1111,18 @@ export const hubspotNodes: NodeComponent[] = [
   hubspotTriggerDealCreated,
   hubspotTriggerDealUpdated,
   hubspotTriggerDealDeleted,
-  
+
   // Actions (5 - one not marked as comingSoon, 4 marked as comingSoon)
   hubspotActionCreateContact,
   hubspotActionCreateCompany,
   hubspotActionCreateDeal,
   hubspotActionAddContactToList,
   hubspotActionUpdateDeal,
+
+  // Dynamic actions (4)
+  ...hubspotDynamicNodes,
+
+  // Enhanced contact actions (2)
+  hubspotActionCreateContactEnhanced,
+  hubspotActionCreateContactFullyDynamic,
 ]

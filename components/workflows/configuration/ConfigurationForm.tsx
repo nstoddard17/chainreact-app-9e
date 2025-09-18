@@ -135,6 +135,17 @@ function ConfigurationForm({
   const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
+  // Debug logging for HubSpot
+  if (provider === 'hubspot') {
+    console.log('🎯 [ConfigForm] HubSpot integration check:', {
+      provider,
+      integration,
+      status: integration?.status,
+      needsConnection,
+      integrationName
+    });
+  }
+
   // Extract saved dynamic options from initialData if present
   const savedDynamicOptions = initialData?.__dynamicOptions;
 

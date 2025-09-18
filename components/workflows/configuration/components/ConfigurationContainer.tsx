@@ -36,8 +36,17 @@ export function ConfigurationContainer({
   submitLabel,
   showFooter = true
 }: ConfigurationContainerProps) {
+  const handleFormSubmit = (e: React.FormEvent) => {
+    console.log('🎯 [ConfigurationContainer] Form submit event triggered');
+    if (onSubmit) {
+      onSubmit(e);
+    } else {
+      console.error('❌ [ConfigurationContainer] onSubmit is not defined!');
+    }
+  };
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-col h-full overflow-hidden">
+    <form onSubmit={handleFormSubmit} className="flex flex-col h-full overflow-hidden">
       {/* Main content area with vertical scroll only */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full overflow-y-auto overflow-x-hidden px-6 py-4">
@@ -60,7 +69,13 @@ export function ConfigurationContainer({
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button
+              type="submit"
+              onClick={(e) => {
+                console.log('💾 [ConfigurationContainer] Save button clicked');
+                // Don't prevent default - let the form submit handle it
+              }}
+            >
               {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}
             </Button>
           </div>

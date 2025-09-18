@@ -12,42 +12,120 @@ export async function createHubSpotContact(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    
-    const {
-      email,
-      name,
-      phone,
-      hs_lead_status,
-      // Company Information
-      associatedCompanyId,
-      jobtitle,
-      department,
-      industry,
-      // Location Information
-      address,
-      city,
-      state,
-      zip,
-      country,
-      // Social Media
-      website,
-      linkedinbio,
-      twitterhandle,
-      // Lifecycle Stage
-      lifecyclestage,
-      // Legacy fields (keeping for backward compatibility)
-      favorite_content_topics,
-      preferred_channels,
-      additional_properties = [],
-      additional_values = {},
-      all_available_fields = [],
-      all_field_values = {},
-      company_fields = [],
-      company_field_values = {},
-      custom_properties = {}
-    } = resolvedConfig
 
-    if (!email) {
+    // Determine which mode we're in based on the config
+    const fieldMode = resolvedConfig.fieldMode || 'basic'
+
+    // Prepare properties based on the mode
+    let properties: Record<string, any> = {}
+
+    if (fieldMode === 'all' && resolvedConfig.allProperties) {
+      // All fields mode - use all properties directly
+      properties = { ...resolvedConfig.allProperties }
+    } else if (fieldMode === 'custom' && resolvedConfig.customProperties) {
+      // Custom mode - use selected properties
+      properties = { ...resolvedConfig.customProperties }
+    } else {
+      // Basic mode or legacy mode - use individual fields
+      const {
+        email,
+        firstname,
+        lastname,
+        name, // Legacy support for full name
+        phone,
+        hs_lead_status,
+        // Company Information
+        associatedCompanyId,
+        jobtitle,
+        department,
+        industry,
+        // Location Information
+        address,
+        city,
+        state,
+        zip,
+        country,
+        // Social Media
+        website,
+        linkedinbio,
+        twitterhandle,
+        // Lifecycle Stage
+        lifecyclestage,
+        company,
+        // Legacy fields (keeping for backward compatibility)
+        favorite_content_topics,
+        preferred_channels,
+        additional_properties = [],
+        additional_values = {},
+        all_available_fields = [],
+        all_field_values = {},
+        company_fields = [],
+        company_field_values = {},
+        custom_properties = {}
+      } = resolvedConfig
+
+      // Build properties from individual fields
+      if (email) properties.email = email
+      if (firstname) properties.firstname = firstname
+      if (lastname) properties.lastname = lastname
+      if (phone) properties.phone = phone
+      if (company) properties.company = company
+      if (jobtitle) properties.jobtitle = jobtitle
+      if (lifecyclestage) properties.lifecyclestage = lifecyclestage
+      if (hs_lead_status) properties.hs_lead_status = hs_lead_status
+      if (department) properties.department = department
+      if (industry) properties.industry = industry
+      if (address) properties.address = address
+      if (city) properties.city = city
+      if (state) properties.state = state
+      if (zip) properties.zip = zip
+      if (country) properties.country = country
+      if (website) properties.website = website
+      if (linkedinbio) properties.linkedinbio = linkedinbio
+      if (twitterhandle) properties.twitterhandle = twitterhandle
+      if (favorite_content_topics) properties.favorite_content_topics = favorite_content_topics
+      if (preferred_channels) properties.preferred_channels = preferred_channels
+
+      // Legacy support for name splitting
+      if (!firstname && !lastname && name) {
+        const nameParts = name.trim().split(' ')
+        if (nameParts.length > 0) {
+          properties.firstname = nameParts[0]
+          if (nameParts.length > 1) {
+            properties.lastname = nameParts.slice(1).join(' ')
+          }
+        }
+      }
+
+      // Add additional properties from legacy format
+      if (additional_properties && Array.isArray(additional_properties)) {
+        additional_properties.forEach(propName => {
+          if (additional_values[propName] !== undefined && additional_values[propName] !== null && additional_values[propName] !== '') {
+            properties[propName] = additional_values[propName]
+          }
+        })
+      }
+
+      // Add all available fields from legacy format
+      if (all_available_fields && Array.isArray(all_available_fields)) {
+        all_available_fields.forEach(fieldName => {
+          if (all_field_values[fieldName] !== undefined && all_field_values[fieldName] !== null && all_field_values[fieldName] !== '') {
+            properties[fieldName] = all_field_values[fieldName]
+          }
+        })
+      }
+
+      // Add custom properties
+      if (custom_properties && typeof custom_properties === 'object') {
+        Object.assign(properties, custom_properties)
+      }
+    }
+
+    // Extract company association
+    const associatedCompanyId = resolvedConfig.associatedCompanyId
+
+    // Ensure email is present
+    if (!properties.email) {
       throw new Error("Email is required")
     }
 
@@ -68,103 +146,6 @@ export async function createHubSpotContact(
     }
 
     const accessToken = await getDecryptedAccessToken(userId, "hubspot")
-
-    // Prepare contact properties
-    const properties: Record<string, any> = {
-      email: email
-    }
-
-    // Basic Information
-    if (name) {
-      // Split the name into first and last name for HubSpot
-      const nameParts = name.trim().split(' ')
-      if (nameParts.length > 0) {
-        properties.firstname = nameParts[0]
-        if (nameParts.length > 1) {
-          properties.lastname = nameParts.slice(1).join(' ')
-        }
-      }
-    }
-
-    // Contact Information
-    if (phone) properties.phone = phone
-
-    // Lead Management
-    if (hs_lead_status) properties.hs_lead_status = hs_lead_status
-
-    // Company Information
-    if (jobtitle) properties.jobtitle = jobtitle
-    if (department) properties.hs_department = department // HubSpot uses hs_department
-    if (industry) properties.industry = industry
-    if (associatedCompanyId) properties.associatedcompanyid = associatedCompanyId
-
-    // Location Information
-    if (address) properties.address = address
-    if (city) properties.city = city
-    if (state) properties.state = state
-    if (zip) properties.zip = zip
-    if (country) properties.country = country
-
-    // Social Media
-    if (website) properties.website = website
-    if (linkedinbio) properties.linkedinbio = linkedinbio
-    if (twitterhandle) properties.twitterhandle = twitterhandle
-
-    // Lifecycle Stage
-    if (lifecyclestage) properties.lifecyclestage = lifecyclestage
-
-    // Legacy - Content Preferences
-    if (favorite_content_topics) properties.favorite_content_topics = favorite_content_topics
-
-    // Legacy - Communication Preferences
-    if (preferred_channels) properties.preferred_channels = preferred_channels
-    
-    // Add additional properties from dynamic field selector
-    if (additional_properties && Array.isArray(additional_properties)) {
-      console.log('Processing additional properties:', additional_properties)
-      console.log('Additional values:', additional_values)
-      
-      additional_properties.forEach(propName => {
-        // Use values from additional_values if available, otherwise fall back to resolvedConfig
-        if (additional_values[propName] !== undefined && additional_values[propName] !== null && additional_values[propName] !== '') {
-          properties[propName] = additional_values[propName]
-          console.log(`Added property ${propName} with value:`, additional_values[propName])
-        } else {
-          const propValue = resolvedConfig[propName]
-          if (propValue !== undefined && propValue !== null && propValue !== '') {
-            properties[propName] = propValue
-            console.log(`Added property ${propName} with value from config:`, propValue)
-          }
-        }
-      })
-    }
-
-    // Add all available fields from the comprehensive field selector
-    if (all_available_fields && Array.isArray(all_available_fields)) {
-      console.log('Processing all available fields:', all_available_fields)
-      console.log('All field values:', all_field_values)
-      
-      all_available_fields.forEach(fieldName => {
-        // Use values from all_field_values if available, otherwise fall back to resolvedConfig
-        if (all_field_values[fieldName] !== undefined && all_field_values[fieldName] !== null && all_field_values[fieldName] !== '') {
-          properties[fieldName] = all_field_values[fieldName]
-          console.log(`Added field ${fieldName} with value:`, all_field_values[fieldName])
-        } else {
-          const fieldValue = resolvedConfig[fieldName]
-          if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
-            properties[fieldName] = fieldValue
-            console.log(`Added field ${fieldName} with value from config:`, fieldValue)
-          }
-        }
-      })
-    }
-    
-    console.log('Final properties being sent to HubSpot:', properties)
-    
-    // Add custom properties
-    if (custom_properties && typeof custom_properties === 'object') {
-      Object.assign(properties, custom_properties)
-    }
 
     // Create contact payload
     const payload = {

@@ -8,6 +8,7 @@ import { DiscordOptionsLoader } from './discord/discordOptionsLoader';
 import { AirtableOptionsLoader } from './airtable/airtableOptionsLoader';
 import { FacebookOptionsLoader } from './facebook/facebookOptionsLoader';
 import { hubspotOptionsLoader } from './hubspot/hubspotOptionsLoader';
+import { hubspotDynamicOptionsLoader } from './hubspot/hubspotDynamicOptionsLoader';
 import { onenoteOptionsLoader } from './onenote/optionsLoader';
 import { notionOptionsLoader } from './notion/options';
 import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoader';
@@ -34,8 +35,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register Facebook loader
     this.register('facebook', new FacebookOptionsLoader());
     
-    // Register HubSpot loader
+    // Register HubSpot loaders (both legacy and dynamic)
     this.register('hubspot', hubspotOptionsLoader);
+    this.register('hubspot', hubspotDynamicOptionsLoader);
     
     // Register OneNote loader for both possible provider IDs
     this.register('microsoft-onenote', onenoteOptionsLoader);

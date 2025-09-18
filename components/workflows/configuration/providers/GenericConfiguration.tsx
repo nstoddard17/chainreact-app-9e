@@ -216,6 +216,15 @@ export function GenericConfiguration({
       }
     }
     
+    // Check visibleWhen condition (used by HubSpot nodes)
+    if (field.visibleWhen) {
+      const { field: dependentField, equals: expectedValue } = field.visibleWhen;
+      const actualValue = values[dependentField];
+      if (actualValue !== expectedValue) {
+        return false;
+      }
+    }
+
     // Check showWhen condition (preferred format)
     if (field.showWhen) {
       // Support MongoDB-style operators
@@ -408,20 +417,38 @@ export function GenericConfiguration({
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
     e.preventDefault();
-    
+
+    // Debug logging for HubSpot
+    if (nodeInfo?.type === 'hubspot_action_create_contact') {
+      console.log('🎯 [GenericConfiguration] HubSpot create contact submission:', {
+        nodeType: nodeInfo.type,
+        values,
+        baseFields: baseFields.map(f => ({ name: f.name, required: f.required, visible: shouldShowField(f) })),
+        advancedFields: advancedFields.map(f => ({ name: f.name, required: f.required, visible: shouldShowField(f) }))
+      });
+    }
+
     // Validate required fields (only for visible fields)
     const allFields = [...baseFields, ...advancedFields];
     const requiredFields = allFields.filter(f => f.required && shouldShowField(f));
     const errors: Record<string, string> = {};
-    
+
+    console.log('📋 [GenericConfiguration] Validating fields:', {
+      totalFields: allFields.length,
+      requiredFields: requiredFields.map(f => f.name),
+      currentValues: values
+    });
+
     requiredFields.forEach(field => {
       if (!values[field.name] && values[field.name] !== 0 && values[field.name] !== false) {
         errors[field.name] = `${field.label || field.name} is required`;
       }
     });
-    
+
     if (Object.keys(errors).length > 0) {
+      console.log('🚫 [GenericConfiguration] Validation errors:', errors);
       setValidationErrors(errors);
       // Focus on first error field
       const firstErrorField = Object.keys(errors)[0];
@@ -446,8 +473,21 @@ export function GenericConfiguration({
         allValues: JSON.stringify(values, null, 2)
       });
     }
-    
+
+    console.log('✅ [GenericConfiguration] Submitting values:', {
+      nodeType: nodeInfo?.type,
+      values,
+      onSubmitAvailable: !!onSubmit
+    });
+
+    if (!onSubmit) {
+      console.error('❌ [GenericConfiguration] onSubmit is not defined!');
+      return;
+    }
+
+    console.log('📤 [GenericConfiguration] Calling onSubmit...');
     await onSubmit(values);
+    console.log('✅ [GenericConfiguration] onSubmit completed');
   };
 
   // Show connection required state
