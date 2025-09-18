@@ -5,11 +5,76 @@
 import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
+import { sendSlackMessage as sendSlackMessageNew } from './slack/sendMessage'
 
 /**
- * Send a message to a Slack channel
+ * Wrapper for the new Slack send message implementation
+ * This creates an ExecutionContext and calls the new handler
  */
 export async function slackActionSendMessage(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    // Create ExecutionContext for the new handler
+    const context = {
+      userId,
+      workflowId: input.workflowId || '',
+      executionId: input.executionId || '',
+      nodeId: input.nodeId || '',
+      testMode: input.testMode || false,
+      config,
+      dataFlowManager: {
+        resolveVariable: (value: any) => {
+          if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+            const match = value.match(/\{\{([^}]+)\}\}/);
+            if (match) {
+              const path = match[1].split('.');
+              let result: any = input;
+              for (const key of path) {
+                result = result?.[key];
+              }
+              return result !== undefined ? result : value;
+            }
+          }
+          return value;
+        },
+        getNodeOutput: (nodeId: string) => {
+          return input.previousResults?.[nodeId];
+        },
+        setNodeOutput: () => {},
+        getTriggerData: () => input.trigger
+      },
+      getIntegration: async (provider: string) => {
+        const { createSupabaseServerClient } = await import('@/utils/supabase/server')
+        const supabase = await createSupabaseServerClient()
+
+        const { data: integration } = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('provider', provider)
+          .eq('status', 'connected')
+          .single()
+
+        return integration
+      }
+    }
+
+    // Call the new handler with ExecutionContext
+    return await sendSlackMessageNew(context)
+  } catch (error: any) {
+    console.error('Slack send message error:', error)
+    throw error
+  }
+}
+
+/**
+ * Legacy send message implementation - kept for reference
+ * @deprecated Use the wrapper above which calls the new implementation
+ */
+export async function slackActionSendMessageLegacy(
   config: any,
   userId: string,
   input: Record<string, any>
@@ -93,7 +158,7 @@ export async function slackActionSendMessage(
               fileUrl = attachment
             } else {
               // Try to get file from storage service
-              const { FileStorageService } = await import('@/lib/services/fileStorageService')
+              const { FileStorageService } = await import('@/lib/storage/fileStorage')
               const fileData = await FileStorageService.getFile(attachment, userId)
               if (fileData) {
                 // Upload to temporary storage

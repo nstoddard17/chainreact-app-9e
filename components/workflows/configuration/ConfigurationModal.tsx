@@ -321,6 +321,7 @@ export function ConfigurationModal({
             {nodeInfo && (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
                 <ConfigurationForm
+                  key={`${currentNodeId}-${nodeInfo?.type}-${nodeInfo?.id}-${Date.now()}`}
                   nodeInfo={nodeInfo}
                   initialData={initialData}
                   onSave={handleSubmit}
