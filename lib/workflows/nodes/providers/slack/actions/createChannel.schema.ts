@@ -53,6 +53,41 @@ export const createChannelActionSchema: NodeComponent = {
       description: "Choose a channel template."
     },
     {
+      name: "channelName",
+      label: "Channel Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g. plan-budget",
+      description: "Enter a channel name (lowercase, no spaces)."
+    },
+    {
+      name: "visibility",
+      label: "Visibility",
+      type: "select",
+      required: true,
+      defaultValue: "public",
+      options: [
+        { value: "public", label: "Public" },
+        { value: "private", label: "Private" }
+      ],
+      description: "Choose whether the channel is public or private."
+    },
+    {
+      name: "addPeople",
+      label: "Add People to Channel",
+      type: "combobox",
+      required: false,
+      dynamic: "slack_users",
+      description: "Add people by name or email."
+    },
+    {
+      name: "autoAddNewMembers",
+      label: "Auto-add new workspace members",
+      type: "boolean",
+      required: false,
+      description: "When new people join your workspace, automatically add them to this channel. (Admins only)"
+    },
+    {
       name: "channelTopic",
       label: "Channel Topic",
       type: "text",
