@@ -1410,7 +1410,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Note: Exclude email fields (like 'email') since they should load on-demand only
     // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
     // Also exclude fields with loadOnMount: true as they are handled by ConfigurationForm
-    const independentFields = ['baseId', 'guildId', 'workspaceId'];
+    const independentFields = ['baseId', 'guildId', 'workspace', 'workspaceId'];
     
     independentFields.forEach(fieldName => {
       // Check if this field exists for this node type
