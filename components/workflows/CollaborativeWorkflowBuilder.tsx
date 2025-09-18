@@ -2475,14 +2475,28 @@ const useWorkflowBuilderState = () => {
       }
     }
   }, [showActionDialog, showTriggerDialog, fetchIntegrations, storeIntegrations])
-  
+
+  // Periodic cleanup of stuck save states
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // If we've been "saving" for more than 30 seconds, it's probably stuck
+      if (isSavingRef.current && !isSaving) {
+        console.warn('⚠️ Cleaning up stuck save state (ref without state)');
+        isSavingRef.current = false;
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isSaving])
+
   // Main save function for the workflow
   const handleSave = async () => {
     if (!currentWorkflow) {
       return
     }
 
-    if (isSaving) {
+    // Check both the state and ref to prevent duplicate saves
+    if (isSaving || isSavingRef.current) {
       console.log('⚠️ Already saving, skipping duplicate save');
       return
     }
@@ -2494,6 +2508,7 @@ const useWorkflowBuilderState = () => {
     const saveTimeout = setTimeout(() => {
       console.error('❌ Save timeout - forcefully resetting loading state');
       setIsSaving(false);
+      isSavingRef.current = false;
       toast({
         title: "Save Timeout",
         description: "The save operation took too long. Please try again.",
@@ -2503,6 +2518,7 @@ const useWorkflowBuilderState = () => {
 
     try {
       setIsSaving(true);
+      isSavingRef.current = true;
       console.log('💾 Starting workflow save...')
       
       // Get current nodes and edges from React Flow
@@ -2606,6 +2622,7 @@ const useWorkflowBuilderState = () => {
     } finally {
       clearTimeout(saveTimeout);
       setIsSaving(false);
+      isSavingRef.current = false;
       console.log('✅ Save operation complete, loading state cleared');
     }
   }
@@ -3724,14 +3741,14 @@ const useWorkflowBuilderState = () => {
   const handleSaveAndNavigate = async () => {
     console.log('🔄 Starting save and navigate...');
 
-    // Prevent multiple clicks
-    if (isSaving) {
+    // Prevent multiple clicks - check both state and ref
+    if (isSaving || isSavingRef.current) {
       console.log('⚠️ Already saving, skipping...');
       return;
     }
 
     try {
-      setIsSaving(true);
+      // Don't set isSaving here - handleSave manages its own state
       await handleSave();
 
       // Add a small delay to ensure state updates are complete
@@ -3759,9 +3776,9 @@ const useWorkflowBuilderState = () => {
         description: "Could not save your changes. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      // Ensure loading state is cleared
+      // Ensure loading state is cleared on error
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   }
 

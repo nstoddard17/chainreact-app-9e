@@ -26,6 +26,7 @@ import { GmailLabelManager } from "./GmailLabelManager";
 import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
@@ -226,13 +227,20 @@ export function FieldRenderer({
         </div>
 
         {(field.tooltip || field.description) && tooltipsEnabled && (
-          <div
-            className="inline-block"
-            onMouseEnter={(e) => handleTooltipMouseEnter(e, field.tooltip || field.description || "")}
-            onMouseLeave={handleTooltipMouseLeave}
-          >
-            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-          </div>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                className="max-w-xs bg-slate-900 text-white border-slate-700"
+                sideOffset={8}
+              >
+                <p className="text-xs">{field.tooltip || field.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {field.required && (
@@ -256,37 +264,6 @@ export function FieldRenderer({
   // Get user session for email signature integration
   const { user } = useAuthStore()
 
-  // Tooltip state management for portal rendering
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
-  const [tooltipContent, setTooltipContent] = useState<string>("");
-  const tooltipRef = useRef<HTMLDivElement>(null);
-
-  // Handle tooltip positioning - position right next to the icon
-  const handleTooltipMouseEnter = (e: React.MouseEvent, content: string) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const tooltipHeight = 100; // Approximate height of tooltip
-
-    // Calculate position
-    let top = rect.top + rect.height / 2;
-    const left = rect.right + 4; // Reduced from 8px to 4px - closer to icon
-
-    // Check if tooltip would go below viewport - if so, position it above
-    if (top + tooltipHeight > viewportHeight - 100) { // 100px buffer for footer
-      top = Math.max(10, viewportHeight - 150 - tooltipHeight); // Position above footer
-    }
-
-    setTooltipPosition({ top, left });
-    setTooltipContent(content);
-    setTooltipVisible(true);
-  };
-
-  const handleTooltipMouseLeave = () => {
-    setTooltipVisible(false);
-    setTooltipContent("");
-  };
-
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
@@ -305,11 +282,50 @@ export function FieldRenderer({
               return (
                 <FileUpload
                   value={fileValue}
-                  onChange={(files) => {
+                  onChange={async (files) => {
                     if (files && files.length > 0) {
-                      // For single file fields, pass the first file
-                      // For multiple files, pass the array
-                      onChange(field.multiple ? files : files[0]);
+                      // For Slack attachments, convert to base64 for files under 10MB
+                      // or store path for larger files
+                      if (integrationProvider === 'slack' && field.name === 'attachments') {
+                        const processedFiles = await Promise.all(
+                          Array.from(files).map(async (file) => {
+                            // 10MB threshold for base64 vs storage
+                            const BASE64_SIZE_LIMIT = 10 * 1024 * 1024;
+
+                            if (file.size <= BASE64_SIZE_LIMIT) {
+                              // Convert to base64 for smaller files
+                              return new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  resolve({
+                                    type: 'base64',
+                                    data: reader.result, // Includes data:mime;base64, prefix
+                                    name: file.name,
+                                    size: file.size,
+                                    mimeType: file.type
+                                  });
+                                };
+                                reader.readAsDataURL(file);
+                              });
+                            } else {
+                              // For larger files, we'll need to upload to Supabase storage
+                              // This will be handled by the action handler
+                              // For now, just mark it as a file to be uploaded
+                              return {
+                                type: 'file',
+                                file: file,
+                                name: file.name,
+                                size: file.size,
+                                mimeType: file.type
+                              };
+                            }
+                          })
+                        );
+                        onChange(field.multiple ? processedFiles : processedFiles[0]);
+                      } else {
+                        // For non-Slack or non-attachment fields, use standard handling
+                        onChange(field.multiple ? files : files[0]);
+                      }
                     } else {
                       onChange(null);
                     }
@@ -849,13 +865,20 @@ export function FieldRenderer({
                 {field.label || field.name}
               </Label>
               {(field.tooltip || field.description) && tooltipsEnabled && (
-                <div
-                  className="inline-block"
-                  onMouseEnter={(e) => handleTooltipMouseEnter(e, field.tooltip || field.description || "")}
-                  onMouseLeave={handleTooltipMouseLeave}
-                >
-                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                </div>
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      className="max-w-xs bg-slate-900 text-white border-slate-700"
+                      sideOffset={8}
+                    >
+                      <p className="text-xs">{field.tooltip || field.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <Switch
@@ -1186,7 +1209,6 @@ export function FieldRenderer({
   const fieldContent = renderFieldByType();
 
   return (
-    <>
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
         {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && renderLabel()}
@@ -1201,23 +1223,5 @@ export function FieldRenderer({
         )}
       </CardContent>
     </Card>
-
-    {/* Portal-rendered tooltip positioned next to icon */}
-    {tooltipVisible && tooltipContent && (
-      <div
-        ref={tooltipRef}
-        className="fixed z-[999999] pointer-events-none"
-        style={{
-          top: `${tooltipPosition.top}px`,
-          left: `${tooltipPosition.left}px`,
-          transform: 'translateY(-50%)' // Center vertically with the icon
-        }}
-      >
-        <div className="bg-slate-900 text-white text-xs rounded-md py-2 px-3 shadow-2xl border border-slate-700 max-w-xs max-h-[300px] overflow-y-auto whitespace-normal pointer-events-auto">
-          {tooltipContent}
-        </div>
-      </div>
-    )}
-    </>
   );
 }

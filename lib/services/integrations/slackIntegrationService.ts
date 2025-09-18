@@ -13,10 +13,12 @@ export class SlackIntegrationService {
 
     switch (nodeType) {
       case "slack_send_message":
+      case "slack_action_send_message": // Handle both naming conventions
         return await this.executeSendMessage(node, context)
       case "slack_send_dm":
         return await this.executeSendDirectMessage(node, context)
       case "slack_create_channel":
+      case "slack_action_create_channel": // Handle both naming conventions
         return await this.executeCreateChannel(node, context)
       case "slack_invite_user":
         return await this.executeInviteUser(node, context)

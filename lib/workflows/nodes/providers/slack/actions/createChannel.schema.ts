@@ -101,6 +101,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Initial Welcome Message",
       type: "textarea",
       required: false,
+      rows: 4,
       placeholder: "Welcome to the channel! Here's what this space is for...",
       description: "The first message posted when the channel is created",
       showIf: (values: any) => values.template !== 'blank'
@@ -127,6 +128,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Bug Report Template",
       type: "textarea",
       required: false,
+      rows: 10,
       placeholder: "**Bug Description:**\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n\n**Actual Behavior:**\n\n**Priority:** High/Medium/Low",
       description: "Template for bug reports (customize as needed)",
       showIf: (values: any) => values.template === 'bug-intake-and-triage'
@@ -184,6 +186,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Time Off Request Form",
       type: "textarea",
       required: false,
+      rows: 8,
       placeholder: "**Employee Name:**\n**Department:**\n**Request Type:** (Vacation/Sick/Personal)\n**Start Date:**\n**End Date:**\n**Reason:**\n**Coverage Plan:**",
       description: "Template for time off requests",
       showIf: (values: any) => values.template === 'time-off-request-process'
@@ -193,6 +196,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Benefits Information",
       type: "textarea",
       required: false,
+      rows: 6,
       placeholder: "Enter information about employee benefits...",
       description: "Information to share about employee benefits",
       showIf: (values: any) => values.template === 'employee-benefits-hub'
@@ -202,6 +206,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Brand Guidelines",
       type: "textarea",
       required: false,
+      rows: 6,
       placeholder: "**Colors:**\n**Fonts:**\n**Logo Usage:**\n**Tone of Voice:**",
       description: "Brand guidelines to share in the channel",
       showIf: (values: any) => values.template === 'brand-guidelines-hub'
@@ -235,6 +240,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Campaign Planning Template",
       type: "textarea",
       required: false,
+      rows: 8,
       placeholder: "**Campaign Name:**\n**Objective:**\n**Target Audience:**\n**Channels:**\n**Timeline:**\n**Budget:**\n**Success Metrics:**",
       description: "Template for marketing campaign planning",
       showIf: (values: any) => values.template === 'marketing-campaign-starter-kit'
@@ -292,6 +298,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Partner Information Template",
       type: "textarea",
       required: false,
+      rows: 7,
       placeholder: "**Partner Name:**\n**Contact Person:**\n**Email:**\n**Phone:**\n**Partnership Type:**\n**Key Deliverables:**",
       description: "Template for partner information",
       showIf: (values: any) => values.template === 'external-partner-starter-kit'
@@ -325,6 +332,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Coaching Session Template",
       type: "textarea",
       required: false,
+      rows: 7,
       placeholder: "**Date:**\n**Participant:**\n**Goals for Session:**\n**Topics Discussed:**\n**Action Items:**\n**Next Session Date:**",
       description: "Template for one-on-one coaching sessions",
       showIf: (values: any) => values.template === 'one-on-one-coaching'
@@ -365,6 +373,7 @@ export const createChannelActionSchema: NodeComponent = {
       label: "Feedback Form Template",
       type: "textarea",
       required: false,
+      rows: 5,
       placeholder: "**Feedback Type:** (Bug/Feature Request/General)\n**Description:**\n**Impact:**\n**Suggested Solution:**",
       description: "Template for collecting feedback",
       showIf: (values: any) => values.template === 'feedback-intake'
@@ -397,41 +406,6 @@ export const createChannelActionSchema: NodeComponent = {
           ]
         }
       ]
-    },
-    {
-      name: "channelName",
-      label: "Channel Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g. plan-budget",
-      description: "Enter a channel name (lowercase, no spaces)."
-    },
-    {
-      name: "visibility",
-      label: "Visibility",
-      type: "select",
-      required: true,
-      defaultValue: "public",
-      options: [
-        { value: "public", label: "Public" },
-        { value: "private", label: "Private" }
-      ],
-      description: "Choose whether the channel is public or private."
-    },
-    {
-      name: "addPeople",
-      label: "Add People to Channel",
-      type: "combobox",
-      required: false,
-      dynamic: "slack_users",
-      description: "Add people by name or email."
-    },
-    {
-      name: "autoAddNewMembers",
-      label: "Auto-add new workspace members",
-      type: "boolean",
-      required: false,
-      description: "When new people join your workspace, automatically add them to this channel. (Admins only)"
     }
   ]
 }

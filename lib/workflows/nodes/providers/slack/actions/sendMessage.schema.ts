@@ -42,8 +42,9 @@ export const sendMessageActionSchema: NodeComponent = {
       required: false,
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
-      maxSize: 25 * 1024 * 1024, // 25MB limit
-      tooltip: "Attach files to your message. Upload: Choose files from your computer. URL: Provide direct links to files. To use variables: Drag and drop from the variable panel on the right, or type {{node_id.output}} format. Variables let you attach files from previous workflow steps dynamically.",
+      maxSize: 50 * 1024 * 1024, // 50MB limit
+      multiple: true, // Allow multiple file attachments
+      tooltip: "Attach files to your message (max 50MB per file). Files under 10MB are processed instantly. Files 10-25MB may take a few seconds. Files over 25MB may experience slower processing. Upload: Choose files from your computer. URL: Provide direct links to files. Variables: Drag from the variable panel or type {{node_id.output}} to attach files from previous workflow steps.",
       toggleOptions: {
         modes: ["upload", "url"],
         labels: {
@@ -74,26 +75,26 @@ export const sendMessageActionSchema: NodeComponent = {
       name: "asUser",
       label: "Send as User",
       type: "boolean",
-      defaultValue: true,
-      tooltip: "When enabled, the message appears as if sent by you (the authenticated user). When disabled, it appears from the Slack app/bot. Note: Bot customization options only work when this is disabled."
+      defaultValue: false,
+      tooltip: "When enabled, sends the message as YOU (the actual user) instead of the bot. This only works if you granted user permissions during Slack connection. If user permissions weren't granted, enabling this will attempt to customize the bot appearance instead with the username and icon fields below."
     },
     {
       name: "username",
-      label: "Username Override",
+      label: "Bot Username (Optional)",
       type: "text",
       placeholder: "Custom bot username",
-      tooltip: "Set a custom username for the bot (only visible when 'Send as User' is disabled). Leave empty to use the default bot name. You can use variables to dynamically set the username.",
+      tooltip: "Customize the bot's username when NOT sending as user. This field is ignored when 'Send as User' is enabled and working. Requires the chat:write.customize scope. Leave empty to use the default bot name.",
       showWhen: {
         "asUser": { "$eq": false }
       }
     },
     {
       name: "icon",
-      label: "Bot Icon",
+      label: "Bot Icon (Optional)",
       type: "file-with-toggle",
       accept: ".jpg,.jpeg,.png,.gif,.webp",
       maxSize: 5 * 1024 * 1024, // 5MB limit for icons
-      tooltip: "Set a custom icon for bot messages (only works when 'Send as User' is off). Upload: Choose an image file. URL: Provide a direct image link. To use variables: Drag from the variable panel or type {{node_id.output}} to dynamically set icons from previous workflow steps.",
+      tooltip: "Customize the bot's icon when NOT sending as user. This field is ignored when 'Send as User' is enabled and working. Upload an image or provide a URL. For emoji, use shortcodes like :robot_face:",
       placeholder: "Choose an icon file",
       toggleOptions: {
         modes: ["upload", "url"],
@@ -102,7 +103,7 @@ export const sendMessageActionSchema: NodeComponent = {
           url: "URL"
         },
         placeholders: {
-          url: "https://example.com/icon.png"
+          url: "https://example.com/icon.png or :emoji:"
         },
         defaultMode: "upload"
       },
