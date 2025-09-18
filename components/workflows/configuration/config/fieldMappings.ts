@@ -383,6 +383,13 @@ const onenoteMappings: Record<string, FieldMapping> = {
   },
 };
 
+// OneDrive field mappings
+const onedriveMappings: Record<string, FieldMapping> = {
+  "onedrive_action_upload_file": {
+    folderId: "onedrive-folders",
+  },
+};
+
 // Facebook field mappings
 const facebookMappings: Record<string, FieldMapping> = {
   facebook_action_create_post: {
@@ -599,6 +606,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...outlookMappings,
   ...teamsMappings,
   ...onenoteMappings,
+  ...onedriveMappings,
   ...facebookMappings,
   ...hubspotMappings,
   ...notionMappings,

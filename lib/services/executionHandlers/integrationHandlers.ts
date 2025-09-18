@@ -61,6 +61,7 @@ export class IntegrationNodeHandlers {
       case "send_email":
         return await this.executeSendEmail(node, context)
       case "onedrive_upload_file":
+      case "onedrive_action_upload_file":
         return await this.executeOneDriveUpload(node, context)
       case "dropbox_upload_file":
       case "dropbox_action_upload_file":
@@ -149,28 +150,57 @@ export class IntegrationNodeHandlers {
 
   private async executeOneDriveUpload(node: any, context: ExecutionContext) {
     console.log("☁️ Executing OneDrive upload")
-    
+
     const config = node.data.config || {}
-    const fileName = config.fileName || "file.txt"
-    const fileContent = config.fileContent || config.content
-    const folder = config.folder || "/"
 
-    if (!fileName || !fileContent) {
-      throw new Error("OneDrive upload requires 'fileName' and 'fileContent' fields")
-    }
+    console.log("📦 OneDrive config received:", JSON.stringify(config, null, 2))
+    console.log("📦 Node data:", JSON.stringify(node.data, null, 2))
 
+    // Process OneDrive file upload
+
+    // If in test mode, return mock data
     if (context.testMode) {
       return {
-        type: "onedrive_upload_file",
-        fileName,
-        folder,
+        type: "onedrive_action_upload_file",
+        fileName: config.fileName || "test.txt",
+        folder: config.folderId || "/",
         status: "uploaded (test mode)",
         fileId: "test-onedrive-file-id"
       }
     }
 
-    // TODO: Implement actual OneDrive upload when action is available
-    throw new Error("OneDrive upload is not yet implemented. This integration is coming soon.")
+    try {
+      // Import the OneDrive action handler directly
+      const { uploadFileToOneDrive } = await import('@/lib/workflows/actions/onedrive')
+
+      // Get node outputs from context
+      const nodeOutputs = {}
+      if (context.dataFlowManager && typeof context.dataFlowManager.getNodeOutput === 'function') {
+        // Get outputs from all previous nodes
+        const allNodes = context.dataFlowManager.nodeOutputs || {}
+        Object.assign(nodeOutputs, allNodes)
+      }
+
+      // Call the handler
+      const result = await uploadFileToOneDrive(
+        config,
+        context.userId,
+        {
+          nodeOutputs,
+          ...context.data
+        }
+      )
+
+      // Check if the action failed
+      if (!result.success) {
+        throw new Error(result.message || "OneDrive upload failed")
+      }
+
+      return result.output || result
+    } catch (error: any) {
+      console.error("❌ OneDrive upload error:", error)
+      throw error
+    }
   }
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
@@ -449,11 +479,13 @@ export class IntegrationNodeHandlers {
     const config = node.data.config || {}
 
     // Resolve any variable references in the configuration
-    const resolvedConfig = context.dataFlowManager.resolveVariables(config, context.data)
+    // Note: We'll use the config as-is since variable resolution happens in the action handlers
+    const resolvedConfig = config
 
     // Handle different HubSpot action types
     switch (nodeType) {
       case "hubspot_action_create_contact":
+      case "hubspot_action_create_contact_dynamic": // Handle dynamic version too
         // Import and use the actual HubSpot create contact handler
         const { createHubSpotContact } = await import("@/lib/workflows/actions/hubspot")
         const createContactResult = await createHubSpotContact(
