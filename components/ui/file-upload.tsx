@@ -87,11 +87,37 @@ export function FileUpload({
         
         // Check if it's a file metadata object (from Google Drive or other integrations)
         // Check for File-like properties instead of using instanceof
-        const hasFileProperties = file && typeof file === 'object' && 
+        const hasFileProperties = file && typeof file === 'object' &&
           'size' in file && 'type' in file && 'name' in file &&
           typeof file.slice === 'function';
-          
-        if (file && typeof file === 'object' && !hasFileProperties) {
+
+        // Check if it's our special icon format with base64 URL
+        if (file && typeof file === 'object' && file.url && typeof file.url === 'string' && file.url.startsWith('data:')) {
+          // This is a saved icon with base64 data URL
+          const uploadedFile: UploadedFile = {
+            file: new Blob([], { type: file.type || 'image/png' }) as File,
+            id: `icon-${file.name || 'icon'}-${index}`,
+            progress: 100,
+            isFileMetadata: true,
+            actualSize: file.size || 0,
+            actualName: file.name || 'Icon',
+            actualType: file.type || 'image/png',
+            previewUrl: file.url // Use the base64 URL directly as preview
+          };
+
+          // Override the name property
+          Object.defineProperty(uploadedFile.file, 'name', {
+            value: file.name || 'Icon',
+            writable: false
+          });
+
+          console.log('📸 [FileUpload] Loaded saved icon with base64 URL:', {
+            name: uploadedFile.actualName,
+            hasPreview: !!uploadedFile.previewUrl
+          });
+
+          return uploadedFile;
+        } else if (file && typeof file === 'object' && !hasFileProperties) {
           // Create a minimal File-like object for display purposes
           // Create a blob with dummy data matching the reported size (if available)
           const fileSize = file.fileSize || file.size || 0;

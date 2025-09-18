@@ -293,36 +293,61 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "airtable_action_update_record": updateAirtableRecord,
   "airtable_action_list_records": listAirtableRecords,
   
-  // Slack actions
-  "slack_action_create_channel": createSlackChannel,
-  "slack_action_send_message": slackActionSendMessage,
+  // Slack actions - wrapped to handle new calling convention
+  "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createSlackChannel(params.config, params.userId, params.input),
+  "slack_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    slackActionSendMessage(params.config, params.userId, params.input),
   
-  // Trello actions
-  "trello_action_create_list": createTrelloList,
-  "trello_action_create_card": createTrelloCard,
-  "trello_action_move_card": moveTrelloCard,
+  // Trello actions - wrapped to handle new calling convention
+  "trello_action_create_list": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloList(params.config, params.userId, params.input),
+  "trello_action_create_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloCard(params.config, params.userId, params.input),
+  "trello_action_move_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveTrelloCard(params.config, params.userId, params.input),
   
-  // Discord actions
-  "discord_action_send_message": sendDiscordMessage,
-  "discord_action_send_direct_message": sendDiscordDirectMessage,
-  "discord_action_create_channel": createDiscordChannel,
-  "discord_action_create_category": createDiscordCategory,
-  "discord_action_delete_category": deleteDiscordCategory,
-  "discord_action_add_role": addDiscordRole,
-  "discord_action_edit_message": editDiscordMessage,
-  "discord_action_fetch_messages": fetchDiscordMessages,
-  "discord_action_delete_message": deleteDiscordMessage,
-  "discord_action_add_reaction": addDiscordReaction,
-  "discord_action_remove_reaction": removeDiscordReaction,
-  "discord_action_update_channel": editDiscordChannel,
-  "discord_action_delete_channel": deleteDiscordChannel,
-  "discord_action_list_channels": listDiscordChannels,
-  "discord_action_fetch_guild_members": fetchDiscordGuildMembers,
-  "discord_action_assign_role": addDiscordRole,
-  "discord_action_remove_role": removeDiscordRole,
-  "discord_action_kick_member": kickDiscordMember,
-  "discord_action_ban_member": banDiscordMember,
-  "discord_action_unban_member": unbanDiscordMember,
+  // Discord actions - wrapped to handle new calling convention
+  "discord_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendDiscordMessage(params.config, params.userId, params.input),
+  "discord_action_send_direct_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendDiscordDirectMessage(params.config, params.userId, params.input),
+  "discord_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createDiscordChannel(params.config, params.userId, params.input),
+  "discord_action_create_category": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createDiscordCategory(params.config, params.userId, params.input),
+  "discord_action_delete_category": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteDiscordCategory(params.config, params.userId, params.input),
+  "discord_action_add_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addDiscordRole(params.config, params.userId, params.input),
+  "discord_action_edit_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    editDiscordMessage(params.config, params.userId, params.input),
+  "discord_action_fetch_messages": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    fetchDiscordMessages(params.config, params.userId, params.input),
+  "discord_action_delete_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteDiscordMessage(params.config, params.userId, params.input),
+  "discord_action_add_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addDiscordReaction(params.config, params.userId, params.input),
+  "discord_action_remove_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeDiscordReaction(params.config, params.userId, params.input),
+  "discord_action_update_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    editDiscordChannel(params.config, params.userId, params.input),
+  "discord_action_delete_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteDiscordChannel(params.config, params.userId, params.input),
+  "discord_action_list_channels": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listDiscordChannels(params.config, params.userId, params.input),
+  "discord_action_fetch_guild_members": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    fetchDiscordGuildMembers(params.config, params.userId, params.input),
+  "discord_action_assign_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addDiscordRole(params.config, params.userId, params.input),
+  "discord_action_remove_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    removeDiscordRole(params.config, params.userId, params.input),
+  "discord_action_kick_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    kickDiscordMember(params.config, params.userId, params.input),
+  "discord_action_ban_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    banDiscordMember(params.config, params.userId, params.input),
+  "discord_action_unban_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    unbanDiscordMember(params.config, params.userId, params.input),
   
   // Notion actions - search kept for backward compatibility
   "notion_action_search_pages": searchNotionPages,

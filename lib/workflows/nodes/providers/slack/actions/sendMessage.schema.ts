@@ -76,14 +76,14 @@ export const sendMessageActionSchema: NodeComponent = {
       label: "Send as User",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, sends the message as YOU (the actual user) instead of the bot. This only works if you granted user permissions during Slack connection. If user permissions weren't granted, enabling this will attempt to customize the bot appearance instead with the username and icon fields below."
+      tooltip: "When enabled, sends the message as YOU (the actual user) instead of the bot. This only works if you granted user permissions during Slack connection. When disabled, the message is sent as the bot and can be customized with username and icon fields below."
     },
     {
       name: "username",
       label: "Bot Username (Optional)",
       type: "text",
       placeholder: "Custom bot username",
-      tooltip: "Customize the bot's username when NOT sending as user. This field is ignored when 'Send as User' is enabled and working. Requires the chat:write.customize scope. Leave empty to use the default bot name.",
+      tooltip: "Override the bot's display name for this message only. Works with bot token (when 'Send as User' is OFF). May be ignored if workspace has 'Lock bot name & icon' enabled in Slack admin settings. Leave empty to use default bot name.",
       showWhen: {
         "asUser": { "$eq": false }
       }
@@ -94,7 +94,7 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "file-with-toggle",
       accept: ".jpg,.jpeg,.png,.gif,.webp",
       maxSize: 5 * 1024 * 1024, // 5MB limit for icons
-      tooltip: "Customize the bot's icon when NOT sending as user. This field is ignored when 'Send as User' is enabled and working. Upload an image or provide a URL. For emoji, use shortcodes like :robot_face:",
+      tooltip: "Override the bot's icon for this message only. Works with bot token (when 'Send as User' is OFF). Upload an image or provide a URL to an image. May be ignored if workspace has 'Lock bot name & icon' enabled.",
       placeholder: "Choose an icon file",
       toggleOptions: {
         modes: ["upload", "url"],

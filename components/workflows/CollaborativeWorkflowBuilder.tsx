@@ -2255,7 +2255,7 @@ const useWorkflowBuilderState = () => {
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
-    
+
     const loadWorkflow = async () => {
       if (!workflowId) {
         // No workflow ID - this might be a new workflow
@@ -2263,22 +2263,15 @@ const useWorkflowBuilderState = () => {
         setShowTriggerDialog(true)
         return
       }
-      
-      // Clear any existing nodes/edges first to ensure clean slate
-      setNodes([])
-      setEdges([])
-      
+
+      // Don't clear nodes/edges here - it causes a flash of blank content
+      // They will be replaced when the new data loads
+
       // REMOVED the cache check - always load fresh data when opening a workflow
       // This ensures we get the latest saved data from the database
-      
-      // Debounce the workflow loading to prevent rapid API calls
-      timeoutId = setTimeout(async () => {
-        if (!mounted) {
-          return;
-        }
-        
-        try {
-          const response = await fetch(`/api/workflows/${workflowId}`)
+
+      try {
+        const response = await fetch(`/api/workflows/${workflowId}`)
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
@@ -2315,7 +2308,7 @@ const useWorkflowBuilderState = () => {
               data: {
                 ...node.data,
                 onConfigure: handleConfigureNode,
-                onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
+                onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
                 onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined
               }
             }))
@@ -2420,20 +2413,17 @@ const useWorkflowBuilderState = () => {
       } catch (error) {
         // Could show an error toast here
       }
-      }, 300); // 300ms debounce to wait for component to stabilize
     }
-    
+
     loadWorkflow()
-    
-    // Cleanup function - cancel pending loads but don't clear data
-    // The data will be cleared when loading a new workflow or on the next mount
+
+    // Cleanup function
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
       // Don't clear the workflow data here - it causes issues with navigation
       // The data will be properly cleared when loading a new workflow
     }
-  }, [workflowId]) // Only re-run if workflowId changes
+  }, [workflowId, setNodes, setEdges, setCurrentWorkflow, setWorkflowName, handleConfigureNode, handleChangeTrigger, handleInsertAction, setShowTriggerDialog]) // Include all dependencies
   
   // Auto-fit view when nodes are loaded
   useEffect(() => {

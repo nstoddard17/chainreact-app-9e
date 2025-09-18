@@ -322,6 +322,24 @@ export function FieldRenderer({
                           })
                         );
                         onChange(field.multiple ? processedFiles : processedFiles[0]);
+                      } else if (integrationProvider === 'slack' && field.name === 'icon') {
+                        // For Slack icon field, convert image to base64 URL for persistence
+                        const file = files[0]; // Icon is single file only
+                        if (file && file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            // Store as base64 data URL so it can be saved and retrieved
+                            onChange({
+                              url: reader.result, // This is the base64 data URL
+                              name: file.name,
+                              size: file.size,
+                              type: file.type
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        } else {
+                          onChange(files[0]);
+                        }
                       } else {
                         // For non-Slack or non-attachment fields, use standard handling
                         onChange(field.multiple ? files : files[0]);

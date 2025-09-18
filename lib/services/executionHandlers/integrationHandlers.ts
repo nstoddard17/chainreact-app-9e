@@ -80,6 +80,11 @@ export class IntegrationNodeHandlers {
       return await this.executeHubSpotAction(node, context)
     }
 
+    // Trello integrations
+    if (nodeType.startsWith('trello_')) {
+      return await this.executeTrelloAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -497,6 +502,63 @@ export class IntegrationNodeHandlers {
     }
 
     return result.output
+  }
+
+  private async executeTrelloAction(node: any, context: ExecutionContext) {
+    console.log("📋 Executing Trello action")
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    // Handle different Trello action types
+    switch (nodeType) {
+      case "trello_action_create_card":
+        // Import and use the actual Trello create card handler
+        const { createTrelloCard } = await import("@/lib/workflows/actions/trello")
+        const createCardResult = await createTrelloCard(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createCardResult.success) {
+          throw new Error(createCardResult.message || "Failed to create Trello card")
+        }
+
+        return createCardResult.output
+
+      case "trello_action_create_list":
+        // Import and use the actual Trello create list handler
+        const { createTrelloList } = await import("@/lib/workflows/actions/trello")
+        const createListResult = await createTrelloList(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createListResult.success) {
+          throw new Error(createListResult.message || "Failed to create Trello list")
+        }
+
+        return createListResult.output
+
+      case "trello_action_move_card":
+        // Import and use the actual Trello move card handler
+        const { moveTrelloCard } = await import("@/lib/workflows/actions/trello")
+        const moveCardResult = await moveTrelloCard(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!moveCardResult.success) {
+          throw new Error(moveCardResult.message || "Failed to move Trello card")
+        }
+
+        return moveCardResult.output
+
+      default:
+        throw new Error(`Unknown Trello action type: ${nodeType}`)
+    }
   }
 
   private async executeHubSpotAction(node: any, context: ExecutionContext) {
