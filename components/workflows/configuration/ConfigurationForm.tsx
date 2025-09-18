@@ -456,7 +456,7 @@ function ConfigurationForm({
     
     // Find other dynamic fields that should load when visible
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
-      if (field.dynamic !== true) return false;
+      if (!field.dynamic) return false;
       
       // Check if field is now visible (its dependencies are satisfied)
       if (field.dependsOn) {

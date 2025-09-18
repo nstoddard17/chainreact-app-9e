@@ -77,7 +77,7 @@ const slackMappings: Record<string, FieldMapping> = {
   },
   slack_action_create_channel: {
     workspace: "slack_workspaces",
-    users: "slack_users",
+    addPeople: "slack_users",
   },
   slack_trigger_message_channels: {
     channel: "slack_channels",

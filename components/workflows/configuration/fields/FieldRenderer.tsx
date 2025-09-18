@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -228,7 +228,7 @@ export function FieldRenderer({
         {(field.tooltip || field.description) && tooltipsEnabled && (
           <div
             className="inline-block"
-            onMouseEnter={(e) => handleTooltipMouseEnter(e, `label-${field.name}`)}
+            onMouseEnter={(e) => handleTooltipMouseEnter(e, field.tooltip || field.description || "")}
             onMouseLeave={handleTooltipMouseLeave}
           >
             <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -256,26 +256,35 @@ export function FieldRenderer({
   // Get user session for email signature integration
   const { user } = useAuthStore()
 
-  // Tooltip state management
+  // Tooltip state management for portal rendering
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [tooltipContent, setTooltipContent] = useState<string>("");
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
-  // Handle tooltip positioning
-  const handleTooltipMouseEnter = (e: React.MouseEvent, tooltipId: string) => {
+  // Handle tooltip positioning - position right next to the icon
+  const handleTooltipMouseEnter = (e: React.MouseEvent, content: string) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setTooltipPosition({
-      top: rect.top - 2, // Reduced gap from 8px to 2px
-      left: rect.left
-    });
-    setActiveTooltip(tooltipId);
+    const viewportHeight = window.innerHeight;
+    const tooltipHeight = 100; // Approximate height of tooltip
+
+    // Calculate position
+    let top = rect.top + rect.height / 2;
+    const left = rect.right + 4; // Reduced from 8px to 4px - closer to icon
+
+    // Check if tooltip would go below viewport - if so, position it above
+    if (top + tooltipHeight > viewportHeight - 100) { // 100px buffer for footer
+      top = Math.max(10, viewportHeight - 150 - tooltipHeight); // Position above footer
+    }
+
+    setTooltipPosition({ top, left });
+    setTooltipContent(content);
     setTooltipVisible(true);
   };
 
   const handleTooltipMouseLeave = () => {
     setTooltipVisible(false);
-    setActiveTooltip(null);
+    setTooltipContent("");
   };
 
   // Render the appropriate field based on type
@@ -842,7 +851,7 @@ export function FieldRenderer({
               {(field.tooltip || field.description) && tooltipsEnabled && (
                 <div
                   className="inline-block"
-                  onMouseEnter={(e) => handleTooltipMouseEnter(e, `boolean-${field.name}`)}
+                  onMouseEnter={(e) => handleTooltipMouseEnter(e, field.tooltip || field.description || "")}
                   onMouseLeave={handleTooltipMouseLeave}
                 >
                   <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -1193,19 +1202,19 @@ export function FieldRenderer({
       </CardContent>
     </Card>
 
-    {/* Portal-rendered tooltip */}
-    {tooltipVisible && (field.tooltip || field.description) && (
+    {/* Portal-rendered tooltip positioned next to icon */}
+    {tooltipVisible && tooltipContent && (
       <div
         ref={tooltipRef}
         className="fixed z-[999999] pointer-events-none"
         style={{
           top: `${tooltipPosition.top}px`,
           left: `${tooltipPosition.left}px`,
-          transform: 'translateY(calc(-100% - 4px))' // Only 4px gap between icon and tooltip
+          transform: 'translateY(-50%)' // Center vertically with the icon
         }}
       >
-        <div className="bg-slate-900 text-white text-xs rounded-md py-2 px-3 shadow-2xl border border-slate-700 max-w-xs whitespace-normal pointer-events-auto">
-          {field.tooltip || field.description}
+        <div className="bg-slate-900 text-white text-xs rounded-md py-2 px-3 shadow-2xl border border-slate-700 max-w-xs max-h-[300px] overflow-y-auto whitespace-normal pointer-events-auto">
+          {tooltipContent}
         </div>
       </div>
     )}
