@@ -25,6 +25,7 @@ import { GmailLabelManager } from "./GmailLabelManager";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
@@ -470,9 +471,38 @@ export function FieldRenderer({
           />
         );
 
+      case "toggle_group":
+        // Toggle group for pill-style selection
+        const toggleOptions = Array.isArray(field.options)
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+
+        return (
+          <div className="w-full">
+            <ToggleGroup
+              type="single"
+              value={value}
+              onValueChange={onChange}
+              className="justify-start"
+            >
+              {toggleOptions.map((option: any) => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  aria-label={option.label}
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+          </div>
+        );
+
       case "select":
         // Route to integration-specific select field or generic one
-        const selectOptions = Array.isArray(field.options) 
+        const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
         

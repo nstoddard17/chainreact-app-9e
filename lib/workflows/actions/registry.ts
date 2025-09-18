@@ -126,6 +126,14 @@ import {
   updateHubSpotDeal,
 } from './hubspot'
 
+// HubSpot dynamic actions
+import {
+  createHubSpotObject,
+  updateHubSpotObject,
+  upsertHubSpotObject,
+  refreshHubSpotProperties,
+} from './hubspotDynamic'
+
 // Microsoft OneNote actions
 import {
   onenoteCreatePage,
@@ -352,6 +360,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_create_deal": createHubSpotDeal,
   "hubspot_action_add_contact_to_list": addContactToHubSpotList,
   "hubspot_action_update_deal": updateHubSpotDeal,
+
+  // HubSpot dynamic actions
+  "hubspot_action_create_object": createHubSpotObject,
+  "hubspot_action_update_object": updateHubSpotObject,
+  "hubspot_action_upsert_object": upsertHubSpotObject,
+  "hubspot_action_refresh_properties": refreshHubSpotProperties,
   
   // Microsoft OneNote actions
   "microsoft-onenote_action_create_page": onenoteCreatePage,
