@@ -9,6 +9,7 @@ import { ConfigField, NodeField } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap } from "lucide-react";
+import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
@@ -262,33 +263,32 @@ export function FieldRenderer({
     switch (field.type) {
       case "file-with-toggle":
         // File field with integrated multi-option toggle
-        const modes = field.toggleOptions?.modes || ['upload', 'url', 'emoji'];
-        const labels = field.toggleOptions?.labels || { upload: 'Upload', url: 'URL', emoji: 'Emoji' };
-        const placeholders = field.toggleOptions?.placeholders || { url: 'Enter URL...', emoji: 'Enter emoji...' };
+        const modes = field.toggleOptions?.modes || ['upload', 'url'];
+        const labels = field.toggleOptions?.labels || { upload: 'Upload', url: 'URL' };
+        const placeholders = field.toggleOptions?.placeholders || { url: 'Enter URL...' };
 
         // Render the appropriate input based on mode
         const renderModeInput = () => {
           switch (inputMode) {
             case 'upload':
+              // Use FileUpload component for consistent styling
+              const fileValue = value ? (Array.isArray(value) ? value : [value]) : undefined;
               return (
-                <EnhancedFileInput
-                  fieldDef={field}
-                  value={value}
-                  onChange={onChange}
-                  error={error}
-                  workflowId={workflowData?.id || 'temp'}
-                  nodeId={currentNodeId || `temp-${Date.now()}`}
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                />
-              );
-            case 'emoji':
-              return (
-                <Input
-                  type="text"
-                  value={value || ''}
-                  onChange={(e) => onChange(e.target.value)}
-                  placeholder={placeholders.emoji}
+                <FileUpload
+                  value={fileValue}
+                  onChange={(files) => {
+                    if (files && files.length > 0) {
+                      // For single file fields, pass the first file
+                      // For multiple files, pass the array
+                      onChange(field.multiple ? files : files[0]);
+                    } else {
+                      onChange(null);
+                    }
+                  }}
+                  accept={field.accept}
+                  multiple={field.multiple || false}
+                  maxSize={field.maxSize}
+                  maxFiles={field.multiple ? (field.maxFiles || 10) : 1}
                   className={cn(error && "border-red-500")}
                 />
               );
