@@ -23,7 +23,8 @@ export const sendMessageActionSchema: NodeComponent = {
       required: true,
       dynamic: "slack-channels",
       loadOnMount: true,
-      tooltip: "Select the Slack channel where you want to send the message"
+      placeholder: "Select a channel",
+      tooltip: "Select the Slack channel where you want to send the message. Private channels require the bot to be invited first. You can also use variables to dynamically set the channel."
     },
     {
       name: "message",
@@ -31,7 +32,8 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "rich-text",
       required: true,
       placeholder: "Type your message...",
-      tooltip: "The message content with rich text formatting (bold, italic, links, etc.)"
+      defaultValue: "",
+      tooltip: "The message content with rich text formatting (bold, italic, links, etc.). You can drag variables from the right panel to include dynamic content from previous workflow steps."
     },
     {
       name: "attachments",
@@ -41,7 +43,7 @@ export const sendMessageActionSchema: NodeComponent = {
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 25 * 1024 * 1024, // 25MB limit
-      tooltip: "Attach files from your computer, provide URLs, use emojis, or select from previous workflow nodes",
+      tooltip: "Attach files to your message. Upload: Choose files from your computer. URL: Provide direct links to files. To use variables: Drag and drop from the variable panel on the right, or type {{node_id.output}} format. Variables let you attach files from previous workflow steps dynamically.",
       toggleOptions: {
         modes: ["upload", "url"],
         labels: {
@@ -59,28 +61,28 @@ export const sendMessageActionSchema: NodeComponent = {
       label: "Link Names",
       type: "boolean",
       defaultValue: false,
-      tooltip: "Automatically converts @mentions and #channels to clickable links"
+      tooltip: "When enabled, @mentions and #channel references in your message will become clickable links. For example, @username becomes a link to that user's profile. Useful for notifications."
     },
     {
       name: "unfurlLinks",
       label: "Unfurl Links",
       type: "boolean",
       defaultValue: true,
-      tooltip: "Slack will automatically expand links to show previews"
+      tooltip: "When enabled, Slack will automatically show rich previews for URLs in your message (website titles, descriptions, and images). Disable for cleaner, text-only messages."
     },
     {
       name: "asUser",
       label: "Send as User",
       type: "boolean",
       defaultValue: true,
-      tooltip: "Message will appear from the authenticated user instead of the bot"
+      tooltip: "When enabled, the message appears as if sent by you (the authenticated user). When disabled, it appears from the Slack app/bot. Note: Bot customization options only work when this is disabled."
     },
     {
       name: "username",
       label: "Username Override",
       type: "text",
       placeholder: "Custom bot username",
-      tooltip: "Override the default bot username (only works when 'Send as User' is off)",
+      tooltip: "Set a custom username for the bot (only visible when 'Send as User' is disabled). Leave empty to use the default bot name. You can use variables to dynamically set the username.",
       showWhen: {
         "asUser": { "$eq": false }
       }
@@ -91,7 +93,7 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "file-with-toggle",
       accept: ".jpg,.jpeg,.png,.gif,.webp",
       maxSize: 5 * 1024 * 1024, // 5MB limit for icons
-      tooltip: "Set a custom icon for the bot message using an image file, URL, or emoji",
+      tooltip: "Set a custom icon for bot messages (only works when 'Send as User' is off). Upload: Choose an image file. URL: Provide a direct image link. To use variables: Drag from the variable panel or type {{node_id.output}} to dynamically set icons from previous workflow steps.",
       placeholder: "Choose an icon file",
       toggleOptions: {
         modes: ["upload", "url"],
