@@ -43,15 +43,13 @@ export const sendMessageActionSchema: NodeComponent = {
       maxSize: 25 * 1024 * 1024, // 25MB limit
       tooltip: "Attach files from your computer, provide URLs, use emojis, or select from previous workflow nodes",
       toggleOptions: {
-        modes: ["upload", "url", "emoji"],
+        modes: ["upload", "url"],
         labels: {
           upload: "Upload",
-          url: "URL",
-          emoji: "Emoji"
+          url: "URL"
         },
         placeholders: {
-          url: "https://example.com/document.pdf",
-          emoji: ":file_folder:"
+          url: "https://example.com/document.pdf"
         },
         defaultMode: "upload"
       }
@@ -96,17 +94,15 @@ export const sendMessageActionSchema: NodeComponent = {
       tooltip: "Set a custom icon for the bot message using an image file, URL, or emoji",
       placeholder: "Choose an icon file",
       toggleOptions: {
-        modes: ["upload", "url", "emoji"],
+        modes: ["upload", "url"],
         labels: {
           upload: "Upload",
-          url: "URL",
-          emoji: "Emoji"
+          url: "URL"
         },
         placeholders: {
-          url: "https://example.com/icon.png",
-          emoji: ":smile:"
+          url: "https://example.com/icon.png"
         },
-        defaultMode: "emoji"
+        defaultMode: "upload"
       },
       showWhen: {
         "asUser": { "$eq": false }
