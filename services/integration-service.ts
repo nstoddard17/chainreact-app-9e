@@ -498,6 +498,8 @@ export class IntegrationService {
       provider = 'gumroad'
     } else if (dataType.startsWith('blackbaud_') || dataType.startsWith('blackbaud-')) {
       provider = 'blackbaud'
+    } else if (dataType.startsWith('onedrive_') || dataType.startsWith('onedrive-')) {
+      provider = 'onedrive'
     } else {
       // Fallback: try to extract provider from dataType
       // Handle both underscore and dash separators

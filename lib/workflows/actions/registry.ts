@@ -147,6 +147,9 @@ import {
   onenoteDeletePage,
 } from './microsoft-onenote'
 
+// OneDrive actions
+import { uploadFileToOneDrive } from './onedrive'
+
 // Facebook actions
 import {
   createFacebookPost,
@@ -377,7 +380,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "microsoft-onenote_action_copy_page": onenoteCopyPage,
   "microsoft-onenote_action_search": onenoteSearch,
   "microsoft-onenote_action_delete_page": onenoteDeletePage,
-  
+
+  // OneDrive actions
+  "onedrive_action_upload_file": uploadFileToOneDrive,
+
   // Facebook actions
   "facebook_action_create_post": createFacebookPost,
   "facebook_action_get_page_insights": getFacebookPageInsights,

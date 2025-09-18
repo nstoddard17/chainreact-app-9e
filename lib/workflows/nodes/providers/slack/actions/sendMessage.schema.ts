@@ -22,7 +22,8 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "select",
       required: true,
       dynamic: "slack-channels",
-      description: "Select the Slack channel where you want to send the message"
+      loadOnMount: true,
+      tooltip: "Select the Slack channel where you want to send the message"
     },
     {
       name: "message",
@@ -30,52 +31,86 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "rich-text",
       required: true,
       placeholder: "Type your message...",
-      description: "The message content with rich text formatting (bold, italic, links, etc.)"
+      tooltip: "The message content with rich text formatting (bold, italic, links, etc.)"
     },
     {
       name: "attachments",
       label: "Attachments",
-      type: "file",
+      type: "file-with-toggle",
       required: false,
       placeholder: "Select files to attach",
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 25 * 1024 * 1024, // 25MB limit
-      description: "Attach files from your computer or select files from previous workflow nodes"
+      tooltip: "Attach files from your computer, provide URLs, use emojis, or select from previous workflow nodes",
+      toggleOptions: {
+        modes: ["upload", "url", "emoji"],
+        labels: {
+          upload: "Upload",
+          url: "URL",
+          emoji: "Emoji"
+        },
+        placeholders: {
+          url: "https://example.com/document.pdf",
+          emoji: ":file_folder:"
+        },
+        defaultMode: "upload"
+      }
     },
     {
       name: "linkNames",
       label: "Link Names",
       type: "boolean",
       defaultValue: false,
-      description: "When enabled, automatically converts @mentions and #channels to clickable links"
+      tooltip: "Automatically converts @mentions and #channels to clickable links"
     },
     {
       name: "unfurlLinks",
       label: "Unfurl Links",
       type: "boolean",
       defaultValue: true,
-      description: "When enabled, Slack will automatically expand links to show previews"
+      tooltip: "Slack will automatically expand links to show previews"
+    },
+    {
+      name: "asUser",
+      label: "Send as User",
+      type: "boolean",
+      defaultValue: true,
+      tooltip: "Message will appear from the authenticated user instead of the bot"
     },
     {
       name: "username",
       label: "Username Override",
       type: "text",
-      placeholder: "Optional: Override bot username",
-      description: "Override the default bot username that appears with the message"
+      placeholder: "Custom bot username",
+      tooltip: "Override the default bot username (only works when 'Send as User' is off)",
+      showWhen: {
+        "asUser": { "$eq": false }
+      }
     },
     {
-      name: "iconUrl",
-      label: "Icon",
-      type: "custom",
-      placeholder: "URL to custom icon or upload image file",
-      description: "Set a custom icon for the message. You can provide a URL or upload an image file"
-    },
-    {
-      name: "asUser",
-      label: "As User",
-      type: "boolean",
-      defaultValue: false,
-      description: "When enabled, the message will appear to be sent by the authenticated user instead of the bot"
+      name: "icon",
+      label: "Bot Icon",
+      type: "file-with-toggle",
+      accept: ".jpg,.jpeg,.png,.gif,.webp",
+      maxSize: 5 * 1024 * 1024, // 5MB limit for icons
+      tooltip: "Set a custom icon for the bot message using an image file, URL, or emoji",
+      placeholder: "Choose an icon file",
+      toggleOptions: {
+        modes: ["upload", "url", "emoji"],
+        labels: {
+          upload: "Upload",
+          url: "URL",
+          emoji: "Emoji"
+        },
+        placeholders: {
+          url: "https://example.com/icon.png",
+          emoji: ":smile:"
+        },
+        defaultMode: "emoji"
+      },
+      showWhen: {
+        "asUser": { "$eq": false }
+      }
     }
   ],
   outputSchema: [

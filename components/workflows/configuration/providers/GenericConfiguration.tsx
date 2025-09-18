@@ -457,9 +457,9 @@ export function GenericConfiguration({
       return;
     }
     
-    // Log attachment-related fields for Gmail send email
-    if (nodeInfo?.type === 'gmail_action_send_email') {
-      console.log('📎 [GenericConfiguration] Gmail send email values being saved:', {
+    // Log attachment-related fields for Gmail send email and OneDrive upload
+    if (nodeInfo?.type === 'gmail_action_send_email' || nodeInfo?.type === 'onedrive_action_upload_file') {
+      console.log(`📎 [GenericConfiguration] ${nodeInfo?.type} values being saved:`, {
         sourceType: values.sourceType,
         uploadedFiles: values.uploadedFiles,
         uploadedFilesType: typeof values.uploadedFiles,

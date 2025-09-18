@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -125,9 +125,16 @@ export function FieldRenderer({
   isConnectedToAIAgent,
   setFieldValue,
 }: FieldProps) {
+  // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
+  const [inputMode, setInputMode] = useState(
+    field.type === 'file-with-toggle'
+      ? (field.toggleOptions?.defaultMode || field.toggleOptions?.modes?.[0] || 'upload')
+      : 'upload'
+  );
+
   // Prepare field options for select/combobox fields
-  const fieldOptions = field.options || 
-    (field.dynamic && dynamicOptions?.[field.name]) || 
+  const fieldOptions = field.options ||
+    (field.dynamic && dynamicOptions?.[field.name]) ||
     [];
 
   // Auto-load options for combobox fields with dynamic data
@@ -179,8 +186,16 @@ export function FieldRenderer({
     // For Airtable fields
     if (field.name?.startsWith('airtable_field_')) return 'airtable';
     
-    // For Google Drive fields
-    if (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode' || field.name === 'fileName') return 'google-drive';
+    // For Google Drive fields (only for Google Drive provider)
+    if (nodeInfo?.providerId === 'google-drive' &&
+        (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode' || field.name === 'fileName')) {
+      return 'google-drive';
+    }
+
+    // For OneDrive, use generic handling
+    if (nodeInfo?.providerId === 'onedrive' && field.name === 'uploadedFiles') {
+      return 'generic';
+    }
     
     return 'generic';
   };
@@ -192,15 +207,15 @@ export function FieldRenderer({
    * Renders the label with optional tooltip
    */
   const renderLabel = () => {
-    
+
     return (
       <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
             {getFieldIcon(field.name, field.type)}
           </div>
-          <Label 
-            htmlFor={field.name} 
+          <Label
+            htmlFor={field.name}
             className={cn(
               "text-sm font-medium text-slate-700",
               field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
@@ -209,11 +224,18 @@ export function FieldRenderer({
             {field.label || field.name}
           </Label>
         </div>
-        
-        {field.description && (
-          <HelpCircle className="h-4 w-4 text-muted-foreground" title={field.description} />
+
+        {(field.tooltip || field.description) && tooltipsEnabled && (
+          <div className="group relative">
+            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50">
+              <div className="bg-popover text-popover-foreground text-xs rounded-md py-1.5 px-2.5 shadow-md border max-w-xs whitespace-normal">
+                {field.tooltip || field.description}
+              </div>
+            </div>
+          </div>
         )}
-        
+
         {field.required && (
           <span className="text-xs text-red-500 font-medium">Required</span>
         )}
@@ -238,6 +260,78 @@ export function FieldRenderer({
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
+      case "file-with-toggle":
+        // File field with integrated multi-option toggle
+        const modes = field.toggleOptions?.modes || ['upload', 'url', 'emoji'];
+        const labels = field.toggleOptions?.labels || { upload: 'Upload', url: 'URL', emoji: 'Emoji' };
+        const placeholders = field.toggleOptions?.placeholders || { url: 'Enter URL...', emoji: 'Enter emoji...' };
+
+        // Render the appropriate input based on mode
+        const renderModeInput = () => {
+          switch (inputMode) {
+            case 'upload':
+              return (
+                <EnhancedFileInput
+                  fieldDef={field}
+                  value={value}
+                  onChange={onChange}
+                  error={error}
+                  workflowId={workflowData?.id || 'temp'}
+                  nodeId={currentNodeId || `temp-${Date.now()}`}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                />
+              );
+            case 'emoji':
+              return (
+                <Input
+                  type="text"
+                  value={value || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder={placeholders.emoji}
+                  className={cn(error && "border-red-500")}
+                />
+              );
+            case 'url':
+            default:
+              return (
+                <Input
+                  type="text"
+                  value={value || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder={placeholders.url}
+                  className={cn(error && "border-red-500")}
+                />
+              );
+          }
+        };
+
+        return (
+          <div className="space-y-2">
+            {/* Integrated toggle below the label */}
+            <div className="flex gap-1 p-1 bg-muted rounded-md w-full">
+              {modes.map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setInputMode(mode)}
+                  className={cn(
+                    "flex-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                    inputMode === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {labels[mode] || mode}
+                </button>
+              ))}
+            </div>
+
+            {/* Conditional field based on toggle */}
+            {renderModeInput()}
+          </div>
+        );
+
       case "dynamic_fields":
         // Dynamic fields for Notion blocks
         if (integrationProvider === 'notion' && field.dynamic === 'notion_page_blocks') {
@@ -718,12 +812,22 @@ export function FieldRenderer({
       case "boolean":
         return (
           <div className="flex items-center justify-between">
-            <div className="flex-1">
+            <div className="flex-1 flex items-center gap-2">
+              <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
+                {getFieldIcon(field.name, field.type)}
+              </div>
               <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
                 {field.label || field.name}
               </Label>
-              {field.description && (
-                <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
+              {(field.tooltip || field.description) && tooltipsEnabled && (
+                <div className="group relative">
+                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50">
+                    <div className="bg-popover text-popover-foreground text-xs rounded-md py-1.5 px-2.5 shadow-md border max-w-xs whitespace-normal">
+                      {field.tooltip || field.description}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             <Switch
@@ -1056,7 +1160,7 @@ export function FieldRenderer({
   return (
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
-        {field.type !== "button-toggle" && field.type !== "combobox" && renderLabel()}
+        {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && renderLabel()}
         <div className="min-w-0 overflow-hidden w-full">
           {fieldContent}
         </div>
