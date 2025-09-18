@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +23,6 @@ import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 // import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
-import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -227,13 +226,12 @@ export function FieldRenderer({
         </div>
 
         {(field.tooltip || field.description) && tooltipsEnabled && (
-          <div className="group relative">
+          <div
+            className="inline-block"
+            onMouseEnter={(e) => handleTooltipMouseEnter(e, `label-${field.name}`)}
+            onMouseLeave={handleTooltipMouseLeave}
+          >
             <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50">
-              <div className="bg-popover text-popover-foreground text-xs rounded-md py-1.5 px-2.5 shadow-md border max-w-xs whitespace-normal">
-                {field.tooltip || field.description}
-              </div>
-            </div>
           </div>
         )}
 
@@ -257,6 +255,28 @@ export function FieldRenderer({
 
   // Get user session for email signature integration
   const { user } = useAuthStore()
+
+  // Tooltip state management
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+  // Handle tooltip positioning
+  const handleTooltipMouseEnter = (e: React.MouseEvent, tooltipId: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top - 2, // Reduced gap from 8px to 2px
+      left: rect.left
+    });
+    setActiveTooltip(tooltipId);
+    setTooltipVisible(true);
+  };
+
+  const handleTooltipMouseLeave = () => {
+    setTooltipVisible(false);
+    setActiveTooltip(null);
+  };
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
@@ -820,13 +840,12 @@ export function FieldRenderer({
                 {field.label || field.name}
               </Label>
               {(field.tooltip || field.description) && tooltipsEnabled && (
-                <div className="group relative">
+                <div
+                  className="inline-block"
+                  onMouseEnter={(e) => handleTooltipMouseEnter(e, `boolean-${field.name}`)}
+                  onMouseLeave={handleTooltipMouseLeave}
+                >
                   <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50">
-                    <div className="bg-popover text-popover-foreground text-xs rounded-md py-1.5 px-2.5 shadow-md border max-w-xs whitespace-normal">
-                      {field.tooltip || field.description}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -1158,6 +1177,7 @@ export function FieldRenderer({
   const fieldContent = renderFieldByType();
 
   return (
+    <>
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
         {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && renderLabel()}
@@ -1172,5 +1192,23 @@ export function FieldRenderer({
         )}
       </CardContent>
     </Card>
+
+    {/* Portal-rendered tooltip */}
+    {tooltipVisible && (field.tooltip || field.description) && (
+      <div
+        ref={tooltipRef}
+        className="fixed z-[999999] pointer-events-none"
+        style={{
+          top: `${tooltipPosition.top}px`,
+          left: `${tooltipPosition.left}px`,
+          transform: 'translateY(calc(-100% - 4px))' // Only 4px gap between icon and tooltip
+        }}
+      >
+        <div className="bg-slate-900 text-white text-xs rounded-md py-2 px-3 shadow-2xl border border-slate-700 max-w-xs whitespace-normal pointer-events-auto">
+          {field.tooltip || field.description}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
