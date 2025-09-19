@@ -2628,6 +2628,9 @@ const useWorkflowBuilderState = () => {
       // Clear unsaved changes flag
       setHasUnsavedChanges(false);
 
+      // Update last save time to prevent immediate re-checking
+      lastSaveTimeRef.current = Date.now();
+
       // Force clear saving state immediately on success
       setIsSaving(false);
       isSavingRef.current = false;
@@ -2766,9 +2769,89 @@ const useWorkflowBuilderState = () => {
         }
       }
 
+      // Check if workflow has Gmail trigger that needs webhook registration
+      const gmailTrigger = rfNodes.find((n: any) =>
+        n?.data?.type === 'gmail_trigger_new_email' ||
+        n?.data?.nodeType === 'gmail_trigger_new_email' ||
+        n?.type === 'gmail_trigger_new_email'
+      )
+
       setIsUpdatingStatus(true)
-      
+
       const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
+
+      // Register Gmail webhook if activating a workflow with Gmail trigger
+      if (gmailTrigger && newStatus === 'active') {
+        console.log('🔔 Gmail trigger detected, registering webhook...')
+
+        try {
+          // Check if user has Gmail integration connected
+          const gmailIntegration = storeIntegrations.find(
+            (int: any) => int.provider_id === 'gmail' && int.status === 'connected'
+          )
+
+          if (!gmailIntegration) {
+            setIsUpdatingStatus(false)
+            toast({
+              title: "Gmail not connected",
+              description: "Please connect your Gmail account before activating a workflow with Gmail trigger.",
+              variant: "destructive",
+            })
+            return
+          }
+
+          // Get the session for auth
+          const { data: { session: gmailSession } } = await supabase.auth.getSession()
+
+          // Register the Gmail webhook
+          const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(gmailSession?.access_token && {
+                'Authorization': `Bearer ${gmailSession.access_token}`
+              })
+            },
+            body: JSON.stringify({
+              workflowId: currentWorkflow.id,
+              triggerType: gmailTrigger.data?.type || gmailTrigger.data?.nodeType || gmailTrigger.type,
+              providerId: 'gmail',
+              config: {
+                labelIds: gmailTrigger.data?.config?.labelIds || ['INBOX']
+              }
+            })
+          })
+
+          if (!webhookResponse.ok) {
+            const errorData = await webhookResponse.json()
+            console.error('Failed to register Gmail webhook:', errorData)
+            setIsUpdatingStatus(false)
+            toast({
+              title: "Webhook registration failed",
+              description: errorData.details || errorData.error || "Could not set up Gmail notifications. Please try again.",
+              variant: "destructive",
+            })
+            return
+          }
+
+          const webhookData = await webhookResponse.json()
+          console.log('✅ Gmail webhook registered:', webhookData)
+
+          toast({
+            title: "Gmail webhook registered",
+            description: "Your workflow will now receive Gmail notifications.",
+          })
+        } catch (error) {
+          console.error('Error registering Gmail webhook:', error)
+          setIsUpdatingStatus(false)
+          toast({
+            title: "Webhook registration failed",
+            description: "Could not set up Gmail notifications. Please check your configuration.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
       
       console.log('🔄 Attempting to update workflow status:', {
         workflowId: currentWorkflow.id,
@@ -2990,6 +3073,9 @@ const useWorkflowBuilderState = () => {
 
       // Clear unsaved changes flag since we just saved
       setHasUnsavedChanges(false)
+
+      // Update last save time to prevent immediate re-checking
+      lastSaveTimeRef.current = Date.now()
 
       console.log('✅ Workflow saved as draft, starting test mode...')
 
@@ -3815,20 +3901,45 @@ const useWorkflowBuilderState = () => {
         
         // Compare IDs
         if (node.id !== savedNode.id) return true
-        
-        // Compare node types
-        if (node.data.type !== savedNode.data.type) return true
-        
+
+        // Compare node types - check multiple possible type fields
+        const currentType = node.data?.type || node.data?.nodeType || node.type
+        const savedType = savedNode.data?.type || savedNode.data?.nodeType || savedNode.type
+        if (currentType !== savedType) return true
+
         // Compare configurations (ignoring non-essential properties)
-        const nodeConfig = node.data.config || {}
-        const savedConfig = savedNode.data.config || {}
-        if (JSON.stringify(nodeConfig) !== JSON.stringify(savedConfig)) return true
-        
-        // Compare positions with tolerance for floating point precision
-        const positionDifference = 
-          Math.abs(node.position.x - savedNode.position.x) > 0.5 || 
-          Math.abs(node.position.y - savedNode.position.y) > 0.5
-        
+        const nodeConfig = node.data?.config || {}
+        const savedConfig = savedNode.data?.config || {}
+
+        // Deep comparison that ignores undefined values and empty objects
+        const normalizeConfig = (config: any) => {
+          const normalized: any = {}
+          for (const key in config) {
+            if (config[key] !== undefined && config[key] !== null && config[key] !== '') {
+              if (typeof config[key] === 'object' && !Array.isArray(config[key])) {
+                const nestedNormalized = normalizeConfig(config[key])
+                if (Object.keys(nestedNormalized).length > 0) {
+                  normalized[key] = nestedNormalized
+                }
+              } else {
+                normalized[key] = config[key]
+              }
+            }
+          }
+          return normalized
+        }
+
+        const normalizedNodeConfig = normalizeConfig(nodeConfig)
+        const normalizedSavedConfig = normalizeConfig(savedConfig)
+
+        if (JSON.stringify(normalizedNodeConfig) !== JSON.stringify(normalizedSavedConfig)) return true
+
+        // Compare positions with a more reasonable tolerance (5 pixels)
+        // This accounts for any rounding or floating point precision issues
+        const positionDifference =
+          Math.abs(node.position.x - savedNode.position.x) > 5 ||
+          Math.abs(node.position.y - savedNode.position.y) > 5
+
         return positionDifference
       })
     }
@@ -3878,8 +3989,8 @@ const useWorkflowBuilderState = () => {
     // Skip checks during save/rebuild operations or immediately after a save
     const now = Date.now();
     const timeSinceLastSave = now - lastSaveTimeRef.current;
-    const recentlySaved = timeSinceLastSave < 1000; // Within 1 second of save
-    
+    const recentlySaved = timeSinceLastSave < 3000; // Within 3 seconds of save
+
     if (recentlySaved) {
       return;
     }

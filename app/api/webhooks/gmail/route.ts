@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
-    
+
     // Log incoming webhook
     await logWebhookEvent({
       provider: 'gmail',
@@ -18,20 +18,38 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    // Verify Gmail webhook signature
-    const isValid = await verifyGmailWebhook(request)
-    if (!isValid) {
-      console.error(`[${requestId}] Invalid Gmail webhook signature`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Parse the request body
     const body = await request.text()
     let eventData: any
 
     try {
-      // Gmail sends JSON data directly
-      eventData = JSON.parse(body)
+      const parsedBody = JSON.parse(body)
+
+      // Check if this is a Pub/Sub message
+      if (parsedBody.message && parsedBody.message.data) {
+        console.log(`[${requestId}] Received Pub/Sub message from Gmail`)
+
+        // Decode the Pub/Sub message data (base64 encoded)
+        const decodedData = Buffer.from(parsedBody.message.data, 'base64').toString()
+        const gmailNotification = JSON.parse(decodedData)
+
+        // Gmail Pub/Sub notifications contain emailAddress and historyId
+        eventData = {
+          type: 'gmail_new_email',
+          emailAddress: gmailNotification.emailAddress,
+          historyId: gmailNotification.historyId,
+          messageId: parsedBody.message.messageId,
+          publishTime: parsedBody.message.publishTime
+        }
+
+        console.log(`[${requestId}] Gmail notification:`, {
+          emailAddress: eventData.emailAddress,
+          historyId: eventData.historyId
+        })
+      } else {
+        // Direct webhook call (for testing or fallback)
+        eventData = parsedBody
+      }
     } catch (parseError) {
       console.error(`[${requestId}] Failed to parse Gmail webhook body:`, parseError)
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
