@@ -21,9 +21,13 @@ function BetaSignupContent() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [fullName, setFullName] = useState("")
+  const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(false)
   const [validatingToken, setValidatingToken] = useState(true)
   const [tokenValid, setTokenValid] = useState(false)
+  const [checkingUsername, setCheckingUsername] = useState(false)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [usernameCheckTimer, setUsernameCheckTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Get email and token from URL params
@@ -60,6 +64,26 @@ function BetaSignupContent() {
         const supabase = createClient()
 
 
+        // First check if user already exists (they may have already signed up)
+        const { data: userData } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", urlEmail)
+          .single()
+
+        if (userData) {
+          toast({
+            title: "Account Already Exists",
+            description: "You already have an account. Redirecting to login...",
+            variant: "default"
+          })
+          setTimeout(() => {
+            router.push("/auth/login")
+          }, 1500)
+          setValidatingToken(false)
+          return
+        }
+
         // Check beta tester record
         const { data, error } = await supabase
           .from("beta_testers")
@@ -88,18 +112,39 @@ function BetaSignupContent() {
             tokenMatch: data.signup_token === token
           })
 
+          // Check if already converted (user already signed up)
+          if (data.status === 'converted') {
+            toast({
+              title: "Already Signed Up",
+              description: "You've already created an account with this invitation. Redirecting to login...",
+              variant: "default"
+            })
+            setTimeout(() => {
+              router.push("/auth/login")
+            }, 1500)
+            setValidatingToken(false)
+            return
+          }
+
           // Check if invitation has expired
           const hasExpired = data.expires_at && new Date(data.expires_at) < new Date()
 
           // If signup_token is null, this might be an old invitation - accept it
           if (!data.signup_token || data.signup_token === token) {
-            if (!hasExpired) {
+            if (!hasExpired && data.status === 'active') {
               setTokenValid(true)
-            } else {
+            } else if (hasExpired) {
               setTokenValid(false)
               toast({
                 title: "Invitation Expired",
                 description: "This beta invitation has expired. Please contact support for assistance.",
+                variant: "destructive"
+              })
+            } else {
+              setTokenValid(false)
+              toast({
+                title: "Invitation Issue",
+                description: "There's an issue with your invitation. Please contact support.",
                 variant: "destructive"
               })
             }
@@ -133,6 +178,52 @@ function BetaSignupContent() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Validate username
+    if (!username || username.trim().length < 3) {
+      toast({
+        title: "Username required",
+        description: "Please choose a username with at least 3 characters",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      toast({
+        title: "Invalid username",
+        description: "Username can only contain letters, numbers, dashes, and underscores",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Check username availability one more time before submission
+    setLoading(true)
+    try {
+      const response = await fetch('/api/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      })
+
+      const data = await response.json()
+
+      if (!data.available) {
+        toast({
+          title: "Username taken",
+          description: "This username is already in use. Please choose another.",
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+    } catch (checkErr: any) {
+      console.log("Username pre-check error:", checkErr)
+      // Continue with signup - database constraints will handle duplicates
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -151,18 +242,19 @@ function BetaSignupContent() {
       return
     }
 
-    setLoading(true)
+    // setLoading is already true from username check above
 
     try {
       const supabase = createClient()
 
-      // Sign up the user
+      // Sign up the user - keep it simple, no special options
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
         options: {
           data: {
             full_name: fullName,
+            username: username,
             is_beta_tester: true
           }
         }
@@ -173,26 +265,178 @@ function BetaSignupContent() {
       }
 
       if (data?.user) {
-        // The trigger in the database will automatically assign the beta-pro role
-        // based on the email matching a beta_testers record
+        // Create the user profile with username and role - this is CRITICAL
+        let profileCreated = false
+        let retryCount = 0
+        const maxRetries = 3
+
+        while (!profileCreated && retryCount < maxRetries) {
+          try {
+            console.log(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
+
+            // Use service role client for profile operations to bypass RLS
+            const { data: profileData, error: profileError } = await supabase
+              .from('user_profiles')
+              .upsert({
+                id: data.user.id,
+                username: username,
+                full_name: fullName,
+                role: 'beta-pro',
+                provider: 'email',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'id',
+                ignoreDuplicates: false
+              })
+              .select()
+              .single()
+
+            if (profileError) {
+              console.error(`Profile creation attempt ${retryCount + 1} failed:`, profileError)
+              retryCount++
+              if (retryCount < maxRetries) {
+                // Wait before retry with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+                continue
+              } else {
+                throw profileError
+              }
+            }
+
+            // Verify the profile was created successfully
+            const { data: verifyProfile, error: verifyError } = await supabase
+              .from('user_profiles')
+              .select('id, username, role')
+              .eq('id', data.user.id)
+              .single()
+
+            if (verifyError || !verifyProfile || !verifyProfile.username) {
+              console.error("Profile verification failed:", verifyError)
+              retryCount++
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+                continue
+              } else {
+                throw new Error("Profile verification failed after creation")
+              }
+            }
+
+            console.log("Profile created and verified successfully:", verifyProfile)
+            profileCreated = true
+
+          } catch (err) {
+            console.error(`Profile creation attempt ${retryCount + 1} error:`, err)
+            if (retryCount >= maxRetries - 1) {
+              // Profile creation failed after all retries - this is critical
+              console.error("Failed to create user profile after all retries:", err)
+
+              // Delete the auth user since we couldn't complete the signup properly
+              // This prevents them from being stuck in a bad state
+              toast({
+                title: "Signup Error",
+                description: "There was an error creating your account. Please try again or contact support.",
+                variant: "destructive"
+              })
+
+              // Don't proceed with the flow
+              setLoading(false)
+              return
+            }
+            retryCount++
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+          }
+        }
+
+        // Update beta tester status to converted and confirm email
+        try {
+          // Update beta tester status
+          const { error: betaUpdateError } = await supabase
+            .from('beta_testers')
+            .update({
+              status: 'converted',
+              conversion_date: new Date().toISOString()
+            })
+            .eq('email', email)
+
+          if (betaUpdateError) {
+            console.error("Failed to update beta tester status:", betaUpdateError)
+          }
+
+          // Call function to confirm email for beta testers
+          const { error: confirmError } = await supabase.rpc('confirm_beta_tester_email', {
+            user_email: email
+          })
+
+          if (confirmError) {
+            console.error("Failed to confirm email:", confirmError)
+          }
+        } catch (err) {
+          console.error("Error updating beta tester status:", err)
+          // Non-critical errors, continue
+        }
+
+        // Wait a bit to ensure all database operations propagate
+        await new Promise(resolve => setTimeout(resolve, 2000))
 
         // Sign in the user immediately after signup
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email,
           password: password,
         })
 
         if (signInError) {
           console.error("Auto sign-in error:", signInError)
+          toast({
+            title: "Account Created",
+            description: "Your account has been created. Please sign in to continue.",
+          })
+          setTimeout(() => {
+            router.push("/auth/login")
+          }, 1500)
+          return
         }
 
-        toast({
-          title: "Welcome to ChainReact Beta! 🎉",
-          description: "Your account has been created and you're now logged in.",
-        })
+        if (signInData?.user) {
+          // Do one final verification that profile exists with username
+          const { data: finalProfileCheck, error: finalCheckError } = await supabase
+            .from('user_profiles')
+            .select('id, username, role')
+            .eq('id', signInData.user.id)
+            .single()
 
-        // Redirect to dashboard immediately
-        router.push("/dashboard")
+          if (!finalCheckError && finalProfileCheck && finalProfileCheck.username) {
+            console.log("Final profile check passed:", finalProfileCheck)
+
+            toast({
+              title: "Welcome to ChainReact Beta! 🎉",
+              description: "Your account has been created successfully.",
+            })
+
+            // Small delay to ensure session is established
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // Use window.location for hard redirect to ensure clean navigation
+            window.location.href = "/dashboard"
+          } else {
+            // This should never happen with our retry logic, but just in case
+            console.error("Profile missing after all checks:", finalCheckError)
+            toast({
+              title: "Setup Required",
+              description: "Please complete your profile setup.",
+            })
+            window.location.href = "/auth/setup-username"
+          }
+        } else {
+          // Fallback if sign-in returns no user
+          toast({
+            title: "Account Created",
+            description: "Please sign in to continue.",
+          })
+          setTimeout(() => {
+            router.push("/auth/login")
+          }, 1500)
+        }
       }
     } catch (error: any) {
       console.error("Signup error:", error)
@@ -346,6 +590,88 @@ function BetaSignupContent() {
               </div>
 
               <div>
+                <Label htmlFor="username">Username</Label>
+                <div className="relative">
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="johndoe"
+                    value={username}
+                    onChange={(e) => {
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
+                      setUsername(value)
+
+                      // Clear previous timer if exists
+                      if (usernameCheckTimer) {
+                        clearTimeout(usernameCheckTimer)
+                      }
+
+                      // Clear previous state
+                      setUsernameAvailable(null)
+
+                      // Check username availability after typing stops
+                      if (value.length >= 3) {
+                        setCheckingUsername(true)
+                        const timer = setTimeout(async () => {
+                          try {
+                            // Use API endpoint that uses service role to bypass RLS
+                            const response = await fetch('/api/check-username', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ username: value }),
+                            })
+
+                            const data = await response.json()
+                            setUsernameAvailable(data.available)
+                          } catch (err: any) {
+                            console.error("Username availability check error:", err)
+                            // Default to showing as available - actual check happens at signup
+                            setUsernameAvailable(true)
+                          } finally {
+                            setCheckingUsername(false)
+                          }
+                        }, 500)
+
+                        setUsernameCheckTimer(timer)
+                      } else {
+                        setCheckingUsername(false)
+                      }
+                    }}
+                    required
+                    className={
+                      usernameAvailable === false
+                        ? "border-red-500 focus:border-red-500"
+                        : usernameAvailable === true
+                        ? "border-green-500 focus:border-green-500"
+                        : ""
+                    }
+                  />
+                  {checkingUsername && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {!checkingUsername && usernameAvailable === true && username.length >= 3 && (
+                    <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                  )}
+                  {!checkingUsername && usernameAvailable === false && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500">
+                      <svg fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {usernameAvailable === false
+                    ? "This username is already taken"
+                    : usernameAvailable === true && username.length >= 3
+                    ? "Username is available!"
+                    : "Choose a unique username for your account"}
+                </p>
+              </div>
+
+              <div>
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -372,7 +698,7 @@ function BetaSignupContent() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading || !fullName || !password || !confirmPassword}
+                disabled={loading || !fullName || !username || !password || !confirmPassword || checkingUsername || usernameAvailable === false}
               >
                 {loading ? (
                   <>

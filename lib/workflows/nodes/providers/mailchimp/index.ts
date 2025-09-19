@@ -1,7 +1,8 @@
-import { Users, MailOpen } from "lucide-react"
+import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const mailchimpNodes: NodeComponent[] = [
+  // Triggers
   {
     type: "mailchimp_trigger_new_subscriber",
     title: "New subscriber added",
@@ -19,5 +20,126 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+  },
+
+  // Actions
+  {
+    type: "mailchimp_action_add_subscriber",
+    title: "Add Subscriber",
+    description: "Add a new subscriber to an audience",
+    icon: UserPlus,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
+      { name: "status", label: "Status", type: "select", required: true, defaultValue: "subscribed", options: [
+        { value: "subscribed", label: "Subscribed" },
+        { value: "pending", label: "Pending" },
+        { value: "unsubscribed", label: "Unsubscribed" },
+        { value: "transactional", label: "Transactional" }
+      ]},
+      { name: "merge_fields", label: "Merge Fields", type: "object", required: false, placeholder: '{ "FNAME": "John", "LNAME": "Doe" }' },
+      { name: "tags", label: "Tags", type: "array", required: false, placeholder: "Tag1, Tag2, Tag3" }
+    ]
+  },
+  {
+    type: "mailchimp_action_update_subscriber",
+    title: "Update Subscriber",
+    description: "Update an existing subscriber's information",
+    icon: Users,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
+      { name: "status", label: "Status", type: "select", required: false, options: [
+        { value: "subscribed", label: "Subscribed" },
+        { value: "pending", label: "Pending" },
+        { value: "unsubscribed", label: "Unsubscribed" },
+        { value: "transactional", label: "Transactional" }
+      ]},
+      { name: "merge_fields", label: "Merge Fields", type: "object", required: false, placeholder: '{ "FNAME": "John", "LNAME": "Doe" }' }
+    ]
+  },
+  {
+    type: "mailchimp_action_remove_subscriber",
+    title: "Remove Subscriber",
+    description: "Remove a subscriber from an audience",
+    icon: UserX,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
+      { name: "delete_permanently", label: "Delete Permanently", type: "boolean", required: false, defaultValue: false }
+    ]
+  },
+  {
+    type: "mailchimp_action_add_tag",
+    title: "Add Tag to Subscriber",
+    description: "Add tags to a subscriber",
+    icon: Tag,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
+      { name: "tags", label: "Tags to Add", type: "array", required: true, placeholder: "Tag1, Tag2, Tag3" }
+    ]
+  },
+  {
+    type: "mailchimp_action_remove_tag",
+    title: "Remove Tag from Subscriber",
+    description: "Remove tags from a subscriber",
+    icon: Tag,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
+      { name: "tags", label: "Tags to Remove", type: "array", required: true, placeholder: "Tag1, Tag2, Tag3" }
+    ]
+  },
+  {
+    type: "mailchimp_action_send_campaign",
+    title: "Send Campaign",
+    description: "Send an email campaign",
+    icon: Mail,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "campaign_id", label: "Campaign", type: "select", required: true, dynamic: "mailchimp_campaigns", placeholder: "Select a campaign" }
+    ]
+  },
+  {
+    type: "mailchimp_action_create_campaign",
+    title: "Create Campaign",
+    description: "Create a new email campaign",
+    icon: Mail,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
+      { name: "type", label: "Campaign Type", type: "select", required: true, defaultValue: "regular", options: [
+        { value: "regular", label: "Regular" },
+        { value: "plaintext", label: "Plain Text" },
+        { value: "absplit", label: "A/B Split" },
+        { value: "rss", label: "RSS" },
+        { value: "variate", label: "Multivariate" }
+      ]},
+      { name: "subject_line", label: "Subject Line", type: "text", required: true, placeholder: "Your email subject" },
+      { name: "from_name", label: "From Name", type: "text", required: true, placeholder: "Your Company" },
+      { name: "reply_to", label: "Reply To Email", type: "email", required: true, placeholder: "reply@example.com" },
+      { name: "html_content", label: "HTML Content", type: "textarea", required: false, placeholder: "Your email HTML content" },
+      { name: "text_content", label: "Plain Text Content", type: "textarea", required: false, placeholder: "Your email plain text content" }
+    ]
   }
 ]

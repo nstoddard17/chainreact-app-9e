@@ -66,14 +66,22 @@ export default function AIUsageContent() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Fetch immediately when page loads
     fetchUsage()
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUsage, 30000)
-    return () => clearInterval(interval)
+
+    // Only refresh every 60 seconds while user is on this page
+    // This is less aggressive than 30 seconds
+    const interval = setInterval(fetchUsage, 60000)
+
+    return () => {
+      clearInterval(interval)
+      console.log('🛑 Stopped AI usage polling - user left settings page')
+    }
   }, [])
 
   const fetchUsage = async () => {
     try {
+      console.log('📊 Fetching AI usage data for settings page')
       const response = await fetch('/api/ai/usage')
       if (!response.ok) throw new Error('Failed to fetch usage data')
       const data = await response.json()

@@ -256,13 +256,14 @@ export function useIntegrationSelection() {
       'webhook',
     ]
 
-    // Add HubSpot to coming soon for non-admin and non-beta users
+    // Add HubSpot and Mailchimp to coming soon for non-admin and non-beta users
     const userRole = profile?.role?.toLowerCase()
     const isAdmin = userRole === 'admin'
     const isBetaTester = userRole === 'beta-pro'
 
     if (!isAdmin && !isBetaTester) {
       baseComingSoon.push('hubspot')
+      baseComingSoon.push('mailchimp')
     }
 
     return new Set(baseComingSoon)
