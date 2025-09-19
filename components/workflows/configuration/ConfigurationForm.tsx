@@ -160,18 +160,28 @@ function ConfigurationForm({
     nodeType: nodeInfo?.type,
     providerId: nodeInfo?.providerId || provider,
     onLoadingChange: (fieldName: string, isLoading: boolean) => {
+      console.log(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
+
       setLoadingFields(prev => {
         const newSet = new Set(prev);
         if (isLoading) {
+          console.log(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
           newSet.add(fieldName);
         } else {
+          console.log(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
           newSet.delete(fieldName);
         }
+        console.log(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
         return newSet;
       });
+
       // Call the parent onLoadingChange if it exists
       if (onLoadingChange) {
-        onLoadingChange(newSet.size > 0);
+        // Need to check the new size after the state update
+        setLoadingFields(prev => {
+          onLoadingChange(prev.size > 0);
+          return prev;
+        });
       }
     },
     getFormValues: () => values,

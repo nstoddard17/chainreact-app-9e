@@ -93,6 +93,7 @@ class DiscordGateway extends SimpleEventEmitter {
   private lastSuccessfulConnection: number = 0
   private connectionHealthCheck: NodeJS.Timeout | null = null
   private intentionalDisconnect: boolean = false
+  private inviteCache: Map<string, Map<string, any>> = new Map() // guildId -> invite code -> invite data
 
   private constructor() {
     super()
@@ -415,6 +416,15 @@ class DiscordGateway extends SimpleEventEmitter {
       case 'MESSAGE_CREATE':
         this.handleMessageCreate(payload.d)
         break
+      case 'GUILD_MEMBER_ADD':
+        this.handleMemberAdd(payload.d)
+        break
+      case 'INVITE_CREATE':
+        this.handleInviteCreate(payload.d)
+        break
+      case 'INVITE_DELETE':
+        this.handleInviteDelete(payload.d)
+        break
       default:
         // Log other events for debugging
         if (payload.t) {
@@ -427,7 +437,7 @@ class DiscordGateway extends SimpleEventEmitter {
   /**
    * Handle Ready event
    */
-  private handleReady(data: any): void {
+  private async handleReady(data: any): Promise<void> {
     this.sessionId = data.session_id
     console.log('🎉 Discord bot ready!', {
       sessionId: this.sessionId,
@@ -435,6 +445,10 @@ class DiscordGateway extends SimpleEventEmitter {
       userId: data.user?.id,
       guildCount: data.guilds?.length || 0
     })
+
+    // Initialize invite cache when bot is ready
+    await this.initializeInviteCache()
+
     this.emit('ready', data)
   }
 
@@ -555,6 +569,223 @@ class DiscordGateway extends SimpleEventEmitter {
       }
     } catch (error) {
       console.error('Error processing Discord message for workflows:', error)
+    }
+  }
+
+  /**
+   * Handle INVITE_CREATE event - cache new invites
+   */
+  private handleInviteCreate(inviteData: any): void {
+    console.log('📨 Discord INVITE_CREATE received:', {
+      code: inviteData.code,
+      guildId: inviteData.guild_id,
+      channelId: inviteData.channel_id,
+      inviter: inviteData.inviter?.username,
+      uses: inviteData.uses,
+      maxUses: inviteData.max_uses
+    })
+
+    if (!inviteData.guild_id) return
+
+    // Get or create guild invite cache
+    let guildInvites = this.inviteCache.get(inviteData.guild_id)
+    if (!guildInvites) {
+      guildInvites = new Map()
+      this.inviteCache.set(inviteData.guild_id, guildInvites)
+    }
+
+    // Cache the invite
+    guildInvites.set(inviteData.code, {
+      code: inviteData.code,
+      uses: inviteData.uses || 0,
+      inviterId: inviteData.inviter?.id,
+      maxUses: inviteData.max_uses || null,
+      maxAge: inviteData.max_age || null,
+      createdAt: inviteData.created_at
+    })
+  }
+
+  /**
+   * Handle INVITE_DELETE event - remove from cache
+   */
+  private handleInviteDelete(inviteData: any): void {
+    console.log('🗑️ Discord INVITE_DELETE received:', {
+      code: inviteData.code,
+      guildId: inviteData.guild_id
+    })
+
+    if (!inviteData.guild_id) return
+
+    const guildInvites = this.inviteCache.get(inviteData.guild_id)
+    if (guildInvites) {
+      guildInvites.delete(inviteData.code)
+    }
+  }
+
+  /**
+   * Handle GUILD_MEMBER_ADD event - detect invite used and assign roles
+   */
+  private async handleMemberAdd(memberData: any): Promise<void> {
+    console.log('👋 Discord GUILD_MEMBER_ADD received:', {
+      userId: memberData.user?.id,
+      username: memberData.user?.username,
+      guildId: memberData.guild_id,
+      joinedAt: memberData.joined_at
+    })
+
+    const guildId = memberData.guild_id
+    if (!guildId) return
+
+    try {
+      // Get cached invites for this guild
+      const cachedInvites = this.inviteCache.get(guildId) || new Map()
+
+      // Fetch current invites from Discord API to compare
+      const currentInvites = await this.fetchGuildInvites(guildId)
+
+      // Find which invite was used by comparing uses count
+      let usedInvite: any = null
+
+      if (currentInvites) {
+        for (const invite of currentInvites) {
+          const cachedInvite = cachedInvites.get(invite.code)
+          if (cachedInvite && invite.uses > cachedInvite.uses) {
+            usedInvite = invite
+            console.log(`✅ Member joined using invite: ${invite.code}`)
+            break
+          }
+        }
+
+        // Update cache with new invite data
+        const newInviteCache = new Map()
+        for (const invite of currentInvites) {
+          newInviteCache.set(invite.code, {
+            code: invite.code,
+            uses: invite.uses || 0,
+            inviterId: invite.inviter?.id,
+            maxUses: invite.max_uses || null,
+            maxAge: invite.max_age || null
+          })
+        }
+        this.inviteCache.set(guildId, newInviteCache)
+      }
+
+      // Check for auto role assignment
+      if (usedInvite) {
+        await this.assignRoleBasedOnInvite(memberData, usedInvite.code, guildId)
+      } else {
+        console.log('⚠️ Could not determine which invite was used')
+      }
+
+      // TODO: Trigger member join workflows
+      // await this.triggerMemberJoinWorkflows(memberData, usedInvite)
+
+    } catch (error) {
+      console.error('Error handling member join:', error)
+    }
+  }
+
+  /**
+   * Fetch guild invites from Discord API
+   */
+  private async fetchGuildInvites(guildId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/invites`, {
+        headers: {
+          'Authorization': `Bot ${this.botToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        console.error(`Failed to fetch guild invites: ${response.status}`)
+        return []
+      }
+
+      const invites = await response.json()
+      return invites
+    } catch (error) {
+      console.error('Error fetching guild invites:', error)
+      return []
+    }
+  }
+
+  /**
+   * Assign role based on invite code
+   */
+  private async assignRoleBasedOnInvite(memberData: any, inviteCode: string, guildId: string): Promise<void> {
+    try {
+      // Check for hardcoded environment variable config
+      if (
+        process.env.DISCORD_AUTO_ROLE_INVITE === inviteCode &&
+        process.env.DISCORD_AUTO_ROLE_ID &&
+        process.env.DISCORD_GUILD_ID === guildId
+      ) {
+        const roleId = process.env.DISCORD_AUTO_ROLE_ID
+        const userId = memberData.user?.id
+
+        if (!userId) {
+          console.error('No user ID in member data')
+          return
+        }
+
+        console.log(`🎯 Assigning role ${roleId} to user ${memberData.user?.username} via invite ${inviteCode}`)
+
+        // Use Discord API to assign role
+        const response = await fetch(
+          `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bot ${this.botToken}`,
+              'Content-Type': 'application/json',
+              'X-Audit-Log-Reason': `Auto-assigned via invite ${inviteCode}`
+            }
+          }
+        )
+
+        if (response.ok) {
+          console.log(`✅ Successfully assigned role ${roleId} to ${memberData.user?.username}`)
+        } else {
+          const errorText = await response.text()
+          console.error(`❌ Failed to assign role: ${response.status} - ${errorText}`)
+        }
+      }
+
+      // TODO: Check database for invite-role mappings
+      // const mapping = await checkDatabaseForInviteRole(inviteCode, guildId)
+
+    } catch (error) {
+      console.error('Error assigning role based on invite:', error)
+    }
+  }
+
+  /**
+   * Initialize invite cache for all guilds on startup
+   */
+  private async initializeInviteCache(): Promise<void> {
+    // This will be called when bot is ready
+    // We'll fetch invites for all guilds the bot is in
+    console.log('📋 Initializing invite cache...')
+
+    // Note: We'll need to get the guild list from the READY event
+    // For now, just initialize for the configured guild
+    if (process.env.DISCORD_GUILD_ID) {
+      const invites = await this.fetchGuildInvites(process.env.DISCORD_GUILD_ID)
+      if (invites.length > 0) {
+        const inviteMap = new Map()
+        for (const invite of invites) {
+          inviteMap.set(invite.code, {
+            code: invite.code,
+            uses: invite.uses || 0,
+            inviterId: invite.inviter?.id,
+            maxUses: invite.max_uses || null,
+            maxAge: invite.max_age || null
+          })
+        }
+        this.inviteCache.set(process.env.DISCORD_GUILD_ID, inviteMap)
+        console.log(`✅ Cached ${invites.length} invites for guild ${process.env.DISCORD_GUILD_ID}`)
+      }
     }
   }
 
