@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, ChevronLeft, AlertCircle, ExternalLink, CheckCircle, Check } from "lucide-react";
+import { AlertTriangle, AlertCircle, ExternalLink, CheckCircle, Check } from "lucide-react";
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useDiscordState } from '../hooks/useDiscordState';
 import { cn } from "@/lib/utils";
@@ -578,44 +578,46 @@ export function DiscordConfiguration({
 
   // Simple UI with advanced features
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-          <div className="space-y-3">
-            {/* Rate Limit Warning - Always show at top if rate limited */}
-            {rateLimitInfo.isRateLimited && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-red-900 dark:text-red-100 mb-1">
-                      Rate Limited
-                    </h4>
-                    <p className="text-sm text-red-700 dark:text-red-300">
-                      {rateLimitInfo.message || 'Discord API rate limit reached. Please wait a moment before trying again.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Channel Permission Warning for Actions */}
-            {showChannelWarning && isAction && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
-                      Missing Channel Permissions
-                    </h4>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                      The bot doesn't have permission to send messages in this channel. Please check the channel permissions.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {fields.map((field: any, index: number) => {
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
+      {/* Rate Limit Warning - Always show at top if rate limited */}
+      {rateLimitInfo.isRateLimited && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium text-red-900 dark:text-red-100 mb-1">
+                Rate Limited
+              </h4>
+              <p className="text-sm text-red-700 dark:text-red-300">
+                {rateLimitInfo.message || 'Discord API rate limit reached. Please wait a moment before trying again.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Channel Permission Warning for Actions */}
+      {showChannelWarning && isAction && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
+                Missing Channel Permissions
+              </h4>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                The bot doesn't have permission to send messages in this channel. Please check the channel permissions.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {fields.map((field: any, index: number) => {
               // Skip hidden fields
               if (field.type === 'hidden') return null;
 
@@ -816,21 +818,6 @@ export function DiscordConfiguration({
                 </React.Fragment>
               );
             })}
-          </div>
-        </ScrollArea>
-      </div>
-      
-      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit">
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
-        </div>
-      </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

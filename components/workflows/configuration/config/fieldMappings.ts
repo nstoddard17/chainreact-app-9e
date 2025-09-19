@@ -77,7 +77,7 @@ const slackMappings: Record<string, FieldMapping> = {
   },
   slack_action_create_channel: {
     workspace: "slack_workspaces",
-    users: "slack_users",
+    addPeople: "slack_users",
   },
   slack_trigger_message_channels: {
     channel: "slack_channels",
@@ -383,6 +383,13 @@ const onenoteMappings: Record<string, FieldMapping> = {
   },
 };
 
+// OneDrive field mappings
+const onedriveMappings: Record<string, FieldMapping> = {
+  "onedrive_action_upload_file": {
+    folderId: "onedrive-folders",
+  },
+};
+
 // Facebook field mappings
 const facebookMappings: Record<string, FieldMapping> = {
   facebook_action_create_post: {
@@ -409,6 +416,9 @@ const hubspotMappings: Record<string, FieldMapping> = {
     jobtitle: "hubspot_job_titles",
     department: "hubspot_departments",
     industry: "hubspot_industries",
+    hs_lead_status: "hubspot_lead_status_options",
+    favorite_content_topics: "hubspot_content_topics_options",
+    preferred_channels: "hubspot_preferred_channels_options",
   },
   hubspot_action_create_deal: {
     associatedContactId: "hubspot_contacts",
@@ -419,6 +429,21 @@ const hubspotMappings: Record<string, FieldMapping> = {
   },
   hubspot_action_update_deal: {
     dealId: "hubspot_deals",
+  },
+  // Dynamic HubSpot object actions
+  hubspot_action_create_object: {
+    objectType: "hubspot_objects",
+    properties: "hubspot_object_properties", // Dynamic based on objectType
+  },
+  hubspot_action_update_object: {
+    objectType: "hubspot_objects",
+    recordId: "hubspot_object_records", // Dynamic based on objectType
+    properties: "hubspot_object_properties", // Dynamic based on objectType
+  },
+  hubspot_action_upsert_object: {
+    objectType: "hubspot_objects",
+    identifierProperty: "hubspot_object_identifier_properties", // Dynamic based on objectType
+    properties: "hubspot_object_properties", // Dynamic based on objectType
   },
 };
 
@@ -581,6 +606,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...outlookMappings,
   ...teamsMappings,
   ...onenoteMappings,
+  ...onedriveMappings,
   ...facebookMappings,
   ...hubspotMappings,
   ...notionMappings,

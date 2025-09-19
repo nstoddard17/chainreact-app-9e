@@ -25,20 +25,10 @@ export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = asyn
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching HubSpot departments from API...')
-    const apiUrl = buildHubSpotApiUrl('/properties/v2/contacts/properties/hs_department')
-    
-    const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
-    
-    const data = await response.json()
-    
-    if (!response.ok) {
-      console.error(`❌ HubSpot departments API error: ${response.status} ${JSON.stringify(data)}`)
-      throw new Error(`HubSpot API error: ${response.status}`)
-    }
-    
-    // Extract options from the property definition
-    const departments = data.options || []
+    console.log('🔍 Using predefined HubSpot departments list...')
+    // Departments are typically custom properties that vary by organization
+    // We'll provide a standard list of common departments
+    const departments = getDefaultDepartments()
     
     console.log(`✅ HubSpot departments fetched successfully: ${departments.length} departments`)
     return departments
@@ -56,4 +46,30 @@ export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = asyn
     
     throw new Error(error.message || "Error fetching HubSpot departments")
   }
+}
+
+// Standard departments list
+function getDefaultDepartments(): HubSpotDepartment[] {
+  return [
+    { label: 'Sales', value: 'sales' },
+    { label: 'Marketing', value: 'marketing' },
+    { label: 'Customer Service', value: 'customer_service' },
+    { label: 'Customer Support', value: 'customer_support' },
+    { label: 'Engineering', value: 'engineering' },
+    { label: 'Product', value: 'product' },
+    { label: 'Design', value: 'design' },
+    { label: 'Human Resources', value: 'human_resources' },
+    { label: 'Finance', value: 'finance' },
+    { label: 'Accounting', value: 'accounting' },
+    { label: 'Legal', value: 'legal' },
+    { label: 'Operations', value: 'operations' },
+    { label: 'IT', value: 'it' },
+    { label: 'Research & Development', value: 'research_development' },
+    { label: 'Business Development', value: 'business_development' },
+    { label: 'Executive', value: 'executive' },
+    { label: 'Administration', value: 'administration' },
+    { label: 'Procurement', value: 'procurement' },
+    { label: 'Quality Assurance', value: 'quality_assurance' },
+    { label: 'Other', value: 'other' }
+  ]
 }

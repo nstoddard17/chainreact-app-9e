@@ -3,6 +3,7 @@ import { ALL_NODE_COMPONENTS, NodeComponent } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useIntegrationsStore } from '@/stores/integrationCacheStore'
+import { useAuthStore } from '@/stores/authStore'
 
 interface IntegrationInfo {
   id: string
@@ -17,6 +18,7 @@ interface IntegrationInfo {
 export function useIntegrationSelection() {
   const { getConnectedProviders, fetchIntegrations, integrations: storeIntegrations, loading } = useIntegrationStore()
   const { data: integrations } = useIntegrationsStore()
+  const { profile } = useAuthStore()
   
   // Fetch integrations once on mount if store is empty
   useEffect(() => {
@@ -231,27 +233,40 @@ export function useIntegrationSelection() {
     return ['all', ...Array.from(new Set(allCategories))]
   }, [availableIntegrations])
 
-  const comingSoonIntegrations = useMemo(() => new Set([
-    'beehiiv',
-    'manychat',
-    'gumroad',
-    'kit',
-    'paypal',
-    'shopify',
-    'blackbaud',
-    'box',
-    'github',
-    'gitlab',
-    'instagram',
-    'linkedin',
-    'stripe',
-    'tiktok',
-    'twitter',
-    'facebook',
-    'youtube',
-    'youtube-studio',
-    'webhook',
-  ]), [])
+  const comingSoonIntegrations = useMemo(() => {
+    const baseComingSoon = [
+      'beehiiv',
+      'manychat',
+      'gumroad',
+      'kit',
+      'paypal',
+      'shopify',
+      'blackbaud',
+      'box',
+      'github',
+      'gitlab',
+      'instagram',
+      'linkedin',
+      'stripe',
+      'tiktok',
+      'twitter',
+      'facebook',
+      'youtube',
+      'youtube-studio',
+      'webhook',
+    ]
+
+    // Add HubSpot to coming soon for non-admin and non-beta users
+    const userRole = profile?.role?.toLowerCase()
+    const isAdmin = userRole === 'admin'
+    const isBetaTester = userRole === 'beta-pro'
+
+    if (!isAdmin && !isBetaTester) {
+      baseComingSoon.push('hubspot')
+    }
+
+    return new Set(baseComingSoon)
+  }, [profile?.role])
 
   // Method to manually refresh integrations
   const refreshIntegrations = useCallback(async () => {

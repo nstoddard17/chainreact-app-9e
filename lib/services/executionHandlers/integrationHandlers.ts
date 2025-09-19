@@ -26,6 +26,32 @@ export class IntegrationNodeHandlers {
 
     // Slack integrations
     if (nodeType.startsWith('slack_')) {
+      // Use the new action handlers for specific actions
+      if (nodeType === 'slack_action_send_message') {
+        const { slackActionSendMessage } = await import('@/lib/workflows/actions/slack')
+        const config = node.data.config || {}
+        const result = await slackActionSendMessage(config, context.userId, context.data || {})
+
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to send Slack message')
+        }
+
+        return result.output
+      }
+
+      if (nodeType === 'slack_action_create_channel') {
+        const { createSlackChannel } = await import('@/lib/workflows/actions/slack')
+        const config = node.data.config || {}
+        const result = await createSlackChannel(config, context.userId, context.data || {})
+
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to create Slack channel')
+        }
+
+        return result.output
+      }
+
+      // Fall back to the service for other Slack actions
       return await this.slackService.execute(node, context)
     }
 
@@ -49,6 +75,16 @@ export class IntegrationNodeHandlers {
       return await this.executeNotionAction(node, context)
     }
 
+    // HubSpot integrations
+    if (nodeType.startsWith('hubspot_')) {
+      return await this.executeHubSpotAction(node, context)
+    }
+
+    // Trello integrations
+    if (nodeType.startsWith('trello_')) {
+      return await this.executeTrelloAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -56,8 +92,10 @@ export class IntegrationNodeHandlers {
       case "send_email":
         return await this.executeSendEmail(node, context)
       case "onedrive_upload_file":
+      case "onedrive_action_upload_file":
         return await this.executeOneDriveUpload(node, context)
       case "dropbox_upload_file":
+      case "dropbox_action_upload_file":
         return await this.executeDropboxUpload(node, context)
       default:
         // For unknown integrations, return a descriptive error
@@ -143,28 +181,57 @@ export class IntegrationNodeHandlers {
 
   private async executeOneDriveUpload(node: any, context: ExecutionContext) {
     console.log("☁️ Executing OneDrive upload")
-    
+
     const config = node.data.config || {}
-    const fileName = config.fileName || "file.txt"
-    const fileContent = config.fileContent || config.content
-    const folder = config.folder || "/"
 
-    if (!fileName || !fileContent) {
-      throw new Error("OneDrive upload requires 'fileName' and 'fileContent' fields")
-    }
+    console.log("📦 OneDrive config received:", JSON.stringify(config, null, 2))
+    console.log("📦 Node data:", JSON.stringify(node.data, null, 2))
 
+    // Process OneDrive file upload
+
+    // If in test mode, return mock data
     if (context.testMode) {
       return {
-        type: "onedrive_upload_file",
-        fileName,
-        folder,
+        type: "onedrive_action_upload_file",
+        fileName: config.fileName || "test.txt",
+        folder: config.folderId || "/",
         status: "uploaded (test mode)",
         fileId: "test-onedrive-file-id"
       }
     }
 
-    // TODO: Implement actual OneDrive upload when action is available
-    throw new Error("OneDrive upload is not yet implemented. This integration is coming soon.")
+    try {
+      // Import the OneDrive action handler directly
+      const { uploadFileToOneDrive } = await import('@/lib/workflows/actions/onedrive')
+
+      // Get node outputs from context
+      const nodeOutputs = {}
+      if (context.dataFlowManager && typeof context.dataFlowManager.getNodeOutput === 'function') {
+        // Get outputs from all previous nodes
+        const allNodes = context.dataFlowManager.nodeOutputs || {}
+        Object.assign(nodeOutputs, allNodes)
+      }
+
+      // Call the handler
+      const result = await uploadFileToOneDrive(
+        config,
+        context.userId,
+        {
+          nodeOutputs,
+          ...context.data
+        }
+      )
+
+      // Check if the action failed
+      if (!result.success) {
+        throw new Error(result.message || "OneDrive upload failed")
+      }
+
+      return result.output || result
+    } catch (error: any) {
+      console.error("❌ OneDrive upload error:", error)
+      throw error
+    }
   }
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
@@ -429,26 +496,167 @@ export class IntegrationNodeHandlers {
     console.log("📦 Executing Dropbox upload")
 
     const config = node.data.config || {}
-    const fileName = config.fileName || "file.txt"
-    const fileContent = config.fileContent || config.content
-    const path = config.path || "/"
 
-    if (!fileName || !fileContent) {
-      throw new Error("Dropbox upload requires 'fileName' and 'fileContent' fields")
+    // Import the actual Dropbox upload handler
+    const { uploadDropboxFile } = await import('@/lib/workflows/actions/dropbox/uploadFile')
+
+    // Call the handler with the proper config and context
+    const result = await uploadDropboxFile(config, context)
+
+    if (!result.success) {
+      throw new Error(result.error || "Dropbox upload failed")
     }
 
-    if (context.testMode) {
-      return {
-        type: "dropbox_upload_file",
-        fileName,
-        path,
-        status: "uploaded (test mode)",
-        fileId: "test-dropbox-file-id"
-      }
-    }
+    return result.output
+  }
 
-    // TODO: Implement actual Dropbox upload when action is available
-    throw new Error("Dropbox upload is not yet implemented. This integration is coming soon.")
+  private async executeTrelloAction(node: any, context: ExecutionContext) {
+    console.log("📋 Executing Trello action")
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    // Handle different Trello action types
+    switch (nodeType) {
+      case "trello_action_create_card":
+        // Import and use the actual Trello create card handler
+        const { createTrelloCard } = await import("@/lib/workflows/actions/trello")
+        const createCardResult = await createTrelloCard(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createCardResult.success) {
+          throw new Error(createCardResult.message || "Failed to create Trello card")
+        }
+
+        return createCardResult.output
+
+      case "trello_action_create_list":
+        // Import and use the actual Trello create list handler
+        const { createTrelloList } = await import("@/lib/workflows/actions/trello")
+        const createListResult = await createTrelloList(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createListResult.success) {
+          throw new Error(createListResult.message || "Failed to create Trello list")
+        }
+
+        return createListResult.output
+
+      case "trello_action_move_card":
+        // Import and use the actual Trello move card handler
+        const { moveTrelloCard } = await import("@/lib/workflows/actions/trello")
+        const moveCardResult = await moveTrelloCard(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!moveCardResult.success) {
+          throw new Error(moveCardResult.message || "Failed to move Trello card")
+        }
+
+        return moveCardResult.output
+
+      default:
+        throw new Error(`Unknown Trello action type: ${nodeType}`)
+    }
+  }
+
+  private async executeHubSpotAction(node: any, context: ExecutionContext) {
+    console.log("🎯 Executing HubSpot action")
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    // Resolve any variable references in the configuration
+    // Note: We'll use the config as-is since variable resolution happens in the action handlers
+    const resolvedConfig = config
+
+    // Handle different HubSpot action types
+    switch (nodeType) {
+      case "hubspot_action_create_contact":
+      case "hubspot_action_create_contact_dynamic": // Handle dynamic version too
+        // Import and use the actual HubSpot create contact handler
+        const { createHubSpotContact } = await import("@/lib/workflows/actions/hubspot")
+        const createContactResult = await createHubSpotContact(
+          resolvedConfig,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createContactResult.success) {
+          throw new Error(createContactResult.message || "Failed to create HubSpot contact")
+        }
+
+        return createContactResult.output
+
+      case "hubspot_action_create_company":
+        // Import and use the actual HubSpot create company handler
+        const { createHubSpotCompany } = await import("@/lib/workflows/actions/hubspot")
+        const createCompanyResult = await createHubSpotCompany(
+          resolvedConfig,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createCompanyResult.success) {
+          throw new Error(createCompanyResult.message || "Failed to create HubSpot company")
+        }
+
+        return createCompanyResult.output
+
+      case "hubspot_action_create_deal":
+        // Import and use the actual HubSpot create deal handler
+        const { createHubSpotDeal } = await import("@/lib/workflows/actions/hubspot")
+        const createDealResult = await createHubSpotDeal(
+          resolvedConfig,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createDealResult.success) {
+          throw new Error(createDealResult.message || "Failed to create HubSpot deal")
+        }
+
+        return createDealResult.output
+
+      case "hubspot_action_add_contact_to_list":
+        // Import and use the actual HubSpot add contact to list handler
+        const { addContactToHubSpotList } = await import("@/lib/workflows/actions/hubspot")
+        const addToListResult = await addContactToHubSpotList(
+          resolvedConfig,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!addToListResult.success) {
+          throw new Error(addToListResult.message || "Failed to add contact to HubSpot list")
+        }
+
+        return addToListResult.output
+
+      case "hubspot_action_update_deal":
+        // Import and use the actual HubSpot update deal handler
+        const { updateHubSpotDeal } = await import("@/lib/workflows/actions/hubspot")
+        const updateDealResult = await updateHubSpotDeal(
+          resolvedConfig,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!updateDealResult.success) {
+          throw new Error(updateDealResult.message || "Failed to update HubSpot deal")
+        }
+
+        return updateDealResult.output
+
+      default:
+        throw new Error(`Unknown HubSpot action type: ${nodeType}`)
+    }
   }
 
 }

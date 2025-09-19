@@ -287,10 +287,16 @@ export function Combobox({
                     setInputValue("")
                     setOpen(false)
                   }}
+                  className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
                 >
-                  <div className="flex items-center">
-                    <span className="text-primary font-semibold">Create "{inputValue.trim()}"</span>
-                    <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
+                  <div className="flex items-center w-full">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">+</span>
+                      </div>
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold">Create folder "{inputValue.trim()}"</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Press Enter</span>
                   </div>
                 </CommandItem>
               )}
@@ -419,7 +425,7 @@ export function MultiCombobox({
                   {selectedOptions.length} selected
                 </span>
               ) : (
-                <span className="text-muted-foreground">
+                <span className="text-white">
                   {placeholder || "Select option(s)..."}
                 </span>
               )
@@ -431,7 +437,7 @@ export function MultiCombobox({
                     <Badge
                       key={`selected-${index}-${option.value || 'undefined'}`}
                       variant="secondary"
-                      className="flex-shrink-0 max-w-32 truncate"
+                      className="flex-shrink-0 max-w-32 truncate text-white"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemove(option.value)
@@ -448,7 +454,7 @@ export function MultiCombobox({
                       <Badge
                         key={`selected-${index}-${option.value || 'undefined'}`}
                         variant="secondary"
-                        className="flex-shrink-0 max-w-32 truncate"
+                        className="flex-shrink-0 max-w-32 truncate text-white"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemove(option.value)
@@ -465,7 +471,7 @@ export function MultiCombobox({
                 )}
               </>
             ) : (
-              <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
+              <span className="text-white">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
@@ -671,17 +677,18 @@ export function HierarchicalCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between min-h-10"
+          style={{ color: 'white' }}
           disabled={disabled}
         >
           {selectedOption ? (
             <div className="flex flex-col items-start">
-              <span className="text-white">{selectedOption.label}</span>
+              <span>{selectedOption.label}</span>
               {selectedOption.description && (
                 <span className="text-sm text-muted-foreground">{selectedOption.description}</span>
               )}
             </div>
           ) : (
-            <span className="text-muted-foreground">{placeholder || "Select option..."}</span>
+            <span>{placeholder || "Select option..."}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

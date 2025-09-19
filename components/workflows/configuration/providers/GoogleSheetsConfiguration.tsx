@@ -2,8 +2,8 @@
 
 import React, { useCallback, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Eye, ChevronLeft } from "lucide-react";
+import { AlertTriangle, Eye } from "lucide-react";
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -711,11 +711,13 @@ export function GoogleSheetsConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-          <div className="space-y-3">
-            {renderFields(visibleFields)}
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
+      {renderFields(visibleFields)}
             {/* Add update fields section after table preview */}
             {showPreviewData && values.action === 'update' && googleSheetsSelectedRows.size > 0 && (
               <GoogleSheetsUpdateFields
@@ -752,22 +754,7 @@ export function GoogleSheetsConfiguration({
                 loadingPreview={loadingPreview}
               />
             )}
-          </div>
-        </ScrollArea>
-      </div>
-      
-      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit">
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
-        </div>
-      </div>
-      
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
         <AlertDialogContent>
@@ -812,6 +799,6 @@ export function GoogleSheetsConfiguration({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </form>
+    </ConfigurationContainer>
   );
 }

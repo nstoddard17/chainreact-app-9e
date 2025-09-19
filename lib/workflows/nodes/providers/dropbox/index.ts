@@ -86,11 +86,14 @@ const dropboxActionUploadFile: NodeComponent = {
     {
       name: "path",
       label: "Destination Folder",
-      type: "select",
-      dynamic: "dropbox-folders",
+      type: "combobox",
+      dynamic: true,
+      loadOnMount: true,
+      creatable: true,
       required: false,
-      placeholder: "Select a folder (optional, defaults to root)",
-      description: "Choose the folder where the file should be uploaded. Leave empty to upload to root."
+      placeholder: "Select or type a folder path",
+      description: "Choose an existing folder or type a new folder name to create it. Leave empty for root folder.",
+      helperText: "Tip: Type a new folder name to create it automatically"
     },
   ],
 }

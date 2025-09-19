@@ -1,22 +1,34 @@
 import { initializeDiscordGateway, discordGateway } from '@/lib/integrations/discordGateway'
 
+// Track if we've already set up the bot
+let isDiscordBotInitialized = false
+
 /**
- * Initialize Discord bot on app startup
+ * Initialize Discord bot on app startup (with singleton protection)
  */
 export async function initializeDiscordBot(): Promise<void> {
+  // Prevent multiple initializations
+  if (isDiscordBotInitialized) {
+    console.log('Discord bot already initialized, skipping...')
+    return
+  }
+
   try {
     // Check if Discord bot credentials are configured
     const botToken = process.env.DISCORD_BOT_TOKEN
     const botUserId = process.env.DISCORD_BOT_USER_ID
-    
+
     if (!botToken || !botUserId) {
       return
     }
-    
-    // Initialize Discord Gateway connection
+
+    // Mark as initialized
+    isDiscordBotInitialized = true
+
+    // Initialize Discord Gateway connection (has its own singleton protection)
     await initializeDiscordGateway()
-    
-    // Set up event listeners
+
+    // Set up event listeners (only once)
     discordGateway.on('ready', (data) => {
       // Bot is ready and online
       console.log('Discord bot is ready and online')
@@ -32,24 +44,9 @@ export async function initializeDiscordBot(): Promise<void> {
         ]
       })
       
-      // Set up periodic presence updates to keep bot online
-      const presenceInterval = setInterval(() => {
-        const status = discordGateway.getStatus()
-        if (status.isConnected) {
-          discordGateway.updatePresence({
-            status: 'online',
-            activities: [
-              {
-                name: 'workflows',
-                type: 0 // Playing
-              }
-            ]
-          })
-        }
-      }, 60000) // Update presence every minute
-      
-      // Store interval for cleanup
-      ;(discordGateway as any).presenceInterval = presenceInterval
+      // REMOVED: Periodic presence updates - not needed and causes unnecessary traffic
+      // Discord maintains presence automatically after initial set
+      // Only update presence when there's an actual status change
     })
     
     discordGateway.on('resumed', () => {
@@ -78,12 +75,6 @@ export async function initializeDiscordBot(): Promise<void> {
  */
 export function cleanupDiscordBot(): void {
   try {
-    // Clear presence interval if it exists
-    if ((discordGateway as any).presenceInterval) {
-      clearInterval((discordGateway as any).presenceInterval)
-      ;(discordGateway as any).presenceInterval = null
-    }
-    
     // Disconnect from gateway
     discordGateway.disconnect()
   } catch (error) {

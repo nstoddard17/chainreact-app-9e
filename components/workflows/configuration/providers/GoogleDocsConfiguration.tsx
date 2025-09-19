@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft } from "lucide-react";
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { GoogleDocsDocumentPreview } from '../components/google-docs/GoogleDocsDocumentPreview';
 
@@ -142,26 +141,13 @@ export function GoogleDocsConfiguration({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      <div className="flex-1 px-6 py-4">
-        <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-          <div className="space-y-3">
-            {renderFields(visibleFields)}
-          </div>
-        </ScrollArea>
-      </div>
-      
-      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit">
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
-        </div>
-      </div>
-    </form>
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
+      {renderFields(visibleFields)}
+    </ConfigurationContainer>
   );
 }
