@@ -221,8 +221,20 @@ function BetaSignupContent() {
         // The trigger in the database will automatically assign the beta-pro role
         // based on the email matching a beta_testers record
 
-        // Wait a moment for the trigger to auto-confirm the email
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Manually confirm the beta tester's email
+        try {
+          const { data: confirmData, error: confirmError } = await supabase
+            .rpc('confirm_beta_tester_after_signup', { user_email: email })
+
+          if (confirmError) {
+            console.error("Error confirming email:", confirmError)
+          }
+        } catch (err) {
+          console.error("Failed to auto-confirm email:", err)
+        }
+
+        // Wait a brief moment for the confirmation to process
+        await new Promise(resolve => setTimeout(resolve, 500))
 
         // Sign in the user immediately after signup
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
