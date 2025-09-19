@@ -401,7 +401,21 @@ export function GenericConfiguration({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.dynamic)}
+            loadingDynamic={(() => {
+              const isLoading = loadingFields.has(field.name) || (loadingDynamic && field.dynamic);
+              if (field.name === 'cardId' || field.name === 'listId') {
+                console.log(`🔍 [GenericConfig] Loading state for ${field.name}:`, {
+                  fieldName: field.name,
+                  hasInLoadingFields: loadingFields.has(field.name),
+                  loadingDynamic,
+                  isDynamic: field.dynamic,
+                  finalIsLoading: isLoading,
+                  loadingFieldsSize: loadingFields.size,
+                  loadingFieldsContent: Array.from(loadingFields)
+                });
+              }
+              return isLoading;
+            })()}
             nodeInfo={nodeInfo}
             onDynamicLoad={handleDynamicLoad}
             parentValues={values}

@@ -1,4 +1,5 @@
 import { initializeDiscordGateway, discordGateway } from '@/lib/integrations/discordGateway'
+import { discordInviteTracker } from '@/lib/services/discordInviteTracker'
 
 // Track if we've already set up the bot
 let isDiscordBotInitialized = false
@@ -27,6 +28,9 @@ export async function initializeDiscordBot(): Promise<void> {
 
     // Initialize Discord Gateway connection (has its own singleton protection)
     await initializeDiscordGateway()
+
+    // Initialize Discord invite tracker for role assignment
+    await discordInviteTracker.initialize()
 
     // Set up event listeners (only once)
     discordGateway.on('ready', (data) => {
@@ -73,8 +77,11 @@ export async function initializeDiscordBot(): Promise<void> {
 /**
  * Cleanup Discord bot resources
  */
-export function cleanupDiscordBot(): void {
+export async function cleanupDiscordBot(): Promise<void> {
   try {
+    // Shutdown invite tracker
+    await discordInviteTracker.shutdown()
+
     // Disconnect from gateway
     discordGateway.disconnect()
   } catch (error) {

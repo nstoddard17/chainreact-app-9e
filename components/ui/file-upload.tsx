@@ -91,28 +91,37 @@ export function FileUpload({
           'size' in file && 'type' in file && 'name' in file &&
           typeof file.slice === 'function';
 
-        // Check if it's our special icon format with base64 URL
+        // Check if it's our special format with base64 URL (for saved attachments)
         if (file && typeof file === 'object' && file.url && typeof file.url === 'string' && file.url.startsWith('data:')) {
-          // This is a saved icon with base64 data URL
+          // This is a saved file with base64 data URL
+          console.log('📸 [FileUpload] Processing saved file with base64 URL:', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            urlLength: file.url.length
+          });
+
           const uploadedFile: UploadedFile = {
-            file: new Blob([], { type: file.type || 'image/png' }) as File,
-            id: `icon-${file.name || 'icon'}-${index}`,
+            file: new Blob([], { type: file.type || 'application/octet-stream' }) as File,
+            id: `file-${file.name || 'file'}-${index}`,
             progress: 100,
             isFileMetadata: true,
             actualSize: file.size || 0,
-            actualName: file.name || 'Icon',
-            actualType: file.type || 'image/png',
+            actualName: file.name || 'File',
+            actualType: file.type || 'application/octet-stream',
             previewUrl: file.url // Use the base64 URL directly as preview
           };
 
           // Override the name property
           Object.defineProperty(uploadedFile.file, 'name', {
-            value: file.name || 'Icon',
+            value: file.name || 'File',
             writable: false
           });
 
-          console.log('📸 [FileUpload] Loaded saved icon with base64 URL:', {
+          console.log('📸 [FileUpload] Loaded saved file with base64 URL:', {
             name: uploadedFile.actualName,
+            size: uploadedFile.actualSize,
+            type: uploadedFile.actualType,
             hasPreview: !!uploadedFile.previewUrl
           });
 

@@ -2479,8 +2479,8 @@ const useWorkflowBuilderState = () => {
     return () => clearInterval(interval);
   }, [isSaving])
 
-  // Main save function for the workflow
-  const handleSave = async () => {
+  // Main save function with auto-retry and recovery
+  const handleSave = async (retryCount = 0, maxRetries = 3) => {
     if (!currentWorkflow) {
       return
     }
@@ -2494,17 +2494,44 @@ const useWorkflowBuilderState = () => {
     // Clear any stuck workflow requests before saving
     clearStuckRequests()
 
-    // Set a timeout to prevent infinite loading
-    const saveTimeout = setTimeout(() => {
-      console.error('❌ Save timeout - forcefully resetting loading state');
-      setIsSaving(false);
-      isSavingRef.current = false;
-      toast({
-        title: "Save Timeout",
-        description: "The save operation took too long. Please try again.",
-        variant: "destructive"
-      });
-    }, 25000); // 25 second timeout (longer than updateWorkflow's 20s)
+    // Auto-recovery mechanism with longer timeout for large workflows
+    const autoRecoveryTimer = setTimeout(() => {
+      console.warn('⚠️ Save taking longer than expected, attempting auto-recovery...');
+
+      // If still saving after 35 seconds, auto-retry (increased to match Supabase timeout)
+      if (isSavingRef.current && retryCount < maxRetries) {
+        console.log(`🔄 Auto-retrying save (attempt ${retryCount + 2}/${maxRetries + 1})`);
+        setIsSaving(false);
+        isSavingRef.current = false;
+        saveTimeoutRef.current = null;
+
+        // Clear any stuck requests before retry
+        clearStuckRequests();
+
+        // Auto-retry after a longer delay to let the system recover
+        setTimeout(() => {
+          handleSave(retryCount + 1, maxRetries);
+        }, 2000); // Increased to 2 seconds
+      } else if (retryCount >= maxRetries) {
+        // Only show error after all retries exhausted
+        console.error('❌ Save failed after maximum retries');
+        setIsSaving(false);
+        isSavingRef.current = false;
+        saveTimeoutRef.current = null;
+
+        // Clear stuck requests
+        clearStuckRequests();
+
+        toast({
+          title: "Save Failed",
+          description: "Unable to save after multiple attempts. Your changes are preserved locally. Try refreshing the page.",
+          variant: "destructive"
+        });
+      }
+    }, 35000); // 35 second check for auto-recovery (slightly longer than Supabase timeout)
+
+    // Store the timeout reference so it can be cleared later
+    saveTimeoutRef.current = autoRecoveryTimer;
 
     try {
       setIsSaving(true);
@@ -2518,31 +2545,38 @@ const useWorkflowBuilderState = () => {
         reactFlowNodes.some((n: Node) => n.id === e.target)
       )
       
-      // Map nodes to database format
+      // Map nodes to database format - optimize payload size
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
         const position = {
           x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
           y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
         }
-        
+
+        // Only include non-null/non-undefined values to reduce payload size
+        const data: any = {
+          label: n.data.label,
+          type: n.data.type,
+          config: n.data.config || {}
+        };
+
+        // Only add optional fields if they have values
+        if (n.data.savedDynamicOptions && Object.keys(n.data.savedDynamicOptions).length > 0) {
+          data.savedDynamicOptions = n.data.savedDynamicOptions;
+        }
+        if (n.data.providerId) data.providerId = n.data.providerId;
+        if (n.data.isTrigger) data.isTrigger = n.data.isTrigger;
+        if (n.data.title) data.title = n.data.title;
+        if (n.data.description) data.description = n.data.description;
+        if (n.data.isAIAgentChild) data.isAIAgentChild = n.data.isAIAgentChild;
+        if (n.data.parentAIAgentId) data.parentAIAgentId = n.data.parentAIAgentId;
+        if (n.data.parentChainIndex !== undefined) data.parentChainIndex = n.data.parentChainIndex;
+        if (n.data.emptiedChains && n.data.emptiedChains.length > 0) data.emptiedChains = n.data.emptiedChains;
+
         return {
           id: n.id,
           type: 'custom',
           position: position,
-          data: {
-            label: n.data.label as string,
-            type: n.data.type as string,
-            config: n.data.config || {},
-            savedDynamicOptions: n.data.savedDynamicOptions || {},
-            providerId: n.data.providerId as string | undefined,
-            isTrigger: n.data.isTrigger as boolean | undefined,
-            title: n.data.title as string | undefined,
-            description: n.data.description as string | undefined,
-            isAIAgentChild: n.data.isAIAgentChild as boolean | undefined,
-            parentAIAgentId: n.data.parentAIAgentId as string | undefined,
-            parentChainIndex: n.data.parentChainIndex as number | undefined,
-            emptiedChains: n.data.emptiedChains as number[] | undefined
-          }
+          data
         }
       })
       
@@ -2577,29 +2611,71 @@ const useWorkflowBuilderState = () => {
         }
       }
       
-      toast({ 
-        title: "Workflow Saved", 
-        description: "Your workflow has been successfully saved." 
-      })
-      
+      // Only show success toast on first attempt
+      if (retryCount === 0) {
+        toast({
+          title: "Workflow Saved",
+          description: "Your workflow has been successfully saved."
+        })
+      } else {
+        toast({
+          title: "Save Recovered",
+          description: `Workflow saved successfully after ${retryCount + 1} attempt${retryCount > 0 ? 's' : ''}.`,
+          variant: "default"
+        })
+      }
+
       // Clear unsaved changes flag
       setHasUnsavedChanges(false);
 
-      // Clear the timeout since save succeeded
-      clearTimeout(saveTimeout);
+      // Force clear saving state immediately on success
+      setIsSaving(false);
+      isSavingRef.current = false;
+
+      // Clear the auto-recovery timer since save succeeded
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
 
     } catch (error: any) {
-      clearTimeout(saveTimeout);
+      // Clear the auto-recovery timer
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
 
+      // Auto-retry logic for recoverable errors
+      const isRecoverable =
+        error.message?.includes("network") ||
+        error.message?.includes("timeout") ||
+        error.message?.includes("timed out") ||
+        error.message?.includes("abort");
+
+      if (isRecoverable && retryCount < maxRetries) {
+        console.warn(`⚠️ Save failed (${error.message}), auto-retrying in 1 second...`);
+
+        // Reset states for retry
+        setIsSaving(false);
+        isSavingRef.current = false;
+
+        // Auto-retry after a delay
+        setTimeout(() => {
+          console.log(`🔄 Retrying save (attempt ${retryCount + 2}/${maxRetries + 1})`);
+          handleSave(retryCount + 1, maxRetries);
+        }, 1000);
+
+        return; // Exit early to allow retry
+      }
+
+      // Only show error if not retryable or max retries reached
       let errorMessage = "Could not save your changes. Please try again."
       if (error.message?.includes("network")) {
-        errorMessage = "Network error. Please check your connection and try again."
-      } else if (error.message?.includes("timeout") || error.message?.includes("timed out")) {
-        errorMessage = "Save operation timed out. This can happen when first opening a workflow. Please try again."
+        errorMessage = "Network error. Please check your connection."
       } else if (error.message?.includes("unauthorized")) {
         errorMessage = "Session expired. Please refresh the page and try again."
-      } else if (error.message?.includes("abort")) {
-        errorMessage = "Save operation was cancelled. Please try again."
+      } else if (retryCount >= maxRetries) {
+        errorMessage = `Save failed after ${maxRetries + 1} attempts. Your changes are preserved locally.`
       }
 
       console.error('Save error details:', error)
@@ -2610,10 +2686,22 @@ const useWorkflowBuilderState = () => {
         variant: "destructive"
       })
     } finally {
-      clearTimeout(saveTimeout);
+      // Clear the auto-recovery timer
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      // Always reset states after operation completes
       setIsSaving(false);
       isSavingRef.current = false;
-      console.log('✅ Save operation complete, loading state cleared');
+
+      // Auto-cleanup any stuck requests
+      setTimeout(() => {
+        clearStuckRequests();
+      }, 100);
+
+      console.log('✅ Save operation complete, states auto-cleaned');
     }
   }
   
@@ -2772,6 +2860,9 @@ const useWorkflowBuilderState = () => {
   const handleTestSandbox = async () => {
     if (isExecuting && !isStepMode) return
 
+    // Set up auto-cleanup timer to prevent stuck test state
+    let testCleanupTimer: NodeJS.Timeout | null = null
+
     // If already in step mode, stop it completely
     if (isStepMode) {
       setListeningMode(false)
@@ -2809,6 +2900,23 @@ const useWorkflowBuilderState = () => {
       if (!currentWorkflow) {
         throw new Error("No workflow selected")
       }
+
+      // Start auto-cleanup timer for test mode
+      testCleanupTimer = setTimeout(() => {
+        if (isExecuting || isStepMode) {
+          console.warn('⚠️ Test mode auto-cleanup triggered')
+          setIsExecuting(false)
+          setListeningMode(false)
+          setIsStepByStep(false)
+          stopStepExecution()
+          clearStuckRequests()
+          toast({
+            title: "Test Mode Auto-Stopped",
+            description: "Test mode was automatically stopped after extended period.",
+            variant: "default"
+          })
+        }
+      }, 60000) // 60 seconds max for test mode
 
       // SAVE WORKFLOW AS DRAFT BEFORE STARTING TEST MODE
       console.log('📝 Saving workflow as draft before test mode...')
@@ -2921,7 +3029,20 @@ const useWorkflowBuilderState = () => {
       stopStepExecution()
       setIsStepByStep(false)
     } finally {
+      // Clear the auto-cleanup timer
+      if (testCleanupTimer) {
+        clearTimeout(testCleanupTimer)
+      }
+
+      // Always clean up execution state
       setIsExecuting(false)
+
+      // Clear any stuck requests that might have accumulated during execution
+      setTimeout(() => {
+        clearStuckRequests()
+      }, 100)
+
+      console.log('✅ Test mode complete, states auto-cleaned')
     }
   }
   
@@ -3061,6 +3182,18 @@ const useWorkflowBuilderState = () => {
   const handleExecuteLive = async () => {
     if (isExecuting) return
 
+    // Clear any stuck states before starting
+    clearStuckRequests()
+
+    // Set up auto-cleanup timer to prevent stuck execution state
+    const executionCleanupTimer = setTimeout(() => {
+      if (isExecuting) {
+        console.warn('⚠️ Execution took too long, auto-cleaning up...')
+        setIsExecuting(false)
+        clearStuckRequests()
+      }
+    }, 30000) // 30 seconds max for execution
+
     try {
       // Set loading state immediately to show user something is happening
       setIsExecuting(true)
@@ -3088,14 +3221,31 @@ const useWorkflowBuilderState = () => {
           description: "Your changes are being saved before execution.",
         })
 
-        await handleSave()
+        try {
+          await handleSave()
 
-        // Wait a moment for the save to fully complete
-        await new Promise(resolve => setTimeout(resolve, 500))
+          // Wait a moment for the save to fully complete
+          await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (saveError: any) {
+          console.error('Failed to save workflow before execution:', saveError)
+
+          // Force clear the saving state if it got stuck
+          setIsSaving(false)
+          isSavingRef.current = false
+
+          toast({
+            title: "Save Failed",
+            description: "Could not save workflow before execution. Please try saving manually first.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          clearTimeout(executionCleanupTimer)
+          return
+        }
       }
 
       // Wait if currently saving (from another action)
-      if (isSaving) {
+      if (isSaving || isSavingRef.current) {
         console.log('⏳ Waiting for save to complete...')
 
         // Wait for save to complete (max 5 seconds)
@@ -3103,18 +3253,24 @@ const useWorkflowBuilderState = () => {
         const maxWait = 5000
         const checkInterval = 100
 
-        while (isSaving && waitTime < maxWait) {
+        while ((isSaving || isSavingRef.current) && waitTime < maxWait) {
           await new Promise(resolve => setTimeout(resolve, checkInterval))
           waitTime += checkInterval
         }
 
-        if (isSaving) {
+        if (isSaving || isSavingRef.current) {
+          // Force clear stuck saving state
+          console.warn('⚠️ Save appears stuck, forcing cleanup...')
+          setIsSaving(false)
+          isSavingRef.current = false
+
           toast({
-            title: "Save in Progress",
-            description: "Please wait for the current save to complete and try again.",
+            title: "Save Timeout",
+            description: "The save operation is taking too long. Please try again.",
             variant: "destructive"
           })
           setIsExecuting(false)
+          clearTimeout(executionCleanupTimer)
           return
         }
       }
@@ -3156,7 +3312,14 @@ const useWorkflowBuilderState = () => {
           }
         })
       })
-      
+
+      // Force clear any stuck saving state after execution response
+      if (isSaving || isSavingRef.current) {
+        console.warn('⚠️ Clearing stuck saving state after execution response')
+        setIsSaving(false)
+        isSavingRef.current = false
+      }
+
       if (response.ok) {
         const result = await response.json()
         toast({
@@ -3181,7 +3344,18 @@ const useWorkflowBuilderState = () => {
         variant: "destructive"
       })
     } finally {
+      // Clear the auto-cleanup timer
+      clearTimeout(executionCleanupTimer)
+
+      // Always clean up execution state
       setIsExecuting(false)
+
+      // Clear any stuck requests that might have accumulated during execution
+      setTimeout(() => {
+        clearStuckRequests()
+      }, 100)
+
+      console.log('✅ Execution complete, states auto-cleaned')
     }
   }
 
@@ -3530,6 +3704,26 @@ const useWorkflowBuilderState = () => {
     });
   }, [selectedIntegration, searchQuery]);
 
+  // Define handleResetLoadingStates before it's used in useEffect
+  const handleResetLoadingStates = useCallback(() => {
+    // Force reset all loading states
+    setIsSaving(false)
+    setIsExecuting(false)
+    isSavingRef.current = false
+    // Clear any stuck workflow requests
+    clearStuckRequests()
+    // Clear any pending timeouts
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    toast({
+      title: "Loading States Reset",
+      description: "All loading states have been reset.",
+      variant: "default"
+    })
+  }, [])
+
   // Add global error handler to prevent stuck loading states
   useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
@@ -3559,27 +3753,27 @@ const useWorkflowBuilderState = () => {
       }
     }
 
+    // Add keyboard shortcut for emergency reset (Ctrl/Cmd + Shift + R)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'R') {
+        event.preventDefault()
+        console.log('🔧 Emergency reset triggered via keyboard shortcut')
+        handleResetLoadingStates()
+      }
+    }
+
     window.addEventListener('error', handleGlobalError)
     window.addEventListener('unhandledrejection', handleUnhandledRejection)
     window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       window.removeEventListener('error', handleGlobalError)
       window.removeEventListener('unhandledrejection', handleUnhandledRejection)
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [hasUnsavedChanges])
-
-  const handleResetLoadingStates = () => {
-    setIsSaving(false)
-    setIsExecuting(false)
-    isSavingRef.current = false
-    toast({ 
-      title: "Loading States Reset", 
-      description: "All loading states have been reset.", 
-      variant: "default" 
-    })
-  }
+  }, [hasUnsavedChanges, handleResetLoadingStates])
 
   // Track unsaved changes
   const checkForUnsavedChanges = useCallback(() => {

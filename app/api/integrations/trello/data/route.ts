@@ -12,6 +12,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+// Request deduplication cache
+const activeRequests = new Map<string, Promise<any>>()
+const requestResults = new Map<string, { data: any, timestamp: number }>()
+const CACHE_TTL = 5000 // 5 seconds cache for identical requests
+
 export async function POST(req: NextRequest) {
   try {
     const { integrationId, dataType, options = {} } = await req.json()
@@ -61,6 +66,41 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    // Create a request key for deduplication
+    const requestKey = `${integrationId}-${dataType}-${JSON.stringify(options)}`
+
+    // Check if we have a recent cached result
+    const cachedResult = requestResults.get(requestKey)
+    if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
+      console.log(`✨ [Trello API] Using cached result for ${dataType}`)
+      return NextResponse.json({
+        data: cachedResult.data,
+        success: true,
+        integrationId,
+        dataType,
+        cached: true
+      })
+    }
+
+    // Check if there's already an active request for this exact same data
+    const activeRequest = activeRequests.get(requestKey)
+    if (activeRequest) {
+      console.log(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
+      try {
+        const data = await activeRequest
+        return NextResponse.json({
+          data,
+          success: true,
+          integrationId,
+          dataType,
+          deduplicated: true
+        })
+      } catch (error) {
+        // If the active request failed, we'll try again below
+        activeRequests.delete(requestKey)
+      }
+    }
+
     console.log(`🔍 [Trello API] Processing request:`, {
       integrationId,
       dataType,
@@ -68,20 +108,45 @@ export async function POST(req: NextRequest) {
       hasToken: !!integration.access_token
     })
 
-    // Execute the handler
-    const data = await handler(integration as TrelloIntegration, options)
+    // Create a new request promise and store it for deduplication
+    const requestPromise = handler(integration as TrelloIntegration, options)
+    activeRequests.set(requestKey, requestPromise)
 
-    console.log(`✅ [Trello API] Successfully processed ${dataType}:`, {
-      integrationId,
-      resultCount: data?.length || 0
-    })
+    try {
+      // Execute the handler
+      const data = await requestPromise
 
-    return NextResponse.json({
-      data,
-      success: true,
-      integrationId,
-      dataType
-    })
+      // Cache the successful result
+      requestResults.set(requestKey, {
+        data,
+        timestamp: Date.now()
+      })
+
+      // Clean up old cache entries periodically
+      if (requestResults.size > 100) {
+        const now = Date.now()
+        for (const [key, value] of requestResults.entries()) {
+          if (now - value.timestamp > CACHE_TTL * 2) {
+            requestResults.delete(key)
+          }
+        }
+      }
+
+      console.log(`✅ [Trello API] Successfully processed ${dataType}:`, {
+        integrationId,
+        resultCount: data?.length || 0
+      })
+
+      return NextResponse.json({
+        data,
+        success: true,
+        integrationId,
+        dataType
+      })
+    } finally {
+      // Always clean up the active request
+      activeRequests.delete(requestKey)
+    }
 
   } catch (error: any) {
     console.error('❌ [Trello API] Unexpected error:', {

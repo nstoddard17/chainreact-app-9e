@@ -586,13 +586,18 @@ class DiscordGateway extends SimpleEventEmitter {
     }
 
     // Calculate required intents for bot functionality
+    // Including: GUILDS, GUILD_MEMBERS, GUILD_INVITES, GUILD_MESSAGES, MESSAGE_CONTENT
     const requiredIntents =
       INTENTS.GUILDS |
+      INTENTS.GUILD_MEMBERS |
+      INTENTS.GUILD_INVITES |
       INTENTS.GUILD_MESSAGES |
       INTENTS.MESSAGE_CONTENT
 
     console.log('🔑 Sending identify with intents:', {
       GUILDS: true,
+      GUILD_MEMBERS: true,
+      GUILD_INVITES: true,
       GUILD_MESSAGES: true,
       MESSAGE_CONTENT: true,
       intentsValue: requiredIntents

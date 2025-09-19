@@ -112,7 +112,8 @@ export function DiscordConfiguration({
     channelLoadingError,
     rateLimitInfo,
     handleInviteBot,
-    checkBotStatus
+    checkBotStatus,
+    isLoadingChannelsAfterBotAdd
   } = discordState;
   
   // Handle form submission
@@ -567,8 +568,12 @@ export function DiscordConfiguration({
     if (fieldName === 'guildId') {
       return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName);
     }
-    return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) || 
-           (fieldName === 'channelId' && isLoadingChannels.current);
+    // For channelId, include the after bot add loading state
+    if (fieldName === 'channelId') {
+      return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName) ||
+             isLoadingChannels.current || isLoadingChannelsAfterBotAdd;
+    }
+    return localLoadingFields.has(fieldName) || loadingFields?.has(fieldName);
   };
   
   // Check if we need to show channel permission warning
