@@ -126,15 +126,23 @@ function BetaSignupContent() {
         // The trigger in the database will automatically assign the beta-pro role
         // based on the email matching a beta_testers record
 
-        toast({
-          title: "Welcome to ChainReact Beta! 🎉",
-          description: "Your account has been created. Check your email to verify your account.",
+        // Sign in the user immediately after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
         })
 
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
+        if (signInError) {
+          console.error("Auto sign-in error:", signInError)
+        }
+
+        toast({
+          title: "Welcome to ChainReact Beta! 🎉",
+          description: "Your account has been created and you're now logged in.",
+        })
+
+        // Redirect to dashboard immediately
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Signup error:", error)
