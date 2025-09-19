@@ -21,6 +21,7 @@ function BetaSignupContent() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [fullName, setFullName] = useState("")
+  const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(false)
   const [validatingToken, setValidatingToken] = useState(true)
   const [tokenValid, setTokenValid] = useState(false)
@@ -156,15 +157,18 @@ function BetaSignupContent() {
     try {
       const supabase = createClient()
 
-      // Sign up the user
+      // Sign up the user with email confirmation disabled for beta testers
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
         options: {
           data: {
             full_name: fullName,
-            is_beta_tester: true
-          }
+            username: username,
+            is_beta_tester: true,
+            email_confirmed: true  // Mark as confirmed for beta testers
+          },
+          emailRedirectTo: undefined  // Don't send confirmation email
         }
       })
 
@@ -176,23 +180,48 @@ function BetaSignupContent() {
         // The trigger in the database will automatically assign the beta-pro role
         // based on the email matching a beta_testers record
 
+        // Wait a moment for the trigger to auto-confirm the email
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
         // Sign in the user immediately after signup
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email,
           password: password,
         })
 
         if (signInError) {
           console.error("Auto sign-in error:", signInError)
+          // If sign-in fails due to email confirmation, try to manually confirm
+          if (signInError.message?.includes('confirm')) {
+            toast({
+              title: "Account Created",
+              description: "Your account has been created. Redirecting to login...",
+            })
+            setTimeout(() => {
+              router.push("/auth/login")
+            }, 1500)
+            return
+          }
         }
 
-        toast({
-          title: "Welcome to ChainReact Beta! 🎉",
-          description: "Your account has been created and you're now logged in.",
-        })
+        if (signInData?.user) {
+          toast({
+            title: "Welcome to ChainReact Beta! 🎉",
+            description: "Your account has been created and you're now logged in.",
+          })
 
-        // Redirect to dashboard immediately
-        router.push("/dashboard")
+          // Redirect to dashboard immediately
+          router.push("/dashboard")
+        } else {
+          // Fallback to login page if auto-login failed
+          toast({
+            title: "Account Created",
+            description: "Your account has been created. Please sign in.",
+          })
+          setTimeout(() => {
+            router.push("/auth/login")
+          }, 1500)
+        }
       }
     } catch (error: any) {
       console.error("Signup error:", error)
@@ -346,6 +375,21 @@ function BetaSignupContent() {
               </div>
 
               <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="johndoe"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose a unique username for your account
+                </p>
+              </div>
+
+              <div>
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -372,7 +416,7 @@ function BetaSignupContent() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading || !fullName || !password || !confirmPassword}
+                disabled={loading || !fullName || !username || !password || !confirmPassword}
               >
                 {loading ? (
                   <>
