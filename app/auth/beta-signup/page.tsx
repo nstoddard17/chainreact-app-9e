@@ -61,6 +61,26 @@ function BetaSignupContent() {
         const supabase = createClient()
 
 
+        // First check if user already exists (they may have already signed up)
+        const { data: userData } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", urlEmail)
+          .single()
+
+        if (userData) {
+          toast({
+            title: "Account Already Exists",
+            description: "You already have an account. Redirecting to login...",
+            variant: "default"
+          })
+          setTimeout(() => {
+            router.push("/auth/login")
+          }, 1500)
+          setValidatingToken(false)
+          return
+        }
+
         // Check beta tester record
         const { data, error } = await supabase
           .from("beta_testers")
@@ -89,18 +109,39 @@ function BetaSignupContent() {
             tokenMatch: data.signup_token === token
           })
 
+          // Check if already converted (user already signed up)
+          if (data.status === 'converted') {
+            toast({
+              title: "Already Signed Up",
+              description: "You've already created an account with this invitation. Redirecting to login...",
+              variant: "default"
+            })
+            setTimeout(() => {
+              router.push("/auth/login")
+            }, 1500)
+            setValidatingToken(false)
+            return
+          }
+
           // Check if invitation has expired
           const hasExpired = data.expires_at && new Date(data.expires_at) < new Date()
 
           // If signup_token is null, this might be an old invitation - accept it
           if (!data.signup_token || data.signup_token === token) {
-            if (!hasExpired) {
+            if (!hasExpired && data.status === 'active') {
               setTokenValid(true)
-            } else {
+            } else if (hasExpired) {
               setTokenValid(false)
               toast({
                 title: "Invitation Expired",
                 description: "This beta invitation has expired. Please contact support for assistance.",
+                variant: "destructive"
+              })
+            } else {
+              setTokenValid(false)
+              toast({
+                title: "Invitation Issue",
+                description: "There's an issue with your invitation. Please contact support.",
                 variant: "destructive"
               })
             }
