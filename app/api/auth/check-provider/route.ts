@@ -14,12 +14,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // First check if user exists in auth.users
-    const { data: users, error: authError } = await supabase.auth.admin.listUsers();
+    // First check if user exists in auth.users with timeout handling
+    let users, authError;
+    try {
+      // Add a timeout wrapper for the Supabase call
+      const listUsersPromise = supabase.auth.admin.listUsers();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase request timeout')), 8000)
+      );
+
+      const result = await Promise.race([listUsersPromise, timeoutPromise]) as any;
+      users = result.data;
+      authError = result.error;
+    } catch (timeoutError: any) {
+      console.error('Supabase timeout or error:', timeoutError.message);
+      // In case of timeout or network error, allow the user to proceed
+      // This is better than blocking the entire auth flow
+      return NextResponse.json({
+        exists: false,
+        provider: null,
+        warning: 'Could not verify existing account due to network issues'
+      });
+    }
 
     if (authError) {
       console.error('Error fetching users:', authError);
-      return NextResponse.json({ error: 'Failed to check user provider' }, { status: 500 });
+      // Allow user to proceed even if we can't check
+      return NextResponse.json({
+        exists: false,
+        provider: null,
+        warning: 'Could not verify existing account'
+      });
     }
 
     const user = users.users.find(u => u.email === email);

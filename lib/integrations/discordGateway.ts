@@ -75,6 +75,10 @@ interface DiscordIdentifyPayload {
 }
 
 class DiscordGateway extends SimpleEventEmitter {
+  private static instance: DiscordGateway | null = null
+  private static connectionPromise: Promise<void> | null = null
+  private static isInitializing: boolean = false
+
   private ws: WebSocket | null = null
   private botToken: string | null = null
   private heartbeatInterval: NodeJS.Timeout | null = null
@@ -82,15 +86,23 @@ class DiscordGateway extends SimpleEventEmitter {
   private sequence: number | null = null
   private sessionId: string | null = null
   private reconnectAttempts: number = 0
-  private maxReconnectAttempts: number = 10
+  private maxReconnectAttempts: number = 5
   private reconnectDelay: number = 5000
-  private persistentReconnect: boolean = true
+  private persistentReconnect: boolean = false
   private isConnected: boolean = false
   private lastSuccessfulConnection: number = 0
   private connectionHealthCheck: NodeJS.Timeout | null = null
+  private intentionalDisconnect: boolean = false
 
-  constructor() {
+  private constructor() {
     super()
+  }
+
+  public static getInstance(): DiscordGateway {
+    if (!DiscordGateway.instance) {
+      DiscordGateway.instance = new DiscordGateway()
+    }
+    return DiscordGateway.instance
   }
 
   /**
@@ -98,48 +110,90 @@ class DiscordGateway extends SimpleEventEmitter {
    */
   private async fetchWithRetry(url: string, options: RequestInit, maxRetries: number = 3): Promise<Response | null> {
     let lastError: Error | null = null
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await fetch(url, options)
-        
+        // Create an AbortController for timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout per request
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
         // If we get a transient error, retry
         if (response.status === 503 || response.status === 502 || response.status === 500) {
           const errorText = await response.text().catch(() => 'Service unavailable')
           lastError = new Error(`Discord API ${response.status}: ${errorText}`)
-          
+
           if (attempt < maxRetries) {
-            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Exponential backoff, max 10s
+            const delay = Math.min(1000 * attempt, 3000) // Linear backoff, max 3s
             console.warn(`Discord API ${response.status} error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
         }
-        
+
         // For other status codes (including 429, 401, 403), return immediately
         return response
-        
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Network error')
-        
+
+      } catch (error: any) {
+        // Handle abort error specifically
+        if (error.name === 'AbortError') {
+          lastError = new Error('Discord API request timeout (5s)')
+        } else {
+          lastError = error instanceof Error ? error : new Error('Network error')
+        }
+
         if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000) // Exponential backoff, max 10s
-          console.warn(`Discord API network error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`, error)
+          const delay = Math.min(1000 * attempt, 3000) // Linear backoff, max 3s
+          console.warn(`Discord API network error (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
       }
     }
-    
+
     // All retries failed
     console.error(`Discord API failed after ${maxRetries} attempts:`, lastError)
     return null
   }
 
   /**
-   * Connect to Discord Gateway
+   * Connect to Discord Gateway with singleton protection
    */
   async connect(): Promise<void> {
+    // Prevent multiple simultaneous connections
+    if (this.isConnected) {
+      console.log('✅ Discord Gateway already connected')
+      return
+    }
+
+    // If already initializing, wait for that to complete
+    if (DiscordGateway.isInitializing && DiscordGateway.connectionPromise) {
+      console.log('⏳ Discord Gateway connection already in progress, waiting...')
+      return DiscordGateway.connectionPromise
+    }
+
+    // Mark as initializing and create promise
+    DiscordGateway.isInitializing = true
+    DiscordGateway.connectionPromise = this._connectInternal()
+
+    try {
+      await DiscordGateway.connectionPromise
+    } finally {
+      DiscordGateway.isInitializing = false
+      DiscordGateway.connectionPromise = null
+    }
+  }
+
+  /**
+   * Internal connection method
+   */
+  private async _connectInternal(): Promise<void> {
     try {
       const config = checkDiscordBotConfig()
 
@@ -240,8 +294,8 @@ class DiscordGateway extends SimpleEventEmitter {
         this.reconnectAttempts = 0 // Reset attempts on success
         this.lastSuccessfulConnection = Date.now()
         console.log('Discord Gateway WebSocket connection established')
-        
-        // Start connection health monitoring
+
+        // Start connection health monitoring (less aggressive)
         this.startHealthCheck()
       }
 
@@ -251,10 +305,29 @@ class DiscordGateway extends SimpleEventEmitter {
 
       this.ws.onclose = (event) => {
         this.isConnected = false
+        const wasIntentional = this.intentionalDisconnect
         this.cleanup()
-        // Only reconnect for non-normal closures
-        if (event.code !== 1000) {
+
+        // Discord close codes that should NOT trigger reconnection:
+        // 1000: Normal closure
+        // 4004: Authentication failed (invalid token)
+        // 4010: Invalid shard
+        // 4011: Sharding required
+        // 4013: Invalid intents
+        // 4014: Disallowed intents
+        const noReconnectCodes = [1000, 4004, 4010, 4011, 4013, 4014]
+
+        // Only reconnect if not intentionally disconnected and persistent reconnect is enabled
+        if (!wasIntentional && this.persistentReconnect && !noReconnectCodes.includes(event.code)) {
+          console.log(`Discord Gateway closed with code ${event.code}, will attempt reconnection`)
           this.scheduleReconnect()
+        } else if (wasIntentional) {
+          console.log('Discord Gateway closed intentionally, not reconnecting')
+        } else if (noReconnectCodes.includes(event.code)) {
+          console.error(`Discord Gateway closed with non-recoverable code ${event.code}, not reconnecting`)
+          this.disablePersistentReconnect() // Disable to prevent reconnection spam
+        } else {
+          console.log('Discord Gateway closed, persistent reconnect disabled')
         }
       }
 
@@ -611,23 +684,29 @@ class DiscordGateway extends SimpleEventEmitter {
    * Schedule reconnection with improved backoff strategy
    */
   private scheduleReconnect(rateLimited = false, isTransientError = false): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts && !this.persistentReconnect) {
+    // Check if we should reconnect
+    if (this.intentionalDisconnect) {
+      console.log('Discord Gateway: Skipping reconnect due to intentional disconnect')
+      return
+    }
+
+    if (!this.persistentReconnect && this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.warn(`Discord Gateway: Max reconnection attempts (${this.maxReconnectAttempts}) reached. Stopping reconnection attempts.`)
       return
     }
 
     this.reconnectAttempts++
-    
+
     let delay: number
     if (rateLimited) {
-      // Rate limited - wait at least 30s
-      delay = 30000
+      // Rate limited - wait at least 60s to avoid token reset
+      delay = 60000
     } else if (isTransientError) {
-      // Transient errors (503, 502, 500) - shorter exponential backoff
-      delay = Math.min(5000 * Math.pow(1.5, this.reconnectAttempts - 1), 60000) // Max 1 minute
+      // Transient errors (503, 502, 500) - longer exponential backoff
+      delay = Math.min(10000 * Math.pow(2, this.reconnectAttempts - 1), 300000) // Start at 10s, max 5 minutes
     } else {
-      // Regular reconnection - standard exponential backoff
-      delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 300000) // Max 5 minutes
+      // Regular reconnection - much longer exponential backoff to avoid spam
+      delay = Math.min(30000 * Math.pow(2, this.reconnectAttempts - 1), 600000) // Start at 30s, max 10 minutes
     }
 
     console.log(`Discord Gateway: Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay / 1000}s`)
@@ -641,6 +720,11 @@ class DiscordGateway extends SimpleEventEmitter {
    * Reconnect to Discord Gateway
    */
   async reconnect(): Promise<void> {
+    if (this.intentionalDisconnect) {
+      console.log('Discord Gateway: Skipping reconnect due to intentional disconnect')
+      return
+    }
+
     this.cleanup()
     await this.connect()
   }
@@ -653,11 +737,11 @@ class DiscordGateway extends SimpleEventEmitter {
     if (this.connectionHealthCheck) {
       clearInterval(this.connectionHealthCheck)
     }
-    
-    // Check connection health every 30 seconds
+
+    // Check connection health every 5 minutes (much less aggressive)
     this.connectionHealthCheck = setInterval(() => {
       this.checkConnectionHealth()
-    }, 30000)
+    }, 300000) // 5 minutes instead of 30 seconds
   }
 
   /**
@@ -667,10 +751,11 @@ class DiscordGateway extends SimpleEventEmitter {
     if (!this.isConnected || !this.ws) {
       return
     }
-    
-    // If we haven't received a heartbeat ACK or successful message in the last 2 minutes
+
+    // Only force reconnection if we haven't received ANY activity for 10 minutes
+    // Discord heartbeats can have variable intervals, so we need to be patient
     const timeSinceLastSuccess = Date.now() - this.lastSuccessfulConnection
-    if (timeSinceLastSuccess > 120000) { // 2 minutes
+    if (timeSinceLastSuccess > 600000) { // 10 minutes instead of 2 minutes
       console.warn('Discord Gateway connection appears unhealthy, forcing reconnection')
       this.ws.close(1000, 'Connection health check failed')
     }
@@ -702,7 +787,10 @@ class DiscordGateway extends SimpleEventEmitter {
    * Disconnect from Discord Gateway
    */
   disconnect(): void {
+    this.intentionalDisconnect = true
+    this.persistentReconnect = false
     this.cleanup()
+    console.log('Discord Gateway disconnected intentionally')
   }
 
   /**
@@ -781,39 +869,59 @@ class DiscordGateway extends SimpleEventEmitter {
   }
 }
 
-// Export singleton instance
-export const discordGateway = new DiscordGateway()
+// Export singleton instance getter
+export const discordGateway = DiscordGateway.getInstance()
+
+// Track if we've already initialized
+let isInitialized = false
 
 /**
- * Initialize Discord Gateway connection
+ * Initialize Discord Gateway connection (singleton pattern)
  */
 export async function initializeDiscordGateway(): Promise<void> {
+  // Prevent multiple initializations
+  if (isInitialized) {
+    console.log('Discord Gateway already initialized, skipping')
+    return
+  }
+
   try {
     // Check if Discord bot is configured before attempting to connect
     const config = checkDiscordBotConfig()
-    
+
     if (!config.isConfigured) {
       // Discord bot not configured, don't attempt to connect
       console.log('Discord bot not configured, skipping Gateway connection')
       return
     }
-    
-    console.log('Initializing Discord Gateway connection...')
-    
-    // Enable persistent reconnection to keep bot always online
-    discordGateway.enablePersistentReconnect()
-    
-    await discordGateway.connect()
+
+    // Mark as initialized before attempting connection
+    isInitialized = true
+
+    console.log('Initializing Discord Gateway connection (singleton)...')
+
+    // Get singleton instance
+    const gateway = DiscordGateway.getInstance()
+
+    // Check if already connected
+    const status = gateway.getStatus()
+    if (status.isConnected) {
+      console.log('Discord Gateway already connected')
+      return
+    }
+
+    // DO NOT enable persistent reconnection by default - let Discord handle it
+    // Only reconnect on actual disconnections, not proactively
+    // gateway.enablePersistentReconnect() // COMMENTED OUT to prevent aggressive reconnection
+
+    // Connect with singleton protection
+    await gateway.connect()
+
+    console.log('Discord Gateway initialization complete')
   } catch (error) {
     console.error('Discord Gateway initialization failed:', error)
-    
-    // Still try to connect, but with a delay
-    setTimeout(() => {
-      console.log('Retrying Discord Gateway connection after initialization failure...')
-      discordGateway.connect().catch(retryError => {
-        console.warn('Discord Gateway retry also failed:', retryError)
-      })
-    }, 10000) // Wait 10 seconds before retry
+    // Don't retry automatically to avoid connection spam
+    isInitialized = false
   }
 }
 

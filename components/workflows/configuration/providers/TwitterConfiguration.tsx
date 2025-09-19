@@ -2,9 +2,9 @@
 
 import React, { useCallback, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, ChevronLeft, Twitter, Settings, Star } from "lucide-react";
+import { AlertTriangle, Twitter, Settings, Star } from "lucide-react";
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 
@@ -242,33 +242,27 @@ export function TwitterConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-6 border-b">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              className="mr-2"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <Twitter className="h-6 w-6 text-blue-500" />
-          <div>
-            <h2 className="text-lg font-semibold">
-              {nodeInfo?.title || 'Configure Twitter Action'}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {nodeInfo?.description || 'Set up your Twitter action'}
-            </p>
-          </div>
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+      showFooter={false}
+    >
+      <div className="flex items-center gap-3 mb-6">
+        <Twitter className="h-6 w-6 text-blue-500" />
+        <div>
+          <h2 className="text-lg font-semibold">
+            {nodeInfo?.title || 'Configure Twitter Action'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {nodeInfo?.description || 'Set up your Twitter action'}
+          </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-        <TabsList className="mx-6 mt-4 mb-0 grid w-auto grid-cols-2 gap-1 p-1 bg-slate-100/50">
+        <TabsList className="grid w-auto grid-cols-2 gap-1 p-1 bg-slate-100/50 mb-6">
           <TabsTrigger
             value="basic"
             className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -293,48 +287,44 @@ export function TwitterConfiguration({
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 overflow-hidden">
-          <TabsContent value="basic" className="h-full mt-0">
-            <ScrollArea className="h-full px-6 py-4">
-              <div className="space-y-6">
-                {renderFields(basicFields)}
-                {basicFields.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No basic settings available
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+        <div className="flex-1">
+          <TabsContent value="basic" className="mt-0">
+            <div className="space-y-6">
+              {renderFields(basicFields)}
+              {basicFields.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No basic settings available
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="advanced" className="h-full mt-0">
-            <ScrollArea className="h-full px-6 py-4">
-              <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <div className="flex gap-2">
-                    <Settings className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <h3 className="font-medium text-blue-900">Advanced Twitter Features</h3>
-                      <p className="text-sm text-blue-700 mt-1">
-                        These options provide additional control over your tweets, including polls, 
-                        reply settings, communities, and more.
-                      </p>
-                    </div>
+          <TabsContent value="advanced" className="mt-0">
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex gap-2">
+                  <Settings className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-blue-900">Advanced Twitter Features</h3>
+                    <p className="text-sm text-blue-700 mt-1">
+                      These options provide additional control over your tweets, including polls,
+                      reply settings, communities, and more.
+                    </p>
                   </div>
                 </div>
-                {renderFields(advancedFields)}
-                {advancedFields.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No advanced options available
-                  </div>
-                )}
               </div>
-            </ScrollArea>
+              {renderFields(advancedFields)}
+              {advancedFields.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No advanced options available
+                </div>
+              )}
+            </div>
           </TabsContent>
         </div>
       </Tabs>
 
-      <div className="flex items-center justify-between p-6 border-t">
+      <div className="flex items-center justify-between pt-6 border-t mt-6">
         <Button
           type="button"
           variant="outline"
@@ -351,6 +341,6 @@ export function TwitterConfiguration({
           {isSubmitting ? 'Saving...' : (isEditMode ? 'Update' : 'Save')}
         </Button>
       </div>
-    </form>
+    </ConfigurationContainer>
   );
 }

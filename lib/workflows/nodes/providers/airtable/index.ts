@@ -173,8 +173,8 @@ export const airtableNodes: NodeComponent[] = [
   },
   {
     type: "airtable_action_list_records",
-    title: "List Records",
-    description: "List records from an Airtable table",
+    title: "Get Records",
+    description: "Get records from an Airtable table",
     icon: List,
     providerId: "airtable",
     requiredScopes: ["data.records:read"],
@@ -197,8 +197,10 @@ export const airtableNodes: NodeComponent[] = [
         dynamic: "airtable_tables",
         required: true,
         placeholder: "Select a table",
-        description: "Choose the table to list records from",
-        dependsOn: "baseId"
+        description: "Choose the table to get records from",
+        dependsOn: "baseId",
+        hidden: true,
+        showWhen: { baseId: "!empty" }
       },
       {
         name: "keywordSearch",
@@ -206,7 +208,9 @@ export const airtableNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Search across all text fields...",
-        description: "Search for keywords across all text fields in the table"
+        description: "Search for keywords across all text fields in the table",
+        hidden: true,
+        showWhen: { tableName: "!empty" }
       },
       {
         name: "filterField",
@@ -216,7 +220,9 @@ export const airtableNodes: NodeComponent[] = [
         required: false,
         placeholder: "Select field to filter by...",
         description: "Choose a field to filter records by",
-        dependsOn: "tableName"
+        dependsOn: "tableName",
+        hidden: true,
+        showWhen: { tableName: "!empty" }
       },
       {
         name: "filterValue",
@@ -242,7 +248,9 @@ export const airtableNodes: NodeComponent[] = [
         ],
         defaultValue: "newest",
         placeholder: "Select sort order...",
-        description: "How to sort the returned records"
+        description: "How to sort the returned records",
+        hidden: true,
+        showWhen: { tableName: "!empty" }
       },
       {
         name: "dateFilter",
@@ -260,7 +268,9 @@ export const airtableNodes: NodeComponent[] = [
           { value: "custom_date_range", label: "Custom Date Range" }
         ],
         placeholder: "Select date filter...",
-        description: "Filter records by creation date"
+        description: "Filter records by creation date",
+        hidden: true,
+        showWhen: { tableName: "!empty" }
       },
       {
         name: "customDateRange",
@@ -286,7 +296,9 @@ export const airtableNodes: NodeComponent[] = [
           { value: "custom", label: "Custom Amount" }
         ],
         placeholder: "Select record limit...",
-        description: "Quick limit for most recent records"
+        description: "Quick limit for most recent records",
+        hidden: true,
+        showWhen: { tableName: "!empty" }
       },
       {
         name: "maxRecords",

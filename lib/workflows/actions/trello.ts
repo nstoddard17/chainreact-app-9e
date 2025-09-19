@@ -1,16 +1,19 @@
 import { ActionResult } from './core'
 import { getDecryptedAccessToken } from '../executeNode'
+import { resolveValue } from './core/resolveValue'
 
 /**
  * Create a new list in Trello
  */
 export async function createTrelloList(
-  config: any, 
-  userId: string, 
+  config: any,
+  userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { boardId, name, template } = config
+    // Resolve any workflow variables in the config
+    const resolvedConfig = resolveValue(config, { input })
+    const { boardId, name, template } = resolvedConfig
 
     if (!boardId || !name) {
       return {
@@ -218,12 +221,14 @@ export async function createTrelloList(
  * Create a new card in Trello
  */
 export async function createTrelloCard(
-  config: any, 
-  userId: string, 
+  config: any,
+  userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { boardId, listId, name, desc, template } = config
+    // Resolve any workflow variables in the config
+    const resolvedConfig = resolveValue(config, { input })
+    const { boardId, listId, name, desc, template } = resolvedConfig
 
     if (!boardId || !listId || !name) {
       return {
@@ -368,12 +373,14 @@ export async function createTrelloCard(
  * Move a card to a different list in Trello
  */
 export async function moveTrelloCard(
-  config: any, 
-  userId: string, 
+  config: any,
+  userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { cardId, listId, position = "bottom" } = config
+    // Resolve any workflow variables in the config
+    const resolvedConfig = resolveValue(config, { input })
+    const { cardId, listId, position = "bottom" } = resolvedConfig
 
     if (!cardId || !listId) {
       return {

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import { ConfigField, NodeField } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap } from "lucide-react";
+import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
@@ -22,9 +23,10 @@ import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 // import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
-import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Integration-specific field components
 import { GmailEmailField } from "./gmail/GmailEmailField";
@@ -124,9 +126,16 @@ export function FieldRenderer({
   isConnectedToAIAgent,
   setFieldValue,
 }: FieldProps) {
+  // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
+  const [inputMode, setInputMode] = useState(
+    field.type === 'file-with-toggle'
+      ? (field.toggleOptions?.defaultMode || field.toggleOptions?.modes?.[0] || 'upload')
+      : 'upload'
+  );
+
   // Prepare field options for select/combobox fields
-  const fieldOptions = field.options || 
-    (field.dynamic && dynamicOptions?.[field.name]) || 
+  const fieldOptions = field.options ||
+    (field.dynamic && dynamicOptions?.[field.name]) ||
     [];
 
   // Auto-load options for combobox fields with dynamic data
@@ -178,8 +187,16 @@ export function FieldRenderer({
     // For Airtable fields
     if (field.name?.startsWith('airtable_field_')) return 'airtable';
     
-    // For Google Drive fields
-    if (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode' || field.name === 'fileName') return 'google-drive';
+    // For Google Drive fields (only for Google Drive provider)
+    if (nodeInfo?.providerId === 'google-drive' &&
+        (field.name === 'uploadedFiles' || field.name === 'fileUrl' || field.name === 'fileFromNode' || field.name === 'fileName')) {
+      return 'google-drive';
+    }
+
+    // For OneDrive, use generic handling
+    if (nodeInfo?.providerId === 'onedrive' && field.name === 'uploadedFiles') {
+      return 'generic';
+    }
     
     return 'generic';
   };
@@ -191,15 +208,15 @@ export function FieldRenderer({
    * Renders the label with optional tooltip
    */
   const renderLabel = () => {
-    
+
     return (
       <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
             {getFieldIcon(field.name, field.type)}
           </div>
-          <Label 
-            htmlFor={field.name} 
+          <Label
+            htmlFor={field.name}
             className={cn(
               "text-sm font-medium text-slate-700",
               field.required && "after:content-['*'] after:ml-0.5 after:text-red-500"
@@ -208,11 +225,24 @@ export function FieldRenderer({
             {field.label || field.name}
           </Label>
         </div>
-        
-        {field.description && (
-          <HelpCircle className="h-4 w-4 text-muted-foreground" title={field.description} />
+
+        {(field.tooltip || field.description) && tooltipsEnabled && (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                className="max-w-xs bg-slate-900 text-white border-slate-700"
+                sideOffset={8}
+              >
+                <p className="text-xs">{field.tooltip || field.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
-        
+
         {field.required && (
           <span className="text-xs text-red-500 font-medium">Required</span>
         )}
@@ -237,6 +267,134 @@ export function FieldRenderer({
   // Render the appropriate field based on type
   const renderFieldByType = () => {
     switch (field.type) {
+      case "file-with-toggle":
+        // File field with integrated multi-option toggle
+        const modes = field.toggleOptions?.modes || ['upload', 'url'];
+        const labels = field.toggleOptions?.labels || { upload: 'Upload', url: 'URL' };
+        const placeholders = field.toggleOptions?.placeholders || { url: 'Enter URL...' };
+
+        // Render the appropriate input based on mode
+        const renderModeInput = () => {
+          switch (inputMode) {
+            case 'upload':
+              // Use FileUpload component for consistent styling
+              const fileValue = value ? (Array.isArray(value) ? value : [value]) : undefined;
+              return (
+                <FileUpload
+                  value={fileValue}
+                  onChange={async (files) => {
+                    if (files && files.length > 0) {
+                      // For Slack attachments, convert to base64 for files under 10MB
+                      // or store path for larger files
+                      if (integrationProvider === 'slack' && field.name === 'attachments') {
+                        const processedFiles = await Promise.all(
+                          Array.from(files).map(async (file) => {
+                            // 10MB threshold for base64 vs storage
+                            const BASE64_SIZE_LIMIT = 10 * 1024 * 1024;
+
+                            if (file.size <= BASE64_SIZE_LIMIT) {
+                              // Convert to base64 for smaller files
+                              return new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  resolve({
+                                    type: 'base64',
+                                    data: reader.result, // Includes data:mime;base64, prefix
+                                    name: file.name,
+                                    size: file.size,
+                                    mimeType: file.type
+                                  });
+                                };
+                                reader.readAsDataURL(file);
+                              });
+                            } else {
+                              // For larger files, we'll need to upload to Supabase storage
+                              // This will be handled by the action handler
+                              // For now, just mark it as a file to be uploaded
+                              return {
+                                type: 'file',
+                                file: file,
+                                name: file.name,
+                                size: file.size,
+                                mimeType: file.type
+                              };
+                            }
+                          })
+                        );
+                        onChange(field.multiple ? processedFiles : processedFiles[0]);
+                      } else if (integrationProvider === 'slack' && field.name === 'icon') {
+                        // For Slack icon field, convert image to base64 URL for persistence
+                        const file = files[0]; // Icon is single file only
+                        if (file && file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            // Store as base64 data URL so it can be saved and retrieved
+                            onChange({
+                              url: reader.result, // This is the base64 data URL
+                              name: file.name,
+                              size: file.size,
+                              type: file.type
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        } else {
+                          onChange(files[0]);
+                        }
+                      } else {
+                        // For non-Slack or non-attachment fields, use standard handling
+                        onChange(field.multiple ? files : files[0]);
+                      }
+                    } else {
+                      onChange(null);
+                    }
+                  }}
+                  accept={field.accept}
+                  multiple={field.multiple || false}
+                  maxSize={field.maxSize}
+                  maxFiles={field.multiple ? (field.maxFiles || 10) : 1}
+                  className={cn(error && "border-red-500")}
+                />
+              );
+            case 'url':
+            default:
+              return (
+                <Input
+                  type="text"
+                  value={value || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder={placeholders.url}
+                  className={cn(error && "border-red-500")}
+                />
+              );
+          }
+        };
+
+        return (
+          <div className="space-y-2">
+            {/* Integrated toggle below the label */}
+            <div className="flex gap-1 p-1 bg-muted rounded-md w-full">
+              {modes.map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setInputMode(mode)}
+                  className={cn(
+                    "flex-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                    inputMode === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {labels[mode] || mode}
+                </button>
+              ))}
+            </div>
+
+            {/* Conditional field based on toggle */}
+            {renderModeInput()}
+          </div>
+        );
+
       case "dynamic_fields":
         // Dynamic fields for Notion blocks
         if (integrationProvider === 'notion' && field.dynamic === 'notion_page_blocks') {
@@ -470,9 +628,38 @@ export function FieldRenderer({
           />
         );
 
+      case "toggle_group":
+        // Toggle group for pill-style selection
+        const toggleOptions = Array.isArray(field.options)
+          ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
+          : fieldOptions;
+
+        return (
+          <div className="w-full">
+            <ToggleGroup
+              type="single"
+              value={value}
+              onValueChange={onChange}
+              className="justify-start"
+            >
+              {toggleOptions.map((option: any) => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  aria-label={option.label}
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+          </div>
+        );
+
       case "select":
         // Route to integration-specific select field or generic one
-        const selectOptions = Array.isArray(field.options) 
+        const selectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
         
@@ -708,12 +895,28 @@ export function FieldRenderer({
       case "boolean":
         return (
           <div className="flex items-center justify-between">
-            <div className="flex-1">
+            <div className="flex-1 flex items-center gap-2">
+              <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
+                {getFieldIcon(field.name, field.type)}
+              </div>
               <Label htmlFor={field.name} className="text-sm font-medium text-slate-700">
                 {field.label || field.name}
               </Label>
-              {field.description && (
-                <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
+              {(field.tooltip || field.description) && tooltipsEnabled && (
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      className="max-w-xs bg-slate-900 text-white border-slate-700"
+                      sideOffset={8}
+                    >
+                      <p className="text-xs">{field.tooltip || field.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <Switch
@@ -1046,11 +1249,11 @@ export function FieldRenderer({
   return (
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
-        {field.type !== "button-toggle" && renderLabel()}
+        {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && renderLabel()}
         <div className="min-w-0 overflow-hidden w-full">
           {fieldContent}
         </div>
-        {error && (
+        {error && field.type === "combobox" && (
           <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
             <HelpCircle className="h-3 w-3" />
             {error}

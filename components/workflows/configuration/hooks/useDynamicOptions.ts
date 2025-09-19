@@ -778,7 +778,23 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Load integration data with proper options
       options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
-      
+
+      // Check if this field depends on another field and the dependency value is missing
+      if (dependsOn && !dependsOnValue) {
+        console.log(`⚠️ [useDynamicOptions] Skipping load for ${fieldName} - missing dependency value for ${dependsOn}`);
+        setDynamicOptions(prev => ({
+          ...prev,
+          [fieldName]: []
+        }));
+        // Clear loading state
+        if (activeRequestIds.current.get(cacheKey) === requestId) {
+          loadingFields.current.delete(cacheKey);
+          setLoading(false);
+          activeRequestIds.current.delete(cacheKey);
+        }
+        return;
+      }
+
       // Special handling for Notion page blocks - API expects pageId instead of page
       if (resourceType === 'notion_page_blocks' && dependsOn === 'page') {
         const formValues = getFormValues?.() || {};
@@ -1410,7 +1426,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Note: Exclude email fields (like 'email') since they should load on-demand only
     // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
     // Also exclude fields with loadOnMount: true as they are handled by ConfigurationForm
-    const independentFields = ['baseId', 'guildId', 'workspaceId'];
+    const independentFields = ['baseId', 'guildId', 'workspace', 'workspaceId'];
     
     independentFields.forEach(fieldName => {
       // Check if this field exists for this node type
@@ -1422,45 +1438,39 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     
     // Cleanup function when component unmounts
     return () => {
-      
-      // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
+      console.log('🧹 [useDynamicOptions] Cleanup triggered', { nodeType, providerId });
+
+      // Abort ALL active fetch requests (including Discord guilds on unmount)
       abortControllers.current.forEach((controller, key) => {
-        // Don't abort Discord guild requests as they use global cache
-        if (!key.startsWith('guildId')) {
-          controller.abort();
-        }
+        console.log(`🛑 [useDynamicOptions] Aborting request: ${key}`);
+        controller.abort();
       });
-      
-      // Clear controllers except Discord guilds
-      const guildControllers = new Map();
-      abortControllers.current.forEach((controller, key) => {
-        if (key.startsWith('guildId')) {
-          guildControllers.set(key, controller);
-        }
-      });
+
+      // Clear all controllers
       abortControllers.current.clear();
-      
-      // Clear request IDs except Discord guilds
-      const guildRequestIds = new Map();
-      activeRequestIds.current.forEach((id, key) => {
-        if (key.startsWith('guildId')) {
-          guildRequestIds.set(key, id);
-        }
-      });
+
+      // Clear all request IDs
       activeRequestIds.current.clear();
-      
-      // Cancel all active requests except Discord guilds
+
+      // Cancel all active requests
       activeRequests.current.forEach((promise, key) => {
-        if (!key.startsWith('guildId')) {
-        }
+        console.log(`❌ [useDynamicOptions] Clearing active request: ${key}`);
       });
-      
+
       // Clear all state
       loadingFields.current.clear();
       activeRequests.current.clear();
       optionsCache.current = {};
       setLoading(false);
       setIsInitialLoading(false);
+
+      // Reset auth retry count
+      authErrorRetryCount = 0;
+
+      // Clear dynamic options to force fresh load next time
+      setDynamicOptions({});
+
+      console.log('✅ [useDynamicOptions] Cleanup complete');
     };
   }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
   

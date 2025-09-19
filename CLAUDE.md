@@ -142,6 +142,17 @@ The `/learning` directory serves as the single source of truth for:
 - Implementation walkthroughs
 - Change logs and architectural decisions
 
+## 🚨 CRITICAL: Configuration Modal Left Column Rule
+
+**ALL CONTENT IN CONFIGURATION MODALS MUST STAY IN THE LEFT COLUMN**
+
+When working with any configuration modal:
+1. **NEVER use ScrollArea component** - It doesn't constrain width properly
+2. **ALWAYS use ConfigurationContainer** from `/components/workflows/configuration/components/ConfigurationContainer.tsx`
+3. **ALWAYS test with wide content** (like Airtable tables with many columns)
+
+If content overflows under the variable picker (right column), you're doing it wrong. See `/learning/docs/modal-column-overflow-solution.md` for the fix.
+
 ## Common Issues and Solutions
 
 ### Integration Connection Status Not Showing
@@ -437,6 +448,12 @@ When implementing dependent fields that show "Loading options..." when their par
 
 ## Workflow Implementation Guides
 
+### Modal Column Overflow Solution
+**CRITICAL**: When working with configuration modals, ALWAYS consult `/learning/docs/modal-column-overflow-solution.md` to ensure content stays within the left column and doesn't overflow under the variable picker panel.
+- NEVER use ScrollArea component for configuration forms
+- ALWAYS use ConfigurationContainer component or implement the pattern directly
+- Tables should have horizontal scroll within their container
+
 ### Field Implementation Guide
 **IMPORTANT**: When creating or modifying fields for workflow actions/triggers, ALWAYS consult `/learning/docs/field-implementation-guide.md` for the complete checklist. Missing steps (especially field mappings) cause runtime errors.
 
@@ -538,6 +555,21 @@ Key reminders when refactoring:
 5. **Document lessons learned** in the refactoring guide for future use
 
 This is especially important for files like `availableNodes.ts` which has grown to 8000+ lines and requires systematic refactoring to maintain code quality and developer productivity.
+
+## UI Component Styling Guides
+
+### Combobox and Select Field Styling
+**IMPORTANT**: When modifying dropdown field styles (text color, placeholders, etc.), consult `/learning/docs/combobox-field-styling-guide.md` for:
+- Component routing logic (which fields use Combobox vs MultiCombobox vs Select)
+- Exact line numbers for styling changes
+- Special cases for Airtable fields
+- Common issues and solutions
+
+Key insights:
+- Airtable fields with 'tasks', 'feedback', 'associated project' use **MultiCombobox**
+- Single Airtable fields use **Combobox**
+- Use inline styles `style={{ color: 'white' }}` to override theme colors
+- Check `GenericSelectField.tsx` for field routing logic
 
 ## Security Considerations
 

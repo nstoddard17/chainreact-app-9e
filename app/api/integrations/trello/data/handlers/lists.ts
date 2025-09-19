@@ -27,7 +27,8 @@ export const getTrelloLists: TrelloDataHandler<TrelloList> = async (integration:
     }
     
     if (!boardId) {
-      throw new Error('Board ID is required for fetching lists')
+      console.log('⚠️ No board ID provided, returning empty lists array')
+      return []
     }
     
     console.log('🔍 Fetching Trello lists from API...')

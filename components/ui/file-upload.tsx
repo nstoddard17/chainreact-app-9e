@@ -24,6 +24,10 @@ interface UploadedFile {
   isFileId?: boolean
   isFileMetadata?: boolean
   previewUrl?: string
+  actualSize?: number
+  actualName?: string
+  actualType?: string
+  filePath?: string
 }
 
 export function FileUpload({
@@ -35,17 +39,42 @@ export function FileUpload({
   className,
   placeholder = "Choose files to upload...",
   disabled = false,
-  hideUploadedFiles = false
-}: FileUploadProps) {
+  hideUploadedFiles = false,
+  multiple = false
+}: FileUploadProps & { multiple?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragActive, setDragActive] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [errors, setErrors] = useState<string[]>([])
 
+  // Track loaded preview URLs to prevent duplicate API calls
+  const loadedPreviewsRef = useRef<Set<string>>(new Set())
+  const prevValueRef = useRef<any>(null)
+  const loadingPreviewsRef = useRef<Set<string>>(new Set())
+
   // Initialize uploaded files from value prop
   useEffect(() => {
+    console.log('📸 [FileUpload] Value prop changed:', {
+      value,
+      hasValue: !!value,
+      length: value?.length,
+      firstFile: value?.[0]
+    })
+
+    // Check if value has changed (new file or modal reopened)
+    const valueChanged = JSON.stringify(value) !== JSON.stringify(prevValueRef.current)
+    if (valueChanged) {
+      console.log('📸 [FileUpload] Value changed, clearing preview cache')
+      // Clear preview tracking when value changes to allow reloading
+      loadedPreviewsRef.current.clear()
+      loadingPreviewsRef.current.clear()
+      prevValueRef.current = value
+    }
+
     if (value && value.length > 0) {
-      const initialFiles: UploadedFile[] = Array.from(value).map((file, index) => {
+      const loadFilesWithPreviews = async () => {
+        const initialFiles: UploadedFile[] = await Promise.all(
+          Array.from(value).map(async (file, index) => {
         // Check if it's a file ID string (from storage API)
         if (typeof file === 'string') {
           return {
@@ -58,25 +87,119 @@ export function FileUpload({
         
         // Check if it's a file metadata object (from Google Drive or other integrations)
         // Check for File-like properties instead of using instanceof
-        const hasFileProperties = file && typeof file === 'object' && 
+        const hasFileProperties = file && typeof file === 'object' &&
           'size' in file && 'type' in file && 'name' in file &&
           typeof file.slice === 'function';
-          
-        if (file && typeof file === 'object' && !hasFileProperties) {
+
+        // Check if it's our special icon format with base64 URL
+        if (file && typeof file === 'object' && file.url && typeof file.url === 'string' && file.url.startsWith('data:')) {
+          // This is a saved icon with base64 data URL
+          const uploadedFile: UploadedFile = {
+            file: new Blob([], { type: file.type || 'image/png' }) as File,
+            id: `icon-${file.name || 'icon'}-${index}`,
+            progress: 100,
+            isFileMetadata: true,
+            actualSize: file.size || 0,
+            actualName: file.name || 'Icon',
+            actualType: file.type || 'image/png',
+            previewUrl: file.url // Use the base64 URL directly as preview
+          };
+
+          // Override the name property
+          Object.defineProperty(uploadedFile.file, 'name', {
+            value: file.name || 'Icon',
+            writable: false
+          });
+
+          console.log('📸 [FileUpload] Loaded saved icon with base64 URL:', {
+            name: uploadedFile.actualName,
+            hasPreview: !!uploadedFile.previewUrl
+          });
+
+          return uploadedFile;
+        } else if (file && typeof file === 'object' && !hasFileProperties) {
           // Create a minimal File-like object for display purposes
-          const fileBlob = new Blob([], { type: file.type || 'application/octet-stream' }) as File;
+          // Create a blob with dummy data matching the reported size (if available)
+          const fileSize = file.fileSize || file.size || 0;
+          const dummyData = fileSize > 0 ? new ArrayBuffer(1) : new ArrayBuffer(0); // Just create a small buffer
+          const fileBlob = new Blob([dummyData], { type: file.fileType || file.type || 'application/octet-stream' }) as File;
+
           // Override the name property
           Object.defineProperty(fileBlob, 'name', {
             value: file.name || file.fileName || `File ${index + 1}`,
             writable: false
           });
-          
-          return {
+
+          // Store the actual file size and other metadata separately
+          const uploadedFile: UploadedFile = {
             file: fileBlob,
-            id: file.id || file.fileId || `${file.name || 'file'}-${file.size || 0}-${index}`,
+            id: file.id || file.fileId || `${file.name || 'file'}-${fileSize}-${index}`,
             progress: 100,
-            isFileMetadata: true // Flag to indicate this is file metadata
+            isFileMetadata: true, // Flag to indicate this is file metadata
+            // Store actual metadata for display
+            actualSize: fileSize,
+            actualName: file.name || file.fileName || `File ${index + 1}`,
+            actualType: file.fileType || file.type
           }
+
+          console.log('📸 [FileUpload] Processing saved file:', {
+            fileName: uploadedFile.actualName,
+            fileType: uploadedFile.actualType,
+            filePath: file.filePath,
+            isImage: (file.fileType || file.type)?.startsWith('image/')
+          })
+
+          // Generate preview URL if it's an image and we have a file path
+          if ((file.fileType || file.type)?.startsWith('image/') && file.filePath) {
+            // Store the path for potential preview generation
+            uploadedFile.filePath = file.filePath;
+
+            // Check if we're not already loading this preview
+            if (!loadingPreviewsRef.current.has(file.filePath)) {
+              loadingPreviewsRef.current.add(file.filePath);
+
+              // Try to fetch the preview URL from Supabase storage - await it to ensure it completes
+              try {
+                // Get auth token
+                const { supabase } = await import('@/utils/supabaseClient');
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.access_token) {
+                  const response = await fetch('/api/workflows/files/preview', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({ filePath: file.filePath })
+                  });
+
+                  if (response.ok) {
+                    const result = await response.json();
+                    console.log('📸 [FileUpload] Preview API response:', {
+                      hasPreviewUrl: !!result.previewUrl,
+                      previewUrl: result.previewUrl?.substring(0, 100)
+                    });
+                    if (result.previewUrl) {
+                      uploadedFile.previewUrl = result.previewUrl;
+                      console.log('📸 [FileUpload] Set preview URL for file:', uploadedFile.actualName);
+                    }
+                  } else {
+                    console.log('📸 [FileUpload] Preview API failed:', response.status);
+                  }
+                }
+              } catch (error) {
+                console.debug('Could not fetch preview URL:', error);
+              } finally {
+                // Remove from loading set when done
+                loadingPreviewsRef.current.delete(file.filePath);
+              }
+            } else {
+              console.log('📸 [FileUpload] Already loading preview for:', file.filePath);
+            }
+          }
+
+          return uploadedFile
         }
         
         // It's a File object
@@ -90,17 +213,34 @@ export function FileUpload({
         if (file.type?.startsWith('image/')) {
           uploadedFile.previewUrl = URL.createObjectURL(file)
         }
-        
+
         return uploadedFile
-      })
-      
-      // Remove duplicates based on ID
-      const uniqueFiles = initialFiles.filter((file, index, self) => 
-        index === self.findIndex(f => f.id === file.id)
-      )
-      
-      setUploadedFiles(uniqueFiles)
-    } else {
+      }));
+
+        // Remove duplicates based on ID
+        const uniqueFiles = initialFiles.filter((file, index, self) =>
+          index === self.findIndex(f => f.id === file.id)
+        );
+
+        console.log('📸 [FileUpload] Setting uploaded files:', {
+          count: uniqueFiles.length,
+          files: uniqueFiles.map(f => ({
+            id: f.id,
+            name: f.actualName || f.file?.name,
+            hasPreviewUrl: !!f.previewUrl,
+            isFileMetadata: f.isFileMetadata
+          }))
+        });
+
+        setUploadedFiles(uniqueFiles);
+      };
+
+      loadFilesWithPreviews().then(() => {
+        console.log('📸 [FileUpload] Finished loading file previews');
+      });
+    } else if (!value || value.length === 0) {
+      // Clear previews tracking when value is cleared
+      loadedPreviewsRef.current.clear()
       setUploadedFiles([])
     }
   }, [value])
@@ -315,13 +455,17 @@ export function FileUpload({
                   <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
                     <ImageIcon className="w-5 h-5 text-muted-foreground" />
                   </div>
-                ) : isImageFile(uploadedFile.file) && uploadedFile.previewUrl ? (
+                ) : (uploadedFile.actualType?.startsWith('image/') || isImageFile(uploadedFile.file)) && uploadedFile.previewUrl ? (
                   <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
                     <img
                       src={uploadedFile.previewUrl}
-                      alt={uploadedFile.file.name}
+                      alt={uploadedFile.actualName || uploadedFile.file.name}
                       className="w-full h-full object-cover"
                     />
+                  </div>
+                ) : (uploadedFile.actualType?.startsWith('image/') || uploadedFile.file.type?.startsWith('image/')) ? (
+                  <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
                   </div>
                 ) : (
                   <File className="h-4 w-4 text-muted-foreground" />
@@ -329,10 +473,12 @@ export function FileUpload({
                 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {uploadedFile.isFileId ? 'File uploaded successfully' : uploadedFile.file.name}
+                    {uploadedFile.isFileId ? 'File uploaded successfully' :
+                     uploadedFile.actualName || uploadedFile.file.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {uploadedFile.isFileId ? `File ID: ${uploadedFile.id}` : formatFileSize(uploadedFile.file.size)}
+                    {uploadedFile.isFileId ? `File ID: ${uploadedFile.id}` :
+                     formatFileSize(uploadedFile.actualSize || uploadedFile.file.size)}
                   </p>
                 </div>
               </div>

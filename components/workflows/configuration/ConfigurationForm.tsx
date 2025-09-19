@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from 'lucide-react';
 import { useDynamicOptions } from './hooks/useDynamicOptions';
 import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
-import { saveNodeConfig } from '@/lib/workflows/configPersistence';
+// import { saveNodeConfig } from '@/lib/workflows/configPersistence'; // Removed - was causing slow saves
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
@@ -134,6 +134,17 @@ function ConfigurationForm({
   const integration = provider ? getIntegrationByProvider(provider) : null;
   const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
+
+  // Debug logging for HubSpot
+  if (provider === 'hubspot') {
+    console.log('🎯 [ConfigForm] HubSpot integration check:', {
+      provider,
+      integration,
+      status: integration?.status,
+      needsConnection,
+      integrationName
+    });
+  }
 
   // Extract saved dynamic options from initialData if present
   const savedDynamicOptions = initialData?.__dynamicOptions;
@@ -269,6 +280,9 @@ function ConfigurationForm({
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
   
+  // Track if we've already loaded on mount to prevent duplicate calls
+  const hasLoadedOnMount = useRef(false);
+
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
@@ -278,10 +292,19 @@ function ConfigurationForm({
       timestamp: new Date().toISOString(),
       componentId
     });
-    
+
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
-    
+
+    // Reset the flag on mount
+    hasLoadedOnMount.current = false;
+
+    // Clear options for Dropbox path field on mount to ensure fresh load
+    if (nodeInfo?.providerId === 'dropbox' && resetOptions) {
+      console.log('🧹 [ConfigForm] Clearing Dropbox path options on mount');
+      resetOptions('path');
+    }
+
     // Debounce the integration fetch - wait 500ms to see if component stays mounted
     const loadIntegrations = async () => {
       // Wait a bit to see if component stays mounted
@@ -294,9 +317,9 @@ function ConfigurationForm({
         }
       }, 500); // Wait 500ms before fetching
     };
-    
+
     loadIntegrations();
-    
+
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
@@ -306,29 +329,74 @@ function ConfigurationForm({
         componentId
       });
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, []); // Empty deps - cleanup only runs on unmount
+
+  // Reset hasLoadedOnMount and clear options when modal opens (nodeInfo changes)
+  useEffect(() => {
+    hasLoadedOnMount.current = false;
+    console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - modal opened/reopened', {
+      nodeId: nodeInfo?.id,
+      nodeType: nodeInfo?.type,
+      currentNodeId
+    });
+
+    // Clear dynamic options for loadOnMount fields to force reload
+    if (nodeInfo?.configSchema) {
+      nodeInfo.configSchema.forEach((field: any) => {
+        if (field.loadOnMount && field.dynamic) {
+          console.log(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
+          resetOptions(field.name);
+        }
+      });
+    }
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, resetOptions]); // Also track nodeType and currentNodeId
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;
-    
-    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...');
-    
+
+    // Check if we've already loaded for this specific node instance
+    // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
+    const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
+
+    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
+      nodeInstanceKey,
+      hasLoadedOnMount: hasLoadedOnMount.current,
+      isInitialLoading
+    });
+
     // Find fields that should load on mount
-    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => 
-      field.loadOnMount === true && field.dynamic
-    );
-    
+    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
+      // Check if field should load on mount
+      if (field.loadOnMount === true && field.dynamic) {
+        // Check if we already have options for this field
+        const hasOptions = dynamicOptions[field.name] && dynamicOptions[field.name].length > 0;
+
+        // If we don't have options or hasLoadedOnMount is false, we should load
+        const shouldLoad = !hasOptions || !hasLoadedOnMount.current;
+
+        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, hasOptions: ${hasOptions}, shouldLoad: ${shouldLoad}`);
+        return shouldLoad;
+      }
+      return false;
+    });
+
     if (fieldsToLoad.length > 0) {
       console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
-      
-      // Load each field marked with loadOnMount
-      fieldsToLoad.forEach((field: any) => {
-        console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-        loadOptions(field.name);
-      });
+      hasLoadedOnMount.current = true; // Mark that we've loaded
+
+      // Add a small delay to ensure options are cleared first
+      const timeoutId = setTimeout(() => {
+        // Load each field marked with loadOnMount
+        fieldsToLoad.forEach((field: any) => {
+          console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
+          loadOptions(field.name, undefined, undefined, true); // Force refresh
+        });
+      }, 150); // Slightly longer delay to ensure reset has completed
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo, isInitialLoading, loadOptions]);
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, dynamicOptions]); // Track node identity changes
 
   // Load options for dynamic fields with saved values
   useEffect(() => {
@@ -405,7 +473,7 @@ function ConfigurationForm({
     
     // Find other dynamic fields that should load when visible
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
-      if (field.dynamic !== true) return false;
+      if (!field.dynamic) return false;
       
       // Check if field is now visible (its dependencies are satisfied)
       if (field.dependsOn) {
@@ -455,28 +523,30 @@ function ConfigurationForm({
   const handleSubmit = async (submissionValues: Record<string, any>) => {
     setIsLoading(true);
     try {
-      // Save configuration to persistence layer if we have the necessary IDs
-      if (workflowData?.id && currentNodeId) {
-        console.log('📎 [ConfigForm] Saving to persistence:', {
-          workflowId: workflowData.id,
-          nodeId: currentNodeId,
-          nodeType: nodeInfo?.type,
-          uploadedFiles: submissionValues.uploadedFiles,
-          sourceType: submissionValues.sourceType
-        });
-        
+      // OPTIMIZATION: Removed immediate Supabase save here.
+      // Configuration is saved in the workflow builder's state and will be persisted
+      // when the entire workflow is saved. This eliminates the delay caused by
+      // multiple Supabase round-trips on every config save.
+      // The saveNodeConfig function was causing:
+      // 1. Get user call
+      // 2. Fetch entire workflow call
+      // 3. Update entire workflow call
+      // This was taking several seconds and was unnecessary since the data
+      // is already in React state and will be saved with the workflow.
+
+      // Only save to localStorage as a quick cache/fallback (synchronous, no delay)
+      if (workflowData?.id && currentNodeId && typeof window !== 'undefined') {
+        const cacheKey = `workflow_${workflowData.id}_node_${currentNodeId}_config`;
         try {
-          await saveNodeConfig(
-            workflowData.id,
-            currentNodeId,
-            nodeInfo?.type || 'unknown',
-            submissionValues,
-            dynamicOptions
-          );
-          console.log('✅ [ConfigForm] Configuration saved to persistence layer');
-        } catch (persistenceError) {
-          console.error('❌ [ConfigForm] Failed to save to persistence:', persistenceError);
-          // Don't fail the overall save if persistence fails
+          localStorage.setItem(cacheKey, JSON.stringify({
+            config: submissionValues,
+            dynamicOptions,
+            timestamp: Date.now()
+          }));
+          console.log('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
+        } catch (e) {
+          // localStorage might be full or disabled, ignore
+          console.warn('Could not cache configuration locally:', e);
         }
       }
       

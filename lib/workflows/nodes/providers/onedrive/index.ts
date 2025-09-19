@@ -115,7 +115,8 @@ const onedriveActionUploadFile: NodeComponent = {
       dynamic: "onedrive-folders",
       required: false,
       placeholder: "Select a folder (optional, defaults to root)",
-      description: "Choose the folder where the file should be uploaded. Leave empty to upload to root."
+      description: "Choose the folder where the file should be uploaded. Leave empty to upload to root.",
+      loadOnMount: true
     },
   ],
 }

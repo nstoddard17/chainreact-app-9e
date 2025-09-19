@@ -2,10 +2,10 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
+import { ConfigurationContainer } from '../components/ConfigurationContainer';
 
 interface GenericConfigurationProps {
   nodeInfo: any;
@@ -216,6 +216,15 @@ export function GenericConfiguration({
       }
     }
     
+    // Check visibleWhen condition (used by HubSpot nodes)
+    if (field.visibleWhen) {
+      const { field: dependentField, equals: expectedValue } = field.visibleWhen;
+      const actualValue = values[dependentField];
+      if (actualValue !== expectedValue) {
+        return false;
+      }
+    }
+
     // Check showWhen condition (preferred format)
     if (field.showWhen) {
       // Support MongoDB-style operators
@@ -249,8 +258,21 @@ export function GenericConfiguration({
             }
           }
         } else {
-          // Simple equality check (legacy format)
-          if (actualValue !== condition) return false;
+          // Handle special string conditions
+          if (condition === "!empty") {
+            // Check if field has a value (not empty, null, or undefined)
+            if (!actualValue || (typeof actualValue === 'string' && actualValue.trim() === '')) {
+              return false;
+            }
+          } else if (condition === "empty") {
+            // Check if field is empty
+            if (actualValue && (typeof actualValue !== 'string' || actualValue.trim() !== '')) {
+              return false;
+            }
+          } else {
+            // Simple equality check (legacy format)
+            if (actualValue !== condition) return false;
+          }
         }
       }
     }
@@ -395,7 +417,18 @@ export function GenericConfiguration({
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
     e.preventDefault();
+
+    // Debug logging for HubSpot
+    if (nodeInfo?.type === 'hubspot_action_create_contact') {
+      console.log('🎯 [GenericConfiguration] HubSpot create contact submission:', {
+        nodeType: nodeInfo.type,
+        values,
+        baseFields: baseFields.map(f => ({ name: f.name, required: f.required, visible: shouldShowField(f) })),
+        advancedFields: advancedFields.map(f => ({ name: f.name, required: f.required, visible: shouldShowField(f) }))
+      });
+    }
 
     // Validate required fields (only for visible fields)
     const allFields = [...baseFields, ...advancedFields];
@@ -417,6 +450,12 @@ export function GenericConfiguration({
     const validatedFieldNames = new Set<string>();
     const errors: Record<string, string> = {};
 
+    console.log('📋 [GenericConfiguration] Validating fields:', {
+      totalFields: allFields.length,
+      visibleFields: allFields.filter(f => shouldShowField(f)).map(f => f.name),
+      currentValues: values
+    });
+
     allFields.forEach(field => {
       // Skip if we've already validated this field name
       if (validatedFieldNames.has(field.name)) {
@@ -433,7 +472,7 @@ export function GenericConfiguration({
     });
 
     if (Object.keys(errors).length > 0) {
-      console.error('❌ [GenericConfig] Validation failed:', {
+      console.error('❌ [GenericConfiguration] Validation failed:', {
         errors,
         validatedFields: Array.from(validatedFieldNames),
         values
@@ -446,9 +485,9 @@ export function GenericConfiguration({
       return;
     }
     
-    // Log attachment-related fields for Gmail send email
-    if (nodeInfo?.type === 'gmail_action_send_email') {
-      console.log('📎 [GenericConfiguration] Gmail send email values being saved:', {
+    // Log attachment-related fields for Gmail send email and OneDrive upload
+    if (nodeInfo?.type === 'gmail_action_send_email' || nodeInfo?.type === 'onedrive_action_upload_file') {
+      console.log(`📎 [GenericConfiguration] ${nodeInfo?.type} values being saved:`, {
         sourceType: values.sourceType,
         uploadedFiles: values.uploadedFiles,
         uploadedFilesType: typeof values.uploadedFiles,
@@ -462,8 +501,21 @@ export function GenericConfiguration({
         allValues: JSON.stringify(values, null, 2)
       });
     }
-    
+
+    console.log('✅ [GenericConfiguration] Submitting values:', {
+      nodeType: nodeInfo?.type,
+      values,
+      onSubmitAvailable: !!onSubmit
+    });
+
+    if (!onSubmit) {
+      console.error('❌ [GenericConfiguration] onSubmit is not defined!');
+      return;
+    }
+
+    console.log('📤 [GenericConfiguration] Calling onSubmit...');
     await onSubmit(values);
+    console.log('✅ [GenericConfiguration] onSubmit completed');
   };
 
   // Show connection required state
@@ -483,43 +535,30 @@ export function GenericConfiguration({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 min-h-0 px-8 py-5 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="space-y-4 pr-4">
-            {/* Base fields */}
-            {baseFields.length > 0 && (
-              <div className="space-y-3">
-                {renderFields(baseFields)}
-              </div>
-            )}
-            
-            {/* Advanced fields */}
-            {advancedFields.length > 0 && (
-              <>
-                <div className="border-t border-slate-200 pt-4 mt-6">
-                  <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
-                  <div className="space-y-3">
-                    {renderFields(advancedFields)}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-      
-      <div className="border-t border-slate-200 dark:border-slate-700 px-8 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit">
-            {isEditMode ? 'Update' : 'Save'} Configuration
-          </Button>
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
+      {/* Base fields */}
+      {baseFields.length > 0 && (
+        <div className="space-y-3">
+          {renderFields(baseFields)}
         </div>
-      </div>
-    </form>
+      )}
+
+      {/* Advanced fields */}
+      {advancedFields.length > 0 && (
+        <>
+          <div className="border-t border-slate-200 pt-4 mt-6">
+            <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
+            <div className="space-y-3">
+              {renderFields(advancedFields)}
+            </div>
+          </div>
+        </>
+      )}
+    </ConfigurationContainer>
   );
 }

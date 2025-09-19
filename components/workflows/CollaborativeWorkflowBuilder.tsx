@@ -2255,7 +2255,7 @@ const useWorkflowBuilderState = () => {
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
-    
+
     const loadWorkflow = async () => {
       if (!workflowId) {
         // No workflow ID - this might be a new workflow
@@ -2263,22 +2263,15 @@ const useWorkflowBuilderState = () => {
         setShowTriggerDialog(true)
         return
       }
-      
-      // Clear any existing nodes/edges first to ensure clean slate
-      setNodes([])
-      setEdges([])
-      
+
+      // Don't clear nodes/edges here - it causes a flash of blank content
+      // They will be replaced when the new data loads
+
       // REMOVED the cache check - always load fresh data when opening a workflow
       // This ensures we get the latest saved data from the database
-      
-      // Debounce the workflow loading to prevent rapid API calls
-      timeoutId = setTimeout(async () => {
-        if (!mounted) {
-          return;
-        }
-        
-        try {
-          const response = await fetch(`/api/workflows/${workflowId}`)
+
+      try {
+        const response = await fetch(`/api/workflows/${workflowId}`)
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
@@ -2315,7 +2308,7 @@ const useWorkflowBuilderState = () => {
               data: {
                 ...node.data,
                 onConfigure: handleConfigureNode,
-                onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
+                onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
                 onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined
               }
             }))
@@ -2420,20 +2413,17 @@ const useWorkflowBuilderState = () => {
       } catch (error) {
         // Could show an error toast here
       }
-      }, 300); // 300ms debounce to wait for component to stabilize
     }
-    
+
     loadWorkflow()
-    
-    // Cleanup function - cancel pending loads but don't clear data
-    // The data will be cleared when loading a new workflow or on the next mount
+
+    // Cleanup function
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
       // Don't clear the workflow data here - it causes issues with navigation
       // The data will be properly cleared when loading a new workflow
     }
-  }, [workflowId]) // Only re-run if workflowId changes
+  }, [workflowId, setNodes, setEdges, setCurrentWorkflow, setWorkflowName, handleConfigureNode, handleChangeTrigger, handleInsertAction, setShowTriggerDialog]) // Include all dependencies
   
   // Auto-fit view when nodes are loaded
   useEffect(() => {
@@ -2475,14 +2465,28 @@ const useWorkflowBuilderState = () => {
       }
     }
   }, [showActionDialog, showTriggerDialog, fetchIntegrations, storeIntegrations])
-  
+
+  // Periodic cleanup of stuck save states
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // If we've been "saving" for more than 30 seconds, it's probably stuck
+      if (isSavingRef.current && !isSaving) {
+        console.warn('⚠️ Cleaning up stuck save state (ref without state)');
+        isSavingRef.current = false;
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isSaving])
+
   // Main save function for the workflow
   const handleSave = async () => {
     if (!currentWorkflow) {
       return
     }
 
-    if (isSaving) {
+    // Check both the state and ref to prevent duplicate saves
+    if (isSaving || isSavingRef.current) {
       console.log('⚠️ Already saving, skipping duplicate save');
       return
     }
@@ -2494,6 +2498,7 @@ const useWorkflowBuilderState = () => {
     const saveTimeout = setTimeout(() => {
       console.error('❌ Save timeout - forcefully resetting loading state');
       setIsSaving(false);
+      isSavingRef.current = false;
       toast({
         title: "Save Timeout",
         description: "The save operation took too long. Please try again.",
@@ -2503,6 +2508,7 @@ const useWorkflowBuilderState = () => {
 
     try {
       setIsSaving(true);
+      isSavingRef.current = true;
       console.log('💾 Starting workflow save...')
       
       // Get current nodes and edges from React Flow
@@ -2606,6 +2612,7 @@ const useWorkflowBuilderState = () => {
     } finally {
       clearTimeout(saveTimeout);
       setIsSaving(false);
+      isSavingRef.current = false;
       console.log('✅ Save operation complete, loading state cleared');
     }
   }
@@ -3053,8 +3060,11 @@ const useWorkflowBuilderState = () => {
   // Handle Execute mode (live) - one-time execution with real external calls  
   const handleExecuteLive = async () => {
     if (isExecuting) return
-    
+
     try {
+      // Set loading state immediately to show user something is happening
+      setIsExecuting(true)
+
       if (!currentWorkflow || !currentWorkflow.id) {
         // Check if this is a new unsaved workflow
         if (hasUnsavedChanges || !workflowId) {
@@ -3063,30 +3073,51 @@ const useWorkflowBuilderState = () => {
             description: "Please save your workflow before running it live.",
             variant: "destructive"
           })
+          setIsExecuting(false)
           return
         }
+        setIsExecuting(false)
         throw new Error("No workflow selected or workflow not properly loaded")
       }
-      
-      // Wait if there are unsaved changes or if currently saving
-      if (hasUnsavedChanges || isSaving) {
-        
-        // Wait for save to complete (max 3 seconds)
+
+      // If there are unsaved changes, save first
+      if (hasUnsavedChanges && !isSaving) {
+        console.log('🔄 Saving workflow before live execution...')
+        toast({
+          title: "Saving workflow...",
+          description: "Your changes are being saved before execution.",
+        })
+
+        await handleSave()
+
+        // Wait a moment for the save to fully complete
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // Wait if currently saving (from another action)
+      if (isSaving) {
+        console.log('⏳ Waiting for save to complete...')
+
+        // Wait for save to complete (max 5 seconds)
         let waitTime = 0
-        const maxWait = 3000
+        const maxWait = 5000
         const checkInterval = 100
-        
-        while ((hasUnsavedChanges || isSaving) && waitTime < maxWait) {
+
+        while (isSaving && waitTime < maxWait) {
           await new Promise(resolve => setTimeout(resolve, checkInterval))
           waitTime += checkInterval
         }
-        
-        if (hasUnsavedChanges || isSaving) {
-        } else {
+
+        if (isSaving) {
+          toast({
+            title: "Save in Progress",
+            description: "Please wait for the current save to complete and try again.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          return
         }
       }
-      
-      setIsExecuting(true)
       
       // Use the nodes state directly instead of getNodes() to ensure we have the latest data
       // getNodes() might return stale data due to React state batching
@@ -3700,14 +3731,14 @@ const useWorkflowBuilderState = () => {
   const handleSaveAndNavigate = async () => {
     console.log('🔄 Starting save and navigate...');
 
-    // Prevent multiple clicks
-    if (isSaving) {
+    // Prevent multiple clicks - check both state and ref
+    if (isSaving || isSavingRef.current) {
       console.log('⚠️ Already saving, skipping...');
       return;
     }
 
     try {
-      setIsSaving(true);
+      // Don't set isSaving here - handleSave manages its own state
       await handleSave();
 
       // Add a small delay to ensure state updates are complete
@@ -3735,9 +3766,9 @@ const useWorkflowBuilderState = () => {
         description: "Could not save your changes. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      // Ensure loading state is cleared
+      // Ensure loading state is cleared on error
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   }
 
