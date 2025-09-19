@@ -55,6 +55,26 @@ export async function middleware(req: NextRequest) {
     }
   )
 
+  // Create a service role client for reading user profiles (bypasses RLS)
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookieEncoding: 'raw',
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value)
+            res.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
   try {
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
@@ -68,11 +88,17 @@ export async function middleware(req: NextRequest) {
     }
 
     // ALWAYS fetch fresh profile data - no caching
-    const { data: profile, error: profileError } = await supabase
+    // Use admin client to bypass RLS
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('role, username, provider')
       .eq('id', user.id)
       .single()
+
+    // Check if this is a beta tester who just signed up
+    const isBetaTester = user.user_metadata?.is_beta_tester === true
+    const accountAge = new Date().getTime() - new Date(user.created_at).getTime()
+    const isNewBetaUser = isBetaTester && accountAge < 60000 // Less than 1 minute old
 
     console.log('[Middleware] Username check:', {
       path: pathname,
@@ -80,25 +106,52 @@ export async function middleware(req: NextRequest) {
       provider: profile?.provider,
       username: profile?.username,
       hasUsername: !!(profile?.username && profile.username.trim() !== ''),
+      isBetaTester,
+      isNewBetaUser,
+      accountAge,
       profileError: profileError?.message
     })
 
-    // If no profile exists, check if Google user and create profile
+    // If no profile exists, check user type
     if (profileError && profileError.code === 'PGRST116') {
-      const isGoogleUser = user.app_metadata?.provider === 'google' || 
+      // Give new beta users a grace period for profile creation
+      if (isNewBetaUser) {
+        console.log('[Middleware] New beta user, profile still being created, allowing access')
+        return res
+      }
+
+      const isGoogleUser = user.app_metadata?.provider === 'google' ||
                           user.app_metadata?.providers?.includes('google') ||
                           user.identities?.some(id => id.provider === 'google')
-      
+
       if (isGoogleUser && !pathname.startsWith('/auth/setup-username')) {
         console.log('[Middleware] Google user without profile, redirecting to setup')
+        return NextResponse.redirect(new URL('/auth/setup-username', req.url))
+      }
+
+      // For other users without profiles after grace period
+      if (!pathname.startsWith('/auth/setup-username')) {
+        console.log('[Middleware] User without profile, redirecting to setup')
         return NextResponse.redirect(new URL('/auth/setup-username', req.url))
       }
     }
 
     // CHECK USERNAME FOR ALL USERS
-    // If username is missing or empty, redirect to setup
-    if ((!profile?.username || profile.username.trim() === '' || profile.username === null) && 
+    // If username is missing or empty, redirect to setup (but give beta users grace period)
+    if ((!profile?.username || profile.username.trim() === '' || profile.username === null) &&
         !pathname.startsWith('/auth/setup-username')) {
+
+      // Give new beta users a grace period
+      if (isNewBetaUser) {
+        console.log('[Middleware] New beta user without username yet, allowing temporary access')
+        // Set a temporary redirect after grace period
+        if (accountAge > 30000) { // After 30 seconds
+          console.log('[Middleware] Beta user grace period expired, redirecting to setup')
+          return NextResponse.redirect(new URL('/auth/setup-username', req.url))
+        }
+        return res
+      }
+
       console.log('[Middleware] User without username, redirecting to setup', {
         username: profile?.username,
         provider: profile?.provider
