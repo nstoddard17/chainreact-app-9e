@@ -221,6 +221,31 @@ function BetaSignupContent() {
         // The trigger in the database will automatically assign the beta-pro role
         // based on the email matching a beta_testers record
 
+        // Create or update the user profile with username and role
+        try {
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .upsert({
+              id: data.user.id,
+              username: username,
+              full_name: fullName,
+              role: 'beta-pro',
+              provider: 'email',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'id'
+            })
+
+          if (profileError) {
+            console.error("Error creating user profile:", profileError)
+          } else {
+            console.log("User profile created with username:", username)
+          }
+        } catch (err) {
+          console.error("Failed to create user profile:", err)
+        }
+
         // Manually confirm the beta tester's email
         try {
           const { data: confirmData, error: confirmError } = await supabase
@@ -233,7 +258,7 @@ function BetaSignupContent() {
           console.error("Failed to auto-confirm email:", err)
         }
 
-        // Wait a brief moment for the confirmation to process
+        // Wait a brief moment for the confirmation and profile creation to process
         await new Promise(resolve => setTimeout(resolve, 500))
 
         // Sign in the user immediately after signup
