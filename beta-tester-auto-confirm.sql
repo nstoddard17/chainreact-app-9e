@@ -42,9 +42,14 @@ BEGIN
     FROM public.beta_testers bt
     WHERE bt.email = NEW.email;
 
-    -- Clear the signup token after successful use
+    -- Mark that the invitation was used but keep the token for reference
     UPDATE public.beta_testers
-    SET signup_token = NULL
+    SET
+      last_active_at = NOW(),
+      status = CASE
+        WHEN status = 'active' THEN 'converted'
+        ELSE status
+      END
     WHERE email = NEW.email;
   END IF;
 
