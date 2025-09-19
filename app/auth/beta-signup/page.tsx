@@ -222,8 +222,9 @@ function BetaSignupContent() {
         // based on the email matching a beta_testers record
 
         // Create or update the user profile with username and role
+        // This MUST complete successfully before redirecting
         try {
-          const { error: profileError } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('user_profiles')
             .upsert({
               id: data.user.id,
@@ -236,14 +237,38 @@ function BetaSignupContent() {
             }, {
               onConflict: 'id'
             })
+            .select()
+            .single()
 
           if (profileError) {
             console.error("Error creating user profile:", profileError)
-          } else {
-            console.log("User profile created with username:", username)
+            throw new Error("Failed to create user profile")
           }
+
+          console.log("User profile created successfully:", profileData)
+
+          // Verify the profile was created by fetching it
+          const { data: verifyProfile, error: verifyError } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('id', data.user.id)
+            .single()
+
+          if (verifyError || !verifyProfile || !verifyProfile.username) {
+            console.error("Profile verification failed:", verifyError)
+            throw new Error("Profile not properly created")
+          }
+
+          console.log("Profile verified with username:", verifyProfile.username)
         } catch (err) {
-          console.error("Failed to create user profile:", err)
+          console.error("Failed to create/verify user profile:", err)
+          // If profile creation fails, we should NOT redirect to dashboard
+          // Instead, complete the signup but let them set username
+          toast({
+            title: "Account Created",
+            description: "Please complete your profile setup.",
+          })
+          // Don't throw - let the flow continue to username setup
         }
 
         // Manually confirm the beta tester's email
@@ -258,8 +283,8 @@ function BetaSignupContent() {
           console.error("Failed to auto-confirm email:", err)
         }
 
-        // Wait a brief moment for the confirmation and profile creation to process
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Wait longer to ensure all database operations complete
+        await new Promise(resolve => setTimeout(resolve, 1500))
 
         // Sign in the user immediately after signup
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -283,13 +308,29 @@ function BetaSignupContent() {
         }
 
         if (signInData?.user) {
-          toast({
-            title: "Welcome to ChainReact Beta! 🎉",
-            description: "Your account has been created and you're now logged in.",
-          })
+          // Final verification that profile exists with username before redirecting
+          const { data: finalCheck } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('id', signInData.user.id)
+            .single()
 
-          // Redirect to dashboard immediately
-          router.push("/dashboard")
+          if (finalCheck && finalCheck.username) {
+            toast({
+              title: "Welcome to ChainReact Beta! 🎉",
+              description: "Your account has been created and you're now logged in.",
+            })
+
+            // Use window.location for hard redirect to ensure middleware runs fresh
+            window.location.href = "/dashboard"
+          } else {
+            // Profile doesn't have username, let middleware redirect to setup
+            toast({
+              title: "Account Created",
+              description: "Please complete your profile setup.",
+            })
+            window.location.href = "/dashboard" // Middleware will redirect to setup-username
+          }
         } else {
           // Fallback to login page if auto-login failed
           toast({
