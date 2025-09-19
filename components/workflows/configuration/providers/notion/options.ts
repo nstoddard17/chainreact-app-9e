@@ -31,6 +31,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'parent_id': 'blocks',
         'source_page_id': 'pages',
         'destination_page_id': 'pages',
+        'destinationPage': 'pages',
         'destination_database_id': 'databases',
       }
       
@@ -46,7 +47,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       // Add workspace filter if present
       if (dependsOnValue && (fieldName === 'page_id' || fieldName === 'database_id' || fieldName === 'user_id' ||
           fieldName === 'source_page_id' || fieldName === 'destination_page_id' || fieldName === 'destination_database_id' ||
-          fieldName === 'parentDatabase' || fieldName === 'parentPage' || fieldName === 'page' || fieldName === 'database' || fieldName === 'userId')) {
+          fieldName === 'parentDatabase' || fieldName === 'parentPage' || fieldName === 'page' || fieldName === 'database' ||
+          fieldName === 'userId' || fieldName === 'destinationPage')) {
         requestBody.options.workspaceId = dependsOnValue
       }
       
@@ -73,10 +75,31 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         },
         body: JSON.stringify(requestBody)
       })
-      
+
       if (!response.ok) {
-        console.error('Failed to fetch Notion options:', response.statusText)
-        return []
+        // Try to get error details from response
+        let errorMessage = response.statusText
+        let errorDetails = null
+        try {
+          const errorBody = await response.json()
+          errorMessage = errorBody.error || errorMessage
+          errorDetails = errorBody
+        } catch (e) {
+          // Response might not be JSON
+        }
+
+        console.error('Failed to fetch Notion options:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+          errorDetails,
+          requestBody,
+          fieldName,
+          dataType
+        })
+
+        // Throw with more detailed error message
+        throw new Error(errorMessage || response.statusText)
       }
       
       const result = await response.json()
