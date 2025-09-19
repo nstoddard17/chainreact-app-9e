@@ -444,6 +444,64 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Register Gmail watch for push notifications
+   */
+  private async registerGmailWatch(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's Gmail integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider_id', 'gmail')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Gmail integration not found or not connected')
+      }
+
+      // Import Gmail watch setup function
+      const { setupGmailWatch } = await import('./gmail-watch-setup')
+
+      // Google Cloud Pub/Sub topic name
+      const topicName = process.env.GMAIL_PUBSUB_TOPIC
+
+      if (!topicName || topicName.includes('YOUR_PROJECT_ID')) {
+        throw new Error('GMAIL_PUBSUB_TOPIC environment variable not configured. Please set it to your Google Cloud Pub/Sub topic.')
+      }
+
+      // Set up the watch
+      const historyId = await setupGmailWatch({
+        userId: config.userId,
+        integrationId: integration.id,
+        topicName: topicName,
+        labelIds: config.config?.labelIds || ['INBOX']
+      })
+
+      // Store the history ID and expiration in webhook config
+      const expiration = new Date()
+      expiration.setDate(expiration.getDate() + 7) // Gmail watches expire after 7 days
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            historyId: historyId,
+            expiration: expiration.toISOString(),
+            topicName: topicName
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Gmail watch registered successfully, expires:', expiration.toISOString())
+    } catch (error) {
+      console.error('Failed to register Gmail watch:', error)
+      throw error
+    }
+  }
+
+  /**
    * Register webhook with external service
    */
   private async registerWithExternalService(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
@@ -459,8 +517,9 @@ export class TriggerWebhookManager {
         break
         
       case 'gmail':
-        // Gmail uses push notifications - would need to set up with Google Cloud Pub/Sub
-        console.log('Gmail webhook registration would require Google Cloud Pub/Sub setup')
+        // Gmail uses push notifications via Google Cloud Pub/Sub
+        console.log('🔗 Setting up Gmail watch for webhook notifications')
+        await this.registerGmailWatch(config, webhookId)
         break
       
       case 'google-calendar':

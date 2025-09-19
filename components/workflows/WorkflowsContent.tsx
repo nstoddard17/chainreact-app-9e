@@ -30,10 +30,12 @@ import { useOrganizationStore } from "@/stores/organizationStore"
 import { hasOrganizationPermission } from "@/lib/utils/organizationRoles"
 import { getRelativeTime, formatDateTime } from "@/lib/utils/formatTime"
 import { createClient } from "@/utils/supabaseClient"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 export default function WorkflowsContent() {
   const { profile } = useAuthStore()
   const { currentOrganization } = useOrganizationStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
   const {
     workflows,
     loading,
@@ -114,20 +116,25 @@ export default function WorkflowsContent() {
     dependencies: [] // No dependencies - only load on mount
   })
 
+  // Load integrations on mount
+  useEffect(() => {
+    fetchIntegrations()
+  }, [fetchIntegrations])
+
   // Load user profiles for workflow creators
   useEffect(() => {
     const loadUserProfiles = async () => {
       if (!workflows || workflows.length === 0) return
-      
+
       const userIds = [...new Set(workflows.map(w => w.user_id).filter(Boolean))]
       const supabase = createClient()
       if (!supabase) return
-      
+
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .in('id', userIds)
-      
+
       if (profiles) {
         const profileMap = profiles.reduce((acc, profile) => {
           acc[profile.id] = profile
@@ -136,7 +143,7 @@ export default function WorkflowsContent() {
         setUserProfiles(profileMap)
       }
     }
-    
+
     loadUserProfiles()
   }, [workflows])
 
@@ -222,10 +229,83 @@ export default function WorkflowsContent() {
     try {
       // Set loading state for this specific workflow
       setUpdatingWorkflows(prev => new Set(prev).add(id))
-      
+
       console.log(`🔄 Updating workflow ${id} status from ${status} to ${newStatus}`)
+
+      // If activating, check for Gmail trigger and register webhook
+      if (newStatus === 'active') {
+        // Get the workflow to check its nodes
+        const workflow = workflows.find(w => w.id === id)
+        if (workflow?.nodes) {
+          const gmailTrigger = workflow.nodes.find((n: any) =>
+            n?.data?.type === 'gmail_trigger_new_email' ||
+            n?.data?.nodeType === 'gmail_trigger_new_email' ||
+            n?.type === 'gmail_trigger_new_email'
+          )
+
+          if (gmailTrigger) {
+            console.log('🔔 Gmail trigger detected, registering webhook...')
+
+            // Check if user has Gmail integration connected
+            const gmailIntegration = integrations.find(
+              (int: any) => int.provider_id === 'gmail' && int.status === 'connected'
+            )
+
+            if (!gmailIntegration) {
+              toast({
+                title: "Gmail not connected",
+                description: "Please connect your Gmail account before activating a workflow with Gmail trigger.",
+                variant: "destructive",
+              })
+              setUpdatingWorkflows(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(id)
+                return newSet
+              })
+              return
+            }
+
+            // Register the Gmail webhook
+            const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                workflowId: id,
+                triggerType: gmailTrigger.data?.type || gmailTrigger.data?.nodeType || gmailTrigger.type,
+                providerId: 'gmail',
+                config: {
+                  labelIds: gmailTrigger.data?.config?.labelIds || ['INBOX']
+                }
+              })
+            })
+
+            if (!webhookResponse.ok) {
+              const errorData = await webhookResponse.json()
+              console.error('Failed to register Gmail webhook:', errorData)
+              toast({
+                title: "Webhook registration failed",
+                description: errorData.details || errorData.error || "Could not set up Gmail notifications.",
+                variant: "destructive",
+              })
+              setUpdatingWorkflows(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(id)
+                return newSet
+              })
+              return
+            }
+
+            const webhookData = await webhookResponse.json()
+            console.log('✅ Gmail webhook registered:', webhookData)
+          }
+        }
+      }
+
       await updateWorkflowById(id, { status: newStatus })
-      
+
       toast({
         title: "Success",
         description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`,
