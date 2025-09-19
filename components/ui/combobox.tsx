@@ -233,20 +233,19 @@ export function Combobox({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
-          <CommandInput 
+          <CommandInput
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}
             onKeyDown={handleInputKeyDown}
           />
-          <CommandList 
-            className="max-h-60 overflow-y-auto" 
-            style={{ maxHeight: '240px', overflowY: 'auto' }}
-            onWheel={(e) => {
-              // Stop propagation to prevent parent scrolling
-              e.stopPropagation();
+          <CommandList
+            className="max-h-[300px] overflow-y-auto"
+            style={{
+              scrollbarWidth: 'auto',
+              scrollbarGutter: 'stable'
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
@@ -497,7 +496,7 @@ export function MultiCombobox({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>
         <Command>
           <CommandInput
             placeholder={searchPlaceholder || "Search..."}
@@ -506,8 +505,11 @@ export function MultiCombobox({
             onKeyDown={handleInputKeyDown}
           />
           <CommandList
-            className="max-h-60 overflow-y-auto"
-            style={{ maxHeight: '240px', overflowY: 'auto' }}
+            className="max-h-[300px] overflow-y-auto"
+            style={{
+              scrollbarWidth: 'auto',
+              scrollbarGutter: 'stable'
+            }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
@@ -693,19 +695,18 @@ export function HierarchicalCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80 z-[9999]" align="start" sideOffset={4}>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>
         <Command>
-          <CommandInput 
+          <CommandInput
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}
           />
-          <CommandList 
-            className="max-h-60 overflow-y-auto" 
-            style={{ maxHeight: '240px', overflowY: 'auto' }}
-            onWheel={(e) => {
-              // Stop propagation to prevent parent scrolling
-              e.stopPropagation();
+          <CommandList
+            className="max-h-[300px] overflow-y-auto"
+            style={{
+              scrollbarWidth: 'auto',
+              scrollbarGutter: 'stable'
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>

@@ -416,19 +416,18 @@ export function EmailAutocomplete({
 
       {/* Suggestions dropdown using portal */}
       {isOpen && typeof window !== 'undefined' && createPortal(
-        <div 
-          className="fixed bg-popover border border-border rounded-md shadow-lg max-h-80 overflow-auto min-w-80 text-popover-foreground pointer-events-auto"
+        <div
+          className="fixed bg-popover border border-border rounded-md shadow-lg text-popover-foreground pointer-events-auto"
           data-email-dropdown="true"
-          style={{ 
+          style={{
             top: dropdownPosition.top,
             left: dropdownPosition.left,
             minWidth: Math.max(dropdownPosition.width, 320), // Ensure minimum width of 320px
             maxWidth: '500px', // Allow wider dropdown for better UX
+            maxHeight: '320px', // Set max height in pixels
+            overflowY: 'auto', // Enable vertical scrolling
+            overflowX: 'hidden', // Prevent horizontal scrolling
             zIndex: 999999, // Ensure very high z-index for clicking
-          }}
-          onWheel={(e) => {
-            // Allow mouse wheel scrolling to pass through
-            e.stopPropagation();
           }}
         >
           {isLoading && (!onDemandLoading || hasUserInteracted) ? (
