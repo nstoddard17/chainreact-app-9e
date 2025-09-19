@@ -124,13 +124,118 @@ export async function notionUpdatePage(
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
-    
+
     const pageId = context.dataFlowManager.resolveVariable(config.page_id)
-    const properties = context.dataFlowManager.resolveVariable(config.properties) || {}
+    let properties = context.dataFlowManager.resolveVariable(config.properties) || {}
     const archived = context.dataFlowManager.resolveVariable(config.archived)
-    
-    const payload: any = { properties }
-    
+    const title = context.dataFlowManager.resolveVariable(config.title)
+
+    // Process properties to ensure proper format
+    const processedProperties: any = {}
+
+    // Handle title property - it might come from config.title or be in properties
+    let titleHandled = false
+
+    // Check if title is provided as a separate config field
+    if (title && title !== '') {
+      processedProperties.title = {
+        title: [
+          {
+            type: 'text',
+            text: {
+              content: title
+            }
+          }
+        ]
+      }
+      titleHandled = true
+    }
+
+    for (const [key, value] of Object.entries(properties)) {
+      // Handle title property specially
+      if (key === 'title') {
+        if (titleHandled) {
+          // Skip if we already handled title from config
+          continue
+        }
+        // Check if title needs formatting
+        if (typeof value === 'string' && value !== '') {
+          // Format string title properly
+          processedProperties.title = {
+            title: [
+              {
+                type: 'text',
+                text: {
+                  content: value
+                }
+              }
+            ]
+          }
+        } else if (typeof value === 'object' && value !== null && value.title) {
+          // Already formatted, use as-is
+          processedProperties.title = value
+        }
+        // Skip if empty or invalid
+        continue
+      }
+
+      // List of keys that are block content, not page properties
+      const blockContentKeys = [
+        'todo-items',
+        'toggle-content',
+        'document-embed',
+        'code-block',
+        'callout-content'
+      ]
+
+      // Skip block content fields - these should be handled through blocks API
+      if (blockContentKeys.some(blockKey => key.includes(blockKey))) {
+        console.log(`Skipping block content field: ${key}`)
+        continue
+      }
+
+      // Skip properties that contain '-content' suffix as they're usually block content
+      if (key.includes('-content')) {
+        console.log(`Skipping content field: ${key}`)
+        continue
+      }
+
+      // Skip empty values
+      if (value === undefined || value === null || value === '') {
+        continue
+      }
+
+      // For object values, check if they're properly formatted Notion properties
+      if (typeof value === 'object' && value !== null) {
+        // Check if this looks like a Notion property (has a type field)
+        if (value.type && typeof value.type === 'string') {
+          // This appears to be a properly formatted Notion property
+          processedProperties[key] = value
+        } else if (value.items || value.blocks || value.children) {
+          // This looks like block content, skip it
+          console.log(`Skipping property ${key} - appears to be block content`)
+          continue
+        } else {
+          // For other objects, add them as-is and let Notion API validate
+          processedProperties[key] = value
+        }
+      } else {
+        // Add simple string/number/boolean values
+        processedProperties[key] = value
+      }
+    }
+
+    properties = processedProperties
+
+    // Debug logging
+    console.log('Processed properties for Notion update:', JSON.stringify(properties, null, 2))
+
+    // Only include properties in payload if we have any to update
+    const payload: any = {}
+    if (Object.keys(properties).length > 0) {
+      payload.properties = properties
+    }
+
     if (archived !== undefined) {
       payload.archived = archived
     }
@@ -150,6 +255,20 @@ export async function notionUpdatePage(
     } else if (config.cover_type === "remove") {
       payload.cover = null
     }
+
+    // Check if we have anything to update
+    if (Object.keys(payload).length === 0) {
+      console.log('No fields to update for Notion page')
+      return {
+        success: true,
+        output: {
+          page_id: pageId,
+          message: 'No changes to apply'
+        }
+      }
+    }
+
+    console.log('Final payload for Notion update:', JSON.stringify(payload, null, 2))
 
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
 
@@ -409,13 +528,31 @@ export async function notionAppendBlocks(
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
-    
+
     const pageId = context.dataFlowManager.resolveVariable(config.page_id)
     const blocks = context.dataFlowManager.resolveVariable(config.blocks)
     const after = context.dataFlowManager.resolveVariable(config.after)
-    
+
+    console.log('📝 notionAppendBlocks - config:', config)
+    console.log('📝 notionAppendBlocks - resolved blocks:', blocks)
+
+    // Ensure blocks is an array
+    const blocksArray = Array.isArray(blocks) ? blocks : []
+
+    // Don't make API call if there are no blocks to append
+    if (blocksArray.length === 0) {
+      console.log('📝 notionAppendBlocks - No blocks to append, skipping')
+      return {
+        success: true,
+        output: {
+          message: 'No blocks to append',
+          page_id: pageId
+        }
+      }
+    }
+
     const payload: any = {
-      children: blocks
+      children: blocksArray
     }
 
     if (after) {
@@ -454,7 +591,12 @@ export async function notionUpdateBlock(
     const blockId = context.dataFlowManager.resolveVariable(config.block_id)
     const blockContent = context.dataFlowManager.resolveVariable(config.block_content)
     const archived = config.archived
-    
+
+    console.log('📝 notionUpdateBlock - Updating block:', {
+      blockId,
+      blockContent
+    })
+
     const payload: any = blockContent
 
     if (archived !== undefined) {

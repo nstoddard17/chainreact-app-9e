@@ -238,6 +238,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
           content = block[blockType].rich_text.map((t: any) => t.plain_text).join('')
           blockProperties.push({
             id: `${block.id}-content`,
+            blockId: block.id,  // Preserve the actual Notion block ID
             type: 'text',
             label: 'Content',
             value: content
@@ -307,6 +308,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
           label: 'To-Do List',
           items: todoBlocks.map(todo => ({
             id: todo.id,
+            blockId: todo.id,  // Preserve the actual Notion block ID
             content: todo.content,
             checked: todo.checked
           }))
