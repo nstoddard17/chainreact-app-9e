@@ -452,23 +452,51 @@ export function GenericConfiguration({
 
     // Validate required fields (only for visible fields)
     const allFields = [...baseFields, ...advancedFields];
-    const requiredFields = allFields.filter(f => f.required && shouldShowField(f));
+
+    // Debug log for Notion validation
+    if (nodeInfo?.type?.includes('notion')) {
+      console.log('🔍 [GenericConfig] Notion validation debug:', {
+        nodeType: nodeInfo.type,
+        operation: values.operation,
+        allFieldsCount: allFields.length,
+        visibleFields: allFields.filter(f => shouldShowField(f)).map(f => f.name),
+        requiredVisibleFields: allFields.filter(f => f.required && shouldShowField(f)).map(f => f.name),
+        currentValues: values
+      });
+    }
+
+    // When there are multiple fields with the same name (e.g., title for pages vs databases),
+    // only validate the visible one. Use a Map to track field names we've already validated.
+    const validatedFieldNames = new Set<string>();
     const errors: Record<string, string> = {};
 
     console.log('📋 [GenericConfiguration] Validating fields:', {
       totalFields: allFields.length,
-      requiredFields: requiredFields.map(f => f.name),
+      visibleFields: allFields.filter(f => shouldShowField(f)).map(f => f.name),
       currentValues: values
     });
 
-    requiredFields.forEach(field => {
-      if (!values[field.name] && values[field.name] !== 0 && values[field.name] !== false) {
-        errors[field.name] = `${field.label || field.name} is required`;
+    allFields.forEach(field => {
+      // Skip if we've already validated this field name
+      if (validatedFieldNames.has(field.name)) {
+        return;
+      }
+
+      // Only validate if field is required AND visible
+      if (field.required && shouldShowField(field)) {
+        if (!values[field.name] && values[field.name] !== 0 && values[field.name] !== false) {
+          errors[field.name] = `${field.label || field.name} is required`;
+        }
+        validatedFieldNames.add(field.name);
       }
     });
 
     if (Object.keys(errors).length > 0) {
-      console.log('🚫 [GenericConfiguration] Validation errors:', errors);
+      console.error('❌ [GenericConfiguration] Validation failed:', {
+        errors,
+        validatedFields: Array.from(validatedFieldNames),
+        values
+      });
       setValidationErrors(errors);
       // Focus on first error field
       const firstErrorField = Object.keys(errors)[0];
