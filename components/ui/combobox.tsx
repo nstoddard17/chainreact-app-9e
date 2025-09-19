@@ -140,7 +140,7 @@ export function Combobox({
   }, [open])
   
   // Fix selectedOption logic - check if value exists in options or is a custom value
-  const selectedOption = localOptions.find((option) => option.value === value) || 
+  const selectedOption = localOptions.find((option) => option.value === value) ||
     (value && creatable ? { value, label: value } : null);
 
   const handleSelect = (currentValue: string) => {
