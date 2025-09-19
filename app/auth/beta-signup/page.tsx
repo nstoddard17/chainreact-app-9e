@@ -265,7 +265,7 @@ function BetaSignupContent() {
       }
 
       if (data?.user) {
-        // Create the user profile with username and role - this is CRITICAL
+        // Create the user profile using service role API to bypass RLS
         let profileCreated = false
         let retryCount = 0
         const maxRetries = 3
@@ -274,68 +274,43 @@ function BetaSignupContent() {
           try {
             console.log(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
 
-            // Use service role client for profile operations to bypass RLS
-            const { data: profileData, error: profileError } = await supabase
-              .from('user_profiles')
-              .upsert({
-                id: data.user.id,
-                username: username,
-                full_name: fullName,
-                role: 'beta-pro',
-                provider: 'email',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'id',
-                ignoreDuplicates: false
-              })
-              .select()
-              .single()
+            // Use API endpoint with service role to bypass RLS
+            const response = await fetch('/api/create-beta-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: data.user.id,
+                username: username.toLowerCase().trim(),
+                fullName: fullName,
+                email: email
+              }),
+            })
 
-            if (profileError) {
-              console.error(`Profile creation attempt ${retryCount + 1} failed:`, profileError)
-              retryCount++
-              if (retryCount < maxRetries) {
-                // Wait before retry with exponential backoff
-                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
-                continue
-              } else {
-                throw profileError
-              }
+            const result = await response.json()
+
+            if (response.ok && result.success) {
+              console.log("Profile created successfully:", result.profile)
+              profileCreated = true
+            } else {
+              throw new Error(result.error || 'Failed to create profile')
             }
 
-            // Verify the profile was created successfully
-            const { data: verifyProfile, error: verifyError } = await supabase
-              .from('user_profiles')
-              .select('id, username, role')
-              .eq('id', data.user.id)
-              .single()
-
-            if (verifyError || !verifyProfile || !verifyProfile.username) {
-              console.error("Profile verification failed:", verifyError)
-              retryCount++
-              if (retryCount < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
-                continue
-              } else {
-                throw new Error("Profile verification failed after creation")
-              }
-            }
-
-            console.log("Profile created and verified successfully:", verifyProfile)
-            profileCreated = true
-
-          } catch (err) {
+          } catch (err: any) {
             console.error(`Profile creation attempt ${retryCount + 1} error:`, err)
-            if (retryCount >= maxRetries - 1) {
-              // Profile creation failed after all retries - this is critical
-              console.error("Failed to create user profile after all retries:", err)
+            retryCount++
 
-              // Delete the auth user since we couldn't complete the signup properly
-              // This prevents them from being stuck in a bad state
+            if (retryCount >= maxRetries) {
+              // Profile creation failed after all retries
+              console.error("Failed to create user profile after all retries. Error details:", {
+                error: err,
+                message: err?.message
+              })
+
               toast({
-                title: "Signup Error",
-                description: "There was an error creating your account. Please try again or contact support.",
+                title: "Profile Creation Failed",
+                description: "Unable to create your profile. Please try again or contact support.",
                 variant: "destructive"
               })
 
@@ -343,33 +318,31 @@ function BetaSignupContent() {
               setLoading(false)
               return
             }
-            retryCount++
+
+            // Wait before retry with exponential backoff
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
           }
         }
 
-        // Update beta tester status to converted and confirm email
+        // Update beta tester status to converted AFTER user creation
         try {
-          // Update beta tester status
-          const { error: betaUpdateError } = await supabase
-            .from('beta_testers')
-            .update({
-              status: 'converted',
-              conversion_date: new Date().toISOString()
-            })
-            .eq('email', email)
+          // Use RPC to mark beta tester as converted
+          const { error: convertError } = await supabase.rpc('mark_beta_tester_converted', {
+            user_email: email
+          })
 
-          if (betaUpdateError) {
-            console.error("Failed to update beta tester status:", betaUpdateError)
+          if (convertError) {
+            console.error("Failed to mark beta tester as converted:", convertError)
           }
 
-          // Call function to confirm email for beta testers
+          // Try to confirm email for beta testers (if function exists)
           const { error: confirmError } = await supabase.rpc('confirm_beta_tester_email', {
             user_email: email
           })
 
           if (confirmError) {
             console.error("Failed to confirm email:", confirmError)
+            // Not critical - user can confirm via email
           }
         } catch (err) {
           console.error("Error updating beta tester status:", err)

@@ -295,16 +295,24 @@ export default function BetaTestersContent() {
   const handleSendConversionOffer = async (tester: BetaTester, isResend: boolean = false) => {
     setSendingOffer(tester.id)
     try {
-      // If resending, clear the previous offer timestamp first
+      // If resending, clear the previous offer timestamp and token first
       if (isResend) {
         const supabase = createClient()
-        await supabase
+        const { error: clearError } = await supabase
           .from("beta_testers")
           .update({
             conversion_offer_sent_at: null,
-            signup_token: null
+            signup_token: null,
+            status: 'active' // Ensure status is active for resend
           })
           .eq("id", tester.id)
+
+        if (clearError) {
+          console.error("Error clearing previous offer:", clearError)
+        }
+
+        // Small delay to ensure the update is processed
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
 
       const response = await fetch("/api/admin/beta-testers/send-offer", {
@@ -325,7 +333,9 @@ export default function BetaTestersContent() {
           title: isResend ? "Offer Resent" : "Offer Sent",
           description: `Beta invitation ${isResend ? 'resent' : 'sent'} to ${tester.email}`,
         })
-        fetchBetaTesters()
+        // Add a small delay before refetching to ensure database is updated
+        await new Promise(resolve => setTimeout(resolve, 500))
+        await fetchBetaTesters()
       } else {
         toast({
           title: "Error",
@@ -334,6 +344,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
+      console.error("Error sending offer:", error)
       toast({
         title: "Error",
         description: "Failed to send offer",
@@ -370,6 +381,18 @@ export default function BetaTestersContent() {
 
   const handleSendOffersToAll = async () => {
     try {
+      // First, clear any existing tokens/timestamps for eligible testers if resending
+      const eligibleTesters = betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at)
+
+      if (eligibleTesters.length === 0) {
+        toast({
+          title: "No Eligible Testers",
+          description: "All active testers have already received invitations",
+          variant: "default"
+        })
+        return
+      }
+
       const response = await fetch("/api/admin/beta-testers/send-offer", {
         method: "POST",
         headers: {
@@ -387,7 +410,9 @@ export default function BetaTestersContent() {
           title: "Offers Sent",
           description: data.message || `Sent ${data.count} beta invitations`,
         })
-        fetchBetaTesters()
+        // Add a small delay before refetching to ensure database is updated
+        await new Promise(resolve => setTimeout(resolve, 500))
+        await fetchBetaTesters()
       } else {
         toast({
           title: "Error",
@@ -396,6 +421,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
+      console.error("Error sending offers to all:", error)
       toast({
         title: "Error",
         description: "Failed to send offers",
@@ -408,6 +434,27 @@ export default function BetaTestersContent() {
     setSendingMassInvites(true)
     try {
       const testerIds = Array.from(selectedTesters)
+
+      // Clear existing tokens for selected testers that might have been sent before
+      const supabase = createClient()
+      for (const testerId of testerIds) {
+        const tester = betaTesters.find(t => t.id === testerId)
+        if (tester?.conversion_offer_sent_at) {
+          await supabase
+            .from("beta_testers")
+            .update({
+              conversion_offer_sent_at: null,
+              signup_token: null
+            })
+            .eq("id", testerId)
+        }
+      }
+
+      // Small delay to ensure updates are processed
+      if (testerIds.some(id => betaTesters.find(t => t.id === id)?.conversion_offer_sent_at)) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
       const response = await fetch("/api/admin/beta-testers/send-offer", {
         method: "POST",
         headers: {
@@ -428,7 +475,9 @@ export default function BetaTestersContent() {
         })
         setSelectedTesters(new Set())
         setShowMassInviteDialog(false)
-        fetchBetaTesters()
+        // Add delay before refetch
+        await new Promise(resolve => setTimeout(resolve, 500))
+        await fetchBetaTesters()
       } else {
         toast({
           title: "Error",
@@ -437,6 +486,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
+      console.error("Error sending mass invites:", error)
       toast({
         title: "Error",
         description: "Failed to send invites",
@@ -448,13 +498,13 @@ export default function BetaTestersContent() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedTesters.size === betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length) {
+    if (selectedTesters.size === betaTesters.filter(t => t.status === 'active').length) {
       setSelectedTesters(new Set())
     } else {
-      const eligibleIds = betaTesters
-        .filter(t => t.status === 'active' && !t.conversion_offer_sent_at)
+      const activeIds = betaTesters
+        .filter(t => t.status === 'active')
         .map(t => t.id)
-      setSelectedTesters(new Set(eligibleIds))
+      setSelectedTesters(new Set(activeIds))
     }
   }
 
@@ -615,9 +665,40 @@ export default function BetaTestersContent() {
             disabled={betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length === 0}
           >
             <Mail className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Send Offer to All</span>
-            <span className="sm:hidden">Send All</span>
+            <span className="hidden sm:inline">Send to New</span>
+            <span className="sm:hidden">New</span>
           </Button>
+          {betaTesters.filter(t => t.status === 'active' && t.conversion_offer_sent_at).length > 0 && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const sentTesters = betaTesters.filter(t => t.status === 'active' && t.conversion_offer_sent_at)
+                if (confirm(`Resend invites to ${sentTesters.length} testers who already received them?`)) {
+                  // Clear all sent timestamps first
+                  const supabase = createClient()
+                  await supabase
+                    .from("beta_testers")
+                    .update({
+                      conversion_offer_sent_at: null,
+                      signup_token: null
+                    })
+                    .eq("status", "active")
+                    .not("conversion_offer_sent_at", "is", null)
+
+                  // Wait for update
+                  await new Promise(resolve => setTimeout(resolve, 500))
+
+                  // Then send to all
+                  await handleSendOffersToAll()
+                }
+              }}
+              className="flex-shrink-0"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Resend to All</span>
+              <span className="sm:hidden">Resend</span>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setShowMigrationDialog(true)} className="flex-shrink-0">
             <RefreshCw className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Process Expirations</span>
@@ -659,9 +740,9 @@ export default function BetaTestersContent() {
                         <tr>
                           <th className="text-left p-4 font-medium w-12">
                             <Checkbox
-                              checked={selectedTesters.size === betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length && betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length > 0}
+                              checked={selectedTesters.size === betaTesters.filter(t => t.status === 'active').length && betaTesters.filter(t => t.status === 'active').length > 0}
                               onCheckedChange={toggleSelectAll}
-                              aria-label="Select all eligible testers"
+                              aria-label="Select all active testers"
                             />
                           </th>
                           <th className="text-left p-4 font-medium">Email</th>
@@ -682,14 +763,14 @@ export default function BetaTestersContent() {
                           </tr>
                         ) : (
                           betaTesters.map((tester) => {
-                            const isEligible = tester.status === 'active' && !tester.conversion_offer_sent_at
+                            const isActive = tester.status === 'active'
                             return (
                               <tr key={tester.id} className="border-b hover:bg-muted/50 transition-colors">
                                 <td className="p-4">
                                   <Checkbox
                                     checked={selectedTesters.has(tester.id)}
                                     onCheckedChange={() => toggleSelectTester(tester.id)}
-                                    disabled={!isEligible}
+                                    disabled={!isActive}
                                     aria-label={`Select ${tester.email}`}
                                   />
                                 </td>
