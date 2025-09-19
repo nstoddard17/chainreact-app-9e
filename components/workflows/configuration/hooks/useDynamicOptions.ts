@@ -63,6 +63,20 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       ...prev,
       [fieldName]: []
     }));
+
+    // Also clear from cache
+    delete optionsCache.current[fieldName];
+
+    // Clear session storage cache for specific field types
+    if (fieldName === 'boardId') {
+      // Clear Trello boards cache from session storage
+      try {
+        sessionStorage.removeItem('chainreact_cache_trello_boards');
+        console.log('🗑️ [useDynamicOptions] Cleared Trello boards cache from session storage');
+      } catch (e) {
+        console.warn('Failed to clear session storage:', e);
+      }
+    }
   }, []);
   
   // Load options for a dynamic field with request deduplication
@@ -136,7 +150,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
-    
+
+    // Debug logging for Trello template field
+    if (fieldName === 'template' && providerId === 'trello') {
+      console.log('[useDynamicOptions] Loading Trello template field:', {
+        fieldName,
+        nodeType,
+        providerId,
+        resourceType,
+        forceRefresh,
+        silent
+      });
+    }
+
     // Create AbortController for this request
     const abortController = new AbortController();
     abortControllers.current.set(cacheKey, abortController);
@@ -343,32 +369,56 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
       // Get integration for other providers
       integration = getIntegrationByProvider(providerId);
-      
+
+      // Special logging for Trello template field
+      if (fieldName === 'template' && providerId === 'trello') {
+        console.log('🎯 [useDynamicOptions] Trello template field integration check:', {
+          providerId,
+          fieldName,
+          integrationFound: !!integration,
+          integrationId: integration?.id,
+          integrationStatus: integration?.status,
+          resourceType
+        });
+      }
+
       console.log('🔍 [useDynamicOptions] Looking for integration:', {
         providerId,
         fieldName,
         integrationFound: !!integration,
         integrationId: integration?.id
       });
-      
+
       if (!integration) {
         console.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
-        // Clear the field data
-        setDynamicOptions(prev => ({
-          ...prev,
-          [fieldName]: []
-        }));
-        // Only clear loading if this is still the current request
-        if (activeRequestIds.current.get(cacheKey) === requestId) {
-          loadingFields.current.delete(cacheKey);
-          setLoading(false);
-          activeRequestIds.current.delete(cacheKey);
-          // Clear loading state via callback
-          if (!silent) {
-            onLoadingChangeRef.current?.(fieldName, false);
+
+        // Special handling for Trello board templates - they don't require integration
+        if (resourceType === 'trello_board_templates') {
+          console.log('📋 [useDynamicOptions] Loading Trello templates without integration');
+          // Create a fake integration object for the templates
+          integration = {
+            id: 'trello-templates-fake',
+            provider: 'trello',
+            status: 'connected'
+          };
+        } else {
+          // Clear the field data
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+          // Only clear loading if this is still the current request
+          if (activeRequestIds.current.get(cacheKey) === requestId) {
+            loadingFields.current.delete(cacheKey);
+            setLoading(false);
+            activeRequestIds.current.delete(cacheKey);
+            // Clear loading state via callback
+            if (!silent) {
+              onLoadingChangeRef.current?.(fieldName, false);
+            }
           }
+          return;
         }
-        return;
       }
 
       // Special handling for dynamic Airtable fields (linked records)
@@ -798,12 +848,25 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Special handling for Notion page blocks - API expects pageId instead of page
       if (resourceType === 'notion_page_blocks' && dependsOn === 'page') {
         const formValues = getFormValues?.() || {};
-        options = { 
+        options = {
           pageId: dependsOnValue,
           workspace: formValues.workspace // Include workspace for proper token selection
         };
       }
-      
+
+      // Special handling for Trello cards - API expects boardId but the field depends on boardId
+      if (resourceType === 'trello_cards' && dependsOn === 'boardId') {
+        console.log('🎯 [useDynamicOptions] Special handling for Trello cards:', {
+          fieldName,
+          resourceType,
+          dependsOn,
+          dependsOnValue,
+          originalOptions: options
+        });
+        options = { boardId: dependsOnValue };
+        console.log('🎯 [useDynamicOptions] Updated options for Trello cards:', options);
+      }
+
       // For Google Sheets sheets, don't call API without spreadsheetId
       if (fieldName === 'sheetName' && resourceType === 'google-sheets_sheets' && !dependsOnValue) {
         return;
@@ -1150,7 +1213,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Check session storage for cached templates (for fields that support caching)
       let formattedOptions: any[] = [];
       let dataFetched = false;
-      
+
       if (resourceType === 'trello_board_templates' && !forceRefresh) {
         // Try to get from session storage
         const sessionCacheKey = `chainreact_cache_${resourceType}`;
@@ -1163,6 +1226,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               console.log('📦 [useDynamicOptions] Using cached board templates');
               formattedOptions = parsedCache.data;
               dataFetched = true;
+            } else {
+              console.log('⏰ [useDynamicOptions] Cache expired for board templates, will fetch fresh');
+              // Clear expired cache
+              sessionStorage.removeItem(sessionCacheKey);
             }
           }
         } catch (e) {
@@ -1172,42 +1239,80 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       
       // If not cached or cache disabled, fetch from API
       if (!dataFetched) {
-        const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
-        
-        // Check if this is still the current request
-        // This is crucial because loadIntegrationData might not support abort signals
-        if (activeRequestIds.current.get(cacheKey) !== requestId) {
-          // Special handling for fields that should always use fresh data when available
-          // Include Slack channels and Trello boards since they're critical for actions
-          if (fieldName === 'authorFilter' || 
-              fieldName === 'channel' || 
-              resourceType === 'slack_channels' ||
-              fieldName === 'boardId' ||
-              resourceType === 'trello_boards') {
-            console.log(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
-            // Continue to update state for these critical fields
+        try {
+          console.log('📡 [useDynamicOptions] Calling loadIntegrationData:', {
+            fieldName,
+            resourceType,
+            integrationId: integration.id,
+            options,
+            dependsOn,
+            dependsOnValue
+          });
+          const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
+
+          // Check if this is still the current request
+          // This is crucial because loadIntegrationData might not support abort signals
+          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            // Special handling for fields that should always use fresh data when available
+            // Include Slack channels, Trello boards, and Trello lists since they're critical for actions
+            if (fieldName === 'authorFilter' ||
+                fieldName === 'channel' ||
+                resourceType === 'slack_channels' ||
+                fieldName === 'boardId' ||
+                resourceType === 'trello_boards' ||
+                resourceType === 'trello_board_templates' ||
+                fieldName === 'listId' ||
+                resourceType === 'trello_lists' ||
+                fieldName === 'cardId' ||
+                resourceType === 'trello_cards') {
+              console.log(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
+              // Continue to update state for these critical fields
+            } else {
+              console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
+              // Clear loading state for superseded request to prevent stuck loading
+              if (loadingFields.current.has(cacheKey)) {
+                loadingFields.current.delete(cacheKey);
+                setLoading(false);
+                console.log(`🧹 [useDynamicOptions] Cleared loading state for superseded ${fieldName}`);
+              }
+              return; // Don't update state if this request was superseded for other fields
+            }
+          }
+
+          // Format the results - extract data array from response object if needed
+          const dataArray = result.data || result;
+          formattedOptions = formatOptionsForField(fieldName, dataArray);
+        } catch (apiError: any) {
+          console.error(`❌ [useDynamicOptions] Failed to load ${resourceType}:`, apiError);
+
+          // For Trello board templates, use hardcoded fallback if API fails
+          if (resourceType === 'trello_board_templates') {
+            console.log('🔄 [useDynamicOptions] Using fallback Trello templates');
+            formattedOptions = [
+              { value: 'basic', label: 'Basic Board' },
+              { value: 'kanban', label: 'Kanban Board' },
+              { value: 'project-management', label: 'Project Management' },
+              { value: 'agile-board', label: 'Agile Board' },
+              { value: 'simple-project-board', label: 'Simple Project Board' },
+              { value: 'weekly-planner', label: 'Weekly Planner' }
+            ];
           } else {
-            console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
-            return; // Don't update state if this request was superseded for other fields
+            throw apiError; // Re-throw for other fields
           }
         }
-        
-        // Format the results - extract data array from response object if needed
-        const dataArray = result.data || result;
-        formattedOptions = formatOptionsForField(fieldName, dataArray);
-        
-        // Cache board templates in session storage
-        if (resourceType === 'trello_board_templates' && formattedOptions.length > 0) {
-          const sessionCacheKey = `chainreact_cache_${resourceType}`;
-          try {
-            sessionStorage.setItem(sessionCacheKey, JSON.stringify({
-              data: formattedOptions,
-              timestamp: Date.now()
-            }));
-            console.log('💾 [useDynamicOptions] Cached board templates to session storage');
-          } catch (e) {
-            console.warn('Failed to write to session storage:', e);
-          }
+      }
+
+      // Cache board templates in session storage
+      if (resourceType === 'trello_board_templates' && formattedOptions.length > 0) {
+        const sessionCacheKey = `chainreact_cache_${resourceType}`;
+        try {
+          sessionStorage.setItem(sessionCacheKey, JSON.stringify({
+            data: formattedOptions,
+            timestamp: Date.now()
+          }));
+          console.log('💾 [useDynamicOptions] Cached board templates to session storage');
+        } catch (e) {
+          console.warn('Failed to write to session storage:', e);
         }
       }
       
@@ -1467,13 +1572,26 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Reset auth retry count
       authErrorRetryCount = 0;
 
-      // Clear dynamic options to force fresh load next time
-      setDynamicOptions({});
+      // Don't clear dynamic options here - they might be needed for saved values
+      // The options will be updated when new data loads
+      // setDynamicOptions({}); // REMOVED - this was clearing saved options
 
       console.log('✅ [useDynamicOptions] Cleanup complete');
     };
   }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
-  
+
+  // Log when initialOptions are provided
+  useEffect(() => {
+    if (initialOptions && Object.keys(initialOptions).length > 0) {
+      console.log('📥 [useDynamicOptions] Hook initialized with saved options:', {
+        fields: Object.keys(initialOptions),
+        counts: Object.entries(initialOptions).map(([key, value]) =>
+          ({ field: key, count: Array.isArray(value) ? value.length : 0 })
+        )
+      });
+    }
+  }, []); // Only log on mount
+
   // Debug logging for current state
   useEffect(() => {
     const airtableFields = Object.keys(dynamicOptions).filter(key =>

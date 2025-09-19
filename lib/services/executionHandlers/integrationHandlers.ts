@@ -556,6 +556,21 @@ export class IntegrationNodeHandlers {
 
         return moveCardResult.output
 
+      case "trello_action_create_board":
+        // Import and use the actual Trello create board handler
+        const { createTrelloBoard } = await import("@/lib/workflows/actions/trello")
+        const createBoardResult = await createTrelloBoard(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createBoardResult.success) {
+          throw new Error(createBoardResult.message || "Failed to create Trello board")
+        }
+
+        return createBoardResult.output
+
       default:
         throw new Error(`Unknown Trello action type: ${nodeType}`)
     }

@@ -127,11 +127,17 @@ export function FieldRenderer({
   setFieldValue,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
-  const [inputMode, setInputMode] = useState(
-    field.type === 'file-with-toggle'
-      ? (field.toggleOptions?.defaultMode || field.toggleOptions?.modes?.[0] || 'upload')
-      : 'upload'
-  );
+  const [inputMode, setInputMode] = useState(() => {
+    if (field.type === 'file-with-toggle') {
+      // Check if we have a saved value that indicates the mode
+      if (value?.mode) {
+        return value.mode;
+      }
+      // Otherwise use the default
+      return field.toggleOptions?.defaultMode || field.toggleOptions?.modes?.[0] || 'upload';
+    }
+    return 'upload';
+  });
 
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options ||
@@ -278,7 +284,38 @@ export function FieldRenderer({
           switch (inputMode) {
             case 'upload':
               // Use FileUpload component for consistent styling
-              const fileValue = value ? (Array.isArray(value) ? value : [value]) : undefined;
+              let fileValue;
+              if (integrationProvider === 'trello' && field.name === 'attachment') {
+                // Log the value structure for debugging
+                console.log('[FieldRenderer] Trello attachment value:', {
+                  value,
+                  valueType: typeof value,
+                  hasFile: !!value?.file,
+                  hasMode: !!value?.mode,
+                  hasUrl: !!value?.url,
+                  directUrl: value?.url?.substring(0, 50),
+                  fileUrl: value?.file?.url?.substring(0, 50),
+                  fileName: value?.file?.name || value?.name,
+                  fileSize: value?.file?.size || value?.size,
+                  fileType: value?.file?.type || value?.type
+                });
+
+                // Handle different value structures
+                if (value?.file) {
+                  // Structure: { mode: 'upload', file: { url, name, size, type } }
+                  fileValue = [value.file];
+                } else if (value?.url && value?.mode === 'upload') {
+                  // Structure: { mode: 'upload', url, name, size, type }
+                  fileValue = [{ url: value.url, name: value.name, size: value.size, type: value.type }];
+                } else if (value && !value.mode) {
+                  // Direct file object: { url, name, size, type }
+                  fileValue = [value];
+                } else {
+                  fileValue = undefined;
+                }
+              } else {
+                fileValue = value ? (Array.isArray(value) ? value : [value]) : undefined;
+              }
               return (
                 <FileUpload
                   value={fileValue}
@@ -340,6 +377,27 @@ export function FieldRenderer({
                         } else {
                           onChange(files[0]);
                         }
+                      } else if (integrationProvider === 'trello' && field.name === 'attachment') {
+                        // For Trello attachment field, convert to base64 for persistence
+                        const file = files[0]; // Single file attachment
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            // Store with mode and file data so it can be saved and retrieved
+                            onChange({
+                              mode: 'upload',
+                              file: {
+                                url: reader.result, // This is the base64 data URL
+                                name: file.name,
+                                size: file.size,
+                                type: file.type
+                              }
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        } else {
+                          onChange(null);
+                        }
                       } else {
                         // For non-Slack or non-attachment fields, use standard handling
                         onChange(field.multiple ? files : files[0]);
@@ -360,8 +418,15 @@ export function FieldRenderer({
               return (
                 <Input
                   type="text"
-                  value={value || ''}
-                  onChange={(e) => onChange(e.target.value)}
+                  value={integrationProvider === 'trello' && field.name === 'attachment' && value?.url ? value.url : (value || '')}
+                  onChange={(e) => {
+                    if (integrationProvider === 'trello' && field.name === 'attachment') {
+                      // Store with mode for Trello attachments
+                      onChange({ mode: 'url', url: e.target.value });
+                    } else {
+                      onChange(e.target.value);
+                    }
+                  }}
                   placeholder={placeholders.url}
                   className={cn(error && "border-red-500")}
                 />
@@ -377,7 +442,24 @@ export function FieldRenderer({
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setInputMode(mode)}
+                  onClick={() => {
+                    setInputMode(mode);
+                    // Clear the value when switching modes for Trello attachments
+                    if (integrationProvider === 'trello' && field.name === 'attachment') {
+                      // When switching modes, update the value to reflect the new mode
+                      if (mode === 'upload') {
+                        // Switching to upload mode - clear URL if present
+                        if (value?.mode === 'url') {
+                          onChange(undefined);
+                        }
+                      } else if (mode === 'url') {
+                        // Switching to URL mode - clear file if present
+                        if (value?.mode === 'upload') {
+                          onChange(undefined);
+                        }
+                      }
+                    }
+                  }}
                   className={cn(
                     "flex-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
                     inputMode === mode
