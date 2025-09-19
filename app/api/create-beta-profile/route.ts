@@ -71,16 +71,26 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update beta tester status to converted
+    // Update beta tester status to converted (if they exist and haven't already converted)
     if (email) {
-      await supabaseAdmin
-        .from('beta_testers')
-        .update({
-          status: 'converted',
-          conversion_date: new Date().toISOString()
-        })
-        .eq('email', email)
-        .eq('status', 'active')
+      try {
+        const { error } = await supabaseAdmin
+          .from('beta_testers')
+          .update({
+            status: 'converted',
+            conversion_date: new Date().toISOString()
+          })
+          .eq('email', email)
+          .neq('status', 'converted') // Update any status except already converted
+
+        // Don't throw error if update fails - it's not critical for signup
+        if (error) {
+          console.log('Note: Could not update beta tester status (non-critical):', error.message)
+        }
+      } catch (err) {
+        // Log but don't fail the signup
+        console.log('Note: Beta tester status update skipped (non-critical):', err)
+      }
     }
 
     return NextResponse.json({
