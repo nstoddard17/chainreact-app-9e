@@ -30,12 +30,15 @@ function BetaSignupContent() {
     const urlEmail = searchParams.get("email")
     const token = searchParams.get("token")
 
-    if (urlEmail) {
-      setEmail(decodeURIComponent(urlEmail))
+    // Decode the email from URL encoding
+    const decodedEmail = urlEmail ? decodeURIComponent(urlEmail) : null
+
+    if (decodedEmail) {
+      setEmail(decodedEmail)
     }
 
-    // Validate the token
-    validateToken(token, urlEmail)
+    // Validate the token with the decoded email
+    validateToken(token, decodedEmail)
   }, [searchParams])
 
   const validateToken = async (token: string | null, urlEmail: string | null) => {
