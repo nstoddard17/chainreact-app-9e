@@ -894,22 +894,20 @@ export function FieldRenderer({
             {field.description && (
               <p className="text-xs text-muted-foreground">{field.description}</p>
             )}
-            {/* Show loading state for dynamic fields */}
-            {loadingDynamic && field.dynamic ? (
-              <div className="flex items-center gap-2 h-10 px-3 py-2 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                <span>Loading {field.label?.toLowerCase() || 'options'}...</span>
-              </div>
-            ) : (
-              <Combobox
-                value={value || ""}
-                onChange={onChange}
-                options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions}  // Show existing options while loading new ones
-                placeholder={field.placeholder || `Select ${field.label || field.name}...`}
-                searchPlaceholder={`Search ${field.label || field.name}...`}
-                emptyPlaceholder={loadingDynamic ? "Refreshing options..." : getComboboxEmptyMessage(field)}
-                disabled={false}  // Don't disable during loading so dropdown can stay open
-                creatable={field.creatable || false}
+            {/* Always show Combobox, even while loading, so saved values are visible */}
+            <Combobox
+              value={value || ""}
+              onChange={onChange}
+              options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions}  // Show existing options while loading new ones
+              placeholder={
+                loadingDynamic && field.dynamic && !value
+                  ? `Loading ${field.label?.toLowerCase() || 'options'}...`
+                  : (field.placeholder || `Select ${field.label || field.name}...`)
+              }
+              searchPlaceholder={`Search ${field.label || field.name}...`}
+              emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
+              disabled={false}  // Don't disable during loading so dropdown can stay open
+              creatable={field.creatable || false}
                 onOpenChange={(open) => {
                   // Only trigger load on actual open (not close)
                   if (!open) return;
@@ -967,7 +965,6 @@ export function FieldRenderer({
                   });
                 }}
               />
-            )}
             {error && (
               <p className="text-xs text-red-500 mt-1">{error}</p>
             )}

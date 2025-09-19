@@ -167,6 +167,19 @@ function ConfigurationForm({
         if (isLoading) {
           console.log(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
           newSet.add(fieldName);
+
+          // Set a timeout to clear loading state after 10 seconds to prevent infinite loading
+          setTimeout(() => {
+            console.log(`⏱️ [ConfigForm] Timeout reached for ${fieldName}, clearing loading state`);
+            setLoadingFields(prevFields => {
+              const updatedSet = new Set(prevFields);
+              if (updatedSet.has(fieldName)) {
+                console.log(`🧹 [ConfigForm] Force clearing ${fieldName} from loadingFields due to timeout`);
+                updatedSet.delete(fieldName);
+              }
+              return updatedSet;
+            });
+          }, 10000);
         } else {
           console.log(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
           newSet.delete(fieldName);
@@ -406,6 +419,9 @@ function ConfigurationForm({
 
     // Find fields that should load on mount
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
+      // Skip dynamic_fields type - they handle their own data loading
+      if (field.type === 'dynamic_fields') return false;
+
       // Check if field should load on mount
       if (field.loadOnMount === true && field.dynamic) {
         // Check if we already have options for this field
@@ -472,6 +488,9 @@ function ConfigurationForm({
       // Check if it's a dynamic field
       if (!field.dynamic) return false;
 
+      // Skip dynamic_fields type - they handle their own data loading
+      if (field.type === 'dynamic_fields') return false;
+
       // Skip fields that have loadOnMount (they're handled by another useEffect)
       if (field.loadOnMount) return false;
 
@@ -501,6 +520,24 @@ function ConfigurationForm({
             return true;
           }
         }
+      }
+
+      // Special handling for Notion page field
+      if (nodeInfo?.providerId === 'notion' && field.name === 'page' && values.workspace) {
+        console.log(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+        // Always load pages if we have a workspace and a saved page value
+        if (!hasOptions) {
+          return true;
+        }
+        // Check if saved value exists in options
+        const valueExists = fieldOptions.some((opt: any) =>
+          (opt.value === savedValue) || (opt.id === savedValue)
+        );
+        if (!valueExists) {
+          console.log(`🎯 [ConfigForm] Saved page ${savedValue} not found in options, need to reload`);
+          return true;
+        }
+        return false; // Page is already in options
       }
 
       // Always load for dependent fields if parent has value, even if options exist
@@ -540,19 +577,29 @@ function ConfigurationForm({
       );
 
       // Load options for each field with a saved value
-      fieldsWithValues.forEach((field: any) => {
+      fieldsWithValues.forEach(async (field: any) => {
         console.log(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
 
-        // Check if field has dependencies
-        if (field.dependsOn) {
-          const dependsOnValue = values[field.dependsOn];
-          if (dependsOnValue) {
-            console.log(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
-            loadOptions(field.name, field.dependsOn, dependsOnValue);
+        try {
+          // Check if field has dependencies
+          if (field.dependsOn) {
+            const dependsOnValue = values[field.dependsOn];
+            if (dependsOnValue) {
+              console.log(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
+              await loadOptions(field.name, field.dependsOn, dependsOnValue);
+            }
+          } else {
+            // No dependencies, just load the field
+            await loadOptions(field.name);
           }
-        } else {
-          // No dependencies, just load the field
-          loadOptions(field.name);
+        } catch (error) {
+          console.error(`❌ [ConfigForm] Error loading options for ${field.name}:`, error);
+          // Make sure to clear loading state even on error
+          setLoadingFields(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(field.name);
+            return newSet;
+          });
         }
       });
     }
@@ -632,6 +679,11 @@ function ConfigurationForm({
 
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
+    console.log('🎯 [ConfigForm] handleSubmit called with values:', {
+      allValues: submissionValues,
+      pageFieldsValue: submissionValues.pageFields,
+      hasPageFields: 'pageFields' in submissionValues
+    });
     setIsLoading(true);
     try {
       // OPTIMIZATION: Removed immediate Supabase save here.
