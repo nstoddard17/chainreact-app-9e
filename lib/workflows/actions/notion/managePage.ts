@@ -6,7 +6,10 @@ import {
   notionRetrievePage,
   notionArchivePage,
   notionDuplicatePage,
-  notionAppendBlocks
+  notionAppendBlocks,
+  notionRetrieveBlockChildren,
+  notionDeleteBlock,
+  notionUpdateBlock
 } from './handlers';
 
 /**
@@ -288,56 +291,230 @@ export async function executeNotionManagePage(
         return await notionCreatePage(createDbPageConfig, context);
 
       case 'update':
-        // For updates, if content is provided, we need to append it as blocks
-        // since Notion API doesn't support replacing all content in one call
+        // Debug log to see what data we receive
+        console.log('📝 Notion Update - Config received:', {
+          hasPageFields: !!config.pageFields,
+          pageFieldsKeys: config.pageFields ? Object.keys(config.pageFields) : [],
+          pageFieldsData: config.pageFields
+        });
+
+        // Extract block content from pageFields
+        const pageFieldsData = config.pageFields || {};
+        const blockContent: any[] = [];
+        const pageProperties: any = {};
+
+        // Separate block content from page properties
+        for (const [key, value] of Object.entries(pageFieldsData)) {
+          console.log(`📝 Processing field ${key}:`, value);
+
+          // Check if this is block content
+          if (key === 'todo-items' && value && typeof value === 'object') {
+            // Handle todo list blocks
+            const todoData = value as any;
+            console.log('📝 Processing todo-items:', todoData);
+            if (todoData.items && Array.isArray(todoData.items)) {
+              todoData.items.forEach((item: any) => {
+                const todoBlock = {
+                  object: 'block',
+                  type: 'to_do',
+                  to_do: {
+                    rich_text: [{
+                      type: 'text',
+                      text: {
+                        content: item.content || item.text || ''
+                      }
+                    }],
+                    checked: item.checked || false
+                  }
+                };
+                console.log('📝 Adding todo block:', todoBlock);
+                blockContent.push(todoBlock);
+              });
+            }
+          } else if (key.includes('-content') && value) {
+            // Handle other content blocks (text, toggle, etc.)
+            const blockId = key.replace('-content', '');
+            console.log(`📝 Processing content block ${blockId}:`, value);
+            // Determine block type from the ID pattern
+            if (typeof value === 'string' && value.trim()) {
+              // Add as a paragraph block
+              const paragraphBlock = {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                  rich_text: [{
+                    type: 'text',
+                    text: {
+                      content: value
+                    }
+                  }]
+                }
+              };
+              console.log('📝 Adding paragraph block:', paragraphBlock);
+              blockContent.push(paragraphBlock);
+            }
+          } else {
+            // Regular page property
+            console.log(`📝 Adding as page property ${key}:`, value);
+            pageProperties[key] = value;
+          }
+        }
+
+        // Add any content from the content field
         if (config.content) {
-          // First update the page properties
-          const updateConfig = {
-            page_id: config.page,
-            title: config.title,
-            properties: config.pageFields || config.properties,
-            icon_type: config.iconType,
-            icon_emoji: config.iconEmoji,
-            icon_url: config.iconUrl,
-            cover_type: config.coverType,
-            cover_url: config.coverUrl
-          };
-          const updateResult = await notionUpdatePage(updateConfig, context);
+          const contentBlocks = convertContentToBlocks(config.content);
+          blockContent.push(...contentBlocks);
+        }
 
-          // Then append content as new blocks if update was successful
-          if (updateResult.success && config.content) {
-            const appendConfig = {
-              page_id: config.page,
-              children: convertContentToBlocks(config.content)
-            };
-            const appendResult = await notionAppendBlocks(appendConfig, context);
+        // Debug log the extracted content
+        console.log('📝 Notion Update - Extracted content:', {
+          blockContentCount: blockContent.length,
+          blockContent: blockContent,
+          pagePropertiesKeys: Object.keys(pageProperties),
+          pageProperties: pageProperties
+        });
 
-            // Return combined result
-            return {
-              success: appendResult.success,
-              output: {
-                ...updateResult.output,
-                content_added: appendResult.success
-              },
-              message: appendResult.success ? undefined : appendResult.message
-            };
+        // First update the page properties
+        const updateConfig = {
+          page_id: config.page,
+          title: config.title,
+          properties: pageProperties,
+          icon_type: config.iconType,
+          icon_emoji: config.iconEmoji,
+          icon_url: config.iconUrl,
+          cover_type: config.coverType,
+          cover_url: config.coverUrl
+        };
+        const updateResult = await notionUpdatePage(updateConfig, context);
+
+        // Handle block updates using individual block API calls
+        // This preserves block metadata, history, and is more efficient than replacing everything
+        if (updateResult.success) {
+          const blockUpdates: any[] = [];
+          const blocksToAdd: any[] = [];
+          const blocksToDelete: string[] = [];
+
+          // Process todo items
+          if (pageFieldsData['todo-items'] && pageFieldsData['todo-items'].items) {
+            const todoItems = pageFieldsData['todo-items'].items;
+            console.log('📝 Processing todo items for update:', todoItems);
+
+            for (const item of todoItems) {
+              // Use blockId if available, otherwise fallback to id
+              const blockId = item.blockId || item.id;
+              if (blockId && !blockId.startsWith('new-')) {
+                // Existing block - update it
+                console.log(`🔄 Updating existing todo block ${blockId}`);
+                blockUpdates.push({
+                  block_id: blockId,
+                  to_do: {
+                    rich_text: [{
+                      type: 'text',
+                      text: {
+                        content: item.content || ''
+                      }
+                    }],
+                    checked: item.checked || false
+                  }
+                });
+              } else {
+                // New block - add it
+                console.log(`➕ Adding new todo block`);
+                blocksToAdd.push({
+                  object: 'block',
+                  type: 'to_do',
+                  to_do: {
+                    rich_text: [{
+                      type: 'text',
+                      text: {
+                        content: item.content || ''
+                      }
+                    }],
+                    checked: item.checked || false
+                  }
+                });
+              }
+            }
+
+            // TODO: Track deleted items (items that existed before but are not in the current list)
+            // This would require comparing with the original fetched data
           }
 
-          return updateResult;
-        } else {
-          // No content, just update properties
-          const updateConfig = {
-            page_id: config.page,
-            title: config.title,
-            properties: config.pageFields || config.properties,
-            icon_type: config.iconType,
-            icon_emoji: config.iconEmoji,
-            icon_url: config.iconUrl,
-            cover_type: config.coverType,
-            cover_url: config.coverUrl
+          // Process other content blocks
+          for (const [key, value] of Object.entries(pageFieldsData)) {
+            if (key.includes('-content') && value) {
+              const blockId = key.split('-')[0];
+              if (blockId && blockId.length === 32) {  // Notion block IDs are 32 chars
+                // This is an existing block - update it
+                console.log(`🔄 Updating content block ${blockId}`);
+                blockUpdates.push({
+                  block_id: blockId,
+                  paragraph: {
+                    rich_text: [{
+                      type: 'text',
+                      text: {
+                        content: value
+                      }
+                    }]
+                  }
+                });
+              }
+            }
+          }
+
+          // Execute individual block updates
+          let updatedCount = 0;
+          for (const update of blockUpdates) {
+            try {
+              const { block_id, ...blockContent } = update;
+              console.log(`🔄 Updating block ${block_id}`);
+              const updateBlockConfig = {
+                block_id: block_id,
+                block_content: blockContent
+              };
+              await notionUpdateBlock(updateBlockConfig, context);
+              updatedCount++;
+            } catch (error) {
+              console.warn(`⚠️ Failed to update block ${block_id}:`, error);
+            }
+          }
+
+          // Add new blocks if any
+          if (blocksToAdd.length > 0) {
+            console.log(`➕ Adding ${blocksToAdd.length} new blocks`);
+            const appendConfig = {
+              page_id: config.page,
+              blocks: blocksToAdd
+            };
+            await notionAppendBlocks(appendConfig, context);
+          }
+
+          // Delete removed blocks if any
+          if (blocksToDelete.length > 0) {
+            console.log(`🗑️ Deleting ${blocksToDelete.length} blocks`);
+            for (const blockId of blocksToDelete) {
+              try {
+                await notionDeleteBlock({ block_id: blockId }, context);
+              } catch (error) {
+                console.warn(`⚠️ Failed to delete block ${blockId}:`, error);
+              }
+            }
+          }
+
+          console.log(`✅ Updated ${updatedCount} blocks, added ${blocksToAdd.length} blocks`);
+
+          return {
+            success: true,
+            output: {
+              ...updateResult.output,
+              blocks_updated: updatedCount,
+              blocks_added: blocksToAdd.length,
+              blocks_deleted: blocksToDelete.length
+            }
           };
-          return await notionUpdatePage(updateConfig, context);
         }
+
+        return updateResult;
 
       case 'update_database':
         // This operation updates database properties, not pages

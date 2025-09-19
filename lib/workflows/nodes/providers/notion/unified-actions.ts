@@ -35,9 +35,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Page" },
-          { value: "create_database", label: "Create Database" },
           { value: "update", label: "Update Page" },
-          { value: "update_database", label: "Update Database" },
           { value: "append", label: "Append to Page" },
           { value: "get_details", label: "Get Page Details" },
           { value: "archive", label: "Archive/Unarchive Page" },
@@ -116,18 +114,7 @@ export const notionUnifiedActions: NodeComponent[] = [
           ]
         }
       },
-      // For update database operation - database selection
-      {
-        name: "database",
-        label: "Database",
-        type: "select",
-        dynamic: "notion_databases",
-        required: true,
-        placeholder: "Select database to update",
-        dependsOn: "workspace",
-        visibilityCondition: { field: "operation", operator: "equals", value: "update_database" }
-      },
-      // Title field for create/update page operations
+      // Title field for create page operation only (update uses pageFields)
       {
         name: "title",
         label: "Page Title",
@@ -136,37 +123,11 @@ export const notionUnifiedActions: NodeComponent[] = [
         placeholder: "Enter page title",
         visibilityCondition: {
           field: "operation",
-          operator: "in",
-          value: ["create", "update"]
-        }
-      },
-      // Title field specifically for database operations
-      {
-        name: "title",
-        label: "Database Title",
-        type: "text",
-        required: true,
-        placeholder: "Enter database title",
-        visibilityCondition: {
-          field: "operation",
-          operator: "in",
-          value: ["create_database", "update_database"]
-        }
-      },
-      // Description field specifically for update_database
-      {
-        name: "description",
-        label: "Database Description",
-        type: "textarea",
-        required: false,
-        placeholder: "Enter database description (optional)",
-        visibilityCondition: {
-          field: "operation",
           operator: "equals",
-          value: "update_database"
+          value: "create"
         }
       },
-      // Content field for create/update/append pages only
+      // Content field for create/append pages only (update uses pageFields)
       {
         name: "content",
         label: "Content",
@@ -185,7 +146,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         visibilityCondition: {
           field: "operation",
           operator: "in",
-          value: ["create", "update", "append"]
+          value: ["create", "append"]
         }
       },
       // Archive action for archive operation
@@ -246,9 +207,9 @@ export const notionUnifiedActions: NodeComponent[] = [
         dependsOn: "page",
         required: false,
         placeholder: "Loading page properties and blocks...",
-        description: "Edit page properties and content blocks",
-        visibilityCondition: { 
-          field: "operation", 
+        description: "Edit page properties and content blocks. Individual blocks are updated in place, preserving their history and metadata.",
+        visibilityCondition: {
+          field: "operation",
           operator: "equals",
           value: "update"
         }

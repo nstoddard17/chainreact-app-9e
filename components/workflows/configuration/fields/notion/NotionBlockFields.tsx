@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -40,14 +40,22 @@ interface PageBlock {
   hasChildren: boolean
 }
 
-export function NotionBlockFields({ 
-  value = {}, 
-  onChange, 
-  field, 
+export function NotionBlockFields({
+  value = {},
+  onChange,
+  field,
   values,
   loadOptions,
-  setFieldValue 
+  setFieldValue
 }: NotionBlockFieldsProps) {
+  console.log('🏗️ [NotionBlockFields] Component rendering with:', {
+    hasValue: !!value,
+    valueKeys: Object.keys(value || {}),
+    page: values?.page,
+    workspace: values?.workspace,
+    operation: values?.operation
+  })
+
   const [blocks, setBlocks] = useState<PageBlock[]>([])
   const [loading, setLoading] = useState(false)
   const [fieldValues, setFieldValues] = useState<Record<string, any>>(value || {})
@@ -57,6 +65,7 @@ export function NotionBlockFields({
   const [currentEmbedField, setCurrentEmbedField] = useState<string>('')
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const lastFetchedPageRef = useRef<string | null>(null)
   
   // Google Drive modal state
   const [searchQuery, setSearchQuery] = useState('')
@@ -75,9 +84,27 @@ export function NotionBlockFields({
 
   // Fetch blocks when page changes
   useEffect(() => {
+    console.log('🎯 [NotionBlockFields] useEffect triggered with:', {
+      page: values.page,
+      workspace: values.workspace,
+      lastFetchedPage: lastFetchedPageRef.current,
+      currentLoading: loading,
+      blocksLength: blocks.length
+    })
+
     const fetchBlocks = async () => {
-      if (!values.page || !values.workspace) return
-      
+      if (!values.page || !values.workspace) {
+        console.log('⏭️ [NotionBlockFields] No page or workspace, skipping')
+        return
+      }
+
+      // Only fetch if the page actually changed
+      if (lastFetchedPageRef.current === values.page) {
+        console.log('📌 [NotionBlockFields] Page has not changed, skipping fetch')
+        return
+      }
+
+      console.log('🔄 [NotionBlockFields] Fetching blocks for new page:', values.page)
       setLoading(true)
       try {
         const integration = getIntegrationByProvider('notion')
@@ -108,12 +135,20 @@ export function NotionBlockFields({
         
         console.log('📦 [NotionBlockFields] Fetched blocks:', pageBlocks)
         setBlocks(pageBlocks)
-        
-        // Initialize field values with existing block values
+        lastFetchedPageRef.current = values.page  // Mark this page as fetched
+
+        // Initialize field values, preserving any saved values from `value` prop
+        const savedValues = value || {}
         const initialValues: Record<string, any> = {}
         let titleFieldId: string | null = null
         let titleValue: string = ''
-        
+
+        console.log('💾 [NotionBlockFields] Saved values from previous configuration:', {
+          hasSavedValues: Object.keys(savedValues).length > 0,
+          savedValueKeys: Object.keys(savedValues),
+          savedValues
+        })
+
         // Debug: Log all properties to see what we're getting
         console.log('🔍 [NotionBlockFields] Examining all properties:')
         
@@ -134,46 +169,65 @@ export function NotionBlockFields({
               valueLength: prop.value ? String(prop.value).length : 0
             })
             
-            if (prop.value !== undefined) {
+            // Use saved value if it exists, otherwise use the value from API
+            if (savedValues[prop.id] !== undefined) {
+              initialValues[prop.id] = savedValues[prop.id]
+              if (prop.type === 'todo_list_items') {
+                console.log('    ✅ Using saved todo list:', {
+                  fieldId: prop.id,
+                  savedValue: savedValues[prop.id]
+                })
+              }
+            } else if (prop.type === 'todo_list_items' && prop.items) {
+              // For todo list items, store the items array properly
+              initialValues[prop.id] = { items: prop.items }
+              console.log('    📝 Initializing todo list from API:', {
+                fieldId: prop.id,
+                items: prop.items
+              })
+            } else if (prop.value !== undefined) {
               initialValues[prop.id] = prop.value
-              
-              // Find and track title field - check if this is a title property
-              // Title properties in Notion databases have type 'text' and are usually required
-              // According to pageBlocks.ts line 388-396, title type becomes 'text' with required: true
-              const propLabel = (prop.label || '').toLowerCase()
-              const isExactTitleMatch = propLabel === 'title' || propLabel === 'name'
-              const isLikelyTitle = isExactTitleMatch || 
-                propLabel.includes('title') || 
-                propLabel.includes('name') ||
-                propLabel === 'task' ||
-                propLabel === 'item' ||
-                propLabel === 'page'
-              
-              // Check if this property is in the primary_properties block
-              const isPrimaryProperty = block.type === 'primary_properties'
-              
-              // Scoring system to find the best title candidate
-              let score = 0
-              if (prop.required) score += 3 // Required fields are more likely to be title
-              if (isPrimaryProperty) score += 2 // Primary properties block is where title usually is
-              if (isExactTitleMatch) score += 5 // Exact matches get highest priority
-              if (isLikelyTitle) score += 1 // Partial matches get some points
-              if (prop.value) score += 2 // Fields with values are better candidates
-              
-              // Consider this field as title if it scores high enough and has a value
-              if (prop.type === 'text' && score >= 3 && prop.value) {
-                // Only update if this is a better candidate than what we have
-                if (!titleFieldId || score >= 5 || (isPrimaryProperty && !titleValue)) {
-                  titleFieldId = prop.id
-                  titleValue = prop.value || ''
-                  console.log(`    ✅ Found title field! Score: ${score}`, {
-                    id: prop.id,
-                    label: prop.label,
-                    value: prop.value,
-                    required: prop.required,
-                    isPrimaryProperty
-                  })
-                }
+            }
+
+            // Find and track title field - check if this is a title property
+            // Title properties in Notion databases have type 'text' and are usually required
+            // According to pageBlocks.ts line 388-396, title type becomes 'text' with required: true
+            const propLabel = (prop.label || '').toLowerCase()
+            const isExactTitleMatch = propLabel === 'title' || propLabel === 'name'
+            const isLikelyTitle = isExactTitleMatch ||
+              propLabel.includes('title') ||
+              propLabel.includes('name') ||
+              propLabel === 'task' ||
+              propLabel === 'item' ||
+              propLabel === 'page'
+
+            // Check if this property is in the primary_properties block
+            const isPrimaryProperty = block.type === 'primary_properties'
+
+            // Scoring system to find the best title candidate
+            let score = 0
+            if (prop.required) score += 3 // Required fields are more likely to be title
+            if (isPrimaryProperty) score += 2 // Primary properties block is where title usually is
+            if (isExactTitleMatch) score += 5 // Exact matches get highest priority
+            if (isLikelyTitle) score += 1 // Partial matches get some points
+            if (prop.value) score += 2 // Fields with values are better candidates
+
+            // Use the saved value or the prop value for title checking
+            const fieldValue = savedValues[prop.id] !== undefined ? savedValues[prop.id] : prop.value
+
+            // Consider this field as title if it scores high enough and has a value
+            if (prop.type === 'text' && score >= 3 && fieldValue) {
+              // Only update if this is a better candidate than what we have
+              if (!titleFieldId || score >= 5 || (isPrimaryProperty && !titleValue)) {
+                titleFieldId = prop.id
+                titleValue = fieldValue || ''
+                console.log(`    ✅ Found title field! Score: ${score}`, {
+                  id: prop.id,
+                  label: prop.label,
+                  value: fieldValue,
+                  required: prop.required,
+                  isPrimaryProperty
+                })
               }
             }
           })
@@ -307,10 +361,16 @@ export function NotionBlockFields({
     }
 
     fetchBlocks()
-  }, [values.page, values.workspace])
+  }, [values.page, values.workspace])  // Only re-run when page or workspace changes
 
   const handleFieldChange = (fieldId: string, newValue: any) => {
     const updated = { ...fieldValues, [fieldId]: newValue }
+    console.log('📝 [NotionBlockFields] Field changed:', {
+      fieldId,
+      newValue,
+      isTodoList: newValue?.items !== undefined,
+      allUpdatedValues: updated
+    })
     setFieldValues(updated)
     onChange(updated)
   }
@@ -484,8 +544,11 @@ export function NotionBlockFields({
     switch (property.type) {
       case 'todo_list_items':
         // Get current items from fieldValues or use property items as default
-        const currentTodoItems = fieldValues[fieldKey]?.items || fieldValues[fieldKey] || property.items || []
-        
+        const currentTodoItems = fieldValues[fieldKey]?.items ||
+                                 (Array.isArray(fieldValues[fieldKey]) ? fieldValues[fieldKey] : null) ||
+                                 property.items ||
+                                 []
+
         return (
           <div key={fieldKey} className="space-y-3">
             <Label className="text-sm font-semibold">{property.label}</Label>
@@ -494,15 +557,25 @@ export function NotionBlockFields({
                 <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-accent/50 rounded transition-colors">
                   <Checkbox
                     id={`${fieldKey}-${item.id}`}
-                    checked={fieldValues[`${fieldKey}-${item.id}-checked`] ?? item.checked}
+                    checked={item.checked}
                     onCheckedChange={(checked) => {
-                      handleFieldChange(`${fieldKey}-${item.id}-checked`, checked)
+                      // Update the entire todo list structure when checkbox changes
+                      const updatedItems = currentTodoItems.map((todoItem: any, i: number) =>
+                        i === index ? { ...todoItem, checked } : todoItem
+                      )
+                      handleFieldChange(fieldKey, { items: updatedItems })
                     }}
                   />
                   <Input
                     type="text"
-                    value={fieldValues[`${fieldKey}-${item.id}-content`] ?? item.content}
-                    onChange={(e) => handleFieldChange(`${fieldKey}-${item.id}-content`, e.target.value)}
+                    value={item.content}
+                    onChange={(e) => {
+                      // Update the entire todo list structure when content changes
+                      const updatedItems = currentTodoItems.map((todoItem: any, i: number) =>
+                        i === index ? { ...todoItem, content: e.target.value } : todoItem
+                      )
+                      handleFieldChange(fieldKey, { items: updatedItems })
+                    }}
                     placeholder="Enter to-do item..."
                     className="flex-1"
                   />

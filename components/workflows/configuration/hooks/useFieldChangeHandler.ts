@@ -638,7 +638,13 @@ export function useFieldChangeHandler({
     dependentFields.forEach((depField: any) => {
       console.log(`🧹 Clearing dependent field: ${depField.name}`);
       setValue(depField.name, '');
-      
+
+      // Skip dynamic_fields type - they handle their own data loading
+      if (depField.type === 'dynamic_fields') {
+        console.log(`⏭️ Skipping dynamic_fields type field: ${depField.name}`);
+        return;
+      }
+
       // Set loading state if the field has dynamic options (check both 'dynamic' and 'dynamicOptions')
       if (depField.dynamic || depField.dynamicOptions) {
         setLoadingFields((prev: Set<string>) => {
@@ -656,6 +662,12 @@ export function useFieldChangeHandler({
     if (value) {
       setTimeout(async () => {
         for (const depField of dependentFields) {
+          // Skip dynamic_fields type - they handle their own data loading
+          if (depField.type === 'dynamic_fields') {
+            console.log(`⏭️ Skipping loading for dynamic_fields type field: ${depField.name}`);
+            continue;
+          }
+
           if (depField.dynamic || depField.dynamicOptions) {
             try {
               // Special handling for preview fields (textareas that show dynamic content)
