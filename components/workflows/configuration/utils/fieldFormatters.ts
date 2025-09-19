@@ -119,6 +119,42 @@ function formatListField(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format Trello members field
+ */
+function formatTrelloMembersField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.id,
+    label: item.fullName || item.username || item.id,
+    username: item.username,
+    initials: item.initials,
+    avatarUrl: item.avatarUrl
+  }));
+}
+
+/**
+ * Format Trello labels field
+ */
+function formatTrelloLabelsField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.id,
+    label: item.name || `${item.color} label`,
+    color: item.color
+  }));
+}
+
+/**
+ * Format Trello cards field
+ */
+function formatTrelloCardsField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.id,
+    label: item.name || item.id,
+    desc: item.desc,
+    idList: item.idList
+  }));
+}
+
+/**
  * Format database fields
  */
 function formatDatabaseField(data: any[]): FormattedOption[] {
@@ -238,7 +274,13 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   
   // Board management fields
   boardId: formatBoardField,
+  sourceBoardId: formatBoardField, // For copying boards
   listId: formatListField,
+
+  // Trello specific fields
+  idMembers: formatTrelloMembersField,
+  idLabels: formatTrelloLabelsField,
+  idCardSource: formatTrelloCardsField,
   
   // Database fields
   databaseId: formatDatabaseField,

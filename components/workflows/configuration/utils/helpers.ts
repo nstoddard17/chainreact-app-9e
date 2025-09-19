@@ -152,10 +152,9 @@ export function formatFieldValue(value: any, fieldType?: string): string {
  * Gets Discord invite URL for bot
  */
 export function getDiscordBotInviteUrl(clientId: string, guildId?: string): string {
-  // Discord permissions needed for sending messages:
-  // VIEW_CHANNEL (0x400) + SEND_MESSAGES (0x800) + EMBED_LINKS (0x4000) + 
-  // ATTACH_FILES (0x8000) + USE_EXTERNAL_EMOJIS (0x40000) + ADD_REACTIONS (0x40)
-  const permissions = '77888'; // Combined permissions
+  // Discord permissions integer from your selected checkboxes
+  // This includes all the administrative and management permissions you selected
+  const permissions = '4002221251362807';
   let inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`;
   
   // If we have a specific guild ID, add it to the URL to pre-select the server

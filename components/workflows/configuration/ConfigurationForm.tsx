@@ -159,7 +159,31 @@ function ConfigurationForm({
   } = useDynamicOptions({
     nodeType: nodeInfo?.type,
     providerId: nodeInfo?.providerId || provider,
-    onLoadingChange,
+    onLoadingChange: (fieldName: string, isLoading: boolean) => {
+      console.log(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
+
+      setLoadingFields(prev => {
+        const newSet = new Set(prev);
+        if (isLoading) {
+          console.log(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
+          newSet.add(fieldName);
+        } else {
+          console.log(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
+          newSet.delete(fieldName);
+        }
+        console.log(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
+        return newSet;
+      });
+
+      // Call the parent onLoadingChange if it exists
+      if (onLoadingChange) {
+        // Need to check the new size after the state update
+        setLoadingFields(prev => {
+          onLoadingChange(prev.size > 0);
+          return prev;
+        });
+      }
+    },
     getFormValues: () => values,
     initialOptions: savedDynamicOptions
   });
@@ -305,6 +329,13 @@ function ConfigurationForm({
       resetOptions('path');
     }
 
+    // Clear options for Trello board field on mount to ensure fresh load
+    // This is critical after workflow execution that may have created new boards
+    if (nodeInfo?.providerId === 'trello' && resetOptions) {
+      console.log('🧹 [ConfigForm] Clearing Trello board options on mount to ensure fresh data');
+      resetOptions('boardId');
+    }
+
     // Debounce the integration fetch - wait 500ms to see if component stays mounted
     const loadIntegrations = async () => {
       // Wait a bit to see if component stays mounted
@@ -349,6 +380,13 @@ function ConfigurationForm({
         }
       });
     }
+
+    // Also specifically clear Trello boards when modal reopens
+    // This ensures fresh data after workflow execution
+    if (nodeInfo?.providerId === 'trello') {
+      console.log('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
+      resetOptions('boardId');
+    }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, resetOptions]); // Also track nodeType and currentNodeId
 
   // Load fields marked with loadOnMount immediately when form opens
@@ -362,7 +400,8 @@ function ConfigurationForm({
     console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
       nodeInstanceKey,
       hasLoadedOnMount: hasLoadedOnMount.current,
-      isInitialLoading
+      isInitialLoading,
+      hasBoardIdValue: !!values.boardId
     });
 
     // Find fields that should load on mount
@@ -371,6 +410,13 @@ function ConfigurationForm({
       if (field.loadOnMount === true && field.dynamic) {
         // Check if we already have options for this field
         const hasOptions = dynamicOptions[field.name] && dynamicOptions[field.name].length > 0;
+
+        // Special handling for boardId when we have a saved value
+        // Always load if we have a saved value but no options yet (to show the name instead of ID)
+        if (field.name === 'boardId' && values.boardId && !hasOptions) {
+          console.log(`🔄 [ConfigForm] Board ID has value (${values.boardId}) but no options - forcing load`);
+          return true;
+        }
 
         // If we don't have options or hasLoadedOnMount is false, we should load
         const shouldLoad = !hasOptions || !hasLoadedOnMount.current;
@@ -385,24 +431,41 @@ function ConfigurationForm({
       console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
 
-      // Add a small delay to ensure options are cleared first
+      // Load immediately for boardId if it has a saved value (no delay)
+      const boardIdField = fieldsToLoad.find((f: any) => f.name === 'boardId');
+      if (boardIdField && values.boardId) {
+        console.log(`🚀 [ConfigForm] Loading boardId immediately since it has a saved value`);
+        loadOptions('boardId', undefined, undefined, true); // Force refresh immediately
+      }
+
+      // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
-        // Load each field marked with loadOnMount
+        // Load each field marked with loadOnMount (except boardId if already loaded above)
         fieldsToLoad.forEach((field: any) => {
+          if (field.name === 'boardId' && values.boardId) {
+            // Already loaded above
+            return;
+          }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-          loadOptions(field.name, undefined, undefined, true); // Force refresh
+          // Always force refresh for Trello boards to ensure fresh data after workflow execution
+          const forceRefresh = field.name === 'boardId' || true;
+          loadOptions(field.name, undefined, undefined, forceRefresh); // Force refresh
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 
       return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, dynamicOptions]); // Track node identity changes
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, dynamicOptions, values.boardId]); // Track node identity changes and boardId value
 
   // Load options for dynamic fields with saved values
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;
 
-    console.log('🔍 [ConfigForm] Checking for dynamic fields with saved values...');
+    console.log('🔍 [ConfigForm] Checking for dynamic fields with saved values...', {
+      nodeType: nodeInfo?.type,
+      providerId: nodeInfo?.providerId,
+      hasValues: Object.keys(values).length > 0
+    });
 
     // Find dynamic fields that have saved values
     const fieldsWithValues = nodeInfo.configSchema.filter((field: any) => {
@@ -420,16 +483,49 @@ function ConfigurationForm({
       const fieldOptions = dynamicOptions[field.name];
       const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
 
+      // Special handling for Trello Move Card - always load cardId and listId if boardId is set
+      if (nodeInfo?.type === 'trello_action_move_card' && values.boardId) {
+        if (field.name === 'cardId' || field.name === 'listId') {
+          // Always load these fields if we have a boardId and a saved value
+          console.log(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+          // Load if no options or if saved value not in options
+          if (!hasOptions) {
+            return true;
+          }
+          // Check if saved value exists in options
+          const valueExists = fieldOptions.some((opt: any) =>
+            (opt.value === savedValue) || (opt.id === savedValue)
+          );
+          if (!valueExists) {
+            console.log(`🎯 [ConfigForm] Saved value ${savedValue} not found in options for ${field.name}, need to reload`);
+            return true;
+          }
+        }
+      }
+
       // Always load for dependent fields if parent has value, even if options exist
       // This ensures the saved value displays correctly
       if (field.dependsOn && values[field.dependsOn]) {
         // For dependent fields, check if the saved value exists in current options
         if (hasOptions) {
-          const valueExists = fieldOptions.some((opt: any) =>
-            (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
-          );
-          // If value doesn't exist in options, we need to reload
-          return !valueExists;
+          // Handle multi-select fields (saved value is an array)
+          if (Array.isArray(savedValue)) {
+            // Check if all saved values exist in options
+            const allValuesExist = savedValue.every(val =>
+              fieldOptions.some((opt: any) =>
+                (opt.value === val) || (opt.id === val) || (opt === val)
+              )
+            );
+            // If any value doesn't exist in options, we need to reload
+            return !allValuesExist;
+          } else {
+            // Single value field
+            const valueExists = fieldOptions.some((opt: any) =>
+              (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
+            );
+            // If value doesn't exist in options, we need to reload
+            return !valueExists;
+          }
         }
         return true; // No options yet, need to load
       }
@@ -440,7 +536,7 @@ function ConfigurationForm({
 
     if (fieldsWithValues.length > 0) {
       console.log('🚀 [ConfigForm] Loading options for fields with saved values:',
-        fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name] }))
+        fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name], dependsOn: f.dependsOn }))
       );
 
       // Load options for each field with a saved value
@@ -451,6 +547,7 @@ function ConfigurationForm({
         if (field.dependsOn) {
           const dependsOnValue = values[field.dependsOn];
           if (dependsOnValue) {
+            console.log(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
             loadOptions(field.name, field.dependsOn, dependsOnValue);
           }
         } else {
@@ -494,7 +591,21 @@ function ConfigurationForm({
     if (fieldsToLoad.length > 0) {
       fieldsToLoad.forEach((field: any) => {
         console.log(`🔄 [ConfigForm] Auto-loading field that became visible: ${field.name}`);
-        loadOptions(field.name);
+
+        // Check if the field has dependencies
+        if (field.dependsOn) {
+          const dependencyValue = values[field.dependsOn];
+          if (dependencyValue) {
+            // Load with the dependency value
+            console.log(`📦 [ConfigForm] Loading ${field.name} with dependency ${field.dependsOn}: ${dependencyValue}`);
+            loadOptions(field.name, field.dependsOn, dependencyValue);
+          } else {
+            console.log(`⚠️ [ConfigForm] Skipping auto-load for ${field.name} - missing dependency value for ${field.dependsOn}`);
+          }
+        } else {
+          // No dependencies, load normally
+          loadOptions(field.name);
+        }
       });
     }
   }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions, values]);

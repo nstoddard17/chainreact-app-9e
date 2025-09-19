@@ -38,6 +38,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   const [isDiscordBotConfigured, setIsDiscordBotConfigured] = useState<boolean | null>(null);
   const [discordClientId, setDiscordClientId] = useState<string | null>(null);
   const [isBotConnectionInProgress, setIsBotConnectionInProgress] = useState(false);
+  const [isLoadingChannelsAfterBotAdd, setIsLoadingChannelsAfterBotAdd] = useState(false);
   const [selectedEmojiReactions, setSelectedEmojiReactions] = useState<any[]>([]);
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo>({ isRateLimited: false });
   
@@ -244,34 +245,57 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           setIsBotConnectionInProgress(false);
           
           console.log('🔍 Discord OAuth popup closed, checking bot status...');
-          
+
           // Check bot status after popup closes
           if (guildId) {
+            // Set loading state for channels
+            setIsLoadingChannelsAfterBotAdd(true);
+
             // Wait a bit for Discord to process the bot addition
             await new Promise(resolve => setTimeout(resolve, 2000));
-            
+
             // Check bot status
             await checkBotStatus(guildId);
-            
+
             // Emit an event that bot connection might have changed
             // This will trigger the channel loading in DiscordConfiguration component
-            window.dispatchEvent(new CustomEvent('discord-bot-connected', { 
-              detail: { guildId } 
+            window.dispatchEvent(new CustomEvent('discord-bot-connected', {
+              detail: { guildId }
             }));
-            
+
+            // Load channels after bot is added
+            if (botStatus?.isInGuild && botStatus?.hasPermissions) {
+              loadOptions('channelId', 'guildId', guildId)
+                .finally(() => {
+                  setIsLoadingChannelsAfterBotAdd(false);
+                });
+            }
+
             // Additional checks with delays to handle Discord's eventual consistency
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
                 console.log('🔍 Bot not detected yet, checking again...');
                 await checkBotStatus(guildId);
+
+                // Try loading channels again if bot is now detected
+                if (botStatus?.isInGuild && botStatus?.hasPermissions) {
+                  loadOptions('channelId', 'guildId', guildId)
+                    .finally(() => {
+                      setIsLoadingChannelsAfterBotAdd(false);
+                    });
+                }
+              } else {
+                setIsLoadingChannelsAfterBotAdd(false);
               }
             }, 2000); // 2 second retry
-            
+
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
                 console.log('🔍 Final bot status check...');
                 await checkBotStatus(guildId);
               }
+              // Clear loading state after final check
+              setIsLoadingChannelsAfterBotAdd(false);
             }, 5000); // 5 second final retry
           }
           
@@ -319,7 +343,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         
         console.log('🔍 Discord configuration check on mount:', data);
         
-        if (data.isConfigured && data.clientId) {
+        if (data.configured && data.clientId) {
           setIsDiscordBotConfigured(true);
           setDiscordClientId(data.clientId);
         } else {
@@ -367,6 +391,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     channelBotStatus,
     isChannelBotStatusChecking,
     isLoadingChannels,
+    isLoadingChannelsAfterBotAdd,
     channelLoadingError,
     isDiscordBotConfigured,
     discordClientId,
