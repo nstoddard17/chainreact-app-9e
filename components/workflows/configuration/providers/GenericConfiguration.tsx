@@ -106,48 +106,54 @@ export function GenericConfiguration({
   }, [nodeInfo, values, loadOptions]);
   
   // Handle field value changes and trigger dependent field loading
-  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+  const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
     // Update the field value
     setValue(fieldName, value);
-    
+
     // Special handling for Trello board selection
-    if (nodeInfo?.providerId === 'trello' && fieldName === 'boardId' && value) {
-      console.log('🔄 [GenericConfig] Board selected, loading dependent fields:', value);
-      
+    if (nodeInfo?.providerId === 'trello' && fieldName === 'boardId') {
+      console.log('🔄 [GenericConfig] Board selected, handling dependent fields:', value);
+
       // Find all fields that depend on boardId
       const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'boardId' && f.dynamic) || [];
-      
-      // For Move Card action, load both cardId and listId simultaneously
-      if (nodeInfo?.type === 'trello_action_move_card') {
-        // Load all dependent fields in parallel for better performance
-        Promise.all(
-          dependentFields.map(async (field: any) => {
+
+      // Clear values of dependent fields when board changes
+      dependentFields.forEach((field: any) => {
+        setValue(field.name, '');
+      });
+
+      if (value) {
+        // For Move Card action, load both cardId and listId simultaneously
+        if (nodeInfo?.type === 'trello_action_move_card') {
+          console.log('🎯 [GenericConfig] Loading card and list fields for Move Card action');
+
+          // Load all dependent fields in parallel for better performance
+          const loadPromises = dependentFields.map(async (field: any) => {
             console.log(`  Loading ${field.name} with boardId: ${value}`);
             try {
               await loadOptions(field.name, 'boardId', value, true);
+              console.log(`  ✅ Successfully loaded ${field.name}`);
             } catch (error) {
               console.error(`  Failed to load ${field.name}:`, error);
             }
-          })
-        );
-      } else {
-        // For other actions, load sequentially as before
-        dependentFields.forEach(async (field: any) => {
-          console.log(`  Loading ${field.name} with boardId: ${value}`);
-          try {
-            await loadOptions(field.name, 'boardId', value, true);
-          } catch (error) {
-            console.error(`  Failed to load ${field.name}:`, error);
+          });
+
+          // Wait for all to complete
+          await Promise.all(loadPromises);
+          console.log('✅ All dependent fields loaded');
+        } else {
+          // For other actions, load sequentially as before
+          for (const field of dependentFields) {
+            console.log(`  Loading ${field.name} with boardId: ${value}`);
+            try {
+              await loadOptions(field.name, 'boardId', value, true);
+              console.log(`  ✅ Successfully loaded ${field.name}`);
+            } catch (error) {
+              console.error(`  Failed to load ${field.name}:`, error);
+            }
           }
-        });
-      }
-      
-      // Clear values of dependent fields when board changes
-      dependentFields.forEach((field: any) => {
-        if (values[field.name]) {
-          setValue(field.name, '');
         }
-      });
+      }
     }
   }, [nodeInfo, setValue, values, loadOptions]);
 
@@ -401,7 +407,21 @@ export function GenericConfiguration({
             workflowData={workflowData}
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
-            loadingDynamic={loadingFields.has(field.name) || (loadingDynamic && field.dynamic)}
+            loadingDynamic={(() => {
+              const isLoading = loadingFields.has(field.name) || (loadingDynamic && field.dynamic);
+              if (field.name === 'cardId' || field.name === 'listId') {
+                console.log(`🔍 [GenericConfig] Loading state for ${field.name}:`, {
+                  fieldName: field.name,
+                  hasInLoadingFields: loadingFields.has(field.name),
+                  loadingDynamic,
+                  isDynamic: field.dynamic,
+                  finalIsLoading: isLoading,
+                  loadingFieldsSize: loadingFields.size,
+                  loadingFieldsContent: Array.from(loadingFields)
+                });
+              }
+              return isLoading;
+            })()}
             nodeInfo={nodeInfo}
             onDynamicLoad={handleDynamicLoad}
             parentValues={values}

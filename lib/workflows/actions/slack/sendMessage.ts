@@ -167,6 +167,9 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       link_names: linkNames  // Added link_names from schema
     };
 
+    // Declare iconUrl at a higher scope for use in diagnostic logging
+    let iconUrl: string | null = null;
+
     if (isActuallyUsingUserToken) {
       // When using user token, the message is automatically sent as the user
       // Username/icon customization is ignored by Slack when using user token
@@ -186,7 +189,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
       // Handle icon field - upload to Supabase if needed and get public URL
       if (icon) {
-        let iconUrl = null;
         console.log('[Slack] Processing icon field, type:', typeof icon, 'length:', typeof icon === 'string' ? icon.length : 'N/A');
 
         // CRITICAL: If icon is just raw base64 (very long string), don't send it to Slack

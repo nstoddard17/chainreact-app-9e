@@ -267,8 +267,8 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
   const controller = new AbortController()
   const timeoutId = setTimeout(() => {
     controller.abort()
-    console.error(`⏱️ Workflow update timeout after 20 seconds`)
-  }, 20000) // 20 second timeout (shorter than the save timeout)
+    console.error(`⏱️ Workflow update timeout after 30 seconds`)
+  }, 30000) // 30 second timeout - increased for large workflows
 
   try {
     const { data: savedData, error } = await supabase

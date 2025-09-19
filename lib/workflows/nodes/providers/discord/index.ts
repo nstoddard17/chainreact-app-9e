@@ -4,6 +4,52 @@ import { NodeComponent } from "../../types"
 export const discordNodes: NodeComponent[] = [
   // Triggers
   {
+    type: "discord_trigger_member_join",
+    title: "User Joined Server",
+    description: "Triggers when a user joins a Discord server. Tracks which invite was used.",
+    icon: MessageSquare,
+    providerId: "discord",
+    category: "Communication",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "guildId",
+        label: "Discord Server",
+        type: "select",
+        description: "The Discord server to monitor",
+        placeholder: "Select a Discord server",
+        dynamic: "discord_guilds",
+        required: true
+      },
+      {
+        name: "inviteFilter",
+        label: "Specific Invite Code (Optional)",
+        type: "text",
+        description: "Only trigger when users join via this specific invite code",
+        placeholder: "e.g., abc123",
+        required: false
+      }
+    ],
+    outputSchema: [
+      { name: "memberId", label: "Member ID", type: "string", description: "The unique ID of the member who joined" },
+      { name: "memberTag", label: "Member Tag", type: "string", description: "The full tag of the member (username#discriminator)" },
+      { name: "memberUsername", label: "Username", type: "string", description: "The username of the member" },
+      { name: "memberDiscriminator", label: "Discriminator", type: "string", description: "The discriminator of the member" },
+      { name: "memberAvatar", label: "Avatar Hash", type: "string", description: "The avatar hash of the member" },
+      { name: "guildId", label: "Server ID", type: "string", description: "The ID of the Discord server" },
+      { name: "guildName", label: "Server Name", type: "string", description: "The name of the Discord server" },
+      { name: "joinedAt", label: "Join Time", type: "string", description: "When the member joined (ISO 8601 format)" },
+      { name: "inviteCode", label: "Invite Code", type: "string", description: "The invite code used to join (if trackable)" },
+      { name: "inviteUrl", label: "Invite URL", type: "string", description: "The full invite URL used (if trackable)" },
+      { name: "inviterTag", label: "Inviter Tag", type: "string", description: "The tag of who created the invite (if trackable)" },
+      { name: "inviterId", label: "Inviter ID", type: "string", description: "The ID of who created the invite (if trackable)" },
+      { name: "inviteUses", label: "Invite Uses", type: "number", description: "Number of times the invite has been used" },
+      { name: "inviteMaxUses", label: "Invite Max Uses", type: "number", description: "Maximum uses allowed for the invite" },
+      { name: "timestamp", label: "Event Time", type: "string", description: "When this event occurred (ISO 8601 format)" }
+    ]
+  },
+  {
     type: "discord_trigger_new_message",
     title: "New Message in Channel",
     description: "Triggers when a new message is posted in a Discord channel.",
@@ -225,6 +271,78 @@ export const discordNodes: NodeComponent[] = [
       { name: "filterAuthor", label: "Author", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select an author to filter by", description: "Only show messages from this user" },
       { name: "filterContent", label: "Content Contains", type: "text", required: false, placeholder: "Text to search for in messages", description: "Only show messages containing this text" },
       { name: "caseSensitive", label: "Case Sensitive Search", type: "boolean", required: false, defaultValue: false, description: "Whether content search should be case sensitive" }
+    ]
+  },
+  {
+    type: "discord_action_assign_role",
+    title: "Assign Role",
+    description: "Assign a role to a Discord user in a server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "guildId",
+        label: "Server",
+        type: "select",
+        dynamic: "discord_guilds",
+        required: true,
+        placeholder: "Select a Discord server"
+      },
+      {
+        name: "userId",
+        label: "User",
+        type: "select",
+        dynamic: "discord_members",
+        required: true,
+        dependsOn: "guildId",
+        placeholder: "Select a user",
+        description: "The user to assign the role to"
+      },
+      {
+        name: "roleId",
+        label: "Role",
+        type: "select",
+        dynamic: "discord_roles",
+        required: true,
+        dependsOn: "guildId",
+        placeholder: "Select a role to assign",
+        description: "The role to assign to the user"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the role was assigned successfully"
+      },
+      {
+        name: "guildId",
+        label: "Server ID",
+        type: "string",
+        description: "The ID of the Discord server"
+      },
+      {
+        name: "userId",
+        label: "User ID",
+        type: "string",
+        description: "The ID of the user"
+      },
+      {
+        name: "roleId",
+        label: "Role ID",
+        type: "string",
+        description: "The ID of the role assigned"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "When the role was assigned"
+      }
     ]
   }
 ]

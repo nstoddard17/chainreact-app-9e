@@ -26,6 +26,7 @@ export async function initializeDiscordBot(): Promise<void> {
     isDiscordBotInitialized = true
 
     // Initialize Discord Gateway connection (has its own singleton protection)
+    // The Gateway now handles invite tracking and member join events internally
     await initializeDiscordGateway()
 
     // Set up event listeners (only once)
@@ -73,7 +74,7 @@ export async function initializeDiscordBot(): Promise<void> {
 /**
  * Cleanup Discord bot resources
  */
-export function cleanupDiscordBot(): void {
+export async function cleanupDiscordBot(): Promise<void> {
   try {
     // Disconnect from gateway
     discordGateway.disconnect()

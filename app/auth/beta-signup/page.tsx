@@ -30,12 +30,15 @@ function BetaSignupContent() {
     const urlEmail = searchParams.get("email")
     const token = searchParams.get("token")
 
-    if (urlEmail) {
-      setEmail(decodeURIComponent(urlEmail))
+    // Decode the email from URL encoding
+    const decodedEmail = urlEmail ? decodeURIComponent(urlEmail) : null
+
+    if (decodedEmail) {
+      setEmail(decodedEmail)
     }
 
-    // Validate the token
-    validateToken(token, urlEmail)
+    // Validate the token with the decoded email
+    validateToken(token, decodedEmail)
   }, [searchParams])
 
   const validateToken = async (token: string | null, urlEmail: string | null) => {
@@ -50,22 +53,69 @@ function BetaSignupContent() {
       const decoded = atob(token)
       const [tokenEmail] = decoded.split(":")
 
+      console.log("Token validation:", { token, decoded, tokenEmail, urlEmail })
+
       if (tokenEmail === urlEmail) {
-        // Token matches the email, check if this beta tester exists
+        // Token matches the email, check if this beta tester exists and has this token
         const supabase = createClient()
+
+
+        // Check beta tester record
         const { data, error } = await supabase
           .from("beta_testers")
-          .select("status, expires_at")
+          .select("status, expires_at, signup_token")
           .eq("email", urlEmail)
           .single()
 
-        if (data && data.status === "active") {
-          setTokenValid(true)
+        console.log("Beta tester query result:", { data, error })
+
+        if (error) {
+          console.error("Database error:", error)
+          setTokenValid(false)
+          toast({
+            title: "Invitation Not Found",
+            description: "No invitation found for this email address. Please ensure you're using the latest invitation link.",
+            variant: "destructive"
+          })
+          return
+        }
+
+        if (data) {
+          console.log("Beta tester data:", {
+            status: data.status,
+            expires_at: data.expires_at,
+            signup_token: data.signup_token,
+            tokenMatch: data.signup_token === token
+          })
+
+          // Check if invitation has expired
+          const hasExpired = data.expires_at && new Date(data.expires_at) < new Date()
+
+          // If signup_token is null, this might be an old invitation - accept it
+          if (!data.signup_token || data.signup_token === token) {
+            if (!hasExpired) {
+              setTokenValid(true)
+            } else {
+              setTokenValid(false)
+              toast({
+                title: "Invitation Expired",
+                description: "This beta invitation has expired. Please contact support for assistance.",
+                variant: "destructive"
+              })
+            }
+          } else {
+            setTokenValid(false)
+            toast({
+              title: "Invalid Invitation",
+              description: "This invitation link is invalid. Please use the link from your email.",
+              variant: "destructive"
+            })
+          }
         } else {
           setTokenValid(false)
           toast({
-            title: "Invalid or Expired Invitation",
-            description: "This beta invitation may have expired or already been used.",
+            title: "Invitation Not Found",
+            description: "No invitation found for this email address.",
             variant: "destructive"
           })
         }
@@ -126,15 +176,23 @@ function BetaSignupContent() {
         // The trigger in the database will automatically assign the beta-pro role
         // based on the email matching a beta_testers record
 
-        toast({
-          title: "Welcome to ChainReact Beta! 🎉",
-          description: "Your account has been created. Check your email to verify your account.",
+        // Sign in the user immediately after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
         })
 
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
+        if (signInError) {
+          console.error("Auto sign-in error:", signInError)
+        }
+
+        toast({
+          title: "Welcome to ChainReact Beta! 🎉",
+          description: "Your account has been created and you're now logged in.",
+        })
+
+        // Redirect to dashboard immediately
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Signup error:", error)
@@ -178,7 +236,7 @@ function BetaSignupContent() {
               If you believe this is an error, please contact our support team.
             </p>
             <Button asChild className="w-full">
-              <Link href="/auth/sign-in">Go to Sign In</Link>
+              <Link href="/auth/login">Go to Sign In</Link>
             </Button>
           </CardContent>
         </Card>

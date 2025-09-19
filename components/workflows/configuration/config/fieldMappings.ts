@@ -47,6 +47,9 @@ const discordMappings: Record<string, FieldMapping> = {
     guildId: "discord_guilds",
     authorFilter: "discord_channel_members",  // Use discord_channel_members to get members who can access the channel
   },
+  discord_trigger_member_join: {
+    guildId: "discord_guilds",
+  },
   discord_action_send_message: {
     channelId: "discord_channels",
     guildId: "discord_guilds",
@@ -67,6 +70,11 @@ const discordMappings: Record<string, FieldMapping> = {
     channelId: "discord_channels",
     guildId: "discord_guilds",
     filterAuthor: "discord_members",
+  },
+  discord_action_assign_role: {
+    guildId: "discord_guilds",
+    userId: "discord_members",
+    roleId: "discord_roles",
   },
 };
 
@@ -121,10 +129,13 @@ const trelloMappings: Record<string, FieldMapping> = {
   trello_action_create_card: {
     boardId: "trello_boards",
     listId: "trello_lists",
-    template: "trello-card-templates",
+    idMembers: "trello_board_members",
+    idLabels: "trello_board_labels",
+    idCardSource: "trello_all_cards",
   },
   trello_action_create_board: {
     template: "trello_board_templates",
+    sourceBoardId: "trello_boards",
   },
   trello_action_create_list: {
     boardId: "trello_boards",
@@ -617,10 +628,19 @@ export const fieldToResourceMap: NodeFieldMappings = {
  * Get resource type for a field in a specific node
  */
 export function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
+  // Debug logging for Trello template field
+  if (fieldName === 'template' && nodeType?.includes('trello')) {
+    console.log('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
+  }
+
   // First check node-specific mapping
   const nodeMapping = fieldToResourceMap[nodeType];
   if (nodeMapping && nodeMapping[fieldName]) {
-    return nodeMapping[fieldName];
+    const resourceType = nodeMapping[fieldName];
+    if (fieldName === 'template') {
+      console.log('[FieldMapping] Found resource type for template:', resourceType);
+    }
+    return resourceType;
   }
 
   // Fall back to default mapping
@@ -629,5 +649,8 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
   }
 
   // No mapping found
+  if (fieldName === 'template') {
+    console.log('[FieldMapping] No resource type found for template field in:', nodeType);
+  }
   return null;
 }
