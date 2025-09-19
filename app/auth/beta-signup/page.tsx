@@ -200,14 +200,17 @@ function BetaSignupContent() {
     // Check username availability one more time before submission
     setLoading(true)
     try {
-      const supabaseClient = createClient()
-      const { data: existingUser, error: checkError } = await supabaseClient
-        .from('user_profiles')
-        .select('username')
-        .eq('username', username)
-        .single()
+      const response = await fetch('/api/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      })
 
-      if (existingUser) {
+      const data = await response.json()
+
+      if (!data.available) {
         toast({
           title: "Username taken",
           description: "This username is already in use. Please choose another.",
@@ -217,11 +220,8 @@ function BetaSignupContent() {
         return
       }
     } catch (checkErr: any) {
-      // PGRST116 means no rows found, which is what we want
-      if (checkErr?.code !== 'PGRST116') {
-        console.error("Error checking username:", checkErr)
-        // Continue anyway - the database will enforce uniqueness
-      }
+      console.log("Username pre-check error:", checkErr)
+      // Continue with signup - database constraints will handle duplicates
     }
 
     if (password !== confirmPassword) {
@@ -614,21 +614,21 @@ function BetaSignupContent() {
                         setCheckingUsername(true)
                         const timer = setTimeout(async () => {
                           try {
-                            const supabaseClient = createClient()
-                            const { data } = await supabaseClient
-                              .from('user_profiles')
-                              .select('username')
-                              .eq('username', value)
-                              .single()
+                            // Use API endpoint that uses service role to bypass RLS
+                            const response = await fetch('/api/check-username', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ username: value }),
+                            })
 
-                            setUsernameAvailable(!data)
+                            const data = await response.json()
+                            setUsernameAvailable(data.available)
                           } catch (err: any) {
-                            // PGRST116 means no rows found - username is available
-                            if (err?.code === 'PGRST116') {
-                              setUsernameAvailable(true)
-                            } else {
-                              setUsernameAvailable(false)
-                            }
+                            console.error("Username availability check error:", err)
+                            // Default to showing as available - actual check happens at signup
+                            setUsernameAvailable(true)
                           } finally {
                             setCheckingUsername(false)
                           }
