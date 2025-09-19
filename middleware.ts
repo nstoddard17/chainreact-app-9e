@@ -55,6 +55,26 @@ export async function middleware(req: NextRequest) {
     }
   )
 
+  // Create a service role client for reading user profiles (bypasses RLS)
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookieEncoding: 'raw',
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value)
+            res.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
   try {
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
@@ -68,7 +88,8 @@ export async function middleware(req: NextRequest) {
     }
 
     // ALWAYS fetch fresh profile data - no caching
-    const { data: profile, error: profileError } = await supabase
+    // Use admin client to bypass RLS
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('role, username, provider')
       .eq('id', user.id)
