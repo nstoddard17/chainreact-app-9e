@@ -396,6 +396,16 @@ export const actionHandlerRegistry: Record<string, Function> = {
  * Special handler for wait_for_time that needs workflow context
  */
 export function getWaitForTimeHandler(workflowId: string, nodeId: string) {
-  return (cfg: any, uid: string, inp: any) => 
+  return (cfg: any, uid: string, inp: any) =>
     executeWaitForTime(cfg, uid, inp, { workflowId, nodeId })
+}
+
+// Export Notion unified handlers for use in IntegrationHandlers
+export {
+  executeNotionManagePage,
+  executeNotionManageDatabase,
+  executeNotionManageUsers,
+  executeNotionManageComments,
+  notionGetPageDetails as executeNotionGetPageDetails,
+  notionSearch as executeNotionSearch
 }
