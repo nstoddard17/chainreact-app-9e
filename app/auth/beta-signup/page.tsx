@@ -50,6 +50,8 @@ function BetaSignupContent() {
       const decoded = atob(token)
       const [tokenEmail] = decoded.split(":")
 
+      console.log("Token validation:", { token, decoded, tokenEmail, urlEmail })
+
       if (tokenEmail === urlEmail) {
         // Token matches the email, check if this beta tester exists and has this token
         const supabase = createClient()
@@ -62,20 +64,42 @@ function BetaSignupContent() {
           .eq("email", urlEmail)
           .single()
 
+        console.log("Beta tester query result:", { data, error })
+
+        if (error) {
+          console.error("Database error:", error)
+          setTokenValid(false)
+          toast({
+            title: "Invitation Not Found",
+            description: "No invitation found for this email address. Please ensure you're using the latest invitation link.",
+            variant: "destructive"
+          })
+          return
+        }
+
         if (data) {
+          console.log("Beta tester data:", {
+            status: data.status,
+            expires_at: data.expires_at,
+            signup_token: data.signup_token,
+            tokenMatch: data.signup_token === token
+          })
+
           // Check if invitation has expired
           const hasExpired = data.expires_at && new Date(data.expires_at) < new Date()
 
-          // Check if token matches and invitation is still valid
-          if (data.signup_token === token && !hasExpired) {
-            setTokenValid(true)
-          } else if (hasExpired) {
-            setTokenValid(false)
-            toast({
-              title: "Invitation Expired",
-              description: "This beta invitation has expired. Please contact support for assistance.",
-              variant: "destructive"
-            })
+          // If signup_token is null, this might be an old invitation - accept it
+          if (!data.signup_token || data.signup_token === token) {
+            if (!hasExpired) {
+              setTokenValid(true)
+            } else {
+              setTokenValid(false)
+              toast({
+                title: "Invitation Expired",
+                description: "This beta invitation has expired. Please contact support for assistance.",
+                variant: "destructive"
+              })
+            }
           } else {
             setTokenValid(false)
             toast({
