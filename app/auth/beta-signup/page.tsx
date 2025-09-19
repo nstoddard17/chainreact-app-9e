@@ -27,6 +27,7 @@ function BetaSignupContent() {
   const [tokenValid, setTokenValid] = useState(false)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [usernameCheckTimer, setUsernameCheckTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Get email and token from URL params
@@ -199,7 +200,8 @@ function BetaSignupContent() {
     // Check username availability one more time before submission
     setLoading(true)
     try {
-      const { data: existingUser, error: checkError } = await supabase
+      const supabaseClient = createClient()
+      const { data: existingUser, error: checkError } = await supabaseClient
         .from('user_profiles')
         .select('username')
         .eq('username', username)
@@ -346,18 +348,32 @@ function BetaSignupContent() {
           }
         }
 
-        // Update beta tester status to converted
-        const { error: betaUpdateError } = await supabase
-          .from('beta_testers')
-          .update({
-            status: 'converted',
-            conversion_date: new Date().toISOString()
-          })
-          .eq('email', email)
+        // Update beta tester status to converted and confirm email
+        try {
+          // Update beta tester status
+          const { error: betaUpdateError } = await supabase
+            .from('beta_testers')
+            .update({
+              status: 'converted',
+              conversion_date: new Date().toISOString()
+            })
+            .eq('email', email)
 
-        if (betaUpdateError) {
-          console.error("Failed to update beta tester status:", betaUpdateError)
-          // Non-critical error, continue
+          if (betaUpdateError) {
+            console.error("Failed to update beta tester status:", betaUpdateError)
+          }
+
+          // Call function to confirm email for beta testers
+          const { error: confirmError } = await supabase.rpc('confirm_beta_tester_email', {
+            user_email: email
+          })
+
+          if (confirmError) {
+            console.error("Failed to confirm email:", confirmError)
+          }
+        } catch (err) {
+          console.error("Error updating beta tester status:", err)
+          // Non-critical errors, continue
         }
 
         // Wait a bit to ensure all database operations propagate
@@ -585,6 +601,11 @@ function BetaSignupContent() {
                       const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
                       setUsername(value)
 
+                      // Clear previous timer if exists
+                      if (usernameCheckTimer) {
+                        clearTimeout(usernameCheckTimer)
+                      }
+
                       // Clear previous state
                       setUsernameAvailable(null)
 
@@ -613,7 +634,9 @@ function BetaSignupContent() {
                           }
                         }, 500)
 
-                        return () => clearTimeout(timer)
+                        setUsernameCheckTimer(timer)
+                      } else {
+                        setCheckingUsername(false)
                       }
                     }}
                     required
