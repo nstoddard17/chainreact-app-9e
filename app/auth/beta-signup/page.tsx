@@ -224,28 +224,46 @@ function BetaSignupContent() {
         // Create or update the user profile with username and role
         // This MUST complete successfully before redirecting
         try {
+          // First try to insert the profile
           const { data: profileData, error: profileError } = await supabase
             .from('user_profiles')
-            .upsert({
+            .insert({
               id: data.user.id,
               username: username,
               full_name: fullName,
               role: 'beta-pro',
-              provider: 'email',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'id'
+              provider: 'email'
+              // Let database handle timestamps
             })
             .select()
             .single()
 
           if (profileError) {
-            console.error("Error creating user profile:", profileError)
-            throw new Error("Failed to create user profile")
-          }
+            // If insert fails (profile might already exist), try update
+            if (profileError.code === '23505') { // Unique violation
+              const { data: updateData, error: updateError } = await supabase
+                .from('user_profiles')
+                .update({
+                  username: username,
+                  full_name: fullName,
+                  role: 'beta-pro'
+                })
+                .eq('id', data.user.id)
+                .select()
+                .single()
 
-          console.log("User profile created successfully:", profileData)
+              if (updateError) {
+                console.error("Error updating user profile:", updateError)
+                throw new Error("Failed to update user profile")
+              }
+              console.log("User profile updated successfully:", updateData)
+            } else {
+              console.error("Error creating user profile:", profileError)
+              throw new Error("Failed to create user profile")
+            }
+          } else {
+            console.log("User profile created successfully:", profileData)
+          }
 
           // Verify the profile was created by fetching it
           const { data: verifyProfile, error: verifyError } = await supabase
