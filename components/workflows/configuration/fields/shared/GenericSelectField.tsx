@@ -252,10 +252,10 @@ export function GenericSelectField({
     const optValue = opt.value || opt.id;
     return String(optValue) === String(value);
   });
-  
+
   // Always prefer label over value for display
-  const displayValue = selectedOption ? 
-    (selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id) : 
+  const displayValue = selectedOption ?
+    (selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id) :
     (value || '');
 
   // Fallback to regular Select with clear button
