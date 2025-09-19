@@ -50,7 +50,12 @@ export async function POST(request: Request) {
         })
         .eq("id", tester.id)
 
-      const signupUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/beta-signup?token=${signupToken}&email=${encodeURIComponent(tester.email)}`
+      // Use localhost for development testing
+      const baseUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'
+        : process.env.NEXT_PUBLIC_APP_URL
+
+      const signupUrl = `${baseUrl}/auth/beta-signup?token=${signupToken}&email=${encodeURIComponent(tester.email)}`
 
       // Calculate expiry days
       const expiresInDays = tester.expires_at
