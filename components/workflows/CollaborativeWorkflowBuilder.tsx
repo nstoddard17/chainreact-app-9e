@@ -2601,7 +2601,15 @@ const useWorkflowBuilderState = () => {
         nodes: mappedNodes,
         connections: mappedConnections
       })
-      
+
+      // Debug logging to find [object object] issue
+      console.log('📝 [handleSave] savedWorkflow result:', {
+        type: typeof savedWorkflow,
+        isObject: savedWorkflow && typeof savedWorkflow === 'object',
+        hasName: savedWorkflow?.name,
+        savedWorkflow: savedWorkflow
+      })
+
       // Update the current workflow with the saved data
       if (savedWorkflow) {
         setCurrentWorkflow(savedWorkflow)
@@ -2613,16 +2621,22 @@ const useWorkflowBuilderState = () => {
       
       // Only show success toast on first attempt
       if (retryCount === 0) {
-        toast({
+        // Ensure toast receives proper object format
+        const toastData = {
           title: "Workflow Saved",
           description: "Your workflow has been successfully saved."
-        })
+        }
+        console.log('📢 [handleSave] Showing success toast:', toastData)
+        toast(toastData)
       } else {
-        toast({
+        // Ensure toast receives proper object format
+        const toastData = {
           title: "Save Recovered",
           description: `Workflow saved successfully after ${retryCount + 1} attempt${retryCount > 0 ? 's' : ''}.`,
-          variant: "default"
-        })
+          variant: "default" as const
+        }
+        console.log('📢 [handleSave] Showing recovery toast:', toastData)
+        toast(toastData)
       }
 
       // Clear unsaved changes flag
@@ -2683,11 +2697,18 @@ const useWorkflowBuilderState = () => {
 
       console.error('Save error details:', error)
 
-      toast({
+      // Ensure errorMessage is a string
+      const safeErrorMessage = typeof errorMessage === 'string'
+        ? errorMessage
+        : "Could not save your changes. Please try again."
+
+      const errorToastData = {
         title: "Error Saving Workflow",
-        description: errorMessage,
-        variant: "destructive"
-      })
+        description: safeErrorMessage,
+        variant: "destructive" as const
+      }
+      console.log('📢 [handleSave] Showing error toast:', errorToastData)
+      toast(errorToastData)
     } finally {
       // Clear the auto-recovery timer
       if (saveTimeoutRef.current) {
