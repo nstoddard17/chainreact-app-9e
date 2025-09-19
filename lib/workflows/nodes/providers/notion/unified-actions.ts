@@ -170,11 +170,20 @@ export const notionUnifiedActions: NodeComponent[] = [
       {
         name: "content",
         label: "Content",
-        type: "rich-text",
+        type: "textarea",
         required: false,
-        placeholder: "Enter content",
-        visibilityCondition: { 
-          field: "operation", 
+        placeholder: "Enter content with markdown-like formatting...",
+        rows: 15,  // Increased for more content
+        description: "Formatting: # H1 | ## H2 | ### H3 | - bullet | 1. numbered | [] todo | [x] done | > quote | --- divider | ``` code",
+        helpText: `Supported formatting:
+• Headers: # H1, ## H2, ### H3
+• Lists: - bullet, 1. numbered list
+• Todos: [] unchecked, [x] checked
+• Quotes: > quoted text
+• Code: \`\`\` code block
+• Divider: --- or ***`,
+        visibilityCondition: {
+          field: "operation",
           operator: "in",
           value: ["create", "update", "append"]
         }

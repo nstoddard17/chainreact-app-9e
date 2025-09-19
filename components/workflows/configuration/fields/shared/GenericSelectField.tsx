@@ -27,7 +27,7 @@ function getEmptyMessage(fieldName: string, fieldLabel?: string): string {
 
   // Specific messages for common field types
   if (fieldName === 'parentDatabase' || label.includes('database')) {
-    return "No databases found. Please create a database in your Notion workspace first.";
+    return "No databases found. Note: Only full database pages are shown, not inline databases within pages. Please create a full-page database or share existing databases with your integration.";
   }
   if (fieldName === 'parentPage' || label.includes('page')) {
     return "No pages found. Please create or share pages with your Notion integration.";
@@ -116,33 +116,43 @@ export function GenericSelectField({
       timeSinceLastLoad: Date.now() - lastLoadTimestamp,
       willTriggerLoad: open && field.dynamic && onDynamicLoad && !isLoading
     });
-    
+
+    // For certain fields like parentDatabase, always refresh when opened
+    // This ensures users see the most up-to-date list
+    const shouldAlwaysRefresh = ['parentDatabase', 'parentPage', 'database', 'page'].includes(field.name);
+    const hasValue = value !== undefined && value !== null && value !== '';
+
+    // Allow refresh for fields that should always update
+    const shouldAllowRefresh = shouldAlwaysRefresh && hasValue && options?.length > 0;
+
     // Load options when:
     // 1. Opening and field is dynamic
     // 2. Has a loader function
     // 3. Not currently loading
-    // 4. Haven't attempted load yet (don't retry on empty results to avoid infinite loop)
+    // 4. Either: haven't attempted load yet OR it's a field that should refresh
     const shouldLoad = open &&
       field.dynamic &&
       onDynamicLoad &&
       !isLoading &&
-      !hasAttemptedLoad;
-    
+      (!hasAttemptedLoad || shouldAllowRefresh);
+
     if (shouldLoad) {
-      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
+      const isRefresh = hasAttemptedLoad && shouldAllowRefresh;
+      console.log('🚀 [GenericSelectField] ' + (isRefresh ? 'Refreshing' : 'Triggering') + ' dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
-        dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined
+        dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
+        isRefresh
       });
-      
+
       setHasAttemptedLoad(true);
       setLastLoadTimestamp(Date.now());
-      
-      // If field has dependencies, pass them
+
+      // If field has dependencies, pass them with forceRefresh for refresh fields
       if (field.dependsOn && parentValues[field.dependsOn]) {
-        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn]);
+        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], shouldAllowRefresh);
       } else {
         // No dependencies, just load the field
-        onDynamicLoad(field.name);
+        onDynamicLoad(field.name, undefined, undefined, shouldAllowRefresh);
       }
     } else {
       console.log('🚫 [GenericSelectField] Dynamic load NOT triggered. Conditions:', {
@@ -152,7 +162,8 @@ export function GenericSelectField({
         notLoading: !isLoading,
         emptyOptions: (options?.length === 0),
         hasAttemptedLoad,
-        timeSinceLastLoad: Date.now() - lastLoadTimestamp
+        timeSinceLastLoad: Date.now() - lastLoadTimestamp,
+        shouldAllowRefresh
       });
     }
   };

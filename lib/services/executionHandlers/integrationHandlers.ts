@@ -330,7 +330,8 @@ export class IntegrationNodeHandlers {
 
         const managePageResult = await executeNotionManagePage(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!managePageResult.success) {
@@ -345,7 +346,8 @@ export class IntegrationNodeHandlers {
 
         const manageDatabaseResult = await executeNotionManageDatabase(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!manageDatabaseResult.success) {
@@ -360,7 +362,8 @@ export class IntegrationNodeHandlers {
 
         const manageCommentsResult = await executeNotionManageComments(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!manageCommentsResult.success) {
@@ -375,7 +378,8 @@ export class IntegrationNodeHandlers {
 
         const manageUsersResult = await executeNotionManageUsers(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!manageUsersResult.success) {
@@ -390,7 +394,8 @@ export class IntegrationNodeHandlers {
 
         const getPageDetailsResult = await executeNotionGetPageDetails(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!getPageDetailsResult.success) {
@@ -405,7 +410,8 @@ export class IntegrationNodeHandlers {
 
         const searchResult = await executeNotionSearch(
           config,
-          context
+          context.userId,
+          context.data || {}
         )
 
         if (!searchResult.success) {
