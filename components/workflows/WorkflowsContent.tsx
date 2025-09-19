@@ -30,10 +30,12 @@ import { useOrganizationStore } from "@/stores/organizationStore"
 import { hasOrganizationPermission } from "@/lib/utils/organizationRoles"
 import { getRelativeTime, formatDateTime } from "@/lib/utils/formatTime"
 import { createClient } from "@/utils/supabaseClient"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 export default function WorkflowsContent() {
   const { profile } = useAuthStore()
   const { currentOrganization } = useOrganizationStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
   const {
     workflows,
     loading,
@@ -114,20 +116,25 @@ export default function WorkflowsContent() {
     dependencies: [] // No dependencies - only load on mount
   })
 
+  // Load integrations on mount
+  useEffect(() => {
+    fetchIntegrations()
+  }, [fetchIntegrations])
+
   // Load user profiles for workflow creators
   useEffect(() => {
     const loadUserProfiles = async () => {
       if (!workflows || workflows.length === 0) return
-      
+
       const userIds = [...new Set(workflows.map(w => w.user_id).filter(Boolean))]
       const supabase = createClient()
       if (!supabase) return
-      
+
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .in('id', userIds)
-      
+
       if (profiles) {
         const profileMap = profiles.reduce((acc, profile) => {
           acc[profile.id] = profile
@@ -136,7 +143,7 @@ export default function WorkflowsContent() {
         setUserProfiles(profileMap)
       }
     }
-    
+
     loadUserProfiles()
   }, [workflows])
 

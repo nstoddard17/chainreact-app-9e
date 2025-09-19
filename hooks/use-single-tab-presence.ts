@@ -41,9 +41,10 @@ export function useSingleTabPresence() {
   const [isLeaderTab, setIsLeaderTab] = useState(false)
   const [onlineCount, setOnlineCount] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
-  
+
   const tabId = useRef<string>(`tab-${Date.now()}-${Math.random()}`).current
   const mountTime = useRef<number>(Date.now()).current
+  const isLeaderTabRef = useRef<boolean>(false)
   
   // Detect hot reloading in development
   const isHotReload = process.env.NODE_ENV === 'development' && 
@@ -86,6 +87,7 @@ export function useSingleTabPresence() {
   const becomeLeader = useCallback(async () => {
     console.log(`Tab ${tabId} becoming leader`)
     setIsLeaderTab(true)
+    isLeaderTabRef.current = true
     
     // Start leader heartbeat
     if (leaderHeartbeatInterval.current) {
@@ -178,6 +180,7 @@ export function useSingleTabPresence() {
   const resignLeader = useCallback(async () => {
     console.log(`Tab ${tabId} resigning leadership`)
     setIsLeaderTab(false)
+    isLeaderTabRef.current = false
     
     // Stop leader heartbeat
     if (leaderHeartbeatInterval.current) {
@@ -229,12 +232,12 @@ export function useSingleTabPresence() {
       
       // Become leader after a random delay (to handle race conditions)
       setTimeout(() => {
-        if (!isLeaderTab) {
+        if (!isLeaderTabRef.current) {
           becomeLeader()
         }
       }, Math.random() * 500)
     }
-  }, [tabId, user?.id, isLeaderTab, becomeLeader])
+  }, [tabId, user?.id, becomeLeader])
 
   // Handle broadcast messages
   const handleBroadcastMessage = useCallback((event: MessageEvent<TabMessage>) => {
@@ -248,7 +251,7 @@ export function useSingleTabPresence() {
         lastLeaderHeartbeat.current = message.timestamp
         
         // If we're the leader but another tab is sending heartbeats, yield
-        if (isLeaderTab && message.tabId !== tabId) {
+        if (isLeaderTabRef.current && message.tabId !== tabId) {
           if (message.timestamp > Date.now() - LEADER_HEARTBEAT_INTERVAL * 2) {
             console.log(`Tab ${tabId} yielding to ${message.tabId}`)
             resignLeader()
@@ -258,21 +261,21 @@ export function useSingleTabPresence() {
         
       case 'election':
         // If we're already leader, assert dominance
-        if (isLeaderTab) {
+        if (isLeaderTabRef.current) {
           sendLeaderHeartbeat()
         }
         break
         
       case 'resignation':
         // Previous leader resigned, start election after delay
-        if (!isLeaderTab) {
+        if (!isLeaderTabRef.current) {
           setTimeout(() => {
             checkLeaderAlive()
           }, Math.random() * 1000)
         }
         break
     }
-  }, [tabId, isLeaderTab, sendLeaderHeartbeat, resignLeader, checkLeaderAlive])
+  }, [tabId, sendLeaderHeartbeat, resignLeader, checkLeaderAlive])
 
   // Lightweight function to update online count in database with debouncing
   const updateOnlineCount = useCallback(async (count: number) => {
@@ -317,24 +320,24 @@ export function useSingleTabPresence() {
   // Initialize
   useEffect(() => {
     if (!user?.id) return
-    
+
     // Skip initialization during hot reload to prevent election storms
     if (isHotReload) {
       console.debug('Skipping presence initialization during hot reload')
       return
     }
-    
+
     // Create broadcast channel for cross-tab communication
     if ('BroadcastChannel' in window) {
       broadcastChannel.current = new BroadcastChannel(BROADCAST_CHANNEL)
       broadcastChannel.current.onmessage = handleBroadcastMessage
-      
+
       // Start election process
       checkLeaderAlive()
-      
+
       // Periodically check if leader is alive (only for non-leaders)
       leaderCheckInterval.current = setInterval(() => {
-        if (!isLeaderTab) {
+        if (!isLeaderTabRef.current) {
           checkLeaderAlive()
         }
       }, LEADER_TIMEOUT / 2)
@@ -343,10 +346,10 @@ export function useSingleTabPresence() {
       console.log('BroadcastChannel not supported, using single tab mode')
       becomeLeader()
     }
-    
+
     // Handle tab close/unload
     const handleUnload = () => {
-      if (isLeaderTab && broadcastChannel.current) {
+      if (isLeaderTabRef.current && broadcastChannel.current) {
         // Announce resignation
         const message: TabMessage = {
           type: 'resignation',
@@ -354,7 +357,7 @@ export function useSingleTabPresence() {
           timestamp: Date.now(),
           userId: user.id
         }
-        
+
         // Try to send resignation message
         try {
           broadcastChannel.current.postMessage(message)
@@ -362,38 +365,41 @@ export function useSingleTabPresence() {
           console.debug('Failed to send resignation:', error)
         }
       }
-      
+
       // Clean up
       resignLeader()
     }
-    
+
     window.addEventListener('beforeunload', handleUnload)
     window.addEventListener('pagehide', handleUnload)
-    
+
     // Cleanup
     return () => {
       handleUnload()
-      
+
       if (leaderCheckInterval.current) {
         clearInterval(leaderCheckInterval.current)
       }
-      
+
       if (dbUpdateInterval.current) {
         clearInterval(dbUpdateInterval.current)
       }
-      
+
       if (pendingDbUpdate.current) {
         clearTimeout(pendingDbUpdate.current)
       }
-      
+
       if (broadcastChannel.current) {
         broadcastChannel.current.close()
       }
-      
+
       window.removeEventListener('beforeunload', handleUnload)
       window.removeEventListener('pagehide', handleUnload)
     }
-  }, [user?.id])
+    // Remove handleBroadcastMessage, checkLeaderAlive, becomeLeader, resignLeader from deps
+    // These are callbacks that don't need to trigger re-initialization
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isHotReload, tabId])
 
   // Fetch online count periodically (for all tabs, not just leader)
   useEffect(() => {
