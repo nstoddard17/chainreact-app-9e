@@ -51,21 +51,44 @@ function BetaSignupContent() {
       const [tokenEmail] = decoded.split(":")
 
       if (tokenEmail === urlEmail) {
-        // Token matches the email, check if this beta tester exists
+        // Token matches the email, check if this beta tester exists and has this token
         const supabase = createClient()
+
+
+        // Check beta tester record
         const { data, error } = await supabase
           .from("beta_testers")
-          .select("status, expires_at")
+          .select("status, expires_at, signup_token")
           .eq("email", urlEmail)
           .single()
 
-        if (data && data.status === "active") {
-          setTokenValid(true)
+        if (data) {
+          // Check if invitation has expired
+          const hasExpired = data.expires_at && new Date(data.expires_at) < new Date()
+
+          // Check if token matches and invitation is still valid
+          if (data.signup_token === token && !hasExpired) {
+            setTokenValid(true)
+          } else if (hasExpired) {
+            setTokenValid(false)
+            toast({
+              title: "Invitation Expired",
+              description: "This beta invitation has expired. Please contact support for assistance.",
+              variant: "destructive"
+            })
+          } else {
+            setTokenValid(false)
+            toast({
+              title: "Invalid Invitation",
+              description: "This invitation link is invalid. Please use the link from your email.",
+              variant: "destructive"
+            })
+          }
         } else {
           setTokenValid(false)
           toast({
-            title: "Invalid or Expired Invitation",
-            description: "This beta invitation may have expired or already been used.",
+            title: "Invitation Not Found",
+            description: "No invitation found for this email address.",
             variant: "destructive"
           })
         }
@@ -186,7 +209,7 @@ function BetaSignupContent() {
               If you believe this is an error, please contact our support team.
             </p>
             <Button asChild className="w-full">
-              <Link href="/auth/sign-in">Go to Sign In</Link>
+              <Link href="/auth/login">Go to Sign In</Link>
             </Button>
           </CardContent>
         </Card>

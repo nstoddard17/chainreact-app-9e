@@ -173,15 +173,17 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       if (!silent) {
         loadingFields.current.add(cacheKey);
         setLoading(true);
-        
-        // Enhanced logging for channelId loading state
-        if (fieldName === 'channelId') {
+
+        // Enhanced logging for critical fields
+        if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
+          console.log(`🔄 [useDynamicOptions] Setting loading state for ${fieldName}`);
         }
-        
+
         onLoadingChangeRef.current?.(fieldName, true);
       } else {
         // Silent mode - just log that we're loading silently
-        if (fieldName === 'channelId') {
+        if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
+          console.log(`🔇 [useDynamicOptions] Loading ${fieldName} in silent mode`);
         }
       }
 
@@ -1360,28 +1362,34 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       });
       
       // Clear loading state on successful completion
-      // For authorFilter, always clear the loading state when we have data
-      if (fieldName === 'authorFilter') {
+      // For critical fields (authorFilter, Trello cards/lists), always clear the loading state when we have data
+      if (fieldName === 'authorFilter' ||
+          fieldName === 'cardId' ||
+          fieldName === 'listId' ||
+          resourceType === 'trello_cards' ||
+          resourceType === 'trello_lists') {
+        console.log(`🧹 [useDynamicOptions] Clearing loading state for ${fieldName} (critical field)`);
         loadingFields.current.delete(cacheKey);
         setLoading(false);
-        
+
         // Clean up the abort controller and request ID
         abortControllers.current.delete(cacheKey);
         activeRequestIds.current.delete(cacheKey);
-        
+
         // Clear loading state via callback
         if (!silent) {
           onLoadingChangeRef.current?.(fieldName, false);
+          console.log(`✅ [useDynamicOptions] Called onLoadingChange(${fieldName}, false)`);
         }
       } else if (activeRequestIds.current.get(cacheKey) === requestId) {
         // For other fields, only clear if this is still the current request
         loadingFields.current.delete(cacheKey);
         setLoading(false);
-        
+
         // Clean up the abort controller and request ID since we're done
         abortControllers.current.delete(cacheKey);
         activeRequestIds.current.delete(cacheKey);
-        
+
         // Only clear loading states if not in silent mode
         if (!silent) {
           if (fieldName === 'tableName') {
@@ -1389,6 +1397,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           onLoadingChangeRef.current?.(fieldName, false);
         }
       } else {
+        console.log(`⚠️ [useDynamicOptions] Not clearing loading for ${fieldName} - request superseded`);
       }
       
     } catch (error: any) {
