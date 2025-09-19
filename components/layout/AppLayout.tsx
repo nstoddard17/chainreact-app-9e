@@ -20,15 +20,24 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
-  const { initialize, user } = useAuthStore()
+  const { initialize, user, hydrated } = useAuthStore()
   const { globalPreloadingData } = useIntegrationStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isClientReady, setIsClientReady] = useState(false)
   const { setTheme, theme } = useTheme()
 
+  // Wait for client-side hydration to complete
   useEffect(() => {
-    initialize()
-  }, [initialize])
+    setIsClientReady(true)
+  }, [])
+
+  useEffect(() => {
+    // Only initialize after hydration is complete
+    if (hydrated) {
+      initialize()
+    }
+  }, [initialize, hydrated])
 
   // Load sidebar collapsed state from localStorage on mount
   useEffect(() => {
@@ -55,7 +64,19 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
     }
   }, [user, theme, setTheme])
 
+  // Show loading screen only during initial hydration
+  // After hydration, if there's no user, PageProtection will handle redirect
+  if (!isClientReady || !hydrated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
+        <LightningLoader size="lg" color="primary" />
+      </div>
+    )
+  }
+
+  // After hydration, if no user, PageProtection will redirect to login
   if (!user) {
+    // Still show loader briefly while redirect happens
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <LightningLoader size="lg" color="primary" />
@@ -74,8 +95,8 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           style={{ display: 'none' }}
           tabIndex={-1}
         />
-        <Sidebar 
-          isMobileMenuOpen={isMobileMenuOpen} 
+        <Sidebar
+          isMobileMenuOpen={isMobileMenuOpen}
           onMobileMenuChange={setIsMobileMenuOpen}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
@@ -86,7 +107,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
-        <div className={`flex-1 flex flex-col transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+        <div className={`flex flex-col min-h-screen transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
           <BetaBanner />
           <TopBar
             onMobileMenuChange={setIsMobileMenuOpen}

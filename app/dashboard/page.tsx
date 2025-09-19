@@ -1,9 +1,8 @@
-import { requireUsername } from "@/utils/checkUsername"
 import DashboardContent from "@/components/dashboard/DashboardContent"
 
-export default async function DashboardPage() {
-  // This will check for username and redirect if needed
-  await requireUsername()
-  
+export default function DashboardPage() {
+  // Temporarily removed server-side auth check to debug loading issue
+  // The client-side AppLayout will handle auth
+
   return <DashboardContent />
 }

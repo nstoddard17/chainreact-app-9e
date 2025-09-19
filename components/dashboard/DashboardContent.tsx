@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
@@ -14,17 +14,31 @@ import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import AIUsageCard from "./AIUsageCard"
 import { OnlineUsersIndicator } from "@/components/providers/LightweightPresenceProvider"
 import { Workflow, Puzzle } from "lucide-react"
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton-loader"
 
 export default function DashboardContent() {
   const searchParams = useSearchParams()
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
-  const { user, profile } = useAuthStore()
+  const { user, profile, initialized, hydrated } = useAuthStore()
   const { getConnectedProviders, fetchIntegrations } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
+  const [isClientReady, setIsClientReady] = useState(false)
   const connectedIntegrationsCount = getConnectedProviders().length
 
   // Count active workflows (workflows that are not drafts)
   const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
+
+  // Ensure client-side only code runs after mount
+  useEffect(() => {
+    setIsClientReady(true)
+  }, [])
+
+  // Debug logging
+  useEffect(() => {
+    if (isClientReady) {
+      console.log('[Dashboard] Auth state:', { user, profile, initialized, hydrated })
+    }
+  }, [user, profile, initialized, hydrated, isClientReady])
 
 
   // Use timeout loading for all data fetching with parallel loading
@@ -82,6 +96,32 @@ export default function DashboardContent() {
   }
 
   const firstName = getFirstName()
+
+  // Show skeleton loading state only during hydration
+  // This prevents the stuck loading issue
+  const isInitialLoading = !isClientReady || !hydrated
+
+  if (isInitialLoading) {
+    return (
+      <AppLayout title="Dashboard" subtitle="Loading your dashboard...">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <SkeletonCard />
+            </div>
+            <div className="lg:col-span-1 space-y-6">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout title="Dashboard" subtitle={`Welcome back, ${firstName}! Here's what's happening with your workflows.`}>
