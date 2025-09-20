@@ -773,7 +773,13 @@ const useWorkflowBuilderState = () => {
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
-    
+    console.error('🎯🎯🎯 [handleActionSelect] FUNCTION CALLED! 🎯🎯🎯')
+    console.error('🎯 [handleActionSelect] Called with action type:', action.type)
+    console.error('🎯 [handleActionSelect] Called with action title:', action.title)
+    console.error('🎯 [handleActionSelect] Integration:', integration.name)
+    console.error('🎯 [handleActionSelect] Is AI Agent?', action.type === 'ai_agent')
+    console.log('🎯🎯🎯 [handleActionSelect] Full action object:', action)
+
     if (!sourceAddNode) {
       toast({
         title: "Cannot Add Action",
@@ -783,16 +789,104 @@ const useWorkflowBuilderState = () => {
       setShowActionDialog(false)
       return
     }
-    
+
     // Generate unique node ID
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substr(2, 9)
     const newNodeId = `node-${timestamp}-${randomId}`
-    
-    // Check if this action requires configuration
-    const requiresConfig = nodeNeedsConfiguration && nodeNeedsConfiguration(action)
-    
-    if (requiresConfig) {
+
+    // Special handling for AI Agent - create node immediately but still open config
+    console.log('🔍 [handleActionSelect] Checking if action.type is ai_agent:', action.type === 'ai_agent')
+    console.log('🔍 [handleActionSelect] action.type:', action.type)
+    console.log('🔍 [handleActionSelect] Full action object:', action)
+    if (action.type === 'ai_agent') {
+      console.log('🤖 [handleActionSelect] AI Agent detected - creating node immediately')
+
+      const allNodes = getNodes()
+      const parentNode = allNodes.find(n => n.id === sourceAddNode.parentId)
+      const basePosition = parentNode ? parentNode.position : { x: 400, y: 300 }
+
+      // Create new AI Agent node immediately
+      const newNode: Node = {
+        id: newNodeId,
+        type: 'custom',
+        position: {
+          x: basePosition.x,
+          y: basePosition.y + 160
+        },
+        data: {
+          ...action,
+          providerId: integration.id,
+          config: {},
+          onConfigure: handleConfigureNode,
+          onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
+          onRename: (id: string, title: string) => handleRenameNodeRef.current?.(id, title),
+          hasChains: false,
+          isAIMode: false
+        }
+      }
+
+      // Create Add Action node after the new AI Agent
+      const addActionId = `add-action-${newNodeId}-${Date.now()}`
+      const addActionNode = createAddActionNode(
+        addActionId,
+        newNodeId,
+        {
+          x: basePosition.x,
+          y: basePosition.y + 320 // 160px below the new action
+        }
+      )
+
+      // Add the AI Agent node to the workflow
+      setNodes((nds) => [...nds.filter(n => n.id !== sourceAddNode.id), newNode, addActionNode])
+
+      // Add edges
+      setEdges((eds) => [
+        ...eds.filter(e => e.target !== sourceAddNode.id),
+        {
+          id: `${sourceAddNode.parentId}-${newNodeId}`,
+          source: sourceAddNode.parentId,
+          target: newNodeId,
+          type: 'custom'
+        },
+        {
+          id: `${newNodeId}-${addActionId}`,
+          source: newNodeId,
+          target: addActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+          type: "straight"
+        }
+      ])
+
+      // Close dialog
+      setShowActionDialog(false)
+      setSourceAddNode(null)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
+
+      // Mark as having unsaved changes
+      setHasUnsavedChanges(true)
+
+      // Now open configuration modal to configure the existing node
+      console.log('🤖 [handleActionSelect] Opening AI Agent configuration for existing node:', newNodeId)
+      console.log('🤖 [handleActionSelect] action.type:', action.type)
+      console.log('🤖 [handleActionSelect] action object:', action)
+      const configuringNodeData = {
+        id: newNodeId,
+        integration,
+        nodeComponent: action,
+        config: {}
+      }
+      console.log('🤖 [handleActionSelect] configuringNodeData being set:', configuringNodeData)
+      console.log('🤖 [handleActionSelect] configuringNodeData.nodeComponent.type:', configuringNodeData.nodeComponent?.type)
+      setConfiguringNode(configuringNodeData)
+
+    } else if (nodeNeedsConfiguration && nodeNeedsConfiguration(action)) {
+      // Check if this action requires configuration (non-AI Agent)
+      console.log('🎯 [handleActionSelect] Action requires config:', action.type)
+
       // Store the pending node info but don't add it yet
       setPendingNode({
         type: 'action',
@@ -801,20 +895,39 @@ const useWorkflowBuilderState = () => {
         sourceNodeInfo: sourceAddNode,
         nodeId: newNodeId
       } as any)
-      
+
       // Close dialog
       setShowActionDialog(false)
       setSourceAddNode(null)
       setSelectedIntegration(null)
       setSelectedAction(null)
       setSearchQuery("")
-      
+
+      console.log('🎯 [handleActionSelect] Setting configuringNode for:', action.type)
+      console.log('🎯 [handleActionSelect] Integration:', integration)
+      console.log('🎯 [handleActionSelect] Action:', action)
+      console.log('🎯 [handleActionSelect] NewNodeId:', newNodeId)
+
       // Open configuration modal
-      setConfiguringNode({
+      const configuringNodeData = {
         id: newNodeId,
         integration,
         nodeComponent: action,
         config: {}
+      }
+      console.log('🎯 [handleActionSelect] About to set configuringNode with:', configuringNodeData)
+      setConfiguringNode(configuringNodeData)
+      console.log('🎯 [handleActionSelect] configuringNode set! Now waiting for render...')
+
+      // Keep the pendingNode for AI Agent so the onSave handler can create the node
+      setPendingNode({
+        type: 'action',
+        integration,
+        nodeComponent: action,
+        sourceNodeInfo: {
+          id: sourceAddNode.id,
+          parentId: sourceAddNode.parentId
+        }
       })
     } else {
       // Add the node immediately if no configuration is needed
@@ -1142,7 +1255,9 @@ const useWorkflowBuilderState = () => {
 
   // Configuration modal computed values
   const configuringNodeInfo = useMemo(() => {
+    console.log('🎯 [configuringNodeInfo] Computing with configuringNode:', configuringNode);
     if (!configuringNode) return null
+    console.log('🎯 [configuringNodeInfo] nodeComponent type:', configuringNode.nodeComponent?.type);
     return configuringNode.nodeComponent || null
   }, [configuringNode])
 
@@ -2539,12 +2654,92 @@ const useWorkflowBuilderState = () => {
       console.log('💾 Starting workflow save...')
       
       // Get current nodes and edges from React Flow
-      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const reactFlowEdges = getEdges().filter((e: Edge) => 
+      let reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      let reactFlowEdges = getEdges().filter((e: Edge) => 
         reactFlowNodes.some((n: Node) => n.id === e.source) && 
         reactFlowNodes.some((n: Node) => n.id === e.target)
       )
-      
+
+      // Ensure AI Agent chain nodes are represented in the workflow graph before persisting
+      const existingNodeIds = new Set(reactFlowNodes.map((n: Node) => n.id))
+      const existingEdgeIds = new Set(reactFlowEdges.map((e: Edge) => e.id))
+      const additionalNodes: Node[] = []
+      const additionalEdges: Edge[] = []
+
+      reactFlowNodes.forEach((node: Node) => {
+        const layout = node.data?.config?.chainsLayout || node.data?.chainsLayout
+        if (!layout || node.data?.type !== 'ai_agent') return
+
+        // Add chain action nodes
+        layout.nodes?.forEach((layoutNode: any, index: number) => {
+          if (!layoutNode || layoutNode.type === 'chain_placeholder') return
+
+          const layoutNodeId = layoutNode.id || `${node.id}-chain-node-${index}`
+          if (existingNodeIds.has(layoutNodeId)) return
+
+          const newNode: Node = {
+            id: layoutNodeId,
+            type: 'custom',
+            position: layoutNode.position || {
+              x: node.position.x + 250,
+              y: node.position.y + 150 + (index * 120)
+            },
+            data: {
+              title: layoutNode.title,
+              description: layoutNode.description,
+              type: layoutNode.type,
+              providerId: layoutNode.providerId,
+              config: layoutNode.config || {},
+              isAIAgentChild: true,
+              parentAIAgentId: node.id,
+              parentChainIndex: layoutNode.parentChainIndex
+            }
+          }
+
+          additionalNodes.push(newNode)
+          existingNodeIds.add(layoutNodeId)
+        })
+
+        // Add edges connecting chain nodes
+        layout.edges?.forEach((layoutEdge: any, edgeIndex: number) => {
+          if (!layoutEdge) return
+          const source = layoutEdge.source === 'ai-agent' ? node.id : layoutEdge.source
+          const target = layoutEdge.target === 'ai-agent' ? node.id : layoutEdge.target
+          if (!source || !target || !existingNodeIds.has(source) || !existingNodeIds.has(target)) return
+
+          const edgeId = layoutEdge.id || `edge-${source}-${target}-${edgeIndex}`
+          if (existingEdgeIds.has(edgeId)) return
+
+          const newEdge: Edge = {
+            id: edgeId,
+            source,
+            target,
+            type: layoutEdge.type || 'custom'
+          }
+
+          additionalEdges.push(newEdge)
+          existingEdgeIds.add(edgeId)
+        })
+      })
+
+      if (additionalNodes.length > 0) {
+        reactFlowNodes = [...reactFlowNodes, ...additionalNodes]
+        setNodes((current) => {
+          const toAdd = new Map(additionalNodes.map((n) => [n.id, n]))
+          const filtered = current.filter((n) => !toAdd.has(n.id))
+          return [...filtered, ...additionalNodes]
+        })
+      }
+
+      if (additionalEdges.length > 0) {
+        reactFlowEdges = [...reactFlowEdges, ...additionalEdges]
+        setEdges((current) => {
+          const toAdd = new Map(additionalEdges.map((e) => [e.id, e]))
+          const filtered = current.filter((e) => !toAdd.has(e.id))
+          return [...filtered, ...additionalEdges]
+        })
+      }
+
       // Map nodes to database format - optimize payload size
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
         const position = {
@@ -4338,6 +4533,8 @@ const useWorkflowBuilderState = () => {
     setShowConnectedOnly,
     showComingSoon,
     setShowComingSoon,
+    isActionAIMode,
+    setIsActionAIMode,
     filteredIntegrations,
     displayedTriggers,
     deletingNode,
@@ -4551,6 +4748,7 @@ export default function CollaborativeWorkflowBuilder() {
 }
 
 function WorkflowBuilderContent() {
+  console.log('🏗️ [WorkflowBuilderContent] Rendering...')
   const router = useRouter()
   const { toast } = useToast()
   const { setCurrentWorkflow } = useWorkflowStore()
@@ -4565,7 +4763,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, handleConfigurationClose, handleConfigurationSave,
     configuringNodeInfo, configuringIntegrationName, configuringInitialData, collaborators, pendingNode, setPendingNode,
-    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly, showComingSoon, setShowComingSoon,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly, showComingSoon, setShowComingSoon, isActionAIMode, setIsActionAIMode,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, setSourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
@@ -4693,6 +4891,16 @@ function WorkflowBuilderContent() {
       setPrecheckRunning(false)
     }
   }, [getNodes, getEdges, isIntegrationConnected])
+
+  // Log configuringNode changes
+  useEffect(() => {
+    console.log('🔄 [configuringNode changed]', configuringNode)
+    if (configuringNode) {
+      console.log('🔄 [configuringNode] id:', configuringNode.id)
+      console.log('🔄 [configuringNode] nodeComponent type:', configuringNode.nodeComponent?.type)
+      console.log('🔄 [configuringNode] is AI Agent?', configuringNode.nodeComponent?.type === 'ai_agent')
+    }
+  }, [configuringNode])
 
   // Update nodes with execution status when nodeStatuses changes
   useEffect(() => {
@@ -7267,33 +7475,140 @@ function WorkflowBuilderContent() {
                             const existingAIAgent = nodes.find(n => n.data?.type === 'ai_agent')
                             const isAIAgentDisabled = action.type === 'ai_agent' && existingAIAgent
                             
+                            console.error('🟦🟦🟦 [Action Dialog] RENDERING ACTION:', action.type, action.title)
+                            console.error('🟦 [Action Dialog] Is AI Agent?', action.type === 'ai_agent')
+                            console.error('🟦 [Action Dialog] selectedIntegration:', selectedIntegration?.id)
+                            console.error('🟦 [Action Dialog] isAIAgentDisabled:', isAIAgentDisabled)
+                            console.error('🟦 [Action Dialog] onClick handler attached:', action.type === 'ai_agent' ? 'YES FOR AI AGENT' : 'yes')
+
+                            // Special handling for AI Agent - use a button instead of div
+                            if (action.type === 'ai_agent') {
+                              console.error('🟪🟪🟪 RENDERING AI AGENT AS BUTTON 🟪🟪🟪')
+                              return (
+                                <button
+                                  key={action.type}
+                                  className={`w-full text-left p-4 border rounded-lg transition-all ${
+                                    isComingSoon || isAIAgentDisabled
+                                      ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
+                                      : selectedAction?.type === action.type
+                                        ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                                        : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
+                                  }`}
+                                  style={{
+                                    border: '3px solid orange',
+                                    display: 'block'
+                                  }}
+                                  type="button"
+                                  disabled={isComingSoon || isAIAgentDisabled}
+                                  onClick={() => {
+                                    console.error('🔥🔥🔥 AI AGENT BUTTON CLICKED! 🔥🔥🔥')
+                                    console.error('🔥 selectedIntegration:', selectedIntegration)
+                                    console.error('🔥 selectedAction:', action)
+
+                                    if (isComingSoon || isAIAgentDisabled) {
+                                      console.error('🔥 AI Agent disabled or coming soon')
+                                      return
+                                    }
+
+                                    setSelectedAction(action)
+
+                                    // Call handleActionSelect immediately for AI Agent
+                                    if (selectedIntegration) {
+                                      console.error('🔥🔥🔥 Calling handleActionSelect for AI Agent!')
+                                      handleActionSelect(selectedIntegration, action)
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <p className={`font-medium ${isComingSoon || isAIAgentDisabled ? 'text-muted-foreground' : ''}`}>
+                                        {action.title || 'Unnamed Action'}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {action.description || 'No description available'}
+                                      </p>
+                                    </div>
+                                    {isComingSoon && (
+                                      <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full ml-2">
+                                        Coming Soon
+                                      </span>
+                                    )}
+                                    {isAIAgentDisabled && (
+                                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                                        Already Added
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              )
+                            }
+
+                            // Regular action rendering
                             return (
                               <div
                                 key={action.type}
                                 className={`p-4 border rounded-lg transition-all ${
                                   isComingSoon || isAIAgentDisabled
-                                    ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
-                                    : selectedAction?.type === action.type 
-                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/20' 
+                                    ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
+                                    : selectedAction?.type === action.type
+                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
                                       : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
                                 }`}
-                                onClick={() => {
-                                  if (isComingSoon) return
-                                  if (isAIAgentDisabled) {
-                                    toast({
-                                      title: "AI Agent Already Exists",
-                                      description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
-                                      variant: "destructive"
-                                    })
-                                    return
-                                  }
-                                  setSelectedAction(action)
-                                  // If action doesn't need configuration, add it immediately
-                                  if (selectedIntegration && !nodeNeedsConfiguration(action)) {
-                                    handleActionSelect(selectedIntegration, action)
+                                onClick={(e) => {
+                                  // Immediate debug - this MUST show if onClick fires at all
+                                  console.error('🔴🔴🔴 CLICK DETECTED - RAW 🔴🔴🔴', action.type)
+
+                                  try {
+                                    console.error('🔴 [Action Dialog] onClick TRIGGERED!')
+                                    console.error('🔴 [Action Dialog] Event:', e)
+                                    console.error('🔴 [Action Dialog] Action type:', action.type)
+                                    console.error('🔴 [Action Dialog] Action title:', action.title)
+                                    console.error('🔴 [Action Dialog] Is AI Agent?', action.type === 'ai_agent')
+
+                                    console.log('🖱️ [Action Dialog] Single-clicked on action:', action.type, action.title)
+                                    if (isComingSoon) {
+                                      console.log('⏳ [Action Dialog] Action is coming soon, ignoring')
+                                      return
+                                    }
+                                    if (isAIAgentDisabled) {
+                                      console.log('⚠️ [Action Dialog] AI Agent already exists, showing toast')
+                                      toast({
+                                        title: "AI Agent Already Exists",
+                                        description: "You can only have one AI Agent node per workflow. Use the existing AI Agent to configure multiple action chains.",
+                                        variant: "destructive"
+                                      })
+                                      return
+                                    }
+                                    console.log('✅ [Action Dialog] Setting selectedAction to:', action.type)
+                                    console.warn('🔍🔍 [Action Dialog] Is this AI Agent?', action.type === 'ai_agent')
+                                    console.warn('🔍🔍 [Action Dialog] selectedIntegration at click time:', selectedIntegration)
+                                    setSelectedAction(action)
+
+                                    // Special check for AI Agent - always call handleActionSelect immediately
+                                    if (action.type === 'ai_agent' && selectedIntegration) {
+                                      console.warn('🚨🚨 [Action Dialog] AI Agent detected! Calling handleActionSelect immediately!')
+                                      console.warn('🚨🚨 [Action Dialog] Using integration:', selectedIntegration.name)
+                                      handleActionSelect(selectedIntegration, action)
+                                      return
+                                    }
+
+                                    // If action doesn't need configuration, add it immediately
+                                    const needsConfig = nodeNeedsConfiguration(action)
+                                    console.log('🔧 [Action Dialog] Action needs configuration?', needsConfig)
+                                    console.log('🔧 [Action Dialog] Action configSchema:', action.configSchema)
+                                    if (selectedIntegration && !needsConfig) {
+                                      console.log('🚀 [Action Dialog] Action does NOT need config, calling handleActionSelect immediately')
+                                      handleActionSelect(selectedIntegration, action)
+                                    } else {
+                                      console.log('⏸️ [Action Dialog] Action needs config, waiting for Continue button or double-click')
+                                    }
+                                  } catch (error) {
+                                    console.error('🔥🔥🔥 ERROR IN onClick HANDLER:', error)
+                                    console.error('🔥 Error stack:', error.stack)
                                   }
                                 }}
                               onDoubleClick={() => {
+                                console.log('🖱️ [Action Dialog] Double-clicked on action:', action.type)
                                 if (isComingSoon) return
                                 if (isAIAgentDisabled) {
                                   toast({
@@ -7304,7 +7619,15 @@ function WorkflowBuilderContent() {
                                   return
                                 }
                                 setSelectedAction(action)
+
+                                // For AI Agent, single click already handles it, so skip double-click
+                                if (action.type === 'ai_agent') {
+                                  console.log('🖱️ [Action Dialog] AI Agent already handled by single click, skipping double-click')
+                                  return
+                                }
+
                                 if (selectedIntegration) {
+                                  console.log('🖱️ [Action Dialog] Calling handleActionSelect from double-click')
                                   handleActionSelect(selectedIntegration, action)
                                 }
                               }}
@@ -7361,11 +7684,26 @@ function WorkflowBuilderContent() {
             </div>
             <div className="flex space-x-2">
               <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-              <Button 
+              <Button
                 disabled={!selectedAction || !selectedIntegration || selectedAction?.comingSoon}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.warn('🚨🚨🚨 [Action Dialog] Continue button clicked 🚨🚨🚨')
+                  console.warn('🚨 [Action Dialog] Selected action:', selectedAction)
+                  console.warn('🚨 [Action Dialog] Selected action type:', selectedAction?.type)
+                  console.warn('🚨 [Action Dialog] Selected integration:', selectedIntegration)
+                  console.warn('🚨 [Action Dialog] Selected integration id:', selectedIntegration?.id)
                   if (selectedIntegration && selectedAction && !selectedAction.comingSoon) {
+                    console.warn('🚨 [Action Dialog] About to call handleActionSelect')
+                    console.warn('🚨 [Action Dialog] handleActionSelect exists?', typeof handleActionSelect)
                     handleActionSelect(selectedIntegration, selectedAction)
+                    console.warn('🚨 [Action Dialog] handleActionSelect called - did it work?')
+                  } else {
+                    console.log('❌ [Action Dialog] NOT calling handleActionSelect - conditions not met')
+                    console.log('❌ selectedIntegration exists?', !!selectedIntegration)
+                    console.log('❌ selectedAction exists?', !!selectedAction)
+                    console.log('❌ selectedAction.comingSoon?', selectedAction?.comingSoon)
                   }
                 }}
               >
@@ -7376,13 +7714,119 @@ function WorkflowBuilderContent() {
         </DialogContent>
       </Dialog>
 
+      {console.log('🔥🔥🔥 [MODAL CHECK] configuringNode exists?', !!configuringNode)}
+      {console.log('🔥🔥🔥 [MODAL CHECK] configuringNode value:', configuringNode)}
       {configuringNode && (
         <>
           {/* Use AI Agent config modal for AI Agent nodes */}
-          {configuringNode.nodeComponent.type === "ai_agent" ? (
+          {(() => {
+            console.log('\n🔍🔍🔍 [Modal Render Check] ==================');
+            console.log('🔍 [Modal Render] configuringNode exists?', !!configuringNode);
+            console.log('🔍 [Modal Render] configuringNode:', configuringNode);
+            console.log('🔍 [Modal Render] configuringNode.id:', configuringNode?.id);
+            console.log('🔍 [Modal Render] nodeComponent exists?', !!configuringNode?.nodeComponent);
+            console.log('🔍 [Modal Render] nodeComponent type:', configuringNode?.nodeComponent?.type);
+            console.log('🔍 [Modal Render] Is AI Agent?', configuringNode?.nodeComponent?.type === "ai_agent");
+            console.log('🔍 [Modal Render] Will render AI Agent modal:', configuringNode?.nodeComponent?.type === "ai_agent");
+            console.log('🔍 [Modal Render] Will render Config modal:', configuringNode?.nodeComponent?.type !== "ai_agent");
+            console.log('🔍 [Modal Render] pendingNode:', pendingNode);
+            console.log('🔍🔍🔍 ==================\n');
+            return null;
+          })()}
+          {console.log('🔍 [configuringNode check] nodeComponent type:', configuringNode.nodeComponent?.type)}
+          {console.log('🔍 [configuringNode check] full configuringNode:', configuringNode)}
+          {console.log('🔍🔍 [CRITICAL CHECK] Is type === "ai_agent"?', configuringNode.nodeComponent?.type === "ai_agent")}
+          {console.log('🔍🔍 [CRITICAL CHECK] Is actionType === "ai_agent"?', configuringNode.actionType === "ai_agent")}
+          {console.log('🔍🔍 [CRITICAL CHECK] Will render AI Agent modal?', (configuringNode.nodeComponent?.type === "ai_agent" || configuringNode.actionType === "ai_agent"))}
+          {(configuringNode.nodeComponent?.type === "ai_agent" || configuringNode.actionType === "ai_agent") ? (
+            <>
+            {console.log('🎯🎯🎯 [RENDERING AI AGENT MODAL] - This is the AI Agent modal being rendered!')}
+            {(() => {
+              // Create the AI Agent node immediately if it doesn't exist
+              const aiAgentNodeId = configuringNode.id;
+              const existingNode = nodes.find(n => n.id === aiAgentNodeId);
+
+              if (!existingNode && pendingNode) {
+                console.log('🚨🚨🚨 [AI Agent Modal] Creating AI Agent node immediately!');
+                console.log('🚨 [AI Agent Modal] Node ID:', aiAgentNodeId);
+                console.log('🚨 [AI Agent Modal] pendingNode:', pendingNode);
+
+                const sourceNode = nodes.find(n => n.id === pendingNode.sourceNodeInfo?.parentId);
+                const position = sourceNode ? {
+                  x: sourceNode.position.x,
+                  y: sourceNode.position.y + 160
+                } : { x: 250, y: 250 };
+
+                // Create the AI Agent node immediately
+                const newNode = {
+                  id: aiAgentNodeId,
+                  type: 'custom',
+                  position: position,
+                  data: {
+                    title: configuringNode.nodeComponent.title || 'AI Agent',
+                    description: configuringNode.nodeComponent.description || '',
+                    type: 'ai_agent',
+                    providerId: configuringNode.nodeComponent.providerId || 'ai',
+                    config: {},
+                    onConfigure: handleConfigureNode,
+                    onDelete: handleDeleteNodeWithConfirmation,
+                    onRename: handleRenameNode,
+                    hasChains: false,
+                    isAIMode: false
+                  }
+                };
+
+                // Create Add Action node after the AI Agent
+                const addActionId = `add-action-${aiAgentNodeId}-${Date.now()}`;
+                const addActionNode = createAddActionNode(
+                  addActionId,
+                  aiAgentNodeId,
+                  {
+                    x: position.x,
+                    y: position.y + 160
+                  }
+                );
+
+                // Add nodes immediately
+                setTimeout(() => {
+                  setNodes((nds) => {
+                    const filteredNodes = nds.filter(n => n.id !== pendingNode?.sourceNodeInfo?.id);
+                    console.log('🚨 [AI Agent Modal] Adding AI Agent node to workflow');
+                    return [...filteredNodes, newNode, addActionNode];
+                  });
+
+                  // Add edges
+                  if (pendingNode.sourceNodeInfo?.parentId) {
+                    setEdges((eds) => [
+                      ...eds.filter(e => e.target !== pendingNode?.sourceNodeInfo?.id),
+                      {
+                        id: `${pendingNode.sourceNodeInfo.parentId}-${aiAgentNodeId}`,
+                        source: pendingNode.sourceNodeInfo.parentId,
+                        target: aiAgentNodeId,
+                        type: 'custom'
+                      },
+                      {
+                        id: `${aiAgentNodeId}-${addActionId}`,
+                        source: aiAgentNodeId,
+                        target: addActionId,
+                        animated: false,
+                        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+                        type: "straight"
+                      }
+                    ]);
+                  }
+
+                  setHasUnsavedChanges(true);
+                  setShowActionDialog(false);
+                  setPendingNode(null); // Clear pending node after creating
+                }, 100);
+              }
+              return null;
+            })()}
             <AIAgentConfigModal
               isOpen={!!configuringNode}
               onClose={() => {
+                console.log('🔒 [AIAgentConfigModal] onClose called');
                 setConfiguringNode(null);
                 setPendingNode(null);
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
@@ -7502,9 +7946,16 @@ function WorkflowBuilderContent() {
                 }
               }}
               onSave={async (config) => {
+                console.warn('🔴🔴🔴 AI AGENT ONSAVE HANDLER TRIGGERED 🔴🔴🔴');
+                console.log('\n🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨');
+                console.log('🚨 [AI Agent onSave] THIS IS THE CORRECT ONSAVE HANDLER IN COLLABORATIVEWORKFLOWBUILDER - VERSION 2');
                 console.log('🚨 [AI Agent onSave] Called with config:', config);
-                console.log('🚨 [AI Agent onSave] configuringNode:', configuringNode);
-                console.log('🚨 [AI Agent onSave] pendingNode:', pendingNode);
+                console.log('🚨 [AI Agent onSave] configuringNode at save time:', configuringNode);
+                console.log('🚨 [AI Agent onSave] configuringNode.id:', configuringNode?.id);
+                console.log('🚨 [AI Agent onSave] configuringNode.nodeComponent.type:', configuringNode?.nodeComponent?.type);
+                console.log('🚨 [AI Agent onSave] pendingNode at save time:', pendingNode);
+                console.log('🚨 [AI Agent onSave] pendingNode?.nodeId:', pendingNode?.nodeId);
+                console.log('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n');
 
                 // Store the chains layout data before saving configuration
                 const chainsToProcess = config.chainsLayout;
@@ -7525,11 +7976,11 @@ function WorkflowBuilderContent() {
                 const existingAIAgentNode = nodes.find(n => n.id === configuringNode.id);
                 console.log('🟣 [AI Agent Save] existingAIAgentNode:', existingAIAgentNode);
 
-                // If the AI Agent node doesn't exist, we need to create it first
-                // This happens when we're adding a new AI Agent node (pendingNode is set)
+                // AI Agent nodes are now created immediately when selected, so we should always have an existing node
+                // But keep the creation logic as a fallback for any edge cases
                 if (!existingAIAgentNode && configuringNode.nodeComponent?.type === 'ai_agent' && pendingNode) {
-                  // For pending AI Agent nodes, we need to actually create and add the node first
-                  console.log('🔵 [AI Agent Save] Creating new AI Agent node from pending node');
+                  // This should rarely happen now since AI Agents are created immediately
+                  console.log('🔵 [AI Agent Save] FALLBACK: Creating new AI Agent node from pending node');
                   console.log('🔵 [AI Agent Save] configuringNode.id:', configuringNode.id);
                   console.log('🔵 [AI Agent Save] pendingNode:', pendingNode);
                   console.log('🔵 [AI Agent Save] pendingNode.sourceNodeInfo:', pendingNode.sourceNodeInfo);
@@ -7564,7 +8015,7 @@ function WorkflowBuilderContent() {
                       onAddChain: configuringNode.nodeComponent.supportsChains ?
                         (id: string) => console.log('Add chain clicked for:', id) : undefined,
                       hasChains: chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0),
-                      isAIMode: isAIMode
+                      isAIMode: false // Set to false as default, or remove if not needed
                     }
                   };
 
@@ -7612,10 +8063,40 @@ function WorkflowBuilderContent() {
                   console.log('✅ [AI Agent Save] AI Agent node created successfully with ID:', finalAIAgentNodeId);
                 } else {
                   console.log('📝 [AI Agent Save] Updating existing AI Agent node configuration');
-                  // For existing nodes, just update the configuration
-                  await handleSaveConfiguration(configuringNode, config);
+                  // For existing nodes, update the configuration and hasChains property
+                  const hasChains = chainsToProcess && (
+                    (chainsToProcess.nodes?.length > 0) ||
+                    (chainsToProcess.chains?.length > 0) ||
+                    (chainsToProcess.chainPlaceholderPositions?.length > 0)
+                  );
+
+                  // Update the node with new configuration and hasChains flag
+                  setNodes((nds) =>
+                    nds.map((node) => {
+                      if (node.id === configuringNode.id) {
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            config: config,
+                            hasChains: hasChains
+                          }
+                        }
+                      }
+                      return node
+                    })
+                  )
+                  setHasUnsavedChanges(true)
                   // DON'T RETURN HERE - we still need to process chains!
                 }
+
+                console.log('🟡 [AI Agent Save] Preparing to process chains', {
+                  hasChainsLayout: !!chainsToProcess,
+                  nodeCount: chainsToProcess?.nodes?.length,
+                  chainCount: chainsToProcess?.chains?.length,
+                  edgesCount: chainsToProcess?.edges?.length,
+                  isAlreadyProcessing: isProcessingChainsRef.current
+                });
 
                 // Prevent duplicate chain processing - check and set flag immediately
                 if (isProcessingChainsRef.current) {
@@ -7629,6 +8110,12 @@ function WorkflowBuilderContent() {
                 // Capture the final node ID for use in the setTimeout
                 const aiAgentNodeIdToUse = finalAIAgentNodeId;
 
+                // Capture values needed in setTimeout closure
+                const capturedExistingNode = existingAIAgentNode;
+                const capturedPendingNode = pendingNode;
+                const capturedConfiguringNode = configuringNode;
+                const capturedConfig = config;
+
                 // Process chains after a longer delay to ensure the AI Agent node has been added to state
                 // This is especially important for pending nodes that are being added for the first time
                 // Increase delay for new nodes to ensure React has time to update
@@ -7636,6 +8123,7 @@ function WorkflowBuilderContent() {
                 console.log('🟡 [AI Agent Save] Setting timeout with delay:', delayTime, 'ms');
 
                 setTimeout(() => {
+                  console.log('🟡 [AI Agent Save] Chain processing timeout fired');
 
                   // Check if we have the new comprehensive format with full node/edge data
                   // hasFullLayout should be true even if nodes array is empty (for empty chains)
@@ -7654,21 +8142,23 @@ function WorkflowBuilderContent() {
                   console.log('🟡 [setTimeout] Is chainsData array?', Array.isArray(chainsData));
 
                   // Log the condition evaluation
-                  const hasNodes = chainsToProcess?.nodes && chainsToProcess.nodes.length > 0;
-                  const hasPlaceholders = chainsToProcess?.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0;
-                  const hasChains = chainsData && Array.isArray(chainsData) && chainsData.length > 0;
+                  const hasNodes = Array.isArray(chainsToProcess?.nodes) && chainsToProcess.nodes.length > 0;
+                  const hasPlaceholders = Array.isArray(chainsToProcess?.chainPlaceholderPositions) && chainsToProcess.chainPlaceholderPositions.length > 0;
+                  const hasChains = Array.isArray(chainsData) && chainsData.length > 0;
 
                   console.log('🟡 [setTimeout] hasNodes:', hasNodes, 'count:', chainsToProcess?.nodes?.length);
                   console.log('🟡 [setTimeout] hasPlaceholders:', hasPlaceholders, 'count:', chainsToProcess?.chainPlaceholderPositions?.length);
                   console.log('🟡 [setTimeout] hasChains:', hasChains, 'count:', chainsData?.length);
 
                   // We should process if we have any chain-related data
-                  const shouldProcess = chainsToProcess && (hasFullLayout || hasChains);
+                  const shouldProcess = Boolean(chainsToProcess && (hasFullLayout || hasChains || hasNodes || hasPlaceholders));
                   console.log('🟡 [setTimeout] Should process chains?', shouldProcess);
                   console.log('🟡 [setTimeout] chainsToProcess exists?', !!chainsToProcess);
-                  console.log('🟡 [setTimeout] chainsToProcess type:', typeof chainsToProcess);
+                console.log('🟡 [setTimeout] chainsToProcess type:', typeof chainsToProcess);
+                console.log('🟡 [setTimeout] chainsToProcess nodes:', JSON.stringify(chainsToProcess?.nodes, null, 2));
+                console.log('🟡 [setTimeout] chainsToProcess edges:', JSON.stringify(chainsToProcess?.edges, null, 2));
 
-                  // Check if there are any chains to process (including empty chains with placeholders)
+                // Check if there are any chains to process (including empty chains with placeholders)
                   // Process if we have any chain-related data at all
                   if (shouldProcess) {
 
@@ -7749,7 +8239,66 @@ function WorkflowBuilderContent() {
                       console.error('❌ [Chain Processing] Was looking for ID:', aiAgentNodeId);
                       console.error('❌ [Chain Processing] Current nodes count:', workingNodes.length);
                       console.error('❌ [Chain Processing] AI Agent nodes in current state:', workingNodes.filter(n => n.data?.type === 'ai_agent').map(n => n.id));
-                      return currentNodes; // Return unchanged nodes
+
+                      // CRITICAL FIX: Since we just created the AI Agent node, it might not be in currentNodes yet
+                      // Let's create it here if we know it should exist
+                      if (aiAgentNodeId && aiAgentNodeId !== 'pending-action' && !capturedExistingNode && capturedPendingNode) {
+                        console.warn('🔧🔧🔧 CRITICAL: Creating AI Agent node inline since it was not found 🔧🔧🔧');
+                        console.log('🔧 [Chain Processing] Creating AI Agent node inline since it was not found');
+                        console.log('🔧 [Chain Processing] aiAgentNodeId:', aiAgentNodeId);
+                        console.log('🔧 [Chain Processing] capturedPendingNode:', capturedPendingNode);
+                        const sourceNode = workingNodes.find(n => n.id === capturedPendingNode.sourceNodeInfo?.parentId);
+                        const position = sourceNode ? {
+                          x: sourceNode.position.x,
+                          y: sourceNode.position.y + 160
+                        } : { x: 250, y: 250 };
+
+                        aiAgentNode = {
+                          id: aiAgentNodeId,
+                          type: 'custom',
+                          position: position,
+                          data: {
+                            title: capturedConfiguringNode.nodeComponent.title || 'AI Agent',
+                            description: capturedConfiguringNode.nodeComponent.description || '',
+                            type: 'ai_agent',
+                            providerId: capturedConfiguringNode.nodeComponent.providerId || 'ai',
+                            config: capturedConfig,
+                            onConfigure: (id: string) => handleConfigureNode(id),
+                            onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
+                            onRename: (id: string, newTitle: string) => handleRenameNode(id, newTitle),
+                            onAddChain: undefined,
+                            hasChains: true,
+                            isAIMode: false // Set to false as default, or remove if not needed
+                          }
+                        };
+
+                        console.log('🔧 [Chain Processing] Created AI Agent node with ID:', aiAgentNode.id);
+
+                        // Add to working nodes
+                        workingNodes.push(aiAgentNode);
+
+                        // Also need to add the edge if there's a parent
+                        if (capturedPendingNode.sourceNodeInfo?.parentId) {
+                          const newEdge = {
+                            id: `edge-${capturedPendingNode.sourceNodeInfo.parentId}-${aiAgentNodeId}`,
+                            source: capturedPendingNode.sourceNodeInfo.parentId,
+                            target: aiAgentNodeId,
+                            type: 'custom',
+                            animated: true,
+                            style: { stroke: '#94a3b8', strokeWidth: 2 },
+                            data: {
+                              onAddNode: () => console.log('Add node to edge')
+                            }
+                          };
+                          newEdgesToAdd.push(newEdge);
+                        }
+
+                        // Remove the Add Action button that was clicked
+                        workingNodes = workingNodes.filter(n => n.id !== capturedPendingNode?.sourceNodeInfo?.nodeId);
+                      } else {
+                        // If we still can't find or create the node, return unchanged
+                        return currentNodes;
+                      }
                     }
                     
                     // Use the actual found node ID consistently throughout
@@ -7805,7 +8354,7 @@ function WorkflowBuilderContent() {
                       
                       // Create nodes with exact positions from AI Agent builder (if any)
                       if (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
-                        console.log('🟢 [Chain Processing] Creating nodes from chainsToProcess.nodes:', chainsToProcess.nodes.length);
+                    console.log('🟢 [Chain Processing] Creating nodes from chainsToProcess.nodes:', chainsToProcess.nodes.length);
                         chainsToProcess.nodes.forEach((nodeData: any, nodeIndex: number) => {
                         const timestamp = Date.now();
                         // Generate a cleaner node ID to avoid long concatenations
@@ -8215,6 +8764,10 @@ function WorkflowBuilderContent() {
                     
                     // Log summary and verify we have one Add Action per chain
                     const addActionNodesCreated = newNodesToAdd.filter(n => n.type === 'addAction');
+                    console.log('🟢 [Chain Processing] new action nodes to add:', newNodesToAdd
+                      .filter(n => n.type === 'custom')
+                      .map(n => ({ id: n.id, title: n.data?.title, parent: n.data?.parentAIAgentId }))); 
+                    console.log('🟢 [Chain Processing] add action nodes to add:', addActionNodesCreated.map(n => ({ id: n.id, parent: n.data?.parentId })));
                     
                     // Verify each chain has exactly one Add Action node
                     const chainAddActionCounts: Record<number, number> = {};
@@ -8300,10 +8853,23 @@ function WorkflowBuilderContent() {
                     
                     // Then add new nodes
                     const updatedNodes = [...updatedFilteredNodes, ...uniqueNewNodes];
-                    
+
                     // Log final Add Action nodes in the updated nodes
                     const finalAddActionNodes = updatedNodes.filter(n => n.type === 'addAction');
-                    
+                    console.log('🟢 [Chain Processing] Final node count after merge:', updatedNodes.length);
+                    console.log('🟢 [Chain Processing] Final AI agent child nodes:', updatedNodes
+                      .filter(n => n.data?.parentAIAgentId === actualAIAgentId)
+                      .map(n => ({ id: n.id, title: n.data?.title, chainIndex: n.data?.parentChainIndex })));
+
+                    // CRITICAL: Log if we actually have the AI Agent node in the final nodes
+                    const hasAIAgentInFinal = updatedNodes.some(n => n.id === actualAIAgentId && n.data?.type === 'ai_agent');
+                    console.log('✅ [Chain Processing] AI Agent node in final nodes?', hasAIAgentInFinal);
+                    if (hasAIAgentInFinal) {
+                      console.log('✅✅✅ SUCCESS: AI Agent node and chains will be added to workflow!');
+                    } else {
+                      console.error('❌❌❌ ERROR: AI Agent node missing from final nodes!');
+                    }
+
                     // Store edges to add them after nodes are updated
                     if (newEdgesToAdd.length > 0) {
                       setTimeout(() => {
@@ -8344,9 +8910,22 @@ function WorkflowBuilderContent() {
                     
                   // Auto-save after chains are added and update view
                   setTimeout(() => {
-                    // Auto-save the workflow with the chains
-                    handleSave();
-                    
+                    // Only auto-save if we actually added real chain nodes (not just placeholders)
+                    const hasRealChainNodes = chainsData && chainsData.some((chain: any) =>
+                      chain.nodes && chain.nodes.length > 0
+                    );
+
+                    console.log('🔄 [Auto-save check] Has real chain nodes?', hasRealChainNodes);
+                    console.log('🔄 [Auto-save check] Chain data:', chainsData);
+
+                    if (hasRealChainNodes) {
+                      console.log('💾 [Auto-save] Saving workflow with real chain nodes');
+                      // Auto-save the workflow with the chains
+                      handleSave();
+                    } else {
+                      console.log('⏭️ [Auto-save] Skipping auto-save - no real chain nodes, only placeholders');
+                    }
+
                     // Fit view to show all nodes with proper settings
                     try {
                       if (typeof fitView === 'function') {
@@ -8417,7 +8996,10 @@ function WorkflowBuilderContent() {
                 setAiAgentActionCallback(() => callback)
               }}
             />
+            </>
           ) : (
+            <>
+            {console.log('📦📦📦 [RENDERING CONFIGURATION MODAL] - This is the regular config modal being rendered!')}
             <ConfigurationModal
               isOpen={!!configuringNode}
               onClose={handleConfigurationClose}
@@ -8464,6 +9046,7 @@ function WorkflowBuilderContent() {
               workflowData={{ nodes, edges, id: workflowId }}
               currentNodeId={configuringNode?.id}
             />
+            </>
           )}
         </>
       )}

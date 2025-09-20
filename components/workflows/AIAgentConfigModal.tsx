@@ -215,6 +215,17 @@ export function AIAgentConfigModal({
   onActionSelect,
   onAddActionToWorkflow
 }: AIAgentConfigModalProps) {
+  console.log('🚀🚀🚀 [AIAgentConfigModal] Component rendering!')
+  console.log('🚀 [AIAgentConfigModal] isOpen:', isOpen)
+  console.log('🚀 [AIAgentConfigModal] onSave exists?', !!onSave)
+  console.log('🚀 [AIAgentConfigModal] onSave type:', typeof onSave)
+  if (onSave) {
+    const onSaveStr = onSave.toString()
+    console.log('🚀 [AIAgentConfigModal] onSave contains "THIS IS THE CORRECT"?', onSaveStr.includes('THIS IS THE CORRECT'))
+    console.log('🚀 [AIAgentConfigModal] onSave contains "handleSave"?', onSaveStr.includes('handleSave'))
+    console.log('🚀 [AIAgentConfigModal] First 200 chars of onSave:', onSaveStr.substring(0, 200))
+  }
+
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
@@ -419,17 +430,32 @@ export function AIAgentConfigModal({
   }
 
   const handleSave = async () => {
-    console.log('🔵 [AIAgentConfigModal] handleSave called')
+    console.log('\n🔵🔵🔵 [AIAgentConfigModal] handleSave called')
     console.log('🔵 [AIAgentConfigModal] Current full config:', config)
     console.log('🔵 [AIAgentConfigModal] config.chainsLayout:', config.chainsLayout)
+    console.log('🔵 [AIAgentConfigModal] Chains count:', config.chainsLayout?.chains?.length)
+    console.log('🔵 [AIAgentConfigModal] Nodes count:', config.chainsLayout?.nodes?.length)
     console.log('🔵 [AIAgentConfigModal] Full layout data:', config.chainsLayout)
-    
+
+    // Check what onSave function we have
+    console.log('🚨🚨🚨 [AIAgentConfigModal] Checking onSave handler...')
+    console.log('🚨 [AIAgentConfigModal] onSave exists?', !!onSave)
+    console.log('🚨 [AIAgentConfigModal] onSave type:', typeof onSave)
+    if (onSave) {
+      const onSaveStr = onSave.toString()
+      console.log('🚨 [AIAgentConfigModal] onSave function length:', onSaveStr.length)
+      console.log('🚨 [AIAgentConfigModal] onSave contains "THIS IS THE CORRECT"?', onSaveStr.includes('THIS IS THE CORRECT'))
+      console.log('🚨 [AIAgentConfigModal] onSave contains "Starting workflow save"?', onSaveStr.includes('Starting workflow save'))
+      console.log('🚨 [AIAgentConfigModal] onSave first 500 chars:', onSaveStr.substring(0, 500))
+    }
+
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
     // In advanced mode, we still allow empty prompt for automatic mode
     // So we removed the systemPrompt validation entirely
-    
+
     if (config.apiSource === 'custom' && !config.customApiKey) {
+      console.log('❌ [AIAgentConfigModal] Custom API key required but not provided')
       setErrors({ customApiKey: 'API key is required for custom source' })
       setActiveTab('model')
       return
@@ -437,9 +463,29 @@ export function AIAgentConfigModal({
 
     setIsSaving(true)
     try {
-      console.log('🤖 [AIAgentConfigModal] Saving AI Agent configuration:', config)
-      console.log('🤖 [AIAgentConfigModal] onSave function exists:', !!onSave)
-      await onSave(config)
+      console.log('🤖 [AIAgentConfigModal] Starting save process...')
+      console.log('🤖 [AIAgentConfigModal] onSave prop exists?', !!onSave)
+      console.log('🤖 [AIAgentConfigModal] onSave type:', typeof onSave)
+      console.log('🤖 [AIAgentConfigModal] onSave function preview:', onSave?.toString ? onSave.toString().substring(0, 500) : 'no toString')
+
+      // Check if this is the correct onSave handler
+      const isCorrectHandler = onSave?.toString?.().includes('THIS IS THE CORRECT ONSAVE HANDLER')
+      console.log('🤖 [AIAgentConfigModal] Is this the CORRECT handler?', isCorrectHandler ? '✅ YES!' : '❌ NO!')
+
+      if (!isCorrectHandler) {
+        console.error('❌❌❌ [AIAgentConfigModal] WRONG onSave handler is being used!')
+        console.error('❌ [AIAgentConfigModal] The modal is using a different onSave, not the one from CollaborativeWorkflowBuilder')
+      }
+
+      console.log('🤖 [AIAgentConfigModal] About to call onSave with config...')
+
+      if (!onSave) {
+        console.error('❌ [AIAgentConfigModal] onSave is undefined! This is the issue.')
+        throw new Error('onSave prop is not defined')
+      }
+
+      const result = await onSave(config)
+      console.log('✅ [AIAgentConfigModal] onSave returned:', result)
       console.log('✅ [AIAgentConfigModal] AI Agent configuration saved successfully')
       setHasUnsavedChanges(false)
       toast({
@@ -646,8 +692,20 @@ export function AIAgentConfigModal({
     }
   }
 
+  // Function to handle adding action with AI configuration
+  const handleAddActionWithAI = (action: any) => {
+    console.log('🤖 [AIAgentConfigModal] handleAddActionWithAI called with action:', action)
+    handleActionSelection(action)
+  }
+
+  // Function to handle adding action with manual configuration
+  const handleAddAction = (action: any) => {
+    console.log('⚙️ [AIAgentConfigModal] handleAddAction called with action:', action)
+    handleActionSelection(action)
+  }
+
   // Tabs configuration based on mode
-  const tabs = isAdvancedMode 
+  const tabs = isAdvancedMode
     ? ['prompt', 'model', 'behavior', 'preview']
     : ['prompt', 'model', 'preview']
 

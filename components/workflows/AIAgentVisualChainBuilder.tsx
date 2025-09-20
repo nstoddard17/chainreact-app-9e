@@ -1246,6 +1246,10 @@ function AIAgentVisualChainBuilder({
 
   // Track if we've initialized to prevent re-initialization
   const initializedRef = React.useRef(false)
+  const initializationSourceRef = React.useRef<'default' | 'workflowData' | 'chainsLayout' | null>(null)
+  const lastWorkflowSignatureRef = React.useRef<string | null>(null)
+  const lastChainsLayoutSignatureRef = React.useRef<string | null>(null)
+  const lastAIAgentIdRef = React.useRef<string | null>(null)
   
   // Helper function for default initialization
   const initializeDefaultSetup = useCallback(() => {
@@ -1461,19 +1465,24 @@ function AIAgentVisualChainBuilder({
   
   // Initialize with workflow data or default setup
   useEffect(() => {
-    // Only initialize once
-    if (initializedRef.current) return
-    initializedRef.current = true
-    
-    // First check if we have chainsLayout data (full layout from saved config)
-    if (chainsLayout?.nodes && chainsLayout?.edges && chainsLayout.nodes.length > 0) {
+    const layoutNodes = chainsLayout?.nodes ?? []
+    const layoutEdges = chainsLayout?.edges ?? []
+    const hasChainsLayout = layoutNodes.length > 0
+
+    const workflowNodes = workflowData?.nodes ?? []
+    const workflowEdges = workflowData?.edges ?? []
+    const workflowSignature = workflowNodes.length > 0 || workflowEdges.length > 0
+      ? `${workflowNodes.map(n => n.id).sort().join('|')}::${workflowEdges.map(e => e.id).sort().join('|')}`
+      : 'empty'
+
+    const applyChainsLayout = () => {
       console.log('🎨 [AIAgentVisualChainBuilder] Initializing with chainsLayout:', chainsLayout)
-      
-      // Recreate the exact layout from the saved data
+
+      const aiAgentId = chainsLayout?.aiAgentId || 'ai-agent'
       const aiAgentNode: Node = {
-        id: 'ai-agent',
+        id: aiAgentId,
         type: 'custom',
-        position: chainsLayout.aiAgentPosition || { x: 400, y: 200 },
+        position: chainsLayout?.aiAgentPosition || { x: 400, y: 200 },
         data: {
           title: 'AI Agent',
           description: 'Intelligent decision-making agent',
@@ -1482,9 +1491,8 @@ function AIAgentVisualChainBuilder({
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
         }
       }
-      
-      // Map the saved nodes with proper handlers
-      const savedNodes = chainsLayout.nodes.map((node: any) => ({
+
+      const savedNodes = layoutNodes.map((node: any) => ({
         id: node.id,
         type: 'custom',
         position: node.position,
@@ -1499,67 +1507,59 @@ function AIAgentVisualChainBuilder({
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
         }
       }))
-      
-      // Create Add Action nodes for the last node in each chain
+
+      const baseEdges = layoutEdges
+      const augmentedEdges = [...baseEdges]
       const addActionNodes: Node[] = []
-      const chainLastNodes = new Map<string, any>() // Track last node per chain
-      
-      // Group nodes by chain (based on edge connections)
-      chainsLayout.edges.forEach((edge: any) => {
-        if (edge.source === 'ai-agent') {
-          // This is a chain start
+
+      baseEdges.forEach((edge: any) => {
+        if (edge.source !== aiAgentId) return
+
+        const findLastNodeInChain = () => {
           let currentNode = savedNodes.find((n: any) => n.id === edge.target)
           let lastInChain = currentNode
-          
-          // Follow the chain to find the last node
-          let visited = new Set([edge.target])
+          const visited = new Set<string>([edge.target])
           while (currentNode) {
-            const nextEdge = chainsLayout.edges.find((e: any) => 
-              e.source === currentNode.id && !visited.has(e.target)
-            )
-            if (nextEdge) {
-              currentNode = savedNodes.find((n: any) => n.id === nextEdge.target)
-              if (currentNode) {
-                lastInChain = currentNode
-                visited.add(nextEdge.target)
-              }
-            } else {
-              break
+            const nextEdge = baseEdges.find((e: any) => e.source === currentNode?.id && !visited.has(e.target))
+            if (!nextEdge) break
+            const nextNode = savedNodes.find((n: any) => n.id === nextEdge.target)
+            if (!nextNode) break
+            lastInChain = nextNode
+            visited.add(nextEdge.target)
+            currentNode = nextNode
+          }
+          return lastInChain
+        }
+
+        const lastNode = findLastNodeInChain()
+        if (!lastNode) return
+
+        const addActionNodeId = `add-action-${lastNode.id}`
+        addActionNodes.push({
+          id: addActionNodeId,
+          type: 'addAction',
+          position: {
+            x: lastNode.position.x,
+            y: lastNode.position.y + 120
+          },
+          data: {
+            parentId: lastNode.id,
+            onClick: () => {
+              console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastNode.id)
+              handleAddToChainRef.current?.(lastNode.id)
             }
           }
-          
-          if (lastInChain) {
-            // Create Add Action node after the last node in the chain
-            const addActionNodeId = `add-action-${lastInChain.id}`
-            addActionNodes.push({
-              id: addActionNodeId,
-              type: 'addAction',
-              position: { 
-                x: lastInChain.position.x, 
-                y: lastInChain.position.y + 120 
-              },
-              data: {
-                parentId: lastInChain.id,
-                onClick: () => {
-                  console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastInChain.id)
-                  handleAddToChainRef.current?.(lastInChain.id)
-                }
-              }
-            })
-            
-            // Add edge to Add Action node
-            chainsLayout.edges.push({
-              id: `e-${lastInChain.id}-${addActionNodeId}`,
-              source: lastInChain.id,
-              target: addActionNodeId,
-              type: 'custom'
-            })
-          }
-        }
+        })
+
+        augmentedEdges.push({
+          id: `e-${lastNode.id}-${addActionNodeId}`,
+          source: lastNode.id,
+          target: addActionNodeId,
+          type: 'custom'
+        })
       })
-      
-      // Map edges with handlers
-      const mappedEdges = chainsLayout.edges.map((edge: any) => ({
+
+      const mappedEdges = augmentedEdges.map((edge: any) => ({
         ...edge,
         type: edge.type || 'custom',
         data: {
@@ -1569,17 +1569,20 @@ function AIAgentVisualChainBuilder({
           }
         }
       }))
-      
-      // Set all nodes and edges
+
       setNodes([aiAgentNode, ...savedNodes, ...addActionNodes])
       setEdges(mappedEdges)
-      
-      // Restore emptiedChains if present
-      if (chainsLayout.emptiedChains) {
-        setEmptiedChains(new Set(chainsLayout.emptiedChains))
+
+      if (chainsLayout?.emptiedChains !== undefined) {
+        const emptiedSource = chainsLayout.emptiedChains
+        const emptied = Array.isArray(emptiedSource)
+          ? emptiedSource
+          : emptiedSource
+            ? Array.from(emptiedSource as Iterable<number>)
+            : []
+        setEmptiedChains(emptied)
       }
-      
-      // Center view after loading with slightly longer delay for proper rendering
+
       setTimeout(() => {
         fitView({
           padding: 0.2,
@@ -1589,68 +1592,49 @@ function AIAgentVisualChainBuilder({
           minZoom: 0.05
         })
       }, 200)
-      
-      return // Exit early, we've initialized from chainsLayout
+
+      initializedRef.current = true
     }
-    
-    // If we have workflow data, use it to initialize
-    if (workflowData?.nodes && workflowData?.edges) {
+
+    const applyWorkflowData = (aiAgentNode: any) => {
       console.log('🔄 [AIAgentVisualChainBuilder] Initializing with workflow data:', workflowData)
-      
-      // Find AI Agent node and its children from workflow data
-      const aiAgentNode = workflowData.nodes.find(n => n.id === currentNodeId || n.data?.type === 'ai_agent')
-      if (!aiAgentNode) {
-        console.warn('⚠️ [AIAgentVisualChainBuilder] No AI Agent node found in workflow data')
-        // Fall back to default initialization
-        initializeDefaultSetup()
-        return
-      }
-      
-      // Filter nodes that are part of the AI Agent's chains
-      const relevantNodes = workflowData.nodes.filter(n => {
-        // Include the AI Agent node itself
+
+      const relevantNodes = workflowNodes.filter(n => {
         if (n.id === aiAgentNode.id) return true
-        // Include nodes that are children of the AI Agent
         if (n.data?.parentAIAgentId === aiAgentNode.id) return true
-        // Include the trigger node if it exists
         if (n.data?.isTrigger) return true
-        // Include nodes connected to AI Agent through edges
-        const hasConnectionToAIAgent = workflowData.edges.some(e => 
+        const hasConnectionToAIAgent = workflowEdges.some(e =>
           (e.source === aiAgentNode.id && e.target === n.id) ||
           (e.target === aiAgentNode.id && e.source === n.id)
         )
         if (hasConnectionToAIAgent) return true
-        // Include Add Action nodes for AI Agent chains
         if (n.type === 'addAction' && n.data?.parentAIAgentId === aiAgentNode.id) return true
         return false
       })
-      
-      // Map the nodes to ensure they have the correct handlers
+
       const mappedNodes = relevantNodes.map(node => ({
         ...node,
         data: {
           ...node.data,
-          onConfigure: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent' 
-            ? () => handleConfigureNode(node.id) 
+          onConfigure: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent'
+            ? () => handleConfigureNode(node.id)
             : node.data?.onConfigure,
           onDelete: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent'
             ? () => handleDeleteNode(node.id)
             : undefined,
-          onAddToChain: node.data?.hasAddButton 
+          onAddToChain: node.data?.hasAddButton
             ? (nodeId: string) => handleAddToChain(nodeId)
             : undefined
         }
       }))
-      
-      // Filter edges that connect relevant nodes
-      const relevantEdges = workflowData.edges.filter(e => {
+
+      const relevantEdges = workflowEdges.filter(e => {
         const sourceRelevant = relevantNodes.some(n => n.id === e.source)
         const targetRelevant = relevantNodes.some(n => n.id === e.target)
         return sourceRelevant && targetRelevant
       })
-      
-      // Deduplicate edges by keeping only the first occurrence of each ID
-      const seenEdgeIds = new Set()
+
+      const seenEdgeIds = new Set<string>()
       const uniqueEdges = relevantEdges.filter(edge => {
         if (seenEdgeIds.has(edge.id)) {
           console.log(`⚠️ [AIAgentVisualChainBuilder] Filtering duplicate edge: ${edge.id}`)
@@ -1659,8 +1643,7 @@ function AIAgentVisualChainBuilder({
         seenEdgeIds.add(edge.id)
         return true
       })
-      
-      // Map edges to include handlers
+
       const mappedEdges = uniqueEdges.map(edge => ({
         ...edge,
         type: edge.type || 'custom',
@@ -1671,12 +1654,10 @@ function AIAgentVisualChainBuilder({
           }
         }
       }))
-      
-      // Set the nodes and edges from workflow data
+
       setNodes(mappedNodes)
       setEdges(mappedEdges)
-      
-      // Center view after loading with slightly longer delay for proper rendering
+
       setTimeout(() => {
         fitView({
           padding: 0.2,
@@ -1686,13 +1667,54 @@ function AIAgentVisualChainBuilder({
           minZoom: 0.05
         })
       }, 200)
-      
+
+      initializedRef.current = true
+    }
+
+    const applyDefault = () => {
+      initializeDefaultSetup()
+      initializationSourceRef.current = 'default'
+      lastWorkflowSignatureRef.current = workflowSignature
+      lastAIAgentIdRef.current = null
+      initializedRef.current = true
+    }
+
+    if (hasChainsLayout) {
+      const chainsSignature = JSON.stringify({
+        nodes: layoutNodes.map((node: any) => node.id),
+        edges: layoutEdges.map((edge: any) => `${edge.source}->${edge.target}`)
+      })
+
+      if (initializationSourceRef.current !== 'chainsLayout' || lastChainsLayoutSignatureRef.current !== chainsSignature) {
+        applyChainsLayout()
+        initializationSourceRef.current = 'chainsLayout'
+        lastChainsLayoutSignatureRef.current = chainsSignature
+        lastWorkflowSignatureRef.current = workflowSignature
+        lastAIAgentIdRef.current = chainsLayout?.aiAgentId || 'ai-agent'
+      }
       return
     }
-    
-    // Fall back to default initialization if no workflow data
-    initializeDefaultSetup()
-  }, [chainsLayout, workflowData, currentNodeId, initializeDefaultSetup, setNodes, setEdges, fitView, handleConfigureNode, handleDeleteNode, handleAddToChain, handleAddNodeBetween])
+
+    if (workflowNodes.length > 0) {
+      const aiAgentNode = workflowNodes.find(n => n.id === currentNodeId || n.data?.type === 'ai_agent')
+      if (aiAgentNode) {
+        const signatureChanged = lastWorkflowSignatureRef.current !== workflowSignature
+        const aiAgentChanged = lastAIAgentIdRef.current !== aiAgentNode.id
+
+        if (initializationSourceRef.current !== 'workflowData' || signatureChanged || aiAgentChanged) {
+          applyWorkflowData(aiAgentNode)
+          initializationSourceRef.current = 'workflowData'
+          lastWorkflowSignatureRef.current = workflowSignature
+          lastAIAgentIdRef.current = aiAgentNode.id
+        }
+        return
+      }
+    }
+
+    if (initializationSourceRef.current !== 'default') {
+      applyDefault()
+    }
+  }, [chainsLayout, workflowData, currentNodeId, initializeDefaultSetup, setNodes, setEdges, setEmptiedChains, fitView, handleConfigureNode, handleDeleteNode, handleAddToChain, handleAddNodeBetween])
 
   // Update the ref with the actual implementation
   React.useEffect(() => {

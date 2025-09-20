@@ -121,6 +121,8 @@ export function useWorkflowBuilder() {
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
 
+  const initializedWorkflowRef = useRef<string | null>(null)
+
   // Handle add action button click - moved up before other callbacks to ensure it's available
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
     console.log('handleAddActionClick called with nodeId:', nodeId, 'parentId:', parentId)
@@ -164,6 +166,9 @@ export function useWorkflowBuilder() {
   // Load workflow when ID changes
   useEffect(() => {
     if (workflowId && workflows.length > 0) {
+      if (hasUnsavedChanges && initializedWorkflowRef.current === workflowId) {
+        return
+      }
       const workflow = workflows.find(w => w.id === workflowId)
       if (workflow) {
         setCurrentWorkflow(workflow)
@@ -303,24 +308,26 @@ export function useWorkflowBuilder() {
           
           setEdges(flowEdges)
         }
-        
+
         // Join collaboration
         joinCollaboration(workflowId)
-        
+
         // Set workflow for error tracking
         setErrorStoreWorkflow(workflow)
-        
+
         // Fit view after loading
         setTimeout(() => fitView({ padding: 0.2 }), 100)
+
+        initializedWorkflowRef.current = workflowId
       }
     }
-    
+
     return () => {
       if (workflowId) {
         leaveCollaboration(workflowId)
       }
     }
-  }, [workflowId, workflows, setCurrentWorkflow, setNodes, setEdges, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow, fitView, setWorkflowName, setWorkflowDescription])
+  }, [workflowId, workflows, hasUnsavedChanges, setCurrentWorkflow, setNodes, setEdges, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow, fitView, setWorkflowName, setWorkflowDescription])
 
   // Handle save
   const handleSave = useCallback(async () => {
