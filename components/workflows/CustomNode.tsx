@@ -57,6 +57,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
+
+  // Debug AI Agent rendering
+  if (type === 'ai_agent') {
+    console.log('🤖 [CustomNode] Rendering AI Agent node:', {
+      id,
+      type,
+      providerId,
+      title,
+      component: !!component,
+      componentType: component?.type,
+      hasIcon: !!component?.icon,
+      iconType: typeof component?.icon
+    })
+  }
   
   // Check if this node has test data available
   const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()

@@ -15,7 +15,7 @@ export default function WorkflowsPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8 w-full">
           <div className="animate-pulse">
             <div className="h-10 w-48 bg-gray-200 rounded mb-2" />
             <div className="h-6 w-96 bg-gray-200 rounded" />

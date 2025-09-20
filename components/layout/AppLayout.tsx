@@ -86,7 +86,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
 
   return (
     <PageProtection>
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background">
         {/* Hidden dummy password field to trap browser autofill globally */}
         <input
           type="password"
@@ -107,7 +107,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
-        <div className={`flex flex-col min-h-screen transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
+        <div className={`flex flex-col min-h-screen w-full transition-all duration-200 ${isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-72'}`}>
           <BetaBanner />
           <TopBar
             onMobileMenuChange={setIsMobileMenuOpen}

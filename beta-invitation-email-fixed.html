@@ -1,22 +1,4 @@
-import * as React from 'react'
-
-interface BetaInvitationEmailProps {
-  email: string
-  signupUrl: string
-  maxWorkflows?: number
-  maxExecutions?: number
-  expiresInDays?: number
-}
-
-export const BetaInvitationEmail = ({
-  email,
-  signupUrl,
-  maxWorkflows = 50,
-  maxExecutions = 5000,
-  expiresInDays = 30,
-}: BetaInvitationEmailProps) => {
-  // Return raw HTML string that will be rendered
-  const htmlContent = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -99,7 +81,7 @@ export const BetaInvitationEmail = ({
                                     </td>
                                     <td width="50%" style="padding-left: 10px;">
                                       <p style="color: #a78bfa; font-size: 14px; margin: 0;">
-                                        <span style="color: #60a5fa;">🔧</span> <strong style="color: #f1f5f9;">${maxWorkflows} Workflows</strong><br>
+                                        <span style="color: #60a5fa;">🔧</span> <strong style="color: #f1f5f9;">50 Workflows</strong><br>
                                         <span style="color: #94a3b8; font-size: 13px;">Create complex automations</span>
                                       </p>
                                     </td>
@@ -113,7 +95,7 @@ export const BetaInvitationEmail = ({
                                   <tr>
                                     <td width="50%" style="padding-right: 10px;">
                                       <p style="color: #a78bfa; font-size: 14px; margin: 0;">
-                                        <span style="color: #34d399;">⚡</span> <strong style="color: #f1f5f9;">${maxExecutions.toLocaleString()} Executions</strong><br>
+                                        <span style="color: #34d399;">⚡</span> <strong style="color: #f1f5f9;">5,000 Executions</strong><br>
                                         <span style="color: #94a3b8; font-size: 13px;">Monthly automation runs</span>
                                       </p>
                                     </td>
@@ -157,7 +139,7 @@ export const BetaInvitationEmail = ({
                       <tr>
                         <td style="text-align: center; padding: 32px 0;">
                           <p style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; color: #f87171; font-size: 16px; font-weight: 600; margin: 0;">
-                            ⏰ This exclusive offer expires in ${expiresInDays} days!
+                            ⏰ This exclusive offer expires in {{ .ExpiresInDays }} days!
                           </p>
                         </td>
                       </tr>
@@ -167,7 +149,7 @@ export const BetaInvitationEmail = ({
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                       <tr>
                         <td style="text-align: center; padding: 20px 0 48px 0;">
-                          <a href="${signupUrl}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); background-color: #8b5cf6; color: #ffffff; text-decoration: none; padding: 18px 48px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.3px;">
+                          <a href="{{ .SignupURL }}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); background-color: #8b5cf6; color: #ffffff; text-decoration: none; padding: 18px 48px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.3px;">
                             🎁 Claim Your Beta Access
                           </a>
                           <p style="color: #64748b; font-size: 13px; margin: 12px 0 0 0;">
@@ -236,7 +218,7 @@ export const BetaInvitationEmail = ({
                             We can't wait to see what you'll build with ChainReact!
                           </p>
                           <p style="color: #94a3b8; font-size: 14px; margin: 16px 0 0 0;">
-                            Best regards,<br><br>
+                            Best regards,<br>
                             The ChainReact Team
                           </p>
                         </td>
@@ -263,7 +245,7 @@ export const BetaInvitationEmail = ({
                           </p>
                           <p style="color: #475569; font-size: 12px; margin: 16px 0 0 0;">
                             © 2025 ChainReact. All rights reserved.<br><br>
-                            <span style="font-size: 11px;">This invitation was sent to ${email}. If you didn't request this, you can safely ignore this email.</span>
+                            <span style="font-size: 11px;">This invitation was sent to {{ .Email }}. If you didn't request this, you can safely ignore this email.</span>
                           </p>
                         </td>
                       </tr>
@@ -282,10 +264,4 @@ export const BetaInvitationEmail = ({
   </table>
 
 </body>
-</html>`
-
-  // Return the HTML as a React element using dangerouslySetInnerHTML
-  return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-}
-
-export default BetaInvitationEmail
+</html>
