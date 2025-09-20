@@ -110,7 +110,14 @@ const getIntegrationsFromNodes = (): IntegrationInfo[] => {
     category: 'ai',
     color: '#8B5CF6',
     triggers: [],
-    actions: [],
+    actions: [{
+      type: 'ai_agent',
+      title: 'AI Agent',
+      description: 'An AI agent that can use other integrations as tools to accomplish goals',
+      icon: 'Zap',
+      providerId: 'ai',
+      comingSoon: false
+    }],
   }
   
   // Add other integrations from configs
@@ -7834,30 +7841,30 @@ function WorkflowBuilderContent() {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('\n🟢🟢🟢🟢🟢 CONTINUE BUTTON CLICKED 🟢🟢🟢🟢🟢');
-                  console.log('🟢 [Continue] Selected Integration:', selectedIntegration);
-                  console.log('🟢 [Continue] Selected Action:', selectedAction);
-                  console.log('🟢 [Continue] Action Type:', selectedAction?.type);
-                  console.log('🟢 [Continue] Is AI Agent?', selectedAction?.type === 'ai_agent');
-                  console.log('🟢 [Continue] Source Add Node:', sourceAddNode);
+                  console.warn('🟢🟢🟢🟢🟢 CONTINUE BUTTON CLICKED 🟢🟢🟢🟢🟢');
+                  console.warn('🟢 [Continue] Selected Integration:', selectedIntegration);
+                  console.warn('🟢 [Continue] Selected Action:', selectedAction);
+                  console.warn('🟢 [Continue] Action Type:', selectedAction?.type);
+                  console.warn('🟢 [Continue] Is AI Agent?', selectedAction?.type === 'ai_agent');
+                  console.warn('🟢 [Continue] Source Add Node:', sourceAddNode);
 
                   // Special handling for AI Agent - create synthetic integration
                   if (selectedAction?.type === 'ai_agent') {
-                    console.log('🤖🤖🤖 [Continue] AI AGENT CONTINUE 🤖🤖🤖');
-                    console.log('🤖 [Continue] window._createAISyntheticIntegration exists?', typeof window._createAISyntheticIntegration);
+                    console.warn('🤖🤖🤖 [Continue] AI AGENT CONTINUE 🤖🤖🤖');
+                    console.warn('🤖 [Continue] window._createAISyntheticIntegration exists?', typeof window._createAISyntheticIntegration);
 
                     if (!selectedAction.comingSoon) {
                       if (typeof window._createAISyntheticIntegration === 'function') {
                         const aiSyntheticIntegration = window._createAISyntheticIntegration();
-                        console.log('🤖 [Continue] Created synthetic integration:', aiSyntheticIntegration);
-                        console.log('🤖 [Continue] About to call handleActionSelect');
+                        console.warn('🤖 [Continue] Created synthetic integration:', aiSyntheticIntegration);
+                        console.warn('🤖 [Continue] About to call handleActionSelect');
                         handleActionSelect(aiSyntheticIntegration, selectedAction);
-                        console.log('🤖 [Continue] handleActionSelect called');
+                        console.warn('🤖 [Continue] handleActionSelect called');
                       } else {
                         console.error('❌ [Continue] window._createAISyntheticIntegration is not a function!');
                       }
                     } else {
-                      console.log('⏳ [Continue] AI Agent is coming soon');
+                      console.warn('⏳ [Continue] AI Agent is coming soon');
                     }
                   } else if (selectedIntegration && selectedAction && !selectedAction.comingSoon) {
                     console.log('🚀 [Continue] Calling handleActionSelect with:', {
@@ -7873,7 +7880,7 @@ function WorkflowBuilderContent() {
                     console.log('⚠️ [Continue] Coming Soon?', selectedAction?.comingSoon);
                   }
 
-                  console.log('🟢🟢🟢🟢🟢 CONTINUE BUTTON END 🟢🟢🟢🟢🟢\n');
+                  console.warn('🟢🟢🟢🟢🟢 CONTINUE BUTTON END 🟢🟢🟢🟢🟢\n');
                 }}
               >
                 Continue →
@@ -7995,10 +8002,14 @@ function WorkflowBuilderContent() {
             })()}
             <AIAgentConfigModal
               isOpen={!!configuringNode && (configuringNode.nodeComponent?.type === "ai_agent" || configuringNode.actionType === "ai_agent")}
-              onClose={() => {
-                console.log('🔒 [AIAgentConfigModal] onClose called');
+              onClose={(wasCancelled = true) => {
+                console.log('🔒 [AIAgentConfigModal] onClose called, wasCancelled:', wasCancelled);
                 setConfiguringNode(null);
-                setPendingNode(null);
+                // Only clear pendingNode if the user cancelled (not if saved successfully)
+                if (wasCancelled && pendingNode) {
+                  console.log('🔒 [AIAgentConfigModal] User cancelled, clearing pendingNode');
+                  setPendingNode(null);
+                }
                 // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
               onSave={async (config) => {
@@ -8006,6 +8017,10 @@ function WorkflowBuilderContent() {
                 console.log('🚨 [AI Agent onSave] Called with config:', config);
                 console.log('🚨 [AI Agent onSave] configuringNode:', configuringNode);
                 console.log('🚨 [AI Agent onSave] pendingNode:', pendingNode);
+                console.log('🚨 [AI Agent onSave] configuringNode?.id:', configuringNode?.id);
+                console.log('🚨 [AI Agent onSave] pendingNode?.nodeId:', (pendingNode as any)?.nodeId);
+                console.log('🚨 [AI Agent onSave] Current nodes count:', nodes.length);
+                console.log('🚨 [AI Agent onSave] Current nodes:', nodes.map(n => ({ id: n.id, type: n.data?.type })));
 
                 // Use configuringNode or pendingNode as fallback
                 const nodeInfo = configuringNode || (pendingNode ? {
@@ -8013,6 +8028,9 @@ function WorkflowBuilderContent() {
                   nodeComponent: (pendingNode as any).nodeComponent,
                   integration: (pendingNode as any).integration
                 } : null);
+
+                console.log('🚨 [AI Agent onSave] nodeInfo resolved to:', nodeInfo);
+                console.log('🚨 [AI Agent onSave] nodeInfo.id:', nodeInfo?.id);
 
                 if (!nodeInfo) {
                   console.error('❌ No configuringNode or pendingNode found');
@@ -8123,6 +8141,7 @@ function WorkflowBuilderContent() {
                 // Process AI Agent chains after node creation/update
                 if (chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0)) {
                   console.log('🟡 [setTimeout] Processing chains after node creation');
+                  // Increased timeout to ensure state has been updated with the new AI Agent node
                   setTimeout(() => {
                     console.log('🟡 [setTimeout] Processing chains, hasFullLayout:', chainsToProcess);
                     console.log('🟡 [setTimeout] chainsToProcess:', chainsToProcess);
@@ -8206,7 +8225,7 @@ function WorkflowBuilderContent() {
                         duration: 3000
                       });
                     }
-                  }, isNewNode ? 500 : 100); // Longer delay for new nodes
+                  }, isNewNode ? 800 : 100); // Longer delay for new nodes to ensure state updates
                 }
               }}
               onAddActionToWorkflow={(configuringNode?.id === 'pending-action' || configuringNode?.id === 'pending-trigger') ? undefined : (action, config) => {
