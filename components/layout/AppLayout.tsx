@@ -107,7 +107,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
-        <div className={`flex flex-col min-h-screen transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
+        <div className={`flex flex-col flex-1 min-h-screen transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
           <BetaBanner />
           <TopBar
             onMobileMenuChange={setIsMobileMenuOpen}
@@ -122,7 +122,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
               </div>
             </div>
           )}
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 w-full">
             <ErrorBoundary context={`Page: ${title}`}>
               {children}
             </ErrorBoundary>
