@@ -47,13 +47,28 @@ const nextConfig = {
             key: 'Link',
             value: '<https://fonts.googleapis.com>; rel=dns-prefetch',
           },
-          // Disable ALL caching in development
+          // Aggressive cache prevention in development
           {
             key: 'Cache-Control',
             value: isDev
-              ? 'no-store, must-revalidate'
+              ? 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
               : 'public, max-age=31536000, immutable',
           },
+          // Additional headers to prevent caching in dev
+          ...(isDev ? [
+            {
+              key: 'Pragma',
+              value: 'no-cache',
+            },
+            {
+              key: 'Expires',
+              value: '0',
+            },
+            {
+              key: 'Surrogate-Control',
+              value: 'no-store',
+            },
+          ] : []),
         ],
       },
       // Specific caching for images
@@ -79,7 +94,6 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer, dev }) => {
-
     // Suppress the webpack cache warning about large strings
     config.infrastructureLogging = {
       level: 'error',

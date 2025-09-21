@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache</title>
+</head>
+<body>
+    <h1>Clearing all caches...</h1>
+    <script>
+        // Clear all caches
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                    console.log('Unregistered service worker:', registration);
+                }
+            });
+        }
+
+        // Clear cache storage
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) {
+                    caches.delete(name);
+                    console.log('Deleted cache:', name);
+                }
+            });
+        }
+
+        // Clear local storage
+        localStorage.clear();
+        sessionStorage.clear();
+
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1000);
+    </script>
+</body>
+</html>
