@@ -47,12 +47,12 @@ const nextConfig = {
             key: 'Link',
             value: '<https://fonts.googleapis.com>; rel=dns-prefetch',
           },
-          // Aggressive cache prevention in development
+          // Prevent aggressive caching for HTML pages
           {
             key: 'Cache-Control',
             value: isDev
               ? 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
-              : 'public, max-age=31536000, immutable',
+              : 'no-store, must-revalidate',
           },
           // Additional headers to prevent caching in dev
           ...(isDev ? [

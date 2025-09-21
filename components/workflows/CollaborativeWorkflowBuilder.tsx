@@ -283,7 +283,7 @@ const useWorkflowBuilderState = () => {
   const availableIntegrations = useMemo(() => {
     const integrations = getIntegrationsFromNodes()
     return integrations
-  }, [])
+  }, []) // Note: This is still static, but at least consistent with INTEGRATION_CONFIGS
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
     // Manual trigger doesn't need configuration
@@ -6322,7 +6322,7 @@ function WorkflowBuilderContent() {
       {/* Action Selection Dialog - Primary - FORCE REFRESHED */}
       {showActionDialog && (
         <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col" data-testid="action-selection-dialog" key={`action-dialog-${Date.now()}`}>
+          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col" data-testid="action-selection-dialog">
             <ActionSelectionDialogContent>
               <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
@@ -7601,7 +7601,7 @@ function WorkflowBuilderContent() {
                       onAddChain: configuringNode.nodeComponent.supportsChains ?
                         (id: string) => console.log('Add chain clicked for:', id) : undefined,
                       hasChains: chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0),
-                      isAIMode: isAIMode
+                      isAIMode: false // AI Agent nodes don't use the action AI mode
                     }
                   };
 
