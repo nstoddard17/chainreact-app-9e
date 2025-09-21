@@ -649,15 +649,39 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signIn: async (email: string, password: string) => {
+        // Add timeout protection for the entire sign-in process
+        const signInTimeout = setTimeout(() => {
+          console.error('Sign-in timed out after 10 seconds')
+          set({ error: 'Sign-in timed out. Please try again.', loading: false })
+        }, 10000) // 10 second timeout
+
         try {
           set({ loading: true, error: null })
 
-          const { data, error } = await supabase.auth.signInWithPassword({
+          // Sign in with timeout protection
+          const signInPromise = supabase.auth.signInWithPassword({
             email,
             password,
           })
 
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Sign-in timeout')), 8000) // 8 second timeout
+          )
+
+          let result
+          try {
+            result = await Promise.race([signInPromise, timeoutPromise])
+          } catch (timeoutError) {
+            clearTimeout(signInTimeout)
+            console.error('Sign-in request timed out:', timeoutError)
+            set({ error: 'Sign-in timed out. Please try again.', loading: false })
+            throw new Error('Sign-in timed out. Please try again.')
+          }
+
+          const { data, error } = result
+
           if (error) {
+            clearTimeout(signInTimeout)
             // Make sure to reset loading state before throwing
             set({ error: error.message, loading: false })
             throw error
@@ -671,23 +695,38 @@ export const useAuthStore = create<AuthState>()(
               avatar: data.user.user_metadata?.avatar_url,
             }
 
-            // Fetch profile data after successful login
-            const { data: profileData } = await supabase
-              .from('user_profiles')
-              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
-              .eq('id', data.user.id)
-              .single()
+            // Fetch profile data after successful login with timeout
+            try {
+              const profilePromise = supabase
+                .from('user_profiles')
+                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                .eq('id', data.user.id)
+                .single()
 
-            let profile: Profile | null = null
-            if (profileData) {
-              profile = profileData
-              user.first_name = profileData.first_name
-              user.last_name = profileData.last_name
-              user.full_name = profileData.full_name || user.name
+              const profileTimeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // 2 second timeout
+              )
+
+              const profileResult = await Promise.race([profilePromise, profileTimeoutPromise])
+              const { data: profileData } = profileResult
+
+              let profile: Profile | null = null
+              if (profileData) {
+                profile = profileData
+                user.first_name = profileData.first_name
+                user.last_name = profileData.last_name
+                user.full_name = profileData.full_name || user.name
+              }
+
+              clearTimeout(signInTimeout)
+              set({ user, profile, loading: false, initialized: true })
+            } catch (profileError) {
+              console.warn('Profile fetch error or timeout:', profileError)
+              // Still set user even if profile fetch fails
+              clearTimeout(signInTimeout)
+              set({ user, profile: null, loading: false, initialized: true })
             }
 
-            set({ user, profile, loading: false, initialized: true })
-            
             // Update integration store with new user ID after successful login
             setTimeout(async () => {
               try {
@@ -697,18 +736,21 @@ export const useAuthStore = create<AuthState>()(
                 console.error("Error updating integration store user ID after login:", error)
               }
             }, 100)
-            
-            return { user, profile }
+
+            return { user, profile: null }
           }
           
           // If no user returned but also no error, still reset loading
           set({ loading: false })
           throw new Error("Login failed - no user data returned")
         } catch (error: any) {
+          clearTimeout(signInTimeout) // Clear timeout on any error
           console.error("Sign in error:", error)
           // Ensure loading is always reset on any error
           set({ error: error.message, loading: false })
           throw error
+        } finally {
+          clearTimeout(signInTimeout) // Ensure timeout is always cleared
         }
       },
 
