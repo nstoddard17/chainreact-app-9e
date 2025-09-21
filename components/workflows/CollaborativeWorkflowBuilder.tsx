@@ -38,6 +38,7 @@ import { StepExecutionPanel } from "./StepExecutionPanel"
 import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import { AIAgentConfigModal } from "./AIAgentConfigModal"
+import ActionSelectionDialogContent from './ActionSelectionDialogContent'
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -2454,15 +2455,48 @@ const useWorkflowBuilderState = () => {
     }
   }, []) // Empty dependency array - only run on mount
   
+
   // Fetch integrations when action or trigger dialog opens
   useEffect(() => {
     if (showActionDialog || showTriggerDialog) {
-      
+
       // Only fetch if we don't have integrations loaded yet
       if (storeIntegrations.length === 0) {
         fetchIntegrations(false).then(() => {
         });
       }
+
+      // EXTREMELY AGGRESSIVE banner removal
+      const cleanupInterval = setInterval(() => {
+        // Remove ANY element with red background
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(el => {
+          const style = window.getComputedStyle(el);
+          const bgColor = style.backgroundColor;
+          const text = el.textContent || '';
+
+          // Check for red background or the specific text
+          if (bgColor && (bgColor.includes('239, 68, 68') || bgColor.includes('rgb(239') || bgColor.includes('#ef4444')) ||
+              text.includes('THIS IS THE ACTION DIALOG FROM') ||
+              text.includes('IF YOU SEE THIS')) {
+            console.log('🔥 REMOVING ELEMENT:', el);
+            el.remove();
+          }
+        });
+
+        // Also remove any element with inline styles containing red
+        const inlineRed = document.querySelectorAll('[style*="red"], [style*="239, 68, 68"], [style*="#ef4444"]');
+        inlineRed.forEach(el => {
+          if (el.textContent && (el.textContent.includes('THIS IS THE ACTION') || el.textContent.includes('IF YOU SEE THIS'))) {
+            el.remove();
+          }
+        });
+      }, 50); // Run every 50ms
+
+      // Keep running for 5 seconds
+      setTimeout(() => clearInterval(cleanupInterval), 5000);
+
+      return () => clearInterval(cleanupInterval);
     }
   }, [showActionDialog, showTriggerDialog, fetchIntegrations, storeIntegrations])
 
@@ -6285,9 +6319,12 @@ function WorkflowBuilderContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col">
-          <DialogHeader className="pb-3 border-b border-slate-200">
+      {/* Action Selection Dialog - Primary - FORCE REFRESHED */}
+      {showActionDialog && (
+        <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
+          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col" data-testid="action-selection-dialog" key={`action-dialog-${Date.now()}`}>
+            <ActionSelectionDialogContent>
+              <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
@@ -6391,7 +6428,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
+            <div className="w-2/5 border-r border-border overflow-y-auto">
               <div className="pt-2 pb-3 pl-3 pr-5">
               {(() => {
                 // Filter integrations for action dialog
@@ -6886,9 +6923,8 @@ function WorkflowBuilderContent() {
                 });
               })()}
               </div>
-            </ScrollArea>
-            <div className="w-3/5 flex-1">
-              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+            </div>
+            <div className="w-3/5 flex-1 overflow-y-auto">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -7346,7 +7382,6 @@ function WorkflowBuilderContent() {
                   </div>
                 )}
                 </div>
-              </ScrollArea>
             </div>
           </div>
 
@@ -7373,8 +7408,10 @@ function WorkflowBuilderContent() {
               </Button>
             </div>
           </div>
+            </ActionSelectionDialogContent>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
 
       {configuringNode && (
         <>
