@@ -4372,6 +4372,8 @@ const useWorkflowBuilderState = () => {
     setShowConnectedOnly,
     showComingSoon,
     setShowComingSoon,
+    isActionAIMode,
+    setIsActionAIMode,
     filteredIntegrations,
     displayedTriggers,
     deletingNode,
@@ -4600,7 +4602,7 @@ function WorkflowBuilderContent() {
     configuringNode, setConfiguringNode, handleSaveConfiguration, handleConfigurationClose, handleConfigurationSave,
     configuringNodeInfo, configuringIntegrationName, configuringInitialData, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly, showComingSoon, setShowComingSoon,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
+    isActionAIMode, setIsActionAIMode, filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
     sourceAddNode, setSourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
     handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
     handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
@@ -6373,17 +6375,19 @@ function WorkflowBuilderContent() {
                         Manual
                       </Button>
                     </div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-xs">
-                          <strong>AI Mode:</strong> Action fields will be automatically configured by AI at runtime.<br/>
-                          <strong>Manual Mode:</strong> Configure action fields yourself with specific values.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">
+                            <strong>AI Mode:</strong> Action fields will be automatically configured by AI at runtime.<br/>
+                            <strong>Manual Mode:</strong> Configure action fields yourself with specific values.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 );
               })()}
