@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { redirect, notFound } from "next/navigation"
@@ -35,5 +36,9 @@ export default async function OrganizationPage({ params }: Props) {
     notFound()
   }
 
-  return <OrganizationContent organization={organization} />
+  return (
+    <Suspense fallback={null}>
+      <OrganizationContent organization={organization} />
+    </Suspense>
+  )
 }
