@@ -602,8 +602,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return filtered
   }, [providersWithStatus, activeFilter, searchQuery, metrics.expiring])
 
-  // Show loading state only for the initial load when we have no data
-  if ((isInitializing || loading) && providers.length === 0 && integrations.length === 0) {
+  // Show loading state only during initial initialization
+  if (isInitializing && providers.length === 0) {
     return (
       <AppLayout title="Integrations">
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -619,7 +619,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const IntegrationGrid = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(loading || loadingStates?.['providers'] || loadingStates?.['integrations']) && filteredProviders.length === 0 ? (
+        {isInitializing && filteredProviders.length === 0 ? (
           <div className="col-span-full flex items-center justify-center py-12">
             <div className="text-center">
               <LightningLoader size="lg" color="blue" className="mx-auto mb-2" />
@@ -734,7 +734,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   return (
     <AppLayout title="Integrations" subtitle="Manage your connections to third-party services.">
-      <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         <div className="flex justify-end mb-6 sm:mb-8">
           <Button 
             onClick={handleRefresh} 
