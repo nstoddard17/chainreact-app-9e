@@ -4064,11 +4064,19 @@ const useWorkflowBuilderState = () => {
     }
 
     try {
-      // Don't set isSaving here - handleSave manages its own state
+      // Explicitly set saving state for the modal button
+      setIsSaving(true);
+      isSavingRef.current = true;
+
+      // Call handleSave
       await handleSave();
 
       // Add a small delay to ensure state updates are complete
       await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Clear saving state after successful save
+      setIsSaving(false);
+      isSavingRef.current = false;
 
       if (pendingNavigation) {
         console.log('✅ Save complete, navigating to:', pendingNavigation);
@@ -4092,7 +4100,8 @@ const useWorkflowBuilderState = () => {
         description: "Could not save your changes. Please try again.",
         variant: "destructive"
       });
-      // Ensure loading state is cleared on error
+    } finally {
+      // Always ensure loading state is cleared
       setIsSaving(false);
       isSavingRef.current = false;
     }
@@ -5381,14 +5390,14 @@ function WorkflowBuilderContent() {
                 </Select>
               </div>
               <div className="flex items-center justify-end">
-                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <input
                     type="checkbox"
                     checked={showComingSoon}
                     onChange={(e) => setShowComingSoon(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
                   />
-                  <span>Show Coming Soon</span>
+                  <span>Show coming soon integrations</span>
                 </label>
               </div>
             </div>
@@ -6277,7 +6286,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col">
           <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -6368,14 +6377,14 @@ function WorkflowBuilderContent() {
                 </Select>
               </div>
               <div className="flex items-center justify-end">
-                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <input
                     type="checkbox"
                     checked={showComingSoon}
                     onChange={(e) => setShowComingSoon(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
                   />
-                  <span>Show Coming Soon</span>
+                  <span>Show coming soon integrations</span>
                 </label>
               </div>
             </div>
@@ -7493,65 +7502,236 @@ function WorkflowBuilderContent() {
                 }
               }}
               onSave={async (config) => {
-                
+                console.log('🚨 [AI Agent onSave] Called with config:', config);
+                console.log('🚨 [AI Agent onSave] configuringNode:', configuringNode);
+                console.log('🚨 [AI Agent onSave] pendingNode:', pendingNode);
+
                 // Store the chains layout data before saving configuration
                 const chainsToProcess = config.chainsLayout;
-                
+                console.log('🔴 [AI Agent Save] chainsToProcess:', chainsToProcess);
+                console.log('🔴 [AI Agent Save] Has nodes:', !!chainsToProcess?.nodes);
+                console.log('🔴 [AI Agent Save] Nodes count:', chainsToProcess?.nodes?.length);
+                console.log('🔴 [AI Agent Save] Has edges:', !!chainsToProcess?.edges);
+
                 // Save the AI Agent configuration and get the new node ID if it's a pending node
                 let finalAIAgentNodeId = configuringNode.id;
-                if (configuringNode.id === 'pending-action' && pendingNode?.type === 'action') {
-                  // For pending nodes, addActionToWorkflow returns the new node ID
-                  const newNodeId = await handleSaveConfiguration(configuringNode, config);
-                  if (newNodeId) {
-                    finalAIAgentNodeId = newNodeId;
+
+                console.log('🟣 [AI Agent Save] Checking if AI Agent node exists');
+                console.log('🟣 [AI Agent Save] configuringNode.id:', configuringNode.id);
+                console.log('🟣 [AI Agent Save] nodes count:', nodes.length);
+                console.log('🟣 [AI Agent Save] pendingNode exists:', !!pendingNode);
+
+                // Check if the AI Agent node already exists in the workflow
+                const existingAIAgentNode = nodes.find(n => n.id === configuringNode.id);
+                console.log('🟣 [AI Agent Save] existingAIAgentNode:', existingAIAgentNode);
+
+                // If the AI Agent node doesn't exist, we need to create it first
+                // This happens when we're adding a new AI Agent node (pendingNode is set)
+                if (!existingAIAgentNode && configuringNode.nodeComponent?.type === 'ai_agent' && pendingNode) {
+                  // For pending AI Agent nodes, we need to actually create and add the node first
+                  console.log('🔵 [AI Agent Save] Creating new AI Agent node from pending node');
+                  console.log('🔵 [AI Agent Save] configuringNode.id:', configuringNode.id);
+                  console.log('🔵 [AI Agent Save] pendingNode:', pendingNode);
+                  console.log('🔵 [AI Agent Save] pendingNode.sourceNodeInfo:', pendingNode.sourceNodeInfo);
+
+                  // Use the ID from configuringNode which was already generated
+                  const newNodeId = configuringNode.id;
+
+                  // Get the position from the pendingNode's sourceNodeInfo
+                  const sourceNode = nodes.find(n => n.id === pendingNode.sourceNodeInfo?.parentId);
+                  const position = sourceNode ? {
+                    x: sourceNode.position.x,
+                    y: sourceNode.position.y + 160
+                  } : { x: 250, y: 250 };
+
+                  console.log('🟢 [AI Agent Save] Source node found:', !!sourceNode);
+                  console.log('🟢 [AI Agent Save] Position calculated:', position);
+
+                  // Create the new AI Agent node
+                  const newNode = {
+                    id: newNodeId,
+                    type: 'custom',
+                    position: position,
+                    data: {
+                      title: configuringNode.nodeComponent.title || 'AI Agent',
+                      description: configuringNode.nodeComponent.description || '',
+                      type: 'ai_agent',
+                      providerId: configuringNode.nodeComponent.providerId || 'ai',
+                      config: config,
+                      onConfigure: (id: string) => handleConfigureNode(id),
+                      onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
+                      onRename: (id: string, newTitle: string) => handleRenameNode(id, newTitle),
+                      onAddChain: configuringNode.nodeComponent.supportsChains ?
+                        (id: string) => console.log('Add chain clicked for:', id) : undefined,
+                      hasChains: chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0),
+                      isAIMode: isAIMode
+                    }
+                  };
+
+                  console.log('🟢 [AI Agent Save] Creating node with data:', newNode.data);
+
+                  // Add the node to the workflow IMMEDIATELY and ensure it's available
+                  setNodes((nds) => {
+                    console.log('🟢 [AI Agent Save] Inside setNodes - Adding AI Agent node to workflow');
+                    console.log('🟢 [AI Agent Save] Current nodes count:', nds.length);
+                    // Filter out the Add Action button that was clicked
+                    const filteredNodes = nds.filter(n => n.id !== pendingNode?.sourceNodeInfo?.nodeId);
+                    const nodesWithAIAgent = [...filteredNodes, newNode];
+                    console.log('🟢 [AI Agent Save] New nodes count with AI Agent:', nodesWithAIAgent.length);
+                    console.log('🟢 [AI Agent Save] AI Agent node added with ID:', newNodeId);
+                    return nodesWithAIAgent;
+                  });
+
+                  // If there's a parent node, add an edge
+                  if (pendingNode.sourceNodeInfo?.parentId) {
+                    console.log('🟡 [AI Agent Save] Adding edge from parent:', pendingNode.sourceNodeInfo.parentId, 'to:', newNodeId);
+                    const newEdge = {
+                      id: `edge-${pendingNode.sourceNodeInfo.parentId}-${newNodeId}`,
+                      source: pendingNode.sourceNodeInfo.parentId,
+                      target: newNodeId,
+                      type: 'custom',
+                      animated: true,
+                      style: { stroke: '#94a3b8', strokeWidth: 2 },
+                      data: {
+                        onAddNode: () => console.log('Add node to edge')
+                      }
+                    };
+                    setEdges((eds) => {
+                      console.log('🟡 [AI Agent Save] Adding edge, current edges count:', eds.length);
+                      return [...eds, newEdge];
+                    });
                   }
+
+                  // Close the action dialog if it's open
+                  setShowActionDialog(false);
+
+                  // Mark as having unsaved changes
+                  setHasUnsavedChanges(true);
+
+                  finalAIAgentNodeId = newNodeId;
+                  console.log('✅ [AI Agent Save] AI Agent node created successfully with ID:', finalAIAgentNodeId);
                 } else {
+                  console.log('📝 [AI Agent Save] Updating existing AI Agent node configuration');
+                  // For existing nodes, just update the configuration
                   await handleSaveConfiguration(configuringNode, config);
+                  // DON'T RETURN HERE - we still need to process chains!
                 }
-                
+
                 // Prevent duplicate chain processing - check and set flag immediately
                 if (isProcessingChainsRef.current) {
+                  console.log('⚠️ [AI Agent Save] Chain processing already in progress, skipping');
                   return;
                 }
-                
+
                 isProcessingChainsRef.current = true;
+                console.log('🔓 [AI Agent Save] Chain processing lock acquired');
                 
                 // Capture the final node ID for use in the setTimeout
                 const aiAgentNodeIdToUse = finalAIAgentNodeId;
-                
+
                 // Process chains after a longer delay to ensure the AI Agent node has been added to state
                 // This is especially important for pending nodes that are being added for the first time
+                // Increase delay for new nodes to ensure React has time to update
+                const delayTime = !existingAIAgentNode ? 500 : 100;
+                console.log('🟡 [AI Agent Save] Setting timeout with delay:', delayTime, 'ms');
+
                 setTimeout(() => {
-                  
+
                   // Check if we have the new comprehensive format with full node/edge data
-                  const hasFullLayout = chainsToProcess?.nodes && chainsToProcess?.edges;
+                  // hasFullLayout should be true even if nodes array is empty (for empty chains)
+                  const hasFullLayout = chainsToProcess?.nodes !== undefined && chainsToProcess?.edges !== undefined;
                   const chainsData = chainsToProcess?.chains || chainsToProcess;
                   const aiAgentPosition = chainsToProcess?.aiAgentPosition;
                   const layoutConfig = chainsToProcess?.layout || { verticalSpacing: 120, horizontalSpacing: 150 };
-                  
-                  
+
+                  console.log('🟡 [setTimeout] Processing chains, hasFullLayout:', hasFullLayout);
+                  console.log('🟡 [setTimeout] chainsToProcess:', chainsToProcess);
+                  console.log('🟡 [setTimeout] Has nodes:', !!chainsToProcess?.nodes);
+                  console.log('🟡 [setTimeout] Nodes to process:', chainsToProcess?.nodes);
+                  console.log('🟡 [setTimeout] Edges to process:', chainsToProcess?.edges);
+                  console.log('🟡 [setTimeout] aiAgentNodeIdToUse:', aiAgentNodeIdToUse);
+                  console.log('🟡 [setTimeout] chainsData:', chainsData);
+                  console.log('🟡 [setTimeout] Is chainsData array?', Array.isArray(chainsData));
+
+                  // Log the condition evaluation
+                  const hasNodes = chainsToProcess?.nodes && chainsToProcess.nodes.length > 0;
+                  const hasPlaceholders = chainsToProcess?.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0;
+                  const hasChains = chainsData && Array.isArray(chainsData) && chainsData.length > 0;
+
+                  console.log('🟡 [setTimeout] hasNodes:', hasNodes, 'count:', chainsToProcess?.nodes?.length);
+                  console.log('🟡 [setTimeout] hasPlaceholders:', hasPlaceholders, 'count:', chainsToProcess?.chainPlaceholderPositions?.length);
+                  console.log('🟡 [setTimeout] hasChains:', hasChains, 'count:', chainsData?.length);
+
+                  // We should process if we have any chain-related data
+                  const shouldProcess = chainsToProcess && (hasFullLayout || hasChains);
+                  console.log('🟡 [setTimeout] Should process chains?', shouldProcess);
+                  console.log('🟡 [setTimeout] chainsToProcess exists?', !!chainsToProcess);
+                  console.log('🟡 [setTimeout] chainsToProcess type:', typeof chainsToProcess);
+
                   // Check if there are any chains to process (including empty chains with placeholders)
-                  if ((hasFullLayout && (
-                        (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) || 
-                        (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
-                      )) || 
-                      (chainsData && Array.isArray(chainsData) && chainsData.length > 0)) {
-                    
+                  // Process if we have any chain-related data at all
+                  if (shouldProcess) {
+
                     const aiAgentNodeId = aiAgentNodeIdToUse;
+
+                    // Get the latest nodes from React Flow to ensure we have the newly added AI Agent node
+                    const latestNodes = getNodes();
+                    console.log('🟡 [setTimeout] Got latest nodes from getNodes():', latestNodes.length);
+                    console.log('🟡 [setTimeout] Latest AI Agent nodes:', latestNodes.filter(n => n.data?.type === 'ai_agent').map(n => ({ id: n.id, type: n.data?.type })));
                   
                   // Use setNodes to access current state and find the AI Agent node
                   setNodes((currentNodes) => {
                     // Work with a mutable copy of nodes that we can update
                     let workingNodes = [...currentNodes];
-                    
+
                     // Collect all new nodes and edges first
                     const newNodesToAdd: any[] = [];
                     const newEdgesToAdd: any[] = [];
                     const addedNodeIds = new Set<string>(); // Track node IDs to prevent duplicates
-                    // If configuringNode.id is "pending-action", find the AI Agent node by type
+
+                    console.log('🟢 [Chain Processing] Looking for AI Agent node');
+                    console.log('🟢 [Chain Processing] aiAgentNodeId:', aiAgentNodeId);
+                    console.log('🟢 [Chain Processing] Total nodes in workingNodes:', workingNodes.length);
+                    console.log('🟢 [Chain Processing] AI Agent nodes:', workingNodes.filter(n => n.data?.type === 'ai_agent').map(n => ({ id: n.id, type: n.data?.type })));
+
+                    // Find the AI Agent node using the proper ID or from latest nodes
                     let aiAgentNode;
-                    if (aiAgentNodeId === 'pending-action') {
-                      // Find the most recently added AI Agent node
+
+                    // First try to find using the actual ID
+                    if (aiAgentNodeId && aiAgentNodeId !== 'pending-action') {
+                      aiAgentNode = workingNodes.find(n => n.id === aiAgentNodeId);
+                      console.log('🔵 [Chain Processing] Found AI Agent by ID:', aiAgentNode ? aiAgentNode.id : 'NOT FOUND');
+                    }
+
+                    // If not found and we have latest nodes from getNodes(), try there
+                    if (!aiAgentNode && latestNodes && latestNodes.length > 0) {
+                      console.log('🟠 [Chain Processing] Trying to find in latestNodes...');
+                      if (aiAgentNodeId && aiAgentNodeId !== 'pending-action') {
+                        aiAgentNode = latestNodes.find(n => n.id === aiAgentNodeId);
+                      } else {
+                        // Find the most recently added AI Agent node
+                        aiAgentNode = latestNodes
+                          .filter(n => n.data?.type === 'ai_agent')
+                          .sort((a, b) => {
+                            // Sort by ID (assuming IDs are like "node-timestamp")
+                            const aTime = parseInt(a.id.split('-')[1] || '0');
+                            const bTime = parseInt(b.id.split('-')[1] || '0');
+                            return bTime - aTime; // Most recent first
+                          })[0];
+                      }
+
+                      if (aiAgentNode) {
+                        console.log('✅ [Chain Processing] Found AI Agent in latestNodes:', aiAgentNode.id);
+                        // Add the AI Agent node to workingNodes if it's not already there
+                        if (!workingNodes.find(n => n.id === aiAgentNode.id)) {
+                          console.log('➕ [Chain Processing] Adding AI Agent to workingNodes');
+                          workingNodes.push(aiAgentNode);
+                        }
+                      }
+                    }
+
+                    // Last resort: find by type in workingNodes
+                    if (!aiAgentNode && aiAgentNodeId === 'pending-action') {
                       aiAgentNode = workingNodes
                         .filter(n => n.data?.type === 'ai_agent')
                         .sort((a, b) => {
@@ -7560,12 +7740,15 @@ function WorkflowBuilderContent() {
                           const bTime = parseInt(b.id.split('-')[1] || '0');
                           return bTime - aTime; // Most recent first
                         })[0];
-                    } else {
-                      aiAgentNode = workingNodes.find(n => n.id === aiAgentNodeId);
+                      console.log('🔵 [Chain Processing] Found AI Agent by type:', aiAgentNode ? aiAgentNode.id : 'NOT FOUND');
                     }
-                    
-                    
+
+
                     if (!aiAgentNode) {
+                      console.error('❌ [Chain Processing] AI Agent node not found! This is the issue.');
+                      console.error('❌ [Chain Processing] Was looking for ID:', aiAgentNodeId);
+                      console.error('❌ [Chain Processing] Current nodes count:', workingNodes.length);
+                      console.error('❌ [Chain Processing] AI Agent nodes in current state:', workingNodes.filter(n => n.data?.type === 'ai_agent').map(n => n.id));
                       return currentNodes; // Return unchanged nodes
                     }
                     
@@ -7616,14 +7799,13 @@ function WorkflowBuilderContent() {
                     }
                     
                     // Decide which processing method to use
-                    if (hasFullLayout && (
-                          (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) || 
-                          (chainsToProcess.chainPlaceholderPositions && chainsToProcess.chainPlaceholderPositions.length > 0)
-                        )) {
+                    // Use the same condition variables we defined earlier
+                    if (hasFullLayout && (hasNodes || hasPlaceholders)) {
                       // If we have full layout data, recreate the exact structure
                       
                       // Create nodes with exact positions from AI Agent builder (if any)
                       if (chainsToProcess.nodes && chainsToProcess.nodes.length > 0) {
+                        console.log('🟢 [Chain Processing] Creating nodes from chainsToProcess.nodes:', chainsToProcess.nodes.length);
                         chainsToProcess.nodes.forEach((nodeData: any, nodeIndex: number) => {
                         const timestamp = Date.now();
                         // Generate a cleaner node ID to avoid long concatenations
@@ -8155,6 +8337,8 @@ function WorkflowBuilderContent() {
                   }
                   
                   // If no branches matched, return unchanged nodes
+                  console.log('⚠️ [setTimeout] No chains to process - returning unchanged nodes');
+                  console.log('⚠️ [setTimeout] Final check - chainsToProcess was:', chainsToProcess);
                   return currentNodes;
                 }); // End of setNodes
                     
@@ -8191,7 +8375,7 @@ function WorkflowBuilderContent() {
                     // Reset flag if no chains to process
                     isProcessingChainsRef.current = false;
                   }
-                }, 500); // Longer delay to ensure node is added to state
+                }, delayTime); // Use dynamic delay based on whether node exists
                 
                 // Close the modal after successful save
                 setConfiguringNode(null);

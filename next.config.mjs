@@ -15,8 +15,21 @@ const nextConfig = {
   },
   // Enable experimental features for better performance
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@supabase/supabase-js',
+      '@supabase/auth-helpers-nextjs',
+      'recharts',
+      '@radix-ui/react-select',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+    ],
   },
+  // Optimize production builds
+  compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
   // Fix Cross-Origin-Opener-Policy for OAuth popups
   async headers() {
     return [
@@ -26,6 +39,36 @@ const nextConfig = {
           {
             key: 'Cross-Origin-Opener-Policy',
             value: 'same-origin-allow-popups',
+          },
+          // Prefetch DNS for external resources
+          {
+            key: 'Link',
+            value: '<https://fonts.googleapis.com>; rel=dns-prefetch',
+          },
+          // Cache static assets aggressively
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Specific caching for images
+      {
+        source: '/_next/image(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Specific caching for static assets
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },

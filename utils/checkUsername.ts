@@ -3,21 +3,50 @@ import { redirect } from "next/navigation"
 
 export async function requireUsername() {
   const supabase = await createSupabaseServerClient()
-  
-  // Get current user
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+  // Get current user with timeout protection
+  const userPromise = supabase.auth.getUser()
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Auth check timeout')), 3000) // 3 second timeout
+  })
+
+  let userResult
+  try {
+    userResult = await Promise.race([userPromise, timeoutPromise])
+  } catch (error) {
+    console.error('[Username Check] Auth check timed out:', error)
+    // On timeout, redirect to login
+    redirect("/auth/login")
+  }
+
+  const { data: { user }, error: userError } = userResult
   
   // If not logged in, redirect to login
   if (userError || !user) {
     redirect("/auth/login")
   }
   
-  // ALWAYS fetch fresh profile data - no caching
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('username, provider')
-    .eq('id', user.id)
-    .single()
+  // ALWAYS fetch fresh profile data - no caching with timeout
+  let profile, profileError
+  try {
+    const profilePromise = supabase
+      .from('user_profiles')
+      .select('username, provider')
+      .eq('id', user.id)
+      .single()
+
+    const profileTimeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // 2 second timeout
+    })
+
+    const result = await Promise.race([profilePromise, profileTimeoutPromise])
+    profile = result.data
+    profileError = result.error
+  } catch (error) {
+    console.error('[Username Check] Profile fetch timed out:', error)
+    // On timeout, assume profile doesn't exist and continue with the flow
+    profileError = { code: 'TIMEOUT', message: 'Profile fetch timed out' }
+  }
   
   console.log('[Username Check]', {
     userId: user.id,
@@ -29,7 +58,7 @@ export async function requireUsername() {
   })
   
   // If profile doesn't exist, create it (for Google users)
-  if (profileError && profileError.code === 'PGRST116') {
+  if (profileError && (profileError.code === 'PGRST116' || profileError.code === 'TIMEOUT')) {
     // Check if this is a Google user
     const isGoogleUser = user.app_metadata?.provider === 'google' || 
                         user.app_metadata?.providers?.includes('google') ||

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { PrefetchLink } from "@/components/ui/prefetch-link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import {
@@ -20,6 +21,7 @@ import {
   Bot,
   HelpCircle,
   Webhook,
+  Clock,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -28,6 +30,12 @@ import { useAuthStore } from "@/stores/authStore"
 import { canAccessPage, type UserRole, getRoleInfo, hasPermission } from "@/lib/utils/roles"
 import { Badge } from "@/components/ui/badge"
 import { UpgradeOverlay } from "@/components/ui/upgrade-overlay"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface SidebarProps {
   isMobileMenuOpen: boolean
@@ -115,7 +123,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
       <div
         className={cn(
           "fixed inset-y-0 left-0 bg-background border-r border-border flex flex-col transition-all duration-200 ease-in-out z-50",
-          isCollapsed ? "w-16" : "w-64",
+          isCollapsed ? "w-16" : "w-72",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
@@ -180,7 +188,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             const isComingSoon = item.comingSoon && !isAdmin
             
             return (
-              <Link
+              <PrefetchLink
                 key={item.name}
                 href={canAccess && !isComingSoon ? item.href : "#"}
                 onClick={(e) => handleNavigationClick(item, e)}
@@ -195,27 +203,44 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 )}
                 title={isCollapsed ? item.name : undefined}
               >
-                <div className="flex items-center space-x-3">
-                  <item.icon className="w-5 h-5" />
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
                   {!isCollapsed && <span className="font-medium">{item.name}</span>}
                 </div>
-                
+
                 {/* Coming Soon Badge for non-admins */}
                 {!isCollapsed && isComingSoon && (
-                  <Badge 
-                    variant="secondary" 
-                    className="text-xs px-1.5 py-0.5 ml-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
-                  >
-                    Coming Soon
-                  </Badge>
+                  <>
+                    {/* Full badge when there's enough space */}
+                    <Badge
+                      variant="secondary"
+                      className="hidden xl:flex text-[11px] px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
+                    >
+                      Coming Soon
+                    </Badge>
+
+                    {/* Icon with tooltip on smaller screens or when text is long */}
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="xl:hidden ml-auto mr-1 p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
+                            <Clock className="w-3.5 h-3.5 text-yellow-800 dark:text-yellow-300" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Coming Soon</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </>
                 )}
                 
                 {/* Role Badge - show for all non-free roles (but not if coming soon is shown) */}
                 {!isCollapsed && showRoleBadge && !isComingSoon && (
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className={cn(
-                      "text-xs px-1.5 py-0.5 ml-2",
+                      "text-xs px-1.5 py-0.5 ml-auto mr-1 flex-shrink-0",
                       roleColors[item.minRole as keyof typeof roleColors],
                       isActive && "bg-white/20 text-white border-white/30"
                     )}
@@ -224,7 +249,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     {getRoleInfo(item.minRole as UserRole).displayName}
                   </Badge>
                 )}
-              </Link>
+              </PrefetchLink>
             )
           })}
 
@@ -242,7 +267,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
                 
                 return (
-                  <Link
+                  <PrefetchLink
                     key={item.name}
                     href={item.href}
                     onClick={() => onMobileMenuChange(false)}
@@ -257,7 +282,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                   >
                     <item.icon className="w-5 h-5" />
                     {!isCollapsed && <span className="font-medium">{item.name}</span>}
-                  </Link>
+                  </PrefetchLink>
                 )
               })}
             </>
