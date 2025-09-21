@@ -32,6 +32,8 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Fix Cross-Origin-Opener-Policy for OAuth popups
   async headers() {
+    const isDev = process.env.NODE_ENV === 'development';
+
     return [
       {
         source: '/(.*)',
@@ -45,10 +47,12 @@ const nextConfig = {
             key: 'Link',
             value: '<https://fonts.googleapis.com>; rel=dns-prefetch',
           },
-          // Cache static assets aggressively
+          // Disable ALL caching in development
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: isDev
+              ? 'no-store, must-revalidate'
+              : 'public, max-age=31536000, immutable',
           },
         ],
       },
@@ -74,12 +78,13 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
+
     // Suppress the webpack cache warning about large strings
     config.infrastructureLogging = {
       level: 'error',
     }
-    
+
     // Alternative: disable the specific warning
     if (!config.ignoreWarnings) {
       config.ignoreWarnings = []
