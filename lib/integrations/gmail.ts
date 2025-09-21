@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
+import { decryptToken, encryptTokens } from '@/lib/integrations/tokenUtils';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -31,22 +32,32 @@ export class GmailService {
       return null;
     }
 
+    // Decrypt the refresh token
+    const decryptedRefreshToken = await decryptToken(integration.refresh_token);
+    if (!decryptedRefreshToken) {
+      console.error('Failed to decrypt refresh token');
+      return null;
+    }
+
     try {
-      oauth2Client.setCredentials({ refresh_token: integration.refresh_token });
+      oauth2Client.setCredentials({ refresh_token: decryptedRefreshToken });
       const { credentials } = await oauth2Client.refreshAccessToken();
       const { access_token, expiry_date } = credentials;
 
       if (access_token) {
-        // Update the integration with the new token and expiration
+        // Encrypt the new access token before storing
+        const { encryptedAccessToken } = await encryptTokens(access_token);
+
+        // Update the integration with the new encrypted token and expiration
         await supabase
           .from('integrations')
-          .update({ 
-            access_token, 
-            expires_at: expiry_date ? new Date(expiry_date).toISOString() : null 
+          .update({
+            access_token: encryptedAccessToken,
+            expires_at: expiry_date ? new Date(expiry_date).toISOString() : null
           })
           .eq('id', integrationId);
-        
-        return access_token;
+
+        return access_token; // Return the unencrypted token for immediate use
       }
       return null;
     } catch (refreshError) {

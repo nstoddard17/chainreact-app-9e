@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { GmailService } from '@/lib/integrations/gmail'
+import { decryptToken } from '@/lib/integrations/tokenUtils'
 
 interface GmailWatchConfig {
   userId: string
@@ -32,8 +33,14 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<string>
       throw new Error('Gmail integration not found')
     }
 
+    // Decrypt the access token
+    const decryptedAccessToken = await decryptToken(integration.access_token)
+    if (!decryptedAccessToken) {
+      throw new Error('Failed to decrypt Gmail access token')
+    }
+
     // Check if token needs refresh
-    let accessToken = integration.access_token
+    let accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
       console.log('Access token expired, refreshing...')
       const newToken = await GmailService.refreshToken(config.userId, config.integrationId)
@@ -113,7 +120,13 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.GOOGLE_REDIRECT_URI
     )
-    oauth2Client.setCredentials({ access_token: integration.access_token })
+    // Decrypt the access token first
+    const decryptedAccessToken = await decryptToken(integration.access_token)
+    if (!decryptedAccessToken) {
+      console.log('Failed to decrypt Gmail access token - watch may already be stopped')
+      return
+    }
+    oauth2Client.setCredentials({ access_token: decryptedAccessToken })
 
     // Create Gmail client
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })

@@ -453,7 +453,7 @@ export class TriggerWebhookManager {
         .from('integrations')
         .select('*')
         .eq('user_id', config.userId)
-        .eq('provider_id', 'gmail')
+        .eq('provider', 'gmail')
         .eq('status', 'connected')
         .single()
 

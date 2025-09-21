@@ -513,22 +513,27 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     disconnectIntegration: async (integrationId: string) => {
-      const { setLoading, fetchIntegrations, setError } = get()
-      setLoading(`disconnect-${integrationId}`, true)
+      const { setLoading, fetchIntegrations, setError, integrations } = get()
+
+      // Find the integration to get the provider name for proper loading state
+      const integration = integrations.find(i => i.id === integrationId)
+      const loadingKey = integration ? `disconnect-${integration.provider}` : `disconnect-${integrationId}`
+
+      setLoading(loadingKey, true)
       setError(null)
 
       try {
         await IntegrationService.disconnectIntegration(integrationId)
-        
+
         // Immediately remove the integration from the state for instant UI update
         set((state) => ({
           integrations: state.integrations.filter(i => i.id !== integrationId)
         }))
-        
+
         // Emit event for other components to listen to
         emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
-        
-        setLoading(`disconnect-${integrationId}`, false)
+
+        setLoading(loadingKey, false)
         
         // Fetch integrations after a short delay to ensure consistency with the backend
         setTimeout(() => {
@@ -537,7 +542,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       } catch (error: any) {
         console.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
-        setLoading(`disconnect-${integrationId}`, false)
+        setLoading(loadingKey, false)
         // Refresh integrations on error to ensure UI stays in sync
         setTimeout(() => {
           fetchIntegrations(true)
