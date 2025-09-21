@@ -207,7 +207,7 @@ export function IntegrationCard({
   }
 
   const handleDisconnectConfirm = () => {
-    onDisconnect()
+    handleDisconnect()
     setShowDisconnectDialog(false)
   }
 
