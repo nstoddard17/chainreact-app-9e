@@ -5390,14 +5390,14 @@ function WorkflowBuilderContent() {
                 </Select>
               </div>
               <div className="flex items-center justify-end">
-                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <input
                     type="checkbox"
                     checked={showComingSoon}
                     onChange={(e) => setShowComingSoon(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
                   />
-                  <span>Show Coming Soon</span>
+                  <span>Show coming soon integrations</span>
                 </label>
               </div>
             </div>
@@ -6286,7 +6286,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
+        <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col">
           <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -6377,14 +6377,14 @@ function WorkflowBuilderContent() {
                 </Select>
               </div>
               <div className="flex items-center justify-end">
-                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
+                <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <input
                     type="checkbox"
                     checked={showComingSoon}
                     onChange={(e) => setShowComingSoon(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
                   />
-                  <span>Show Coming Soon</span>
+                  <span>Show coming soon integrations</span>
                 </label>
               </div>
             </div>
