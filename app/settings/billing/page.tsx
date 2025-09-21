@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { requireUsername } from "@/utils/checkUsername"
 import BillingContent from "@/components/billing/BillingContent"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
@@ -21,5 +22,9 @@ export default async function BillingPage() {
   // This will check for username and redirect if needed
   await requireUsername()
 
-  return <BillingContent />
+  return (
+    <Suspense fallback={null}>
+      <BillingContent />
+    </Suspense>
+  )
 }
