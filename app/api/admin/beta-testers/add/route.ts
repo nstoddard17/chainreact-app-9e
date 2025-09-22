@@ -42,19 +42,44 @@ export async function POST(request: Request) {
     const supabaseAdmin = await createSupabaseServiceClient()
 
     // Check if user is admin using the service client
+    console.log("Checking admin status for user:", user.id, user.email)
+
+    // Note: The column is named 'user_role', not 'role' in the user_profiles table
     const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
+      .from("user_profiles")
+      .select("user_role")
       .eq("id", user.id)
       .single()
 
-    if (profileError || !profile || profile.role !== 'admin') {
-      console.error("Profile error:", profileError)
+    console.log("Profile fetch result:", { profile, profileError })
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError)
       return NextResponse.json(
-        { error: "Only admins can add beta testers" },
+        { error: "Failed to verify admin status" },
+        { status: 500 }
+      )
+    }
+
+    if (!profile) {
+      console.error("No profile found for user:", user.id)
+      return NextResponse.json(
+        { error: "User profile not found" },
+        { status: 404 }
+      )
+    }
+
+    console.log("User role:", profile.user_role)
+
+    if (profile.user_role !== 'admin') {
+      console.log("User is not admin. Role:", profile.user_role)
+      return NextResponse.json(
+        { error: `Only admins can add beta testers. Your role: ${profile.user_role || 'user'}` },
         { status: 403 }
       )
     }
+
+    console.log("User confirmed as admin, proceeding with beta tester creation")
 
     // Insert the beta tester using admin client (bypasses RLS)
     const { data, error } = await supabaseAdmin
