@@ -6640,8 +6640,7 @@ function WorkflowBuilderContent() {
       {showActionDialog && (
         <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
           <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }} data-testid="action-selection-dialog">
-            <ActionSelectionDialogContent>
-              <DialogHeader className="pb-3 border-b border-slate-200">
+            <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
@@ -7730,7 +7729,6 @@ function WorkflowBuilderContent() {
               </Button>
             </div>
           </div>
-            </ActionSelectionDialogContent>
         </DialogContent>
         </Dialog>
       )}
