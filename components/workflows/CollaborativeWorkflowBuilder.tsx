@@ -625,14 +625,14 @@ const useWorkflowBuilderState = () => {
     }
   }
 
-  const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
+  const handleAddActionClick = useCallback((nodeId: string, parentId: string, isFromChainPlaceholder: boolean = false) => {
     // Check if there's already a trigger in the workflow
-    const hasTrigger = getNodes().some(node => 
-      node.id === 'trigger' || 
+    const hasTrigger = getNodes().some(node =>
+      node.id === 'trigger' ||
       node.data?.isTrigger === true ||
       (typeof node.data?.type === 'string' && node.data.type.includes('trigger'))
     )
-    
+
     if (!hasTrigger && nodeId.includes('add-action-trigger')) {
       // This is the initial add button and there's no trigger - open trigger dialog
       setSelectedIntegration(null)
@@ -646,6 +646,12 @@ const useWorkflowBuilderState = () => {
       setSelectedIntegration(null)
       setSelectedAction(null)
       setSearchQuery("")
+
+      // If this is from a chain placeholder, default to AI mode
+      if (isFromChainPlaceholder) {
+        setIsActionAIMode(true)
+      }
+
       setShowActionDialog(true)
     }
   }, [getNodes, storeIntegrations, integrationsLoading, fetchIntegrations])
@@ -772,9 +778,140 @@ const useWorkflowBuilderState = () => {
   const handleDeleteNodeWithConfirmationRef = useRef<(nodeId: string) => void>()
   const handleRenameNodeRef = useRef<(nodeId: string, newTitle: string) => void>()
 
+  // Helper function to handle node insertion logic
+  const handleNodeInsertion = useCallback((newNode: Node, sourceAddNode: any, parentNode: any, verticalSpacing: number) => {
+    // Don't create add action node for chain placeholders - they have internal buttons
+    const shouldCreateAddAction = newNode.data?.type !== 'chain_placeholder'
+
+    if (shouldCreateAddAction) {
+      // Create Add Action node after the new action
+      const addActionId = `add-action-${newNode.id}-${Date.now()}`
+      const addActionNode = createAddActionNode(
+        addActionId,
+        newNode.id,
+        {
+          x: newNode.position.x,
+          y: newNode.position.y + verticalSpacing
+        }
+      )
+
+      // Handle insertion between nodes if needed
+      if (sourceAddNode.insertBefore) {
+        // Insert between two nodes
+        setNodes((nds) => [...nds.filter(n => n.type !== 'addAction'), newNode, addActionNode])
+
+        setEdges((eds) => {
+          const updatedEdges = eds.filter(e =>
+            !(e.source === sourceAddNode.parentId && e.target === sourceAddNode.insertBefore)
+          )
+
+          // Add edges for the new node
+          updatedEdges.push({
+            id: `${sourceAddNode.parentId}-${newNode.id}`,
+            source: sourceAddNode.parentId,
+            target: newNode.id,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#94a3b8', strokeWidth: 2 }
+          })
+
+          updatedEdges.push({
+            id: `${newNode.id}-${sourceAddNode.insertBefore}`,
+            source: newNode.id,
+            target: sourceAddNode.insertBefore,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#94a3b8', strokeWidth: 2 }
+          })
+
+          updatedEdges.push({
+            id: `${newNode.id}-${addActionId}`,
+            source: newNode.id,
+            target: addActionId,
+            type: 'straight',
+            animated: true,
+            style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }
+          })
+
+          return updatedEdges
+        })
+      } else {
+        // Replace the add action node with the new action and new add action
+        setNodes((nds) => {
+          const filtered = nds.filter(n => n.id !== sourceAddNode.id)
+          return [...filtered, newNode, addActionNode]
+        })
+
+        // Update edges to point to the new node
+        setEdges((eds) => {
+          const updatedEdges = eds.map(edge => {
+            if (edge.target === sourceAddNode.id) {
+              return { ...edge, target: newNode.id }
+            }
+            return edge
+          })
+
+          // Add edge to the new Add Action node
+          updatedEdges.push({
+            id: `${newNode.id}-${addActionId}`,
+            source: newNode.id,
+            target: addActionId,
+            type: 'straight',
+            animated: true,
+            style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }
+          })
+
+          return updatedEdges
+        })
+      }
+    } else {
+      // Just add the node without an add action button (for chain placeholders)
+      if (sourceAddNode.insertBefore) {
+        setNodes((nds) => [...nds.filter(n => n.type !== 'addAction'), newNode])
+        setEdges((eds) => {
+          const updatedEdges = eds.filter(e =>
+            !(e.source === sourceAddNode.parentId && e.target === sourceAddNode.insertBefore)
+          )
+
+          updatedEdges.push({
+            id: `${sourceAddNode.parentId}-${newNode.id}`,
+            source: sourceAddNode.parentId,
+            target: newNode.id,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#94a3b8', strokeWidth: 2 }
+          })
+
+          updatedEdges.push({
+            id: `${newNode.id}-${sourceAddNode.insertBefore}`,
+            source: newNode.id,
+            target: sourceAddNode.insertBefore,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#94a3b8', strokeWidth: 2 }
+          })
+
+          return updatedEdges
+        })
+      } else {
+        setNodes((nds) => {
+          const filtered = nds.filter(n => n.id !== sourceAddNode.id)
+          return [...filtered, newNode]
+        })
+
+        setEdges((eds) => eds.map(edge => {
+          if (edge.target === sourceAddNode.id) {
+            return { ...edge, target: newNode.id }
+          }
+          return edge
+        }))
+      }
+    }
+  }, [setNodes, setEdges])
+
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
-    
+
     if (!sourceAddNode) {
       toast({
         title: "Cannot Add Action",
@@ -784,16 +921,82 @@ const useWorkflowBuilderState = () => {
       setShowActionDialog(false)
       return
     }
-    
+
     // Generate unique node ID
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substr(2, 9)
     const newNodeId = `node-${timestamp}-${randomId}`
-    
+
     // Check if this action requires configuration
     const requiresConfig = nodeNeedsConfiguration && nodeNeedsConfiguration(action)
-    
-    if (requiresConfig) {
+
+    // If AI mode is enabled, skip configuration and add the action with AI-configured fields
+    if (isActionAIMode && requiresConfig) {
+      // Create config with all fields set to AI mode
+      const aiConfig: Record<string, any> = {}
+
+      // Get field schema for this action
+      if (action.configSchema) {
+        action.configSchema.forEach((field: any) => {
+          // Set each field to use AI placeholder
+          aiConfig[field.name] = `{{AI_FIELD:${field.name}}}`
+        })
+      }
+
+      // Add the node immediately with AI configuration
+      const allNodes = getNodes()
+      const parentNode = allNodes.find(n => n.id === sourceAddNode.parentId)
+      const basePosition = parentNode ? parentNode.position : { x: 400, y: 300 }
+
+      // Check if parent is an AI agent chain placeholder to determine spacing
+      const isChainNode = parentNode?.data?.isAIAgentChild || parentNode?.data?.parentAIAgentId
+      const verticalSpacing = isChainNode ? 120 : 160
+
+      // Create new action node with AI configuration
+      const newNode: Node = {
+        id: newNodeId,
+        type: 'custom',
+        position: {
+          x: basePosition.x,
+          y: basePosition.y + verticalSpacing
+        },
+        data: {
+          ...action,
+          providerId: integration.id,
+          config: aiConfig,
+          isAIConfigured: true, // Flag to indicate this was configured by AI mode
+          onConfigure: handleConfigureNode,
+          onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
+          onRename: (id: string, title: string) => handleRenameNodeRef.current?.(id, title),
+          // Preserve chain metadata if adding to a chain
+          ...(parentNode?.data?.isAIAgentChild ? {
+            isAIAgentChild: true,
+            parentAIAgentId: parentNode.data.parentAIAgentId,
+            parentChainIndex: parentNode.data.parentChainIndex
+          } : {})
+        }
+      }
+
+      // Handle insertion logic
+      handleNodeInsertion(newNode, sourceAddNode, parentNode, verticalSpacing)
+
+      // Close dialog and reset state
+      setShowActionDialog(false)
+      setSourceAddNode(null)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
+      setIsActionAIMode(false) // Reset AI mode after use
+
+      toast({
+        title: "Action Added",
+        description: `${action.title} has been added with AI configuration.`,
+      })
+
+      return
+    }
+
+    if (requiresConfig && !isActionAIMode) {
       // Store the pending node info but don't add it yet
       setPendingNode({
         type: 'action',
@@ -922,7 +1125,7 @@ const useWorkflowBuilderState = () => {
       // Mark as having unsaved changes
       setHasUnsavedChanges(true)
     }
-  }, [sourceAddNode, getNodes, setNodes, setEdges, handleConfigureNode, handleAddActionClick, setPendingNode, setConfiguringNode])
+  }, [sourceAddNode, getNodes, setNodes, setEdges, handleConfigureNode, handleAddActionClick, setPendingNode, setConfiguringNode, isActionAIMode, handleNodeInsertion, createAddActionNode, setIsActionAIMode, toast])
 
   // Handle renaming nodes
   const handleRenameNode = useCallback((nodeId: string, newTitle: string) => {
@@ -7908,7 +8111,7 @@ function WorkflowBuilderContent() {
                               isPlaceholder: true,
                               hasAddButton: true,
                               onAddAction: () => {
-                                handleAddActionClick(newNodeId, newNodeId);
+                                handleAddActionClick(newNodeId, newNodeId, true);
                               }
                             } : {})
                           }
@@ -8100,7 +8303,7 @@ function WorkflowBuilderContent() {
                               isPlaceholder: true,
                               hasAddButton: true,
                               onAddAction: () => {
-                                handleAddActionClick(placeholderId, placeholderId);
+                                handleAddActionClick(placeholderId, placeholderId, true);
                               }
                             }
                           };
