@@ -862,7 +862,26 @@ const useWorkflowBuilderState = () => {
         setEdges((eds) => {
           const updatedEdges = eds.map(edge => {
             if (edge.target === sourceAddNode.id) {
-              return { ...edge, target: newNode.id }
+              // Update the edge to point to the new node
+              // Check if this is from an AI Agent (check both node type and if replacing a placeholder)
+              const nodes = getNodes()
+              const sourceNode = nodes.find(n => n.id === edge.source)
+              const targetNode = nodes.find(n => n.id === sourceAddNode.id)
+              const isFromAIAgent = sourceNode?.data?.type === 'ai_agent'
+              const isReplacingPlaceholder = targetNode?.data?.type === 'chain_placeholder'
+
+              // If it's from AI agent or we're replacing a chain placeholder, ensure solid line
+              if (isFromAIAgent || isReplacingPlaceholder) {
+                return {
+                  ...edge,
+                  target: newNode.id,
+                  style: { stroke: '#94a3b8', strokeWidth: 2 },  // Force solid line style
+                  type: 'custom',
+                  animated: false
+                }
+              } else {
+                return { ...edge, target: newNode.id }
+              }
             }
             return edge
           })
@@ -917,7 +936,26 @@ const useWorkflowBuilderState = () => {
 
         setEdges((eds) => eds.map(edge => {
           if (edge.target === sourceAddNode.id) {
-            return { ...edge, target: newNode.id }
+            // Update the edge to point to the new node
+            // Check if this is from an AI Agent (check both node type and if replacing a placeholder)
+            const nodes = getNodes()
+            const sourceNode = nodes.find(n => n.id === edge.source)
+            const targetNode = nodes.find(n => n.id === sourceAddNode.id)
+            const isFromAIAgent = sourceNode?.data?.type === 'ai_agent'
+            const isReplacingPlaceholder = targetNode?.data?.type === 'chain_placeholder'
+
+            // If it's from AI agent or we're replacing a chain placeholder, ensure solid line
+            if (isFromAIAgent || isReplacingPlaceholder) {
+              return {
+                ...edge,
+                target: newNode.id,
+                style: { stroke: '#94a3b8', strokeWidth: 2 },  // Force solid line style
+                type: 'custom',
+                animated: false
+              }
+            } else {
+              return { ...edge, target: newNode.id }
+            }
           }
           return edge
         }))
@@ -962,9 +1000,12 @@ const useWorkflowBuilderState = () => {
       // Add the node immediately with AI configuration
       const allNodes = getNodes()
       const parentNode = allNodes.find(n => n.id === sourceAddNode.parentId)
+
+      // Check if the parent is a chain placeholder - if so, we should replace it at its position
+      const isReplacingPlaceholder = parentNode?.data?.type === 'chain_placeholder'
       const basePosition = parentNode ? parentNode.position : { x: 400, y: 300 }
 
-      // Check if parent is an AI agent chain placeholder to determine spacing
+      // Check if parent is an AI agent chain node to determine spacing
       const isChainNode = parentNode?.data?.isAIAgentChild || parentNode?.data?.parentAIAgentId
       const verticalSpacing = isChainNode ? 120 : 160
 
@@ -974,7 +1015,8 @@ const useWorkflowBuilderState = () => {
         type: 'custom',
         position: {
           x: basePosition.x,
-          y: basePosition.y + verticalSpacing
+          // If replacing a placeholder, use its exact position; otherwise add spacing
+          y: isReplacingPlaceholder ? basePosition.y : basePosition.y + verticalSpacing
         },
         data: {
           ...action,
@@ -1040,15 +1082,19 @@ const useWorkflowBuilderState = () => {
       // Add the node immediately if no configuration is needed
       const allNodes = getNodes()
       const parentNode = allNodes.find(n => n.id === sourceAddNode.parentId)
+
+      // Check if the parent is a chain placeholder - if so, we should replace it at its position
+      const isReplacingPlaceholder = parentNode?.data?.type === 'chain_placeholder'
       const basePosition = parentNode ? parentNode.position : { x: 400, y: 300 }
-      
+
       // Create new action node with proper handlers
       const newNode: Node = {
         id: newNodeId,
         type: 'custom',
-        position: { 
-          x: basePosition.x, 
-          y: basePosition.y + 160 
+        position: {
+          x: basePosition.x,
+          // If replacing a placeholder, use its exact position; otherwise add spacing
+          y: isReplacingPlaceholder ? basePosition.y : basePosition.y + 160
         },
         data: {
           ...action,
@@ -1065,9 +1111,11 @@ const useWorkflowBuilderState = () => {
       const addActionNode = createAddActionNode(
         addActionId,
         newNodeId,
-        { 
-          x: basePosition.x, 
-          y: basePosition.y + 320 // 160px below the new action
+        {
+          x: basePosition.x,
+          // If we replaced a placeholder, the Add Action should be 160px below the placeholder's original position
+          // Otherwise, it should be 320px below the parent (160px below the new action)
+          y: isReplacingPlaceholder ? basePosition.y + 160 : basePosition.y + 320
         }
       )
       
@@ -7815,6 +7863,7 @@ function WorkflowBuilderContent() {
                 const chainsToProcess = config.chainsLayout;
                 console.log('🔴 [AI Agent Save] chainsToProcess:', chainsToProcess);
                 console.log('🔴 [AI Agent Save] Has nodes:', !!chainsToProcess?.nodes);
+                console.log('🔴 [AI Agent Save] chainsLayout:', JSON.stringify(config.chainsLayout, null, 2));
                 console.log('🔴 [AI Agent Save] Nodes count:', chainsToProcess?.nodes?.length);
                 console.log('🔴 [AI Agent Save] Has edges:', !!chainsToProcess?.edges);
 
@@ -8411,9 +8460,15 @@ function WorkflowBuilderContent() {
                       // Determine expected number of chains from the layout data
                       const expectedChainCount = chainsToProcess.chains?.length || 2;
                       const placeholderPositions = chainsToProcess.chainPlaceholderPositions || [];
-                      
+
+                      console.log('🔵 [Chain Placeholders] placeholderPositions:', placeholderPositions);
+                      console.log('🔵 [Chain Placeholders] expectedChainCount:', expectedChainCount);
+                      console.log('🔵 [Chain Placeholders] chainsToProcess.chains:', chainsToProcess.chains);
+                      console.log('🔵 [Chain Placeholders] chainGroups:', chainGroups);
+
                       // Process all chains, including empty ones
                       for (let chainIndex = 0; chainIndex < expectedChainCount; chainIndex++) {
+                        console.log('🔵 [Chain Placeholders] Processing chain index:', chainIndex);
                         // Find nodes for this chain index in chainGroups
                         const chainNodes = Array.from(chainGroups.values())[chainIndex] || [];
                         
@@ -8465,7 +8520,9 @@ function WorkflowBuilderContent() {
                           }
                         } else if (placeholderPositions[chainIndex]) {
                           // Create a chain placeholder with internal Add Action button
+                          console.log('🟢 [Chain Placeholders] Creating placeholder for chain', chainIndex);
                           const placeholderPos = placeholderPositions[chainIndex];
+                          console.log('🟢 [Chain Placeholders] Placeholder position:', placeholderPos);
                           const offsetX = aiAgentNode.position.x - (aiAgentPosition?.x || 400);
                           const offsetY = aiAgentNode.position.y - (aiAgentPosition?.y || 200);
 
