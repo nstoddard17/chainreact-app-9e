@@ -656,6 +656,21 @@ const useWorkflowBuilderState = () => {
     }
   }, [getNodes, storeIntegrations, integrationsLoading, fetchIntegrations])
 
+  // Listen for custom event from chain placeholder add action buttons
+  React.useEffect(() => {
+    const handleChainPlaceholderAddAction = (event: CustomEvent) => {
+      const { nodeId, parentId, isFromChainPlaceholder } = event.detail;
+      console.log('Chain placeholder add action event received:', event.detail);
+      handleAddActionClick(nodeId, parentId, isFromChainPlaceholder);
+    };
+
+    window.addEventListener('chain-placeholder-add-action', handleChainPlaceholderAddAction as EventListener);
+
+    return () => {
+      window.removeEventListener('chain-placeholder-add-action', handleChainPlaceholderAddAction as EventListener);
+    };
+  }, [handleAddActionClick]);
+
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
     setSourceAddNode({ 
@@ -777,6 +792,7 @@ const useWorkflowBuilderState = () => {
   // They will be properly defined later but we need references for handleActionSelect
   const handleDeleteNodeWithConfirmationRef = useRef<(nodeId: string) => void>()
   const handleRenameNodeRef = useRef<(nodeId: string, newTitle: string) => void>()
+  const handleAddChainRef = useRef<(aiAgentNodeId: string) => void>()
 
   // Helper function to handle node insertion logic
   const handleNodeInsertion = useCallback((newNode: Node, sourceAddNode: any, parentNode: any, verticalSpacing: number) => {
@@ -2378,7 +2394,12 @@ const useWorkflowBuilderState = () => {
       title: "New Chain Added",
       description: `Chain ${newChainIndex + 1} has been added. Click to add actions to your chain.`
     })
-  }, [getNodes, setNodes, setEdges, handleAddActionClick, handleDeleteNode, handleInsertAction, fitView, toast])
+  }, [getNodes, setNodes, setEdges, handleAddActionClick, handleDeleteNodeWithConfirmation, handleRenameNode, handleConfigureNode, handleInsertAction, fitView, toast])
+
+  // Assign the ref so it can be used in other parts of the code
+  React.useEffect(() => {
+    handleAddChainRef.current = handleAddChain
+  }, [handleAddChain])
 
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
@@ -2516,7 +2537,14 @@ const useWorkflowBuilderState = () => {
                 onRename: (id: string, newTitle: string) => handleRenameNodeRef.current?.(id, newTitle),
                 onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined,
                 // Add onAddChain for AI agent nodes
-                onAddChain: node.data?.type === 'ai_agent' ? handleAddChain : undefined,
+                onAddChain: node.data?.type === 'ai_agent' ? (id: string) => {
+                  console.log('Loaded AI Agent onAddChain clicked, ref:', handleAddChainRef.current);
+                  if (handleAddChainRef.current) {
+                    handleAddChainRef.current(id);
+                  } else {
+                    console.error('handleAddChainRef.current is not defined for loaded node');
+                  }
+                } : undefined,
                 // Add onAddAction for chain placeholder nodes with AI mode enabled
                 ...(node.data?.type === 'chain_placeholder' ? {
                   isPlaceholder: true,
@@ -7839,7 +7867,150 @@ function WorkflowBuilderContent() {
                       onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
                       onRename: (id: string, newTitle: string) => handleRenameNode(id, newTitle),
                       onAddChain: configuringNode.nodeComponent.supportsChains ?
-                        (id: string) => handleAddChain(id) : undefined,
+                        (id: string) => {
+                          console.log('AI Agent onAddChain clicked for node:', id);
+                          // Defer execution to ensure refs are available
+                          setTimeout(() => {
+                            const allNodes = getNodes();
+                            const aiAgentNode = allNodes.find(n => n.id === id);
+                            if (!aiAgentNode) {
+                              console.error('AI Agent node not found:', id);
+                              return;
+                            }
+
+                            // Directly implement the add chain logic here
+                            // Find all nodes that are children of this AI agent
+                            const childNodes = allNodes.filter(n =>
+                              (n.data?.parentAIAgentId === id ||
+                               n.id.startsWith(`${id}-chain`) ||
+                               n.id.includes(`${id}-node`)) &&
+                              n.type !== 'addAction'
+                            );
+
+                            // Find the highest chain index
+                            let highestChainIndex = -1;
+                            childNodes.forEach(node => {
+                              const chainIndex = node.data?.parentChainIndex;
+                              if (typeof chainIndex === 'number' && chainIndex > highestChainIndex) {
+                                highestChainIndex = chainIndex;
+                              }
+                            });
+
+                            const newChainNumber = highestChainIndex + 2;
+                            const newChainIndex = highestChainIndex + 1;
+
+                            // Calculate position
+                            const horizontalSpacing = 550;
+                            const baseY = aiAgentNode.position.y + 200;
+                            let newX: number;
+
+                            if (childNodes.length === 0) {
+                              newX = aiAgentNode.position.x;
+                            } else {
+                              let rightmostX = -Infinity;
+                              childNodes.forEach(node => {
+                                if (node.position.x > rightmostX) {
+                                  rightmostX = node.position.x;
+                                }
+                              });
+                              newX = rightmostX + horizontalSpacing;
+                            }
+
+                            // Create chain placeholder
+                            const timestamp = Date.now();
+                            const randomId = Math.random().toString(36).substr(2, 9);
+                            const newNodeId = `${id}-chain${newChainIndex}-placeholder-${timestamp}-${randomId}`;
+
+                            const newNode = {
+                              id: newNodeId,
+                              type: 'custom',
+                              position: { x: newX, y: baseY },
+                              data: {
+                                title: `Chain ${newChainIndex + 1}`,
+                                description: 'Click + Add Action to add your first action',
+                                type: 'chain_placeholder',
+                                providerId: 'core',
+                                isTrigger: false,
+                                isAIAgentChild: true,
+                                parentAIAgentId: id,
+                                parentChainIndex: newChainIndex,
+                                config: {},
+                                onConfigure: (id: string) => {
+                                  // Use getNodes to find the node and configure it
+                                  const nodes = getNodes();
+                                  const node = nodes.find(n => n.id === id);
+                                  if (node) {
+                                    console.log('Configure placeholder:', id);
+                                  }
+                                },
+                                onDelete: (id: string) => {
+                                  // Delete the placeholder
+                                  setNodes(nds => nds.filter(n => n.id !== id));
+                                  setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
+                                },
+                                onRename: (id: string, newTitle: string) => {
+                                  // Rename the placeholder
+                                  setNodes(nds => nds.map(n =>
+                                    n.id === id
+                                      ? { ...n, data: { ...n.data, title: newTitle } }
+                                      : n
+                                  ));
+                                },
+                                isPlaceholder: true,
+                                hasAddButton: true,
+                                onAddAction: () => {
+                                  // Open action selection with AI mode for chain placeholders
+                                  console.log('Add action clicked for placeholder:', newNodeId);
+                                  // We need to trigger the action dialog, but we can't access handleAddActionClick
+                                  // Instead, dispatch a custom event that the main component can listen to
+                                  const event = new CustomEvent('chain-placeholder-add-action', {
+                                    detail: {
+                                      nodeId: newNodeId,
+                                      parentId: newNodeId,
+                                      isFromChainPlaceholder: true
+                                    }
+                                  });
+                                  window.dispatchEvent(event);
+                                }
+                              }
+                            };
+
+                            // Add the node and edge
+                            setNodes(nds => [...nds, newNode]);
+
+                            const aiToPlaceholderEdge = {
+                              id: `e-${id}-${newNodeId}`,
+                              source: id,
+                              target: newNodeId,
+                              type: 'custom',
+                              animated: false,
+                              style: { stroke: '#94a3b8', strokeWidth: 2 },
+                              data: {
+                                onAddNode: () => {
+                                  handleInsertAction(id, newNodeId);
+                                }
+                              }
+                            };
+
+                            setEdges(eds => [...eds, aiToPlaceholderEdge]);
+
+                            // Auto-zoom
+                            setTimeout(() => {
+                              fitView({
+                                padding: 0.2,
+                                includeHiddenNodes: false,
+                                duration: 400,
+                                maxZoom: 2,
+                                minZoom: 0.05
+                              });
+                            }, 50);
+
+                            toast({
+                              title: "New Chain Added",
+                              description: `Chain ${newChainIndex + 1} has been added. Click to add actions to your chain.`
+                            });
+                          }, 0);
+                        } : undefined,
                       hasChains: chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0),
                       isAIMode: false // AI Agent nodes don't use the action AI mode
                     }
