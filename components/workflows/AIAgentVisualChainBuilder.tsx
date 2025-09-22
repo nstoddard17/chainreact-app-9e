@@ -68,7 +68,7 @@ interface CustomNodeData {
   errorTimestamp?: string
 }
 
-const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
+const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute }: NodeProps) => {
   const {
     title,
     description,
@@ -83,6 +83,18 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
     onAddAction,
     error
   } = data as CustomNodeData
+
+  // Debug logging for handle positioning
+  React.useEffect(() => {
+    console.log('🔍 [AI Chain Node Handle Debug]', {
+      nodeId: id,
+      nodeType: type,
+      position,
+      positionAbsolute,
+      isTrigger,
+      hasMultipleOutputs: ["if_condition", "switch_case", "try_catch"].includes(type)
+    })
+  }, [id, type, position, positionAbsolute, isTrigger])
 
   // Debug logging for title issues
   if (!isTrigger && !isAIAgent && type !== 'chain_placeholder') {
@@ -247,21 +259,44 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
         <Handle
           type="target"
           position={Position.Top}
-          id="target"
           className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
+          isConnectable={true}
           style={{
             visibility: isTrigger ? "hidden" : "visible",
           }}
+          onConnect={() => console.log(`🔌 [AI Chain] Target handle connected on node ${id}`)}
         />
       )}
 
       {hasMultipleOutputs ? (
         <>
-          <Handle type="source" position={Position.Bottom} id="true" className="!w-3 !h-3 !bg-green-500" style={{ left: "25%" }} />
-          <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%" }} />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="true"
+            className="!w-3 !h-3 !bg-green-500"
+            isConnectable={true}
+            style={{ left: "25%" }}
+            onConnect={() => console.log(`🔌 [AI Chain] Source handle 'true' connected on node ${id}`)}
+          />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="false"
+            className="!w-3 !h-3 !bg-red-500"
+            isConnectable={true}
+            style={{ left: "75%" }}
+            onConnect={() => console.log(`🔌 [AI Chain] Source handle 'false' connected on node ${id}`)}
+          />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} id="source" className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
+          isConnectable={true}
+          onConnect={() => console.log(`🔌 [AI Chain] Source handle connected on node ${id}`)}
+        />
       )}
     </div>
   )
@@ -280,8 +315,25 @@ const CustomEdgeWithButton = ({
   targetPosition,
   style = {},
   data,
-  markerEnd
-}: EdgeProps) => {
+  markerEnd,
+  source,
+  target,
+  sourceHandleId,
+  targetHandleId
+}: EdgeProps & { source?: string; target?: string; sourceHandleId?: string | null; targetHandleId?: string | null }) => {
+  // Debug logging for edge positions
+  React.useEffect(() => {
+    console.log('🔍 [AI Chain Edge Debug]', {
+      edgeId: id,
+      source,
+      target,
+      sourceHandleId,
+      targetHandleId,
+      sourceCoords: { x: sourceX, y: sourceY, position: sourcePosition },
+      targetCoords: { x: targetX, y: targetY, position: targetPosition }
+    })
+  }, [id, source, target, sourceX, sourceY, targetX, targetY, sourceHandleId, targetHandleId, sourcePosition, targetPosition])
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -531,9 +583,7 @@ function AIAgentVisualChainBuilder({
       edges: actionEdges.map(e => ({
         id: e.id,
         source: e.source,
-        sourceHandle: e.sourceHandle || 'source',
         target: e.target,
-        targetHandle: e.targetHandle || 'target',
         type: e.type || 'custom',
         style: e.style || { stroke: '#94a3b8', strokeWidth: 2 }
       })),
@@ -862,9 +912,7 @@ function AIAgentVisualChainBuilder({
               {
                 id: `e-${actualSourceId}-${newNodeId}`,
                 source: actualSourceId,
-                sourceHandle: 'source',
                 target: newNodeId,
-                targetHandle: 'target',
                 type: 'custom',
                 style: {
                   stroke: '#94a3b8',
@@ -880,9 +928,7 @@ function AIAgentVisualChainBuilder({
               {
                 id: `e-${newNodeId}-${resolvedTargetId}`,
                 source: newNodeId,
-                sourceHandle: 'source',
                 target: resolvedTargetId,
-                targetHandle: 'target',
                 type: 'custom',
                 style: {
                   stroke: '#94a3b8',
@@ -1049,9 +1095,7 @@ function AIAgentVisualChainBuilder({
                   {
                     id: `e-ai-agent-${placeholderNodeId}`,
                     source: 'ai-agent',
-                    sourceHandle: 'source',
                     target: placeholderNodeId,
-                    targetHandle: 'target',
                     type: 'custom',
                     style: {
                       stroke: '#94a3b8',
@@ -1149,9 +1193,7 @@ function AIAgentVisualChainBuilder({
                 {
                   id: `e-${previousNodeId}-${newAddActionNodeId}`,
                   source: previousNodeId,
-                  sourceHandle: 'source',
                   target: newAddActionNodeId,
-                  targetHandle: 'target',
                   type: 'custom',
                   style: {
                     stroke: '#b1b1b7',
@@ -1181,9 +1223,7 @@ function AIAgentVisualChainBuilder({
           const newEdge: Edge = {
             id: `e-${previousNodeId}-${nextNodeId}`,
             source: previousNodeId,
-            sourceHandle: 'source',
             target: nextNodeId,
-            targetHandle: 'target',
             type: 'custom',
             style: {
               stroke: '#94a3b8',
@@ -1413,9 +1453,7 @@ function AIAgentVisualChainBuilder({
       {
         id: 'e-ai-agent-chain-default',
         source: 'ai-agent',
-        sourceHandle: 'source',
         target: defaultChainId,
-        targetHandle: 'target',
         type: 'custom',
         style: {
           stroke: '#94a3b8',
@@ -1430,13 +1468,19 @@ function AIAgentVisualChainBuilder({
     ]
 
     setNodes(initialNodes)
-    setEdges(initialEdges)
-    
+
+    // Delay edge creation to ensure nodes are properly rendered with handles
+    // This fixes the issue where initial edges (trigger->AI agent and AI agent->chain placeholder)
+    // don't connect to handles properly
+    setTimeout(() => {
+      setEdges(initialEdges)
+    }, 50) // Small delay to allow React Flow to render nodes and assign handles
+
     // Center view after initial load to show all nodes
     setTimeout(() => {
       if (fitView) {
-        fitView({ 
-          padding: 0.2, 
+        fitView({
+          padding: 0.2,
           includeHiddenNodes: false,
           duration: 400,
           maxZoom: 2,
@@ -1595,8 +1639,6 @@ function AIAgentVisualChainBuilder({
       const mappedEdges = chainsLayout.edges.map((edge: any) => ({
         ...edge,
         type: edge.type || 'custom',
-        sourceHandle: edge.sourceHandle || 'source',
-        targetHandle: edge.targetHandle || 'target',
         style: edge.style || {
           stroke: '#94a3b8',
           strokeWidth: 2
@@ -1609,9 +1651,13 @@ function AIAgentVisualChainBuilder({
         }
       }))
       
-      // Set all nodes and edges
+      // Set all nodes first
       setNodes([aiAgentNode, ...savedNodes, ...addActionNodes])
-      setEdges(mappedEdges)
+
+      // Delay edge creation to ensure nodes are properly rendered with handles
+      setTimeout(() => {
+        setEdges(mappedEdges)
+      }, 50) // Small delay for React Flow to render nodes
       
       // Restore emptiedChains if present
       if (chainsLayout.emptiedChains) {
@@ -1703,8 +1749,6 @@ function AIAgentVisualChainBuilder({
       const mappedEdges = uniqueEdges.map(edge => ({
         ...edge,
         type: edge.type || 'custom',
-        sourceHandle: edge.sourceHandle || 'source',
-        targetHandle: edge.targetHandle || 'target',
         style: edge.style || {
           stroke: '#94a3b8',
           strokeWidth: 2
@@ -1717,9 +1761,13 @@ function AIAgentVisualChainBuilder({
         }
       }))
       
-      // Set the nodes and edges from workflow data
+      // Set the nodes first from workflow data
       setNodes(mappedNodes)
-      setEdges(mappedEdges)
+
+      // Delay edge creation to ensure nodes are properly rendered with handles
+      setTimeout(() => {
+        setEdges(mappedEdges)
+      }, 50) // Small delay for React Flow to render nodes
       
       // Center view after loading with slightly longer delay for proper rendering
       setTimeout(() => {
@@ -1971,9 +2019,7 @@ function AIAgentVisualChainBuilder({
       const newEdge = {
         id: `e-${newNodeId}-${addActionNodeId}`,
         source: newNodeId,
-        sourceHandle: 'source',
         target: addActionNodeId,
-        targetHandle: 'target',
         type: 'custom',
         animated: false,
         style: {
@@ -2036,12 +2082,17 @@ function AIAgentVisualChainBuilder({
   }, [handleConfigureNode, handleDeleteNode, handleAddToChain, fitView, syncChainsToParent, setNodes, setEdges, onOpenActionDialog, onActionSelect])
 
   const onConnect = useCallback((params: Connection) => {
+    console.log('🔍 [AI Chain onConnect Debug]', {
+      source: params.source,
+      target: params.target,
+      sourceHandle: params.sourceHandle,
+      targetHandle: params.targetHandle
+    })
+
     const newEdge: Edge = {
       id: `e-${params.source}-${params.target}`,
       source: params.source!,
       target: params.target!,
-      sourceHandle: params.sourceHandle || 'source',
-      targetHandle: params.targetHandle || 'target',
       type: 'custom',
       animated: false,
       style: {
@@ -2302,9 +2353,7 @@ function AIAgentVisualChainBuilder({
     setEdges((eds) => [...eds, {
       id: `e-${aiAgentNode.id}-${newNodeId}`,
       source: aiAgentNode.id,
-      sourceHandle: 'source',
       target: newNodeId,
-      targetHandle: 'target',
       type: 'custom',
       style: {
         stroke: '#94a3b8',
@@ -2334,6 +2383,30 @@ function AIAgentVisualChainBuilder({
     })
   }, [nodes, edges, setNodes, setEdges, handleDeleteNode, handleAddToChain, handleAddNodeBetween, fitView, toast, syncChainsToParent])
 
+  // Debug: Log current nodes and edges every 2 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('📊 [AI Chain State]', {
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        nodes: nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          hasTargetHandle: n.type !== 'addAction' && !n.data?.isTrigger,
+          hasSourceHandle: true
+        })),
+        edges: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: e.type
+        }))
+      })
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [nodes, edges])
+
   return (
     <div className="h-[calc(95vh-400px)] min-h-[400px] w-full bg-slate-50 rounded-lg border relative">
       <ReactFlow
@@ -2344,7 +2417,6 @@ function AIAgentVisualChainBuilder({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        connectionMode={ConnectionMode.Loose}
         onNodeDragStop={(event, node) => {
           // Update the position of any AddAction nodes that are children of the dragged node
           setNodes((nds) => 
@@ -2367,15 +2439,12 @@ function AIAgentVisualChainBuilder({
             })
           )
         }}
-        fitView
         fitViewOptions={{
           padding: 0.2,
           includeHiddenNodes: false,
           maxZoom: 2,
           minZoom: 0.05,
         }}
-        snapToGrid
-        snapGrid={[15, 15]}
         className="bg-slate-50"
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{

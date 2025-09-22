@@ -8,68 +8,109 @@ export const airtableNodes: NodeComponent[] = [
   {
     type: "airtable_trigger_new_record",
     title: "New Record",
-    description: "Triggers when a new record is created in a base",
+    description: "Triggers when a new record is created in a table",
     icon: Database,
     providerId: "airtable",
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
+    requiresConnection: true,
     configSchema: [
-      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
-      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        loadOnMount: true,
+        description: "Select the Airtable base to monitor"
+      },
+      {
+        name: "tableName",
+        label: "Table (Optional)",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: false,
+        dependsOn: "baseId",
+        description: "Leave empty to monitor all tables in the base"
+      }
     ],
     outputSchema: [
       { name: "baseId", label: "Base ID", type: "string", description: "The unique ID of the base" },
       { name: "tableId", label: "Table ID", type: "string", description: "The unique ID of the table" },
       { name: "tableName", label: "Table Name", type: "string", description: "The name of the table" },
       { name: "recordId", label: "Record ID", type: "string", description: "The unique ID of the record" },
-      { name: "fields", label: "Fields", type: "object", description: "The fields and values of the record" },
+      { name: "fields", label: "Fields", type: "object", description: "All field values of the new record" },
       { name: "createdAt", label: "Created At", type: "string", description: "When the record was created" }
     ]
   },
   {
     type: "airtable_trigger_record_updated",
     title: "Record Updated",
-    description: "Triggers when an existing record is updated",
-    icon: Database,
+    description: "Triggers when a record is modified in a table",
+    icon: Edit,
     providerId: "airtable",
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
+    requiresConnection: true,
     configSchema: [
-      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
-      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        loadOnMount: true,
+        description: "Select the Airtable base to monitor"
+      },
+      {
+        name: "tableName",
+        label: "Table (Optional)",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: false,
+        dependsOn: "baseId",
+        description: "Leave empty to monitor all tables in the base"
+      }
     ],
     outputSchema: [
       { name: "baseId", label: "Base ID", type: "string", description: "The unique ID of the base" },
       { name: "tableId", label: "Table ID", type: "string", description: "The unique ID of the table" },
       { name: "tableName", label: "Table Name", type: "string", description: "The name of the table" },
       { name: "recordId", label: "Record ID", type: "string", description: "The unique ID of the record" },
-      { name: "changedFields", label: "Changed Fields", type: "object", description: "The fields that were changed" },
-      { name: "previousValues", label: "Previous Values", type: "object", description: "The previous values of changed fields" },
+      { name: "changedFields", label: "Current Values", type: "object", description: "The current values of all fields" },
+      { name: "previousValues", label: "Previous Values", type: "object", description: "The previous values before the update" },
       { name: "updatedAt", label: "Updated At", type: "string", description: "When the record was updated" }
     ]
   },
   {
-    type: "airtable_trigger_record_deleted",
-    title: "Record Deleted",
-    description: "Triggers when a record is deleted",
+    type: "airtable_trigger_table_deleted",
+    title: "Table Deleted",
+    description: "Triggers when an entire table is deleted from a base",
     icon: Database,
     providerId: "airtable",
     category: "Productivity",
     isTrigger: true,
     producesOutput: true,
+    requiresConnection: true,
     configSchema: [
-      { name: "baseId", label: "Base", type: "select", dynamic: "airtable_bases", required: true },
-      { name: "tableName", label: "Table", type: "select", dynamic: "airtable_tables", required: true, dependsOn: "baseId" }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        loadOnMount: true,
+        description: "Select the Airtable base to monitor for table deletions"
+      }
     ],
     outputSchema: [
       { name: "baseId", label: "Base ID", type: "string", description: "The unique ID of the base" },
-      { name: "tableId", label: "Table ID", type: "string", description: "The unique ID of the table" },
-      { name: "tableName", label: "Table Name", type: "string", description: "The name of the table" },
-      { name: "recordId", label: "Record ID", type: "string", description: "The unique ID of the deleted record" },
-      { name: "deletedAt", label: "Deleted At", type: "string", description: "When the record was deleted" }
-    ]
+      { name: "tableId", label: "Table ID", type: "string", description: "The unique ID of the deleted table" },
+      { name: "deletedAt", label: "Deleted At", type: "string", description: "When the table was deleted" }
+    ],
+    note: "Note: Airtable webhooks only detect when entire tables are deleted, not individual records"
   },
   {
     type: "airtable_action_create_record",
@@ -88,6 +129,7 @@ export const airtableNodes: NodeComponent[] = [
         type: "select",
         dynamic: "airtable_bases",
         required: true,
+        loadOnMount: true,
         placeholder: "Select a base"
       },
       {
@@ -138,6 +180,7 @@ export const airtableNodes: NodeComponent[] = [
         type: "select",
         dynamic: "airtable_bases",
         required: true,
+        loadOnMount: true,
         placeholder: "Select a base"
       },
       {
@@ -188,6 +231,7 @@ export const airtableNodes: NodeComponent[] = [
         type: "select",
         dynamic: "airtable_bases",
         required: true,
+        loadOnMount: true,
         placeholder: "Select a base"
       },
       {

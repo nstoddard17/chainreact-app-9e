@@ -806,7 +806,7 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "data.records:read data.records:write schema.bases:read",
+    scope: "data.records:read data.records:write schema.bases:read webhook:manage",
     state,
     code_challenge,
     code_challenge_method: "S256",

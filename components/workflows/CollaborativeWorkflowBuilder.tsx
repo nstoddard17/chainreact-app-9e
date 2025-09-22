@@ -503,6 +503,16 @@ const useWorkflowBuilderState = () => {
   const handleConfigureNode = useCallback(async (nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
     if (!nodeToConfigure) return
+
+    // Special case: Manual triggers open the trigger selection dialog
+    if (nodeToConfigure.data.type === 'manual') {
+      setSelectedIntegration(null)
+      setSelectedTrigger(null)
+      setSearchQuery("")
+      setShowTriggerDialog(true)
+      return
+    }
+
     const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === nodeToConfigure.data.type)
     if (!nodeComponent) return
 
@@ -2818,7 +2828,12 @@ const useWorkflowBuilderState = () => {
   }, [isSaving])
 
   // Main save function with auto-retry and recovery
-  const handleSave = async (retryCount = 0, maxRetries = 3) => {
+  const handleSave = async (retryCount: any = 0, maxRetries = 3) => {
+    // Ensure retryCount is a number (protect against event objects being passed)
+    if (typeof retryCount !== 'number') {
+      retryCount = 0;
+    }
+
     if (!currentWorkflow) {
       return
     }
@@ -2934,19 +2949,25 @@ const useWorkflowBuilderState = () => {
       
       
       // Save to database
-      const savedWorkflow = await updateWorkflow(currentWorkflow.id, {
-        name: nameToSave,
-        nodes: mappedNodes,
-        connections: mappedConnections
-      })
+      let savedWorkflow;
+      try {
+        savedWorkflow = await updateWorkflow(currentWorkflow.id, {
+          name: nameToSave,
+          nodes: mappedNodes,
+          connections: mappedConnections
+        })
 
-      // Debug logging to find [object object] issue
-      console.log('📝 [handleSave] savedWorkflow result:', {
-        type: typeof savedWorkflow,
-        isObject: savedWorkflow && typeof savedWorkflow === 'object',
-        hasName: savedWorkflow?.name,
-        savedWorkflow: savedWorkflow
-      })
+        // Debug logging to find [object object] issue
+        console.log('📝 [handleSave] savedWorkflow result:', {
+          type: typeof savedWorkflow,
+          isObject: savedWorkflow && typeof savedWorkflow === 'object',
+          hasName: savedWorkflow?.name,
+          savedWorkflow: savedWorkflow
+        })
+      } catch (updateError) {
+        console.error('❌ Failed to update workflow:', updateError)
+        throw updateError // Re-throw to be handled by outer catch
+      }
 
       // Update the current workflow with the saved data
       if (savedWorkflow) {
@@ -2956,8 +2977,24 @@ const useWorkflowBuilderState = () => {
           setWorkflowName(savedWorkflow.name)
         }
       }
-      
-      // Only show success toast on first attempt
+
+      // Clear unsaved changes flag FIRST
+      setHasUnsavedChanges(false);
+
+      // Update last save time to prevent immediate re-checking
+      lastSaveTimeRef.current = Date.now();
+
+      // Clear the auto-recovery timer since save succeeded
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      // Force clear saving state immediately on success BEFORE showing toast
+      setIsSaving(false);
+      isSavingRef.current = false;
+
+      // Show success toast AFTER clearing loading state
       if (retryCount === 0) {
         // Ensure toast receives proper object format
         const toastData = {
@@ -2977,21 +3014,9 @@ const useWorkflowBuilderState = () => {
         toast(toastData)
       }
 
-      // Clear unsaved changes flag
-      setHasUnsavedChanges(false);
-
-      // Update last save time to prevent immediate re-checking
-      lastSaveTimeRef.current = Date.now();
-
-      // Force clear saving state immediately on success
-      setIsSaving(false);
-      isSavingRef.current = false;
-
-      // Clear the auto-recovery timer since save succeeded
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
+      // Ensure UI updates are processed
+      console.log('✅ Save completed successfully, clearing loading state')
+      return // Exit successfully
 
     } catch (error: any) {
       // Clear the auto-recovery timer
@@ -3047,23 +3072,15 @@ const useWorkflowBuilderState = () => {
       }
       console.log('📢 [handleSave] Showing error toast:', errorToastData)
       toast(errorToastData)
-    } finally {
-      // Clear the auto-recovery timer
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
 
-      // Always reset states after operation completes
+      // On error, ensure we clear the loading state
       setIsSaving(false);
       isSavingRef.current = false;
 
-      // Auto-cleanup any stuck requests
+      // Auto-cleanup any stuck requests on error
       setTimeout(() => {
         clearStuckRequests();
       }, 100);
-
-      console.log('✅ Save operation complete, states auto-cleaned');
     }
   }
   
@@ -3300,13 +3317,13 @@ const useWorkflowBuilderState = () => {
 
   // Handle Test mode (sandbox) - safe testing without external calls
   const handleTestSandbox = async () => {
-    if (isExecuting && !isStepMode) return
+    if (isExecuting && !isStepMode && !listeningMode) return
 
     // Set up auto-cleanup timer to prevent stuck test state
     let testCleanupTimer: NodeJS.Timeout | null = null
 
-    // If already in step mode, stop it completely
-    if (isStepMode) {
+    // If already in listening/test mode, stop it completely
+    if (isStepMode || listeningMode) {
       setListeningMode(false)
       setIsExecuting(false)
       setSandboxInterceptedActions([]) // Clear intercepted actions when stopping
@@ -3332,8 +3349,8 @@ const useWorkflowBuilderState = () => {
       )
 
       toast({
-        title: "Test Mode Stopped",
-        description: "Test mode has been disabled.",
+        title: "Sandbox Mode Stopped",
+        description: "No longer listening for triggers.",
       })
       return
     }
@@ -3343,25 +3360,37 @@ const useWorkflowBuilderState = () => {
         throw new Error("No workflow selected")
       }
 
+      // Check if workflow has a trigger node
+      const triggerNode = getNodes().find(n => n.data?.isTrigger)
+
+      if (!triggerNode) {
+        toast({
+          title: "No Trigger Found",
+          description: "Add a trigger to your workflow to test in sandbox mode.",
+          variant: "destructive"
+        })
+        return
+      }
+
       // Start auto-cleanup timer for test mode
       testCleanupTimer = setTimeout(() => {
-        if (isExecuting || isStepMode) {
-          console.warn('⚠️ Test mode auto-cleanup triggered')
+        if (isExecuting || isStepMode || listeningMode) {
+          console.warn('⚠️ Sandbox mode auto-cleanup triggered')
           setIsExecuting(false)
           setListeningMode(false)
           setIsStepByStep(false)
           stopStepExecution()
           clearStuckRequests()
           toast({
-            title: "Test Mode Auto-Stopped",
-            description: "Test mode was automatically stopped after extended period.",
+            title: "Sandbox Mode Auto-Stopped",
+            description: "Sandbox mode was automatically stopped after extended period.",
             variant: "default"
           })
         }
-      }, 60000) // 60 seconds max for test mode
+      }, 300000) // 5 minutes max for sandbox mode
 
-      // SAVE WORKFLOW AS DRAFT BEFORE STARTING TEST MODE
-      console.log('📝 Saving workflow as draft before test mode...')
+      // SAVE WORKFLOW AS DRAFT BEFORE STARTING SANDBOX MODE
+      console.log('📝 Saving workflow as draft before sandbox mode...')
 
       // Get current nodes and edges from React Flow
       const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
@@ -3436,32 +3465,89 @@ const useWorkflowBuilderState = () => {
       // Update last save time to prevent immediate re-checking
       lastSaveTimeRef.current = Date.now()
 
-      console.log('✅ Workflow saved as draft, starting test mode...')
+      console.log('✅ Workflow saved as draft, entering sandbox listening mode...')
 
-      // Start step-by-step execution mode
+      // Start listening mode for triggers
       setIsExecuting(true)
       setListeningMode(true)
-      setIsStepByStep(true)
-      startStepExecution()
 
-      // Get all valid nodes for execution
-      const allNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const allEdges = getEdges()
+      // Register webhooks for the trigger if needed
+      const triggerType = triggerNode.data?.type
+      const providerId = triggerNode.data?.providerId
 
-      // Find the trigger node
-      const triggerNode = allNodes.find(n => n.data?.isTrigger)
-      if (!triggerNode) {
-        throw new Error("No trigger found in workflow")
+      // Show listening mode message based on trigger type
+      if (providerId === 'manual' || triggerType === 'manual_trigger') {
+        toast({
+          title: "Sandbox Mode Active",
+          description: "Manual trigger detected. Click 'Continue' to simulate trigger and test workflow.",
+        })
+
+        // For manual triggers, start step execution immediately
+        setIsStepByStep(true)
+        startStepExecution()
+        const allNodes = getNodes().filter((n: Node) => n.type === 'custom')
+        const allEdges = getEdges()
+        await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
+      } else if (providerId === 'schedule' || providerId === 'webhook') {
+        toast({
+          title: "Sandbox Mode Active",
+          description: `Listening for ${providerId} trigger. The workflow will execute in sandbox mode when triggered.`,
+        })
+      } else {
+        // For integration triggers, register webhooks
+        toast({
+          title: "Setting Up Sandbox Mode",
+          description: `Registering webhook for ${providerId || 'trigger'}...`,
+        })
+
+        // Register webhook for the trigger
+        try {
+          // Get current user ID
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) {
+            throw new Error('User not authenticated')
+          }
+
+          const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workflowId: currentWorkflow.id,
+              userId: user.id,
+              nodeId: triggerNode.id,
+              providerId: providerId,
+              triggerType: triggerType,
+              config: triggerNode.data?.config || {}
+            })
+          })
+
+          if (webhookResponse.ok) {
+            toast({
+              title: "Sandbox Mode Active",
+              description: `Listening for ${providerId} triggers. When triggered, the workflow will execute in sandbox mode without sending real data.`,
+            })
+          } else {
+            // Try to parse error response
+            let errorMessage = 'Failed to register webhook'
+            try {
+              const errorData = await webhookResponse.json()
+              errorMessage = errorData.error || errorData.message || errorMessage
+            } catch {
+              // If JSON parsing fails, use text
+              const errorText = await webhookResponse.text()
+              if (errorText) errorMessage = errorText
+            }
+            throw new Error(errorMessage)
+          }
+        } catch (error: any) {
+          console.error('Failed to setup webhook:', error)
+          toast({
+            title: "Webhook Setup Failed",
+            description: "Could not register webhook. You can still test with manual trigger.",
+            variant: "destructive"
+          })
+        }
       }
-
-      // Show initial message
-      toast({
-        title: "Step-by-Step Test Started",
-        description: "Workflow saved as draft. Click 'Continue' to execute each node.",
-      })
-
-      // Execute nodes step by step
-      await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
 
     } catch (error: any) {
       console.error('❌ Test mode error:', error)
@@ -3623,7 +3709,7 @@ const useWorkflowBuilderState = () => {
       }
   }
 
-  // Handle Execute mode (live) - one-time execution with real external calls  
+  // Handle Execute mode (live) - one-time execution with real external calls
   const handleExecuteLive = async () => {
     if (isExecuting) return
 
@@ -3656,6 +3742,18 @@ const useWorkflowBuilderState = () => {
         }
         setIsExecuting(false)
         throw new Error("No workflow selected or workflow not properly loaded")
+      }
+
+      // Check if workflow starts with a trigger node
+      const triggerNode = nodes.find((n: any) => n.data?.isTrigger === true)
+
+      if (triggerNode) {
+        // Skip trigger and run from first action
+        toast({
+          title: "Skipping Trigger",
+          description: "Trigger nodes are skipped in Run Once mode. Executing from the first action node.",
+          variant: "default"
+        })
       }
 
       // If there are unsaved changes, save first
@@ -3744,6 +3842,7 @@ const useWorkflowBuilderState = () => {
           workflowId: currentWorkflow.id,
           testMode: false, // This is LIVE mode - real external calls
           executionMode: 'live', // New flag to distinguish from sandbox
+          skipTriggers: true, // Skip trigger nodes in execution
           inputData: {
             trigger: {
               type: 'manual',
@@ -4765,6 +4864,15 @@ const CustomEdgeWithButton = ({
   style = {},
   data
 }: EdgeProps) => {
+  // Debug logging for workflow builder edge positions (for comparison)
+  React.useEffect(() => {
+    console.log('🔍 [Workflow Builder Edge Debug]', {
+      edgeId: id,
+      sourceCoords: { x: sourceX, y: sourceY, position: sourcePosition },
+      targetCoords: { x: targetX, y: targetY, position: targetPosition }
+    })
+  }, [id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition])
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -5334,7 +5442,7 @@ function WorkflowBuilderContent() {
             )}
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
+                <TooltipTrigger asChild><Button onClick={() => handleSave()} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
                 <TooltipContent><p>Save your workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
