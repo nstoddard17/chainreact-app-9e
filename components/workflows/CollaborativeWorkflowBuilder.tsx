@@ -2335,7 +2335,7 @@ const useWorkflowBuilderState = () => {
         onAddAction: () => {
           // When the Add Action button inside the placeholder is clicked
           // We pass the placeholder's ID as both the add action ID and parent ID
-          handleAddActionClick(newNodeId, newNodeId)
+          handleAddActionClick(newNodeId, newNodeId, true)
         }
       }
     }
@@ -2513,7 +2513,18 @@ const useWorkflowBuilderState = () => {
                 ...node.data,
                 onConfigure: handleConfigureNode,
                 onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
-                onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined
+                onRename: (id: string, newTitle: string) => handleRenameNodeRef.current?.(id, newTitle),
+                onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined,
+                // Add onAddChain for AI agent nodes
+                onAddChain: node.data?.type === 'ai_agent' ? handleAddChain : undefined,
+                // Add onAddAction for chain placeholder nodes with AI mode enabled
+                ...(node.data?.type === 'chain_placeholder' ? {
+                  isPlaceholder: true,
+                  hasAddButton: true,
+                  onAddAction: () => {
+                    handleAddActionClick(node.id, node.id, true);
+                  }
+                } : {})
               }
             }))
             allNodes.push(...flowNodes)
@@ -7828,7 +7839,7 @@ function WorkflowBuilderContent() {
                       onDelete: (id: string) => handleDeleteNodeWithConfirmation(id),
                       onRename: (id: string, newTitle: string) => handleRenameNode(id, newTitle),
                       onAddChain: configuringNode.nodeComponent.supportsChains ?
-                        (id: string) => console.log('Add chain clicked for:', id) : undefined,
+                        (id: string) => handleAddChain(id) : undefined,
                       hasChains: chainsToProcess && (chainsToProcess.nodes?.length > 0 || chainsToProcess.chains?.length > 0),
                       isAIMode: false // AI Agent nodes don't use the action AI mode
                     }

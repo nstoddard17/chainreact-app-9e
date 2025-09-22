@@ -106,4 +106,5 @@ export interface NodeComponent {
   payloadSchema?: any
   actionParamsSchema?: any
   comingSoon?: boolean
+  supportsChains?: boolean
 }
