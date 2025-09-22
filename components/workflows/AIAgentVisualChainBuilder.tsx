@@ -10,6 +10,7 @@ import {
   useEdgesState,
   addEdge,
   Connection,
+  ConnectionMode,
   NodeTypes,
   EdgeTypes,
   Controls,
@@ -246,6 +247,7 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
         <Handle
           type="target"
           position={Position.Top}
+          id="target"
           className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
           style={{
             visibility: isTrigger ? "hidden" : "visible",
@@ -259,7 +261,7 @@ const AIAgentCustomNode = memo(({ id, data, selected }: NodeProps) => {
           <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%" }} />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" />
+        <Handle type="source" position={Position.Bottom} id="source" className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" />
       )}
     </div>
   )
@@ -277,7 +279,8 @@ const CustomEdgeWithButton = ({
   sourcePosition,
   targetPosition,
   style = {},
-  data
+  data,
+  markerEnd
 }: EdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -292,7 +295,7 @@ const CustomEdgeWithButton = ({
   const [isHovered, setIsHovered] = React.useState(false)
 
   return (
-    <g 
+    <g
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{ cursor: onAddNode ? 'pointer' : 'default' }}
@@ -305,9 +308,18 @@ const CustomEdgeWithButton = ({
         stroke="transparent"
         style={{ pointerEvents: 'stroke' }}
       />
-      
-      {/* Visible edge */}
-      <BaseEdge path={edgePath} style={style} />
+
+      {/* Visible edge - matching main workflow builder exactly */}
+      <path
+        id={id}
+        style={style}
+        className="react-flow__edge-path"
+        d={edgePath}
+        fill="none"
+        strokeWidth={2}
+        stroke={style?.stroke || '#94a3b8'}
+        strokeDasharray={style?.strokeDasharray}
+      />
       
       {/* Plus button that appears on hover */}
       {onAddNode && (
@@ -357,7 +369,8 @@ const nodeTypes: NodeTypes = {
 }
 
 const edgeTypes: EdgeTypes = {
-  custom: CustomEdgeWithButton
+  custom: CustomEdgeWithButton,
+  default: undefined // Allow default edge type as well
 }
 
 // Main Visual Chain Builder Component
@@ -518,7 +531,11 @@ function AIAgentVisualChainBuilder({
       edges: actionEdges.map(e => ({
         id: e.id,
         source: e.source,
-        target: e.target
+        sourceHandle: e.sourceHandle || 'source',
+        target: e.target,
+        targetHandle: e.targetHandle || 'target',
+        type: e.type || 'custom',
+        style: e.style || { stroke: '#94a3b8', strokeWidth: 2 }
       })),
       aiAgentPosition: aiAgentNode ? {
         x: aiAgentNode.position.x,
@@ -845,11 +862,13 @@ function AIAgentVisualChainBuilder({
               {
                 id: `e-${actualSourceId}-${newNodeId}`,
                 source: actualSourceId,
+                sourceHandle: 'source',
                 target: newNodeId,
+                targetHandle: 'target',
                 type: 'custom',
-                style: { 
+                style: {
                   stroke: '#94a3b8',
-                  strokeWidth: 2 
+                  strokeWidth: 2
                 },
                 data: {
                   onAddNode: (pos: { x: number, y: number }) => {
@@ -861,11 +880,13 @@ function AIAgentVisualChainBuilder({
               {
                 id: `e-${newNodeId}-${resolvedTargetId}`,
                 source: newNodeId,
+                sourceHandle: 'source',
                 target: resolvedTargetId,
+                targetHandle: 'target',
                 type: 'custom',
-                style: { 
+                style: {
                   stroke: '#94a3b8',
-                  strokeWidth: 2 
+                  strokeWidth: 2
                 },
                 data: {
                   onAddNode: (pos: { x: number, y: number }) => {
@@ -1028,11 +1049,13 @@ function AIAgentVisualChainBuilder({
                   {
                     id: `e-ai-agent-${placeholderNodeId}`,
                     source: 'ai-agent',
+                    sourceHandle: 'source',
                     target: placeholderNodeId,
+                    targetHandle: 'target',
                     type: 'custom',
-                    style: { 
+                    style: {
                       stroke: '#94a3b8',
-                      strokeWidth: 2 
+                      strokeWidth: 2
                     },
                     data: {
                       onAddNode: (position: { x: number, y: number }) => {
@@ -1126,9 +1149,11 @@ function AIAgentVisualChainBuilder({
                 {
                   id: `e-${previousNodeId}-${newAddActionNodeId}`,
                   source: previousNodeId,
+                  sourceHandle: 'source',
                   target: newAddActionNodeId,
+                  targetHandle: 'target',
                   type: 'custom',
-                  style: { 
+                  style: {
                     stroke: '#b1b1b7',
                     strokeWidth: 2,
                     strokeDasharray: '5,5'
@@ -1156,11 +1181,13 @@ function AIAgentVisualChainBuilder({
           const newEdge: Edge = {
             id: `e-${previousNodeId}-${nextNodeId}`,
             source: previousNodeId,
+            sourceHandle: 'source',
             target: nextNodeId,
+            targetHandle: 'target',
             type: 'custom',
-            style: { 
+            style: {
               stroke: '#94a3b8',
-              strokeWidth: 2 
+              strokeWidth: 2
             },
             data: {
               onAddNode: (pos: { x: number, y: number }) => {
@@ -1373,8 +1400,8 @@ function AIAgentVisualChainBuilder({
         target: 'ai-agent',
         type: 'custom',
         animated: true,
-        style: { 
-          stroke: '#94a3b8', 
+        style: {
+          stroke: '#94a3b8',
           strokeWidth: 2,
         },
         data: {
@@ -1386,11 +1413,13 @@ function AIAgentVisualChainBuilder({
       {
         id: 'e-ai-agent-chain-default',
         source: 'ai-agent',
+        sourceHandle: 'source',
         target: defaultChainId,
+        targetHandle: 'target',
         type: 'custom',
-        style: { 
+        style: {
           stroke: '#94a3b8',
-          strokeWidth: 2 
+          strokeWidth: 2
         },
         data: {
           onAddNode: (position: { x: number, y: number }) => {
@@ -1566,6 +1595,12 @@ function AIAgentVisualChainBuilder({
       const mappedEdges = chainsLayout.edges.map((edge: any) => ({
         ...edge,
         type: edge.type || 'custom',
+        sourceHandle: edge.sourceHandle || 'source',
+        targetHandle: edge.targetHandle || 'target',
+        style: edge.style || {
+          stroke: '#94a3b8',
+          strokeWidth: 2
+        },
         data: {
           ...edge.data,
           onAddNode: (position: { x: number, y: number }) => {
@@ -1668,6 +1703,12 @@ function AIAgentVisualChainBuilder({
       const mappedEdges = uniqueEdges.map(edge => ({
         ...edge,
         type: edge.type || 'custom',
+        sourceHandle: edge.sourceHandle || 'source',
+        targetHandle: edge.targetHandle || 'target',
+        style: edge.style || {
+          stroke: '#94a3b8',
+          strokeWidth: 2
+        },
         data: {
           ...edge.data,
           onAddNode: (position: { x: number, y: number }) => {
@@ -1930,13 +1971,15 @@ function AIAgentVisualChainBuilder({
       const newEdge = {
         id: `e-${newNodeId}-${addActionNodeId}`,
         source: newNodeId,
+        sourceHandle: 'source',
         target: addActionNodeId,
+        targetHandle: 'target',
         type: 'custom',
         animated: false,
-        style: { 
-          stroke: '#b1b1b7', 
-          strokeWidth: 2, 
-          strokeDasharray: '5,5' 
+        style: {
+          stroke: '#b1b1b7',
+          strokeWidth: 2,
+          strokeDasharray: '5,5'
         }
       }
       
@@ -1997,13 +2040,13 @@ function AIAgentVisualChainBuilder({
       id: `e-${params.source}-${params.target}`,
       source: params.source!,
       target: params.target!,
-      sourceHandle: params.sourceHandle,
-      targetHandle: params.targetHandle,
+      sourceHandle: params.sourceHandle || 'source',
+      targetHandle: params.targetHandle || 'target',
       type: 'custom',
       animated: false,
-      style: { 
+      style: {
         stroke: '#94a3b8',
-        strokeWidth: 2 
+        strokeWidth: 2
       },
       data: {
         onAddNode: (position: { x: number, y: number }) => {
@@ -2259,11 +2302,13 @@ function AIAgentVisualChainBuilder({
     setEdges((eds) => [...eds, {
       id: `e-${aiAgentNode.id}-${newNodeId}`,
       source: aiAgentNode.id,
+      sourceHandle: 'source',
       target: newNodeId,
+      targetHandle: 'target',
       type: 'custom',
-      style: { 
+      style: {
         stroke: '#94a3b8',
-        strokeWidth: 2 
+        strokeWidth: 2
       },
       data: {
         onAddNode: (pos: { x: number, y: number }) => {
@@ -2299,6 +2344,7 @@ function AIAgentVisualChainBuilder({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        connectionMode={ConnectionMode.Loose}
         onNodeDragStop={(event, node) => {
           // Update the position of any AddAction nodes that are children of the dragged node
           setNodes((nds) => 
@@ -2334,9 +2380,9 @@ function AIAgentVisualChainBuilder({
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{
           type: 'custom',
-          style: { 
+          style: {
             stroke: '#94a3b8',
-            strokeWidth: 2 
+            strokeWidth: 2
           },
         }}
       >
