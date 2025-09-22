@@ -1324,7 +1324,7 @@ function AIAgentVisualChainBuilder({
         position: { x: centerX, y: 400 },
         data: {
           title: 'Chain 1',
-          description: 'Add actions to build your workflow',
+          description: 'Click + Add Action to add your first action',
           type: 'chain_placeholder',
           isTrigger: false,
           hasAddButton: true,
@@ -1529,31 +1529,35 @@ function AIAgentVisualChainBuilder({
           }
           
           if (lastInChain) {
-            // Create Add Action node after the last node in the chain
-            const addActionNodeId = `add-action-${lastInChain.id}`
-            addActionNodes.push({
-              id: addActionNodeId,
-              type: 'addAction',
-              position: { 
-                x: lastInChain.position.x, 
-                y: lastInChain.position.y + 120 
-              },
-              data: {
-                parentId: lastInChain.id,
-                onClick: () => {
-                  console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastInChain.id)
-                  handleAddToChainRef.current?.(lastInChain.id)
+            // Only create Add Action node if the last node is NOT a chain placeholder
+            // Chain placeholders have their own internal Add Action button
+            if (lastInChain.data?.type !== 'chain_placeholder') {
+              // Create Add Action node after the last node in the chain
+              const addActionNodeId = `add-action-${lastInChain.id}`
+              addActionNodes.push({
+                id: addActionNodeId,
+                type: 'addAction',
+                position: {
+                  x: lastInChain.position.x,
+                  y: lastInChain.position.y + 120
+                },
+                data: {
+                  parentId: lastInChain.id,
+                  onClick: () => {
+                    console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastInChain.id)
+                    handleAddToChainRef.current?.(lastInChain.id)
+                  }
                 }
-              }
-            })
-            
-            // Add edge to Add Action node
-            chainsLayout.edges.push({
-              id: `e-${lastInChain.id}-${addActionNodeId}`,
-              source: lastInChain.id,
-              target: addActionNodeId,
-              type: 'custom'
-            })
+              })
+
+              // Add edge to Add Action node
+              chainsLayout.edges.push({
+                id: `e-${lastInChain.id}-${addActionNodeId}`,
+                source: lastInChain.id,
+                target: addActionNodeId,
+                type: 'custom'
+              })
+            }
           }
         }
       })
@@ -2212,7 +2216,7 @@ function AIAgentVisualChainBuilder({
       position: { x: newX, y: newY },
       data: {
         title: `Chain ${chainPlaceholders.length + 1}`,
-        description: 'Add actions to build your workflow',
+        description: 'Click + Add Action to add your first action',
         type: 'chain_placeholder',
         isTrigger: false,
         hasAddButton: true,
