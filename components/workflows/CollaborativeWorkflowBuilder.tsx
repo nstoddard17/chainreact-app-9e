@@ -8022,8 +8022,8 @@ function WorkflowBuilderContent() {
                   setNodes((nds) => {
                     console.log('🟢 [AI Agent Save] Inside setNodes - Adding AI Agent node to workflow');
                     console.log('🟢 [AI Agent Save] Current nodes count:', nds.length);
-                    // Filter out the Add Action button that was clicked
-                    const filteredNodes = nds.filter(n => n.id !== pendingNode?.sourceNodeInfo?.nodeId);
+                    // Filter out ALL Add Action nodes since AI Agent will handle its own chains
+                    const filteredNodes = nds.filter(n => n.type !== 'addAction');
                     const nodesWithAIAgent = [...filteredNodes, newNode];
                     console.log('🟢 [AI Agent Save] New nodes count with AI Agent:', nodesWithAIAgent.length);
                     console.log('🟢 [AI Agent Save] AI Agent node added with ID:', newNodeId);
@@ -8046,7 +8046,16 @@ function WorkflowBuilderContent() {
                     };
                     setEdges((eds) => {
                       console.log('🟡 [AI Agent Save] Adding edge, current edges count:', eds.length);
-                      return [...eds, newEdge];
+                      // First, remove any edges connected to add action nodes
+                      const filteredEdges = eds.filter(e => {
+                        // Check if the edge is connected to an add action node
+                        // We need to check the node types from the current nodes state
+                        const nodes = getNodes();
+                        const sourceNode = nodes.find(n => n.id === e.source);
+                        const targetNode = nodes.find(n => n.id === e.target);
+                        return sourceNode?.type !== 'addAction' && targetNode?.type !== 'addAction';
+                      });
+                      return [...filteredEdges, newEdge];
                     });
                   }
 
