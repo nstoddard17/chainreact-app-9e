@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
 export async function POST(request: Request) {
   try {
@@ -25,48 +24,32 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create admin client with service role key to bypass RLS
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    // Create route handler client for auth verification
+    const supabase = await createSupabaseRouteHandlerClient()
 
-    // Check if user is admin using the regular client to verify auth
-    const cookieStore = await cookies()
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+    // Get the current user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (authError || !user) {
+      console.error("Auth error:", authError)
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized - please log in" },
         { status: 401 }
       )
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabaseAdmin
+    // Create service client to bypass RLS
+    const supabaseAdmin = await createSupabaseServiceClient()
+
+    // Check if user is admin using the service client
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    if (profileError || !profile || profile.role !== 'admin') {
+      console.error("Profile error:", profileError)
       return NextResponse.json(
         { error: "Only admins can add beta testers" },
         { status: 403 }
