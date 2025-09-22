@@ -5754,7 +5754,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            <div className="w-2/5 border-r border-border overflow-y-auto max-h-full">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
               {filteredIntegrations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -6188,8 +6188,10 @@ function WorkflowBuilderContent() {
                 })
               )}
               </div>
-            </div>
-            <div className="w-3/5 flex-1 overflow-y-auto max-h-full">
+            </ScrollArea>
+
+            <div className="w-3/5 flex-1">
+              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -6604,9 +6606,10 @@ function WorkflowBuilderContent() {
                   </div>
                 )}
                 </div>
+              </ScrollArea>
             </div>
           </div>
-          
+
           <DialogFooter className="p-4 flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               {selectedIntegration && (
@@ -6636,7 +6639,7 @@ function WorkflowBuilderContent() {
       {/* Action Selection Dialog - Primary - FORCE REFRESHED */}
       {showActionDialog && (
         <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
-          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col" data-testid="action-selection-dialog">
+          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }} data-testid="action-selection-dialog">
             <ActionSelectionDialogContent>
               <DialogHeader className="pb-3 border-b border-slate-200">
             <div className="flex items-center justify-between">
@@ -6744,7 +6747,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            <div className="w-2/5 border-r border-border overflow-y-auto max-h-full">
+            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
               <div className="pt-2 pb-3 pl-3 pr-5">
               {(() => {
                 // Filter integrations for action dialog
@@ -7239,8 +7242,10 @@ function WorkflowBuilderContent() {
                 });
               })()}
               </div>
-            </div>
-            <div className="w-3/5 flex-1 overflow-y-auto max-h-full">
+            </ScrollArea>
+
+            <div className="w-3/5 flex-1">
+              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -7698,6 +7703,7 @@ function WorkflowBuilderContent() {
                   </div>
                 )}
                 </div>
+              </ScrollArea>
             </div>
           </div>
 
