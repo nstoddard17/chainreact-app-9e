@@ -572,17 +572,21 @@ export class TriggerWebhookManager {
       // Import Airtable webhook setup function
       const { ensureAirtableWebhookForBase } = await import('@/lib/integrations/airtable/webhooks')
 
-      // Extract baseId from config
+      // Extract baseId and tableName from config
       const baseId = config.config?.baseId
+      const tableName = config.config?.tableName
+
       if (!baseId) {
         throw new Error('Base ID is required for Airtable webhook registration')
       }
+
+      console.log(`🔧 Registering Airtable webhook for base: ${baseId}, table: ${tableName || 'all tables'}`)
 
       // Get the webhook URL for Airtable
       const webhookUrl = getWebhookBaseUrl() + '/api/workflow/airtable'
 
       // Register webhook with Airtable (this handles creating or reusing existing webhook)
-      await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl)
+      await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl, tableName)
 
       // Store webhook configuration details
       await this.supabase

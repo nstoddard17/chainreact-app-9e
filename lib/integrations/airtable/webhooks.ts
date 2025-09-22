@@ -34,7 +34,7 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
   }
 }
 
-export async function ensureAirtableWebhookForBase(userId: string, baseId: string, notificationUrl: string) {
+export async function ensureAirtableWebhookForBase(userId: string, baseId: string, notificationUrl: string, tableName?: string) {
   // Fetch Airtable integration access token
   const { data: integ } = await supabase
     .from("integrations")
@@ -50,10 +50,10 @@ export async function ensureAirtableWebhookForBase(userId: string, baseId: strin
   const encryptionKey = process.env.ENCRYPTION_KEY!
   const token = decrypt(integ.access_token, encryptionKey)
 
-  return ensureWebhookForBase(userId, token, baseId, notificationUrl)
+  return ensureWebhookForBase(userId, token, baseId, notificationUrl, tableName)
 }
 
-async function ensureWebhookForBase(userId: string, token: string, baseId: string, notificationUrl: string) {
+async function ensureWebhookForBase(userId: string, token: string, baseId: string, notificationUrl: string, tableName?: string) {
   // Check if we already have a webhook
   const { data: existing } = await supabase
     .from("airtable_webhooks")
@@ -68,8 +68,34 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
   if (existing && !expiringSoon) return
 
-  // First, verify the base exists and we have access
-  console.log(`🔍 Checking access to Airtable base: ${baseId}`)
+  // First, list all bases to verify this base exists
+  console.log(`🔍 Verifying base ${baseId} exists...`)
+  const basesRes = await fetch(`https://api.airtable.com/v0/meta/bases`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+
+  if (!basesRes.ok) {
+    const error = await basesRes.text()
+    console.error('❌ Failed to list bases:', error)
+    throw new Error('Failed to access Airtable bases. Token may be invalid.')
+  }
+
+  const basesData = await basesRes.json()
+  const targetBase = basesData.bases.find((b: any) => b.id === baseId)
+
+  if (!targetBase) {
+    console.error(`❌ Base ${baseId} not found in user's bases`)
+    console.log('Available bases:', basesData.bases.map((b: any) => ({ id: b.id, name: b.name })))
+    throw new Error(`Base ${baseId} not found. Please use a valid base ID from your Airtable account.`)
+  }
+
+  console.log(`✅ Found base: ${targetBase.name} (${targetBase.id})`)
+
+  // Now check detailed base access
+  console.log(`🔍 Checking detailed access to base ${baseId}...`)
   const baseCheckRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}`, {
     method: 'GET',
     headers: {
@@ -94,8 +120,22 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
   console.log(`✅ Base ${baseId} is accessible`)
 
+  // Get table ID if table name is specified
+  let tableId: string | undefined
+  if (tableName) {
+    console.log(`🔍 Looking for table "${tableName}" in base...`)
+    const baseMetadata = await baseCheckRes.json()
+    const table = baseMetadata.tables?.find((t: any) => t.name === tableName)
+    if (table) {
+      tableId = table.id
+      console.log(`✅ Found table: ${tableName} (${tableId})`)
+    } else {
+      console.log(`⚠️ Table "${tableName}" not found, monitoring entire base`)
+    }
+  }
+
   // Create webhook via Airtable API
-  const webhookPayload = {
+  const webhookPayload: any = {
     notificationUrl,
     specification: {
       options: {
@@ -104,6 +144,14 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
         }
       }
     }
+  }
+
+  // Add recordChangeScope if we have a specific table
+  if (tableId) {
+    webhookPayload.specification.options.filters.recordChangeScope = tableId
+    console.log(`🎯 Webhook will monitor only table: ${tableName} (${tableId})`)
+  } else {
+    console.log(`🎯 Webhook will monitor entire base: ${baseId}`)
   }
 
   console.log(`📤 Creating webhook for base ${baseId} with payload:`, JSON.stringify(webhookPayload, null, 2))
