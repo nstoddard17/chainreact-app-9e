@@ -44,10 +44,10 @@ export async function POST(request: Request) {
     // Check if user is admin using the service client
     console.log("Checking admin status for user:", user.id, user.email)
 
-    // Note: The column is named 'user_role', not 'role' in the user_profiles table
+    // The column is named 'role' in the user_profiles table
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
-      .select("user_role")
+      .select("role")
       .eq("id", user.id)
       .single()
 
@@ -69,12 +69,12 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("User role:", profile.user_role)
+    console.log("User role:", profile.role)
 
-    if (profile.user_role !== 'admin') {
-      console.log("User is not admin. Role:", profile.user_role)
+    if (profile.role !== 'admin') {
+      console.log("User is not admin. Role:", profile.role)
       return NextResponse.json(
-        { error: `Only admins can add beta testers. Your role: ${profile.user_role || 'user'}` },
+        { error: `Only admins can add beta testers. Your role: ${profile.role || 'user'}` },
         { status: 403 }
       )
     }
