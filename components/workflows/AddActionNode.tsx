@@ -54,7 +54,6 @@ export function AddActionNode({ data, dragging }: NodeProps) {
       <Handle
         type="target"
         position={Position.Top}
-        id="target"
         className="!w-0 !h-0 !-top-1 !bg-transparent !border-none pointer-events-none"
         isConnectable={false}
       />

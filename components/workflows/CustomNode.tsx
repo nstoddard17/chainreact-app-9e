@@ -203,8 +203,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Check if this node has configuration options
   const nodeHasConfiguration = (): boolean => {
     if (!component) return false
-    
-    // All trigger nodes should have configuration
+
+    // Manual triggers don't show configuration button - they open trigger selection on double-click
+    if (type === 'manual') {
+      return false
+    }
+
+    // All other trigger nodes should have configuration
     if (isTrigger) {
       return true
     }
@@ -232,6 +237,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // Manual triggers open the trigger selection dialog on double-click
+    if (type === 'manual' && onConfigure) {
+      // For manual triggers, onConfigure should open the trigger selection dialog
+      onConfigure(id)
+      return
+    }
+
     // Only open configuration if the node has configuration options
     if (nodeHasConfiguration() && onConfigure) {
       onConfigure(id)

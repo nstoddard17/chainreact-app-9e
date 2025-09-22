@@ -6,9 +6,9 @@ import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 export async function POST(request: Request) {
   try {
     console.log("=== Workflow Execution Started (Refactored) ===")
-    
+
     const body = await request.json()
-    const { workflowId, testMode = false, executionMode, inputData = {}, workflowData } = body
+    const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
     
     // Log the workflow data to see what nodes we're getting
     console.log("📊 [Execute Route] Workflow data received:", {
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       testMode,
       executionMode,
       effectiveTestMode,
+      skipTriggers,
       hasInputData: !!inputData,
       hasWorkflowData: !!workflowData
     })
@@ -108,10 +109,15 @@ export async function POST(request: Request) {
       })
     }
     
-    // Filter out UI-only nodes (AddActionNodes, InsertActionNodes)
+    // Filter out UI-only nodes (AddActionNodes, InsertActionNodes) and optionally triggers
     const nodes = allNodes.filter((node: any) => {
       // Skip UI placeholder nodes
       if (node.type === 'addAction' || node.type === 'insertAction' || node.id?.startsWith('add-action-')) {
+        return false
+      }
+      // Skip trigger nodes if requested (for Run Once Live mode)
+      if (skipTriggers && node.data?.isTrigger) {
+        console.log(`Skipping trigger node: ${node.id} (${node.data?.type})`)
         return false
       }
       return true
@@ -137,13 +143,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No nodes found in workflow" }, { status: 400 })
     }
 
-    // Find trigger nodes
-    const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
-    console.log("Trigger nodes found:", triggerNodes.length)
+    // Find trigger nodes (unless we're skipping them)
+    if (!skipTriggers) {
+      const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
+      console.log("Trigger nodes found:", triggerNodes.length)
 
-    if (triggerNodes.length === 0) {
-      console.error("No trigger nodes found")
-      return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
+      if (triggerNodes.length === 0) {
+        console.error("No trigger nodes found")
+        return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
+      }
+    } else {
+      // When skipping triggers, ensure we have at least one action node
+      const actionNodes = nodes.filter((node: any) => !node.data?.isTrigger)
+      console.log("Action nodes found (triggers skipped):", actionNodes.length)
+
+      if (actionNodes.length === 0) {
+        console.error("No action nodes found")
+        return NextResponse.json({ error: "No action nodes found" }, { status: 400 })
+      }
     }
 
     // Execute the workflow using the new service
@@ -160,11 +177,12 @@ export async function POST(request: Request) {
     } : null
     
     const executionResult = await workflowExecutionService.executeWorkflow(
-      workflow, 
-      inputData, 
-      user.id, 
-      effectiveTestMode, 
-      filteredWorkflowData
+      workflow,
+      inputData,
+      user.id,
+      effectiveTestMode,
+      filteredWorkflowData,
+      skipTriggers
     )
     
     console.log("Workflow execution completed successfully")

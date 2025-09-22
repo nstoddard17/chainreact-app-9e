@@ -34,6 +34,25 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
   }
 }
 
+export async function ensureAirtableWebhookForBase(userId: string, baseId: string, notificationUrl: string) {
+  // Fetch Airtable integration access token
+  const { data: integ } = await supabase
+    .from("integrations")
+    .select("access_token")
+    .eq("user_id", userId)
+    .eq("provider", "airtable")
+    .single()
+
+  if (!integ) {
+    throw new Error('Airtable integration not found')
+  }
+
+  const encryptionKey = process.env.ENCRYPTION_KEY!
+  const token = decrypt(integ.access_token, encryptionKey)
+
+  return ensureWebhookForBase(userId, token, baseId, notificationUrl)
+}
+
 async function ensureWebhookForBase(userId: string, token: string, baseId: string, notificationUrl: string) {
   // Check if we already have a webhook
   const { data: existing } = await supabase
@@ -49,22 +68,73 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
   if (existing && !expiringSoon) return
 
+  // First, verify the base exists and we have access
+  console.log(`🔍 Checking access to Airtable base: ${baseId}`)
+  const baseCheckRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+
+  if (!baseCheckRes.ok) {
+    const baseError = await baseCheckRes.text()
+    console.error(`❌ Cannot access base ${baseId}:`, baseCheckRes.status, baseError)
+
+    let errorMessage = 'Cannot access Airtable base'
+    try {
+      const errorData = JSON.parse(baseError)
+      if (errorData.error?.type === 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND') {
+        errorMessage = `Base ${baseId} not found or no access. Please check the base ID and ensure your Airtable account has access to this base.`
+      }
+    } catch {}
+
+    throw new Error(errorMessage)
+  }
+
+  console.log(`✅ Base ${baseId} is accessible`)
+
   // Create webhook via Airtable API
+  const webhookPayload = {
+    notificationUrl,
+    specification: {
+      options: {
+        filters: {
+          dataTypes: ["tableData"]
+        }
+      }
+    }
+  }
+
+  console.log(`📤 Creating webhook for base ${baseId} with payload:`, JSON.stringify(webhookPayload, null, 2))
+
   const res = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      notificationUrl,
-      specification: { options: { filters: { dataTypes: ["tableData"] } } }
-    })
+    body: JSON.stringify(webhookPayload)
   })
   if (!res.ok) {
     const err = await res.text()
     console.error('Failed to create Airtable webhook', res.status, err)
-    return
+
+    // Parse error message for better user feedback
+    let errorMessage = 'Failed to create Airtable webhook'
+    try {
+      const errorData = JSON.parse(err)
+      if (errorData.error?.type === 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND') {
+        errorMessage = 'Invalid Airtable permissions or base not found. Please check that your Airtable integration has access to this base.'
+      } else if (errorData.error?.message) {
+        errorMessage = errorData.error.message
+      }
+    } catch {
+      // If not JSON, use the raw error text
+      if (err) errorMessage = err
+    }
+
+    throw new Error(errorMessage)
   }
   const data = await res.json()
 
@@ -93,6 +163,175 @@ export function validateAirtableSignature(body: string, headers: Record<string,s
     return signature === expected
   } catch {
     return false
+  }
+}
+
+export async function unregisterAirtableWebhook(userId: string, baseId: string) {
+  try {
+    // Get webhook details
+    const { data: webhook } = await supabase
+      .from("airtable_webhooks")
+      .select("webhook_id")
+      .eq("user_id", userId)
+      .eq("base_id", baseId)
+      .eq("status", "active")
+      .single()
+
+    if (!webhook) return
+
+    // Get Airtable token
+    const { data: integ } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("user_id", userId)
+      .eq("provider", "airtable")
+      .single()
+
+    if (!integ) return
+
+    const encryptionKey = process.env.ENCRYPTION_KEY!
+    const token = decrypt(integ.access_token, encryptionKey)
+
+    // Delete webhook via Airtable API
+    await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks/${webhook.webhook_id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    // Mark as inactive in our database
+    await supabase
+      .from('airtable_webhooks')
+      .update({ status: 'inactive' })
+      .eq('webhook_id', webhook.webhook_id)
+  } catch (error) {
+    console.error('Failed to unregister Airtable webhook:', error)
+  }
+}
+
+export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: string, cursor?: number) {
+  try {
+    // Get the user and token for this webhook
+    const { data: webhook } = await supabase
+      .from("airtable_webhooks")
+      .select("user_id")
+      .eq("base_id", baseId)
+      .eq("webhook_id", webhookId)
+      .single()
+
+    if (!webhook) throw new Error('Webhook not found')
+
+    const { data: integ } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("user_id", webhook.user_id)
+      .eq("provider", "airtable")
+      .single()
+
+    if (!integ) throw new Error('Integration not found')
+
+    const encryptionKey = process.env.ENCRYPTION_KEY!
+    const token = decrypt(integ.access_token, encryptionKey)
+
+    // Fetch payloads from Airtable
+    let url = `https://api.airtable.com/v0/bases/${baseId}/webhooks/${webhookId}/payloads`
+    if (cursor) {
+      url += `?cursor=${cursor}`
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch payloads: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Failed to fetch Airtable webhook payloads:', error)
+    throw error
+  }
+}
+
+export async function refreshAirtableWebhook(userId: string, baseId: string) {
+  try {
+    // Get existing webhook
+    const { data: webhook } = await supabase
+      .from("airtable_webhooks")
+      .select("webhook_id")
+      .eq("user_id", userId)
+      .eq("base_id", baseId)
+      .eq("status", "active")
+      .single()
+
+    if (!webhook) return
+
+    // Get Airtable token
+    const { data: integ } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("user_id", userId)
+      .eq("provider", "airtable")
+      .single()
+
+    if (!integ) return
+
+    const encryptionKey = process.env.ENCRYPTION_KEY!
+    const token = decrypt(integ.access_token, encryptionKey)
+
+    // Refresh webhook via Airtable API
+    const response = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks/${webhook.webhook_id}/refresh`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+
+      // Update expiration in database
+      await supabase
+        .from('airtable_webhooks')
+        .update({
+          expiration_time: data.expirationTime ? new Date(data.expirationTime).toISOString() : null
+        })
+        .eq('webhook_id', webhook.webhook_id)
+
+      console.log('✅ Airtable webhook refreshed, new expiration:', data.expirationTime)
+    }
+  } catch (error) {
+    console.error('Failed to refresh Airtable webhook:', error)
+  }
+}
+
+export async function cleanupInactiveAirtableWebhooks() {
+  try {
+    // Get all expired webhooks
+    const now = new Date()
+    const { data: expiredWebhooks } = await supabase
+      .from('airtable_webhooks')
+      .select('user_id, base_id, webhook_id')
+      .eq('status', 'active')
+      .lt('expiration_time', now.toISOString())
+
+    if (!expiredWebhooks || expiredWebhooks.length === 0) return
+
+    for (const webhook of expiredWebhooks) {
+      // Mark as inactive
+      await supabase
+        .from('airtable_webhooks')
+        .update({ status: 'inactive' })
+        .eq('webhook_id', webhook.webhook_id)
+
+      console.log(`Marked webhook ${webhook.webhook_id} as inactive due to expiration`)
+    }
+  } catch (error) {
+    console.error('Failed to cleanup inactive Airtable webhooks:', error)
   }
 }
 
