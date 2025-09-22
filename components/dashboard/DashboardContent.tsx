@@ -36,7 +36,26 @@ export default function DashboardContent() {
   // Debug logging
   useEffect(() => {
     if (isClientReady) {
-      console.log('[Dashboard] Auth state:', { user, profile, initialized, hydrated })
+      console.log('🎯 [Dashboard] Auth state:', {
+        user: user ? {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          full_name: user.full_name
+        } : null,
+        profile: profile ? {
+          id: profile.id,
+          username: profile.username,
+          user_role: profile.role,
+          full_name: profile.full_name,
+          first_name: profile.first_name,
+          last_name: profile.last_name
+        } : null,
+        initialized,
+        hydrated
+      })
     }
   }, [user, profile, initialized, hydrated, isClientReady])
 
@@ -76,22 +95,37 @@ export default function DashboardContent() {
   })
 
   const getFirstName = () => {
+    console.log('📝 [Dashboard] Getting first name from:', {
+      'profile.username': profile?.username,
+      'profile.full_name': profile?.full_name,
+      'user.name': user?.name,
+      'user.email': user?.email
+    })
+
     // First try username from profile
     if (profile?.username) {
+      console.log('✅ [Dashboard] Using username:', profile.username)
       return profile.username
     }
     // Then try full name and extract first part
     if (profile?.full_name) {
-      return profile.full_name.split(" ")[0]
+      const firstName = profile.full_name.split(" ")[0]
+      console.log('✅ [Dashboard] Using full_name first part:', firstName)
+      return firstName
     }
     // Fallback to user name if available
     if (user?.name) {
-      return user.name.split(" ")[0]
+      const firstName = user.name.split(" ")[0]
+      console.log('⚠️ [Dashboard] Falling back to user.name:', firstName)
+      return firstName
     }
     // Last resort: extract from email
     if (user?.email) {
-      return user.email.split("@")[0]
+      const emailName = user.email.split("@")[0]
+      console.log('⚠️ [Dashboard] Falling back to email:', emailName)
+      return emailName
     }
+    console.log('❌ [Dashboard] No name found, using default "User"')
     return "User"
   }
 

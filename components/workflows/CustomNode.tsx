@@ -21,6 +21,9 @@ interface CustomNodeData {
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void
+  onAddAction?: () => void
+  hasAddButton?: boolean
+  isPlaceholder?: boolean
   error?: string
   executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
   isActiveExecution?: boolean
@@ -45,6 +48,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onDelete,
     onAddChain,
     onRename,
+    onAddAction,
+    hasAddButton,
+    isPlaceholder,
     error,
     executionStatus,
     isActiveExecution,
@@ -391,14 +397,33 @@ function CustomNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Centered Add Action button for chain placeholders - matching AI Agent builder design */}
-      {type === 'chain_placeholder' && data.hasAddButton && data.onAddAction && (
+      {console.log('Chain placeholder button check:', {
+        type,
+        isChainPlaceholder: type === 'chain_placeholder',
+        hasAddButton,
+        isPlaceholder,
+        onAddAction: !!onAddAction,
+        shouldShowButton: type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction
+      })}
+      {type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction && (
         <div className="px-4 pb-4 flex justify-center">
           <Button
             variant="outline"
             size="sm"
             onClick={(e) => {
               e.stopPropagation()
-              data.onAddAction()
+              if (onAddAction) {
+                onAddAction()
+              } else {
+                // Fallback: simulate clicking on the placeholder node itself
+                // This should trigger the handleAddActionClick with the placeholder's ID
+                console.warn('Chain placeholder missing onAddAction callback, using fallback')
+                // Find the workflow builder's handleAddActionClick function
+                const event = new CustomEvent('chain-placeholder-add-action', {
+                  detail: { nodeId: id, parentId: id }
+                })
+                window.dispatchEvent(event)
+              }
             }}
             className="gap-2 w-full max-w-[200px]"
           >

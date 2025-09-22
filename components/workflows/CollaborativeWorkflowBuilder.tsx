@@ -1794,21 +1794,35 @@ const useWorkflowBuilderState = () => {
             }
           }
           
-          // Add Add Action button to the last node in the chain
-          const lastNodeIndex = nodesWithoutRebuildingAddActions.findIndex(n => n.id === lastChainNode.id)
-          if (lastNodeIndex !== -1) {
-            nodesWithoutRebuildingAddActions[lastNodeIndex] = {
-              ...nodesWithoutRebuildingAddActions[lastNodeIndex],
-              data: {
-                ...nodesWithoutRebuildingAddActions[lastNodeIndex].data,
-                hasAddButton: true,
-                onAddAction: () => {
-                  const addActionId = `add-action-${lastChainNode.id}-${Date.now()}`
-                  handleAddActionClick(addActionId, lastChainNode.id)
-                }
-              }
+          // Create new Add Action button for this chain
+          const addActionId = `add-action-${aiAgentId}-chain${chainIndex}-${Date.now()}`
+          const addActionNode = createAddActionNode(
+            addActionId,
+            lastChainNode.id,
+            {
+              x: lastChainNode.position.x,
+              y: lastChainNode.position.y + 160
+            },
+            {
+              parentAIAgentId: aiAgentId,
+              parentChainIndex: chainIndex,
+              isChainAddAction: true
             }
-          }
+          )
+
+          nodesWithoutRebuildingAddActions.push(addActionNode)
+
+          // Add edge to the Add Action button
+          // Use a simpler edge ID to avoid duplicate keys with long node IDs
+          const edgeId = `edge-chain${chainIndex}-addaction-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          edgesWithoutRebuildingAddActions.push({
+            id: edgeId,
+            source: lastChainNode.id,
+            target: addActionId,
+            animated: false,
+            style: { stroke: "#b1b1b7", strokeWidth: 2, strokeDasharray: "5,5" },
+            type: "straight"
+          })
         }
       })
       
@@ -2440,7 +2454,21 @@ const useWorkflowBuilderState = () => {
     return () => {
     }
   }, []) // Empty dependency array - only run on mount
-  
+
+  // Listen for chain placeholder Add Action button clicks (fallback for when callback is missing)
+  useEffect(() => {
+    const handleChainPlaceholderAddAction = (event: CustomEvent) => {
+      const { nodeId, parentId } = event.detail
+      console.log('Chain placeholder Add Action clicked (fallback):', { nodeId, parentId })
+      handleAddActionClick(nodeId, parentId)
+    }
+
+    window.addEventListener('chain-placeholder-add-action', handleChainPlaceholderAddAction as EventListener)
+
+    return () => {
+      window.removeEventListener('chain-placeholder-add-action', handleChainPlaceholderAddAction as EventListener)
+    }
+  }, [handleAddActionClick])
 
   // Fetch integrations when action or trigger dialog opens
   useEffect(() => {
@@ -4646,30 +4674,21 @@ function WorkflowBuilderContent() {
         } else {
           firsts.forEach((fn: any, idx: number) => {
             // Skip if this is a chain placeholder - it has its own internal Add Action button
-            if (fn.data?.type === 'chain_placeholder') return
+            if (fn.data?.type === 'chain_placeholder') {
+              console.log('Skipping chain placeholder:', fn.id)
+              return
+            }
 
             const last = findLast(fn.id)
             if (!last) return
 
-            // Add the Add Action button to the last node instead of creating a separate node
+            // Only add Add Action nodes after actual action nodes, not placeholders
             if (last.data?.type !== 'chain_placeholder') {
-              // Find and update the last node to include the Add Action button
-              setNodes(nds => nds.map(n => {
-                if (n.id === last.id) {
-                  return {
-                    ...n,
-                    data: {
-                      ...n.data,
-                      hasAddButton: true,
-                      onAddAction: () => {
-                        const addActionId = `add-action-${last.id}-${Date.now()}`
-                        handleAddActionClick(addActionId, last.id)
-                      }
-                    }
-                  }
-                }
-                return n
-              }))
+              const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+              newNodes.push({ id: addId, type: 'addAction', position: { x: last.position.x, y: last.position.y + 150 }, data: { parentId: last.id, parentAIAgentId: agent.id } })
+              newEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
+            } else {
+              console.log('Last node is a placeholder, not adding Add Action node:', last.id)
             }
           })
         }
@@ -4986,6 +5005,8 @@ function WorkflowBuilderContent() {
                   }
                   
                   // For each AI Agent, compute first nodes of each chain and append a clean addAction after the last node
+                  const newAddNodes: any[] = []
+                  const newAddEdges: any[] = []
                   const currentEdges = (edges as any) || []
                   aiAgents.forEach((agent: any) => {
                     const firstEdges = currentEdges.filter((e: any) => e.source === agent.id)
@@ -4995,27 +5016,21 @@ function WorkflowBuilderContent() {
                     firstNodes.forEach((fn: any, idx: number) => {
                       const last = findLastInChain(fn.id, currentEdges)
                       if (!last) return
-                      // Update the last node to have an Add Action button instead of creating a separate node
-                      setNodes(nds => nds.map(n => {
-                        if (n.id === last.id) {
-                          return {
-                            ...n,
-                            data: {
-                              ...n.data,
-                              hasAddButton: true,
-                              onAddAction: () => {
-                                const addActionId = `add-action-${last.id}-${Date.now()}`
-                                handleAddActionClick(addActionId, last.id)
-                              }
-                            }
-                          }
-                        }
-                        return n
-                      }))
+                      const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+                      const addNode = {
+                        id: addId,
+                        type: 'addAction',
+                        position: { x: last.position.x, y: last.position.y + 150 },
+                        data: { parentId: last.id, parentAIAgentId: agent.id }
+                      }
+                      newAddNodes.push(addNode)
+                      newAddEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
                     })
                   })
 
-                  toast({ title: 'Add buttons updated', description: 'Add Action buttons integrated into chain nodes.' })
+                  setNodes(nds => [...nds, ...newAddNodes])
+                  setEdges(eds => [...eds, ...newAddEdges])
+                  toast({ title: 'Add buttons cleaned', description: `${newAddNodes.length} buttons repositioned at chain ends.` })
                 } catch (e) {
                   toast({ title: 'Cleanup failed', description: 'Could not reposition add buttons.', variant: 'destructive' })
                 }
@@ -5449,7 +5464,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
+            <div className="w-2/5 border-r border-border overflow-y-auto max-h-full">
               <div className="pt-2 pb-3 pl-3 pr-5">
               {filteredIntegrations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -5883,9 +5898,8 @@ function WorkflowBuilderContent() {
                 })
               )}
               </div>
-            </ScrollArea>
-            <div className="w-3/5 flex-1">
-              <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+            </div>
+            <div className="w-3/5 flex-1 overflow-y-auto max-h-full">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -6300,7 +6314,6 @@ function WorkflowBuilderContent() {
                   </div>
                 )}
                 </div>
-              </ScrollArea>
             </div>
           </div>
           
@@ -6441,7 +6454,7 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            <div className="w-2/5 border-r border-border overflow-y-auto">
+            <div className="w-2/5 border-r border-border overflow-y-auto max-h-full">
               <div className="pt-2 pb-3 pl-3 pr-5">
               {(() => {
                 // Filter integrations for action dialog
@@ -6937,7 +6950,7 @@ function WorkflowBuilderContent() {
               })()}
               </div>
             </div>
-            <div className="w-3/5 flex-1 overflow-y-auto">
+            <div className="w-3/5 flex-1 overflow-y-auto max-h-full">
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
@@ -7889,7 +7902,15 @@ function WorkflowBuilderContent() {
                             isAIAgentChild: true,
                             parentAIAgentId: actualAIAgentId,
                             parentChainIndex: nodeData.parentChainIndex, // Include chain index from the visual builder
-                            originalNodeId: nodeData.id // Keep track of original ID for edge mapping
+                            originalNodeId: nodeData.id, // Keep track of original ID for edge mapping
+                            // Add chain placeholder specific properties
+                            ...(nodeData.type === 'chain_placeholder' ? {
+                              isPlaceholder: true,
+                              hasAddButton: true,
+                              onAddAction: () => {
+                                handleAddActionClick(newNodeId, newNodeId);
+                              }
+                            } : {})
                           }
                         };
                         
@@ -8003,21 +8024,50 @@ function WorkflowBuilderContent() {
                         const chainNodes = Array.from(chainGroups.values())[chainIndex] || [];
                         
                         if (chainNodes.length > 0) {
-                          // Chain has actions - add Add Action button to the last node
+                          // Chain has actions - add Add Action after last node ONLY if it's not a chain placeholder
                           const lastNode = chainNodes[chainNodes.length - 1];
 
-                          // Update the last node to show an Add Action button
-                          const lastNodeIndex = newNodesToAdd.findIndex(n => n.id === lastNode.id);
-                          if (lastNodeIndex !== -1) {
-                            newNodesToAdd[lastNodeIndex].data = {
-                              ...newNodesToAdd[lastNodeIndex].data,
-                              hasAddButton: true,
-                              onAddAction: () => {
-                                // When Add Action is clicked on the last node, add a new action after it
-                                const addActionId = `add-action-${lastNode.id}-${Date.now()}`;
-                                handleAddActionClick(addActionId, lastNode.id);
+                          // Skip creating add action node if the last node is a chain placeholder (it has its own internal button)
+                          if (lastNode.data?.type !== 'chain_placeholder') {
+                            const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                            const addActionNode = {
+                              id: addActionId,
+                              type: 'addAction',
+                              position: {
+                                x: lastNode.position.x,
+                                y: lastNode.position.y + layoutConfig.verticalSpacing
+                              },
+                              data: {
+                                parentId: lastNode.id,
+                                parentAIAgentId: actualAIAgentId,
+                                parentChainIndex: chainIndex,
+                                isChainAddAction: true,
+                                onClick: () => handleAddActionClick(addActionId, lastNode.id)
                               }
                             };
+
+                            // Check for duplicate before adding
+                            if (!addedNodeIds.has(addActionNode.id)) {
+                              newNodesToAdd.push(addActionNode);
+                              addedNodeIds.add(addActionNode.id);
+                            } else {
+                            }
+
+                            // Add edge to Add Action node
+                            const edgeToAddAction = {
+                              id: `e-${lastNode.id}-${addActionId}`,
+                              source: lastNode.id,
+                              target: addActionId,
+                              type: 'straight',
+                              animated: true,
+                              style: {
+                                stroke: '#b1b1b7',
+                                strokeWidth: 2,
+                                strokeDasharray: '5,5'
+                              }
+                            };
+                            newEdgesToAdd.push(edgeToAddAction);
                           }
                         } else if (placeholderPositions[chainIndex]) {
                           // Create a chain placeholder with internal Add Action button
@@ -8196,22 +8246,50 @@ function WorkflowBuilderContent() {
                           lastPosition = nodePosition;
                         });
                         
-                        // Step 3: Mark the last node in the chain to show an Add Action button
+                        // Step 3: For each chain's final action node, verify an AddAction node exists
+                        // Add an "Add Action" node at the end of each chain
                         if (previousNodeId && lastPosition) {
-                          // Find the last node and mark it to show the Add Action button
-                          const lastNodeIndex = newNodesToAdd.findIndex(n => n.id === previousNodeId);
-                          if (lastNodeIndex !== -1) {
-                            // Add the Add Action button data to the last node
-                            newNodesToAdd[lastNodeIndex].data = {
-                              ...newNodesToAdd[lastNodeIndex].data,
-                              hasAddButton: true,
-                              onAddAction: () => {
-                                // When Add Action is clicked on the last node, add a new action after it
-                                const addActionId = `add-action-${previousNodeId}-${Date.now()}`;
-                                handleAddActionClick(addActionId, previousNodeId);
+
+                          const addActionTimestamp = Date.now() + chainIndex * 100; // Ensure uniqueness with chainIndex offset
+                          const randomId = Math.random().toString(36).substr(2, 9);
+                          const addActionId = `add-action-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${randomId}`;
+                          const addActionNode = {
+                            id: addActionId,
+                            type: 'addAction',
+                            position: {
+                              x: (lastPosition as { x: number; y: number }).x,
+                              y: (lastPosition as { x: number; y: number }).y + 160
+                            },
+                            data: {
+                              parentId: previousNodeId,
+                              // Don't mark Add Action nodes as AI agent children so they don't get filtered out
+                              // isAIAgentChild: true,  // REMOVED - this causes them to be deleted on next save
+                              parentAIAgentId: actualAIAgentId,
+                              parentChainIndex: chainIndex,
+                              isChainAddAction: true,  // Mark this as a chain Add Action for identification
+                              onClick: () => {
+                                // Use the Add Action node's own ID and its parent ID
+                                handleAddActionClick(addActionId, previousNodeId || '');
                               }
-                            };
-                          }
+                            }
+                          };
+                          newNodesToAdd.push(addActionNode);
+
+                          // Add edge to Add Action node - use unique timestamp and random for edge ID
+                          const edgeRandomId = Math.random().toString(36).substr(2, 9);
+                          const edgeToAddAction = {
+                            id: `edge-to-addaction-${actualAIAgentId}-chain${chainIndex}-${addActionTimestamp}-${edgeRandomId}`,
+                            source: previousNodeId,
+                            target: addActionId,
+                            type: 'straight',
+                            animated: true,
+                            style: {
+                              stroke: '#b1b1b7',
+                              strokeWidth: 2,
+                              strokeDasharray: '5,5'
+                            }
+                          };
+                          newEdgesToAdd.push(edgeToAddAction);
                         }
                         } else {
                           // Empty chain - create a chain placeholder with internal Add Action button
