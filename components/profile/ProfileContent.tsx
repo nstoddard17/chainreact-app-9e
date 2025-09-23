@@ -6,12 +6,9 @@ import { useEffect } from "react"
 import { useUserProfileStore, loadUserProfile, UserProfile } from "@/stores/userProfileStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
-import useCacheManager from "@/hooks/use-cache-manager"
 import { Loader2 } from "lucide-react"
 
 export default function ProfileContent() {
-  // Setup cache manager to handle auth state changes
-  useCacheManager()
   
   // Get auth state and profile from stores
   const { user, isAuthenticated } = useAuthStore()

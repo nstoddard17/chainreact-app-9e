@@ -29,9 +29,6 @@ import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnec
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
-import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
-import { clearStuckRequests } from "@/stores/cacheStore"
-import { useIntegrationsStore } from "@/stores/integrationCacheStore"
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { useWorkflowStepExecutionStore } from "@/stores/workflowStepExecutionStore"
 import { StepExecutionPanel } from "./StepExecutionPanel"
@@ -64,7 +61,6 @@ import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { useToast } from "@/hooks/use-toast"
 import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from "@/lib/workflows/configPersistence"
-import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
 import { Card } from "@/components/ui/card"
 import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 
@@ -179,19 +175,15 @@ const useWorkflowBuilderState = () => {
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
 
-  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
+  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
-  const { 
-    getConnectedProviders, 
-    integrations: storeIntegrations,
+  const {
+    getConnectedProviders,
+    integrations,
     fetchIntegrations,
-    loading: integrationsLoading 
+    loading: integrationsLoading
   } = useIntegrationStore()
   const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
-  
-  // Use cached stores for workflows and integrations
-  const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
-  const { data: integrations, loading: integrationsCacheLoading } = useIntegrationsStore()
   
   // Helper to get current user ID for integrations
   const getCurrentUserId = useCallback(async (): Promise<string | null> => {
@@ -261,7 +253,6 @@ const useWorkflowBuilderState = () => {
   const [, forceUpdate] = useState({})
 
   const { toast } = useToast()
-  const { trackWorkflowEmails } = useWorkflowEmailTracking()
   const { updateWithTransition } = useConcurrentStateUpdates()
   
   // Step execution store hooks
@@ -461,7 +452,7 @@ const useWorkflowBuilderState = () => {
     }
     
     return isConnected;
-  }, [getConnectedProviders, storeIntegrations])
+  }, [getConnectedProviders, integrations])
 
 
 
@@ -648,7 +639,7 @@ const useWorkflowBuilderState = () => {
       setSearchQuery("")
       setShowActionDialog(true)
     }
-  }, [getNodes, storeIntegrations, integrationsLoading, fetchIntegrations])
+  }, [getNodes, integrations, integrationsLoading, fetchIntegrations])
 
   // Handle insert action between nodes
   const handleInsertAction = useCallback((sourceNodeId: string, targetNodeId: string) => {
@@ -2447,7 +2438,7 @@ const useWorkflowBuilderState = () => {
     if (showActionDialog || showTriggerDialog) {
 
       // Only fetch if we don't have integrations loaded yet
-      if (storeIntegrations.length === 0) {
+      if (!integrations || integrations.length === 0) {
         fetchIntegrations(false).then(() => {
         });
       }
@@ -2484,7 +2475,7 @@ const useWorkflowBuilderState = () => {
 
       return () => clearInterval(cleanupInterval);
     }
-  }, [showActionDialog, showTriggerDialog, fetchIntegrations, storeIntegrations])
+  }, [showActionDialog, showTriggerDialog, fetchIntegrations, integrations])
 
   // Periodic cleanup of stuck save states
   useEffect(() => {
@@ -2511,8 +2502,7 @@ const useWorkflowBuilderState = () => {
       return
     }
 
-    // Clear any stuck workflow requests before saving
-    clearStuckRequests()
+    // Prepare to save
 
     // Auto-recovery mechanism with longer timeout for large workflows
     const autoRecoveryTimer = setTimeout(() => {
@@ -2525,8 +2515,6 @@ const useWorkflowBuilderState = () => {
         isSavingRef.current = false;
         saveTimeoutRef.current = null;
 
-        // Clear any stuck requests before retry
-        clearStuckRequests();
 
         // Auto-retry after a longer delay to let the system recover
         setTimeout(() => {
@@ -2539,8 +2527,6 @@ const useWorkflowBuilderState = () => {
         isSavingRef.current = false;
         saveTimeoutRef.current = null;
 
-        // Clear stuck requests
-        clearStuckRequests();
 
         toast({
           title: "Save Failed",
@@ -2827,7 +2813,7 @@ const useWorkflowBuilderState = () => {
 
         try {
           // Check if user has Gmail integration connected
-          const gmailIntegration = storeIntegrations.find(
+          const gmailIntegration = integrations?.find(
             (int: any) => int.provider_id === 'gmail' && int.status === 'connected'
           )
 
@@ -4576,7 +4562,7 @@ function WorkflowBuilderContent() {
   const router = useRouter()
   const { toast } = useToast()
   const { setCurrentWorkflow } = useWorkflowStore()
-  const { data: integrations } = useIntegrationsStore()
+  const { integrations } = useIntegrationStore()
   
   // Store polling instances to prevent conflicts when connecting multiple integrations
   const pollingInstancesRef = useRef<Map<string, NodeJS.Timeout>>(new Map())

@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
-import { forceRefreshDiscordGuilds } from "@/stores/discordGuildsCacheStore";
 
 interface DiscordServerFieldProps {
   field: any;
@@ -147,8 +146,7 @@ function DiscordServerFieldComponent({
     setIsRefreshing(true);
     hasAttemptedLoad.current = false; // Reset the load flag
     try {
-      await forceRefreshDiscordGuilds();
-      // Trigger reload through the onDynamicLoad callback
+      // Trigger reload through the onDynamicLoad callback with force refresh
       if (onDynamicLoad) {
         onDynamicLoad(field.name);
       }

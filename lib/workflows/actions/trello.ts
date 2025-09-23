@@ -561,7 +561,6 @@ export async function createTrelloCard(
                 .from(bucketName)
                 .upload(storageName, buffer, {
                   contentType: mimeType,
-                  cacheControl: '3600',
                   upsert: false
                 });
 
