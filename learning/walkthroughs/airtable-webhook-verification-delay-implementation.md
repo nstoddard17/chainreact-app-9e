@@ -120,7 +120,7 @@ The slider is automatically rendered by `GenericTextInput` component when it det
 ## Database Column Fix
 Fixed incorrect column name in verification function:
 - Wrong: `access_token_encrypted`
-- Correct: `encrypted_access_token`
+- Correct: `access_token`
 
 ## Benefits
 
