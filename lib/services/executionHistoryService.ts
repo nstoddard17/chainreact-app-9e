@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 export interface ExecutionHistoryEntry {
   id?: string
@@ -38,13 +38,15 @@ export class ExecutionHistoryService {
   private stepCounter = 0
 
   constructor() {
-    // Supabase client will be initialized when needed
+    // Initialize with service role client to bypass RLS
+    // This is needed for webhook-triggered executions
+    this.supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
   }
 
   private async getSupabase() {
-    if (!this.supabase) {
-      this.supabase = await createSupabaseServerClient()
-    }
     return this.supabase
   }
 

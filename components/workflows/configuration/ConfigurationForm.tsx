@@ -350,6 +350,25 @@ function ConfigurationForm({
       resetOptions('boardId');
     }
 
+    // Skip integration fetch for providers that don't need it or already have their integration loaded
+    // Check if we already have the integration for this provider
+    const existingIntegration = getIntegrationByProvider(nodeInfo?.providerId || '');
+    const skipIntegrationFetch = nodeInfo?.providerId === 'logic' ||
+                                 nodeInfo?.providerId === 'core' ||
+                                 nodeInfo?.providerId === 'manual' ||
+                                 nodeInfo?.providerId === 'schedule' ||
+                                 nodeInfo?.providerId === 'webhook' ||
+                                 (existingIntegration && existingIntegration.status === 'connected');
+
+    if (skipIntegrationFetch) {
+      console.log('⏭️ [ConfigForm] Skipping integration fetch', {
+        provider: nodeInfo?.providerId,
+        hasExistingIntegration: !!existingIntegration,
+        isConnected: existingIntegration?.status === 'connected'
+      });
+      return;
+    }
+
     // Debounce the integration fetch - wait 500ms to see if component stays mounted
     const loadIntegrations = async () => {
       // Wait a bit to see if component stays mounted
@@ -465,19 +484,38 @@ function ConfigurationForm({
         loadOptions('boardId', undefined, undefined, true); // Force refresh immediately
       }
 
+      // Load immediately for Airtable baseId (no delay, use cache)
+      const baseIdField = fieldsToLoad.find((f: any) => f.name === 'baseId');
+      if (baseIdField && nodeInfo?.providerId === 'airtable') {
+        console.log(`🚀 [ConfigForm] Loading Airtable baseId immediately with cache`);
+        loadOptions('baseId', undefined, undefined, false); // Don't force refresh - use cache
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
-        // Load each field marked with loadOnMount (except boardId if already loaded above)
+        // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
         fieldsToLoad.forEach((field: any) => {
           if (field.name === 'boardId' && values.boardId) {
             // Already loaded above
             return;
           }
+          if (field.name === 'baseId' && nodeInfo?.providerId === 'airtable') {
+            // Already loaded above with cache
+            return;
+          }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
           // Only force refresh for specific fields that need it (like Trello boards)
           // Don't force refresh for Airtable bases as they don't change frequently
-          const forceRefresh = field.name === 'boardId';
-          loadOptions(field.name, undefined, undefined, forceRefresh);
+          // Explicitly prevent force refresh for Airtable baseId to avoid constant reloading
+          const forceRefresh = field.name === 'boardId' && nodeInfo?.providerId !== 'airtable';
+
+          // For Airtable baseId, use cached data if available
+          if (field.name === 'baseId' && nodeInfo?.providerId === 'airtable') {
+            console.log('🔄 [ConfigForm] Loading Airtable baseId with cache (no force refresh)');
+            loadOptions('baseId', undefined, undefined, false);
+          } else {
+            loadOptions(field.name, undefined, undefined, forceRefresh);
+          }
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 

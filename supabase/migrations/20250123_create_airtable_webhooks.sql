@@ -24,29 +24,34 @@ CREATE INDEX IF NOT EXISTS idx_airtable_webhooks_status ON public.airtable_webho
 -- Enable RLS
 ALTER TABLE public.airtable_webhooks ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (drop if exist first to avoid conflicts)
 -- Users can only see their own webhooks
+DROP POLICY IF EXISTS "Users can view own airtable webhooks" ON public.airtable_webhooks;
 CREATE POLICY "Users can view own airtable webhooks" ON public.airtable_webhooks
   FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Users can create their own webhooks
+DROP POLICY IF EXISTS "Users can create own airtable webhooks" ON public.airtable_webhooks;
 CREATE POLICY "Users can create own airtable webhooks" ON public.airtable_webhooks
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own webhooks
+DROP POLICY IF EXISTS "Users can update own airtable webhooks" ON public.airtable_webhooks;
 CREATE POLICY "Users can update own airtable webhooks" ON public.airtable_webhooks
   FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
 -- Users can delete their own webhooks
+DROP POLICY IF EXISTS "Users can delete own airtable webhooks" ON public.airtable_webhooks;
 CREATE POLICY "Users can delete own airtable webhooks" ON public.airtable_webhooks
   FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Service role bypass
+DROP POLICY IF EXISTS "Service role bypass" ON public.airtable_webhooks;
 CREATE POLICY "Service role bypass" ON public.airtable_webhooks
   FOR ALL
   USING (auth.jwt() ->> 'role' = 'service_role')

@@ -236,9 +236,17 @@ export class IntegrationNodeHandlers {
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
     console.log("💬 Executing Discord action")
+    console.log(`   Node type: "${node.data.type}"`)
+    console.log(`   User ID: ${context.userId}`)
+    console.log(`🔍 [INTEGRATION DEBUG] Full context:`)
+    console.log(`   context.userId: ${context.userId}`)
+    console.log(`   context.data:`, JSON.stringify(context.data, null, 2))
 
     const nodeType = node.data.type
     const config = node.data.config || {}
+
+    console.log(`🔍 [INTEGRATION DEBUG] Node config:`)
+    console.log(JSON.stringify(config, null, 2))
 
     // Import the actual Discord action handlers
     const { sendDiscordMessage } = await import("@/lib/workflows/actions/discord")
@@ -246,7 +254,13 @@ export class IntegrationNodeHandlers {
     // Handle different Discord action types
     switch (nodeType) {
       case "discord_action_send_message":
+      case "discord_action_send_channel_message": // This is the actual type used
       case "discord_send_channel_message":
+        console.log("📤 Sending Discord channel message...")
+        console.log(`   Channel ID: ${config.channelId || 'not set'}`)
+        console.log(`   Has message: ${!!config.message}`)
+        console.log(`🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: ${context.userId}`)
+
         // Use the actual Discord message sending function
         const result = await sendDiscordMessage(
           config,
@@ -254,7 +268,9 @@ export class IntegrationNodeHandlers {
           context.data || {}
         )
 
+        console.log(`   Discord send result: ${result.success ? '✅ Success' : '❌ Failed'}`)
         if (!result.success) {
+          console.log(`   Error: ${result.message}`)
           throw new Error(result.message || "Failed to send Discord message")
         }
 

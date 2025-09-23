@@ -26,6 +26,15 @@ export class NodeExecutionService {
     const startTime = Date.now()
     console.log(`🔧 Executing node: ${node.id} (${node.data.type})`)
 
+    // Log node configuration for debugging
+    if (node.data.type.includes('discord')) {
+      console.log(`   Discord node config:`, {
+        providerId: node.data.providerId,
+        hasConfig: !!node.data.config,
+        configKeys: node.data.config ? Object.keys(node.data.config) : []
+      })
+    }
+
     // Record step start in history
     let stepRecorded = false
     if (context.executionHistoryId) {
