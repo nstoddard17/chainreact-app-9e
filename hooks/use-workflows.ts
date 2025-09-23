@@ -1,16 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { 
-  Workflow, 
+import {
+  Workflow,
   WorkflowNode,
-  useWorkflowsListStore, 
-  useCurrentWorkflowStore,
-  loadWorkflows,
-  loadWorkflow,
-  createWorkflow,
-  updateWorkflow,
-  deleteWorkflow
-} from '@/stores/cachedWorkflowStore'
-import useCacheManager from './use-cache-manager'
+  useWorkflowStore
+} from '../stores/workflowStore'
 
 interface UseWorkflowsReturn {
   workflows: Workflow[] | null
@@ -32,134 +25,176 @@ interface UseWorkflowsReturn {
 }
 
 export function useWorkflows(): UseWorkflowsReturn {
-  // Initialize cache manager
-  useCacheManager()
+  const {
+    workflows,
+    currentWorkflow,
+    loading: storeLoading,
+    error: storeError,
+    fetchWorkflows,
+    createWorkflow: storeCreateWorkflow,
+    updateWorkflow: storeUpdateWorkflow,
+    deleteWorkflow: storeDeleteWorkflow,
+    setCurrentWorkflow: storeSetCurrentWorkflow,
+    addNode: storeAddNode,
+    updateNode: storeUpdateNode,
+    removeNode: storeRemoveNode,
+    saveWorkflow
+  } = useWorkflowStore()
   
-  // Access stores
-  const { 
-    data: workflows, 
-    loading: workflowsLoading, 
-    error: workflowsError 
-  } = useWorkflowsListStore()
-  
-  const { 
-    data: currentWorkflow, 
-    loading: currentWorkflowLoading, 
-    error: currentWorkflowError 
-  } = useCurrentWorkflowStore()
-  
-  // Local state for selected node
+  // Local state for selected node and loading
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
-  // Combined loading and error state
-  const loading = workflowsLoading || currentWorkflowLoading
-  const error = workflowsError || currentWorkflowError
-  
-  // Load all workflows (with cache)
+  // Load all workflows
   const loadAllWorkflows = useCallback(async (forceRefresh = false) => {
-    return await loadWorkflows(forceRefresh)
-  }, [])
+    setLoading(true)
+    setError(null)
+    try {
+      await fetchWorkflows()
+      return workflows || []
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load workflows')
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchWorkflows, workflows])
   
-  // Load a specific workflow (with cache)
+  // Load a specific workflow
   const loadWorkflowById = useCallback(async (id: string, forceRefresh = false) => {
-    return await loadWorkflow(id, forceRefresh)
-  }, [])
+    setLoading(true)
+    setError(null)
+    try {
+      // First try to find in existing workflows
+      const existing = workflows.find(w => w.id === id)
+      if (existing && !forceRefresh) {
+        storeSetCurrentWorkflow(existing)
+        return existing
+      }
+
+      // Otherwise fetch all workflows and find it
+      await fetchWorkflows()
+      const workflow = workflows.find(w => w.id === id) || null
+      if (workflow) {
+        storeSetCurrentWorkflow(workflow)
+      }
+      return workflow
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load workflow')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [workflows, fetchWorkflows, storeSetCurrentWorkflow])
   
   // Create a new workflow
   const createNewWorkflow = useCallback(async (name: string, description?: string) => {
-    return await createWorkflow(name, description)
-  }, [])
+    setLoading(true)
+    setError(null)
+    try {
+      const workflow = await storeCreateWorkflow(name, description)
+      return workflow
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create workflow')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [storeCreateWorkflow])
   
   // Update a workflow
   const updateWorkflowById = useCallback(async (id: string, updates: Partial<Workflow>) => {
-    return await updateWorkflow(id, updates)
-  }, [])
+    setLoading(true)
+    setError(null)
+    try {
+      await storeUpdateWorkflow(id, updates)
+      // Return the updated workflow
+      const updated = workflows.find(w => w.id === id)
+      return updated || currentWorkflow as Workflow
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update workflow')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [storeUpdateWorkflow, workflows, currentWorkflow])
   
   // Delete a workflow
   const deleteWorkflowById = useCallback(async (id: string) => {
-    await deleteWorkflow(id)
-  }, [])
+    setLoading(true)
+    setError(null)
+    try {
+      await storeDeleteWorkflow(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete workflow')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [storeDeleteWorkflow])
   
   // Set the current workflow
   const setCurrentWorkflow = useCallback((workflow: Workflow | null) => {
-    if (workflow) {
-      useCurrentWorkflowStore.getState().setData(workflow)
-    } else {
-      useCurrentWorkflowStore.getState().clearData()
-    }
-    
+    storeSetCurrentWorkflow(workflow)
     // Clear selected node when changing workflows
     setSelectedNode(null)
-  }, [])
+  }, [storeSetCurrentWorkflow])
   
   // Add a node to the current workflow
   const addNode = useCallback((node: WorkflowNode) => {
     if (!currentWorkflow) return
-    
-    const updatedWorkflow = {
-      ...currentWorkflow,
-      nodes: [...currentWorkflow.nodes, node]
-    }
-    
-    useCurrentWorkflowStore.getState().setData(updatedWorkflow)
-  }, [currentWorkflow])
+    storeAddNode(node)
+  }, [currentWorkflow, storeAddNode])
   
   // Update a node in the current workflow
   const updateNode = useCallback((nodeId: string, updates: Partial<WorkflowNode>) => {
     if (!currentWorkflow) return
-    
-    const updatedNodes = currentWorkflow.nodes.map(node => 
-      node.id === nodeId ? { ...node, ...updates } : node
-    )
-    
-    const updatedWorkflow = {
-      ...currentWorkflow,
-      nodes: updatedNodes
-    }
-    
-    useCurrentWorkflowStore.getState().setData(updatedWorkflow)
-    
+    storeUpdateNode(nodeId, updates)
+
     // Update selected node if it's the one being updated
     if (selectedNode?.id === nodeId) {
       setSelectedNode({ ...selectedNode, ...updates })
     }
-  }, [currentWorkflow, selectedNode])
+  }, [currentWorkflow, selectedNode, storeUpdateNode])
   
   // Remove a node from the current workflow
   const removeNode = useCallback((nodeId: string) => {
     if (!currentWorkflow) return
-    
-    const updatedNodes = currentWorkflow.nodes.filter(node => node.id !== nodeId)
-    
-    const updatedWorkflow = {
-      ...currentWorkflow,
-      nodes: updatedNodes
-    }
-    
-    useCurrentWorkflowStore.getState().setData(updatedWorkflow)
-    
+    storeRemoveNode(nodeId)
+
     // Clear selected node if it's the one being removed
     if (selectedNode?.id === nodeId) {
       setSelectedNode(null)
     }
-  }, [currentWorkflow, selectedNode])
+  }, [currentWorkflow, selectedNode, storeRemoveNode])
   
   // Save the current workflow to the database
   const saveCurrentWorkflow = useCallback(async () => {
     if (!currentWorkflow?.id) return
-    
-    await updateWorkflow(currentWorkflow.id, currentWorkflow)
-  }, [currentWorkflow])
+
+    setLoading(true)
+    setError(null)
+    try {
+      await saveWorkflow()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save workflow')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [currentWorkflow, saveWorkflow])
   
-  // Don't auto-load workflows on mount - let the page component control this
-  // to ensure fresh data is always loaded when viewing the workflows page
-  
+  // Combine loading states
+  const isLoading = loading || storeLoading
+  const errorMessage = error || storeError
+
   return {
-    workflows,
+    workflows: workflows || null,
     currentWorkflow,
     selectedNode,
-    loading,
-    error,
+    loading: isLoading,
+    error: errorMessage,
     loadAllWorkflows,
     loadWorkflowById,
     createNewWorkflow,

@@ -4,7 +4,6 @@
 
 import { GmailIntegration, EmailRecipient, GmailDataHandler } from '../types'
 import { validateGmailIntegration, makeGmailApiRequest, extractEmailAddresses, getGmailAccessToken } from '../utils'
-import { EmailCacheService } from '../../../../../../lib/services/emailCacheService'
 
 /**
  * Fetch Gmail recent recipients using the proven working method (no contacts permission needed)

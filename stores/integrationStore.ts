@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { apiClient } from "@/lib/apiClient"
-import { loadDiscordGuildsOnce } from "./discordGuildsCacheStore"
 import { SessionManager } from "@/lib/auth/session"
 import { OAuthPopupManager } from "@/lib/oauth/popup-manager"
 import { IntegrationService, Provider } from "@/services/integration-service"
@@ -10,9 +9,6 @@ import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
-
-// Global cache for ongoing requests to prevent duplicate API calls
-const ongoingRequests = new Map<string, Promise<any>>()
 
 
 // This represents the structure of a connected integration
@@ -30,7 +26,6 @@ export interface Integration {
   metadata?: any
   disconnected_at?: string | null
   disconnect_reason?: string | null
-  lastRefreshTime: string | null
   [key: string]: any
 }
 
@@ -47,7 +42,6 @@ export interface IntegrationStore {
   preloadStarted: boolean
   apiKeyIntegrations: Integration[]
   currentUserId: string | null
-  lastRefreshTime: string | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -103,7 +97,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
     globalPreloadingData: false,
     preloadStarted: false,
     currentUserId: null,
-    lastRefreshTime: null,
 
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
@@ -139,16 +132,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
-      const requestKey = 'initialize-providers'
-      
-      // If there's already an ongoing request, return it
-      if (ongoingRequests.has(requestKey)) {
-        console.log("Already loading providers, returning existing promise...")
-        return ongoingRequests.get(requestKey)
-      }
-      
-      // Create the request promise
-      const requestPromise = (async () => {
         const { setLoading } = get()
         
         // Set a timeout to prevent stuck loading state
@@ -180,16 +163,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             error: error.message || "Failed to load providers",
             providers: [],
           })
-        } finally {
-          // Clean up the ongoing request
-          ongoingRequests.delete(requestKey)
         }
-      })()
-      
-      // Store the ongoing request
-      ongoingRequests.set(requestKey, requestPromise)
-      
-      return requestPromise
     },
 
     fetchIntegrations: async (force = false) => {
@@ -199,27 +173,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         timestamp: new Date().toISOString(),
         caller: new Error().stack?.split('\n')[2]?.trim()
       })
-      
-      const requestKey = 'fetch-integrations'
-      
-      // If there's already an ongoing request and we're not forcing, return it
-      if (!force && ongoingRequests.has(requestKey)) {
-        console.log("Already fetching integrations, returning existing promise...")
-        return ongoingRequests.get(requestKey)
-      }
-      
-      // Check if we have cached data that's still fresh (5 minutes)
-      const { lastRefreshTime, integrations } = get()
-      if (!force && lastRefreshTime && integrations.length > 0) {
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-        if (lastRefreshTime > fiveMinutesAgo) {
-          console.log("Using cached integrations data...")
-          return Promise.resolve()
-        }
-      }
-      
-      // Create the request promise
-      const requestPromise = (async () => {
         const { setLoading, currentUserId } = get()
         
         try {
@@ -240,8 +193,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
               currentUserId: null,
               error: null, // Don't show error for auth issues, just return empty
             })
-            // Clean up the request from cache before returning
-            ongoingRequests.delete(requestKey)
             return
           }
 
@@ -273,8 +224,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           
           setLoading('integrations', false)
           set({
-            integrations,
-            lastRefreshTime: new Date().toISOString(),
+            integrations
           })
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
@@ -283,16 +233,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             error: error.message || "Failed to fetch integrations",
             integrations: [],
           })
-        } finally {
-          // Clean up the ongoing request
-          ongoingRequests.delete(requestKey)
         }
-      })()
-      
-      // Store the ongoing request
-      ongoingRequests.set(requestKey, requestPromise)
-      
-      return requestPromise
     },
 
     connectIntegration: async (providerId: string) => {
@@ -451,8 +392,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               // since the popup messaging sometimes fails
               if (providerId === 'hubspot') {
                 try {
-                  // Force fetch fresh data from database (bypass cache)
-                  const freshIntegrations = await IntegrationService.fetchIntegrations(true) // Force = true to bypass cache
+                  // Force fetch fresh data from database
+                  const freshIntegrations = await IntegrationService.fetchIntegrations(true)
                   set({ integrations: freshIntegrations })
                   const hubspotIntegration = freshIntegrations.find(i => i.provider === 'hubspot')
                   if (hubspotIntegration && hubspotIntegration.status === 'connected') {
@@ -574,35 +515,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     loadIntegrationData: async (dataType, integrationId, params, forceRefresh = false) => {
       try {
-        // Create a cache key for this specific request
-        const cacheKey = `${dataType}-${integrationId}-${JSON.stringify(params || {})}`
-        
-        // If not forcing refresh and we have an ongoing request, return that promise
-        if (!forceRefresh && ongoingRequests.has(cacheKey)) {
-          console.log(`🔄 [IntegrationStore] Using ongoing request for ${dataType}`)
-          return await ongoingRequests.get(cacheKey)!
-        }
-        
         // Create new request
         console.log(`🚀 [IntegrationStore] Starting new request:`, {
           dataType,
-          integrationId, 
+          integrationId,
           params,
           forceRefresh,
           message: `Calling IntegrationService.loadIntegrationData with dataType: ${dataType}`
         })
-        const requestPromise = IntegrationService.loadIntegrationData(dataType, integrationId, params, forceRefresh)
-        
-        // Store the promise to prevent duplicate calls
-        ongoingRequests.set(cacheKey, requestPromise)
-        
-        try {
-          const result = await requestPromise
-          return result
-        } finally {
-          // Clean up the ongoing request when done
-          ongoingRequests.delete(cacheKey)
-        }
+        const result = await IntegrationService.loadIntegrationData(dataType, integrationId, params, forceRefresh)
+        return result
       } catch (error: any) {
         console.error("Error loading integration data:", error)
         throw error
@@ -733,12 +655,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       try {
         await Promise.all([
-          initializeProviders(), 
-          fetchIntegrations(),
-          // Prefetch Discord guilds if user has Discord connected
-          loadDiscordGuildsOnce().catch(error => {
-            // Silently fail if Discord is not connected - this is expected
-          })
+          initializeProviders(),
+          fetchIntegrations()
         ])
       } catch (error) {
         console.error("Error during global preload:", error)
@@ -769,8 +687,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         debugInfo: {},
         globalPreloadingData: false,
         preloadStarted: false,
-        apiKeyIntegrations: [],
-        lastRefreshTime: null,
+        apiKeyIntegrations: []
       })
     },
 

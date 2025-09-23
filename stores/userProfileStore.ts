@@ -1,4 +1,4 @@
-import { createCacheStore, loadOnce, registerStore } from "./cacheStore"
+import { create } from 'zustand'
 import { supabase } from "@/utils/supabaseClient"
 
 // Define the user profile type
@@ -15,46 +15,97 @@ export interface UserProfile {
   updated_at?: string
 }
 
-// Create a cache store for user profiles
-export const useUserProfileStore = createCacheStore<UserProfile>("userProfile")
-
-// Register the store for auth-based clearing
-registerStore({
-  clearData: () => useUserProfileStore.getState().clearData()
-})
-
-// Helper function to fetch the user profile from Supabase
-export async function fetchUserProfile(): Promise<UserProfile> {
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    throw new Error("Not authenticated")
-  }
-  
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('id, username, full_name, first_name, last_name, avatar_url, company, job_title, role, updated_at')
-    .eq('id', user.id)
-    .single()
-    
-  if (error) {
-    throw error
-  }
-  
-  return data
+interface UserProfileStore {
+  data: UserProfile | null
+  loading: boolean
+  error: string | null
+  setData: (data: UserProfile | null) => void
+  setLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
 }
 
-// Helper function to load the user profile once
-export async function loadUserProfile(forceRefresh = false) {
-  return loadOnce({
-    getter: () => useUserProfileStore.getState().data,
-    setter: (data) => useUserProfileStore.getState().setData(data),
-    fetcher: fetchUserProfile,
-    options: {
-      forceRefresh,
-      setLoading: (loading) => useUserProfileStore.getState().setLoading(loading),
-      onError: (error) => useUserProfileStore.getState().setError(error.message),
-      checkStale: () => useUserProfileStore.getState().isStale(15 * 60 * 1000) // 15 minutes
+// Create store for user profiles
+export const useUserProfileStore = create<UserProfileStore>((set) => ({
+  data: null,
+  loading: false,
+  error: null,
+  setData: (data) => set({ data }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error })
+}))
+
+// Load user profile from Supabase
+export async function loadUserProfile(userId?: string): Promise<UserProfile | null> {
+  try {
+    const store = useUserProfileStore.getState()
+    store.setLoading(true)
+    store.setError(null)
+
+    // Get current user if no userId provided
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error("No authenticated user")
+      }
+      userId = user.id
     }
-  })
-} 
+
+    // Fetch user profile from profiles table
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    store.setData(data)
+    return data
+  } catch (error: any) {
+    const store = useUserProfileStore.getState()
+    store.setError(error.message || "Failed to load user profile")
+    return null
+  } finally {
+    const store = useUserProfileStore.getState()
+    store.setLoading(false)
+  }
+}
+
+// Update user profile
+export async function updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
+  try {
+    const store = useUserProfileStore.getState()
+    store.setLoading(true)
+    store.setError(null)
+
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw new Error("No authenticated user")
+    }
+
+    // Update profile
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id)
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    store.setData(data)
+    return data
+  } catch (error: any) {
+    const store = useUserProfileStore.getState()
+    store.setError(error.message || "Failed to update user profile")
+    return null
+  } finally {
+    const store = useUserProfileStore.getState()
+    store.setLoading(false)
+  }
+}

@@ -6,8 +6,6 @@ import {
   uploadTempAttachmentToSupabase
 } from './supabaseAttachment'
 
-const tableIdCache = new Map<string, string>()
-
 export interface UploadContext {
   accessToken: string
   baseId: string
@@ -201,12 +199,6 @@ export async function resolveTableId(
     return null
   }
 
-  const cacheKey = `${baseId}::${tableName.toLowerCase()}`
-  const cached = tableIdCache.get(cacheKey)
-  if (cached) {
-    return cached
-  }
-
   try {
     const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
       headers: {
@@ -228,7 +220,6 @@ export async function resolveTableId(
     const match = tables.find((table) => table.name.toLowerCase() === tableName.toLowerCase())
 
     if (match?.id) {
-      tableIdCache.set(cacheKey, match.id)
       return match.id
     }
 
