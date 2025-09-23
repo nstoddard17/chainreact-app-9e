@@ -9,8 +9,14 @@ export interface GmailWebhookEvent {
 
 export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> {
   try {
+    console.log('🔍 [Gmail Processor] Processing Gmail event:', {
+      eventType: event.eventData.type,
+      emailAddress: event.eventData.emailAddress,
+      historyId: event.eventData.historyId
+    })
+
     const supabase = await createSupabaseServiceClient()
-    
+
     // Store the webhook event in the database
     const { data: storedEvent, error: storeError } = await supabase
       .from('webhook_events')
@@ -134,8 +140,9 @@ async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
 
 async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<void> {
   try {
+    console.log('🚀 [Gmail Processor] Starting to find matching workflows for Gmail event')
     const supabase = await createSupabaseServiceClient()
-    
+
     // Find all active workflows with Gmail webhook triggers
     const { data: workflows, error } = await supabase
       .from('workflows')
@@ -159,32 +166,45 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
     const matchingWorkflows = workflows.filter(workflow => {
       const nodes = workflow.nodes || []
       return nodes.some((node: any) => {
-        if (!node.data?.isTrigger || node.data?.triggerType !== 'webhook') {
+        // Check for Gmail triggers
+        const isGmailTrigger =
+          node.data?.type === 'gmail_trigger_new_email' ||
+          node.data?.nodeType === 'gmail_trigger_new_email' ||
+          node.type === 'gmail_trigger_new_email' ||
+          node.data?.providerId === 'gmail'
+
+        if (!node.data?.isTrigger || !isGmailTrigger) {
           return false
         }
-        
-        // Check if the webhook trigger matches this Gmail event
-        const triggerConfig = node.data.triggerConfig || {}
-        return (
-          triggerConfig.provider === 'gmail' &&
-          triggerConfig.eventType === event.eventData.type
-        )
+
+        console.log(`[Gmail Processor] Found Gmail trigger node in workflow ${workflow.id}:`, {
+          nodeId: node.id,
+          nodeType: node.data?.type || node.data?.nodeType || node.type,
+          config: node.data?.config
+        })
+
+        // For now, match any Gmail trigger
+        // TODO: Check specific email filters (sender, subject, etc.)
+        return true
       })
     })
 
-    console.log(`Found ${matchingWorkflows.length} workflows matching Gmail event:`, {
-      eventType: event.eventData.type
+    console.log(`📊 Found ${matchingWorkflows.length} workflows matching Gmail event:`, {
+      eventType: event.eventData.type,
+      workflowIds: matchingWorkflows.map(w => ({ id: w.id, name: w.name }))
     })
 
     // Trigger each matching workflow
     for (const workflow of matchingWorkflows) {
       try {
+        console.log(`🎯 Triggering workflow: "${workflow.name}" (${workflow.id})`)
+
         const executionEngine = new AdvancedExecutionEngine()
         const executionSession = await executionEngine.createExecutionSession(
           workflow.id,
           workflow.user_id,
           'webhook',
-          { 
+          {
             inputData: event.eventData,
             webhookEvent: event
           }
@@ -192,8 +212,8 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
         // Execute the workflow asynchronously (don't wait for completion)
         executionEngine.executeWorkflowAdvanced(executionSession.id, event.eventData)
-        
-        console.log(`Triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)
+
+        console.log(`✅ Successfully triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)
       } catch (workflowError) {
         console.error(`Failed to trigger workflow ${workflow.id}:`, workflowError)
       }
