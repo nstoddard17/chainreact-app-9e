@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { EmailCacheService } from "@/lib/services/emailCacheService"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { clearStuckRequests } from '@/stores/cacheStore'
 
 interface UseTimeoutLoadingOptions {
   /**
@@ -14,10 +13,6 @@ interface UseTimeoutLoadingOptions {
    * Timeout in milliseconds before forcing reload (default: 10000ms)
    */
   timeout?: number
-  /**
-   * Whether to clear stuck requests before loading (default: true)
-   */
-  clearStuck?: boolean
   /**
    * Whether to force refresh on mount (default: true)
    */
@@ -44,7 +39,6 @@ export function useTimeoutLoading({
   loadFunction,
   isLoading = false,
   timeout = 10000,
-  clearStuck = true,
   forceRefreshOnMount = true,
   onError,
   onSuccess,
@@ -71,17 +65,10 @@ export function useTimeoutLoading({
     try {
       loadingRef.current = true
 
-      // Clear any stuck requests before starting
-      if (clearStuck) {
-        clearStuckRequests()
-      }
-
       // Set a timeout to handle stuck loading states
       timeoutIdRef.current = setTimeout(() => {
         if ((isLoading || loadingRef.current) && isMountedRef.current) {
-          console.warn(`⚠️ Loading timeout after ${timeout}ms - clearing stuck requests and forcing reload`)
-          // Clear stuck requests and force reload
-          clearStuckRequests()
+          console.warn(`⚠️ Loading timeout after ${timeout}ms - forcing reload`)
           loadingRef.current = false
           loadFunction(true).catch(error => {
             console.error('Force reload failed:', error)
@@ -103,11 +90,6 @@ export function useTimeoutLoading({
     } catch (error) {
       console.error('Failed to load data:', error)
 
-      // Clear stuck requests on error
-      if (clearStuck) {
-        clearStuckRequests()
-      }
-
       if (onError && isMountedRef.current) {
         onError(error)
       }
@@ -117,7 +99,7 @@ export function useTimeoutLoading({
       loadingRef.current = false
       clearTimeoutSafe()
     }
-  }, [loadFunction, isLoading, timeout, clearStuck, forceRefreshOnMount, onError, onSuccess, clearTimeoutSafe])
+  }, [loadFunction, isLoading, timeout, forceRefreshOnMount, onError, onSuccess, clearTimeoutSafe])
 
   // Load on mount and when dependencies change
   useEffect(() => {

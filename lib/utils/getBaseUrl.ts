@@ -129,7 +129,7 @@ export function getWebhookUrl(provider: string): string {
   }
 
   const baseUrl = getWebhookBaseUrl()
-  return `${baseUrl}/api/workflow/${provider}`
+  return `${baseUrl}/api/webhooks/${provider}`
 }
 
 /**

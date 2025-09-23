@@ -4,6 +4,26 @@
 
 ## January 15, 2025
 
+### Implemented Complete Email Filter Matching for Gmail Workflows
+
+Completed the full implementation of email filter matching for Gmail-triggered workflows, ensuring they only execute when emails meet specific criteria. Previously, workflows would trigger for ANY email, regardless of the configured filters. Now the system fetches the actual email details using Gmail API when a webhook notification arrives, then checks if the email matches all configured filters: sender address (supporting both plain emails and "Name <email>" format), subject line (partial match), and attachment presence. The implementation includes comprehensive logging at every step - from webhook arrival, to email fetching, to filter matching - making it easy to debug why a workflow did or didn't trigger. Each filter check logs whether it passed or failed with specific details. The solution properly handles Gmail's history API to fetch the most recent message and extracts all necessary email metadata for accurate filtering. Now workflows will only trigger when an email from the specified sender with the specified subject arrives, exactly as configured by the user.
+
+### Optimized Workflow Status Updates to Prevent Full Page Rerenders
+
+Fixed a performance issue where pausing or activating a workflow caused the entire workflow page to rerender, creating a jarring user experience. The problem was that after updating a workflow's status, the code was calling `loadAllWorkflows(true)` to force-refresh the entire workflow list from the server, even though the Zustand store already updates the workflow in place when `updateWorkflowById` is called. Removed unnecessary `loadAllWorkflows` calls from status updates, workflow edits, and organization moves since the store's `updateWorkflow` function already updates the workflows array reactively. Now when users pause or activate a workflow, only that specific workflow card updates smoothly without any page-wide rerender, providing a much smoother and more responsive interface.
+
+### Fixed Gmail Webhook URL Mismatch Breaking Email Triggers
+
+Resolved a critical bug where Gmail webhooks were being registered with the wrong API endpoint path, preventing email triggers from working even on production. The issue had two parts: first, the webhook registration was using `/api/workflow/gmail` (singular) but the actual endpoint was at `/api/webhooks/gmail` (plural), causing Gmail notifications to be sent to a non-existent URL. Second, the webhook registration response was incorrectly returning hardcoded Discord-specific messages for all providers. Fixed by correcting the URL generation in both `triggerWebhookManager.ts` and `getBaseUrl.ts` to use the correct `/api/webhooks/` path, and updated the registration response to return provider-specific success messages. Now Gmail webhooks are properly registered at the correct endpoint and email triggers work reliably on both local development (with ngrok) and production environments.
+
+## January 15, 2025
+
+### Fixed Gmail Integration Check Blocking Workflow Activation
+
+Resolved a critical bug where workflows with Gmail triggers couldn't be activated even when Gmail was properly connected. The issue was a field name mismatch - the code was checking for `provider_id` when the Integration interface actually uses `provider` as the field name. This meant the Gmail integration check always failed, incorrectly showing "Gmail not connected" and blocking workflow activation. Fixed by updating the integration check to use the correct field name (`provider` instead of `provider_id`). Added comprehensive logging to track available integrations and help diagnose similar issues in the future. The fix ensures workflows with Gmail triggers can now be properly activated when Gmail is connected, with improved error messages if integrations haven't loaded yet.
+
+## January 15, 2025
+
 ### Handled Discord API Message Editing Limitations
 
 Addressed a fundamental Discord API limitation where bots cannot edit messages authored by other users - a security restriction enforced by Discord itself. Our workflow builder was showing all channel messages in the edit action dropdown, leading to confusing permission errors when users tried to edit messages from other users. Implemented intelligent filtering that automatically shows only the bot's own messages when configuring an edit action, since these are the only messages the Discord API allows bots to modify. Enhanced error handling to provide clear guidance when edit attempts fail, suggesting the alternative approach of deleting and re-sending messages if users need to modify content from others. The solution maintains full functionality for other Discord actions like reactions, replies, and deletions, which can operate on any message. This update ensures workflows respect Discord's API boundaries while providing users with clear feedback about what's possible and helpful workarounds for common use cases.

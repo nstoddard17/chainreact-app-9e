@@ -5,9 +5,17 @@ import { processGmailEvent } from '@/lib/webhooks/gmail-processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
 export async function POST(request: NextRequest) {
+  console.log('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
+
+  // Log headers to debug
+  const headers = Object.fromEntries(request.headers.entries())
+  console.log('📋 Request headers:', headers)
+
   try {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
+
+    console.log(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
 
     // Log incoming webhook
     await logWebhookEvent({
@@ -20,10 +28,18 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.text()
+    console.log(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
+
     let eventData: any
 
     try {
       const parsedBody = JSON.parse(body)
+      console.log(`📦 [${requestId}] Parsed body structure:`, {
+        hasMessage: !!parsedBody.message,
+        hasMessageData: !!parsedBody.message?.data,
+        messageKeys: parsedBody.message ? Object.keys(parsedBody.message) : [],
+        subscription: parsedBody.subscription
+      })
 
       // Check if this is a Pub/Sub message
       if (parsedBody.message && parsedBody.message.data) {
@@ -31,6 +47,8 @@ export async function POST(request: NextRequest) {
 
         // Decode the Pub/Sub message data (base64 encoded)
         const decodedData = Buffer.from(parsedBody.message.data, 'base64').toString()
+        console.log(`🔓 [${requestId}] Decoded Pub/Sub data:`, decodedData)
+
         const gmailNotification = JSON.parse(decodedData)
 
         // Gmail Pub/Sub notifications contain emailAddress and historyId
@@ -42,10 +60,14 @@ export async function POST(request: NextRequest) {
           publishTime: parsedBody.message.publishTime
         }
 
-        console.log(`[${requestId}] Gmail notification:`, {
+        console.log(`[${requestId}] 📧 Gmail notification received:`, {
           emailAddress: eventData.emailAddress,
-          historyId: eventData.historyId
+          historyId: eventData.historyId,
+          messageId: parsedBody.message.messageId,
+          publishTime: parsedBody.message.publishTime
         })
+
+        console.log(`[${requestId}] 🔍 Processing Gmail webhook for email from:`, eventData.emailAddress)
       } else {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody
@@ -84,12 +106,14 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ 
-      success: true, 
+    // Return 200 OK to acknowledge the Pub/Sub message
+    // Google Pub/Sub expects a 2xx status code to consider the message delivered
+    return NextResponse.json({
+      success: true,
       service: 'gmail',
       requestId,
-      processingTime 
-    })
+      processingTime
+    }, { status: 200 })
 
   } catch (error) {
     console.error('Gmail webhook error:', error)
@@ -108,6 +132,18 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Google Pub/Sub webhook verification
+  const { searchParams } = new URL(request.url)
+  const token = searchParams.get('token')
+
+  console.log('🔍 Gmail webhook GET request received, token:', token)
+
+  // If this is a verification request from Google, echo back the challenge token
+  if (token) {
+    console.log('✅ Responding to Google Pub/Sub verification with token:', token)
+    return new Response(token, { status: 200 })
+  }
+
   // Health check endpoint
   return NextResponse.json({ 
     status: 'healthy', 
