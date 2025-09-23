@@ -2,6 +2,12 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 23, 2025
+
+### Implemented Smart Verification Delays for Airtable Webhooks
+
+Solved the frustrating issue where Airtable workflows would trigger dozens of times for a single record creation, flooding Discord channels with duplicate messages. The root cause was Airtable's webhook behavior - it sends notifications for every single keystroke as users type, treating each character as a separate "change" event. We implemented an intelligent verification delay system similar to what Zapier uses, which waits 30-60 seconds after detecting a new record before processing it. This delay ensures the user has finished typing and gives them time to delete accidental entries. The feature includes a user-friendly slider in the workflow configuration that lets you adjust the delay from 0 to 120 seconds based on your needs - set it to 0 for instant processing of record updates, or increase it for new records where users might be entering data slowly. The system now intelligently merges data across multiple webhook payloads, schedules processing with timers, and even verifies records still exist before executing workflows. This transforms Airtable automations from chaotic and unreliable to smooth and predictable, executing exactly once per record as intended.
+
 ## January 15, 2025
 
 ### Implemented Complete Email Filter Matching for Gmail Workflows

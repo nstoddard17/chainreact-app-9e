@@ -33,6 +33,20 @@ export const airtableNodes: NodeComponent[] = [
         required: false,
         dependsOn: "baseId",
         description: "Leave empty to monitor all tables in the base"
+      },
+      {
+        name: "verificationDelay",
+        label: "Verification Delay",
+        type: "number",
+        required: false,
+        defaultValue: 30,
+        min: 0,
+        max: 120,
+        step: 5,
+        unit: "seconds",
+        description: "Wait time before processing new records to ensure they're complete",
+        advanced: true,
+        helpText: "Recommended: 30-60 seconds. Prevents triggering on incomplete records or accidental creates."
       }
     ],
     outputSchema: [
@@ -72,6 +86,20 @@ export const airtableNodes: NodeComponent[] = [
         required: false,
         dependsOn: "baseId",
         description: "Leave empty to monitor all tables in the base"
+      },
+      {
+        name: "verificationDelay",
+        label: "Verification Delay",
+        type: "number",
+        required: false,
+        defaultValue: 0,
+        min: 0,
+        max: 120,
+        step: 5,
+        unit: "seconds",
+        description: "Wait time before processing updated records",
+        advanced: true,
+        helpText: "Usually not needed for updates. Set to 0 for immediate processing."
       }
     ],
     outputSchema: [
