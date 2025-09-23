@@ -4,6 +4,14 @@
 
 ## January 15, 2025
 
+### Fixed Gmail Webhook Workflow Triggering Issue
+
+Resolved critical bugs preventing Gmail-triggered workflows from executing when emails arrived. The Gmail webhook processor was checking for the wrong trigger type - looking for `triggerType: 'webhook'` instead of the actual Gmail trigger types like `gmail_trigger_new_email`. This meant no workflows were ever matched when Gmail notifications arrived. Fixed by updating the processor to correctly identify Gmail trigger nodes using multiple field checks (type, nodeType, providerId). Added comprehensive logging throughout the webhook flow to track when Gmail notifications arrive, which workflows are matched, and when executions are triggered. The fix ensures Gmail workflows now properly trigger when emails matching the configured filters are received. Note: Email filter matching (sender, subject, attachments) still needs to be implemented for complete functionality.
+
+### Optimized Workflow Status Updates to Prevent Full Page Rerenders
+
+Fixed a performance issue where pausing or activating a workflow caused the entire workflow page to rerender, creating a jarring user experience. The problem was that after updating a workflow's status, the code was calling `loadAllWorkflows(true)` to force-refresh the entire workflow list from the server, even though the Zustand store already updates the workflow in place when `updateWorkflowById` is called. Removed unnecessary `loadAllWorkflows` calls from status updates, workflow edits, and organization moves since the store's `updateWorkflow` function already updates the workflows array reactively. Now when users pause or activate a workflow, only that specific workflow card updates smoothly without any page-wide rerender, providing a much smoother and more responsive interface.
+
 ### Fixed Gmail Webhook URL Mismatch Breaking Email Triggers
 
 Resolved a critical bug where Gmail webhooks were being registered with the wrong API endpoint path, preventing email triggers from working even on production. The issue had two parts: first, the webhook registration was using `/api/workflow/gmail` (singular) but the actual endpoint was at `/api/webhooks/gmail` (plural), causing Gmail notifications to be sent to a non-existent URL. Second, the webhook registration response was incorrectly returning hardcoded Discord-specific messages for all providers. Fixed by correcting the URL generation in both `triggerWebhookManager.ts` and `getBaseUrl.ts` to use the correct `/api/webhooks/` path, and updated the registration response to return provider-specific success messages. Now Gmail webhooks are properly registered at the correct endpoint and email triggers work reliably on both local development (with ngrok) and production environments.

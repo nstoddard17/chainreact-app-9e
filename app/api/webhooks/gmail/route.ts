@@ -5,9 +5,13 @@ import { processGmailEvent } from '@/lib/webhooks/gmail-processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
 export async function POST(request: NextRequest) {
+  console.log('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
+
   try {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
+
+    console.log(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
 
     // Log incoming webhook
     await logWebhookEvent({
@@ -42,10 +46,14 @@ export async function POST(request: NextRequest) {
           publishTime: parsedBody.message.publishTime
         }
 
-        console.log(`[${requestId}] Gmail notification:`, {
+        console.log(`[${requestId}] 📧 Gmail notification received:`, {
           emailAddress: eventData.emailAddress,
-          historyId: eventData.historyId
+          historyId: eventData.historyId,
+          messageId: parsedBody.message.messageId,
+          publishTime: parsedBody.message.publishTime
         })
+
+        console.log(`[${requestId}] 🔍 Processing Gmail webhook for email from:`, eventData.emailAddress)
       } else {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody

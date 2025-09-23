@@ -160,8 +160,8 @@ export default function WorkflowsContent() {
   }
 
   const handleMoveComplete = () => {
-    // Refresh workflows to reflect the changes
-    loadAllWorkflows(true) // Force refresh after moving to organization
+    // No need to refresh - the store will update automatically
+    // when the move operation completes
   }
 
   const handleEditWorkflow = (workflow: Workflow) => {
@@ -174,8 +174,7 @@ export default function WorkflowsContent() {
       title: "Success",
       description: "Workflow updated successfully",
     })
-    // Refresh workflows to show the updated data
-    await loadAllWorkflows(true) // Force refresh after edit
+    // No need to refresh - the WorkflowDialog already updates the store
   }
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
@@ -343,23 +342,20 @@ export default function WorkflowsContent() {
       try {
         updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
         console.log(`✅ Workflow update completed:`, updatedWorkflow)
+
+        // The store already updates the workflows array, no need to refresh
+        // Just verify the update took effect
+        const verifyWorkflow = workflows.find(w => w.id === id)
+        console.log(`✔️ Verified workflow status:`, {
+          id: verifyWorkflow?.id,
+          status: verifyWorkflow?.status,
+          expectedStatus: newStatus,
+          statusMatches: verifyWorkflow?.status === newStatus
+        })
       } catch (updateError) {
         console.error(`❌ updateWorkflowById failed:`, updateError)
         throw updateError
       }
-
-      // Refresh workflows to ensure UI reflects the latest status
-      console.log(`🔄 Refreshing workflows list...`)
-      await loadAllWorkflows(true)
-
-      // Verify the update took effect
-      const verifyWorkflow = workflows.find(w => w.id === id)
-      console.log(`✔️ Verified workflow status after refresh:`, {
-        id: verifyWorkflow?.id,
-        status: verifyWorkflow?.status,
-        expectedStatus: newStatus,
-        statusMatches: verifyWorkflow?.status === newStatus
-      })
 
       toast({
         title: "Success",
