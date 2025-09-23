@@ -77,9 +77,14 @@ export async function sendDiscordMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
+    console.log("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
+    console.log(`   userId: ${userId}`)
+    console.log(`   config:`, JSON.stringify(config, null, 2))
+    console.log(`   input:`, JSON.stringify(input, null, 2))
+
     // Resolve templated values
     const resolvedConfig = resolveValue(config, { input })
-    
+
     const {
       guildId,
       channelId,
@@ -95,15 +100,26 @@ export async function sendDiscordMessage(
       embedTimestamp = false
     } = resolvedConfig
 
+    console.log(`🔍 [DISCORD DEBUG] Resolved config:`)
+    console.log(`   guildId: ${guildId}`)
+    console.log(`   channelId: ${channelId}`)
+    console.log(`   message: ${message ? 'SET' : 'MISSING'}`)
+
     if (!guildId || !channelId || !message) {
       throw new Error("Guild ID, Channel ID, and message are required")
     }
 
     // Get Discord integration
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
-    
-    const { data: integration } = await supabase
+    console.log(`🔍 [DISCORD DEBUG] Querying Discord integration for userId: ${userId}`)
+
+    // Use service client for webhook-triggered workflows (no cookies in that context)
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: integration, error: integrationError } = await supabase
       .from("integrations")
       .select("*")
       .eq("user_id", userId)
@@ -111,7 +127,18 @@ export async function sendDiscordMessage(
       .eq("status", "connected")
       .single()
 
+    console.log(`🔍 [DISCORD DEBUG] Integration query result:`)
+    console.log(`   error:`, integrationError)
+    console.log(`   integration found:`, !!integration)
+    if (integration) {
+      console.log(`   integration id: ${integration.id}`)
+      console.log(`   integration provider: ${integration.provider}`)
+      console.log(`   integration status: ${integration.status}`)
+      console.log(`   integration userId: ${integration.user_id}`)
+    }
+
     if (!integration) {
+      console.log(`❌ [DISCORD DEBUG] No Discord integration found for userId: ${userId}`)
       throw new Error("Discord integration not connected")
     }
 
@@ -228,8 +255,12 @@ export async function createDiscordCategory(
     }
 
     // Get Discord integration
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
@@ -363,8 +394,12 @@ export async function deleteDiscordCategory(
     }
 
     // Get Discord integration
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
@@ -506,8 +541,12 @@ export async function createDiscordChannel(
     }
 
     // Get Discord integration
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
@@ -660,8 +699,12 @@ export async function addDiscordRole(
     }
 
     // Get Discord integration
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
@@ -761,8 +804,12 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
     }
 
     // Get Discord integration to verify connection
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
@@ -1092,8 +1139,12 @@ export async function fetchDiscordMessages(config: any, userId: string, input: R
     }
 
     // Get Discord integration to verify user has access
-    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
-    const supabase = await createSupabaseServerClient()
+    // Use service client for webhook-triggered workflows
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
     
     const { data: integration } = await supabase
       .from("integrations")
