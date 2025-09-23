@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import crypto from "crypto"
 import { decrypt } from "@/lib/security/encryption"
 import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 
@@ -357,25 +358,72 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     }, { onConflict: 'user_id, base_id, webhook_id' })
 }
 
-export function validateAirtableSignature(body: string, headers: Record<string,string>, macSecretBase64: string): boolean {
+export function validateAirtableSignature(body: string, signatureHeader: string | null, macSecretBase64: string): boolean {
   try {
-    // IMPORTANT: Temporarily bypass signature validation to get webhooks working
-    // This is just for testing - we'll fix the validation after confirming webhooks work
-    console.log('⚠️ WARNING: Signature validation temporarily bypassed for testing')
-    return true
+    if (!macSecretBase64) {
+      console.warn('⚠️ Missing MAC secret for Airtable webhook validation')
+      return false
+    }
 
-    // Original validation code (commented out for now):
-    /*
-    const signature = headers['x-airtable-signature-256'] || headers['X-Airtable-Signature-256']
-    if (!signature) return false
-    const crypto = require('crypto') as typeof import('crypto')
+    if (!signatureHeader) {
+      console.warn('⚠️ Airtable signature header missing')
+      return false
+    }
+
+    const trimmedHeader = signatureHeader.trim()
+    const candidateValues = new Set<string>()
+
+    trimmedHeader.split(',').forEach(part => {
+      const segment = part.trim()
+      if (!segment) return
+      candidateValues.add(segment)
+
+      const equalsIndex = segment.indexOf('=')
+      if (equalsIndex >= 0 && equalsIndex < segment.length - 1) {
+        candidateValues.add(segment.slice(equalsIndex + 1).trim())
+      }
+    })
+
+    if (candidateValues.size === 0) {
+      candidateValues.add(trimmedHeader)
+    }
+
     const macKey = Buffer.from(macSecretBase64, 'base64')
     const hmac = crypto.createHmac('sha256', macKey)
     hmac.update(body, 'utf8')
-    const expected = hmac.digest('hex')
-    return signature === expected
-    */
-  } catch {
+    const expectedBase64 = hmac.digest('base64')
+    const expectedHex = Buffer.from(expectedBase64, 'base64').toString('hex')
+
+    const expectedBuffers = [
+      { buffer: Buffer.from(expectedBase64, 'base64'), encoding: 'base64' as const },
+      { buffer: Buffer.from(expectedHex, 'hex'), encoding: 'hex' as const }
+    ]
+
+    for (const candidate of candidateValues) {
+      if (!candidate) continue
+
+      for (const { buffer: expectedBuffer, encoding } of expectedBuffers) {
+        try {
+          const providedBuffer = Buffer.from(candidate, encoding)
+
+          if (providedBuffer.length !== expectedBuffer.length) {
+            continue
+          }
+
+          if (crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+            return true
+          }
+        } catch {
+          // Ignore decoding errors for this encoding and try the next one
+          continue
+        }
+      }
+    }
+
+    console.warn('⚠️ Airtable signature mismatch detected')
+    return false
+  } catch (error) {
+    console.error('❌ Airtable signature validation failed:', error)
     return false
   }
 }
@@ -553,5 +601,3 @@ export async function cleanupInactiveAirtableWebhooks() {
     console.error('Failed to cleanup inactive Airtable webhooks:', error)
   }
 }
-
-

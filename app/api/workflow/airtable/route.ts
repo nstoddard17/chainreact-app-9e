@@ -131,7 +131,8 @@ async function processSinglePendingRecord(key: string, pending: any): Promise<vo
       pending.userId,
       pending.triggerData.baseId,
       pending.triggerData.tableId,
-      recordId
+      recordId,
+      pending.triggerData.tableName
     )
 
     if (recordExists) {
@@ -209,11 +210,40 @@ export async function POST(req: NextRequest) {
     console.log('✅ Found webhook in database')
 
     // Verify signature
-    const valid = validateAirtableSignature(raw, headers, wh.mac_secret_base64)
+    const headerNames = ['x-airtable-signature-256', 'x-airtable-content-mac', 'x-airtable-signature']
+    let signatureHeader: string | null = null
+
+    for (const [key, value] of req.headers.entries()) {
+      if (headerNames.includes(key.toLowerCase())) {
+        signatureHeader = value
+        break
+      }
+    }
+
+    if (!signatureHeader) {
+      for (const name of headerNames) {
+        const value = headers[name]
+        if (value) {
+          signatureHeader = value
+          break
+        }
+      }
+    }
+
+    console.log('🔐 Airtable signature header (raw):', signatureHeader ? signatureHeader.slice(0, 128) : 'none')
+    console.log('🔐 Airtable headers snapshot:', headerNames.reduce((acc: Record<string, string | undefined>, name) => {
+      acc[name] = headers[name]
+      return acc
+    }, {}))
+
+    const valid = validateAirtableSignature(raw, signatureHeader, wh.mac_secret_base64)
 
     if (!valid) {
       console.error('❌ Signature validation failed!')
       console.error('   This usually means the MAC secret in DB doesn\'t match the webhook')
+      if (!signatureHeader) {
+        console.warn('   Headers received:', Object.keys(headers))
+      }
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
@@ -684,4 +714,3 @@ export async function GET() {
     verification: 'Requires X-Airtable-Signature-256 HMAC-SHA256 of raw body using macSecretBase64'
   })
 }
-
