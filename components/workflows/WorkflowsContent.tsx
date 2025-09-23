@@ -117,7 +117,12 @@ export default function WorkflowsContent() {
 
   // Load integrations on mount
   useEffect(() => {
-    fetchIntegrations()
+    console.log('🔧 Fetching integrations on mount...')
+    fetchIntegrations().then(() => {
+      console.log('✅ Integrations fetched')
+    }).catch((err) => {
+      console.error('❌ Failed to fetch integrations:', err)
+    })
   }, [fetchIntegrations])
 
   // Load user profiles for workflow creators
@@ -175,7 +180,7 @@ export default function WorkflowsContent() {
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
     const status = currentStatus || "draft"
-    
+
     // Determine the new status based on current status
     let newStatus: string
     if (status === "active") {
@@ -184,11 +189,11 @@ export default function WorkflowsContent() {
       newStatus = "active"
     } else if (status === "draft") {
       // For draft workflows, check if they're ready to be activated
-      const workflow = workflows?.find(w => w.id === id)
-      if (workflow) {
-        const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
-        const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger)
-        const hasConnections = workflow.connections?.length > 0
+      const targetWorkflow = workflows?.find(w => w.id === id)
+      if (targetWorkflow) {
+        const hasTrigger = targetWorkflow.nodes?.some(n => n.data?.isTrigger)
+        const hasAction = targetWorkflow.nodes?.some(n => !n.data?.isTrigger)
+        const hasConnections = targetWorkflow.connections?.length > 0
         
         if (!hasTrigger) {
           toast({
@@ -229,14 +234,21 @@ export default function WorkflowsContent() {
       // Set loading state for this specific workflow
       setUpdatingWorkflows(prev => new Set(prev).add(id))
 
-      console.log(`🔄 Updating workflow ${id} status from ${status} to ${newStatus}`)
+      console.log(`🔄 [HandleToggleStatus] Starting update for workflow ${id}`)
+      console.log(`   Current status: ${status}`)
+      console.log(`   Target status: ${newStatus}`)
+      console.log(`   Available workflows:`, workflows?.map(w => ({ id: w.id, name: w.name })))
 
       // If activating, check for Gmail trigger and register webhook
       if (newStatus === 'active') {
         // Get the workflow to check its nodes
-        const workflow = workflows.find(w => w.id === id)
-        if (workflow?.nodes) {
-          const gmailTrigger = workflow.nodes.find((n: any) =>
+        const workflowToUpdate = workflows.find(w => w.id === id)
+        console.log(`   Found workflow in list: ${!!workflowToUpdate}`)
+        console.log(`   Workflow ID to update: ${id}`)
+        console.log(`   Workflow found ID: ${workflowToUpdate?.id}`)
+        console.log(`   Workflow nodes: ${workflowToUpdate?.nodes?.length || 0}`)
+        if (workflowToUpdate?.nodes) {
+          const gmailTrigger = workflowToUpdate.nodes.find((n: any) =>
             n?.data?.type === 'gmail_trigger_new_email' ||
             n?.data?.nodeType === 'gmail_trigger_new_email' ||
             n?.type === 'gmail_trigger_new_email'
@@ -244,16 +256,30 @@ export default function WorkflowsContent() {
 
           if (gmailTrigger) {
             console.log('🔔 Gmail trigger detected, registering webhook...')
+            console.log('📧 Available integrations:', integrations?.map(i => ({
+              provider: i.provider,
+              status: i.status
+            })))
 
             // Check if user has Gmail integration connected
             const gmailIntegration = integrations.find(
-              (int: any) => int.provider_id === 'gmail' && int.status === 'connected'
+              (int: any) => int.provider === 'gmail' && int.status === 'connected'
             )
 
+            console.log('📧 Gmail integration found:', gmailIntegration ? 'YES' : 'NO')
+            if (gmailIntegration) {
+              console.log('📧 Gmail integration details:', {
+                provider: gmailIntegration.provider,
+                status: gmailIntegration.status,
+                id: gmailIntegration.id
+              })
+            }
+
             if (!gmailIntegration) {
+              console.error('❌ Gmail integration not found in integrations list')
               toast({
-                title: "Gmail not connected",
-                description: "Please connect your Gmail account before activating a workflow with Gmail trigger.",
+                title: "Gmail integration issue",
+                description: "Gmail appears disconnected or integrations haven't loaded. Try refreshing the page.",
                 variant: "destructive",
               })
               setUpdatingWorkflows(prev => {
@@ -264,46 +290,76 @@ export default function WorkflowsContent() {
               return
             }
 
-            // Register the Gmail webhook
-            const webhookResponse = await fetch('/api/workflows/webhook-registration', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                workflowId: id,
-                triggerType: gmailTrigger.data?.type || gmailTrigger.data?.nodeType || gmailTrigger.type,
-                providerId: 'gmail',
-                config: {
-                  labelIds: gmailTrigger.data?.config?.labelIds || ['INBOX']
-                }
+            // Register the Gmail webhook (non-blocking)
+            console.log('🚀 Starting Gmail webhook registration...')
+            try {
+              const webhookResponse = await fetch('/api/workflows/webhook-registration', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  workflowId: id,
+                  triggerType: gmailTrigger.data?.type || gmailTrigger.data?.nodeType || gmailTrigger.type,
+                  providerId: 'gmail',
+                  config: {
+                    labelIds: gmailTrigger.data?.config?.labelIds || ['INBOX']
+                  }
+                })
               })
-            })
 
-            if (!webhookResponse.ok) {
-              const errorData = await webhookResponse.json()
-              console.error('Failed to register Gmail webhook:', errorData)
+              console.log('📨 Webhook registration response received:', webhookResponse.status)
+
+              if (!webhookResponse.ok) {
+                const errorData = await webhookResponse.json()
+                console.error('⚠️ Gmail webhook registration failed (non-blocking):', errorData)
+                // Don't block workflow activation, just show a warning
+                toast({
+                  title: "Webhook Warning",
+                  description: "Workflow activated but Gmail notifications may not work. Try reconnecting Gmail.",
+                  variant: "default",
+                })
+              } else {
+                const webhookData = await webhookResponse.json()
+                console.log('✅ Gmail webhook registered successfully:', webhookData)
+              }
+            } catch (webhookError) {
+              console.error('⚠️ Gmail webhook registration error (non-blocking):', webhookError)
+              // Don't block workflow activation, just show a warning
               toast({
-                title: "Webhook registration failed",
-                description: errorData.details || errorData.error || "Could not set up Gmail notifications.",
-                variant: "destructive",
+                title: "Webhook Warning",
+                description: "Workflow activated but Gmail notifications may not work.",
+                variant: "default",
               })
-              setUpdatingWorkflows(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(id)
-                return newSet
-              })
-              return
             }
-
-            const webhookData = await webhookResponse.json()
-            console.log('✅ Gmail webhook registered:', webhookData)
+            console.log('🔚 Gmail webhook registration completed (success or failure)')
           }
         }
       }
 
-      await updateWorkflowById(id, { status: newStatus })
+      console.log(`📝 About to call updateWorkflowById for ${id} with status: ${newStatus}`)
+      let updatedWorkflow
+      try {
+        updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
+        console.log(`✅ Workflow update completed:`, updatedWorkflow)
+      } catch (updateError) {
+        console.error(`❌ updateWorkflowById failed:`, updateError)
+        throw updateError
+      }
+
+      // Refresh workflows to ensure UI reflects the latest status
+      console.log(`🔄 Refreshing workflows list...`)
+      await loadAllWorkflows(true)
+
+      // Verify the update took effect
+      const verifyWorkflow = workflows.find(w => w.id === id)
+      console.log(`✔️ Verified workflow status after refresh:`, {
+        id: verifyWorkflow?.id,
+        status: verifyWorkflow?.status,
+        expectedStatus: newStatus,
+        statusMatches: verifyWorkflow?.status === newStatus
+      })
 
       toast({
         title: "Success",
