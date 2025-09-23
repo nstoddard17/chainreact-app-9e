@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
-import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
+import { getWebhookBaseUrl, getWebhookUrl } from '@/lib/utils/getBaseUrl'
 
 interface WebhookTriggerConfig {
   workflowId: string
@@ -108,6 +108,41 @@ export class TriggerWebhookManager {
     } catch (error) {
       console.error('Error registering webhook:', error)
       throw error
+    }
+  }
+
+  /**
+   * Unregister all webhooks for a workflow
+   */
+  async unregisterWorkflowWebhooks(workflowId: string): Promise<void> {
+    try {
+      console.log(`🔗 Unregistering all webhooks for workflow ${workflowId}`)
+
+      // Get all webhook configs for this workflow
+      const { data: webhookConfigs, error } = await this.supabase
+        .from('webhook_configs')
+        .select('*')
+        .eq('workflow_id', workflowId)
+
+      if (error) {
+        console.error('Failed to fetch webhook configs:', error)
+        return
+      }
+
+      if (!webhookConfigs || webhookConfigs.length === 0) {
+        console.log('No webhooks found for this workflow')
+        return
+      }
+
+      // Unregister each webhook
+      for (const config of webhookConfigs) {
+        await this.unregisterWebhook(config.id)
+      }
+
+      console.log(`✅ Unregistered ${webhookConfigs.length} webhook(s) for workflow ${workflowId}`)
+    } catch (error) {
+      console.error('Failed to unregister workflow webhooks:', error)
+      // Don't throw - best effort cleanup
     }
   }
 
@@ -582,8 +617,9 @@ export class TriggerWebhookManager {
 
       console.log(`🔧 Registering Airtable webhook for base: ${baseId}, table: ${tableName || 'all tables'}`)
 
-      // Get the webhook URL for Airtable
-      const webhookUrl = getWebhookBaseUrl() + '/api/workflow/airtable'
+      // Get the webhook URL for Airtable (uses HTTPS in development via ngrok if configured)
+      const webhookUrl = getWebhookUrl('airtable')
+      console.log(`📢 Using webhook URL: ${webhookUrl}`)
 
       // Register webhook with Airtable (this handles creating or reusing existing webhook)
       await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl, tableName)

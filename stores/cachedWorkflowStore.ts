@@ -271,20 +271,25 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
   }, 30000) // 30 second timeout - increased for large workflows
 
   try {
-    const { data: savedData, error } = await supabase
-      .from("workflows")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single()
-      .abortSignal(controller.signal)
+    // Use API endpoint instead of direct Supabase to trigger webhook registration
+    const response = await fetch(`/api/workflows/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+      signal: controller.signal,
+    })
 
     clearTimeout(timeoutId)
 
-    if (error) {
-      console.error(`❌ Supabase update failed for workflow ${id}:`, error)
-      throw error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to update workflow' }))
+      console.error(`❌ API update failed for workflow ${id}:`, errorData)
+      throw new Error(errorData.error || 'Failed to update workflow')
     }
+
+    const savedData = await response.json()
     
     console.log("✅ Workflow updated successfully:", {
       id: savedData.id,
