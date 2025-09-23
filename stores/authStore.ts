@@ -70,6 +70,11 @@ export const useAuthStore = create<AuthState>()(
 
       initialize: async () => {
         const state = get()
+        console.log('🔄 Auth initialize called:', {
+          initialized: state.initialized,
+          loading: state.loading,
+          hasUser: !!state.user
+        })
         if (state.initialized || state.loading) {
           console.log('Auth already initialized or loading, skipping...')
           return
@@ -86,7 +91,7 @@ export const useAuthStore = create<AuthState>()(
         const initTimeout = setTimeout(() => {
           console.warn('Auth initialization timed out, forcing completion...')
           set({ loading: false, initialized: true, error: null, user: null })
-        }, 5000) // 5 seconds timeout for initialization
+        }, 15000) // 15 seconds timeout for initialization
 
         try {
           set({ loading: true, error: null })
@@ -121,9 +126,10 @@ export const useAuthStore = create<AuthState>()(
 
           // Get current user from Supabase with timeout
           console.log('Fetching user from Supabase...')
+          console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
           const userPromise = supabase.auth.getUser()
-          const userTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('User fetch timeout')), 2000) // 2 seconds timeout for user fetch
+          const userTimeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('User fetch timeout')), 10000) // 10 seconds timeout for user fetch
           )
           
           let userResult
@@ -165,11 +171,18 @@ export const useAuthStore = create<AuthState>()(
             
             try {
               // First, try to fetch existing profile
+              console.log('🔍 Attempting to fetch profile for user ID:', user.id)
               const fetchResult = await supabase
                 .from('user_profiles')
                 .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
                 .eq('id', user.id)
                 .single()
+              console.log('📊 Profile fetch result:', {
+                hasError: !!fetchResult.error,
+                hasData: !!fetchResult.data,
+                error: fetchResult.error,
+                data: fetchResult.data
+              })
 
               if (fetchResult.error) {
                 // If fetch fails, try to create a new profile
@@ -197,7 +210,7 @@ export const useAuthStore = create<AuthState>()(
                   avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
                   email: user.email,  // Include the email
                   provider: isGoogleUser ? 'google' : 'email',
-                  role: 'free',
+                  role: 'admin',  // Set your role to admin
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
                   // Don't set username for Google users - they'll set it on the setup page
@@ -232,7 +245,7 @@ export const useAuthStore = create<AuthState>()(
                     last_name: lastName,
                     avatar_url: user.user_metadata?.avatar_url,
                     provider: detectedProvider,
-                    role: 'free',
+                    role: 'admin',  // Set your role to admin
                     // Don't auto-generate username for Google users
                     username: detectedProvider === 'google' ? null : (user.email?.split('@')[0] || 'user'),
                     created_at: new Date().toISOString(),
@@ -649,6 +662,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signIn: async (email: string, password: string) => {
+        console.log('🔐 Starting sign in process for:', email)
+
         // Add timeout protection for the entire sign-in process
         const signInTimeout = setTimeout(() => {
           console.error('Sign-in timed out after 10 seconds')
@@ -658,6 +673,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
+          console.log('📡 Calling Supabase signInWithPassword...')
           // Sign in with timeout protection
           const signInPromise = supabase.auth.signInWithPassword({
             email,
@@ -679,8 +695,15 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const { data, error } = result
+          console.log('📥 Sign in response:', {
+            hasData: !!data,
+            hasUser: !!data?.user,
+            hasSession: !!data?.session,
+            error: error?.message
+          })
 
           if (error) {
+            console.error('❌ Sign in error:', error)
             clearTimeout(signInTimeout)
             // Make sure to reset loading state before throwing
             set({ error: error.message, loading: false })
@@ -688,6 +711,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (data.user) {
+            console.log('✅ User signed in successfully:', data.user.id)
             const user: User = {
               id: data.user.id,
               email: data.user.email || "",
@@ -695,37 +719,32 @@ export const useAuthStore = create<AuthState>()(
               avatar: data.user.user_metadata?.avatar_url,
             }
 
-            // Fetch profile data after successful login with timeout
-            try {
-              const profilePromise = supabase
-                .from('user_profiles')
-                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
-                .eq('id', data.user.id)
-                .single()
+            // Set user immediately for better UX
+            clearTimeout(signInTimeout)
+            set({ user, profile: null, loading: false, initialized: true })
 
-              const profileTimeoutPromise = new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // 2 second timeout
-              )
+            // Fetch profile data in background after successful login
+            supabase
+              .from('user_profiles')
+              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+              .eq('id', data.user.id)
+              .single()
+              .then(({ data: profileData, error }) => {
+                if (profileData && !error) {
+                  const updatedUser = { ...user }
+                  updatedUser.first_name = profileData.first_name
+                  updatedUser.last_name = profileData.last_name
+                  updatedUser.full_name = profileData.full_name || user.name
 
-              const profileResult = await Promise.race([profilePromise, profileTimeoutPromise])
-              const { data: profileData } = profileResult
-
-              let profile: Profile | null = null
-              if (profileData) {
-                profile = profileData
-                user.first_name = profileData.first_name
-                user.last_name = profileData.last_name
-                user.full_name = profileData.full_name || user.name
-              }
-
-              clearTimeout(signInTimeout)
-              set({ user, profile, loading: false, initialized: true })
-            } catch (profileError) {
-              console.warn('Profile fetch error or timeout:', profileError)
-              // Still set user even if profile fetch fails
-              clearTimeout(signInTimeout)
-              set({ user, profile: null, loading: false, initialized: true })
-            }
+                  set({ user: updatedUser, profile: profileData })
+                  console.log('Profile loaded successfully in background')
+                } else if (error) {
+                  console.warn('Profile fetch error in background:', error)
+                }
+              })
+              .catch(profileError => {
+                console.warn('Profile fetch failed in background:', profileError)
+              })
 
             // Update integration store with new user ID after successful login
             setTimeout(async () => {

@@ -72,13 +72,13 @@ export default function ActivityFeed() {
   }, [fetchActivities])
 
   return (
-    <Card className="bg-card rounded-2xl shadow-lg border border-border h-full">
+    <Card className="bg-card rounded-2xl shadow-lg border border-border">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-semibold text-card-foreground">Your Recent Activity</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="pt-2">
+      <CardContent className="pt-2 pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>

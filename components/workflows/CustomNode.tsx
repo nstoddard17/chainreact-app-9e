@@ -21,6 +21,9 @@ interface CustomNodeData {
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void
+  onAddAction?: () => void
+  hasAddButton?: boolean
+  isPlaceholder?: boolean
   error?: string
   executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
   isActiveExecution?: boolean
@@ -45,6 +48,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
     onDelete,
     onAddChain,
     onRename,
+    onAddAction,
+    hasAddButton,
+    isPlaceholder,
     error,
     executionStatus,
     isActiveExecution,
@@ -197,8 +203,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Check if this node has configuration options
   const nodeHasConfiguration = (): boolean => {
     if (!component) return false
-    
-    // All trigger nodes should have configuration
+
+    // Manual triggers don't show configuration button - they open trigger selection on double-click
+    if (type === 'manual') {
+      return false
+    }
+
+    // All other trigger nodes should have configuration
     if (isTrigger) {
       return true
     }
@@ -226,6 +237,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // Manual triggers open the trigger selection dialog on double-click
+    if (type === 'manual' && onConfigure) {
+      // For manual triggers, onConfigure should open the trigger selection dialog
+      onConfigure(id)
+      return
+    }
+
     // Only open configuration if the node has configuration options
     if (nodeHasConfiguration() && onConfigure) {
       onConfigure(id)
@@ -371,34 +390,56 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 </Tooltip>
               </TooltipProvider>
             )}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleDelete}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Delete {title}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {/* Don't show delete button for chain placeholder nodes */}
+            {type !== 'chain_placeholder' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleDelete}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Delete {title}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
       </div>
 
       {/* Centered Add Action button for chain placeholders - matching AI Agent builder design */}
-      {type === 'chain_placeholder' && data.hasAddButton && data.onAddAction && (
+      {console.log('Chain placeholder button check:', {
+        type,
+        isChainPlaceholder: type === 'chain_placeholder',
+        hasAddButton,
+        isPlaceholder,
+        onAddAction: !!onAddAction,
+        shouldShowButton: type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction
+      })}
+      {type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction && (
         <div className="px-4 pb-4 flex justify-center">
           <Button
             variant="outline"
             size="sm"
             onClick={(e) => {
               e.stopPropagation()
-              data.onAddAction()
+              if (onAddAction) {
+                onAddAction()
+              } else {
+                // Fallback: simulate clicking on the placeholder node itself
+                // This should trigger the handleAddActionClick with the placeholder's ID
+                console.warn('Chain placeholder missing onAddAction callback, using fallback')
+                // Find the workflow builder's handleAddActionClick function
+                const event = new CustomEvent('chain-placeholder-add-action', {
+                  detail: { nodeId: id, parentId: id }
+                })
+                window.dispatchEvent(event)
+              }
             }}
             className="gap-2 w-full max-w-[200px]"
           >

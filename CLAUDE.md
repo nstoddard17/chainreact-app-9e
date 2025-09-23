@@ -44,6 +44,98 @@ npm run refresh-tokens:batch       # Batch refresh (50 tokens, 10 per batch)
 npm run fix-integrations           # Fix problematic integrations
 ```
 
+### Supabase Database Management
+**IMPORTANT**: Use Supabase CLI for all database changes. The CLI is already installed and configured.
+
+#### First-Time Setup (User Action Required)
+Before Claude can use the Supabase CLI, you need to authenticate once:
+
+1. **Generate an access token**:
+   - Go to https://supabase.com/dashboard/account/tokens
+   - Create a new access token
+   - Copy the token
+
+2. **Set the token in your terminal**:
+   ```bash
+   export SUPABASE_ACCESS_TOKEN="your-token-here"
+   ```
+
+3. **Link the project** (Claude will do this after you set the token):
+   ```bash
+   supabase link --project-ref xzwsdwllmrnrgbltibxt
+   ```
+
+#### Common Supabase Commands
+```bash
+# Database Migrations
+supabase migration new <migration_name>  # Create a new migration file
+supabase db push                        # Apply migrations to remote database
+supabase db reset                       # Reset local database to initial state
+supabase migration list                 # List all migrations
+
+# Database Operations
+supabase db pull                        # Pull remote schema to local
+supabase db diff                        # Show differences between local and remote
+supabase db lint                        # Check for schema issues
+
+# Local Development
+supabase start                          # Start local Supabase stack
+supabase stop                           # Stop local Supabase stack
+supabase status                         # Show status of local services
+
+# Remote Connection
+supabase link --project-ref <project-ref>  # Link to remote project (if needed)
+supabase db remote commit               # Commit remote changes to migration file
+```
+
+#### Creating Database Migrations
+When adding new tables or modifying the schema:
+
+1. **Create a migration file**:
+   ```bash
+   supabase migration new <descriptive_name>
+   # Example: supabase migration new add_learning_resources_table
+   ```
+   This creates a new SQL file in `/supabase/migrations/`
+
+2. **Write the SQL in the migration file**:
+   - Add CREATE TABLE statements
+   - Add RLS policies
+   - Add indexes
+   - Add triggers if needed
+
+3. **Apply the migration to remote database**:
+   ```bash
+   supabase db push
+   ```
+
+4. **For local testing**:
+   ```bash
+   supabase start  # Start local Supabase (if not already running)
+   supabase db reset  # Apply all migrations to local DB
+   ```
+
+#### Important Notes
+- **Never modify existing migration files** after they've been pushed
+- **Always create new migrations** for schema changes
+- **Use descriptive names** for migrations (e.g., `add_user_role_column`, `create_workflows_table`)
+- **Test locally first** using `supabase start` and `supabase db reset`
+- Migration files are located in `/supabase/migrations/`
+- The local Supabase project is configured in `/supabase/config.toml`
+
+#### Example: Adding the Learning Resources Table
+To apply the learning resources migration we created:
+```bash
+# 1. The migration file is already created at:
+#    /supabase/migrations/20240115_create_learning_resources.sql
+
+# 2. Apply to remote database:
+supabase db push
+
+# 3. Verify the migration:
+supabase migration list
+```
+
 ### Git Workflow
 **IMPORTANT**: Do NOT make any git commits or push to GitHub unless explicitly asked to do so. This includes:
 - No automatic `git commit` commands

@@ -532,8 +532,17 @@ export function AIAgentConfigModal({
         )
       )
     }
-    
-    return integrations
+
+    // Sort integrations to put core first, then logic, then AI Agent, then alphabetically
+    return integrations.sort((a, b) => {
+      if (a.id === 'core') return -1
+      if (b.id === 'core') return 1
+      if (a.id === 'logic') return -1
+      if (b.id === 'logic') return 1
+      if (a.id === 'ai') return -1
+      if (b.id === 'ai') return 1
+      return a.name.localeCompare(b.name)
+    })
   }
   
   // Render integration logo - matching main workflow builder

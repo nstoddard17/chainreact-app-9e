@@ -51,10 +51,10 @@ export function AddActionNode({ data, dragging }: NodeProps) {
         </TooltipProvider>
         <div className="w-px h-4 bg-border mt-2 pointer-events-none" />
       </div>
-      <Handle 
-        type="target" 
-        position={Position.Top} 
-        className="!w-0 !h-0 !-top-1 !bg-transparent !border-none pointer-events-none" 
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!w-0 !h-0 !-top-1 !bg-transparent !border-none pointer-events-none"
         isConnectable={false}
       />
     </div>

@@ -66,6 +66,7 @@ export class TriggerWebhookManager {
       'hubspot_trigger_contact_updated',
       'airtable_trigger_new_record',
       'airtable_trigger_record_updated',
+      'airtable_trigger_table_deleted',
       'discord_trigger_new_message',
       'discord_trigger_member_joined',
       'discord_trigger_reaction_added'
@@ -217,6 +218,8 @@ export class TriggerWebhookManager {
         return this.transformHubspotContactPayload(payload)
       
       case 'airtable_trigger_new_record':
+      case 'airtable_trigger_record_updated':
+      case 'airtable_trigger_table_deleted':
         return this.transformAirtableRecordPayload(payload)
       
       case 'discord_trigger_new_message':
@@ -526,19 +529,81 @@ export class TriggerWebhookManager {
         // Google Calendar webhooks require setting up with Google Cloud
         console.log('Google Calendar webhook registration would require Google Cloud setup')
         break
-      
+
+      case 'airtable':
+        // Register Airtable webhook for the base
+        console.log('🔗 Setting up Airtable webhook for base monitoring')
+        await this.registerAirtableWebhook(config, webhookId)
+        break
+
       case 'slack':
         // Slack webhooks are typically configured through Slack app settings
         console.log('Slack webhook registration would require Slack app configuration')
         break
-      
+
       case 'github':
         // GitHub webhooks are configured through repository settings
         console.log('GitHub webhook registration would require repository webhook setup')
         break
-      
+
       default:
         console.log(`Webhook registration for ${config.providerId} not yet implemented`)
+    }
+  }
+
+  /**
+   * Register Airtable webhook for base monitoring
+   */
+  private async registerAirtableWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's Airtable integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'airtable')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Airtable integration not found or not connected')
+      }
+
+      // Import Airtable webhook setup function
+      const { ensureAirtableWebhookForBase } = await import('@/lib/integrations/airtable/webhooks')
+
+      // Extract baseId and tableName from config
+      const baseId = config.config?.baseId
+      const tableName = config.config?.tableName
+
+      if (!baseId) {
+        throw new Error('Base ID is required for Airtable webhook registration')
+      }
+
+      console.log(`🔧 Registering Airtable webhook for base: ${baseId}, table: ${tableName || 'all tables'}`)
+
+      // Get the webhook URL for Airtable
+      const webhookUrl = getWebhookBaseUrl() + '/api/workflow/airtable'
+
+      // Register webhook with Airtable (this handles creating or reusing existing webhook)
+      await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl, tableName)
+
+      // Store webhook configuration details
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            baseId: baseId,
+            tableName: config.config?.tableName || null,
+            triggerType: config.triggerType
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Airtable webhook registered successfully for base:', baseId)
+    } catch (error) {
+      console.error('Failed to register Airtable webhook:', error)
+      throw error
     }
   }
 
@@ -581,6 +646,24 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Unregister Airtable webhook
+   */
+  private async unregisterAirtableWebhook(webhookConfig: any): Promise<void> {
+    try {
+      const baseId = webhookConfig.metadata?.baseId || webhookConfig.config?.baseId
+      if (!baseId) return
+
+      const { unregisterAirtableWebhook } = await import('@/lib/integrations/airtable/webhooks')
+      await unregisterAirtableWebhook(webhookConfig.user_id, baseId)
+
+      console.log('✅ Airtable webhook unregistered successfully')
+    } catch (error) {
+      console.error('Failed to unregister Airtable webhook:', error)
+      // Don't throw - continue with cleanup even if Airtable API fails
+    }
+  }
+
+  /**
    * Unregister webhook from external service
    */
   private async unregisterFromExternalService(webhookConfig: any): Promise<void> {
@@ -589,7 +672,11 @@ export class TriggerWebhookManager {
       case 'discord':
         await this.unregisterDiscordWebhook(webhookConfig)
         break
-      
+
+      case 'airtable':
+        await this.unregisterAirtableWebhook(webhookConfig)
+        break
+
       default:
         console.log(`Unregistering webhook from ${webhookConfig.provider_id} not yet implemented`)
     }
