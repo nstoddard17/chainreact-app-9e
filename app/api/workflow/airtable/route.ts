@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     // Find webhook secret for validation
     const { data: wh, error: whError } = await supabase
       .from('airtable_webhooks')
-      .select('id, user_id, mac_secret_base64, status, webhook_id')
+      .select('id, user_id, mac_secret_base64, status, webhook_id, last_cursor')
       .eq('base_id', baseId)
       .eq('webhook_id', webhookId)
       .eq('status', 'active')
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch actual payloads from Airtable
-    const payloads = await fetchAirtableWebhookPayloads(baseId, webhookId)
+    const payloads = await fetchAirtableWebhookPayloads(baseId, webhookId, wh.last_cursor ?? undefined)
     const payloadCount = payloads?.payloads?.length || 0
   if (payloadCount > 0) {
     console.log(`📦 Processing ${payloadCount} Airtable payload(s)`)
@@ -684,5 +684,4 @@ export async function GET() {
     verification: 'Requires X-Airtable-Signature-256 HMAC-SHA256 of raw body using macSecretBase64'
   })
 }
-
 

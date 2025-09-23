@@ -23,7 +23,7 @@ export async function verifyAirtableRecord(
     // Get user's Airtable integration and access token
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
-      .select('encrypted_access_token, status')
+      .select('access_token, status')
       .eq('user_id', userId)
       .eq('provider', 'airtable')
       .eq('status', 'connected')
@@ -36,7 +36,7 @@ export async function verifyAirtableRecord(
 
     // Decrypt the access token
     const { decryptToken } = await import('../tokenUtils');
-    const accessToken = await decryptToken(integration.encrypted_access_token);
+    const accessToken = await decryptToken(integration.access_token);
 
     if (!accessToken) {
       console.error('❌ Failed to decrypt Airtable access token');
