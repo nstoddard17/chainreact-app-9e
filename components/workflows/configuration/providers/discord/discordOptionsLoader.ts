@@ -4,8 +4,6 @@
  */
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
-import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore';
-import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore';
 
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -120,26 +118,39 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
   private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
     try {
-      const guilds = await loadDiscordGuildsOnce(forceRefresh || false);
-      
+      const response = await fetch('/api/integrations/discord/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataType: 'discord_guilds'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load guilds: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const guilds = result.data || [];
+
       if (!guilds || guilds.length === 0) {
         console.log('🔍 [Discord] No guilds found - bot may not be in any servers');
         return [];
       }
-      
-      return guilds.map(guild => ({
+
+      return guilds.map((guild: any) => ({
         value: guild.id,
         label: guild.name,
       }));
     } catch (error: any) {
       console.error('❌ [Discord] Error loading guilds:', error);
-      
+
       // Handle authentication errors
       if (error.message?.includes('authentication') || error.message?.includes('expired')) {
         console.log('🔄 [Discord] Authentication error detected, may need to refresh integration');
         // Could trigger integration refresh here if needed
       }
-      
+
       return [];
     }
   }
@@ -154,7 +165,21 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       // Add a small delay to prevent rapid consecutive calls
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      const channels = await loadDiscordChannelsOnce(guildId, forceRefresh || false);
+      const response = await fetch('/api/integrations/discord/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataType: 'discord_channels',
+          options: { guildId }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load channels: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const channels = result.data || [];
       
       if (!channels || channels.length === 0) {
         console.warn('⚠️ [Discord] No channels found for guild:', guildId);
@@ -162,7 +187,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       }
       
       return channels
-        .filter(channel => channel && channel.id)
+        .filter((channel: any) => channel && channel.id)
         .sort((a, b) => {
           // Sort by position first, then alphabetically
           if (a.position !== undefined && b.position !== undefined) {

@@ -16,7 +16,6 @@ export interface Integration {
   metadata?: any
   disconnected_at?: string | null
   disconnect_reason?: string | null
-  lastRefreshTime: string | null
   [key: string]: any
 }
 
@@ -42,27 +41,6 @@ export interface ApiResponse<T = any> {
  * Extracted from integrationStore.ts for better separation of concerns
  */
 export class IntegrationService {
-  // Cache for integrations data
-  private static integrationsCache: {
-    data: Integration[] | null
-    timestamp: number
-  } = {
-    data: null,
-    timestamp: 0
-  }
-  
-  // Cache duration in milliseconds (5 minutes)
-  private static CACHE_DURATION = 5 * 60 * 1000
-  
-  /**
-   * Clear the integrations cache
-   */
-  static clearCache() {
-    this.integrationsCache = {
-      data: null,
-      timestamp: 0
-    }
-  }
   
   /**
    * Fetch all available integration providers
@@ -85,18 +63,9 @@ export class IntegrationService {
   }
 
   /**
-   * Fetch user's connected integrations with retry logic and caching
+   * Fetch user's connected integrations with retry logic
    */
   static async fetchIntegrations(force = false): Promise<Integration[]> {
-    // Check cache first (unless force refresh is requested)
-    if (!force && this.integrationsCache.data) {
-      const cacheAge = Date.now() - this.integrationsCache.timestamp
-      if (cacheAge < this.CACHE_DURATION) {
-        console.log('Using cached integrations data')
-        return this.integrationsCache.data
-      }
-    }
-
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
     // Retry logic
@@ -121,7 +90,6 @@ export class IntegrationService {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          cache: force ? "no-store" : "default",
           signal: controller.signal,
         })
 
@@ -133,13 +101,6 @@ export class IntegrationService {
 
         const data = await response.json()
         const integrations = data.data || []
-        
-        // Update cache
-        this.integrationsCache = {
-          data: integrations,
-          timestamp: Date.now()
-        }
-        
         return integrations
       } catch (error: any) {
         clearTimeout(timeoutId)

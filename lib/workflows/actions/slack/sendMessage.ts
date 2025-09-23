@@ -240,7 +240,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   .from('slack-attachments')
                   .upload(fileName, buffer, {
                     contentType: mimeType,
-                    cacheControl: '3600',
                     upsert: false
                   });
 
@@ -358,7 +357,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   .from('slack-attachments')
                   .upload(fileName, buffer, {
                     contentType: icon.mimeType || icon.fileType || 'image/png',
-                    cacheControl: '3600',
                     upsert: false
                   });
 
@@ -430,8 +428,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .from('slack-attachments')
                     .upload(fileName, buffer, {
                       contentType: mimeType,
-                      cacheControl: '3600',
-                      upsert: false
+                        upsert: false
                     });
 
                 if (!uploadError && uploadData) {
@@ -526,7 +523,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   .from('slack-attachments')
                   .upload(fileName, buffer, {
                     contentType: attachment.mimeType || attachment.fileType || 'application/octet-stream',
-                    cacheControl: '3600',
                     upsert: false
                   });
 
@@ -570,7 +566,6 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   .from('slack-attachments')
                   .upload(fileName, buffer, {
                     contentType: fileData.metadata.fileType,
-                    cacheControl: '3600',
                     upsert: false
                   });
 

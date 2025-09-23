@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2 } from "lucide-react"
 import { useWorkflows } from "@/hooks/use-workflows"
-import { Workflow } from "@/stores/cachedWorkflowStore"
+import type { Workflow } from "@/stores/workflowStore"
 
 interface WorkflowDialogProps {
   open: boolean

@@ -132,14 +132,6 @@ export function DiscordConfiguration({
       if (event.detail?.provider === 'discord') {
         console.log('✅ [DiscordConfig] Discord reconnected, refreshing fields...');
         
-        // Clear Discord guilds cache to ensure fresh data
-        try {
-          const { clearDiscordGuildsCache } = await import('@/stores/discordGuildsCacheStore');
-          clearDiscordGuildsCache();
-          console.log('✅ [DiscordConfig] Cleared Discord guilds cache');
-        } catch (error) {
-          console.error('Failed to clear Discord guilds cache:', error);
-        }
         
         // Set loading state for the guild field
         setLoadingFields(prev => {

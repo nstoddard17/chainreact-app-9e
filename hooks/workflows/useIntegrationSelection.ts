@@ -2,7 +2,6 @@ import React, { useMemo, useCallback, useEffect, useState } from 'react'
 import { ALL_NODE_COMPONENTS, NodeComponent } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationStore } from '@/stores/integrationStore'
-import { useIntegrationsStore } from '@/stores/integrationCacheStore'
 import { useAuthStore } from '@/stores/authStore'
 
 interface IntegrationInfo {
@@ -17,7 +16,6 @@ interface IntegrationInfo {
 
 export function useIntegrationSelection() {
   const { getConnectedProviders, fetchIntegrations, integrations: storeIntegrations, loading } = useIntegrationStore()
-  const { data: integrations } = useIntegrationsStore()
   const { profile } = useAuthStore()
   
   // Fetch integrations once on mount if store is empty
@@ -283,7 +281,7 @@ export function useIntegrationSelection() {
     renderLogo,
     categories,
     comingSoonIntegrations,
-    integrations,
+    integrations: storeIntegrations,
     loadingIntegrations: loading,
     refreshIntegrations,
   }

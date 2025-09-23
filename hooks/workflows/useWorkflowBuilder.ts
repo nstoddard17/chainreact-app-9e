@@ -7,8 +7,6 @@ import { useToast } from '@/hooks/use-toast'
 import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnection } from '@/stores/workflowStore'
 import { useCollaborationStore } from '@/stores/collaborationStore'
 import { useIntegrationStore } from '@/stores/integrationStore'
-import { loadWorkflows, useWorkflowsListStore } from '@/stores/cachedWorkflowStore'
-import { loadIntegrationsOnce, useIntegrationsStore } from '@/stores/integrationCacheStore'
 import { useWorkflowErrorStore } from '@/stores/workflowErrorStore'
 
 // Custom hooks
@@ -42,14 +40,10 @@ export function useWorkflowBuilder() {
   const { toast } = useToast()
 
   // Store hooks
-  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
+  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading, fetchWorkflows } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
   const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
-  
-  // Cached data stores
-  const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
-  const { data: integrations, loading: integrationsCacheLoading } = useIntegrationsStore()
   
   // Store onClick handlers for AddActionNodes - needs to be before setNodes
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
@@ -113,9 +107,8 @@ export function useWorkflowBuilder() {
 
   // Load initial data
   useEffect(() => {
-    loadWorkflows()
-    loadIntegrationsOnce()
-  }, [])
+    fetchWorkflows()
+  }, [fetchWorkflows])
 
   // Stable callback refs - don't depend on nodes to avoid loops
   const nodesRef = useRef(nodes)
@@ -163,7 +156,7 @@ export function useWorkflowBuilder() {
 
   // Load workflow when ID changes
   useEffect(() => {
-    if (workflowId && workflows.length > 0) {
+    if (workflowId && workflows && workflows.length > 0) {
       const workflow = workflows.find(w => w.id === workflowId)
       if (workflow) {
         setCurrentWorkflow(workflow)

@@ -1,9 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useIntegrationStore } from "@/stores/integrationStore";
-import { loadDiscordGuildsOnce } from '@/stores/discordGuildsCacheStore'
-import { loadDiscordChannelsOnce } from '@/stores/discordChannelsCacheStore'
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { DynamicOptionsState } from '../utils/types';
 import { getResourceTypeForField } from '../config/fieldMappings';
 import { formatOptionsForField } from '../utils/fieldFormatters';
@@ -46,17 +44,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   const loadingFields = useRef<Set<string>>(new Set());
   const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
-  const optionsCache = useRef<Record<string, any>>({});
   // Track request IDs to handle concurrent requests for the same field
   const requestCounter = useRef(0);
   const activeRequestIds = useRef<Map<string, number>>(new Map());
   
-  // Cache key generator
-  const generateCacheKey = useCallback((fieldName: string, dependentValues?: Record<string, any>) => {
-    const dependentStr = dependentValues ? JSON.stringify(dependentValues) : '';
-    return `${nodeType}-${fieldName}-${dependentStr}`;
-  }, [nodeType]);
-
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
     setDynamicOptions(prev => ({
@@ -64,19 +55,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       [fieldName]: []
     }));
 
-    // Also clear from cache
-    delete optionsCache.current[fieldName];
-
-    // Clear session storage cache for specific field types
-    if (fieldName === 'boardId') {
-      // Clear Trello boards cache from session storage
-      try {
-        sessionStorage.removeItem('chainreact_cache_trello_boards');
-        console.log('🗑️ [useDynamicOptions] Cleared Trello boards cache from session storage');
-      } catch (e) {
-        console.warn('Failed to clear session storage:', e);
-      }
-    }
   }, []);
   
   // Load options for a dynamic field with request deduplication
@@ -92,30 +70,30 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Note: dependsOnValue will be handled below by looking at current form values
     }
     
-    // Create a cache key that includes dependencies
-    const cacheKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
+    // Create a key that includes dependencies
+    const requestKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
     
     // Generate a unique request ID
     const requestId = ++requestCounter.current;
     
     // Cancel any existing request for this field before starting a new one
-    const existingController = abortControllers.current.get(cacheKey);
+    const existingController = abortControllers.current.get(requestKey);
     if (existingController) {
       existingController.abort();
-      abortControllers.current.delete(cacheKey);
+      abortControllers.current.delete(requestKey);
     }
     
     // Track the current request ID for this cache key
-    activeRequestIds.current.set(cacheKey, requestId);
+    activeRequestIds.current.set(requestKey, requestId);
     
     // Check if there's already an active request for this exact field/dependency combination
-    const activeRequestKey = cacheKey;
+    const activeRequestKey = requestKey;
     if (!forceRefresh && activeRequests.current.has(activeRequestKey)) {
       console.log(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
       try {
         await activeRequests.current.get(activeRequestKey);
         // Check if this request is still the most recent one
-        if (activeRequestIds.current.get(cacheKey) !== requestId) {
+        if (activeRequestIds.current.get(requestKey) !== requestId) {
           console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded, skipping`);
           return;
         }
@@ -128,11 +106,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     
     // Prevent duplicate calls for the same field (unless forcing refresh)
     // But allow if it's been more than 1 second since the field started loading
-    const isStaleLoading = loadingFields.current.has(cacheKey) && 
-      Date.now() - (loadingFields.current as any).getTime?.(cacheKey) > 1000;
+    const isStaleLoading = loadingFields.current.has(requestKey) && 
+      Date.now() - (loadingFields.current as any).getTime?.(requestKey) > 1000;
     
-    if (!forceRefresh && loadingFields.current.has(cacheKey) && !isStaleLoading) {
-      console.log(`🚫 [useDynamicOptions] Skipping duplicate call for ${cacheKey}`);
+    if (!forceRefresh && loadingFields.current.has(requestKey) && !isStaleLoading) {
+      console.log(`🚫 [useDynamicOptions] Skipping duplicate call for ${requestKey}`);
       return;
     }
     
@@ -165,13 +143,13 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
     // Create AbortController for this request
     const abortController = new AbortController();
-    abortControllers.current.set(cacheKey, abortController);
+    abortControllers.current.set(requestKey, abortController);
     
     // Create and store the loading promise to prevent duplicate requests
     const loadingPromise = (async () => {
       // Only set loading states if not in silent mode
       if (!silent) {
-        loadingFields.current.add(cacheKey);
+        loadingFields.current.add(requestKey);
         setLoading(true);
 
         // Enhanced logging for critical fields
@@ -206,38 +184,25 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             return;
           }
 
-          // Always force refresh if we're explicitly asked to or if we detect an issue
-          const shouldForceRefresh = forceRefresh || false;
+          // Load Discord guilds from API
+          const response = await loadIntegrationData(
+            'discord_guilds',
+            discordIntegration.id,
+            {},
+            forceRefresh
+          );
 
-          const guilds = await loadDiscordGuildsOnce(shouldForceRefresh);
+          const guilds = response?.data || response || [];
 
           if (!guilds || guilds.length === 0) {
-            // Only retry if we didn't already force refresh (to avoid rate limits)
-            if (!shouldForceRefresh) {
-              console.log('⚠️ [DynamicOptions] No guilds found, attempting one refresh');
-              const refreshedGuilds = await loadDiscordGuildsOnce(true);
-              if (refreshedGuilds && refreshedGuilds.length > 0) {
-                const formattedOptions = refreshedGuilds.map(guild => ({
-                  value: guild.id,
-                  label: guild.name,
-                }));
-
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  [fieldName]: formattedOptions
-                }));
-                return;
-              }
-            }
-            
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
             }));
             return;
           }
-          
-          const formattedOptions = guilds.map(guild => ({
+
+          const formattedOptions = guilds.map((guild: any) => ({
             value: guild.id,
             label: guild.name,
           }));
@@ -279,8 +244,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           }));
         } finally {
           // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
+          if (activeRequestIds.current.get(requestKey) === requestId) {
+            loadingFields.current.delete(requestKey);
             setLoading(false);
           }
         }
@@ -299,8 +264,25 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
         
         try {
-          const channels = await loadDiscordChannelsOnce(dependsOnValue, forceRefresh || false);
-          
+          // Load Discord channels from API
+          const discordIntegration = getIntegrationByProvider('discord');
+          if (!discordIntegration) {
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            return;
+          }
+
+          const response = await loadIntegrationData(
+            'discord_channels',
+            discordIntegration.id,
+            { guildId: dependsOnValue },
+            forceRefresh || false
+          );
+
+          const channels = response?.data || response || [];
+
           if (!channels || channels.length === 0) {
             setDynamicOptions(prev => ({
               ...prev,
@@ -308,10 +290,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             }));
             return;
           }
-          
+
           const formattedOptions = channels
-            .filter(channel => channel && (channel.id))
-            .sort((a, b) => {
+            .filter((channel: any) => channel && channel.id)
+            .sort((a: any, b: any) => {
               // Sort by position first
               if (a.position !== undefined && b.position !== undefined) {
                 return a.position - b.position;
@@ -410,10 +392,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             [fieldName]: []
           }));
           // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
+          if (activeRequestIds.current.get(requestKey) === requestId) {
+            loadingFields.current.delete(requestKey);
             setLoading(false);
-            activeRequestIds.current.delete(cacheKey);
+            activeRequestIds.current.delete(requestKey);
             // Clear loading state via callback
             if (!silent) {
               onLoadingChangeRef.current?.(fieldName, false);
@@ -454,10 +436,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               [fieldName]: []
             }));
             // Only clear loading if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
               setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
+              activeRequestIds.current.delete(requestKey);
             }
             return;
           }
@@ -466,10 +448,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           let tableFields = extraOptions?.tableFields;
 
           if (!tableFields) {
-            // Fallback to trying to get from cache
-            const selectedTable = optionsCache.current.tableName?.find((table: any) =>
-              table.value === formValues.tableName
-            ) || dynamicOptions?.tableName?.find((table: any) =>
+            // Fallback to trying to get from current state
+            const selectedTable = dynamicOptions?.tableName?.find((table: any) =>
               table.value === formValues.tableName
             );
 
@@ -482,10 +462,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               [fieldName]: []
             }));
             // Only clear loading if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
               setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
+              activeRequestIds.current.delete(requestKey);
             }
             return;
           }
@@ -501,10 +481,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
             // Only clear loading and return for non-dropdown fields that aren't linked records
             // Only clear loading if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
               setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
+              activeRequestIds.current.delete(requestKey);
             }
             return;
           }
@@ -601,10 +581,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               [fieldName]: []
             }));
             // Only clear loading if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              loadingFields.current.delete(cacheKey);
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
               setLoading(false);
-              activeRequestIds.current.delete(cacheKey);
+              activeRequestIds.current.delete(requestKey);
             }
             return;
           }
@@ -693,7 +673,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           
           // Check if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             return;
           }
           
@@ -708,8 +688,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           }));
         } finally {
           // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) === requestId) {
-            loadingFields.current.delete(cacheKey);
+          if (activeRequestIds.current.get(requestKey) === requestId) {
+            loadingFields.current.delete(requestKey);
             setLoading(false);
           }
         }
@@ -754,8 +734,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             optionsCount: formattedOptions?.length || 0,
             firstOption: formattedOptions?.[0],
             requestId,
-            currentRequestId: activeRequestIds.current.get(cacheKey),
-            isCurrentRequest: activeRequestIds.current.get(cacheKey) === requestId
+            currentRequestId: activeRequestIds.current.get(requestKey),
+            isCurrentRequest: activeRequestIds.current.get(requestKey) === requestId
           });
 
           // Check if this is still the current request
@@ -765,7 +745,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const hasNewData = formattedOptions && formattedOptions.length > 0;
 
           let isAcceptingStaleData = false;
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             // If we have no options but this request has data, accept it
             if (hasNoOptions && hasNewData) {
               console.log(`✅ [useDynamicOptions] Request ${requestId} is not current but accepting data for ${fieldName} since we have no options`);
@@ -792,13 +772,13 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           });
 
           // Clear loading state - also clear when accepting stale data to prevent stuck loading
-          if (activeRequestIds.current.get(cacheKey) === requestId || isAcceptingStaleData) {
-            loadingFields.current.delete(cacheKey);
+          if (activeRequestIds.current.get(requestKey) === requestId || isAcceptingStaleData) {
+            loadingFields.current.delete(requestKey);
             setLoading(false);
 
             // Only clean up request tracking if this is the current request
-            if (activeRequestIds.current.get(cacheKey) === requestId) {
-              activeRequestIds.current.delete(cacheKey);
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              activeRequestIds.current.delete(requestKey);
             }
 
             if (!silent) {
@@ -820,10 +800,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         } else {
         }
         // Only clear loading if this is still the current request
-        if (activeRequestIds.current.get(cacheKey) === requestId) {
-          loadingFields.current.delete(cacheKey);
+        if (activeRequestIds.current.get(requestKey) === requestId) {
+          loadingFields.current.delete(requestKey);
           setLoading(false);
-          activeRequestIds.current.delete(cacheKey);
+          activeRequestIds.current.delete(requestKey);
         }
         return;
       }
@@ -839,10 +819,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           [fieldName]: []
         }));
         // Clear loading state
-        if (activeRequestIds.current.get(cacheKey) === requestId) {
-          loadingFields.current.delete(cacheKey);
+        if (activeRequestIds.current.get(requestKey) === requestId) {
+          loadingFields.current.delete(requestKey);
           setLoading(false);
-          activeRequestIds.current.delete(cacheKey);
+          activeRequestIds.current.delete(requestKey);
         }
         return;
       }
@@ -932,7 +912,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           
           // Check if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             return;
           }
           
@@ -1008,7 +988,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             const sampleRecords = recordsResult.data || [];
             
             // Check if this is still the current request
-            if (activeRequestIds.current.get(cacheKey) !== requestId) {
+            if (activeRequestIds.current.get(requestKey) !== requestId) {
               return;
             }
             
@@ -1075,7 +1055,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           const records = recordsResult.data || [];
           
           // Check if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             return;
           }
           
@@ -1144,7 +1124,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
                 const linkedRecords = linkedResult.data || [];
                 
                 // Check if this is still the current request
-                if (activeRequestIds.current.get(cacheKey) !== requestId) {
+                if (activeRequestIds.current.get(requestKey) !== requestId) {
                   return;
                 }
                 
@@ -1195,7 +1175,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           
           
           // Check if this is still the current request
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             return;
           }
           
@@ -1212,36 +1192,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           throw error; // Re-throw to be caught by the outer catch block
         }
       }
-      // Check session storage for cached templates (for fields that support caching)
+      // Fetch from API
       let formattedOptions: any[] = [];
-      let dataFetched = false;
-
-      if (resourceType === 'trello_board_templates' && !forceRefresh) {
-        // Try to get from session storage
-        const sessionCacheKey = `chainreact_cache_${resourceType}`;
-        try {
-          const cached = sessionStorage.getItem(sessionCacheKey);
-          if (cached) {
-            const parsedCache = JSON.parse(cached);
-            // Check if cache is less than 1 hour old
-            if (parsedCache.timestamp && Date.now() - parsedCache.timestamp < 3600000) {
-              console.log('📦 [useDynamicOptions] Using cached board templates');
-              formattedOptions = parsedCache.data;
-              dataFetched = true;
-            } else {
-              console.log('⏰ [useDynamicOptions] Cache expired for board templates, will fetch fresh');
-              // Clear expired cache
-              sessionStorage.removeItem(sessionCacheKey);
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to read from session storage:', e);
-        }
-      }
-      
-      // If not cached or cache disabled, fetch from API
-      if (!dataFetched) {
-        try {
+      try {
           console.log('📡 [useDynamicOptions] Calling loadIntegrationData:', {
             fieldName,
             resourceType,
@@ -1254,7 +1207,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
 
           // Check if this is still the current request
           // This is crucial because loadIntegrationData might not support abort signals
-          if (activeRequestIds.current.get(cacheKey) !== requestId) {
+          if (activeRequestIds.current.get(requestKey) !== requestId) {
             // Special handling for fields that should always use fresh data when available
             // Include Slack channels, Trello boards, and Trello lists since they're critical for actions
             if (fieldName === 'authorFilter' ||
@@ -1272,8 +1225,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             } else {
               console.log(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
               // Clear loading state for superseded request to prevent stuck loading
-              if (loadingFields.current.has(cacheKey)) {
-                loadingFields.current.delete(cacheKey);
+              if (loadingFields.current.has(requestKey)) {
+                loadingFields.current.delete(requestKey);
                 setLoading(false);
                 console.log(`🧹 [useDynamicOptions] Cleared loading state for superseded ${fieldName}`);
               }
@@ -1302,22 +1255,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             throw apiError; // Re-throw for other fields
           }
         }
-      }
 
-      // Cache board templates in session storage
-      if (resourceType === 'trello_board_templates' && formattedOptions.length > 0) {
-        const sessionCacheKey = `chainreact_cache_${resourceType}`;
-        try {
-          sessionStorage.setItem(sessionCacheKey, JSON.stringify({
-            data: formattedOptions,
-            timestamp: Date.now()
-          }));
-          console.log('💾 [useDynamicOptions] Cached board templates to session storage');
-        } catch (e) {
-          console.warn('Failed to write to session storage:', e);
-        }
-      }
-      
       // Log successful data formatting for critical fields
       if (fieldName === 'channel' || resourceType === 'slack_channels') {
         console.log(`📊 [useDynamicOptions] Formatted ${fieldName} options:`, {
@@ -1369,26 +1307,26 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           resourceType === 'trello_cards' ||
           resourceType === 'trello_lists') {
         console.log(`🧹 [useDynamicOptions] Clearing loading state for ${fieldName} (critical field)`);
-        loadingFields.current.delete(cacheKey);
+        loadingFields.current.delete(requestKey);
         setLoading(false);
 
         // Clean up the abort controller and request ID
-        abortControllers.current.delete(cacheKey);
-        activeRequestIds.current.delete(cacheKey);
+        abortControllers.current.delete(requestKey);
+        activeRequestIds.current.delete(requestKey);
 
         // Clear loading state via callback
         if (!silent) {
           onLoadingChangeRef.current?.(fieldName, false);
           console.log(`✅ [useDynamicOptions] Called onLoadingChange(${fieldName}, false)`);
         }
-      } else if (activeRequestIds.current.get(cacheKey) === requestId) {
+      } else if (activeRequestIds.current.get(requestKey) === requestId) {
         // For other fields, only clear if this is still the current request
-        loadingFields.current.delete(cacheKey);
+        loadingFields.current.delete(requestKey);
         setLoading(false);
 
         // Clean up the abort controller and request ID since we're done
-        abortControllers.current.delete(cacheKey);
-        activeRequestIds.current.delete(cacheKey);
+        abortControllers.current.delete(requestKey);
+        activeRequestIds.current.delete(requestKey);
 
         // Only clear loading states if not in silent mode
         if (!silent) {
@@ -1421,14 +1359,14 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     } finally {
       // Always clean up loading state and request tracking
       // This ensures loading state doesn't get stuck even if there's an error
-      if (activeRequestIds.current.get(cacheKey) === requestId) {
+      if (activeRequestIds.current.get(requestKey) === requestId) {
         // Only clear if this is still the current request
-        loadingFields.current.delete(cacheKey);
+        loadingFields.current.delete(requestKey);
         setLoading(false);
         
         // Clean up tracking
-        abortControllers.current.delete(cacheKey);
-        activeRequestIds.current.delete(cacheKey);
+        abortControllers.current.delete(requestKey);
+        activeRequestIds.current.delete(requestKey);
         
         // Clear loading state via callback if not in silent mode
         if (!silent) {
@@ -1522,14 +1460,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     setLoading(false);
     setIsInitialLoading(false);
     
-    // Clear cached options except Discord guilds
-    const newCache: any = {};
-    Object.keys(optionsCache.current).forEach(key => {
-      if (key.startsWith('guildId')) {
-        newCache[key] = optionsCache.current[key];
-      }
-    });
-    optionsCache.current = newCache;
   }, [nodeType, providerId]);
 
   // Preload independent fields when modal opens
@@ -1574,7 +1504,6 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Clear all state
       loadingFields.current.clear();
       activeRequests.current.clear();
-      optionsCache.current = {};
       setLoading(false);
       setIsInitialLoading(false);
 

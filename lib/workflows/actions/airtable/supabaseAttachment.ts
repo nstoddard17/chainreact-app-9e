@@ -72,7 +72,6 @@ export async function uploadTempAttachmentToSupabase(
     .from(DEFAULT_BUCKET)
     .upload(filePath, buffer, {
       contentType: mimeType,
-      cacheControl: '60',
       upsert: true
     })
 
