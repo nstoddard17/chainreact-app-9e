@@ -216,54 +216,68 @@ export default function BetaTestersContent() {
     }
 
     const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
 
     const expiryDays = parseInt(newTesterExpiry)
     const expiresAt = expiryDays > 0
       ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
       : null
 
-    const { data: userData } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from("beta_testers")
-      .insert({
-        email: newTesterEmail.toLowerCase().trim(),
-        notes: newTesterNotes.trim(),
-        expires_at: expiresAt,
-        max_workflows: parseInt(newTesterWorkflows) || 50,
-        max_executions_per_month: parseInt(newTesterExecutions) || 5000,
-        max_integrations: 30,
-        added_by: userData?.user?.id,
-        status: 'active'
+    try {
+      // Use the API route that bypasses RLS with service role
+      const response = await fetch("/api/admin/beta-testers/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: newTesterEmail.toLowerCase().trim(),
+          notes: newTesterNotes.trim(),
+          expires_at: expiresAt,
+          max_workflows: parseInt(newTesterWorkflows) || 50,
+          max_executions_per_month: parseInt(newTesterExecutions) || 5000,
+          max_integrations: 30,
+          added_by: userData?.user?.id
+        })
       })
 
-    if (error) {
-      if (error.code === '23505') {
-        toast({
-          title: "Email Already Exists",
-          description: "This email is already registered as a beta tester",
-          variant: "destructive"
-        })
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          toast({
+            title: "Email Already Exists",
+            description: result.error || "This email is already registered as a beta tester",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to add beta tester",
+            variant: "destructive"
+          })
+        }
       } else {
         toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
+          title: "Success",
+          description: result.message || `Beta tester ${newTesterEmail} added successfully`,
         })
+        setShowAddDialog(false)
+        // Reset form fields
+        setNewTesterEmail("")
+        setNewTesterNotes("")
+        setNewTesterExpiry("90")
+        setNewTesterWorkflows("50")
+        setNewTesterExecutions("5000")
+        fetchBetaTesters()
       }
-    } else {
+    } catch (error) {
+      console.error("Error adding beta tester:", error)
       toast({
-        title: "Success",
-        description: `Beta tester ${newTesterEmail} added successfully`,
+        title: "Error",
+        description: "Failed to add beta tester. Please try again.",
+        variant: "destructive"
       })
-      setShowAddDialog(false)
-      // Reset form fields
-      setNewTesterEmail("")
-      setNewTesterNotes("")
-      setNewTesterExpiry("90")
-      setNewTesterWorkflows("50")
-      setNewTesterExecutions("5000")
-      fetchBetaTesters()
     }
   }
 

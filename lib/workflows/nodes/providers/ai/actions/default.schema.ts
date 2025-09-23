@@ -9,6 +9,7 @@ export const defaultActionSchema: NodeComponent = {
     providerId: "ai",
     isTrigger: false,
     testable: true,
+    supportsChains: true,
     configSchema: [
       { 
         name: "inputNodeId", 

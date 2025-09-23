@@ -118,16 +118,16 @@ export class WorkflowExecutionService {
     executionContext.executionHistoryId = executionHistoryId || undefined
     executionContext.executionId = executionId
 
-    // Execute from each trigger node
+    // Execute from each starting node
     const results = []
     executionContext.interceptedActions = []
-    
-    for (const triggerNode of triggerNodes) {
-      console.log(`🎯 Executing trigger node: ${triggerNode.id} (${triggerNode.data.type})`)
+
+    for (const startNode of startingNodes) {
+      console.log(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
       const result = await this.nodeExecutionService.executeNode(
-        triggerNode, 
-        nodes, 
-        validConnections, 
+        startNode,
+        nodes,
+        validConnections,
         executionContext
       )
       

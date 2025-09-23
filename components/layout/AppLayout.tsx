@@ -107,29 +107,27 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
-        <div className={`flex flex-col flex-1 overflow-y-auto transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
-          <div className="min-h-screen flex flex-col">
-            <BetaBanner />
-            <TopBar
-              onMobileMenuChange={setIsMobileMenuOpen}
-              title={title}
-              subtitle={subtitle}
-            />
-            {globalPreloadingData && (
-              <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
-                <div className="flex items-center gap-2 text-sm text-blue-700">
-                  <LightningLoader size="sm" color="blue" />
-                  <span>Loading your integration data in the background...</span>
-                </div>
+        <div className={`flex flex-col flex-1 min-h-screen transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
+          <BetaBanner />
+          <TopBar
+            onMobileMenuChange={setIsMobileMenuOpen}
+            title={title}
+            subtitle={subtitle}
+          />
+          {globalPreloadingData && (
+            <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
+              <div className="flex items-center gap-2 text-sm text-blue-700">
+                <LightningLoader size="sm" color="blue" />
+                <span>Loading your integration data in the background...</span>
               </div>
-            )}
-            <main className="flex-1 p-6 w-full">
-              <ErrorBoundary context={`Page: ${title}`}>
-                {children}
-              </ErrorBoundary>
-            </main>
-            <Footer />
-          </div>
+            </div>
+          )}
+          <main className="flex-1 p-6 w-full pb-12">
+            <ErrorBoundary context={`Page: ${title}`}>
+              {children}
+            </ErrorBoundary>
+          </main>
+          <Footer />
         </div>
       </div>
     </PageProtection>
