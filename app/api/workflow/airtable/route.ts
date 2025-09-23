@@ -158,7 +158,27 @@ async function processPendingRecords(): Promise<void> {
   }
 }
 
+async function setWebhookSkipBefore(
+  webhookId: string,
+  currentMetadata: Record<string, any> | null | undefined,
+  skipBefore: string | null
+): Promise<void> {
+  const newMetadata = { ...(currentMetadata || {}) }
+
+  if (skipBefore) {
+    newMetadata.skip_before_timestamp = skipBefore
+  } else {
+    delete newMetadata.skip_before_timestamp
+  }
+
+  await supabase
+    .from('airtable_webhooks')
+    .update({ metadata: newMetadata })
+    .eq('id', webhookId)
+}
+
 export async function POST(req: NextRequest) {
+  let currentWebhook: any = null
   // Simplified deduplication approach - execute immediately but block duplicates
   console.log('🔔 Airtable webhook received at', new Date().toISOString())
 
@@ -183,11 +203,13 @@ export async function POST(req: NextRequest) {
     // Find webhook secret for validation
     const { data: wh, error: whError } = await supabase
       .from('airtable_webhooks')
-      .select('id, user_id, mac_secret_base64, status, webhook_id, last_cursor')
+      .select('id, user_id, mac_secret_base64, status, webhook_id, last_cursor, metadata')
       .eq('base_id', baseId)
       .eq('webhook_id', webhookId)
       .eq('status', 'active')
       .single()
+
+    currentWebhook = wh
 
     if (whError) {
       console.error('❌ Database error finding webhook:', whError)
@@ -244,6 +266,7 @@ export async function POST(req: NextRequest) {
       if (!signatureHeader) {
         console.warn('   Headers received:', Object.keys(headers))
       }
+      await setWebhookSkipBefore(wh.id, wh.metadata, new Date().toISOString())
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
@@ -256,7 +279,8 @@ export async function POST(req: NextRequest) {
 
     if (payloads?.payloads && payloads.payloads.length > 0) {
       // Process payloads in batch to handle cross-payload data merging
-      await processAirtablePayloadsBatch(wh.user_id, baseId, payloads.payloads)
+      const skipBefore = wh.metadata?.skip_before_timestamp as string | undefined
+      await processAirtablePayloadsBatch(wh.user_id, baseId, payloads.payloads, skipBefore)
 
       // Store cursor for next fetch if available
       if (payloads.cursor) {
@@ -264,6 +288,10 @@ export async function POST(req: NextRequest) {
           .from('airtable_webhooks')
           .update({ last_cursor: payloads.cursor })
           .eq('webhook_id', webhookId)
+      }
+
+      if (skipBefore) {
+        await setWebhookSkipBefore(wh.id, wh.metadata, null)
       }
     }
 
@@ -273,11 +301,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, processed: payloads?.payloads?.length || 0 })
   } catch (e: any) {
     console.error('Airtable webhook error:', e)
+    if (e?.message === 'Invalid signature') {
+      // already handled
+    } else if (req.headers.get('x-airtable-signature-256') || req.headers.get('x-airtable-content-mac')) {
+      if (currentWebhook?.id) {
+        await setWebhookSkipBefore(currentWebhook.id, currentWebhook.metadata, new Date().toISOString())
+      }
+    }
     return NextResponse.json({ error: e.message || 'Invalid payload' }, { status: 400 })
   }
 }
 
-async function processAirtablePayloadsBatch(userId: string, baseId: string, payloads: any[]) {
+async function processAirtablePayloadsBatch(
+  userId: string,
+  baseId: string,
+  payloads: any[],
+  skipBeforeTimestamp?: string
+) {
   // Build a map of all changed records across all payloads for data lookup
   const allChangedRecords = new Map<string, any>()
 
@@ -305,12 +345,26 @@ async function processAirtablePayloadsBatch(userId: string, baseId: string, payl
 
   // Process each payload with access to all change data
   for (const payload of payloads) {
-    await processAirtablePayload(userId, baseId, payload, allChangedRecords)
+    await processAirtablePayload(userId, baseId, payload, allChangedRecords, skipBeforeTimestamp)
   }
 }
 
-async function processAirtablePayload(userId: string, baseId: string, payload: any, allChangedRecords: Map<string, any>) {
+async function processAirtablePayload(
+  userId: string,
+  baseId: string,
+  payload: any,
+  allChangedRecords: Map<string, any>,
+  skipBeforeTimestamp?: string
+) {
   // Don't log full payload - too verbose
+
+  const payloadTimestampMs = payload?.timestamp ? new Date(payload.timestamp).getTime() : null
+  const skipBeforeMs = skipBeforeTimestamp ? new Date(skipBeforeTimestamp).getTime() : null
+
+  if (skipBeforeMs && payloadTimestampMs && payloadTimestampMs <= skipBeforeMs) {
+    console.log(`⏭️ Skipping payload from ${payload.timestamp} due to previous validation failure window`)
+    return
+  }
 
   // Get all workflows with Airtable triggers for this base
   const { data: workflows, error: workflowError } = await supabase
