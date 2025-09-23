@@ -118,26 +118,30 @@ export default function BetaTestersContent() {
 
   const fetchBetaTesters = async () => {
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("beta_testers")
-        .select("*")
-        .order("created_at", { ascending: false })
+      const response = await fetch("/api/admin/beta-testers/list", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
 
-      if (error) {
-        console.error("Error fetching beta testers:", error.message || error)
-        // Only show toast for non-table-missing errors
-        if (error.code !== '42P01') {
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("Error fetching beta testers:", result.error)
+        // Only show toast for non-404 errors (table doesn't exist)
+        if (response.status !== 404) {
           toast({
             title: "Error",
-            description: error.message || "Failed to fetch beta testers",
+            description: result.error || "Failed to fetch beta testers",
             variant: "destructive"
           })
         }
-        // Set empty array if table doesn't exist
         setBetaTesters([])
       } else {
-        setBetaTesters(data || [])
+        console.log(`Fetched ${result.data?.length || 0} beta testers`)
+        console.log("Setting beta testers:", result.data)
+        setBetaTesters(result.data || [])
       }
     } catch (err) {
       console.error("Unexpected error fetching beta testers:", err)
@@ -400,13 +404,20 @@ export default function BetaTestersContent() {
           variant: "destructive"
         })
       } else {
+        // Close dialog and clear selection first
+        setShowDeleteDialog(false)
+        setSelectedTester(null)
+
+        // Remove the deleted tester from the state immediately for instant UI update
+        setBetaTesters(prev => prev.filter(t => t.id !== tester.id))
+
         toast({
           title: "Success",
           description: result.message || `Beta tester ${tester.email} has been deleted`,
         })
-        setShowDeleteDialog(false)
-        setSelectedTester(null)
-        fetchBetaTesters()
+
+        // Then fetch fresh data from the database
+        await fetchBetaTesters()
       }
     } catch (error) {
       console.error("Error deleting beta tester:", error)

@@ -1,15 +1,144 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateAirtableSignature, fetchAirtableWebhookPayloads } from '@/lib/integrations/airtable/webhooks'
+import crypto from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Track which records we've already triggered workflows for
-// This prevents multiple triggers when Airtable sends multiple webhooks as user types
-const processedRecords = new Set<string>()
+// In-memory tracking as fallback when database table doesn't exist
+const processedRecordsMemory = new Map<string, { fieldHash: string, fieldCount: number, processedAt: number }>()
+
+// Helper to generate a hash of record fields for change detection
+function generateFieldHash(fields: any): string {
+  const sortedFields = Object.keys(fields || {}).sort().reduce((acc, key) => {
+    acc[key] = fields[key]
+    return acc
+  }, {} as any)
+  return crypto.createHash('sha256').update(JSON.stringify(sortedFields)).digest('hex').substring(0, 16)
+}
+
+// Check if a record has been processed for a workflow
+async function isRecordProcessed(
+  workflowId: string,
+  baseId: string,
+  tableId: string,
+  recordId: string,
+  fields: any
+): Promise<boolean> {
+  const memoryKey = `${workflowId}-${baseId}-${tableId}-${recordId}`
+
+  try {
+    // Try database first
+    const { data: existing, error } = await supabase
+      .from('airtable_processed_records')
+      .select('field_hash, field_count')
+      .eq('workflow_id', workflowId)
+      .eq('base_id', baseId)
+      .eq('table_id', tableId)
+      .eq('record_id', recordId)
+      .single()
+
+    if (!error && existing) {
+      const currentHash = generateFieldHash(fields)
+      const currentFieldCount = Object.keys(fields || {}).length
+
+      if (existing.field_hash === currentHash && existing.field_count === currentFieldCount) {
+        return true // Already processed this exact version
+      }
+
+      if (currentFieldCount > existing.field_count) {
+        // More fields added - allow reprocessing
+        await supabase
+          .from('airtable_processed_records')
+          .delete()
+          .eq('workflow_id', workflowId)
+          .eq('base_id', baseId)
+          .eq('table_id', tableId)
+          .eq('record_id', recordId)
+
+        return false
+      }
+
+      return true // Minor changes, don't reprocess
+    }
+  } catch (error) {
+    // Database error - fall back to memory
+  }
+
+  // Fallback to in-memory tracking
+  const memoryRecord = processedRecordsMemory.get(memoryKey)
+
+  if (!memoryRecord) {
+    return false // Never processed
+  }
+
+  const currentHash = generateFieldHash(fields)
+  const currentFieldCount = Object.keys(fields || {}).length
+
+  // Check if it's the same version we already processed
+  if (memoryRecord.fieldHash === currentHash && memoryRecord.fieldCount === currentFieldCount) {
+    return true
+  }
+
+  // Allow reprocessing if more fields were added
+  if (currentFieldCount > memoryRecord.fieldCount) {
+    processedRecordsMemory.delete(memoryKey)
+    return false
+  }
+
+  return true // Minor changes, don't reprocess
+}
+
+// Mark a record as processed
+async function markRecordProcessed(
+  workflowId: string,
+  baseId: string,
+  tableId: string,
+  recordId: string,
+  fields: any
+): Promise<void> {
+  const fieldHash = generateFieldHash(fields)
+  const fieldCount = Object.keys(fields || {}).length
+  const memoryKey = `${workflowId}-${baseId}-${tableId}-${recordId}`
+
+  // Always save to memory
+  processedRecordsMemory.set(memoryKey, {
+    fieldHash,
+    fieldCount,
+    processedAt: Date.now()
+  })
+
+  // Clean up old memory records if too many (keep last 500)
+  if (processedRecordsMemory.size > 500) {
+    const entries = Array.from(processedRecordsMemory.entries())
+      .sort((a, b) => b[1].processedAt - a[1].processedAt)
+      .slice(0, 250)
+    processedRecordsMemory.clear()
+    entries.forEach(([key, value]) => processedRecordsMemory.set(key, value))
+  }
+
+  // Try to save to database too
+  try {
+    await supabase
+      .from('airtable_processed_records')
+      .upsert({
+        workflow_id: workflowId,
+        base_id: baseId,
+        table_id: tableId,
+        record_id: recordId,
+        field_hash: fieldHash,
+        field_count: fieldCount,
+        processed_at: new Date().toISOString()
+      }, {
+        onConflict: 'workflow_id,base_id,table_id,record_id'
+      })
+  } catch (error) {
+    // Database save failed - that's ok, we have it in memory
+  }
+}
 
 export async function POST(req: NextRequest) {
   console.log('🔔 Airtable webhook received at', new Date().toISOString())
@@ -126,10 +255,15 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
     return
   }
 
-  // Only log once per payload processing
-  if (!payload._loggedWorkflowCount) {
+  // Only log workflow count once per webhook call (not per payload)
+  if (!processedRecordsMemory.has('_workflow_count_logged')) {
     console.log(`Found ${airtableWorkflows.length} workflow(s) with Airtable triggers`)
-    payload._loggedWorkflowCount = true
+    processedRecordsMemory.set('_workflow_count_logged', { fieldHash: '', fieldCount: 0, processedAt: Date.now() })
+
+    // Clear this flag after 5 seconds so next webhook shows it again
+    setTimeout(() => {
+      processedRecordsMemory.delete('_workflow_count_logged')
+    }, 5000)
   }
 
   // Process changes for each table
@@ -200,47 +334,49 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
             // Check for createdRecordsById within changed tables
             if (tableData.createdRecordsById) {
               for (const [recordId, record] of Object.entries(tableData.createdRecordsById)) {
-                // Create a unique key for this record to track if we've processed it
-                const recordKey = `${workflow.id}-${recordId}`
-
-                // Check if we've already processed this record in this session
-                if (processedRecords.has(recordKey)) {
-                  console.log(`⏭️ Skipping already processed record ${recordId} (in-memory check)`)
-                  continue
-                }
-
-                // Only process if the record has at least one field with data
-                // This helps avoid triggering on empty record creation
-                const hasData = record.cellValuesByFieldId &&
-                  Object.keys(record.cellValuesByFieldId).length > 0 &&
-                  Object.values(record.cellValuesByFieldId).some(v => v !== null && v !== '')
+                // Only process if the record has meaningful data
+                const fields = record.cellValuesByFieldId || {}
+                const hasData = Object.keys(fields).length > 0 &&
+                  Object.values(fields).some(v => v !== null && v !== '')
 
                 if (!hasData) {
-                  console.log(`⏭️ Skipping empty record ${recordId} - waiting for data`)
-                  // DON'T mark as processed yet - wait for data
+                  // Empty record - skip
                   continue
                 }
 
-                // Mark this record as processed
-                processedRecords.add(recordKey)
+                // Check if we've already processed this exact record
+                const alreadyProcessed = await isRecordProcessed(
+                  workflow.id,
+                  baseId,
+                  tableId,
+                  recordId,
+                  fields
+                )
 
-                // Clean up old records from memory if set gets too large (keep last 1000)
-                if (processedRecords.size > 1000) {
-                  const recordsArray = Array.from(processedRecords)
-                  processedRecords.clear()
-                  recordsArray.slice(-500).forEach(r => processedRecords.add(r))
+                if (alreadyProcessed) {
+                  continue // Skip silently
                 }
 
-                console.log(`🆕 Processing new record ${recordId} with data`)
-                shouldTrigger = true
+                // Require at least 1 field with actual data to consider the record "complete"
+                const fieldCount = Object.keys(fields).length
+                if (fieldCount < 1) {
+                  // This should rarely happen since we check hasData above
+                  continue
+                }
+
+                console.log(`✅ Processing new record ${recordId} with ${fieldCount} fields`)
                 triggerData = {
                   baseId,
                   tableId,
                   tableName: tableData.name || 'Unknown Table',
                   recordId,
-                  fields: record.cellValuesByFieldId || {},
+                  fields: fields,
                   createdAt: record.createdTime || payload.timestamp
                 }
+
+                // Mark as processed BEFORE executing to prevent race conditions
+                await markRecordProcessed(workflow.id, baseId, tableId, recordId, fields)
+
                 // Create execution for this record
                 await createWorkflowExecution(workflow.id, userId, triggerData)
               }
@@ -260,37 +396,48 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
             // Check changed records for new record trigger (when initial creation was empty)
 
             for (const [recordId, changes] of Object.entries(tableData.changedRecordsById)) {
-              // Create a unique key for this record
-              const recordKey = `${workflow.id}-${recordId}`
-
-              // Check if we've already processed this record
-              if (processedRecords.has(recordKey)) {
-                console.log(`⏭️ Skipping already processed record ${recordId}`)
-                continue
-              }
-
-              // Check if this has data (might be a new record that just got its first data)
-              const hasData = changes.current?.cellValuesByFieldId &&
-                Object.keys(changes.current.cellValuesByFieldId).length > 0 &&
-                Object.values(changes.current.cellValuesByFieldId).some(v => v !== null && v !== '')
+              // Check if this has data
+              const fields = changes.current?.cellValuesByFieldId || {}
+              const hasData = Object.keys(fields).length > 0 &&
+                Object.values(fields).some(v => v !== null && v !== '')
 
               // Check if this is likely a new record (no previous values)
               const isLikelyNew = !changes.previous || !changes.previous.cellValuesByFieldId ||
                 Object.keys(changes.previous.cellValuesByFieldId || {}).length === 0
 
               if (hasData && isLikelyNew) {
-                // Mark as processed
-                processedRecords.add(recordKey)
+                // Check if we've already processed this exact record
+                const alreadyProcessed = await isRecordProcessed(
+                  workflow.id,
+                  baseId,
+                  tableId,
+                  recordId,
+                  fields
+                )
 
-                console.log(`🆕 Processing likely new record ${recordId} from changed records`)
+                if (alreadyProcessed) {
+                  continue // Skip silently
+                }
+
+                // Require at least 1 field with actual data
+                const fieldCount = Object.keys(fields).length
+                if (fieldCount < 1) {
+                  continue
+                }
+
+                console.log(`✅ Processing new record ${recordId} from changed records with ${fieldCount} fields`)
                 triggerData = {
                   baseId,
                   tableId,
                   tableName: tableData.name || 'Unknown Table',
                   recordId,
-                  fields: changes.current.cellValuesByFieldId || {},
+                  fields: fields,
                   createdAt: payload.timestamp
                 }
+
+                // Mark as processed BEFORE executing
+                await markRecordProcessed(workflow.id, baseId, tableId, recordId, fields)
+
                 // Create execution for this record
                 await createWorkflowExecution(workflow.id, userId, triggerData)
               }
