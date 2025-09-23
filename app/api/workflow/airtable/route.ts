@@ -11,12 +11,18 @@ export async function POST(req: NextRequest) {
   console.log('🔔🔔🔔 AIRTABLE WEBHOOK RECEIVED! 🔔🔔🔔')
   console.log('Timestamp:', new Date().toISOString())
 
-  const raw = await req.text()
+  // Log ALL headers for debugging
   const headers = Object.fromEntries(req.headers.entries())
+  console.log('📦 All headers received:')
+  Object.entries(headers).forEach(([key, value]) => {
+    if (!key.toLowerCase().includes('cookie') && !key.toLowerCase().includes('auth')) {
+      console.log(`  ${key}: ${value}`)
+    }
+  })
 
-  console.log('📦 Webhook headers:', Object.keys(headers).filter(k => k.toLowerCase().includes('airtable')))
+  const raw = await req.text()
   console.log('📄 Raw body length:', raw.length)
-  console.log('📄 Raw body preview:', raw.substring(0, 500))
+  console.log('📄 Raw body:', raw)
 
   try {
     const notification = JSON.parse(raw)
@@ -68,17 +74,32 @@ export async function POST(req: NextRequest) {
     })
 
     // Verify signature
+    console.log('🔐 Verifying signature...')
+    console.log('   Has MAC Secret:', !!wh.mac_secret_base64)
+    console.log('   MAC Secret length:', wh.mac_secret_base64?.length)
+    console.log('   Header signature:', headers['x-airtable-content-mac'])
+
     const valid = validateAirtableSignature(raw, headers, wh.mac_secret_base64)
+    console.log('   Signature valid:', valid)
+
     if (!valid) {
+      console.error('❌ Signature validation failed!')
+      console.error('   This usually means the MAC secret in DB doesn\'t match the webhook')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
+    console.log('✅ Signature validated successfully')
+
     // Fetch actual payloads from Airtable
+    console.log('📥 Fetching webhook payloads from Airtable...')
     const payloads = await fetchAirtableWebhookPayloads(baseId, webhookId)
+    console.log(`📦 Received ${payloads?.payloads?.length || 0} payloads to process`)
 
     if (payloads?.payloads && payloads.payloads.length > 0) {
+      console.log('🔄 Processing payloads...')
       // Process each payload
       for (const payload of payloads.payloads) {
+        console.log('📝 Payload structure:', JSON.stringify(Object.keys(payload), null, 2))
         await processAirtablePayload(wh.user_id, baseId, payload)
       }
 
@@ -100,6 +121,7 @@ export async function POST(req: NextRequest) {
 
 async function processAirtablePayload(userId: string, baseId: string, payload: any) {
   console.log(`📊 Processing Airtable payload for user ${userId}, base ${baseId}`)
+  console.log('📝 Full payload data:', JSON.stringify(payload, null, 2))
 
   // Get all workflows with Airtable triggers for this base
   const { data: workflows, error: workflowError } = await supabase
@@ -111,16 +133,60 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
   console.log(`Found ${workflows?.length || 0} active workflows for user`)
 
   // Filter workflows that have Airtable triggers for this base
+  // We need to check the nodes array for trigger nodes
   const airtableWorkflows = workflows?.filter(w => {
-    const triggerConfig = w.trigger_config
-    return triggerConfig?.providerId === 'airtable' && triggerConfig?.baseId === baseId
+    // Find the trigger node in the workflow's nodes
+    const nodes = w.nodes || []
+
+    // Debug: Log the workflow structure
+    console.log(`  Workflow ${w.id} (${w.name}):`)
+    console.log(`    - Has ${nodes.length} nodes`)
+
+    const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
+
+    if (!triggerNode) {
+      console.log(`    - ❌ No trigger node found`)
+      // Also check if any node has type starting with 'airtable_trigger'
+      const airtableTriggerNode = nodes.find((node: any) =>
+        node.data?.type?.startsWith('airtable_trigger')
+      )
+      if (airtableTriggerNode) {
+        console.log(`    - ⚠️ Found Airtable trigger node but isTrigger not set:`, {
+          nodeId: airtableTriggerNode.id,
+          type: airtableTriggerNode.data?.type,
+          hasIsTrigger: airtableTriggerNode.data?.isTrigger,
+          providerId: airtableTriggerNode.data?.providerId,
+          config: airtableTriggerNode.data?.config
+        })
+      }
+      return false
+    }
+
+    // Check if it's an Airtable trigger for this specific base
+    const providerId = triggerNode.data?.providerId
+    const triggerConfig = triggerNode.data?.config || {}
+
+    console.log(`    - ✅ Found trigger node:`, {
+      nodeId: triggerNode.id,
+      type: triggerNode.data?.type,
+      providerId,
+      baseId: triggerConfig.baseId,
+      expectedBaseId: baseId,
+      fullConfig: triggerConfig,
+      matches: providerId === 'airtable' && triggerConfig.baseId === baseId
+    })
+
+    return providerId === 'airtable' && triggerConfig.baseId === baseId
   }) || []
 
   console.log(`Found ${airtableWorkflows.length} workflows with Airtable triggers for base ${baseId}`)
 
   // Log what tables each workflow is monitoring
   airtableWorkflows.forEach(w => {
-    const tableName = w.trigger_config?.tableName
+    const nodes = w.nodes || []
+    const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
+    const triggerConfig = triggerNode?.data?.config || {}
+    const tableName = triggerConfig.tableName
     console.log(`  - Workflow ${w.id} monitors: ${tableName || 'all tables'}`)
   })
 
@@ -132,10 +198,28 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
   // Process changes for each table
   const { changed_tables_by_id, created_tables_by_id, destroyed_table_ids } = payload
 
+  console.log('📋 Payload contents:')
+  console.log('  - Has created_tables_by_id?', !!created_tables_by_id)
+  console.log('  - Has changed_tables_by_id?', !!changed_tables_by_id)
+  console.log('  - Has destroyed_table_ids?', !!destroyed_table_ids)
+
+  if (created_tables_by_id) {
+    console.log('  - Created tables:', Object.keys(created_tables_by_id))
+    for (const [tableId, tableData] of Object.entries(created_tables_by_id)) {
+      console.log(`    Table ${tableId}: ${tableData.name || 'unnamed'}, ${Object.keys(tableData.created_records_by_id || {}).length} new records`)
+    }
+  }
+
   for (const workflow of airtableWorkflows) {
-    const triggerConfig = workflow.trigger_config
-    const triggerType = workflow.trigger_type
-    const tableName = triggerConfig?.tableName
+    // Extract trigger information from nodes
+    const nodes = workflow.nodes || []
+    const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
+
+    if (!triggerNode) continue // Skip if no trigger node found
+
+    const triggerConfig = triggerNode.data?.config || {}
+    const triggerType = triggerNode.data?.type
+    const tableName = triggerConfig.tableName
 
     // Check if this workflow cares about changes to this table
     let shouldTrigger = false

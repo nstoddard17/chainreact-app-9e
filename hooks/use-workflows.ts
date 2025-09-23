@@ -105,7 +105,7 @@ export function useWorkflows(): UseWorkflowsReturn {
   
   // Update a workflow
   const updateWorkflowById = useCallback(async (id: string, updates: Partial<Workflow>) => {
-    setLoading(true)
+    // Don't set global loading for individual workflow updates - let the UI handle it locally
     setError(null)
     try {
       await storeUpdateWorkflow(id, updates)
@@ -115,22 +115,18 @@ export function useWorkflows(): UseWorkflowsReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update workflow')
       throw err
-    } finally {
-      setLoading(false)
     }
   }, [storeUpdateWorkflow, workflows, currentWorkflow])
   
   // Delete a workflow
   const deleteWorkflowById = useCallback(async (id: string) => {
-    setLoading(true)
+    // Don't set global loading for individual workflow operations - let the UI handle it locally
     setError(null)
     try {
       await storeDeleteWorkflow(id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete workflow')
       throw err
-    } finally {
-      setLoading(false)
     }
   }, [storeDeleteWorkflow])
   
