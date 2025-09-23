@@ -240,6 +240,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const oldStatus = currentWorkflow?.status
       const newStatus = updates.status
 
+      console.log(`📤 [WorkflowStore] Sending update request for ${id}:`, {
+        oldStatus,
+        newStatus,
+        updates
+      })
+
       // Use API endpoint to handle RLS-protected updates
       const response = await fetch(`/api/workflows/${id}`, {
         method: 'PUT',
@@ -249,12 +255,20 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         body: JSON.stringify(updates),
       })
 
+      console.log(`📥 [WorkflowStore] API Response status:`, response.status)
+
       if (!response.ok) {
         const error = await response.json()
+        console.error(`❌ [WorkflowStore] Update failed:`, error)
         throw new Error(error.error || 'Failed to update workflow')
       }
 
       const data = await response.json()
+      console.log(`✅ [WorkflowStore] API returned updated workflow:`, {
+        id: data.id,
+        status: data.status,
+        name: data.name
+      })
 
       set((state) => ({
         workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...data } : w)),

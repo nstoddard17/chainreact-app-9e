@@ -4,6 +4,12 @@
 
 ## January 15, 2025
 
+### Fixed Gmail Integration Check Blocking Workflow Activation
+
+Resolved a critical bug where workflows with Gmail triggers couldn't be activated even when Gmail was properly connected. The issue was a field name mismatch - the code was checking for `provider_id` when the Integration interface actually uses `provider` as the field name. This meant the Gmail integration check always failed, incorrectly showing "Gmail not connected" and blocking workflow activation. Fixed by updating the integration check to use the correct field name (`provider` instead of `provider_id`). Added comprehensive logging to track available integrations and help diagnose similar issues in the future. The fix ensures workflows with Gmail triggers can now be properly activated when Gmail is connected, with improved error messages if integrations haven't loaded yet.
+
+## January 15, 2025
+
 ### Handled Discord API Message Editing Limitations
 
 Addressed a fundamental Discord API limitation where bots cannot edit messages authored by other users - a security restriction enforced by Discord itself. Our workflow builder was showing all channel messages in the edit action dropdown, leading to confusing permission errors when users tried to edit messages from other users. Implemented intelligent filtering that automatically shows only the bot's own messages when configuring an edit action, since these are the only messages the Discord API allows bots to modify. Enhanced error handling to provide clear guidance when edit attempts fail, suggesting the alternative approach of deleting and re-sending messages if users need to modify content from others. The solution maintains full functionality for other Discord actions like reactions, replies, and deletions, which can operate on any message. This update ensures workflows respect Discord's API boundaries while providing users with clear feedback about what's possible and helpful workarounds for common use cases.
