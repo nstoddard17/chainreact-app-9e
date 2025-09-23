@@ -4,6 +4,12 @@
 
 ## January 15, 2025
 
+### Fixed Gmail Webhook URL Mismatch Breaking Email Triggers
+
+Resolved a critical bug where Gmail webhooks were being registered with the wrong API endpoint path, preventing email triggers from working even on production. The issue had two parts: first, the webhook registration was using `/api/workflow/gmail` (singular) but the actual endpoint was at `/api/webhooks/gmail` (plural), causing Gmail notifications to be sent to a non-existent URL. Second, the webhook registration response was incorrectly returning hardcoded Discord-specific messages for all providers. Fixed by correcting the URL generation in both `triggerWebhookManager.ts` and `getBaseUrl.ts` to use the correct `/api/webhooks/` path, and updated the registration response to return provider-specific success messages. Now Gmail webhooks are properly registered at the correct endpoint and email triggers work reliably on both local development (with ngrok) and production environments.
+
+## January 15, 2025
+
 ### Fixed Gmail Integration Check Blocking Workflow Activation
 
 Resolved a critical bug where workflows with Gmail triggers couldn't be activated even when Gmail was properly connected. The issue was a field name mismatch - the code was checking for `provider_id` when the Integration interface actually uses `provider` as the field name. This meant the Gmail integration check always failed, incorrectly showing "Gmail not connected" and blocking workflow activation. Fixed by updating the integration check to use the correct field name (`provider` instead of `provider_id`). Added comprehensive logging to track available integrations and help diagnose similar issues in the future. The fix ensures workflows with Gmail triggers can now be properly activated when Gmail is connected, with improved error messages if integrations haven't loaded yet.

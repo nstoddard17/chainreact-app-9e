@@ -772,7 +772,7 @@ export class TriggerWebhookManager {
   getWebhookUrl(workflowId: string, providerId?: string): string {
     const baseUrl = getWebhookBaseUrl()
     if (providerId) {
-      return `${baseUrl}/api/workflow/${providerId}`
+      return `${baseUrl}/api/webhooks/${providerId}`
     }
     return `${baseUrl}/api/webhooks/${workflowId}`
   }

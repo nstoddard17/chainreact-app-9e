@@ -71,16 +71,21 @@ export async function POST(request: Request) {
       webhookId
     })
 
+    const providerMessages: Record<string, string> = {
+      gmail: "✉️ Gmail webhook registered successfully",
+      discord: "🚨 Discord webhook registered successfully",
+      slack: "💬 Slack webhook registered successfully",
+      github: "🐙 GitHub webhook registered successfully",
+      default: `✅ ${providerId} webhook registered successfully`
+    }
+
     return NextResponse.json({
       success: true,
       webhookId,
       webhookUrl,
-      message: "🚨 DISCORD GATEWAY SHOULD BE CONNECTED NOW! 🚨",
-      debugInfo: {
-        apiCalled: true,
-        serverReceived: true,
-        discordProcessed: true
-      }
+      message: providerMessages[providerId] || providerMessages.default,
+      provider: providerId,
+      workflowId
     })
 
   } catch (error: any) {
