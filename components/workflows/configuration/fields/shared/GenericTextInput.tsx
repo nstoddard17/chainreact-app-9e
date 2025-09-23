@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/ui/file-upload";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useDragDrop } from "@/hooks/use-drag-drop";
 import { FullscreenTextArea } from "../FullscreenTextEditor";
@@ -165,6 +166,55 @@ export function GenericTextInput({
       );
 
     case "number":
+      // Check if this field should be displayed as a slider
+      const hasSliderConfig = (field as any).min !== undefined &&
+                             (field as any).max !== undefined &&
+                             (field as any).step !== undefined;
+      const showUnit = (field as any).unit;
+
+      if (hasSliderConfig) {
+        // Display as slider with value label
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-4">
+              <Slider
+                value={[value || (field as any).defaultValue || (field as any).min || 0]}
+                onValueChange={(values) => onChange(values[0])}
+                min={(field as any).min}
+                max={(field as any).max}
+                step={(field as any).step}
+                className="flex-1"
+                disabled={field.disabled}
+              />
+              <div className="flex items-center space-x-1 min-w-[80px]">
+                <Input
+                  type="number"
+                  value={value || (field as any).defaultValue || 0}
+                  onChange={(e) => {
+                    const newValue = parseFloat(e.target.value);
+                    if (!isNaN(newValue)) {
+                      onChange(Math.min((field as any).max, Math.max((field as any).min, newValue)));
+                    }
+                  }}
+                  min={(field as any).min}
+                  max={(field as any).max}
+                  step={(field as any).step}
+                  className="w-16 text-center"
+                  disabled={field.disabled}
+                />
+                {showUnit && (
+                  <span className="text-sm text-muted-foreground">{showUnit}</span>
+                )}
+              </div>
+            </div>
+            {(field as any).helpText && (
+              <p className="text-xs text-muted-foreground">{(field as any).helpText}</p>
+            )}
+          </div>
+        );
+      }
+
+      // Default number input
       return (
         <Input
           {...commonProps}

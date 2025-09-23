@@ -482,11 +482,15 @@ export function AirtableConfiguration({
     return true;
   };
 
-  // Separate base and dynamic fields
-  const baseFields = nodeInfo?.configSchema?.filter((field: any) => 
+  // Separate base, advanced, and dynamic fields
+  const baseFields = nodeInfo?.configSchema?.filter((field: any) =>
     !field.advanced && !field.name?.startsWith('airtable_field_') && shouldShowField(field)
   ) || [];
-  
+
+  const advancedFields = nodeInfo?.configSchema?.filter((field: any) =>
+    field.advanced && !field.name?.startsWith('airtable_field_') && shouldShowField(field)
+  ) || [];
+
   const dynamicFields = getDynamicFields();
 
   // Handle dynamic field loading
@@ -1407,6 +1411,16 @@ export function AirtableConfiguration({
           <div className="space-y-3 pb-4 pr-4">
             {/* Base fields */}
             {renderFields(baseFields)}
+
+            {/* Advanced fields */}
+            {advancedFields.length > 0 && (
+              <div className="border-t border-slate-200 pt-4 mt-6">
+                <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
+                <div className="space-y-3">
+                  {renderFields(advancedFields)}
+                </div>
+              </div>
+            )}
 
             {/* Records table for update record */}
             {isUpdateRecord && values.tableName && values.baseId && (
