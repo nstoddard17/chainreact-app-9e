@@ -113,6 +113,19 @@ export async function GET(request: NextRequest) {
     }
     const userData = await userResponse.json()
 
+    // Log the scopes we received
+    console.log('🔐 Airtable OAuth callback - User:', userData.email)
+    console.log('📋 Scopes from token:', tokenData.scope)
+    console.log('📋 User scopes from API:', userData.scopes)
+
+    // Verify webhook:manage scope
+    const hasWebhookScope = userData.scopes?.includes('webhook:manage') || tokenData.scope?.includes('webhook:manage')
+    if (!hasWebhookScope) {
+      console.warn('⚠️ WARNING: webhook:manage scope not present in token!')
+    } else {
+      console.log('✅ webhook:manage scope confirmed')
+    }
+
     // Encrypt tokens before storing
     const encryptionKey = process.env.ENCRYPTION_KEY
     if (!encryptionKey) {
@@ -126,7 +139,7 @@ export async function GET(request: NextRequest) {
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: tokenData.scope.split(" "),
+      scopes: userData.scopes || tokenData.scope.split(" "),  // Use API scopes if available, fallback to token scope
       status: "connected",
       updated_at: new Date().toISOString(),
     }

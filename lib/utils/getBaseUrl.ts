@@ -109,6 +109,25 @@ export function getWebhookBaseUrl(): string {
  * Get environment-specific webhook URL for a provider
  */
 export function getWebhookUrl(provider: string): string {
+  // Special handling for Airtable which requires HTTPS URLs
+  if (provider === 'airtable' && process.env.NODE_ENV === 'development') {
+    // Check for HTTPS webhook URL environment variable (e.g., from ngrok)
+    if (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL) {
+      return `${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL}/api/workflow/${provider}`
+    }
+
+    // If no HTTPS URL available in development, log a warning
+    console.warn('⚠️ Airtable webhooks require HTTPS URLs. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL to an HTTPS tunnel (e.g., ngrok) or deploy to staging.')
+
+    // Fall back to production URL if available
+    if (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.startsWith('https://')) {
+      return `${process.env.NEXT_PUBLIC_APP_URL}/api/workflow/${provider}`
+    }
+
+    // Last resort: use production URL
+    return `https://chainreact.app/api/workflow/${provider}`
+  }
+
   const baseUrl = getWebhookBaseUrl()
   return `${baseUrl}/api/workflow/${provider}`
 }

@@ -8,22 +8,33 @@ const supabase = createClient(
 )
 
 export async function POST(req: NextRequest) {
+  console.log('🔔🔔🔔 AIRTABLE WEBHOOK RECEIVED! 🔔🔔🔔')
+  console.log('Timestamp:', new Date().toISOString())
+
   const raw = await req.text()
   const headers = Object.fromEntries(req.headers.entries())
 
+  console.log('📦 Webhook headers:', Object.keys(headers).filter(k => k.toLowerCase().includes('airtable')))
+  console.log('📄 Raw body length:', raw.length)
+  console.log('📄 Raw body preview:', raw.substring(0, 500))
+
   try {
     const notification = JSON.parse(raw)
+    console.log('📨 Parsed notification:', JSON.stringify(notification, null, 2))
 
     // Airtable sends a notification with base and webhook IDs
     const baseId = notification?.base?.id
     const webhookId = notification?.webhook?.id
 
+    console.log(`🔍 Looking for webhook - Base: ${baseId}, Webhook: ${webhookId}`)
+
     if (!baseId || !webhookId) {
+      console.error('❌ Missing base or webhook id in notification')
       return NextResponse.json({ error: 'Missing base or webhook id' }, { status: 400 })
     }
 
     // Find webhook secret for validation
-    const { data: wh } = await supabase
+    const { data: wh, error: whError } = await supabase
       .from('airtable_webhooks')
       .select('id, user_id, mac_secret_base64, status, webhook_id')
       .eq('base_id', baseId)
@@ -31,9 +42,30 @@ export async function POST(req: NextRequest) {
       .eq('status', 'active')
       .single()
 
+    if (whError) {
+      console.error('❌ Database error finding webhook:', whError)
+    }
+
     if (!wh) {
+      console.error(`❌ Webhook not found in database for base: ${baseId}, webhook: ${webhookId}`)
+
+      // Let's check what webhooks we do have for debugging
+      const { data: allWebhooks } = await supabase
+        .from('airtable_webhooks')
+        .select('base_id, webhook_id, status')
+        .eq('status', 'active')
+
+      console.log('📋 Active webhooks in database:', allWebhooks)
+
       return NextResponse.json({ error: 'Webhook not registered' }, { status: 404 })
     }
+
+    console.log('✅ Found webhook in database', {
+      webhookId: wh.webhook_id,
+      metadata: wh.metadata,
+      scopeType: wh.metadata?.scopeType || 'base',
+      tableName: wh.metadata?.tableName || 'all tables'
+    })
 
     // Verify signature
     const valid = validateAirtableSignature(raw, headers, wh.mac_secret_base64)
@@ -67,20 +99,40 @@ export async function POST(req: NextRequest) {
 }
 
 async function processAirtablePayload(userId: string, baseId: string, payload: any) {
+  console.log(`📊 Processing Airtable payload for user ${userId}, base ${baseId}`)
+
   // Get all workflows with Airtable triggers for this base
-  const { data: workflows } = await supabase
+  const { data: workflows, error: workflowError } = await supabase
     .from('workflows')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'active')
-    .contains('trigger_config', { providerId: 'airtable', baseId })
 
-  if (!workflows || workflows.length === 0) return
+  console.log(`Found ${workflows?.length || 0} active workflows for user`)
+
+  // Filter workflows that have Airtable triggers for this base
+  const airtableWorkflows = workflows?.filter(w => {
+    const triggerConfig = w.trigger_config
+    return triggerConfig?.providerId === 'airtable' && triggerConfig?.baseId === baseId
+  }) || []
+
+  console.log(`Found ${airtableWorkflows.length} workflows with Airtable triggers for base ${baseId}`)
+
+  // Log what tables each workflow is monitoring
+  airtableWorkflows.forEach(w => {
+    const tableName = w.trigger_config?.tableName
+    console.log(`  - Workflow ${w.id} monitors: ${tableName || 'all tables'}`)
+  })
+
+  if (airtableWorkflows.length === 0) {
+    console.log('❌ No workflows found with Airtable triggers for this base')
+    return
+  }
 
   // Process changes for each table
   const { changed_tables_by_id, created_tables_by_id, destroyed_table_ids } = payload
 
-  for (const workflow of workflows) {
+  for (const workflow of airtableWorkflows) {
     const triggerConfig = workflow.trigger_config
     const triggerType = workflow.trigger_type
     const tableName = triggerConfig?.tableName
@@ -157,17 +209,46 @@ async function processAirtablePayload(userId: string, baseId: string, payload: a
 
 async function createWorkflowExecution(workflowId: string, userId: string, triggerData: any) {
   try {
-    await supabase
-      .from('workflow_executions')
-      .insert({
-        workflow_id: workflowId,
-        user_id: userId,
-        status: 'pending',
-        trigger_data: triggerData,
-        started_at: new Date().toISOString()
-      })
+    console.log(`🚀 Creating workflow execution for workflow ${workflowId}`)
+    console.log('📝 Trigger data:', JSON.stringify(triggerData, null, 2))
+
+    // Get the workflow details first
+    const { data: workflow, error: workflowError } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', workflowId)
+      .single()
+
+    if (workflowError || !workflow) {
+      console.error('Failed to get workflow:', workflowError)
+      return
+    }
+
+    console.log(`⚡ Executing workflow "${workflow.name}" via webhook trigger`)
+
+    // Import and use the workflow execution service
+    const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
+
+    const workflowExecutionService = new WorkflowExecutionService()
+
+    // Execute the workflow with the trigger data as input
+    // Skip triggers since this IS the trigger
+    const executionResult = await workflowExecutionService.executeWorkflow(
+      workflow,
+      triggerData,  // Pass trigger data as input
+      userId,
+      false,  // testMode = false (this is a real webhook trigger)
+      null,   // No workflow data override
+      true    // skipTriggers = true (we're already triggered by webhook)
+    )
+
+    console.log(`✅ Workflow execution completed:`, {
+      success: executionResult.success,
+      executionId: executionResult.executionId,
+      hasResults: !!executionResult.results
+    })
   } catch (error) {
-    console.error('Failed to create workflow execution:', error)
+    console.error('Failed to create/execute workflow:', error)
   }
 }
 

@@ -28,6 +28,7 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
     .eq("provider", "airtable")
 
   const notificationUrl = getWebhookUrl("airtable")
+  console.log(`📢 Webhook notification URL: ${notificationUrl}`)
 
   for (const b of bases || []) {
     await ensureWebhookForBase(userId, token, b.base_id, notificationUrl)
@@ -68,7 +69,25 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
   if (existing && !expiringSoon) return
 
-  // First, list all bases to verify this base exists
+  // First, check the token scopes
+  console.log(`🔍 Checking token scopes...`)
+  const whoamiRes = await fetch(`https://api.airtable.com/v0/meta/whoami`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+
+  if (whoamiRes.ok) {
+    const whoamiData = await whoamiRes.json()
+    console.log('📋 Token scopes:', whoamiData.scopes)
+    if (!whoamiData.scopes?.includes('webhook:manage')) {
+      throw new Error('❌ Missing webhook:manage scope. Please reconnect your Airtable integration with the webhook:manage permission.')
+    }
+    console.log('✅ webhook:manage scope confirmed')
+  }
+
+  // Now list all bases to verify this base exists
   console.log(`🔍 Verifying base ${baseId} exists...`)
   const basesRes = await fetch(`https://api.airtable.com/v0/meta/bases`, {
     method: 'GET',
@@ -93,44 +112,88 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   }
 
   console.log(`✅ Found base: ${targetBase.name} (${targetBase.id})`)
+  console.log(`📝 Permission level: ${targetBase.permissionLevel}`)
 
-  // Now check detailed base access
-  console.log(`🔍 Checking detailed access to base ${baseId}...`)
-  const baseCheckRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}`, {
+  // Check for existing webhooks on this base
+  console.log(`🔍 Checking for existing webhooks on base ${baseId}...`)
+  const existingWebhooksRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`
     }
   })
 
-  if (!baseCheckRes.ok) {
-    const baseError = await baseCheckRes.text()
-    console.error(`❌ Cannot access base ${baseId}:`, baseCheckRes.status, baseError)
+  if (existingWebhooksRes.ok) {
+    const webhooksData = await existingWebhooksRes.json()
+    console.log(`📋 Found ${webhooksData.webhooks?.length || 0} existing webhook(s) on this base`)
 
-    let errorMessage = 'Cannot access Airtable base'
-    try {
-      const errorData = JSON.parse(baseError)
-      if (errorData.error?.type === 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND') {
-        errorMessage = `Base ${baseId} not found or no access. Please check the base ID and ensure your Airtable account has access to this base.`
+    if (webhooksData.webhooks && webhooksData.webhooks.length > 0) {
+      // Check if any webhook is for our notification URL
+      const ourWebhook = webhooksData.webhooks.find((w: any) =>
+        w.notificationUrl === notificationUrl
+      )
+
+      if (ourWebhook) {
+        console.log(`✅ Webhook already exists for our URL: ${ourWebhook.id}`)
+        console.log(`   Expires: ${ourWebhook.expirationTime || 'No expiration'}`)
+
+        // Save this webhook to our database
+        await supabase
+          .from('airtable_webhooks')
+          .upsert({
+            user_id: userId,
+            base_id: baseId,
+            webhook_id: ourWebhook.id,
+            mac_secret_base64: ourWebhook.macSecretBase64 || null,
+            expiration_time: ourWebhook.expirationTime ? new Date(ourWebhook.expirationTime).toISOString() : null,
+            status: 'active'
+          }, { onConflict: 'user_id, base_id, webhook_id' })
+
+        return // Webhook already exists, no need to create a new one
       }
-    } catch {}
 
-    throw new Error(errorMessage)
+      // Log other webhooks for debugging
+      webhooksData.webhooks.forEach((w: any) => {
+        console.log(`   - Webhook ${w.id}: ${w.notificationUrl}`)
+      })
+    }
+  } else {
+    const error = await existingWebhooksRes.text()
+    console.warn(`⚠️ Could not list existing webhooks: ${existingWebhooksRes.status} ${error}`)
   }
 
-  console.log(`✅ Base ${baseId} is accessible`)
+  console.log(`✅ Base ${baseId} is accessible (appears in user's base list)`)
 
-  // Get table ID if table name is specified
+  // Look up table ID if a specific table is requested
   let tableId: string | undefined
   if (tableName) {
-    console.log(`🔍 Looking for table "${tableName}" in base...`)
-    const baseMetadata = await baseCheckRes.json()
-    const table = baseMetadata.tables?.find((t: any) => t.name === tableName)
-    if (table) {
-      tableId = table.id
-      console.log(`✅ Found table: ${tableName} (${tableId})`)
-    } else {
-      console.log(`⚠️ Table "${tableName}" not found, monitoring entire base`)
+    console.log(`🔍 Looking up table ID for table: ${tableName}`)
+
+    try {
+      // Fetch base schema to get table IDs
+      const schemaRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (schemaRes.ok) {
+        const schemaData = await schemaRes.json()
+        const table = schemaData.tables?.find((t: any) => t.name === tableName)
+
+        if (table) {
+          tableId = table.id
+          console.log(`✅ Found table ID: ${tableId} for table: ${tableName}`)
+        } else {
+          console.warn(`⚠️ Table "${tableName}" not found in base. Available tables:`,
+            schemaData.tables?.map((t: any) => t.name).join(', '))
+        }
+      } else {
+        console.warn(`⚠️ Could not fetch base schema: ${schemaRes.status}`)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error fetching table ID:`, error)
     }
   }
 
@@ -146,10 +209,12 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     }
   }
 
-  // Add recordChangeScope if we have a specific table
+  // Add recordChangeScope if we have a specific table ID
   if (tableId) {
     webhookPayload.specification.options.filters.recordChangeScope = tableId
     console.log(`🎯 Webhook will monitor only table: ${tableName} (${tableId})`)
+  } else if (tableName && !tableId) {
+    console.log(`⚠️ Table name provided but ID not found. Webhook will monitor entire base: ${baseId}`)
   } else {
     console.log(`🎯 Webhook will monitor entire base: ${baseId}`)
   }
@@ -194,7 +259,12 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
       webhook_id: data.id,
       mac_secret_base64: data.macSecretBase64,
       expiration_time: data.expirationTime ? new Date(data.expirationTime).toISOString() : null,
-      status: 'active'
+      status: 'active',
+      metadata: {
+        tableName: tableName || null,
+        tableId: tableId || null,
+        scopeType: tableId ? 'table' : 'base'
+      }
     }, { onConflict: 'user_id, base_id, webhook_id' })
 }
 
