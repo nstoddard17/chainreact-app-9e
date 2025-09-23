@@ -319,6 +319,7 @@ function ConfigurationForm({
   
   // Track if we've already loaded on mount to prevent duplicate calls
   const hasLoadedOnMount = useRef(false);
+  const previousNodeKeyRef = useRef<string | null>(null);
 
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
@@ -333,8 +334,8 @@ function ConfigurationForm({
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
 
-    // Reset the flag on mount
-    hasLoadedOnMount.current = false;
+    // Don't reset the flag here - it's handled in the nodeInfo change effect
+    // hasLoadedOnMount.current = false;
 
     // Clear options for Dropbox path field on mount to ensure fresh load
     if (nodeInfo?.providerId === 'dropbox' && resetOptions) {
@@ -377,28 +378,47 @@ function ConfigurationForm({
 
   // Reset hasLoadedOnMount and clear options when modal opens (nodeInfo changes)
   useEffect(() => {
-    hasLoadedOnMount.current = false;
-    console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - modal opened/reopened', {
-      nodeId: nodeInfo?.id,
-      nodeType: nodeInfo?.type,
-      currentNodeId
-    });
+    // Store the previous node ID to check if we're opening the same node
+    const prevNodeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
+    const isNewNode = prevNodeKey !== previousNodeKeyRef.current;
 
-    // Clear dynamic options for loadOnMount fields to force reload
-    if (nodeInfo?.configSchema) {
+    if (isNewNode) {
+      hasLoadedOnMount.current = false;
+      console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - NEW node opened', {
+        nodeId: nodeInfo?.id,
+        nodeType: nodeInfo?.type,
+        currentNodeId,
+        previousKey: previousNodeKeyRef.current,
+        newKey: prevNodeKey
+      });
+      previousNodeKeyRef.current = prevNodeKey;
+    } else {
+      console.log('🔄 [ConfigForm] Same node reopened - keeping cache', {
+        nodeId: nodeInfo?.id,
+        nodeType: nodeInfo?.type
+      });
+    }
+
+    // Only clear specific fields that need fresh data on each modal open
+    // For Trello, always clear boards to get fresh data
+    if (nodeInfo?.providerId === 'trello' && isNewNode) {
+      console.log('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
+      resetOptions('boardId');
+    }
+
+    // For Airtable, don't reset bases as they rarely change
+    // Only reset if it's a completely different node
+    if (nodeInfo?.providerId === 'airtable') {
+      console.log('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
+      // Don't reset baseId - let it use cached values
+    } else if (nodeInfo?.configSchema && isNewNode) {
+      // For other providers, reset loadOnMount fields only if it's a new node
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.loadOnMount && field.dynamic) {
           console.log(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
           resetOptions(field.name);
         }
       });
-    }
-
-    // Also specifically clear Trello boards when modal reopens
-    // This ensures fresh data after workflow execution
-    if (nodeInfo?.providerId === 'trello') {
-      console.log('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
-      resetOptions('boardId');
     }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, resetOptions]); // Also track nodeType and currentNodeId
 
@@ -424,20 +444,11 @@ function ConfigurationForm({
 
       // Check if field should load on mount
       if (field.loadOnMount === true && field.dynamic) {
-        // Check if we already have options for this field
-        const hasOptions = dynamicOptions[field.name] && dynamicOptions[field.name].length > 0;
+        // Only load if we haven't loaded this node's fields yet
+        // Don't check dynamicOptions or values here as it causes dependency issues
+        const shouldLoad = !hasLoadedOnMount.current;
 
-        // Special handling for boardId when we have a saved value
-        // Always load if we have a saved value but no options yet (to show the name instead of ID)
-        if (field.name === 'boardId' && values.boardId && !hasOptions) {
-          console.log(`🔄 [ConfigForm] Board ID has value (${values.boardId}) but no options - forcing load`);
-          return true;
-        }
-
-        // If we don't have options or hasLoadedOnMount is false, we should load
-        const shouldLoad = !hasOptions || !hasLoadedOnMount.current;
-
-        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, hasOptions: ${hasOptions}, shouldLoad: ${shouldLoad}`);
+        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`);
         return shouldLoad;
       }
       return false;
@@ -463,15 +474,16 @@ function ConfigurationForm({
             return;
           }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
-          // Always force refresh for Trello boards to ensure fresh data after workflow execution
-          const forceRefresh = field.name === 'boardId' || true;
-          loadOptions(field.name, undefined, undefined, forceRefresh); // Force refresh
+          // Only force refresh for specific fields that need it (like Trello boards)
+          // Don't force refresh for Airtable bases as they don't change frequently
+          const forceRefresh = field.name === 'boardId';
+          loadOptions(field.name, undefined, undefined, forceRefresh);
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 
       return () => clearTimeout(timeoutId);
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions, dynamicOptions, values.boardId]); // Track node identity changes and boardId value
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptions]); // Track node identity changes - removed values.boardId to prevent re-runs
 
   // Load options for dynamic fields with saved values
   useEffect(() => {

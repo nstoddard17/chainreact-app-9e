@@ -282,27 +282,40 @@ export default function BetaTestersContent() {
   }
 
   const handleUpdateStatus = async (testerId: string, newStatus: string) => {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from("beta_testers")
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
+    try {
+      const response = await fetch("/api/admin/beta-testers/update", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: testerId,
+          status: newStatus
+        })
       })
-      .eq("id", testerId)
 
-    if (error) {
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update status",
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Success",
+          description: "Status updated successfully"
+        })
+        fetchBetaTesters()
+      }
+    } catch (error) {
+      console.error("Error updating status:", error)
       toast({
         title: "Error",
-        description: "Failed to update status",
+        description: "Failed to update status. Please try again.",
         variant: "destructive"
       })
-    } else {
-      toast({
-        title: "Success",
-        description: "Status updated successfully"
-      })
-      fetchBetaTesters()
     }
   }
 
@@ -370,26 +383,38 @@ export default function BetaTestersContent() {
   }
 
   const handleDeleteTester = async (tester: BetaTester) => {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from("beta_testers")
-      .delete()
-      .eq("id", tester.id)
+    try {
+      const response = await fetch(`/api/admin/beta-testers/delete?id=${tester.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
 
-    if (error) {
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete beta tester",
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Success",
+          description: result.message || `Beta tester ${tester.email} has been deleted`,
+        })
+        setShowDeleteDialog(false)
+        setSelectedTester(null)
+        fetchBetaTesters()
+      }
+    } catch (error) {
+      console.error("Error deleting beta tester:", error)
       toast({
         title: "Error",
-        description: "Failed to delete beta tester",
+        description: "Failed to delete beta tester. Please try again.",
         variant: "destructive"
       })
-    } else {
-      toast({
-        title: "Success",
-        description: `Beta tester ${tester.email} has been deleted`,
-      })
-      setShowDeleteDialog(false)
-      setSelectedTester(null)
-      fetchBetaTesters()
     }
   }
 
@@ -1204,33 +1229,46 @@ export default function BetaTestersContent() {
               <Button onClick={async () => {
                 if (!selectedTester) return
 
-                const supabase = createClient()
-                const { error } = await supabase
-                  .from("beta_testers")
-                  .update({
-                    status: selectedTester.status,
-                    notes: selectedTester.notes,
-                    max_workflows: selectedTester.max_workflows,
-                    max_executions_per_month: selectedTester.max_executions_per_month,
-                    expires_at: selectedTester.expires_at,
-                    updated_at: new Date().toISOString()
+                try {
+                  const response = await fetch("/api/admin/beta-testers/update", {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      id: selectedTester.id,
+                      status: selectedTester.status,
+                      notes: selectedTester.notes,
+                      max_workflows: selectedTester.max_workflows,
+                      max_executions_per_month: selectedTester.max_executions_per_month,
+                      expires_at: selectedTester.expires_at
+                    })
                   })
-                  .eq("id", selectedTester.id)
 
-                if (error) {
+                  const result = await response.json()
+
+                  if (!response.ok) {
+                    toast({
+                      title: "Error",
+                      description: result.error || "Failed to update beta tester",
+                      variant: "destructive"
+                    })
+                  } else {
+                    toast({
+                      title: "Success",
+                      description: result.message || "Beta tester updated successfully"
+                    })
+                    setShowEditDialog(false)
+                    setSelectedTester(null)
+                    fetchBetaTesters()
+                  }
+                } catch (error) {
+                  console.error("Error updating beta tester:", error)
                   toast({
                     title: "Error",
-                    description: "Failed to update beta tester",
+                    description: "Failed to update beta tester. Please try again.",
                     variant: "destructive"
                   })
-                } else {
-                  toast({
-                    title: "Success",
-                    description: "Beta tester updated successfully"
-                  })
-                  setShowEditDialog(false)
-                  setSelectedTester(null)
-                  fetchBetaTesters()
                 }
               }}>
                 <CheckCircle className="w-4 h-4 mr-2" />
