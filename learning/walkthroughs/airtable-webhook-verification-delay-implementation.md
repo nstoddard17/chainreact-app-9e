@@ -73,12 +73,13 @@ Created verification function to check if records still exist before processing:
 export async function verifyAirtableRecord(
   userId: string,
   baseId: string,
-  tableId: string,
-  recordId: string
+  tableIdOrName: string,
+  recordId: string,
+  tableName?: string
 ): Promise<boolean> {
   // Get user's OAuth token
-  // Call Airtable API to check if record exists
-  // Return true if exists, false if deleted (404)
+  // Try both table name and table ID when checking Airtable
+  // Return false for 401/403/404 responses so deleted or inaccessible records are skipped
 }
 ```
 
