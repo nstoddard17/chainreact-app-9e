@@ -2,6 +2,9 @@ import { requireUsername } from "@/utils/checkUsername"
 import IntegrationsContent from "@/components/integrations/IntegrationsContent"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
+// Force dynamic rendering since integrations uses auth and real-time data
+export const dynamic = 'force-dynamic'
+
 // Main page component
 export default async function IntegrationsPage() {
   // This will check for username and redirect if needed

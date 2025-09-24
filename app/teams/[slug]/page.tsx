@@ -4,6 +4,9 @@ import { cookies } from "next/headers"
 import { redirect, notFound } from "next/navigation"
 import OrganizationContent from "@/components/teams/OrganizationContent"
 
+// Force dynamic rendering since teams uses auth and real-time data
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ slug: string }>
 }
