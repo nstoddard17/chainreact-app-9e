@@ -47,6 +47,8 @@ export function useTimeoutLoading({
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
   const loadingRef = useRef(false)
+  const hasTimedOutRef = useRef(false)
+  const attemptCountRef = useRef(0)
 
   const clearTimeoutSafe = useCallback(() => {
     if (timeoutIdRef.current) {
@@ -62,22 +64,48 @@ export function useTimeoutLoading({
       return
     }
 
+    // Prevent infinite reload loops - max 2 attempts
+    if (hasTimedOutRef.current && attemptCountRef.current >= 2) {
+      console.warn('⛔ Maximum reload attempts reached, stopping to prevent infinite loop')
+      loadingRef.current = false
+      return
+    }
+
     try {
       loadingRef.current = true
+      attemptCountRef.current++
+
+      // Use reasonable timeout in production (8 seconds for cold starts)
+      const isProduction = process.env.NODE_ENV === 'production'
+      const effectiveTimeout = isProduction ? 8000 : timeout
 
       // Set a timeout to handle stuck loading states
       timeoutIdRef.current = setTimeout(() => {
         if ((isLoading || loadingRef.current) && isMountedRef.current) {
-          console.warn(`⚠️ Loading timeout after ${timeout}ms - forcing reload`)
+          console.warn(`⚠️ Loading timeout after ${effectiveTimeout}ms`)
+          hasTimedOutRef.current = true
           loadingRef.current = false
-          loadFunction(true).catch(error => {
-            console.error('Force reload failed:', error)
+
+          // Only force reload once to prevent loops
+          if (attemptCountRef.current === 1) {
+            console.log('🔄 Attempting force reload...')
+            loadFunction(true).catch(error => {
+              console.error('Force reload failed:', error)
+              if (onError && isMountedRef.current) {
+                onError(error)
+              }
+            }).finally(() => {
+              loadingRef.current = false
+            })
+          } else {
+            console.log('⏹️ Stopping reload attempts to prevent loop')
+            // Just clear loading state and continue
             if (onError && isMountedRef.current) {
-              onError(error)
+              onError(new Error('Loading timeout - data may be incomplete'))
             }
-          })
+          }
         }
-      }, timeout)
+      }, effectiveTimeout)
 
       // Load the data
       const result = await loadFunction(forceRefresh)
@@ -85,6 +113,9 @@ export function useTimeoutLoading({
       if (onSuccess && isMountedRef.current) {
         onSuccess(result)
       }
+
+      // Reset timeout flag on successful load
+      hasTimedOutRef.current = false
 
       return result
     } catch (error) {
@@ -94,6 +125,10 @@ export function useTimeoutLoading({
         onError(error)
       }
 
+      // Don't throw in production to prevent page crashes
+      if (process.env.NODE_ENV === 'production') {
+        return null
+      }
       throw error
     } finally {
       loadingRef.current = false
