@@ -67,41 +67,38 @@ export function getApiBaseUrl(): string {
  * This function prioritizes environment variables and provides clear fallbacks
  */
 export function getWebhookBaseUrl(): string {
-  // Priority 1: Environment detection (localhost/ngrok takes precedence)
+  const explicitBase =
+    process.env.PUBLIC_WEBHOOK_BASE_URL ||
+    process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
+    process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL
+
+  if (explicitBase) {
+    return explicitBase.replace(/\/$/, '')
+  }
+
   if (typeof window !== 'undefined') {
-    // Client-side detection
     const hostname = window.location.hostname
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('ngrok.io') ||
+      hostname.includes('ngrok-free.app')
+    ) {
       return `${window.location.protocol}//${window.location.host}`
     }
-    // Check for ngrok URLs
-    if (hostname.includes('ngrok.io') || hostname.includes('ngrok-free.app')) {
-      return `${window.location.protocol}//${window.location.host}`
-    }
-  } else {
-    // Server-side detection
-    if (process.env.NODE_ENV === 'development') {
-      const port = process.env.PORT || '3000'
-      return `http://localhost:${port}`
-    }
+  } else if (process.env.NODE_ENV === 'development') {
+    const port = process.env.PORT || '3000'
+    return `http://localhost:${port}`
   }
-  
-  // Priority 2: Explicit webhook base URL for testing
-  if (process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL) {
-    return process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
-  }
-  
-  // Priority 3: General base URL
+
   if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL
+    return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, '')
   }
-  
-  // Priority 4: App URL
+
   if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
   }
-  
-  // Fallback to production URL
+
   return "https://chainreact.app"
 }
 
@@ -111,20 +108,21 @@ export function getWebhookBaseUrl(): string {
 export function getWebhookUrl(provider: string): string {
   // Special handling for Airtable which requires HTTPS URLs
   if (provider === 'airtable' && process.env.NODE_ENV === 'development') {
-    // Check for HTTPS webhook URL environment variable (e.g., from ngrok)
-    if (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL) {
-      return `${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL}/api/workflow/${provider}`
+    const explicitHttps =
+      process.env.PUBLIC_WEBHOOK_BASE_URL ||
+      process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
+      process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL
+
+    if (explicitHttps) {
+      return `${explicitHttps.replace(/\/$/, '')}/api/workflow/${provider}`
     }
 
-    // If no HTTPS URL available in development, log a warning
     console.warn('⚠️ Airtable webhooks require HTTPS URLs. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL to an HTTPS tunnel (e.g., ngrok) or deploy to staging.')
 
-    // Fall back to production URL if available
     if (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.startsWith('https://')) {
       return `${process.env.NEXT_PUBLIC_APP_URL}/api/workflow/${provider}`
     }
 
-    // Last resort: use production URL
     return `https://chainreact.app/api/workflow/${provider}`
   }
 
