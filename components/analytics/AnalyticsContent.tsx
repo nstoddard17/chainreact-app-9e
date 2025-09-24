@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import { useAuthStore } from "@/stores/authStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,11 +17,14 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
 export default function AnalyticsContent() {
   const { metrics, chartData, executions, fetchMetrics, fetchChartData, fetchExecutions } = useAnalyticsStore()
   const { user } = useAuthStore()
+  const { isReady: authReady } = useAuthReady()
 
   // Use timeout loading for fast, reliable data fetching with parallel loading
+  // NON-BLOCKING - page renders immediately
   useTimeoutLoading({
     loadFunction: async (force) => {
-      if (!user) return null
+      // Wait for auth to be ready before fetching
+      if (!authReady || !user) return null
 
       // Load all analytics data in parallel for maximum speed
       const promises = [
@@ -42,9 +46,13 @@ export default function AnalyticsContent() {
       await Promise.allSettled(promises)
       return true
     },
-    timeout: 7000, // 7 second timeout for analytics
+    timeout: 10000, // 10 second timeout in production
     forceRefreshOnMount: false, // Use cached data for faster loads
-    dependencies: [user]
+    dependencies: [user, authReady],
+    onError: (error) => {
+      // Don't block render on errors
+      console.warn('Analytics loading error (non-blocking):', error)
+    }
   })
 
   // Mock data for additional charts

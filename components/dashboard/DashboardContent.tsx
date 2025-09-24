@@ -8,6 +8,7 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
 import { useProductionReady } from '@/hooks/use-production-ready'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -63,10 +64,15 @@ export default function DashboardContent() {
   }, [user, profile, initialized, hydrated, isClientReady])
 
 
+  // Wait for auth to be ready before fetching data
+  const { isReady: authReady } = useAuthReady()
+
   // Use timeout loading for all data fetching with parallel loading
+  // This is NON-BLOCKING - page will render immediately
   useTimeoutLoading({
     loadFunction: async (force) => {
-      if (!user) return null
+      // Wait for auth to be ready before fetching
+      if (!authReady || !user) return null
 
       // Load all data in parallel for maximum speed
       const promises = [
@@ -92,9 +98,13 @@ export default function DashboardContent() {
       await Promise.allSettled(promises)
       return true
     },
-    timeout: 8000, // 8 second timeout for dashboard
+    timeout: 10000, // 10 second timeout for dashboard in production
     forceRefreshOnMount: false, // Dashboard can use cached data
-    dependencies: [user]
+    dependencies: [user, authReady],
+    onError: (error) => {
+      // Don't block render on errors
+      console.warn('Dashboard data loading error (non-blocking):', error)
+    }
   })
 
   const getFirstName = () => {
@@ -134,21 +144,20 @@ export default function DashboardContent() {
 
   const firstName = getFirstName()
 
-  // Show skeleton loading state only during hydration
-  // This prevents the stuck loading issue
-  const isInitialLoading = !isClientReady || !hydrated || !isProductionReady
+  // CRITICAL FIX: Don't block on production ready state
+  // Only show loading if client isn't ready AND we're not hydrated
+  // This allows the page to render immediately in production
+  const isInitialLoading = !isClientReady && !hydrated
 
   if (isInitialLoading) {
+    // Only show loading for maximum 1 second
     return (
       <PageLoader
         message="Loading your dashboard..."
-        timeout={8000}
+        timeout={1000} // Very short timeout - 1 second max
         onTimeout={() => {
-          console.error('Dashboard loading timeout - forcing reload')
-          // Force initialize if still not initialized
-          if (!initialized) {
-            useAuthStore.getState().initialize()
-          }
+          console.log('Dashboard render forced after 1 second')
+          // Don't reload, just continue rendering
         }}
       />
     )

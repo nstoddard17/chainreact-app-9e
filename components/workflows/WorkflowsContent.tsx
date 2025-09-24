@@ -23,6 +23,7 @@ import WorkflowDialog from "./WorkflowDialog"
 import { useWorkflows } from "@/hooks/use-workflows"
 import { Workflow } from "@/stores/workflowStore"
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import { RoleGuard, PermissionGuard, OrganizationRoleGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
@@ -95,24 +96,25 @@ export default function WorkflowsContent() {
     workflowName: "",
   })
   const { toast } = useToast()
+  const { isReady: authReady } = useAuthReady()
 
   // Use the new timeout loading hook for fast, reliable loading
+  // NON-BLOCKING - page renders immediately
   useTimeoutLoading({
     loadFunction: async (force) => {
+      // Wait for auth to be ready
+      if (!authReady) return null
       // Always fetch fresh data for workflows to ensure deleted ones don't appear
       return await loadAllWorkflows(true)
     },
     isLoading: loading,
-    timeout: 10000, // 10 second timeout for workflows
+    timeout: 10000, // 10 second timeout in production
     forceRefreshOnMount: true, // Always refresh workflows on mount
     onError: (error) => {
-      toast({
-        title: "Error loading workflows",
-        description: "Please refresh the page to try again",
-        variant: "destructive",
-      })
+      // Don't show toast for timeouts - just log
+      console.warn('Workflow loading error (non-blocking):', error)
     },
-    dependencies: [] // No dependencies - only load on mount
+    dependencies: [authReady] // Load when auth is ready
   })
 
   // Load integrations on mount

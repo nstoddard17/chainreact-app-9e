@@ -134,11 +134,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
     initializeProviders: async () => {
         const { setLoading } = get()
 
-        // Set a timeout to prevent stuck loading state - 60 seconds as safety net
+        // Reasonable timeout for production cold starts - 10 seconds
+        const isProduction = process.env.NODE_ENV === 'production'
+        const timeoutDuration = isProduction ? 10000 : 60000
+
+        // Set a timeout to prevent stuck loading state
         const loadingTimeout = setTimeout(() => {
           const currentState = get()
           if (currentState.loadingStates['providers']) {
-            console.warn("Provider initialization taking unusually long - resetting loading state")
+            console.warn(`Provider initialization timeout after ${timeoutDuration}ms - resetting loading state`)
             setLoading('providers', false)
             // Set default providers if timeout occurs
             set({
@@ -146,7 +150,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               error: null // Don't show error - just reset state
             })
           }
-        }, 60000)
+        }, timeoutDuration)
 
         try {
           setLoading('providers', true)
@@ -179,7 +183,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
         caller: new Error().stack?.split('\n')[2]?.trim()
       })
         const { setLoading, currentUserId } = get()
-        
+
+        // Abort any existing request
+        if (currentAbortController) {
+          currentAbortController.abort()
+        }
+        currentAbortController = new AbortController()
+
+        // Set timeout for fetch operation - 8 seconds in production for cold starts
+        const isProduction = process.env.NODE_ENV === 'production'
+        const fetchTimeout = setTimeout(() => {
+          console.warn('Integration fetch timeout - aborting request')
+          currentAbortController?.abort()
+          setLoading('integrations', false)
+          set({
+            error: null, // Don't show error for timeout
+            integrations: get().integrations || [] // Keep existing data
+          })
+        }, isProduction ? 8000 : 10000)
+
         try {
           setLoading('integrations', true)
           set({ error: null })
@@ -216,28 +238,42 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
 
           const integrations = await IntegrationService.fetchIntegrations(force)
-          
+
+          // Clear timeout on successful fetch
+          clearTimeout(fetchTimeout)
+
           // Debug log to see what we got from the API
           console.log('📦 [IntegrationStore] Fetched integrations:', {
             count: integrations?.length,
-            firstFew: integrations?.slice(0, 3).map(i => ({ 
-              provider: i.provider, 
+            firstFew: integrations?.slice(0, 3).map(i => ({
+              provider: i.provider,
               status: i.status,
-              id: i.id 
+              id: i.id
             }))
           });
-          
+
           setLoading('integrations', false)
           set({
             integrations
           })
         } catch (error: any) {
+          clearTimeout(fetchTimeout)
+
+          // Check if it was aborted
+          if (error.name === 'AbortError') {
+            console.log('Integration fetch was aborted (timeout or new request)')
+            return
+          }
+
           console.error("Failed to fetch integrations:", error)
           setLoading('integrations', false)
           set({
             error: error.message || "Failed to fetch integrations",
             integrations: [],
           })
+        } finally {
+          // Cleanup
+          currentAbortController = null
         }
     },
 

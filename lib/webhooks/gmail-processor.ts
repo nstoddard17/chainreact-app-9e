@@ -167,18 +167,34 @@ async function fetchEmailDetails(
     const startHistoryId = watchConfig.historyId
 
     if (!startHistoryId) {
-      console.warn('⚠️ No stored historyId for Gmail watch; using notification historyId - 1')
+      console.warn('⚠️ No stored historyId for Gmail watch; skipping workflow until watch metadata saved')
+      return null
     }
 
     const historyRequest: any = {
       userId: 'me',
       historyTypes: ['messageAdded'],
       startHistoryId: startHistoryId
-        ? startHistoryId
-        : (parseInt(String(notification.historyId)) - 1).toString()
     }
 
     const history = await gmail.users.history.list(historyRequest)
+
+    const supabase = await createSupabaseServiceClient()
+
+    if (history.data.historyId) {
+      await supabase
+        .from('webhook_configs')
+        .update({
+          config: {
+            ...webhookConfigData,
+            watch: {
+              ...watchConfig,
+              historyId: String(history.data.historyId)
+            }
+          }
+        })
+        .eq('id', webhookConfigId)
+    }
 
     console.log(`📚 History response:`, {
       historyLength: history.data.history?.length || 0
@@ -206,21 +222,6 @@ async function fetchEmailDetails(
       id: messageId,
       format: 'full'
     })
-
-    const supabase = await createSupabaseServiceClient()
-
-    await supabase
-      .from('webhook_configs')
-      .update({
-        config: {
-          ...webhookConfigData,
-          watch: {
-            ...watchConfig,
-            historyId: String(notification.historyId)
-          }
-        }
-      })
-      .eq('id', webhookConfigId)
 
     const headers = message.data.payload?.headers || []
     const emailDetails: any = {
