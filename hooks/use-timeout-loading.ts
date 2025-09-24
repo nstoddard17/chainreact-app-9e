@@ -107,15 +107,15 @@ export function useTimeoutLoading({
         }
       }, effectiveTimeout)
 
-      // Load the data
+      // Execute the load function
       const result = await loadFunction(forceRefresh)
-
+      
+      // Reset timeout flag on successful load
+      hasTimedOutRef.current = false
+      
       if (onSuccess && isMountedRef.current) {
         onSuccess(result)
       }
-
-      // Reset timeout flag on successful load
-      hasTimedOutRef.current = false
 
       return result
     } catch (error) {

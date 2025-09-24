@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import { useIntegrationStore, Integration } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
-import { IntegrationCard } from "@/components/integrations/IntegrationCard"
-import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
+import { IntegrationCardWrapper } from "@/components/integrations/IntegrationCardWrapper"
 import { RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
@@ -565,61 +564,54 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
   }
 
-  const providersWithStatus = useMemo(() => {
-    const result = providers.map((provider) => {
-      const integration = integrations.find((i) => i.provider === provider.id)
-      const config = INTEGRATION_CONFIGS[provider.id] || {}
-      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
-
-      if (integration) {
-        if (integration.status === "expired" || integration.status === "needs_reauthorization") {
-          status = "expired"
-        } else if (integration.expires_at) {
-          const expiresAt = new Date(integration.expires_at)
-          const now = new Date()
-          const tenMinutesMs = 10 * 60 * 1000 // 10 minutes in milliseconds
-          const timeUntilExpiry = expiresAt.getTime() - now.getTime()
-          
-          if (expiresAt.getTime() < now.getTime()) {
-            status = "expired"
-          } else if (timeUntilExpiry < tenMinutesMs) {
-            status = "expiring"
-          } else {
-            status = "connected"
-          }
-        } else {
-          status = "connected"
-        }
-      }
-
-      return {
-        ...config,
-        ...provider,
-        integration,
-        status,
-      }
-    })
-
-    return result
-  }, [providers, integrations])
-
-  const filteredProviders = useMemo(() => {
-    const filtered = providersWithStatus
-      .filter((p) => {
+  // Only create minimal objects for filtering - don't spread entire objects
+  const filteredProviderIds = useMemo(() => {
+    return providers
+      .filter(provider => {
         // Exclude AI Agent, Logic, and Control integrations
-        if (["ai", "logic", "control"].includes(p.id)) return false;
-        if (activeFilter !== "all" && p.status !== activeFilter) {
-          return false
+        if (["ai", "logic", "control"].includes(provider.id)) return false;
+
+        // Apply search filter
+        if (searchQuery && !provider.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
         }
-        if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return false
+
+        // Apply status filter
+        if (activeFilter !== "all") {
+          const integration = integrations.find(i => i.provider === provider.id);
+          let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected";
+
+          if (integration) {
+            if (integration.status === "expired" || integration.status === "needs_reauthorization") {
+              status = "expired";
+            } else if (integration.expires_at) {
+              const expiresAt = new Date(integration.expires_at);
+              const now = new Date();
+              const tenMinutesMs = 10 * 60 * 1000;
+              const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+
+              if (expiresAt.getTime() < now.getTime()) {
+                status = "expired";
+              } else if (timeUntilExpiry < tenMinutesMs) {
+                status = "expiring";
+              } else {
+                status = "connected";
+              }
+            } else {
+              status = "connected";
+            }
+          }
+
+          if (status !== activeFilter) {
+            return false;
+          }
         }
-        return true
+
+        return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-    
-    return filtered
-  }, [providersWithStatus, activeFilter, searchQuery, metrics.expiring])
+      .map(p => ({ id: p.id, integration: integrations.find(i => i.provider === p.id) }));
+  }, [providers, integrations, activeFilter, searchQuery])
 
   // Show loading state only during initial initialization
   if (isInitializing && providers.length === 0) {
@@ -638,52 +630,27 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const IntegrationGrid = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isInitializing && filteredProviders.length === 0 ? (
+        {isInitializing && filteredProviderIds.length === 0 ? (
           <div className="col-span-full flex items-center justify-center py-12">
             <div className="text-center">
               <LightningLoader size="lg" color="blue" className="mx-auto mb-2" />
               <p className="text-muted-foreground">Loading integrations...</p>
             </div>
           </div>
-        ) : filteredProviders.length === 0 ? (
+        ) : filteredProviderIds.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <p className="text-muted-foreground">No integrations found matching your criteria.</p>
           </div>
         ) : (
-          filteredProviders.map((p) => {
+          filteredProviderIds.map((p) => {
             const isConfigured = configuredClients[p.id] ?? false
-            if (p.authType === "apiKey") {
-              return (
-                <ApiKeyIntegrationCard
-                  key={p.id}
-                  provider={p}
-                  integration={p.integration ?? null}
-                  status={p.status === "connected" || p.status === "expiring" ? p.status : "disconnected"}
-                  open={openGuideForProviderId === p.id}
-                  onOpenChange={(isOpen) => setOpenGuideForProviderId(isOpen ? p.id : null)}
-                />
-              )
-            }
             return (
-              <IntegrationCard
+              <IntegrationCardWrapper
                 key={p.id}
-                provider={p as IntegrationConfig}
-                integration={p.integration ?? null}
-                status={p.status}
+                providerId={p.id}
                 isConfigured={isConfigured}
-                onConnect={() => connectIntegration(p.id)}
-                onDisconnect={() => {
-                  if (p.integration) {
-                    disconnectIntegration(p.integration.id)
-                  }
-                }}
-                onReconnect={() => {
-                  if (p.integration) {
-                    reconnectIntegration(p.integration.id)
-                  } else {
-                    console.warn("⚠️ No integration found for reconnect")
-                  }
-                }}
+                openGuideForProviderId={openGuideForProviderId}
+                onOpenGuideChange={setOpenGuideForProviderId}
               />
             )
           })
