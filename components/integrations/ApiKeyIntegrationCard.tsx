@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, memo } from 'react'
-import Image from 'next/image'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
@@ -12,6 +11,7 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import { cn } from '@/lib/utils'
 import { ManyChatGuide } from './guides/ManyChatGuide'
 import { BeehiivGuide } from './guides/BeehiivGuide'
+import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 
 // Colors for the letter avatar
 const avatarColors = [
@@ -39,7 +39,18 @@ interface ApiKeyIntegrationCardProps {
 }
 
 export const ApiKeyIntegrationCard = memo(function ApiKeyIntegrationCard({ provider, integration, status, open, onOpenChange }: ApiKeyIntegrationCardProps) {
-  const { connectApiKeyIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
+  // Use selective subscriptions to prevent re-renders
+  const connectApiKeyIntegration = useIntegrationStore(state => state.connectApiKeyIntegration)
+  const disconnectIntegration = useIntegrationStore(state => state.disconnectIntegration)
+
+  // Only subscribe to the specific loading states for this card
+  const isConnecting = useIntegrationStore(state =>
+    state.loadingStates[`connect-${provider.id}`] || false
+  )
+  const isDisconnecting = useIntegrationStore(state =>
+    integration ? state.loadingStates[`disconnect-${integration.provider}`] || false : false
+  )
+
   const [imageError, setImageError] = useState(false)
 
   const handleDisconnect = () => {
@@ -48,11 +59,10 @@ export const ApiKeyIntegrationCard = memo(function ApiKeyIntegrationCard({ provi
     }
   }
 
-  const isLoading = 
-    loadingStates[`connect-${provider.id}`] || 
-    (integration ? loadingStates[`disconnect-${integration.provider}`] : false)
+  const isLoading = isConnecting || isDisconnecting
 
-  const getStatusUi = () => {
+  // Memoize status UI to prevent recreation
+  const statusUi = useMemo(() => {
     switch (status) {
       case 'connected':
         return {
@@ -73,26 +83,11 @@ export const ApiKeyIntegrationCard = memo(function ApiKeyIntegrationCard({ provi
           action: 'connect'
         }
     }
-  }
+  }, [status])
 
-  const { icon: statusIcon, badgeClass: statusBadgeClass, action: statusAction } = getStatusUi()
+  const { icon: statusIcon, badgeClass: statusBadgeClass, action: statusAction } = statusUi
 
-  // Memoize the logo to prevent recreation on every render
-  const logo = useMemo(() => {
-    const logoPath = `/integrations/${provider.id}.svg`
-    // Add special class for icons that need inverted colors in dark mode
-    const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
-
-    return (
-      <Image
-        src={logoPath}
-        alt={provider.name}
-        width={48}
-        height={48}
-        className={cn("object-contain", needsInversion && "dark:invert")}
-      />
-    )
-  }, [provider.id, provider.name])
+  // No need to memoize - StaticIntegrationLogo handles its own optimization
 
   const guideComponents = {
     manychat: ManyChatGuide,
@@ -106,7 +101,11 @@ export const ApiKeyIntegrationCard = memo(function ApiKeyIntegrationCard({ provi
       <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-border bg-card overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            {logo}
+            <StaticIntegrationLogo
+              providerId={provider.id}
+              providerName={provider.name}
+              providerColor={provider.color}
+            />
             <div className="min-w-0 flex-1">
               <h3 
                 className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
