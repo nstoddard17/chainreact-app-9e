@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateAirtableSignature, fetchAirtableWebhookPayloads } from '@/lib/integrations/airtable/webhooks'
+import { matchesAirtableTable } from '@/lib/integrations/airtable/payloadUtils'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,10 +12,12 @@ const supabase = createClient(
 const processedRecords = new Map<string, number>() // Track when records were processed
 const pendingRecords = new Map<string, {
   workflowId: string;
+  recordId: string;
   userId: string;
   triggerData: any;
   scheduledAt: number;
   verificationDelay: number;
+  dedupeId: string;
 }>() // Track records pending verification
 const activeTimers = new Map<string, NodeJS.Timeout>() // Track active timers to prevent duplicates
 
@@ -208,9 +211,14 @@ function parseVerificationDelay(value: any, defaultValue: number): number {
   return defaultValue
 }
 
+// Helper to build consistent dedupe keys
+function buildDedupeKey(workflowId: string, dedupeId: string): string {
+  return `${workflowId}-${dedupeId}`
+}
+
 // Helper to check if a record was recently processed
-function wasRecentlyProcessed(workflowId: string, recordId: string): boolean {
-  const key = `${workflowId}-${recordId}`
+function wasRecentlyProcessed(workflowId: string, dedupeId: string): boolean {
+  const key = buildDedupeKey(workflowId, dedupeId)
   const processedAt = processedRecords.get(key)
 
   if (!processedAt) return false
@@ -229,8 +237,8 @@ function wasRecentlyProcessed(workflowId: string, recordId: string): boolean {
 }
 
 // Mark a record as processed
-function markRecordProcessed(workflowId: string, recordId: string): void {
-  const key = `${workflowId}-${recordId}`
+function markRecordProcessed(workflowId: string, dedupeId: string): void {
+  const key = buildDedupeKey(workflowId, dedupeId)
   processedRecords.set(key, Date.now())
 
   // Clean up old entries periodically
@@ -251,15 +259,16 @@ function schedulePendingRecord(
   recordId: string,
   userId: string,
   triggerData: any,
-  verificationDelay: number
+  verificationDelay: number,
+  dedupeId?: string
 ): void {
-  const key = `${workflowId}-${recordId}`
+  const dedupeKey = buildDedupeKey(workflowId, dedupeId || recordId)
 
   // Check if already has an active timer
-  if (activeTimers.has(key)) {
+  if (activeTimers.has(dedupeKey)) {
     console.log(`      ⏸️ Record ${recordId} already has active timer, updating data only`)
     // Update with latest data (in case fields were added)
-    const existing = pendingRecords.get(key)
+    const existing = pendingRecords.get(dedupeKey)
     if (existing && triggerData.fields) {
       // Merge fields from new data
       existing.triggerData.fields = { ...existing.triggerData.fields, ...triggerData.fields }
@@ -269,23 +278,25 @@ function schedulePendingRecord(
 
   const pendingRecord = {
     workflowId,
+    recordId,
     userId,
     triggerData,
     scheduledAt: Date.now() + (verificationDelay * 1000), // Convert seconds to ms
-    verificationDelay
+    verificationDelay,
+    dedupeId: dedupeId || recordId
   }
 
-  pendingRecords.set(key, pendingRecord)
+  pendingRecords.set(dedupeKey, pendingRecord)
 
   // Schedule the execution with setTimeout
   const timer = setTimeout(async () => {
     console.log(`⏰ Timer expired for record ${recordId}, processing...`)
-    activeTimers.delete(key) // Remove from active timers
-    await processSinglePendingRecord(key, pendingRecord)
+    activeTimers.delete(dedupeKey) // Remove from active timers
+    await processSinglePendingRecord(dedupeKey, pendingRecord)
   }, verificationDelay * 1000)
 
   // Store the timer reference
-  activeTimers.set(key, timer)
+  activeTimers.set(dedupeKey, timer)
 }
 
 // Process a single pending record when its timer expires
@@ -295,14 +306,10 @@ async function processSinglePendingRecord(key: string, pending: any): Promise<vo
   // Remove from pending map
   pendingRecords.delete(key)
 
-  // Extract recordId from key (format: workflowId-recordId where workflowId is a UUID)
-  // The workflowId is a UUID with format: 8-4-4-4-12 characters
-  // So we need to skip the first 5 parts (UUID parts) to get the recordId
-  const parts = key.split('-')
-  const recordId = parts.slice(5).join('-') // Skip UUID parts: 8-4-4-4-12 = 5 parts
+  const recordId = pending.recordId
 
   // Mark as processed to prevent duplicates
-  markRecordProcessed(pending.workflowId, recordId)
+  markRecordProcessed(pending.workflowId, pending.dedupeId || recordId)
 
   // If verification delay is 0, process immediately without verification
   if (pending.verificationDelay === 0) {
@@ -338,7 +345,7 @@ async function processPendingRecords(): Promise<void> {
 
   for (const [key, pending] of pendingRecords.entries()) {
     const timeRemaining = Math.ceil((pending.scheduledAt - now) / 1000)
-    console.log(`  - Record ${key}: ${timeRemaining > 0 ? `${timeRemaining}s remaining` : 'ready to process'}`)
+    console.log(`  - Record ${pending.recordId} (${key}): ${timeRemaining > 0 ? `${timeRemaining}s remaining` : 'ready to process'}`)
 
     // Since we're now using setTimeout, we don't process here
     // This function is just for logging status
@@ -467,7 +474,7 @@ export async function POST(req: NextRequest) {
     if (payloads?.payloads && payloads.payloads.length > 0) {
       // Process payloads in batch to handle cross-payload data merging
       const skipBefore = wh.metadata?.skip_before_timestamp as string | undefined
-      await processAirtablePayloadsBatch(wh.user_id, baseId, payloads.payloads, skipBefore)
+      await processAirtablePayloadsBatch(wh.user_id, baseId, payloads.payloads, skipBefore, wh.metadata)
 
       // Store cursor for next fetch if available
       if (payloads.cursor) {
@@ -503,7 +510,8 @@ async function processAirtablePayloadsBatch(
   userId: string,
   baseId: string,
   payloads: any[],
-  skipBeforeTimestamp?: string
+  skipBeforeTimestamp?: string,
+  webhookMetadata?: Record<string, any>
 ) {
   // Build a map of all changed records across all payloads for data lookup
   const allChangedRecords = new Map<string, any>()
@@ -535,7 +543,14 @@ async function processAirtablePayloadsBatch(
   // Process each payload with access to all change data
   for (const payload of payloads) {
     const normalizedPayload = normalizeAirtablePayload(payload)
-    await processAirtablePayload(userId, baseId, normalizedPayload, allChangedRecords, skipBeforeTimestamp)
+    await processAirtablePayload(
+      userId,
+      baseId,
+      normalizedPayload,
+      allChangedRecords,
+      skipBeforeTimestamp,
+      webhookMetadata
+    )
   }
 }
 
@@ -544,7 +559,8 @@ async function processAirtablePayload(
   baseId: string,
   payload: any,
   allChangedRecords: Map<string, any>,
-  skipBeforeTimestamp?: string
+  skipBeforeTimestamp?: string,
+  webhookMetadata?: Record<string, any>
 ) {
   // Don't log full payload - too verbose
 
@@ -613,255 +629,297 @@ async function processAirtablePayload(
   }
 
   for (const workflow of airtableWorkflows) {
-    // Extract trigger information from nodes
     const nodes = workflow.nodes || []
     const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
 
     if (!triggerNode) {
       console.log(`❌ No trigger node found in workflow ${workflow.id}`)
-      continue // Skip if no trigger node found
+      continue
     }
 
     const triggerConfig = triggerNode.data?.config || {}
     const triggerType = triggerNode.data?.type
     const tableName = triggerConfig.tableName
+    const tableIdFilter = triggerConfig.tableId || webhookMetadata?.tableId || webhookMetadata?.table_id || null
+
+    if (tableIdFilter && !triggerConfig.tableId) {
+      triggerConfig.tableId = tableIdFilter
+    }
 
     console.log(`🔍 Checking workflow "${workflow.name}" (${workflow.id})`)
     console.log(`   - Trigger type: ${triggerType}`)
     console.log(`   - Table filter: ${tableName || 'all tables'}`)
+    console.log(`   - Table filter ID: ${tableIdFilter || 'all tables'}`)
     console.log(`   - Verification delay in config: ${triggerConfig.verificationDelay}`)
     console.log(`   - Full trigger config:`, JSON.stringify(triggerConfig, null, 2))
 
-    // Check if this workflow cares about changes to this table
-    let triggerData = {}
-
-    // Handle created records
-    // Note: Airtable sends created records in BOTH createdTablesById AND changedTablesById
-    // We need to check both places for created records
     if (triggerType === 'airtable_trigger_new_record') {
-      // Check for created tables (new tables with records)
       if (created_tables_by_id) {
         for (const [tableId, tableData] of Object.entries(created_tables_by_id)) {
-          if (!tableName || tableData.name === tableName) {
-            const createdRecords = getCreatedRecords(tableData)
-            if (createdRecords) {
-              for (const [recordId, record] of Object.entries(createdRecords)) {
-                const fields = extractRecordFields(record)
-                const hasData = hasNonEmptyFieldValues(fields)
+          if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
+            continue
+          }
 
-                if (!hasData) {
-                  continue // Empty record - skip
-                }
+          const createdRecords = getCreatedRecords(tableData)
+          if (!createdRecords) {
+            continue
+          }
 
-                if (wasRecentlyProcessed(workflow.id, recordId)) {
-                  console.log(`      ⏭️ Skipping duplicate - already processed`)
-                  continue // Skip duplicate
-                }
+          for (const [recordId, record] of Object.entries(createdRecords)) {
+            const fields = extractRecordFields(record)
+            const hasData = hasNonEmptyFieldValues(fields)
 
-                const rawDelayValue = triggerConfig.verificationDelay
-                console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
-                const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
-                console.log(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
+            if (!hasData) {
+              continue
+            }
 
-                const triggerData = {
-                  baseId,
-                  tableId,
-                  tableName: tableData.name,
-                  recordId,
-                  fields,
-                  createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
-                }
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
+            }
 
-                if (verificationDelay === 0) {
-                  console.log(`🚀 Processing new record ${recordId} immediately (no delay)`)
-                  markRecordProcessed(workflow.id, recordId)
-                  await createWorkflowExecution(workflow.id, userId, triggerData)
-                } else {
-                  console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
-                  schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
-                }
-              }
+            const rawDelayValue = triggerConfig.verificationDelay
+            console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
+            console.log(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
+
+            const triggerData = {
+              baseId,
+              tableId,
+              tableName: tableData.name || webhookMetadata?.tableName || 'Unknown Table',
+              recordId,
+              fields,
+              createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
+            }
+
+            if (verificationDelay === 0) {
+              console.log(`🚀 Processing new record ${recordId} immediately (no delay)`)
+              markRecordProcessed(workflow.id, recordId)
+              await createWorkflowExecution(workflow.id, userId, triggerData)
+            } else {
+              console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
+              schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
         }
       }
 
-      // ALSO check for created records in changed tables (most common case)
       if (changed_tables_by_id) {
         for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
-          if (!tableName || tableData.name === tableName) {
-            // Check for createdRecordsById within changed tables
-            const nestedCreatedRecords = getCreatedRecords(tableData)
-            if (nestedCreatedRecords) {
-              console.log(`  🆕 Found ${Object.keys(nestedCreatedRecords).length} new records in table ${tableData.name || tableId}`)
+          if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
+            continue
+          }
 
-              for (const [recordId, record] of Object.entries(nestedCreatedRecords)) {
-                const fields = extractRecordFields(record)
-                const fieldCount = Object.keys(fields).length
-                const nonEmptyFields = Object.values(fields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
-                const hasData = fieldCount > 0 && nonEmptyFields > 0 && hasNonEmptyFieldValues(fields)
+          const nestedCreatedRecords = getCreatedRecords(tableData)
+          if (!nestedCreatedRecords) {
+            continue
+          }
 
-                console.log(`    - Record ${recordId}: ${fieldCount} fields, ${nonEmptyFields} non-empty, hasData: ${hasData}`)
+          console.log(`  🆕 Found ${Object.keys(nestedCreatedRecords).length} new records in table ${tableData.name || tableId}`)
 
-                if (!hasData) {
-                  let foundWithData = false
-                  const changeKey = `${tableId}-${recordId}`
+          for (const [recordId, record] of Object.entries(nestedCreatedRecords)) {
+            const fields = extractRecordFields(record)
+            const fieldCount = Object.keys(fields).length
+            const nonEmptyFields = Object.values(fields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
+            const hasData = fieldCount > 0 && nonEmptyFields > 0 && hasNonEmptyFieldValues(fields)
 
-                  if (allChangedRecords && allChangedRecords.has(changeKey)) {
-                    const changeInfo = allChangedRecords.get(changeKey)
-                    const changedFields = extractSnapshotFields(changeInfo?.changes?.current)
-                    const changedFieldCount = Object.keys(changedFields).length
-                    const changedNonEmpty = Object.values(changedFields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
+            console.log(`    - Record ${recordId}: ${fieldCount} fields, ${nonEmptyFields} non-empty, hasData: ${hasData}`)
 
-                    if (changedFieldCount > 0 && changedNonEmpty > 0) {
-                      console.log(`      📝 Found data in change event from another payload: ${changedFieldCount} fields, ${changedNonEmpty} non-empty`)
-                      Object.assign(fields, changedFields)
-                      foundWithData = true
-                    }
-                  }
+            if (!hasData) {
+              let foundWithData = false
+              const changeKey = `${tableId}-${recordId}`
 
-                  if (!foundWithData) {
-                    console.log(`      ⏭️ Skipping empty record (no data found in any change event across all payloads)`)
-                    continue
-                  }
-                }
+              if (allChangedRecords && allChangedRecords.has(changeKey)) {
+                const changeInfo = allChangedRecords.get(changeKey)
+                const changedFields = extractSnapshotFields(changeInfo?.changes?.current)
+                const changedFieldCount = Object.keys(changedFields).length
+                const changedNonEmpty = Object.values(changedFields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
 
-                if (wasRecentlyProcessed(workflow.id, recordId)) {
-                  console.log(`      ⏭️ Skipping duplicate - already processed`)
-                  continue
-                }
-
-                const rawDelayValue = triggerConfig.verificationDelay
-                console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
-                const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
-                console.log(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
-
-                const triggerData = {
-                  baseId,
-                  tableId,
-                  tableName: tableData.name || 'Unknown Table',
-                  recordId,
-                  fields,
-                  createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
-                }
-
-                if (verificationDelay === 0) {
-                  console.log(`🚀 Processing new record ${recordId} immediately (no delay)`)
-                  markRecordProcessed(workflow.id, recordId)
-                  await createWorkflowExecution(workflow.id, userId, triggerData)
-                } else {
-                  console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
-                  schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
+                if (changedFieldCount > 0 && changedNonEmpty > 0) {
+                  console.log(`      📝 Found data in change event from another payload: ${changedFieldCount} fields, ${changedNonEmpty} non-empty`)
+                  Object.assign(fields, changedFields)
+                  foundWithData = true
                 }
               }
+
+              if (!foundWithData) {
+                console.log(`      ⏭️ Skipping empty record (no data found in any change event across all payloads)`)
+                continue
+              }
+            }
+
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
+            }
+
+            const rawDelayValue = triggerConfig.verificationDelay
+            console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
+            console.log(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
+
+            const triggerData = {
+              baseId,
+              tableId,
+              tableName: tableData.name || webhookMetadata?.tableName || 'Unknown Table',
+              recordId,
+              fields,
+              createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
+            }
+
+            if (verificationDelay === 0) {
+              console.log(`🚀 Processing new record ${recordId} immediately (no delay)`)
+              markRecordProcessed(workflow.id, recordId)
+              await createWorkflowExecution(workflow.id, userId, triggerData)
+            } else {
+              console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
+              schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
         }
       }
-    }
 
-    // For new record triggers, ALSO check changed records
-    // This handles the case where a record was created empty, then immediately edited
-    if (triggerType === 'airtable_trigger_new_record' && changed_tables_by_id) {
-      for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
-        if (!tableName || tableData.name === tableName) {
-          // Check for changedRecordsById that might be newly created records with data
+      if (changed_tables_by_id) {
+        for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
+          if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
+            continue
+          }
+
           const changedRecordsOnly = getChangedRecords(tableData)
           const createdRecordsForTable = getCreatedRecords(tableData)
-          if (changedRecordsOnly && (!createdRecordsForTable || Object.keys(createdRecordsForTable).length === 0)) {
-            console.log(`  🔄 Checking ${Object.keys(changedRecordsOnly).length} changed records for potential new records`)
 
-            for (const [recordId, changes] of Object.entries(changedRecordsOnly)) {
-              const currentFieldsSnapshot = extractSnapshotFields((changes as any)?.current)
-              const previousFieldsSnapshot = extractSnapshotFields((changes as any)?.previous)
-              const fields = { ...currentFieldsSnapshot }
-              const hasData = hasNonEmptyFieldValues(currentFieldsSnapshot)
-              const isLikelyNew = Object.keys(previousFieldsSnapshot).length === 0
+          if (!changedRecordsOnly || (createdRecordsForTable && Object.keys(createdRecordsForTable).length > 0)) {
+            continue
+          }
 
-              if (hasData && isLikelyNew) {
-                if (wasRecentlyProcessed(workflow.id, recordId)) {
-                  console.log(`      ⏭️ Skipping duplicate - already processed`)
-                  continue
-                }
+          console.log(`  🔄 Checking ${Object.keys(changedRecordsOnly).length} changed records for potential new records`)
 
-                const pendingKey = `${workflow.id}-${recordId}`
-                if (pendingRecords.has(pendingKey)) {
-                  console.log(`      ⏸️ Record ${recordId} already scheduled, skipping change event`)
-                  continue
-                }
+          for (const [recordId, changes] of Object.entries(changedRecordsOnly)) {
+            const currentFieldsSnapshot = extractSnapshotFields((changes as any)?.current)
+            const previousFieldsSnapshot = extractSnapshotFields((changes as any)?.previous)
+            const fields = { ...currentFieldsSnapshot }
+            const hasData = hasNonEmptyFieldValues(currentFieldsSnapshot)
+            const isLikelyNew = Object.keys(previousFieldsSnapshot).length === 0
 
-                const rawDelayValue = triggerConfig.verificationDelay
-                console.log(`🔧 Checking verificationDelay for changed record - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
-                const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
+            if (!hasData || !isLikelyNew) {
+              continue
+            }
 
-                const triggerData = {
-                  baseId,
-                  tableId,
-                  tableName: tableData.name || 'Unknown Table',
-                  recordId,
-                  fields,
-                  createdAt: normalizedPayload.timestamp
-                }
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
+            }
 
-                if (verificationDelay === 0) {
-                  console.log(`🚀 Processing new record ${recordId} immediately (was empty, now has data)`)
-                  markRecordProcessed(workflow.id, recordId)
-                  await createWorkflowExecution(workflow.id, userId, triggerData)
-                } else {
-                  console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s (from change event)`)
-                  schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
-                }
-              }
+            const pendingKey = buildDedupeKey(workflow.id, recordId)
+            if (pendingRecords.has(pendingKey)) {
+              console.log(`      ⏸️ Record ${recordId} already scheduled, skipping change event`)
+              continue
+            }
+
+            const rawDelayValue = triggerConfig.verificationDelay
+            console.log(`🔧 Checking verificationDelay for changed record - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
+
+            const triggerData = {
+              baseId,
+              tableId,
+              tableName: tableData.name || webhookMetadata?.tableName || 'Unknown Table',
+              recordId,
+              fields,
+              createdAt: normalizedPayload.timestamp
+            }
+
+            if (verificationDelay === 0) {
+              console.log(`🚀 Processing new record ${recordId} immediately (was empty, now has data)`)
+              markRecordProcessed(workflow.id, recordId)
+              await createWorkflowExecution(workflow.id, userId, triggerData)
+            } else {
+              console.log(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s (from change event)`)
+              schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
         }
       }
     }
 
-    // Handle updated records (only for update trigger type)
-    // Note: Updated records trigger immediately without stability check
     if (triggerType === 'airtable_trigger_record_updated' && changed_tables_by_id) {
       for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
-        if (!tableName || tableData.name === tableName) {
-          const changedRecords = getChangedRecords(tableData)
-          const createdRecords = getCreatedRecords(tableData)
-          if (changedRecords) {
-            for (const [recordId, changes] of Object.entries(changedRecords)) {
-              if (!createdRecords || !(createdRecords as any)[recordId]) {
-                const currentFields = extractSnapshotFields((changes as any)?.current)
-                const previousFields = extractSnapshotFields((changes as any)?.previous)
+        if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
+          continue
+        }
 
-                const hasChanges = JSON.stringify(currentFields) !== JSON.stringify(previousFields)
+        const changedRecords = getChangedRecords(tableData)
+        const createdRecords = getCreatedRecords(tableData)
+        if (!changedRecords) {
+          continue
+        }
 
-                if (hasChanges) {
-                  console.log(`✏️ Processing updated record ${recordId}`)
-                  triggerData = {
-                    baseId,
-                    tableId,
-                    tableName: tableData.name || 'Unknown Table',
-                    recordId,
-                    changedFields: currentFields,
-                    previousValues: previousFields,
-                    updatedAt: normalizedPayload.timestamp
-                  }
-                  await createWorkflowExecution(workflow.id, userId, triggerData)
-                }
-              }
-            }
+        for (const [recordId, changes] of Object.entries(changedRecords)) {
+          if (createdRecords && (createdRecords as any)[recordId]) {
+            continue
+          }
+
+          const currentFields = extractSnapshotFields((changes as any)?.current)
+          const previousFields = extractSnapshotFields((changes as any)?.previous)
+          const hasChanges = JSON.stringify(currentFields) !== JSON.stringify(previousFields)
+
+          if (!hasChanges) {
+            continue
+          }
+
+          console.log(`✏️ Processing updated record ${recordId}`)
+          const dedupeSuffix = `${recordId}-${normalizedPayload.timestamp || Date.now()}`
+
+          if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
+            console.log(`      ⏭️ Skipping duplicate update for record ${recordId}`)
+            continue
+          }
+
+          const rawDelayValue = triggerConfig.verificationDelay
+          const verificationDelay = parseVerificationDelay(rawDelayValue, 0)
+
+          const triggerData = {
+            baseId,
+            tableId,
+            tableName: tableData.name || webhookMetadata?.tableName || 'Unknown Table',
+            recordId,
+            changedFields: currentFields,
+            previousValues: previousFields,
+            updatedAt: normalizedPayload.timestamp,
+            eventType: 'record_updated'
+          }
+
+          if (verificationDelay === 0) {
+            markRecordProcessed(workflow.id, dedupeSuffix)
+            await createWorkflowExecution(workflow.id, userId, triggerData)
+          } else {
+            console.log(`⏳ Scheduling updated record ${recordId} for processing in ${verificationDelay}s`)
+            schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay, dedupeSuffix)
           }
         }
       }
     }
 
-    // Handle deleted records/tables
-    // Note: We don't currently have a trigger for deleted records, but handle the data anyway
-    if (changed_tables_by_id) {
-      for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
-        // Check for destroyedRecordIds in changed tables
-        if (tableData.destroyedRecordIds && tableData.destroyedRecordIds.length > 0) {
-          console.log(`🗑️ Found ${tableData.destroyedRecordIds.length} destroyed records in table ${tableId}`)
-          // We could handle deleted records here if we add a trigger type for it
+    if (triggerType === 'airtable_trigger_table_deleted' && destroyed_table_ids && destroyed_table_ids.length > 0) {
+      console.log(`🗑️ Processing ${destroyed_table_ids.length} destroyed table(s) for workflow ${workflow.id}`)
+
+      for (const destroyedTableId of destroyed_table_ids) {
+        const dedupeSuffix = `table-${destroyedTableId}`
+
+        if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
+          console.log(`      ⏭️ Table ${destroyedTableId} already handled recently, skipping`)
+          continue
         }
+
+        const triggerData = {
+          baseId,
+          tableId: destroyedTableId,
+          deletedAt: normalizedPayload.timestamp || new Date().toISOString(),
+          eventType: 'table_deleted'
+        }
+
+        markRecordProcessed(workflow.id, dedupeSuffix)
+        await createWorkflowExecution(workflow.id, userId, triggerData)
       }
     }
   }

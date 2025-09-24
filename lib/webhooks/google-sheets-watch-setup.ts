@@ -2,6 +2,19 @@ import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+function getGoogleWebhookCallbackUrl(): string {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const baseUrl = isProduction
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.NEXT_PUBLIC_APP_URL
+
+  if (!baseUrl) {
+    throw new Error('Missing webhook base URL. Set NEXT_PUBLIC_APP_URL (and NEXT_PUBLIC_WEBHOOK_HTTPS_URL in development).')
+  }
+
+  return `${baseUrl.replace(/\/$/, '')}/api/webhooks/google`
+}
+
 interface GoogleSheetsWatchConfig {
   userId: string
   integrationId: string
@@ -121,7 +134,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/google/sheets`,
+        address: getGoogleWebhookCallbackUrl(),
         expiration: expiration.getTime().toString(),
         // Store metadata in token
         token: JSON.stringify({

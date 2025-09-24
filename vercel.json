@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/process-webhook-tasks",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/webhooks/google/renew",
+      "schedule": "0 7 * * *"
     }
   ],
   "functions": {

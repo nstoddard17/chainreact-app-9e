@@ -1,6 +1,32 @@
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
+import crypto from 'crypto'
+
+function getGoogleWebhookCallbackUrl(): string {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const baseUrl = isProduction
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.NEXT_PUBLIC_APP_URL
+
+  if (!baseUrl) {
+    throw new Error('Missing webhook base URL. Set NEXT_PUBLIC_APP_URL (and NEXT_PUBLIC_WEBHOOK_HTTPS_URL in development).')
+  }
+
+  const resolved = `${baseUrl.replace(/\/$/, '')}/api/webhooks/google`
+  try {
+    const usedVar = isProduction
+      ? 'NEXT_PUBLIC_APP_URL'
+      : (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ? 'NEXT_PUBLIC_WEBHOOK_HTTPS_URL' : 'NEXT_PUBLIC_APP_URL')
+    console.log('🪝 Resolved Google webhook callback URL', {
+      env: isProduction ? 'production' : 'development',
+      usedVar,
+      baseUrl,
+      callbackUrl: resolved
+    })
+  } catch {}
+  return resolved
+}
 
 interface GoogleCalendarWatchConfig {
   userId: string
@@ -63,20 +89,26 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
     // Use primary calendar if not specified
     const calendarId = config.calendarId || 'primary'
 
-    // Generate a unique channel ID
-    const channelId = `calendar-${config.userId}-${calendarId}-${Date.now()}`
+    // Generate a unique channel ID that complies with Google requirements
+    const randomSuffix = crypto.randomBytes(12).toString('base64url')
+    const channelId = `cal-${randomSuffix}`.slice(0, 63)
 
     // Calculate expiration (maximum 1 week from now)
     const expiration = new Date()
     expiration.setDate(expiration.getDate() + 7)
 
     // Set up the webhook channel
+    const registrationTimestamp = new Date().toISOString()
+
+    const callbackUrl = getGoogleWebhookCallbackUrl()
+    console.log('🔗 Setting up Google Calendar watch with callback URL:', callbackUrl)
+
     const watchResponse = await calendar.events.watch({
       calendarId,
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/google/calendar`,
+        address: callbackUrl,
         expiration: expiration.getTime().toString(),
         // Store metadata in token
         token: JSON.stringify({
@@ -115,8 +147,16 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       calendarId
     })
 
+    // Ensure only one active row exists per user/integration/provider
+    await supabase
+      .from('google_watch_subscriptions')
+      .delete()
+      .eq('user_id', config.userId)
+      .eq('integration_id', config.integrationId)
+      .eq('provider', 'google-calendar')
+
     // Store the watch details in database for renewal
-    await supabase.from('google_watch_subscriptions').upsert({
+    await supabase.from('google_watch_subscriptions').insert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'google-calendar',
@@ -126,7 +166,9 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       sync_token: syncToken,
       metadata: {
         calendarId,
-        eventTypes: config.eventTypes
+        eventTypes: config.eventTypes,
+        startTime: registrationTimestamp,
+        callbackUrl
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -136,7 +178,8 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
-      syncToken
+      syncToken,
+      startTime: registrationTimestamp
     }
   } catch (error) {
     console.error('Failed to set up Google Calendar watch:', error)
@@ -211,7 +254,13 @@ export async function stopGoogleCalendarWatch(userId: string, integrationId: str
 /**
  * Get calendar events that have changed since last sync
  */
-export async function getGoogleCalendarChanges(userId: string, integrationId: string, calendarId: string, syncToken?: string) {
+export async function getGoogleCalendarChanges(
+  userId: string,
+  integrationId: string,
+  calendarId: string,
+  syncToken?: string,
+  options?: { timeMin?: string | null }
+) {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -246,29 +295,51 @@ export async function getGoogleCalendarChanges(userId: string, integrationId: st
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
-    // Get events with sync token for incremental updates
-    const params: any = {
+    // Build base params for events.list
+    const baseParams: any = {
       calendarId: calendarId || 'primary',
       showDeleted: true,
       singleEvents: true
     }
 
+    // If we already have a sync token, use it (incremental sync). Otherwise, only fetch
+    // events that occurred after the webhook registration time if provided.
     if (syncToken) {
-      params.syncToken = syncToken
+      baseParams.syncToken = syncToken
     } else {
-      // If no sync token, get events from the last 7 days
-      const oneWeekAgo = new Date()
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-      params.timeMin = oneWeekAgo.toISOString()
-      params.maxResults = 100
+      // On first fetch, use updatedMin so we only receive events that were
+      // created or updated after the watch start time, preventing backfill
+      const updatedMin = options?.timeMin || null
+      baseParams.updatedMin = (typeof updatedMin === 'string' && updatedMin.trim().length > 0)
+        ? updatedMin
+        : new Date().toISOString()
+      baseParams.maxResults = 250
     }
 
-    const response = await calendar.events.list(params)
+    // Handle pagination to ensure we process all changes in one go
+    const allEvents: any[] = []
+    let nextPageToken: string | undefined = undefined
+    let nextSyncToken: string | undefined = undefined
+
+    do {
+      const params = { ...baseParams }
+      if (nextPageToken) params.pageToken = nextPageToken
+
+      const response = await calendar.events.list(params)
+      const items = Array.isArray(response.data.items) ? response.data.items : []
+      allEvents.push(...items)
+
+      nextPageToken = response.data.nextPageToken || undefined
+      // Google may only return nextSyncToken when pagination is complete
+      if (response.data.nextSyncToken) {
+        nextSyncToken = response.data.nextSyncToken
+      }
+    } while (nextPageToken)
 
     return {
-      events: response.data.items,
-      nextSyncToken: response.data.nextSyncToken,
-      nextPageToken: response.data.nextPageToken
+      events: allEvents,
+      nextSyncToken,
+      nextPageToken: undefined
     }
   } catch (error) {
     console.error('Failed to get Google Calendar changes:', error)

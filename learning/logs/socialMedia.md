@@ -2,6 +2,12 @@
 
 *Latest updates are added at the top with proper dates*
 
+## January 24, 2025
+
+### Fixed Google Calendar Field Loading in Workflow Triggers
+
+Resolved an issue where Google Calendar triggers weren't loading the user's calendars in the configuration modal. The calendar field would show "Loading options..." indefinitely, preventing users from configuring calendar-based automations. The root cause was missing field mappings for Google Calendar triggers - while the action had mappings, the triggers for new events, updated events, and canceled events were not included. Additionally, the integration lookup logic needed enhancement to handle variations in how Google Calendar integrations are stored (with hyphens, underscores, or just as 'google'). Fixed by adding comprehensive field mappings for all Google Calendar triggers and improving the provider matching logic with multiple fallbacks to ensure the integration is found regardless of naming variations. Now when configuring a Google Calendar trigger, users see their calendars load instantly from their connected Google account, enabling powerful calendar-based workflow automation.
+
 ## January 23, 2025
 
 ### Implemented Smart Verification Delays for Airtable Webhooks

@@ -9,12 +9,14 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
     
+    const headersObject = Object.fromEntries(request.headers.entries())
+
     // Log incoming webhook
     await logWebhookEvent({
       provider: 'google',
       requestId,
       method: 'POST',
-      headers: Object.fromEntries(request.headers.entries()),
+      headers: headersObject,
       timestamp: new Date().toISOString()
     })
 
@@ -25,17 +27,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse the request body
-    const body = await request.text()
-    let eventData: any
+    // Parse the request body (may be empty for some Google services)
+    const rawBody = await request.text()
+    let eventData: any = null
 
-    try {
-      // Google Pub/Sub sends base64-encoded data
-      const decodedData = Buffer.from(body, 'base64').toString('utf-8')
-      eventData = JSON.parse(decodedData)
-    } catch (parseError) {
-      console.error(`[${requestId}] Failed to parse webhook body:`, parseError)
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+    if (rawBody && rawBody.trim().length > 0) {
+      try {
+        const decodedBody = Buffer.from(rawBody, 'base64').toString('utf-8')
+        eventData = JSON.parse(decodedBody)
+      } catch (base64Error) {
+        try {
+          eventData = JSON.parse(rawBody)
+        } catch (jsonError) {
+          console.warn(`[${requestId}] Unable to parse Google webhook body; falling back to header metadata`, {
+            base64Error: (base64Error as Error).message,
+            jsonError: (jsonError as Error).message
+          })
+        }
+      }
+    }
+
+    if (!eventData) {
+      const channelToken = headersObject['x-goog-channel-token'] || null
+      let tokenMetadata: any = null
+      if (channelToken) {
+        try {
+          tokenMetadata = JSON.parse(channelToken)
+        } catch (tokenError) {
+          console.warn(`[${requestId}] Failed to parse channel token metadata:`, tokenError)
+        }
+      }
+
+      eventData = {
+        resource: headersObject['x-goog-resource-uri'] || null,
+        resourceState: headersObject['x-goog-resource-state'] || null,
+        messageNumber: headersObject['x-goog-message-number'] || null,
+        resourceId: headersObject['x-goog-resource-id'] || null,
+        channelId: headersObject['x-goog-channel-id'] || null,
+        channelToken,
+        channelExpiration: headersObject['x-goog-channel-expiration'] || null,
+        token: channelToken,
+        metadata: tokenMetadata,
+        headers: headersObject
+      }
     }
 
     // Determine the source service from the event data

@@ -14,6 +14,121 @@ export interface GmailWebhookEvent {
   requestId: string
 }
 
+const processedGmailEvents = new Map<string, number>()
+const GMAIL_DEDUPE_WINDOW_MS = 5 * 60 * 1000
+
+type GmailTriggerFilters = {
+  from: string[]
+  subject: string
+  hasAttachment: 'any' | 'yes' | 'no'
+}
+
+function buildGmailDedupeKey(workflowId: string, dedupeId: string) {
+  return `${workflowId}-${dedupeId}`
+}
+
+function wasRecentlyProcessedGmail(workflowId: string, dedupeId: string): boolean {
+  const key = buildGmailDedupeKey(workflowId, dedupeId)
+  const processedAt = processedGmailEvents.get(key)
+  if (!processedAt) return false
+
+  if (Date.now() - processedAt < GMAIL_DEDUPE_WINDOW_MS) {
+    return true
+  }
+
+  processedGmailEvents.delete(key)
+  return false
+}
+
+function markGmailEventProcessed(workflowId: string, dedupeId: string) {
+  const key = buildGmailDedupeKey(workflowId, dedupeId)
+  processedGmailEvents.set(key, Date.now())
+
+  if (processedGmailEvents.size > 1000) {
+    const now = Date.now()
+    for (const [k, timestamp] of processedGmailEvents.entries()) {
+      if (now - timestamp > GMAIL_DEDUPE_WINDOW_MS) {
+        processedGmailEvents.delete(k)
+      }
+    }
+  }
+}
+
+function normalizeEmailString(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function normalizeFromFilters(rawConfig: any, savedOptions: any): string[] {
+  const candidates: string[] = []
+
+  const rawFrom = rawConfig?.from ?? rawConfig?.filters?.from ?? rawConfig?.sender
+
+  if (Array.isArray(rawFrom)) {
+    for (const entry of rawFrom) {
+      if (!entry) continue
+      if (typeof entry === 'string') {
+        candidates.push(entry)
+      } else if (typeof entry === 'object') {
+        const value = entry?.value ?? entry?.email ?? entry?.address ?? entry?.label
+        if (value) candidates.push(String(value))
+      }
+    }
+  } else if (typeof rawFrom === 'object' && rawFrom !== null) {
+    const value = rawFrom?.value ?? rawFrom?.email ?? rawFrom?.address ?? rawFrom?.label
+    if (value) candidates.push(String(value))
+  } else if (typeof rawFrom === 'string' && rawFrom.trim() !== '') {
+    candidates.push(...rawFrom.split(',').map((token) => token.trim()).filter(Boolean))
+  }
+
+  if (candidates.length === 0) {
+    const saved = savedOptions?.from
+    if (Array.isArray(saved)) {
+      for (const entry of saved) {
+        if (!entry) continue
+        if (typeof entry === 'string') {
+          candidates.push(entry)
+        } else if (typeof entry === 'object') {
+          const value = entry?.value ?? entry?.email ?? entry?.address ?? entry?.label
+          if (value) candidates.push(String(value))
+        }
+      }
+    } else if (typeof saved === 'string' && saved.trim() !== '') {
+      candidates.push(...saved.split(',').map((token) => token.trim()).filter(Boolean))
+    }
+  }
+
+  const normalized = candidates
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0)
+
+  return Array.from(new Set(normalized))
+}
+
+function normalizeSubjectFilter(rawConfig: any): string {
+  const subject = rawConfig?.subject ?? rawConfig?.filters?.subject ?? ''
+  if (typeof subject === 'string') {
+    return subject.trim()
+  }
+  return ''
+}
+
+function normalizeAttachmentFilter(rawConfig: any): 'any' | 'yes' | 'no' {
+  const value = rawConfig?.hasAttachment ?? rawConfig?.filters?.hasAttachment
+  if (value === 'yes' || value === 'no') return value
+  return 'any'
+}
+
+function resolveGmailTriggerFilters(triggerNode: any): GmailTriggerFilters {
+  const rawConfig = triggerNode?.data?.config || {}
+  const savedOptions = triggerNode?.data?.savedDynamicOptions || triggerNode?.data?.savedOptions || {}
+
+  return {
+    from: normalizeFromFilters(rawConfig, savedOptions),
+    subject: normalizeSubjectFilter(rawConfig),
+    hasAttachment: normalizeAttachmentFilter(rawConfig)
+  }
+}
+
 export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> {
   try {
     console.log('🔍 [Gmail Processor] Processing Gmail event:', {
@@ -272,29 +387,36 @@ async function fetchEmailDetails(
   }
 }
 
-async function checkEmailMatchesFilters(email: any, filters: any): Promise<boolean> {
+function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boolean {
   console.log('🔍 Checking email against filters:', {
     email: { from: email.from, subject: email.subject, hasAttachments: email.hasAttachments },
-    filters: filters
+    filters
   })
 
-  // Check sender filter
-  if (filters.from && filters.from.trim() !== '') {
-    const senderFilter = filters.from.toLowerCase().trim()
-    const emailFrom = (email.from || '').toLowerCase()
+  if (filters.from && filters.from.length > 0) {
+    const emailFromRaw = email.from || ''
+    const emailLower = normalizeEmailString(emailFromRaw)
+    const emailMatch = emailLower.match(/<(.+?)>/)
+    const emailAddress = emailMatch ? emailMatch[1] : emailLower
 
-    // Extract email address from "Name <email@domain.com>" format if needed
-    const emailMatch = emailFrom.match(/<(.+?)>/)
-    const emailAddress = emailMatch ? emailMatch[1] : emailFrom
+    const normalizedFilters = filters.from.map(normalizeEmailString).filter(Boolean)
 
-    if (!emailAddress.includes(senderFilter)) {
-      console.log(`❌ Sender filter mismatch: "${emailAddress}" doesn't contain "${senderFilter}"`)
-      return false
+    if (normalizedFilters.length > 0) {
+      const matches = normalizedFilters.some((filterToken) => {
+        if (emailAddress === filterToken) return true
+        if (emailLower.includes(filterToken)) return true
+        return false
+      })
+
+      if (!matches) {
+        console.log(`❌ Sender filter mismatch: "${emailFromRaw}" didn't match any of ${normalizedFilters.join(', ')}`)
+        return false
+      }
+
+      console.log(`✅ Sender filter matched: "${emailFromRaw}" matched one of ${normalizedFilters.join(', ')}`)
     }
-    console.log(`✅ Sender filter matched: "${emailAddress}" contains "${senderFilter}"`)
   }
 
-  // Check subject filter
   if (filters.subject && filters.subject.trim() !== '') {
     const subjectFilter = filters.subject.toLowerCase().trim()
     const emailSubject = (email.subject || '').toLowerCase()
@@ -306,7 +428,6 @@ async function checkEmailMatchesFilters(email: any, filters: any): Promise<boole
     console.log(`✅ Subject filter matched: "${emailSubject}" contains "${subjectFilter}"`)
   }
 
-  // Check attachment filter
   if (filters.hasAttachment && filters.hasAttachment !== 'any') {
     const shouldHaveAttachment = filters.hasAttachment === 'yes'
     if (email.hasAttachments !== shouldHaveAttachment) {
@@ -407,14 +528,16 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         continue
       }
 
+      const dedupeToken = emailDetails.id || event.eventData.messageId || `${event.eventData.emailAddress || 'unknown'}-${event.eventData.historyId}`
+
       // Check if email matches any trigger's filters
       let matchFound = false
       for (const triggerNode of gmailTriggerNodes) {
-        const filters = triggerNode.data?.config || {}
+        const filters = resolveGmailTriggerFilters(triggerNode)
 
         console.log(`Checking trigger node ${triggerNode.id} filters:`, filters)
 
-        if (await checkEmailMatchesFilters(emailDetails, filters)) {
+        if (checkEmailMatchesFilters(emailDetails, filters)) {
           matchFound = true
           break
         }
@@ -425,9 +548,18 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         continue
       }
 
+      if (dedupeToken && wasRecentlyProcessedGmail(workflow.id, dedupeToken)) {
+        console.log(`⚠️ Duplicate Gmail event detected for workflow ${workflow.id} and token ${dedupeToken}, skipping execution`)
+        continue
+      }
+
       // Email matches filters - trigger the workflow
       try {
         console.log(`🎯 Triggering workflow: "${workflow.name}" (${workflow.id})`)
+
+        if (dedupeToken) {
+          markGmailEventProcessed(workflow.id, dedupeToken)
+        }
 
         const executionEngine = new AdvancedExecutionEngine()
         const executionSession = await executionEngine.createExecutionSession(
@@ -452,6 +584,9 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         console.log(`✅ Successfully triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)
       } catch (workflowError) {
         console.error(`Failed to trigger workflow ${workflow.id}:`, workflowError)
+        if (dedupeToken) {
+          processedGmailEvents.delete(buildGmailDedupeKey(workflow.id, dedupeToken))
+        }
       }
     }
   } catch (error) {

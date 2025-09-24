@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
 import { TemplateGallery } from "@/components/templates/TemplateGallery"
@@ -114,14 +114,25 @@ export default function WorkflowsContent() {
   })
 
   // Load integrations on mount
+  const safeFetchIntegrations = useCallback(async (force = false) => {
+    const state = useIntegrationStore.getState()
+    if (state.loadingStates?.['integrations']) {
+      console.log('⏳ Integration fetch already in progress, skipping duplicate request')
+      return null
+    }
+    return fetchIntegrations(force)
+  }, [fetchIntegrations])
+
   useEffect(() => {
     console.log('🔧 Fetching integrations on mount...')
-    fetchIntegrations().then(() => {
-      console.log('✅ Integrations fetched')
-    }).catch((err) => {
-      console.error('❌ Failed to fetch integrations:', err)
-    })
-  }, [fetchIntegrations])
+    safeFetchIntegrations()
+      .then(() => {
+        console.log('✅ Integrations fetched')
+      })
+      .catch((err) => {
+        console.error('❌ Failed to fetch integrations:', err)
+      })
+  }, [safeFetchIntegrations])
 
   // Load user profiles for workflow creators
   useEffect(() => {

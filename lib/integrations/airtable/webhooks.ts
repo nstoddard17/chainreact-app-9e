@@ -59,7 +59,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   // Check if we already have a webhook
   const { data: existing } = await supabase
     .from("airtable_webhooks")
-    .select("id, webhook_id, expiration_time, status, mac_secret_base64")
+    .select("id, webhook_id, expiration_time, status, mac_secret_base64, metadata")
     .eq("user_id", userId)
     .eq("base_id", baseId)
     .eq("status", "active")
@@ -67,6 +67,9 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     .maybeSingle()
 
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
+  let matchedWebhook: { id: string; expiration?: string | null; macSecret?: string | null } | null = existing?.webhook_id
+    ? { id: existing.webhook_id, expiration: existing.expiration_time, macSecret: existing.mac_secret_base64 }
+    : null
 
   // First, check the token scopes
   console.log(`🔍 Checking token scopes...`)
@@ -113,6 +116,38 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   console.log(`✅ Found base: ${targetBase.name} (${targetBase.id})`)
   console.log(`📝 Permission level: ${targetBase.permissionLevel}`)
 
+  // Look up table ID if a specific table is requested
+  let tableId: string | undefined
+  if (tableName) {
+    console.log(`🔍 Looking up table ID for table: ${tableName}`)
+
+    try {
+      const schemaRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (schemaRes.ok) {
+        const schemaData = await schemaRes.json()
+        const table = schemaData.tables?.find((t: any) => t.name === tableName)
+
+        if (table) {
+          tableId = table.id
+          console.log(`✅ Found table ID: ${tableId} for table: ${tableName}`)
+        } else {
+          console.warn(`⚠️ Table "${tableName}" not found in base. Available tables:`,
+            schemaData.tables?.map((t: any) => t.name).join(', '))
+        }
+      } else {
+        console.warn(`⚠️ Could not fetch base schema: ${schemaRes.status}`)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error fetching table ID:`, error)
+    }
+  }
+
   // Check for existing webhooks on this base
   console.log(`🔍 Checking for existing webhooks on base ${baseId}...`)
   const existingWebhooksRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
@@ -142,13 +177,17 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
             console.log(`✅ Found existing webhook in DB and Airtable with matching URL: ${airtableWebhook.id}`)
             console.log(`   Has MAC Secret: true`)
 
-            if (airtableWebhook.expirationTime && existing.expiration_time !== airtableWebhook.expirationTime) {
-              await supabase
-                .from('airtable_webhooks')
-                .update({ expiration_time: new Date(airtableWebhook.expirationTime).toISOString() })
-                .eq('id', existing.id)
-            }
-
+            await upsertAirtableWebhookRecord(
+              userId,
+              baseId,
+              {
+                id: airtableWebhook.id,
+                expiration: airtableWebhook.expirationTime || existing.expiration_time || null,
+                macSecret: existing.mac_secret_base64
+              },
+              tableName,
+              tableId || existing.metadata?.tableId || null
+            )
             return
           }
 
@@ -184,6 +223,22 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
         console.log(`✅ Webhook already exists for our URL: ${ourWebhook.id}`)
         console.log(`   Expires: ${ourWebhook.expirationTime || 'No expiration'}`)
         console.log(`   MAC Secret present: ${!!ourWebhook.macSecretBase64}`)
+
+        if (existing?.webhook_id === ourWebhook.id && existing.mac_secret_base64) {
+          console.log('🔐 Using stored MAC secret from database for existing webhook')
+          await upsertAirtableWebhookRecord(
+            userId,
+            baseId,
+            {
+              id: ourWebhook.id,
+              expiration: ourWebhook.expirationTime || existing.expiration_time || null,
+              macSecret: existing.mac_secret_base64
+            },
+            tableName,
+            tableId || existing.metadata?.tableId || null
+          )
+          return
+        }
 
         // IMPORTANT: The list endpoint doesn't return macSecretBase64
         // We need to get it from the individual webhook endpoint
@@ -235,21 +290,17 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
         if (macSecret) {
           console.log(`💾 Saving webhook with MAC secret to database...`)
 
-          // Save this webhook to our database
-          await supabase
-            .from('airtable_webhooks')
-            .upsert({
-              user_id: userId,
-              base_id: baseId,
-              webhook_id: ourWebhook.id,
-              mac_secret_base64: macSecret,
-              expiration_time: ourWebhook.expirationTime ? new Date(ourWebhook.expirationTime).toISOString() : null,
-              status: 'active',
-              metadata: {
-                tableName: tableName || null,
-                scopeType: 'base'
-              }
-            }, { onConflict: 'user_id, base_id, webhook_id' })
+          await upsertAirtableWebhookRecord(
+            userId,
+            baseId,
+            {
+              id: ourWebhook.id,
+              macSecret,
+              expiration: ourWebhook.expirationTime ? new Date(ourWebhook.expirationTime).toISOString() : null
+            },
+            tableName,
+            tableId || existing?.metadata?.tableId || null
+          )
 
           console.log('✅ Webhook saved with MAC secret')
           return // Webhook already exists, no need to create a new one
@@ -271,39 +322,6 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   }
 
   console.log(`✅ Base ${baseId} is accessible (appears in user's base list)`)
-
-  // Look up table ID if a specific table is requested
-  let tableId: string | undefined
-  if (tableName) {
-    console.log(`🔍 Looking up table ID for table: ${tableName}`)
-
-    try {
-      // Fetch base schema to get table IDs
-      const schemaRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      if (schemaRes.ok) {
-        const schemaData = await schemaRes.json()
-        const table = schemaData.tables?.find((t: any) => t.name === tableName)
-
-        if (table) {
-          tableId = table.id
-          console.log(`✅ Found table ID: ${tableId} for table: ${tableName}`)
-        } else {
-          console.warn(`⚠️ Table "${tableName}" not found in base. Available tables:`,
-            schemaData.tables?.map((t: any) => t.name).join(', '))
-        }
-      } else {
-        console.warn(`⚠️ Could not fetch base schema: ${schemaRes.status}`)
-      }
-    } catch (error) {
-      console.warn(`⚠️ Error fetching table ID:`, error)
-    }
-  }
 
   // Create webhook via Airtable API
   const webhookPayload: any = {
@@ -349,7 +367,19 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
         errorMessage = 'Invalid Airtable permissions or base not found. Please check that your Airtable integration has access to this base.'
       } else if (errorData.error?.type === 'TOO_MANY_WEBHOOKS_BY_OAUTH_INTEGRATION_IN_BASE') {
         console.log('⚠️ Webhook limit reached. Using existing webhooks.')
-        // Don't throw error, just return - we likely have a working webhook already
+        await upsertAirtableWebhookRecord(
+          userId,
+          baseId,
+          existing?.webhook_id
+            ? {
+                id: existing.webhook_id,
+                macSecret: existing.mac_secret_base64 || null,
+                expiration: existing.expiration_time || null
+              }
+            : null,
+          tableName,
+          tableId || existing?.metadata?.tableId || null
+        )
         return
       } else if (errorData.error?.message) {
         errorMessage = errorData.error.message
@@ -365,14 +395,36 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   console.log(`✅ Webhook created successfully: ${data.id}`)
   console.log(`   Notifications are enabled by default`)
 
+  await upsertAirtableWebhookRecord(
+    userId,
+    baseId,
+    {
+      id: data.id,
+      macSecret: data.macSecretBase64 || null,
+      expiration: data.expirationTime ? new Date(data.expirationTime).toISOString() : null
+    },
+    tableName,
+    tableId || null
+  )
+}
+
+async function upsertAirtableWebhookRecord(
+  userId: string,
+  baseId: string,
+  webhook: { id: string; macSecret?: string | null; expiration?: string | null } | null,
+  tableName?: string,
+  tableId?: string | null
+) {
+  if (!webhook?.id) return
+
   await supabase
     .from('airtable_webhooks')
     .upsert({
       user_id: userId,
       base_id: baseId,
-      webhook_id: data.id,
-      mac_secret_base64: data.macSecretBase64,
-      expiration_time: data.expirationTime ? new Date(data.expirationTime).toISOString() : null,
+      webhook_id: webhook.id,
+      mac_secret_base64: webhook.macSecret || null,
+      expiration_time: webhook.expiration || null,
       status: 'active',
       metadata: {
         tableName: tableName || null,

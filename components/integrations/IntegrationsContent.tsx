@@ -56,6 +56,18 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const { user } = useAuthStore()
   const router = useRouter()
 
+  const refreshIntegrations = useCallback(
+    (force: boolean = false) => {
+      const state = useIntegrationStore.getState()
+      if (state.loadingStates?.['integrations']) {
+        console.log('⏳ Integration fetch already in progress, skipping duplicate request')
+        return Promise.resolve(null)
+      }
+      return fetchIntegrations(force)
+    },
+    [fetchIntegrations]
+  )
+
   // Define fetchMetrics early to avoid initialization errors
   const fetchMetrics = useCallback(async () => {
     if (!user) return
@@ -114,7 +126,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // OR if user was away for more than 5 minutes (stale data)
         if (timeAway < thirtySeconds || timeAway > fiveMinutes) {
           console.log(`🔄 Refreshing integrations after ${timeAway < thirtySeconds ? 'OAuth flow' : 'extended absence'}`);
-          fetchIntegrations(true);
+          refreshIntegrations(true);
           fetchMetrics();
         }
         setWasHidden(false);
@@ -127,14 +139,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wasHidden, fetchIntegrations, fetchMetrics]);
+  }, [wasHidden, refreshIntegrations, fetchMetrics]);
 
   // Listen for OAuth completion events to immediately refresh integrations
   useEffect(() => {
     const handleOAuthComplete = (event: MessageEvent) => {
       if (event.data?.type === 'oauth-complete' && event.data?.success) {
         console.log(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
-        fetchIntegrations(true);
+        refreshIntegrations(true);
         fetchMetrics();
       }
     };
@@ -149,7 +161,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       broadcastChannel.onmessage = (event) => {
         if (event.data?.type === 'oauth-complete' && event.data?.success) {
           console.log(`✅ OAuth completed via BroadcastChannel for ${event.data.provider}, refreshing integrations...`);
-          fetchIntegrations(true);
+          refreshIntegrations(true);
           fetchMetrics();
         }
       };
@@ -161,7 +173,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('message', handleOAuthComplete);
       broadcastChannel?.close();
     };
-  }, [fetchIntegrations, fetchMetrics]);
+  }, [refreshIntegrations, fetchMetrics]);
 
   // Initialize providers and integrations on mount if user is authenticated
   useEffect(() => {
@@ -187,7 +199,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         }
 
         // Fetch integrations - fire and forget
-        fetchIntegrations(true).catch(error => {
+        refreshIntegrations(true).catch(error => {
           console.warn("Integration fetch failed (non-critical):", error)
           // Don't block - integrations will load eventually or show empty
         })
@@ -216,7 +228,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     setTimeout(initializeData, 0)
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]) // Only depend on user to avoid re-running
+  }, [user, refreshIntegrations]) // Only depend on user to avoid re-running
 
   // Add a fallback to prevent infinite loading for both fetches and connections
   useEffect(() => {
@@ -254,7 +266,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
         // For fetch operations, try one recovery attempt
         if (isLoadingIntegrations || isLoadingProviders) {
-          fetchIntegrations(true).catch(() => {
+          refreshIntegrations(true).catch(() => {
             // If recovery fails, just reset states
             setLoading("integrations", false)
             setLoading("providers", false)
@@ -265,7 +277,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
       return () => clearTimeout(timeout)
     }
-  }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
+  }, [loading, loadingStates, user, setLoading, refreshIntegrations, toast])
 
   // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
   useEffect(() => {
@@ -298,7 +310,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationConnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the new connection
-      fetchIntegrations(true)
+      refreshIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Connected",
@@ -310,7 +322,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationDisconnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the disconnection
-      fetchIntegrations(true)
+      refreshIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Disconnected",
@@ -322,7 +334,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationReconnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the reconnection
-      fetchIntegrations(true)
+      refreshIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Reconnected",
@@ -333,7 +345,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationsUpdated = () => {
       // Refresh both integrations and metrics
-      fetchIntegrations(true)
+      refreshIntegrations(true)
       fetchMetrics()
     }
 
@@ -350,12 +362,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('integration-reconnected', handleIntegrationReconnected)
       window.removeEventListener('integrations-updated', handleIntegrationsUpdated)
     }
-  }, [user, fetchMetrics, toast, fetchIntegrations])
+  }, [user, fetchMetrics, toast, refreshIntegrations])
   
   const handleRefresh = useCallback(() => {
-    fetchIntegrations(true) // Force refresh
+    refreshIntegrations(true) // Force refresh
     fetchMetrics()
-  }, [fetchIntegrations, fetchMetrics])
+  }, [refreshIntegrations, fetchMetrics])
 
   const handleConnect = useCallback(
     async (providerId: string) => {
@@ -466,7 +478,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 variant: "default",
               })
               // Force refresh integrations to show the new connection
-              fetchIntegrations(true)
+              refreshIntegrations(true)
               fetchMetrics()
             } else if (event.data.type === "oauth-error") {
               toast({
@@ -503,7 +515,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
       }
     },
-    [user, toast, fetchIntegrations],
+    [user, toast, refreshIntegrations],
   )
 
   const handleDisconnect = useCallback(
@@ -528,7 +540,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             title: "Disconnected",
             description: `${integration.provider} has been successfully disconnected.`,
           })
-          fetchIntegrations()
+          refreshIntegrations()
           fetchMetrics()
         } else {
           toast({
@@ -545,7 +557,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
       }
     },
-    [integrations, fetchIntegrations, toast],
+    [integrations, refreshIntegrations, toast],
   )
 
   const handleApiKeyConnect = async (providerId: string, apiKey: string) => {
