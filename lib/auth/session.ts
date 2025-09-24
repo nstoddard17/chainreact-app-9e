@@ -31,28 +31,28 @@ export class SessionManager {
 
     // First try to get the session (this is faster and more reliable)
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    
+
     // If we have a valid session with access token, get the user
     if (session?.access_token && session?.user) {
-      return { 
-        user: session.user, 
-        session 
+      return {
+        user: session.user,
+        session
       }
     }
-    
+
     // If no session or it's incomplete, try to refresh
     console.log("No valid session found, attempting refresh...")
     const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-    
+
     if (refreshError || !refreshedSession?.access_token || !refreshedSession?.user) {
       // Only log, don't console.error to avoid scary messages
       console.log("Session refresh not possible, user needs to log in")
       throw new Error("No authenticated user found. Please log in.")
     }
-    
-    return { 
-      user: refreshedSession.user, 
-      session: refreshedSession 
+
+    return {
+      user: refreshedSession.user,
+      session: refreshedSession
     }
   }
 
