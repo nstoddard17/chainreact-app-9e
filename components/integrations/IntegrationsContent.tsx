@@ -169,25 +169,51 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     // Initialize everything in parallel for faster loading
     const initializeData = async () => {
+      // Prevent duplicate initialization
+      if (isInitializing) return
+
       try {
         setIsInitializing(true)
 
-        // Start both operations in parallel
+        // Start both operations in parallel with timeout protection
         const promises = []
 
         // Initialize providers if not already loaded
         if (providers.length === 0) {
-          promises.push(initializeProviders())
+          const providerPromise = initializeProviders().catch(error => {
+            console.warn("Provider initialization failed:", error)
+            return null
+          })
+          promises.push(providerPromise)
         }
 
         // Fetch integrations (always force refresh on initial load)
-        promises.push(fetchIntegrations(true))
+        const integrationPromise = fetchIntegrations(true).catch(error => {
+          console.warn("Integration fetch failed:", error)
+          return null
+        })
+        promises.push(integrationPromise)
 
         // Fetch metrics
-        promises.push(fetchMetrics())
+        const metricsPromise = fetchMetrics().catch(error => {
+          console.warn("Metrics fetch failed:", error)
+          return null
+        })
+        promises.push(metricsPromise)
 
-        // Wait for all to complete (or fail)
-        await Promise.allSettled(promises)
+        // Wait for all to complete with timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Initialization timeout")), 10000)
+        )
+
+        try {
+          await Promise.race([
+            Promise.allSettled(promises),
+            timeoutPromise
+          ])
+        } catch (timeoutError) {
+          console.warn("Integration initialization timed out")
+        }
 
       } catch (error) {
         console.error("Error initializing integrations page:", error)

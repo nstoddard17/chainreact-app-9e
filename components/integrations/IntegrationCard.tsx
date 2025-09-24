@@ -26,6 +26,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Integration } from "@/stores/integrationStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
+import { StableImage } from "@/components/ui/stable-image"
 
 interface IntegrationCardProps {
   provider: IntegrationConfig
@@ -48,7 +49,6 @@ export function IntegrationCard({
 }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const { comingSoonIntegrations } = useIntegrationSelection()
-  const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [showTeamsWarningDialog, setShowTeamsWarningDialog] = useState(false)
@@ -133,38 +133,29 @@ export function IntegrationCard({
 
   const renderLogo = () => {
     const logoPath = `/integrations/${provider.id}.svg`
-    
-    // Handle the case where image fails to load
-    const handleImageError = () => {
-      setImageError(true)
-    }
 
-    if (imageError) {
-      // Fallback to colored circle with first letter
-      const firstLetter = provider.name.charAt(0).toUpperCase()
-      return (
-        <div 
-          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-          style={{ backgroundColor: provider.color || '#6B7280' }}
-        >
-          {firstLetter}
-        </div>
-      )
-    }
+    // Fallback component for when image fails to load
+    const fallback = (
+      <div
+        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+        style={{ backgroundColor: provider.color || '#6B7280' }}
+      >
+        {provider.name.charAt(0).toUpperCase()}
+      </div>
+    )
 
     // Add special class for icons that need inverted colors in dark mode
     const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
-    
+
     return (
-      <img
+      <StableImage
         src={logoPath}
         alt={`${provider.name} logo`}
         className={cn(
           "w-6 h-6 object-contain",
           needsInversion && "dark:invert"
         )}
-        onError={handleImageError}
-        onLoad={() => setImageError(false)}
+        fallback={fallback}
       />
     )
   }
