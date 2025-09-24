@@ -1,3 +1,29 @@
+## 2025-09-24 – Google Calendar subscriptions: single-row enforcement and latest-row query
+
+- Query latest `google_watch_subscriptions` row by `updated_at` to avoid `.single()` failures
+- Delete existing rows for the user/integration/provider before inserting a new watch
+- Log persistence of `nextSyncToken` and `lastFetchTime` updates; update `updated_at`
+
+### Files Modified:
+- `lib/webhooks/google-processor.ts` – latest-row query, added sync/metadata persistence logs
+- `lib/webhooks/google-calendar-watch-setup.ts` – delete existing rows before insert
+
+### Next Steps:
+- Consider unique constraint on `(user_id, integration_id, provider)` in DB schema
+## 2025-09-24 – Google Calendar webhook: start-time filtering, pagination, dedupe logging
+
+- Only process Calendar events occurring after watch registration when no sync token is present
+- Added full pagination for initial Calendar fetch to reach `nextSyncToken` and persist it
+- Persist `sync_token` post-pagination to enable incremental sync on subsequent notifications
+- Reduced noisy logs: fixed `eventId` logging and avoid repeated logs within dedupe window
+
+### Files Modified:
+- `lib/webhooks/google-calendar-watch-setup.ts` – implement pagination, accept `timeMin` option
+- `lib/webhooks/google-processor.ts` – pass `watchStartTime` on first fetch, persist `nextSyncToken`, fix eventId logging, keep logs minimal after dedupe
+
+### Next Steps:
+- Consider adding a periodic job to renew Calendar watches before expiration
+- Add unit tests around dedupe and start-time behavior
 # Learning Folder Changelog
 
 ## [2025-09-15] – Discord Edit Message API Limitation Handling

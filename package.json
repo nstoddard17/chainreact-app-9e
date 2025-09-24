@@ -17,7 +17,8 @@
     "start": "next start",
     "fix-integrations": "node scripts/fix-problem-integrations.js",
     "setup-stripe": "npx tsx scripts/setup-stripe-prices.ts",
-    "setup-stripe-tax": "npx tsx scripts/setup-stripe-tax.ts"
+    "setup-stripe-tax": "npx tsx scripts/setup-stripe-tax.ts",
+    "test:airtable-webhook": "node --test test/airtable-payload.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

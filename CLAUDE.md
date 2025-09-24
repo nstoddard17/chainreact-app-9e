@@ -202,6 +202,23 @@ Each integration follows a standard pattern:
 3. API client implementation
 4. Webhook handling (where supported)
 
+### Recent Workflow Trigger Notes
+
+- **Airtable webhook ingestion** (`app/api/workflow/airtable/route.ts`, `lib/integrations/airtable/webhooks.ts`)
+  - Normalise mixed camelCase/snake_case payload keys before processing so new-record, change, and delete notifications share one data pipeline.
+  - When re-registering, confirm Airtable's notification URL matches the current tunnel before reusing a stored webhook; otherwise recreate it and persist the new MAC secret/expiration.
+  - Use `parseVerificationDelay` to coerce trigger config values (including strings) to numbers and ensure delayed verification/scheduling works consistently.
+- **Gmail-triggered workflows** (`lib/execution/advancedExecutionEngine.ts`)
+  - Advanced execution now calls the shared `sendDiscordMessage` helper so Gmail-triggered runs hit the same Discord code path/logging as Airtable runs.
+  - Provider dispatch now checks `providerId` and maps config via `mapWorkflowData`, falling back to warnings for providers that still need explicit handlers.
+- **Operational reminder**: after ngrok/tunnel URL changes, toggle Airtable workflows so the registration step rebuilds webhooks with the fresh callback URL.
+
+### Airtable Trigger Coverage Checklist
+
+- ✅ `airtable_trigger_new_record`: full support with normalised payloads, dedupe, verification delay, and Discord action compatibility.
+- ✅ `airtable_trigger_record_updated`: now routes through the same normalisation/delay pipeline, supports optional verification delay, uses timestamp-aware dedupe keys, and fires standard workflow executions.
+- ✅ `airtable_trigger_table_deleted`: consumes `destroyedTableIds`, dedupes per table, and emits workflow executions with base/table metadata.
+
 ### Workflow Engine
 - **Node-based**: Visual workflow builder using @xyflow/react
 - **Execution**: Asynchronous execution with retry logic

@@ -578,17 +578,29 @@ export class TriggerWebhookManager {
         eventTypes: eventTypes
       })
 
-      // Store the watch details in webhook config
+      const existingConfig = config.config || {}
+      const watchStartTime = result.startTime || existingConfig.watch?.startTime || new Date().toISOString()
+
+      const updatedConfig = {
+        ...existingConfig,
+        calendarId,
+        eventTypes,
+        watch: {
+          ...(existingConfig.watch || {}),
+          channelId: result.channelId,
+          resourceId: result.resourceId,
+          expiration: result.expiration,
+          syncToken: result.syncToken || (existingConfig.watch ? existingConfig.watch.syncToken : undefined),
+          calendarId,
+          eventTypes,
+          startTime: watchStartTime
+        }
+      }
+
       await this.supabase
         .from('webhook_configs')
         .update({
-          metadata: {
-            channelId: result.channelId,
-            resourceId: result.resourceId,
-            expiration: result.expiration,
-            syncToken: result.syncToken,
-            calendarId: calendarId
-          }
+          config: updatedConfig
         })
         .eq('id', webhookId)
 
@@ -812,14 +824,31 @@ export class TriggerWebhookManager {
       // Register webhook with Airtable (this handles creating or reusing existing webhook)
       await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl, tableName)
 
+      const { data: airtableWebhook } = await this.supabase
+        .from('airtable_webhooks')
+        .select('metadata')
+        .eq('user_id', config.userId)
+        .eq('base_id', baseId)
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const tableId = config.config?.tableId || airtableWebhook?.metadata?.tableId || airtableWebhook?.metadata?.table_id || null
+
       // Store webhook configuration details
       await this.supabase
         .from('webhook_configs')
         .update({
           metadata: {
-            baseId: baseId,
-            tableName: config.config?.tableName || null,
-            triggerType: config.triggerType
+            baseId,
+            tableName: config.config?.tableName || tableName || null,
+            tableId,
+            triggerType: config.triggerType,
+          },
+          config: {
+            ...config.config,
+            tableId
           }
         })
         .eq('id', webhookId)

@@ -262,15 +262,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Check if it was aborted
           if (error.name === 'AbortError') {
             console.log('Integration fetch was aborted (timeout or new request)')
+            setLoading('integrations', false)
             return
           }
 
           console.error("Failed to fetch integrations:", error)
           setLoading('integrations', false)
-          set({
+          set((state) => ({
             error: error.message || "Failed to fetch integrations",
-            integrations: [],
-          })
+            integrations: state.integrations || [],
+          }))
         } finally {
           // Cleanup
           currentAbortController = null
@@ -644,6 +645,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         'google-drive': 'google',
         'google-sheets': 'google',
         'google-calendar': 'google',
+        'google_calendar': 'google',  // Also handle underscore variant
       }
       
       // Check if we need to map the provider
@@ -651,12 +653,29 @@ export const useIntegrationStore = create<IntegrationStore>()(
       
       // First try exact match
       let integration = integrations.find((i) => i.provider === providerId)
-      
+
       // If not found and we have a mapping, try the mapped provider
       if (!integration && actualProvider !== providerId) {
         integration = integrations.find((i) => i.provider === actualProvider)
       }
-      
+
+      // Additional fallback: try with underscore if hyphen fails (or vice versa)
+      if (!integration) {
+        const alternateProvider = providerId.includes('-')
+          ? providerId.replace(/-/g, '_')
+          : providerId.replace(/_/g, '-')
+        integration = integrations.find((i) => i.provider === alternateProvider)
+      }
+
+      // Final fallback: for any Google service, try to find 'google' or 'google_calendar'
+      if (!integration && (providerId.includes('google') || providerId === 'gmail')) {
+        integration = integrations.find((i) =>
+          i.provider === 'google' ||
+          i.provider === 'google_calendar' ||
+          i.provider === 'gmail'
+        )
+      }
+
       return integration || null
     },
 
@@ -670,8 +689,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         .map((i) => i.provider)
       
       // Google services share authentication - if any Google service is connected, all are available
-      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail']
-      const hasAnyGoogleService = connectedProviders.some(provider => googleServices.includes(provider))
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'google_calendar', 'gmail']
+      const hasAnyGoogleService = connectedProviders.some(provider =>
+        googleServices.includes(provider) || provider === 'google'
+      )
       
       if (hasAnyGoogleService) {
         // Add all Google service IDs since they share authentication

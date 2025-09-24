@@ -201,7 +201,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const triggerType = triggerNode.data?.type
 
         // List of providers that use webhooks
-        const webhookProviders = ['airtable', 'discord', 'gmail', 'slack', 'stripe', 'shopify', 'hubspot']
+        const webhookProviders = [
+          'airtable',
+          'discord',
+          'gmail',
+          'google-calendar',
+          'google-drive',
+          'google-sheets',
+          'slack',
+          'stripe',
+          'shopify',
+          'hubspot'
+        ]
 
         if (providerId && webhookProviders.includes(providerId)) {
           const triggerConfig = triggerNode.data?.config || {}

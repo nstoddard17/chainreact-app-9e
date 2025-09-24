@@ -5,14 +5,14 @@ export async function verifyGoogleWebhook(request: NextRequest): Promise<boolean
   try {
     // Google Pub/Sub uses JWT tokens for authentication
     const authorization = request.headers.get('authorization')
-    
+
     if (!authorization) {
-      console.warn('No authorization header found for Google webhook')
-      return true // Allow unsigned webhooks for development
+      // Google Calendar/Drive/Sheets webhooks do not include an Authorization header.
+      // We accept the request and rely on channel tokens for validation.
+      return true
     }
 
-    // For production, you would verify the JWT token here
-    // For now, we'll allow all requests in development
+    // TODO: verify Google-signed JWT when provided (mainly for Pub/Sub pushes)
     return true
   } catch (error) {
     console.error('Error verifying Google webhook:', error)
