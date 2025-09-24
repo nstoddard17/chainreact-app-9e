@@ -73,7 +73,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           {/* Free Plan */}
           <PricingCard
             title="Starter"
@@ -102,23 +102,6 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
             buttonText={isAuthenticated ? "Upgrade" : "Start Free Trial"}
             buttonHref={isAuthenticated ? "/settings/billing" : "/auth/register"}
             isPopular={true}
-          />
-
-          {/* Business Plan */}
-          <PricingCard
-            title="Business"
-            price="$99"
-            period="/month"
-            features={[
-              "Unlimited workflows",
-              "100,000 executions/month",
-              "Advanced integrations",
-              "Team collaboration",
-              "Priority support",
-              "Custom branding"
-            ]}
-            buttonText={isAuthenticated ? "Upgrade to Business" : "Start Business Trial"}
-            buttonHref={isAuthenticated ? "/settings/billing" : "/auth/register"}
           />
         </div>
       </div>
