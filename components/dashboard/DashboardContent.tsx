@@ -15,6 +15,7 @@ import AIUsageCard from "./AIUsageCard"
 import { OnlineUsersIndicator } from "@/components/providers/LightweightPresenceProvider"
 import { Workflow, Puzzle } from "lucide-react"
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton-loader"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export default function DashboardContent() {
   const searchParams = useSearchParams()
@@ -137,23 +138,17 @@ export default function DashboardContent() {
 
   if (isInitialLoading) {
     return (
-      <AppLayout title="Dashboard" subtitle="Loading your dashboard...">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <SkeletonCard />
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-          </div>
-        </div>
-      </AppLayout>
+      <PageLoader
+        message="Loading your dashboard..."
+        timeout={5000}
+        onTimeout={() => {
+          console.error('Dashboard loading timeout - forcing reload')
+          // Force initialize if still not initialized
+          if (!initialized) {
+            useAuthStore.getState().initialize()
+          }
+        }}
+      />
     )
   }
 
