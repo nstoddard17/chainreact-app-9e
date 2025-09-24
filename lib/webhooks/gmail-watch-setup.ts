@@ -10,11 +10,17 @@ interface GmailWatchConfig {
   labelIds?: string[]
 }
 
+export interface GmailWatchResult {
+  historyId: string
+  emailAddress: string
+  expiration: string
+}
+
 /**
  * Set up Gmail watch for push notifications
  * Gmail watches expire after 7 days and need to be renewed
  */
-export async function setupGmailWatch(config: GmailWatchConfig): Promise<string> {
+export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWatchResult> {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,9 +84,14 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<string>
       throw new Error('Failed to create Gmail watch - missing required data')
     }
 
+    const profile = await gmail.users.getProfile({ userId: 'me' })
+
+    const expirationIso = new Date(parseInt(response.data.expiration)).toISOString()
+
     console.log('✅ Gmail watch created successfully:', {
       historyId: response.data.historyId,
-      expiration: new Date(parseInt(response.data.expiration)).toISOString()
+      expiration: expirationIso,
+      emailAddress: profile.data.emailAddress
     })
 
     // Gmail doesn't provide a channel ID or resource ID like other Google services
@@ -98,14 +109,18 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<string>
       metadata: {
         topicName: config.topicName,
         labelIds: config.labelIds || ['INBOX'],
-        historyId: response.data.historyId
+        historyId: response.data.historyId,
+        emailAddress: profile.data.emailAddress
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
 
-    // Return the history ID for tracking changes
-    return response.data.historyId
+    return {
+      historyId: response.data.historyId,
+      emailAddress: profile.data.emailAddress || '',
+      expiration: expirationIso
+    }
   } catch (error) {
     console.error('Failed to set up Gmail watch:', error)
     throw error

@@ -510,7 +510,7 @@ export class TriggerWebhookManager {
       }
 
       // Set up the watch
-      const historyId = await setupGmailWatch({
+      const watchResult = await setupGmailWatch({
         userId: config.userId,
         integrationId: integration.id,
         topicName: topicName,
@@ -518,14 +518,18 @@ export class TriggerWebhookManager {
       })
 
       // Store the history ID and expiration in webhook config
-      const expiration = new Date()
-      expiration.setDate(expiration.getDate() + 7) // Gmail watches expire after 7 days
+      const expiration = watchResult.expiration ? new Date(watchResult.expiration) : (() => {
+        const date = new Date()
+        date.setDate(date.getDate() + 7)
+        return date
+      })()
 
       await this.supabase
         .from('webhook_configs')
         .update({
           metadata: {
-            historyId: historyId,
+            historyId: watchResult.historyId,
+            emailAddress: watchResult.emailAddress,
             expiration: expiration.toISOString(),
             topicName: topicName
           }
