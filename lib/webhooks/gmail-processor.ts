@@ -159,17 +159,20 @@ async function fetchEmailDetails(
 
     const supabase = await createSupabaseServiceClient()
 
-    const { data: webhookConfig, error: webhookConfigError } = await supabase
+    const { data: webhookConfigs, error: webhookConfigError } = await supabase
       .from('webhook_configs')
-      .select('config')
+      .select('id, config')
       .eq('workflow_id', workflowId)
       .eq('trigger_type', 'gmail_trigger_new_email')
       .eq('status', 'active')
-      .maybeSingle()
+      .order('updated_at', { ascending: false })
+      .limit(1)
 
     if (webhookConfigError) {
       console.error('Failed to fetch Gmail webhook config:', webhookConfigError)
     }
+
+    const webhookConfig = webhookConfigs?.[0]
 
     if (!webhookConfig) {
       console.log('⚠️ No Gmail webhook configuration found for workflow, skipping')
@@ -242,8 +245,7 @@ async function fetchEmailDetails(
           }
         }
       })
-      .eq('workflow_id', workflowId)
-      .eq('trigger_type', 'gmail_trigger_new_email')
+      .eq('id', webhookConfig.id)
 
     // Extract email details
     const headers = message.data.payload?.headers || []
