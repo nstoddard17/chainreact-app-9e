@@ -26,7 +26,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Integration } from "@/stores/integrationStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
-import { StableImage } from "@/components/ui/stable-image"
+import { OptimizedImage } from "@/components/ui/optimized-image"
 
 interface IntegrationCardProps {
   provider: IntegrationConfig
@@ -148,7 +148,7 @@ export function IntegrationCard({
     const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
 
     return (
-      <StableImage
+      <OptimizedImage
         src={logoPath}
         alt={`${provider.name} logo`}
         className={cn(

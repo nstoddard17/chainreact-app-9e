@@ -87,11 +87,15 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
-        // Add timeout protection for initialization - reduced from 15s to 5s for faster failure
+        // Check if we're in production and experiencing a cold start
+        const isProduction = process.env.NODE_ENV === 'production'
+        const timeoutDuration = isProduction ? 8000 : 5000 // More lenient in production
+
+        // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
           console.warn('Auth initialization timed out, forcing completion...')
           set({ loading: false, initialized: true, error: null, user: null })
-        }, 5000) // 5 seconds timeout for initialization
+        }, timeoutDuration)
 
         try {
           set({ loading: true, error: null })
