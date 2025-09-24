@@ -26,7 +26,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Integration } from "@/stores/integrationStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
-import { StableImage } from "@/components/ui/stable-image"
+import { OptimizedImage } from "@/components/ui/optimized-image"
 
 interface IntegrationCardProps {
   provider: IntegrationConfig
@@ -161,9 +161,9 @@ export const IntegrationCard = memo(function IntegrationCard({
     [provider.id]
   )
 
-  // Memoize the entire logo component
+  // Memoize the entire logo component - using OptimizedImage from the merge
   const logo = useMemo(() => (
-    <StableImage
+    <OptimizedImage
       src={logoPath}
       alt={`${provider.name} logo`}
       className={cn(

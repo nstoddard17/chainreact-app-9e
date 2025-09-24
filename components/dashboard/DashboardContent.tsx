@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
+import { useProductionReady } from '@/hooks/use-production-ready'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -24,6 +25,7 @@ export default function DashboardContent() {
   const { getConnectedProviders, fetchIntegrations } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const [isClientReady, setIsClientReady] = useState(false)
+  const isProductionReady = useProductionReady()
   const connectedIntegrationsCount = getConnectedProviders().length
 
   // Count active workflows (workflows that are not drafts)
@@ -134,13 +136,13 @@ export default function DashboardContent() {
 
   // Show skeleton loading state only during hydration
   // This prevents the stuck loading issue
-  const isInitialLoading = !isClientReady || !hydrated
+  const isInitialLoading = !isClientReady || !hydrated || !isProductionReady
 
   if (isInitialLoading) {
     return (
       <PageLoader
         message="Loading your dashboard..."
-        timeout={5000}
+        timeout={8000}
         onTimeout={() => {
           console.error('Dashboard loading timeout - forcing reload')
           // Force initialize if still not initialized
