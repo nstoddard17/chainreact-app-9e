@@ -40,19 +40,20 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [wasHidden, setWasHidden] = useState(false)
   const { toast } = useToast()
 
-  const {
-    integrations,
-    providers,
-    initializeProviders,
-    fetchIntegrations,
-    loading,
-    loadingStates,
-    connectIntegration,
-    disconnectIntegration,
-    reconnectIntegration,
-    connectApiKeyIntegration,
-    setLoading,
-  } = useIntegrationStore()
+  // Use selective subscriptions to prevent unnecessary re-renders
+  const integrations = useIntegrationStore(state => state.integrations)
+  const providers = useIntegrationStore(state => state.providers)
+  const loading = useIntegrationStore(state => state.loading)
+  const loadingStates = useIntegrationStore(state => state.loadingStates)
+
+  // These functions don't change, so we can get them once
+  const initializeProviders = useIntegrationStore(state => state.initializeProviders)
+  const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
+  const connectIntegration = useIntegrationStore(state => state.connectIntegration)
+  const disconnectIntegration = useIntegrationStore(state => state.disconnectIntegration)
+  const reconnectIntegration = useIntegrationStore(state => state.reconnectIntegration)
+  const connectApiKeyIntegration = useIntegrationStore(state => state.connectApiKeyIntegration)
+  const setLoading = useIntegrationStore(state => state.setLoading)
   const { user } = useAuthStore()
   const router = useRouter()
 
@@ -167,7 +168,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   useEffect(() => {
     if (!user) return
 
-    // Initialize everything in parallel for faster loading
+    // Initialize everything in parallel for faster loading - NON-BLOCKING
     const initializeData = async () => {
       // Prevent duplicate initialization
       if (isInitializing) return
@@ -175,54 +176,46 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       try {
         setIsInitializing(true)
 
-        // Start both operations in parallel with timeout protection
-        const promises = []
+        // Start operations in parallel but DON'T block the UI
+        // Each operation has its own error handling
 
-        // Initialize providers if not already loaded
+        // Initialize providers if not already loaded - fire and forget
         if (providers.length === 0) {
-          const providerPromise = initializeProviders().catch(error => {
-            console.warn("Provider initialization failed:", error)
-            return null
+          initializeProviders().catch(error => {
+            console.warn("Provider initialization failed (non-critical):", error)
+            // Don't block - providers will load eventually or show empty
           })
-          promises.push(providerPromise)
         }
 
-        // Fetch integrations (always force refresh on initial load)
-        const integrationPromise = fetchIntegrations(true).catch(error => {
-          console.warn("Integration fetch failed:", error)
-          return null
+        // Fetch integrations - fire and forget
+        fetchIntegrations(true).catch(error => {
+          console.warn("Integration fetch failed (non-critical):", error)
+          // Don't block - integrations will load eventually or show empty
         })
-        promises.push(integrationPromise)
 
-        // Fetch metrics
-        const metricsPromise = fetchMetrics().catch(error => {
-          console.warn("Metrics fetch failed:", error)
-          return null
+        // Fetch metrics - fire and forget
+        fetchMetrics().catch(error => {
+          console.warn("Metrics fetch failed (non-critical):", error)
+          // Don't block - metrics are non-critical
         })
-        promises.push(metricsPromise)
 
-        // Wait for all to complete with timeout
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Initialization timeout")), 10000)
-        )
+        // Don't wait for promises to complete - let them run in background
+        // This prevents blocking navigation
 
-        try {
-          await Promise.race([
-            Promise.allSettled(promises),
-            timeoutPromise
-          ])
-        } catch (timeoutError) {
-          console.warn("Integration initialization timed out")
-        }
+        // Reset initializing flag after a short delay
+        setTimeout(() => {
+          setIsInitializing(false)
+        }, 500)
 
       } catch (error) {
-        console.error("Error initializing integrations page:", error)
-      } finally {
+        console.error("Error starting integration initialization:", error)
         setIsInitializing(false)
       }
     }
 
-    initializeData()
+    // Use setTimeout to make initialization truly non-blocking
+    setTimeout(initializeData, 0)
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]) // Only depend on user to avoid re-running
 
@@ -282,10 +275,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       const timeoutId = setTimeout(() => {
         fetchMetrics()
       }, 300) // Reduced to 300ms for faster updates while still debouncing
-      
+
       return () => clearTimeout(timeoutId)
     }
-  }, [integrations, user])
+  }, [integrations.length, user, fetchMetrics]) // Only depend on length, not the whole array
 
   // Smart periodic refresh - only check for expiring tokens every 10 minutes
   useEffect(() => {

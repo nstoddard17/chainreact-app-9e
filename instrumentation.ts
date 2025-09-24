@@ -55,8 +55,6 @@ export async function register() {
                 console.warn('⚠️ Discord bot connection failed (non-critical):', error.message)
                 // Don't reset the flag - we don't want to retry on every request
               })
-          } else {
-            console.log('ℹ️ Discord bot not configured. To enable, set:', config.missingVars.join(', '))
           }
         } catch (error) {
           console.warn('⚠️ Discord bot initialization skipped (non-critical):', error)
