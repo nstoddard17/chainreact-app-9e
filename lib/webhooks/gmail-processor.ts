@@ -145,38 +145,19 @@ async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
 
 async function fetchEmailDetails(
   notification: GmailNotification,
-  workflowId: string,
-  userId: string
+  userId: string,
+  webhookConfigId: string,
+  webhookConfigData: any
 ): Promise<any | null> {
   try {
     console.log(`🔍 Fetching email details for historyId: ${notification.historyId}`)
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
-    // Initialize Gmail API
     const oauth2Client = new google.auth.OAuth2()
     oauth2Client.setCredentials({ access_token: accessToken })
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
-    const supabase = await createSupabaseServiceClient()
-
-    const { data: webhookConfig, error: webhookConfigError } = await supabase
-      .from('webhook_configs')
-      .select('config')
-      .eq('workflow_id', workflowId)
-      .eq('trigger_type', 'gmail_trigger_new_email')
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (webhookConfigError) {
-      console.error('Failed to fetch Gmail webhook config:', webhookConfigError)
-    }
-
-    if (!webhookConfig) {
-      console.log('⚠️ No Gmail webhook configuration found for workflow, skipping')
-      return null
-    }
-
-    const watchConfig = webhookConfig.config?.watch || {}
+    const watchConfig = webhookConfigData.watch || {}
 
     if (watchConfig.emailAddress && watchConfig.emailAddress !== notification.emailAddress) {
       console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
@@ -191,13 +172,10 @@ async function fetchEmailDetails(
 
     const historyRequest: any = {
       userId: 'me',
-      historyTypes: ['messageAdded']
-    }
-
-    if (startHistoryId) {
-      historyRequest.startHistoryId = startHistoryId
-    } else {
-      historyRequest.startHistoryId = (parseInt(String(notification.historyId)) - 1).toString()
+      historyTypes: ['messageAdded'],
+      startHistoryId: startHistoryId
+        ? startHistoryId
+        : (parseInt(String(notification.historyId)) - 1).toString()
     }
 
     const history = await gmail.users.history.list(historyRequest)
@@ -211,11 +189,11 @@ async function fetchEmailDetails(
       return null
     }
 
-    // Get the most recent message
     const messageId = history.data.history
       ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
       ?.map(entry => entry.message || entry)
       ?.find(msg => msg?.id)?.id
+
     if (!messageId) {
       console.log('No message ID found in history')
       return null
@@ -223,29 +201,27 @@ async function fetchEmailDetails(
 
     console.log(`📧 Found message ID: ${messageId}`)
 
-    // Fetch full message details
     const message = await gmail.users.messages.get({
       userId: 'me',
       id: messageId,
       format: 'full'
     })
 
-    // Update stored history ID to the one Gmail just sent
+    const supabase = await createSupabaseServiceClient()
+
     await supabase
       .from('webhook_configs')
       .update({
         config: {
-          ...(webhookConfig.config || {}),
+          ...webhookConfigData,
           watch: {
             ...watchConfig,
             historyId: String(notification.historyId)
           }
         }
       })
-      .eq('workflow_id', workflowId)
-      .eq('trigger_type', 'gmail_trigger_new_email')
+      .eq('id', webhookConfigId)
 
-    // Extract email details
     const headers = message.data.payload?.headers || []
     const emailDetails: any = {
       id: message.data.id,
@@ -254,7 +230,6 @@ async function fetchEmailDetails(
       snippet: message.data.snippet
     }
 
-    // Extract headers
     headers.forEach((header: any) => {
       const name = header.name.toLowerCase()
       if (name === 'from') emailDetails.from = header.value
@@ -263,7 +238,6 @@ async function fetchEmailDetails(
       if (name === 'date') emailDetails.date = header.value
     })
 
-    // Check for attachments
     emailDetails.hasAttachments = false
     if (message.data.payload?.parts) {
       emailDetails.hasAttachments = message.data.payload.parts.some(
@@ -271,7 +245,6 @@ async function fetchEmailDetails(
       )
     }
 
-    // Extract body
     let body = ''
     if (message.data.payload?.parts) {
       for (const part of message.data.payload.parts) {
@@ -394,8 +367,9 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           historyId: event.eventData.historyId,
           emailAddress: event.eventData.emailAddress
         },
-        workflow.id,
-        workflow.user_id
+        workflow.user_id,
+        webhookConfig.id,
+        webhookConfig.config || {}
       )
 
       if (!emailDetails) {

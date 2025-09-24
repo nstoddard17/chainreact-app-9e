@@ -10,6 +10,7 @@ import { LightweightPresenceProvider } from "@/components/providers/LightweightP
 import { Toaster } from "@/components/ui/toaster"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { LoadingDetector } from "@/components/LoadingDetector"
+import { IconPrefetcher } from "@/components/integrations/IconPrefetcher"
 // Discord bot now initialized server-side via instrumentation.ts
 // import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
@@ -63,6 +64,7 @@ export default function RootLayout({
               <GlobalErrorHandler />
               <AuthInitializer />
               <LoadingDetector />
+              <IconPrefetcher />
               <LightweightPresenceProvider>
                 <Toaster />
                 {children}
