@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, memo } from 'react'
 import Image from 'next/image'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import type { Provider, Integration } from '@/stores/integrationStore'
@@ -38,7 +38,7 @@ interface ApiKeyIntegrationCardProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function ApiKeyIntegrationCard({ provider, integration, status, open, onOpenChange }: ApiKeyIntegrationCardProps) {
+export const ApiKeyIntegrationCard = memo(function ApiKeyIntegrationCard({ provider, integration, status, open, onOpenChange }: ApiKeyIntegrationCardProps) {
   const { connectApiKeyIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
 
@@ -77,11 +77,12 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
 
   const { icon: statusIcon, badgeClass: statusBadgeClass, action: statusAction } = getStatusUi()
 
-  const renderLogo = () => {
+  // Memoize the logo to prevent recreation on every render
+  const logo = useMemo(() => {
     const logoPath = `/integrations/${provider.id}.svg`
     // Add special class for icons that need inverted colors in dark mode
     const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
-    
+
     return (
       <Image
         src={logoPath}
@@ -91,7 +92,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
         className={cn("object-contain", needsInversion && "dark:invert")}
       />
     )
-  }
+  }, [provider.id, provider.name])
 
   const guideComponents = {
     manychat: ManyChatGuide,
@@ -105,7 +106,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
       <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-border bg-card overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            {renderLogo()}
+            {logo}
             <div className="min-w-0 flex-1">
               <h3 
                 className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
@@ -211,4 +212,4 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
       )}
     </>
   )
-}
+})
