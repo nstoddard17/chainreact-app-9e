@@ -26,7 +26,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Integration } from "@/stores/integrationStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
-import { OptimizedImage } from "@/components/ui/optimized-image"
+import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 
 interface IntegrationCardProps {
   provider: IntegrationConfig
@@ -142,37 +142,7 @@ export const IntegrationCard = memo(function IntegrationCard({
 
   const { icon: statusIcon, badgeClass, borderClass, action: statusAction } = statusUi
 
-  // Memoize the logo path and classes to prevent recreation
-  const logoPath = useMemo(() => `/integrations/${provider.id}.svg`, [provider.id])
-
-  // Memoize the fallback element to prevent recreation on every render
-  const logoFallback = useMemo(() => (
-    <div
-      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-      style={{ backgroundColor: provider.color || '#6B7280' }}
-    >
-      {provider.name.charAt(0).toUpperCase()}
-    </div>
-  ), [provider.color, provider.name])
-
-  // Memoize whether the icon needs inversion
-  const needsInversion = useMemo(() =>
-    ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id),
-    [provider.id]
-  )
-
-  // Memoize the entire logo component - using OptimizedImage from the merge
-  const logo = useMemo(() => (
-    <OptimizedImage
-      src={logoPath}
-      alt={`${provider.name} logo`}
-      className={cn(
-        "w-6 h-6 object-contain",
-        needsInversion && "dark:invert"
-      )}
-      fallback={logoFallback}
-    />
-  ), [logoPath, provider.name, needsInversion, logoFallback])
+  // No memoization needed - StaticIntegrationLogo handles its own optimization
 
   const details = [
     provider.name,
@@ -229,7 +199,11 @@ export const IntegrationCard = memo(function IntegrationCard({
     )}>
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
         <div className="flex items-center gap-4 min-w-0 flex-1">
-          {logo}
+          <StaticIntegrationLogo
+            providerId={provider.id}
+            providerName={provider.name}
+            providerColor={provider.color}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3
