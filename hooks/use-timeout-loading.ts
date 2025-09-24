@@ -62,43 +62,37 @@ export function useTimeoutLoading({
       return
     }
 
-    try {
-      loadingRef.current = true
+    loadingRef.current = true
 
-      // Set a timeout to handle stuck loading states
-      timeoutIdRef.current = setTimeout(() => {
-        if ((isLoading || loadingRef.current) && isMountedRef.current) {
-          console.warn(`⚠️ Loading timeout after ${timeout}ms - forcing reload`)
-          loadingRef.current = false
-          loadFunction(true).catch(error => {
-            console.error('Force reload failed:', error)
-            if (onError && isMountedRef.current) {
-              onError(error)
-            }
-          })
+    // Fire and forget - don't block navigation
+    loadFunction(forceRefresh)
+      .then(result => {
+        if (onSuccess && isMountedRef.current) {
+          onSuccess(result)
         }
-      }, timeout)
+        loadingRef.current = false
+        clearTimeoutSafe()
+      })
+      .catch(error => {
+        console.error('Failed to load data:', error)
+        if (onError && isMountedRef.current) {
+          onError(error)
+        }
+        loadingRef.current = false
+        clearTimeoutSafe()
+      })
 
-      // Load the data
-      const result = await loadFunction(forceRefresh)
-
-      if (onSuccess && isMountedRef.current) {
-        onSuccess(result)
+    // Set a longer timeout as safety net only (60 seconds)
+    timeoutIdRef.current = setTimeout(() => {
+      if ((isLoading || loadingRef.current) && isMountedRef.current) {
+        console.warn(`⚠️ Loading taking unusually long (>${timeout}ms) - data may still load`)
+        loadingRef.current = false
+        // Don't force reload - just reset loading state to unblock UI
       }
+    }, Math.max(timeout, 60000)) // Minimum 60 second timeout
 
-      return result
-    } catch (error) {
-      console.error('Failed to load data:', error)
-
-      if (onError && isMountedRef.current) {
-        onError(error)
-      }
-
-      throw error
-    } finally {
-      loadingRef.current = false
-      clearTimeoutSafe()
-    }
+    // Return immediately without blocking
+    return Promise.resolve()
   }, [loadFunction, isLoading, timeout, forceRefreshOnMount, onError, onSuccess, clearTimeoutSafe])
 
   // Load on mount and when dependencies change
