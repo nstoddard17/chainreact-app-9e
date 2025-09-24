@@ -42,12 +42,12 @@ export function useProductionReady() {
       }
     }, 50) // Check more frequently
 
-    // Force ready after max wait time (3 seconds in production)
+    // Force ready after max wait time (2 seconds in production)
     const timeout = setTimeout(() => {
       console.warn('⚠️ Forcing app ready state after timeout')
       setIsReady(true)
       clearInterval(interval)
-    }, 3000) // Allow reasonable time for auth hydration
+    }, 2000) // Faster ready state
 
     return () => {
       clearInterval(interval)

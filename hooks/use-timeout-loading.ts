@@ -75,9 +75,9 @@ export function useTimeoutLoading({
       loadingRef.current = true
       attemptCountRef.current++
 
-      // Use reasonable timeout in production (8 seconds for cold starts)
+      // Use more aggressive timeout in production (5 seconds)
       const isProduction = process.env.NODE_ENV === 'production'
-      const effectiveTimeout = isProduction ? 8000 : timeout
+      const effectiveTimeout = isProduction ? 5000 : timeout
 
       // Set a timeout to handle stuck loading states
       timeoutIdRef.current = setTimeout(() => {
