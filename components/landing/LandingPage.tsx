@@ -69,13 +69,14 @@ const LandingFooter = dynamic(() => import('./LandingFooter'), {
 
 // Main component with optimized loading
 export default function LandingPage() {
-  const { isAuthenticated, user, isReady } = useAuth()
+  // Don't wait for auth - landing page is public
+  const { isAuthenticated, user } = useAuth()
   const { signOut, profile, initialize, initialized } = useAuthStore()
 
   const userRole = (profile?.role as UserRole) || 'free'
   const isAdmin = userRole === 'admin'
 
-  // Initialize auth on mount if not already initialized
+  // Initialize auth on mount if not already initialized (non-blocking)
   useEffect(() => {
     if (!initialized) {
       initialize()
@@ -91,23 +92,7 @@ export default function LandingPage() {
     }
   }, [signOut])
 
-  // Show optimized loading state while auth is initializing
-  if (!isReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <LightningLoader size="xl" color="blue" className="mx-auto mb-4" />
-          <p className="text-blue-200 mb-4">Loading ChainReact...</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="text-blue-300 hover:text-blue-100 text-sm underline"
-          >
-            Taking too long? Click here to reload
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Landing page should ALWAYS render immediately - it's a public page!
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
