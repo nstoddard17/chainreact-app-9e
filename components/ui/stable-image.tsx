@@ -1,7 +1,10 @@
 "use client"
 
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect, memo, useRef } from 'react'
 import { cn } from '@/lib/utils'
+
+// Cache loaded images to prevent re-loading
+const imageCache = new Map<string, 'loaded' | 'error'>()
 
 interface StableImageProps {
   src: string
@@ -13,7 +16,7 @@ interface StableImageProps {
 
 /**
  * StableImage prevents flashing and re-renders when loading images
- * It preloads the image before showing it
+ * It preloads the image before showing it and caches the result
  */
 export const StableImage = memo(function StableImage({
   src,
@@ -22,11 +25,36 @@ export const StableImage = memo(function StableImage({
   fallback,
   onError
 }: StableImageProps) {
-  const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading')
-  const [imageSrc, setImageSrc] = useState<string | null>(null)
+  // Check cache first
+  const cachedState = imageCache.get(src)
+  const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>(
+    cachedState || 'loading'
+  )
+  const [imageSrc, setImageSrc] = useState<string | null>(cachedState === 'loaded' ? src : null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!src) {
+      setImageState('error')
+      return
+    }
+
+    // If already cached as loaded, use it immediately
+    if (imageCache.get(src) === 'loaded') {
+      setImageSrc(src)
+      setImageState('loaded')
+      return
+    }
+
+    // If already cached as error, use fallback
+    if (imageCache.get(src) === 'error') {
       setImageState('error')
       return
     }
@@ -35,13 +63,19 @@ export const StableImage = memo(function StableImage({
     const img = new Image()
 
     const handleLoad = () => {
-      setImageSrc(src)
-      setImageState('loaded')
+      imageCache.set(src, 'loaded')
+      if (mountedRef.current) {
+        setImageSrc(src)
+        setImageState('loaded')
+      }
     }
 
     const handleError = () => {
-      setImageState('error')
-      onError?.()
+      imageCache.set(src, 'error')
+      if (mountedRef.current) {
+        setImageState('error')
+        onError?.()
+      }
     }
 
     img.onload = handleLoad
@@ -60,9 +94,14 @@ export const StableImage = memo(function StableImage({
   }
 
   if (imageState === 'loading') {
-    // Return a placeholder to prevent layout shift
+    // For integration icons, show the fallback immediately instead of pulsing placeholder
+    // This prevents the blinking effect
+    if (fallback) {
+      return <>{fallback}</>
+    }
+    // Only show placeholder if no fallback is provided
     return (
-      <div className={cn("animate-pulse bg-gray-200 rounded", className)} />
+      <div className={cn("bg-gray-200 dark:bg-gray-700 rounded", className)} />
     )
   }
 
@@ -73,5 +112,16 @@ export const StableImage = memo(function StableImage({
       className={className}
       loading="eager"
     />
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  // Only re-render if src, alt, or className actually changed
+  return (
+    prevProps.src === nextProps.src &&
+    prevProps.alt === nextProps.alt &&
+    prevProps.className === nextProps.className &&
+    // For fallback, we only care if it's present or not, not reference equality
+    (prevProps.fallback === nextProps.fallback ||
+      (!!prevProps.fallback === !!nextProps.fallback))
   )
 })

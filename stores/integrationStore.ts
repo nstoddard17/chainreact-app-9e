@@ -133,20 +133,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     initializeProviders: async () => {
         const { setLoading } = get()
-        
-        // Set a timeout to prevent stuck loading state
+
+        // Set a timeout to prevent stuck loading state - 60 seconds as safety net
         const loadingTimeout = setTimeout(() => {
           const currentState = get()
           if (currentState.loadingStates['providers']) {
-            console.warn("Provider initialization timeout - resetting loading state")
+            console.warn("Provider initialization taking unusually long - resetting loading state")
             setLoading('providers', false)
+            // Set default providers if timeout occurs
+            set({
+              providers: [],
+              error: null // Don't show error - just reset state
+            })
           }
-        }, 10000)
+        }, 60000)
 
         try {
           setLoading('providers', true)
           set({ error: null })
-          
+
           const providers = await IntegrationService.fetchProviders()
 
           clearTimeout(loadingTimeout)

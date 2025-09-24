@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, memo } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +38,7 @@ interface IntegrationCardProps {
   onReconnect: () => void
 }
 
-export function IntegrationCard({
+export const IntegrationCard = memo(function IntegrationCard({
   provider,
   integration,
   status,
@@ -47,7 +47,19 @@ export function IntegrationCard({
   onDisconnect,
   onReconnect,
 }: IntegrationCardProps) {
-  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
+  // Only subscribe to the specific loading state for this provider/integration
+  const isLoadingConnect = useIntegrationStore(state =>
+    state.loadingStates[`connect-${provider.id}`] || false
+  )
+  const isLoadingDisconnect = useIntegrationStore(state =>
+    integration ? state.loadingStates[`disconnect-${integration.provider}`] || false : false
+  )
+
+  // Get functions that don't change
+  const connectIntegration = useIntegrationStore(state => state.connectIntegration)
+  const disconnectIntegration = useIntegrationStore(state => state.disconnectIntegration)
+  const reconnectIntegration = useIntegrationStore(state => state.reconnectIntegration)
+
   const { comingSoonIntegrations } = useIntegrationSelection()
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
@@ -92,11 +104,10 @@ export function IntegrationCard({
     return 'Invalid date';
   };
 
-  const isLoading = 
-    loadingStates[`connect-${provider.id}`] || 
-    (integration ? loadingStates[`disconnect-${integration.provider}`] : false)
+  const isLoading = isLoadingConnect || isLoadingDisconnect
 
-  const getStatusUi = () => {
+  // Memoize status UI to prevent recreation of React elements
+  const statusUi = useMemo(() => {
     switch (status) {
       case 'connected':
         return {
@@ -127,38 +138,41 @@ export function IntegrationCard({
           action: 'connect'
         }
     }
-  }
+  }, [status])
 
-  const { icon: statusIcon, badgeClass, borderClass, action: statusAction } = getStatusUi()
+  const { icon: statusIcon, badgeClass, borderClass, action: statusAction } = statusUi
 
-  const renderLogo = () => {
-    const logoPath = `/integrations/${provider.id}.svg`
+  // Memoize the logo path and classes to prevent recreation
+  const logoPath = useMemo(() => `/integrations/${provider.id}.svg`, [provider.id])
 
-    // Fallback component for when image fails to load
-    const fallback = (
-      <div
-        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-        style={{ backgroundColor: provider.color || '#6B7280' }}
-      >
-        {provider.name.charAt(0).toUpperCase()}
-      </div>
-    )
+  // Memoize the fallback element to prevent recreation on every render
+  const logoFallback = useMemo(() => (
+    <div
+      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+      style={{ backgroundColor: provider.color || '#6B7280' }}
+    >
+      {provider.name.charAt(0).toUpperCase()}
+    </div>
+  ), [provider.color, provider.name])
 
-    // Add special class for icons that need inverted colors in dark mode
-    const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
+  // Memoize whether the icon needs inversion
+  const needsInversion = useMemo(() =>
+    ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id),
+    [provider.id]
+  )
 
-    return (
-      <StableImage
-        src={logoPath}
-        alt={`${provider.name} logo`}
-        className={cn(
-          "w-6 h-6 object-contain",
-          needsInversion && "dark:invert"
-        )}
-        fallback={fallback}
-      />
-    )
-  }
+  // Memoize the entire logo component
+  const logo = useMemo(() => (
+    <StableImage
+      src={logoPath}
+      alt={`${provider.name} logo`}
+      className={cn(
+        "w-6 h-6 object-contain",
+        needsInversion && "dark:invert"
+      )}
+      fallback={logoFallback}
+    />
+  ), [logoPath, provider.name, needsInversion, logoFallback])
 
   const details = [
     provider.name,
@@ -215,7 +229,7 @@ export function IntegrationCard({
     )}>
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
         <div className="flex items-center gap-4 min-w-0 flex-1">
-          {renderLogo()}
+          {logo}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3
@@ -566,4 +580,4 @@ export function IntegrationCard({
       </Dialog>
     </Card>
   )
-}
+})

@@ -47,7 +47,7 @@ export class IntegrationService {
    */
   static async fetchProviders(): Promise<Provider[]> {
     const { session } = await SessionManager.getSecureUserAndSession()
-    
+
     const response = await fetch("/api/integrations/available", {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
