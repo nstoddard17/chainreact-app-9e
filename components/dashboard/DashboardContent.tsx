@@ -8,7 +8,6 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
 import { useProductionReady } from '@/hooks/use-production-ready'
-import { useAuthReady } from '@/hooks/use-auth-ready'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -64,15 +63,12 @@ export default function DashboardContent() {
   }, [user, profile, initialized, hydrated, isClientReady])
 
 
-  // Wait for auth to be ready before fetching data
-  const { isReady: authReady } = useAuthReady()
-
   // Use timeout loading for all data fetching with parallel loading
   // This is NON-BLOCKING - page will render immediately
   useTimeoutLoading({
     loadFunction: async (force) => {
-      // Wait for auth to be ready before fetching
-      if (!authReady || !user) return null
+      // Only wait for user to be available, not full auth hydration
+      if (!user) return null
 
       // Load all data in parallel for maximum speed
       const promises = [
@@ -98,9 +94,9 @@ export default function DashboardContent() {
       await Promise.allSettled(promises)
       return true
     },
-    timeout: 10000, // 10 second timeout for dashboard in production
+    timeout: 5000, // 5 second timeout for dashboard
     forceRefreshOnMount: false, // Dashboard can use cached data
-    dependencies: [user, authReady],
+    dependencies: [user],
     onError: (error) => {
       // Don't block render on errors
       console.warn('Dashboard data loading error (non-blocking):', error)

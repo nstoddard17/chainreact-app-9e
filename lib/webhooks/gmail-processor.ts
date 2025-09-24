@@ -58,6 +58,7 @@ async function processGmailEventData(event: GmailWebhookEvent): Promise<any> {
   
   // Handle different Gmail event types
   switch (eventData.type) {
+    case 'gmail_new_email':
     case 'message.new':
       return await handleGmailNewMessage(eventData)
     case 'message.modified':

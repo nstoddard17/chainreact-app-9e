@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Check if we're in production and experiencing a cold start
         const isProduction = process.env.NODE_ENV === 'production'
-        const timeoutDuration = isProduction ? 8000 : 5000 // Allow more time for cold starts
+        const timeoutDuration = isProduction ? 5000 : 5000 // 5 seconds for both
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
           console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
           const userPromise = supabase.auth.getUser()
           const userTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('User fetch timeout')), 5000) // 5 seconds timeout for user fetch
+            setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
           )
 
           let userResult

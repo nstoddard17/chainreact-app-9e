@@ -134,9 +134,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
     initializeProviders: async () => {
         const { setLoading } = get()
 
-        // Reasonable timeout for production cold starts - 10 seconds
+        // Timeout for production - 5 seconds
         const isProduction = process.env.NODE_ENV === 'production'
-        const timeoutDuration = isProduction ? 10000 : 60000
+        const timeoutDuration = isProduction ? 5000 : 60000
 
         // Set a timeout to prevent stuck loading state
         const loadingTimeout = setTimeout(() => {
@@ -190,7 +190,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         currentAbortController = new AbortController()
 
-        // Set timeout for fetch operation - 8 seconds in production for cold starts
+        // Set timeout for fetch operation - 5 seconds in production
         const isProduction = process.env.NODE_ENV === 'production'
         const fetchTimeout = setTimeout(() => {
           console.warn('Integration fetch timeout - aborting request')
@@ -200,7 +200,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             error: null, // Don't show error for timeout
             integrations: get().integrations || [] // Keep existing data
           })
-        }, isProduction ? 8000 : 10000)
+        }, isProduction ? 5000 : 10000)
 
         try {
           setLoading('integrations', true)
