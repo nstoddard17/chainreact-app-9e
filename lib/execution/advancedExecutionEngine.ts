@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { GmailService } from "@/lib/integrations/gmail"
 import { sendGmail } from "@/lib/workflows/actions/gmail/sendGmail"
+import { sendDiscordMessage } from "@/lib/workflows/actions/discord"
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -751,35 +752,61 @@ export class AdvancedExecutionEngine {
 
         // Other generic node types...
 
-        default:
-          // Handle integration-specific actions (skip triggers)
-          if (node.data.providerId && apiClient && !node.data.isTrigger) {
-            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
-            
-            if (nodeComponent && nodeComponent.actionParamsSchema) {
-              // Map workflow data to action parameters
-              const params = this.mapWorkflowData(context.data, node.data.config);
-              
-              console.log(`🔧 Mapped params for ${node.data.type}:`, JSON.stringify(params, null, 2))
+        default: {
+          const providerId = node.data.providerId
 
-              if (node.data.providerId === 'gmail') {
-                if (nodeComponent?.actionParamsSchema) {
-                  if (node.data.type === 'gmail_action_send_email') {
-                    // Call sendGmail with correct signature to prevent duplicates
-                    const actionResult = await sendGmail(params, context.session.user_id, context.data);
-                    result = { ...context.data, [node.id]: actionResult };
-                  }
-                }
-              }
-              // Add other provider handling here...
-            }
-          } else if (node.data.isTrigger) {
-            // Triggers just pass through the input data
-            console.log(`🎯 Trigger node ${node.id} completed - passing through data`);
-            result = context.data;
+          if (node.data.isTrigger) {
+            console.log(`🎯 Trigger node ${node.id} completed - passing through data`)
+            result = context.data
+            break
           }
+
+          if (!providerId) {
+            console.warn(`⚠️ Node ${node.id} has no providerId and no trigger - skipping execution`)
+            break
+          }
+
+          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type)
+          const mappedParams = nodeComponent?.actionParamsSchema
+            ? this.mapWorkflowData(context.data, node.data.config)
+            : node.data.config || {}
+
+          console.log(`🔧 Provider ${providerId} mapped params for ${node.data.type}:`, JSON.stringify(mappedParams, null, 2))
+
+          if (providerId === 'discord') {
+            console.log(`💬 Executing Discord action for node ${node.id}`)
+            const discordResult = await sendDiscordMessage(mappedParams, context.session.user_id, context.data)
+
+            console.log(`   Discord send result: ${discordResult.success ? '✅ Success' : '❌ Failed'}`)
+            if (!discordResult.success) {
+              console.log(`   Discord error: ${discordResult.message}`)
+            }
+
+            result = { ...context.data, [node.id]: discordResult }
+
+            if (!discordResult.success) {
+              throw new Error(discordResult.message || 'Failed to send Discord message')
+            }
+            break
+          }
+
+          if (providerId === 'gmail' && apiClient && nodeComponent?.actionParamsSchema) {
+            if (node.data.type === 'gmail_action_send_email') {
+              const actionResult = await sendGmail(mappedParams, context.session.user_id, context.data)
+              result = { ...context.data, [node.id]: actionResult }
+            }
+            break
+          }
+
+          if (apiClient && nodeComponent?.actionParamsSchema) {
+            console.warn(`⚠️ Provider ${providerId} not explicitly handled in advanced engine yet`)
+            break
+          }
+
+          console.warn(`⚠️ No API client available for provider ${providerId} on node ${node.id}`)
+        }
       }
-      
+
       await this.logExecutionEvent(context.session.id, "node_completed", node.id, { 
         success: true, 
         result: result[node.id] || "completed" 

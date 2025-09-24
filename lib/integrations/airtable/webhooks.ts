@@ -59,16 +59,14 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   // Check if we already have a webhook
   const { data: existing } = await supabase
     .from("airtable_webhooks")
-    .select("id, webhook_id, expiration_time, status")
+    .select("id, webhook_id, expiration_time, status, mac_secret_base64")
     .eq("user_id", userId)
     .eq("base_id", baseId)
     .eq("status", "active")
     .limit(1)
     .maybeSingle()
 
-  // If active and not expiring soon, keep it
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
-  if (existing && !expiringSoon) return
 
   // First, check the token scopes
   console.log(`🔍 Checking token scopes...`)
@@ -129,30 +127,56 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     console.log(`📋 Found ${webhooksData.webhooks?.length || 0} existing webhook(s) on this base`)
 
     if (webhooksData.webhooks && webhooksData.webhooks.length > 0) {
-      // Check if any webhook is for our notification URL
-      const ourWebhook = webhooksData.webhooks.find((w: any) =>
-        w.notificationUrl === notificationUrl
-      )
+      const allWebhooks = webhooksData.webhooks as any[]
 
-      // Also check for existing webhook with correct ID from database
-      const { data: existingDbWebhook } = await supabase
-        .from('airtable_webhooks')
-        .select('webhook_id, mac_secret_base64')
-        .eq('base_id', baseId)
-        .eq('status', 'active')
-        .single()
+      // Check if any webhook already points at the desired URL
+      const ourWebhook = allWebhooks.find(w => w.notificationUrl === notificationUrl)
 
-      // If we have a webhook in DB that exists in Airtable, use it
-      if (existingDbWebhook) {
-        const airtableWebhook = webhooksData.webhooks.find((w: any) =>
-          w.id === existingDbWebhook.webhook_id
-        )
+      if (existing?.webhook_id) {
+        const airtableWebhook = allWebhooks.find(w => w.id === existing.webhook_id)
 
-        if (airtableWebhook && existingDbWebhook.mac_secret_base64) {
-          console.log(`✅ Found existing webhook in DB and Airtable: ${airtableWebhook.id}`)
-          console.log(`   Has MAC Secret: true`)
-          console.log(`   No need to create new webhook`)
-          return // Use existing webhook
+        if (airtableWebhook) {
+          const urlMatches = airtableWebhook.notificationUrl === notificationUrl
+
+          if (urlMatches && !expiringSoon && existing.mac_secret_base64) {
+            console.log(`✅ Found existing webhook in DB and Airtable with matching URL: ${airtableWebhook.id}`)
+            console.log(`   Has MAC Secret: true`)
+
+            if (airtableWebhook.expirationTime && existing.expiration_time !== airtableWebhook.expirationTime) {
+              await supabase
+                .from('airtable_webhooks')
+                .update({ expiration_time: new Date(airtableWebhook.expirationTime).toISOString() })
+                .eq('id', existing.id)
+            }
+
+            return
+          }
+
+          if (!urlMatches) {
+            console.log(`⚠️ Existing webhook ${airtableWebhook.id} points to ${airtableWebhook.notificationUrl}, expected ${notificationUrl}. Recreating...`)
+
+            try {
+              const deleteRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks/${airtableWebhook.id}`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${token}`
+                }
+              })
+
+              if (!deleteRes.ok) {
+                const errorText = await deleteRes.text()
+                console.error(`❌ Failed to delete outdated webhook: ${deleteRes.status}`)
+                console.error(`   Error: ${errorText}`)
+              } else {
+                await supabase
+                  .from('airtable_webhooks')
+                  .update({ status: 'inactive' })
+                  .eq('id', existing.id)
+              }
+            } catch (err) {
+              console.error('❌ Error deleting outdated webhook:', err)
+            }
+          }
         }
       }
 
