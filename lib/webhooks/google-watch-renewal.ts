@@ -93,7 +93,7 @@ async function renewGmailWatch(subscription: any): Promise<void> {
 
   // Create a new watch
   const metadata = subscription.metadata || {}
-  const historyId = await setupGmailWatch({
+  const watchResult = await setupGmailWatch({
     userId: subscription.user_id,
     integrationId: subscription.integration_id,
     topicName: metadata.topicName || process.env.GMAIL_PUBSUB_TOPIC!,
@@ -101,8 +101,11 @@ async function renewGmailWatch(subscription: any): Promise<void> {
   })
 
   // Update the subscription with new expiration
-  const newExpiration = new Date()
-  newExpiration.setDate(newExpiration.getDate() + 7)
+  const newExpiration = watchResult.expiration ? new Date(watchResult.expiration) : (() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 7);
+    return date;
+  })()
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -115,7 +118,8 @@ async function renewGmailWatch(subscription: any): Promise<void> {
       expiration: newExpiration.toISOString(),
       metadata: {
         ...metadata,
-        historyId,
+        historyId: watchResult.historyId,
+        emailAddress: watchResult.emailAddress,
         renewedAt: new Date().toISOString()
       },
       updated_at: new Date().toISOString()

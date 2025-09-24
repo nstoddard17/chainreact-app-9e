@@ -4,6 +4,11 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 
+interface GmailNotification {
+  emailAddress: string
+  historyId: string | number
+}
+
 export interface GmailWebhookEvent {
   eventData: any
   requestId: string
@@ -73,22 +78,20 @@ async function processGmailEventData(event: GmailWebhookEvent): Promise<any> {
 
 // Gmail event handlers
 async function handleGmailNewMessage(eventData: any): Promise<any> {
-  console.log('Processing Gmail new message:', eventData.message_id)
-  
+  console.log('Processing Gmail new message event')
+
   // Queue for background processing to fetch full message details
   await queueWebhookTask({
     provider: 'gmail',
     service: 'gmail',
     eventType: 'message.new',
-    eventData: eventData,
+    eventData,
     requestId: eventData.requestId
   })
-  
-  return { 
-    processed: true, 
-    type: 'gmail_new_message', 
-    messageId: eventData.message_id,
-    threadId: eventData.thread_id
+
+  return {
+    processed: true,
+    type: 'gmail_new_message'
   }
 }
 
@@ -140,9 +143,13 @@ async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
   }
 }
 
-async function fetchEmailDetails(historyId: string, emailAddress: string, userId: string): Promise<any | null> {
+async function fetchEmailDetails(
+  notification: GmailNotification,
+  workflowId: string,
+  userId: string
+): Promise<any | null> {
   try {
-    console.log(`🔍 Fetching email details for historyId: ${historyId}`)
+    console.log(`🔍 Fetching email details for historyId: ${notification.historyId}`)
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
     // Initialize Gmail API
@@ -150,16 +157,48 @@ async function fetchEmailDetails(historyId: string, emailAddress: string, userId
     oauth2Client.setCredentials({ access_token: accessToken })
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
-    // Gmail sends the current historyId, we need to look at previous messages
-    // Subtract 1 from the historyId to get the previous state
-    const previousHistoryId = (parseInt(historyId) - 1).toString()
+    const supabase = await createSupabaseServiceClient()
 
-    // Get the history list to find new messages
-    const history = await gmail.users.history.list({
+    const { data: webhookConfig, error: webhookConfigError } = await supabase
+      .from('webhook_configs')
+      .select('metadata')
+      .eq('workflow_id', workflowId)
+      .eq('trigger_type', 'gmail_trigger_new_email')
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (webhookConfigError) {
+      console.error('Failed to fetch Gmail webhook config:', webhookConfigError)
+    }
+
+    if (!webhookConfig) {
+      console.log('⚠️ No Gmail webhook configuration found for workflow, skipping')
+      return null
+    }
+
+    if (webhookConfig?.metadata?.emailAddress && webhookConfig.metadata.emailAddress !== notification.emailAddress) {
+      console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
+      return null
+    }
+
+    const startHistoryId = webhookConfig?.metadata?.historyId
+
+    if (!startHistoryId) {
+      console.warn('⚠️ No stored historyId for Gmail watch; using notification historyId - 1')
+    }
+
+    const historyRequest: any = {
       userId: 'me',
-      startHistoryId: previousHistoryId,
       historyTypes: ['messageAdded']
-    })
+    }
+
+    if (startHistoryId) {
+      historyRequest.startHistoryId = startHistoryId
+    } else {
+      historyRequest.startHistoryId = (parseInt(String(notification.historyId)) - 1).toString()
+    }
+
+    const history = await gmail.users.history.list(historyRequest)
 
     console.log(`📚 History response:`, {
       historyLength: history.data.history?.length || 0
@@ -171,7 +210,10 @@ async function fetchEmailDetails(historyId: string, emailAddress: string, userId
     }
 
     // Get the most recent message
-    const messageId = history.data.history[0].messages?.[0]?.id
+    const messageId = history.data.history
+      ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
+      ?.map(entry => entry.message || entry)
+      ?.find(msg => msg?.id)?.id
     if (!messageId) {
       console.log('No message ID found in history')
       return null
@@ -185,6 +227,18 @@ async function fetchEmailDetails(historyId: string, emailAddress: string, userId
       id: messageId,
       format: 'full'
     })
+
+    // Update stored history ID to the one Gmail just sent
+    await supabase
+      .from('webhook_configs')
+      .update({
+        metadata: {
+          ...(webhookConfig.metadata || {}),
+          historyId: String(notification.historyId)
+        }
+      })
+      .eq('workflow_id', workflowId)
+      .eq('trigger_type', 'gmail_trigger_new_email')
 
     // Extract email details
     const headers = message.data.payload?.headers || []
@@ -331,8 +385,11 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       // Fetch the actual email details
       const emailDetails = await fetchEmailDetails(
-        event.eventData.historyId,
-        event.eventData.emailAddress,
+        {
+          historyId: event.eventData.historyId,
+          emailAddress: event.eventData.emailAddress
+        },
+        workflow.id,
         workflow.user_id
       )
 
