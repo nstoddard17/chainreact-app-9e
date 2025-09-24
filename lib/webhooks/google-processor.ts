@@ -10,7 +10,7 @@ export interface GoogleWebhookEvent {
 export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any> {
   try {
     const supabase = await createSupabaseServiceClient()
-    
+
     // Store the webhook event in the database
     const { data: storedEvent, error: storeError } = await supabase
       .from('webhook_events')
@@ -29,16 +29,26 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
       console.error('Failed to store Google webhook event:', storeError)
     }
 
+    // Extract token metadata if present (contains userId, integrationId, etc.)
+    let metadata: any = {}
+    if (event.eventData.token) {
+      try {
+        metadata = JSON.parse(event.eventData.token)
+      } catch (e) {
+        console.log('Could not parse token metadata')
+      }
+    }
+
     // Process based on service
     switch (event.service) {
       case 'drive':
-        return await processGoogleDriveEvent(event)
+        return await processGoogleDriveEvent(event, metadata)
       case 'calendar':
-        return await processGoogleCalendarEvent(event)
+        return await processGoogleCalendarEvent(event, metadata)
       case 'docs':
-        return await processGoogleDocsEvent(event)
+        return await processGoogleDocsEvent(event, metadata)
       case 'sheets':
-        return await processGoogleSheetsEvent(event)
+        return await processGoogleSheetsEvent(event, metadata)
       default:
         return await processGenericGoogleEvent(event)
     }
@@ -48,42 +58,161 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
   }
 }
 
-async function processGoogleDriveEvent(event: GoogleWebhookEvent): Promise<any> {
+async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
-  
-  // Handle different Google Drive event types
-  switch (eventData.type) {
-    case 'file.created':
-      return await handleDriveFileCreated(eventData)
-    case 'file.updated':
-      return await handleDriveFileUpdated(eventData)
-    case 'file.deleted':
-      return await handleDriveFileDeleted(eventData)
-    case 'folder.created':
-      return await handleDriveFolderCreated(eventData)
-    default:
-      console.log('Unhandled Google Drive event type:', eventData.type)
-      return { processed: true, eventType: eventData.type }
+
+  // Google Drive sends a notification that changes occurred
+  // We need to fetch the actual changes using the Drive API
+  if (metadata.userId && metadata.integrationId) {
+    const { getGoogleDriveChanges } = await import('./google-drive-watch-setup')
+
+    // Get the page token from the subscription
+    const supabase = await createSupabaseServiceClient()
+    const { data: subscription } = await supabase
+      .from('google_watch_subscriptions')
+      .select('page_token, metadata')
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', 'google-drive')
+      .single()
+
+    if (subscription && subscription.page_token) {
+      // Fetch the actual changes
+      const changes = await getGoogleDriveChanges(
+        metadata.userId,
+        metadata.integrationId,
+        subscription.page_token
+      )
+
+      // Process each change
+      for (const change of changes.changes || []) {
+        if (change.file) {
+          if (change.removed) {
+            await handleDriveFileDeleted({
+              fileId: change.fileId,
+              file: change.file,
+              metadata
+            })
+          } else if (change.file.mimeType?.includes('folder')) {
+            await handleDriveFolderCreated({
+              folderId: change.fileId,
+              folder: change.file,
+              metadata
+            })
+          } else {
+            // Check if file is new or updated based on creation time
+            const createdTime = new Date(change.file.createdTime)
+            const modifiedTime = new Date(change.file.modifiedTime)
+            const timeDiff = modifiedTime.getTime() - createdTime.getTime()
+
+            if (timeDiff < 60000) { // Less than 1 minute difference = new file
+              await handleDriveFileCreated({
+                fileId: change.fileId,
+                file: change.file,
+                metadata
+              })
+            } else {
+              await handleDriveFileUpdated({
+                fileId: change.fileId,
+                file: change.file,
+                metadata
+              })
+            }
+          }
+        }
+      }
+
+      // Update the page token for next time
+      if (changes.nextPageToken) {
+        await supabase
+          .from('google_watch_subscriptions')
+          .update({ page_token: changes.nextPageToken })
+          .eq('user_id', metadata.userId)
+          .eq('integration_id', metadata.integrationId)
+          .eq('provider', 'google-drive')
+      }
+
+      return { processed: true, changesCount: changes.changes?.length || 0 }
+    }
   }
+
+  // Fallback to generic processing
+  console.log('Google Drive webhook received, but missing metadata for processing')
+  return { processed: true, eventType: 'drive.notification' }
 }
 
-async function processGoogleCalendarEvent(event: GoogleWebhookEvent): Promise<any> {
+async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
-  
-  // Handle different Google Calendar event types
-  switch (eventData.type) {
-    case 'event.created':
-      return await handleCalendarEventCreated(eventData)
-    case 'event.updated':
-      return await handleCalendarEventUpdated(eventData)
-    case 'event.deleted':
-      return await handleCalendarEventDeleted(eventData)
-    case 'calendar.created':
-      return await handleCalendarCreated(eventData)
-    default:
-      console.log('Unhandled Google Calendar event type:', eventData.type)
-      return { processed: true, eventType: eventData.type }
+
+  // Google Calendar sends a notification that changes occurred
+  // We need to fetch the actual changes using the Calendar API
+  if (metadata.userId && metadata.integrationId && metadata.calendarId) {
+    const { getGoogleCalendarChanges } = await import('./google-calendar-watch-setup')
+
+    // Get the sync token from the subscription
+    const supabase = await createSupabaseServiceClient()
+    const { data: subscription } = await supabase
+      .from('google_watch_subscriptions')
+      .select('sync_token, metadata')
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', 'google-calendar')
+      .single()
+
+    // Fetch the actual changes
+    const changes = await getGoogleCalendarChanges(
+      metadata.userId,
+      metadata.integrationId,
+      metadata.calendarId,
+      subscription?.sync_token
+    )
+
+    // Process each event change
+    for (const event of changes.events || []) {
+      if (event.status === 'cancelled') {
+        await handleCalendarEventDeleted({
+          eventId: event.id,
+          event,
+          metadata
+        })
+      } else if (event.created && event.updated) {
+        // Check if event is new or updated
+        const createdTime = new Date(event.created)
+        const updatedTime = new Date(event.updated)
+        const timeDiff = updatedTime.getTime() - createdTime.getTime()
+
+        if (timeDiff < 60000) { // Less than 1 minute difference = new event
+          await handleCalendarEventCreated({
+            eventId: event.id,
+            event,
+            metadata
+          })
+        } else {
+          await handleCalendarEventUpdated({
+            eventId: event.id,
+            event,
+            metadata
+          })
+        }
+      }
+    }
+
+    // Update the sync token for next time
+    if (changes.nextSyncToken) {
+      await supabase
+        .from('google_watch_subscriptions')
+        .update({ sync_token: changes.nextSyncToken })
+        .eq('user_id', metadata.userId)
+        .eq('integration_id', metadata.integrationId)
+        .eq('provider', 'google-calendar')
+    }
+
+    return { processed: true, eventsCount: changes.events?.length || 0 }
   }
+
+  // Fallback to generic processing
+  console.log('Google Calendar webhook received, but missing metadata for processing')
+  return { processed: true, eventType: 'calendar.notification' }
 }
 
 async function processGoogleDocsEvent(event: GoogleWebhookEvent): Promise<any> {
@@ -105,23 +234,81 @@ async function processGoogleDocsEvent(event: GoogleWebhookEvent): Promise<any> {
   }
 }
 
-async function processGoogleSheetsEvent(event: GoogleWebhookEvent): Promise<any> {
+async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
-  
-  // Handle different Google Sheets event types
-  switch (eventData.type) {
-    case 'spreadsheet.created':
-      return await handleSheetsSpreadsheetCreated(eventData)
-    case 'spreadsheet.updated':
-      return await handleSheetsSpreadsheetUpdated(eventData)
-    case 'cell.updated':
-      return await handleSheetsCellUpdated(eventData)
-    case 'sheet.created':
-      return await handleSheetsSheetCreated(eventData)
-    default:
-      console.log('Unhandled Google Sheets event type:', eventData.type)
-      return { processed: true, eventType: eventData.type }
+
+  // Google Sheets uses Drive API for webhooks
+  // We need to check what changed in the spreadsheet
+  if (metadata.userId && metadata.integrationId && metadata.spreadsheetId) {
+    const { checkGoogleSheetsChanges } = await import('./google-sheets-watch-setup')
+
+    // Get the previous metadata from the subscription
+    const supabase = await createSupabaseServiceClient()
+    const { data: subscription } = await supabase
+      .from('google_watch_subscriptions')
+      .select('metadata')
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', 'google-sheets')
+      .single()
+
+    if (subscription?.metadata) {
+      // Check for changes
+      const result = await checkGoogleSheetsChanges(
+        metadata.userId,
+        metadata.integrationId,
+        metadata.spreadsheetId,
+        subscription.metadata
+      )
+
+      // Process each change
+      for (const change of result.changes || []) {
+        switch (change.type) {
+          case 'new_row':
+            await handleSheetsRowCreated({
+              spreadsheetId: metadata.spreadsheetId,
+              sheetName: change.sheetName,
+              rowNumber: change.rowNumber,
+              data: change.data,
+              metadata
+            })
+            break
+          case 'updated_row':
+            await handleSheetsRowUpdated({
+              spreadsheetId: metadata.spreadsheetId,
+              sheetName: change.sheetName,
+              message: change.message,
+              metadata
+            })
+            break
+          case 'new_worksheet':
+            await handleSheetsSheetCreated({
+              spreadsheetId: metadata.spreadsheetId,
+              sheetName: change.sheetName,
+              sheetId: change.sheetId,
+              metadata
+            })
+            break
+        }
+      }
+
+      // Update the metadata for next comparison
+      if (result.updatedMetadata) {
+        await supabase
+          .from('google_watch_subscriptions')
+          .update({ metadata: result.updatedMetadata })
+          .eq('user_id', metadata.userId)
+          .eq('integration_id', metadata.integrationId)
+          .eq('provider', 'google-sheets')
+      }
+
+      return { processed: true, changesCount: result.changes?.length || 0 }
+    }
   }
+
+  // Fallback to generic processing
+  console.log('Google Sheets webhook received, but missing metadata for processing')
+  return { processed: true, eventType: 'sheets.notification' }
 }
 
 async function processGenericGoogleEvent(event: GoogleWebhookEvent): Promise<any> {
@@ -219,6 +406,40 @@ async function handleSheetsCellUpdated(eventData: any): Promise<any> {
 }
 
 async function handleSheetsSheetCreated(eventData: any): Promise<any> {
-  console.log('Processing Google Sheets sheet created:', eventData.sheet_id)
-  return { processed: true, type: 'sheets_sheet_created', sheetId: eventData.sheet_id }
+  console.log('Processing Google Sheets sheet created:', eventData.sheetName || eventData.sheet_id)
+
+  // Trigger workflow if there's a workflow configured for new worksheet trigger
+  if (eventData.metadata?.userId) {
+    // Here you would trigger the workflow execution
+    // This would integrate with your workflow execution system
+    console.log('Would trigger workflow for new worksheet:', eventData.sheetName)
+  }
+
+  return { processed: true, type: 'sheets_sheet_created', sheetId: eventData.sheetId || eventData.sheet_id }
+}
+
+async function handleSheetsRowCreated(eventData: any): Promise<any> {
+  console.log('Processing Google Sheets new row:', eventData.sheetName, eventData.rowNumber)
+
+  // Trigger workflow if there's a workflow configured for new row trigger
+  if (eventData.metadata?.userId) {
+    // Here you would trigger the workflow execution
+    // This would integrate with your workflow execution system
+    console.log('Would trigger workflow for new row:', eventData.data)
+  }
+
+  return { processed: true, type: 'sheets_row_created', rowData: eventData.data }
+}
+
+async function handleSheetsRowUpdated(eventData: any): Promise<any> {
+  console.log('Processing Google Sheets row updated:', eventData.sheetName)
+
+  // Trigger workflow if there's a workflow configured for updated row trigger
+  if (eventData.metadata?.userId) {
+    // Here you would trigger the workflow execution
+    // This would integrate with your workflow execution system
+    console.log('Would trigger workflow for updated row')
+  }
+
+  return { processed: true, type: 'sheets_row_updated', message: eventData.message }
 } 

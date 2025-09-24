@@ -83,6 +83,27 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<string>
       expiration: new Date(parseInt(response.data.expiration)).toISOString()
     })
 
+    // Gmail doesn't provide a channel ID or resource ID like other Google services
+    // We'll use the history ID as a unique identifier
+    const channelId = `gmail-${config.userId}-${Date.now()}`
+
+    // Store the watch details in database for renewal
+    await supabase.from('google_watch_subscriptions').upsert({
+      user_id: config.userId,
+      integration_id: config.integrationId,
+      provider: 'gmail',
+      channel_id: channelId,
+      resource_id: response.data.historyId, // Use history ID as resource ID
+      expiration: new Date(parseInt(response.data.expiration)).toISOString(),
+      metadata: {
+        topicName: config.topicName,
+        labelIds: config.labelIds || ['INBOX'],
+        historyId: response.data.historyId
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
     // Return the history ID for tracking changes
     return response.data.historyId
   } catch (error) {
@@ -134,6 +155,14 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
     await gmail.users.stop({
       userId: 'me'
     })
+
+    // Remove from database
+    await supabase
+      .from('google_watch_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('integration_id', integrationId)
+      .eq('provider', 'gmail')
 
     console.log('✅ Gmail watch stopped successfully')
   } catch (error) {
