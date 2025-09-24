@@ -161,7 +161,7 @@ async function fetchEmailDetails(
 
     const { data: webhookConfig, error: webhookConfigError } = await supabase
       .from('webhook_configs')
-      .select('metadata')
+      .select('config')
       .eq('workflow_id', workflowId)
       .eq('trigger_type', 'gmail_trigger_new_email')
       .eq('status', 'active')
@@ -176,12 +176,14 @@ async function fetchEmailDetails(
       return null
     }
 
-    if (webhookConfig?.metadata?.emailAddress && webhookConfig.metadata.emailAddress !== notification.emailAddress) {
+    const watchConfig = webhookConfig.config?.watch || {}
+
+    if (watchConfig.emailAddress && watchConfig.emailAddress !== notification.emailAddress) {
       console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
       return null
     }
 
-    const startHistoryId = webhookConfig?.metadata?.historyId
+    const startHistoryId = watchConfig.historyId
 
     if (!startHistoryId) {
       console.warn('⚠️ No stored historyId for Gmail watch; using notification historyId - 1')
@@ -232,9 +234,12 @@ async function fetchEmailDetails(
     await supabase
       .from('webhook_configs')
       .update({
-        metadata: {
-          ...(webhookConfig.metadata || {}),
-          historyId: String(notification.historyId)
+        config: {
+          ...(webhookConfig.config || {}),
+          watch: {
+            ...watchConfig,
+            historyId: String(notification.historyId)
+          }
         }
       })
       .eq('workflow_id', workflowId)

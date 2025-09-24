@@ -527,11 +527,13 @@ export class TriggerWebhookManager {
       await this.supabase
         .from('webhook_configs')
         .update({
-          metadata: {
-            historyId: watchResult.historyId,
-            emailAddress: watchResult.emailAddress,
-            expiration: expiration.toISOString(),
-            topicName: topicName
+          config: {
+            watch: {
+              historyId: watchResult.historyId,
+              emailAddress: watchResult.emailAddress,
+              expiration: expiration.toISOString(),
+              topicName: topicName
+            }
           }
         })
         .eq('id', webhookId)
