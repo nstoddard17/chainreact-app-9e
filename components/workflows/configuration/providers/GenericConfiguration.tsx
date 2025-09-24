@@ -491,12 +491,18 @@ export function GenericConfiguration({
       }
     });
 
-    if (Object.keys(errors).length > 0) {
-      console.error('❌ [GenericConfiguration] Validation failed:', {
-        errors,
-        validatedFields: Array.from(validatedFieldNames),
-        values
-      });
+    const hasErrors = Object.keys(errors).length > 0;
+    console.log('🔍 [GenericConfiguration] Validation check:', {
+      hasErrors,
+      errorCount: Object.keys(errors).length,
+      nodeType: nodeInfo?.type,
+      errors: hasErrors ? errors : 'No errors'
+    });
+
+    if (hasErrors) {
+      console.error('❌ [GenericConfiguration] Validation failed - Errors found:',
+        JSON.stringify(errors, null, 2)
+      );
       setValidationErrors(errors);
       // Focus on first error field
       const firstErrorField = Object.keys(errors)[0];

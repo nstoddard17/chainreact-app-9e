@@ -540,6 +540,175 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Register Google Calendar watch
+   */
+  private async registerGoogleCalendarWatch(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's Google Calendar integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'google-calendar')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Google Calendar integration not found or not connected')
+      }
+
+      // Import Calendar watch setup function
+      const { setupGoogleCalendarWatch } = await import('./google-calendar-watch-setup')
+
+      // Extract calendar configuration
+      const calendarId = config.config?.calendarId || 'primary'
+      const eventTypes = config.config?.eventTypes || []
+
+      // Set up the watch
+      const result = await setupGoogleCalendarWatch({
+        userId: config.userId,
+        integrationId: integration.id,
+        calendarId: calendarId,
+        eventTypes: eventTypes
+      })
+
+      // Store the watch details in webhook config
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            channelId: result.channelId,
+            resourceId: result.resourceId,
+            expiration: result.expiration,
+            syncToken: result.syncToken,
+            calendarId: calendarId
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Google Calendar watch registered successfully, expires:', result.expiration)
+    } catch (error) {
+      console.error('Failed to register Google Calendar watch:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register Google Drive watch
+   */
+  private async registerGoogleDriveWatch(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's Google Drive integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'google-drive')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Google Drive integration not found or not connected')
+      }
+
+      // Import Drive watch setup function
+      const { setupGoogleDriveWatch } = await import('./google-drive-watch-setup')
+
+      // Extract drive configuration
+      const folderId = config.config?.folderId
+      const includeRemoved = config.config?.includeRemoved || false
+
+      // Set up the watch
+      const result = await setupGoogleDriveWatch({
+        userId: config.userId,
+        integrationId: integration.id,
+        folderId: folderId,
+        includeRemoved: includeRemoved
+      })
+
+      // Store the watch details in webhook config
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            channelId: result.channelId,
+            resourceId: result.resourceId,
+            expiration: result.expiration,
+            folderId: folderId
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Google Drive watch registered successfully, expires:', result.expiration)
+    } catch (error) {
+      console.error('Failed to register Google Drive watch:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register Google Sheets watch (using Drive API)
+   */
+  private async registerGoogleSheetsWatch(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's Google Sheets integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'google-sheets')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Google Sheets integration not found or not connected')
+      }
+
+      // Import Sheets watch setup function
+      const { setupGoogleSheetsWatch } = await import('./google-sheets-watch-setup')
+
+      // Extract sheets configuration
+      const spreadsheetId = config.config?.spreadsheetId
+      const sheetName = config.config?.sheetName
+      const triggerType = config.triggerType.includes('new_row') ? 'new_row' :
+                          config.triggerType.includes('updated_row') ? 'updated_row' : 'new_worksheet'
+
+      if (!spreadsheetId) {
+        throw new Error('Spreadsheet ID is required for Google Sheets webhook registration')
+      }
+
+      // Set up the watch
+      const result = await setupGoogleSheetsWatch({
+        userId: config.userId,
+        integrationId: integration.id,
+        spreadsheetId: spreadsheetId,
+        sheetName: sheetName,
+        triggerType: triggerType as any
+      })
+
+      // Store the watch details in webhook config
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            channelId: result.channelId,
+            resourceId: result.resourceId,
+            expiration: result.expiration,
+            spreadsheetId: spreadsheetId,
+            sheetName: sheetName,
+            lastRowCount: result.lastRowCount
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Google Sheets watch registered successfully, expires:', result.expiration)
+    } catch (error) {
+      console.error('Failed to register Google Sheets watch:', error)
+      throw error
+    }
+  }
+
+  /**
    * Register webhook with external service
    */
   private async registerWithExternalService(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
@@ -561,8 +730,21 @@ export class TriggerWebhookManager {
         break
       
       case 'google-calendar':
-        // Google Calendar webhooks require setting up with Google Cloud
-        console.log('Google Calendar webhook registration would require Google Cloud setup')
+        // Google Calendar uses watch API
+        console.log('🔗 Setting up Google Calendar watch for webhook notifications')
+        await this.registerGoogleCalendarWatch(config, webhookId)
+        break
+
+      case 'google-drive':
+        // Google Drive uses watch API
+        console.log('🔗 Setting up Google Drive watch for webhook notifications')
+        await this.registerGoogleDriveWatch(config, webhookId)
+        break
+
+      case 'google-sheets':
+        // Google Sheets uses Drive watch API
+        console.log('🔗 Setting up Google Sheets watch for webhook notifications')
+        await this.registerGoogleSheetsWatch(config, webhookId)
         break
 
       case 'airtable':

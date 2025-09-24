@@ -54,6 +54,7 @@ interface MultiComboboxProps {
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
   hideSelectedBadges?: boolean; // Hide badges in the dropdown trigger (for Airtable fields with bubbles)
+  showFullEmails?: boolean; // Show full email addresses without truncation
 }
 
 export interface HierarchicalComboboxOption {
@@ -319,6 +320,7 @@ export function MultiCombobox({
   onOpenChange,
   selectedValues = [],
   hideSelectedBadges = false,
+  showFullEmails = false,
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
@@ -436,13 +438,16 @@ export function MultiCombobox({
                     <Badge
                       key={`selected-${index}-${option.value || 'undefined'}`}
                       variant="secondary"
-                      className="flex-shrink-0 max-w-32 truncate text-white"
+                      className={cn(
+                        "flex-shrink-0 text-white",
+                        !showFullEmails && "max-w-32 truncate"
+                      )}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemove(option.value)
                       }}
                     >
-                      <span className="truncate">{option.label || option.value}</span>
+                      <span className={!showFullEmails ? "truncate" : ""}>{option.label || option.value}</span>
                       <X className="ml-1 h-3 w-3 flex-shrink-0" />
                     </Badge>
                   ))
@@ -453,13 +458,16 @@ export function MultiCombobox({
                       <Badge
                         key={`selected-${index}-${option.value || 'undefined'}`}
                         variant="secondary"
-                        className="flex-shrink-0 max-w-32 truncate text-white"
+                        className={cn(
+                          "flex-shrink-0 text-white",
+                          !showFullEmails && "max-w-32 truncate"
+                        )}
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemove(option.value)
                         }}
                       >
-                        <span className="truncate">{option.label || option.value}</span>
+                        <span className={!showFullEmails ? "truncate" : ""}>{option.label || option.value}</span>
                         <X className="ml-1 h-3 w-3 flex-shrink-0" />
                       </Badge>
                     ))}

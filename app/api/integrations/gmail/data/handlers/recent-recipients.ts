@@ -5,20 +5,33 @@
 import { GmailIntegration, EmailRecipient, GmailDataHandler } from '../types'
 import { validateGmailIntegration, makeGmailApiRequest, extractEmailAddresses, getGmailAccessToken } from '../utils'
 
+// Simple in-memory cache for recent recipients
+const recipientCache = new Map<string, { data: EmailRecipient[], timestamp: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache
+
 /**
  * Fetch Gmail recent recipients using the proven working method (no contacts permission needed)
  */
 export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async (integration: GmailIntegration) => {
   try {
     validateGmailIntegration(integration)
-    console.log("🚀 [Gmail API] Using proven working method (no contacts permission needed)")
+
+    // Check cache first
+    const cacheKey = integration.id
+    const cached = recipientCache.get(cacheKey)
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log("📧 [Gmail API] Returning cached recipients")
+      return cached.data
+    }
+
+    console.log("🚀 [Gmail API] Fetching fresh recipients (cache miss or expired)")
 
     // Get decrypted access token
     const accessToken = getGmailAccessToken(integration)
 
-    // Get recent sent messages (last 50) - original working approach
+    // Get recent sent messages (last 20 to reduce API calls)
     const messagesResponse = await makeGmailApiRequest(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=50`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=20`,
       accessToken
     )
 
@@ -30,25 +43,45 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
       return []
     }
 
-    console.log(`📧 [Gmail API] Found ${messages.length} sent messages, processing first 25`)
+    console.log(`📧 [Gmail API] Found ${messages.length} sent messages, processing first 10 with rate limiting`)
 
-    // Get detailed information for each message
-    const messageDetails = await Promise.all(
-      messages.slice(0, 25).map(async (message: { id: string }) => {
-        try {
-          const response = await makeGmailApiRequest(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
-            accessToken
-          )
+    // Process messages in smaller batches to avoid rate limiting
+    const batchSize = 3 // Process 3 messages at a time
+    const maxMessages = 10 // Only process first 10 messages to reduce API calls
+    const messageDetails = []
 
-          const data = await response.json()
-          return data.payload?.headers || []
-        } catch (error) {
-          console.warn(`Failed to fetch message ${message.id}:`, error)
-          return null
-        }
-      })
-    )
+    for (let i = 0; i < Math.min(maxMessages, messages.length); i += batchSize) {
+      const batch = messages.slice(i, Math.min(i + batchSize, maxMessages))
+
+      const batchResults = await Promise.all(
+        batch.map(async (message: { id: string }) => {
+          try {
+            const response = await makeGmailApiRequest(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
+              accessToken
+            )
+
+            const data = await response.json()
+            return data.payload?.headers || []
+          } catch (error: any) {
+            // If we hit rate limit, return null and continue
+            if (error.status === 429) {
+              console.warn(`Rate limited on message ${message.id}, skipping`)
+              return null
+            }
+            console.warn(`Failed to fetch message ${message.id}:`, error.message)
+            return null
+          }
+        })
+      )
+
+      messageDetails.push(...batchResults)
+
+      // Add a small delay between batches to avoid rate limiting
+      if (i + batchSize < Math.min(maxMessages, messages.length)) {
+        await new Promise(resolve => setTimeout(resolve, 200)) // 200ms delay between batches
+      }
+    }
 
     // Extract all recipient email addresses
     const recipients = new Map<string, { email: string; name?: string; frequency: number }>()
@@ -95,10 +128,27 @@ export const getGmailRecentRecipients: GmailDataHandler<EmailRecipient> = async 
       }))
 
     console.log(`✅ [Gmail API] Found ${recipientArray.length} recipients`)
+
+    // Cache the results
+    recipientCache.set(integration.id, {
+      data: recipientArray,
+      timestamp: Date.now()
+    })
+
     return recipientArray
 
   } catch (error: any) {
     console.error("❌ [Gmail API] Failed to get recent recipients:", error)
+
+    // If we have cached data and hit a rate limit, return cached data
+    if (error.status === 429 || error.message?.includes('rate limit')) {
+      const cached = recipientCache.get(integration.id)
+      if (cached) {
+        console.log("📧 [Gmail API] Rate limited, returning stale cached data")
+        return cached.data
+      }
+    }
+
     throw new Error(`Failed to get Gmail recent recipients: ${error.message}`)
   }
 }

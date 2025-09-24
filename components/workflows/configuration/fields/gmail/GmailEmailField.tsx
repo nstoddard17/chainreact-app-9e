@@ -3,6 +3,7 @@
 import React from "react";
 import { MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 interface GmailEmailFieldProps {
   field: any;
@@ -101,19 +102,28 @@ export function GmailEmailField({
   };
 
   return (
-    <MultiCombobox
-      value={valueArray}
-      onChange={handleChange}
-      options={processedOptions}
-      placeholder={field.placeholder || `Select ${field.label || field.name}...`}
-      searchPlaceholder="Search contacts..."
-      emptyPlaceholder="No contacts found"
-      disabled={isLoading}
-      creatable={true} // Allow typing new email addresses
-      onOpenChange={handleDropdownOpen}
-      className={cn(
-        error && "border-red-500"
+    <div className="relative">
+      <MultiCombobox
+        value={valueArray}
+        onChange={handleChange}
+        options={processedOptions}
+        placeholder={isLoading ? "Loading recent recipients..." : (field.placeholder || `Select ${field.label || field.name}...`)}
+        searchPlaceholder={isLoading ? "Loading..." : "Search contacts..."}
+        emptyPlaceholder={isLoading ? "Loading contacts..." : "No contacts found"}
+        disabled={isLoading}
+        creatable={!isLoading} // Only allow typing new addresses when not loading
+        onOpenChange={handleDropdownOpen}
+        className={cn(
+          error && "border-red-500",
+          isLoading && "opacity-70"
+        )}
+        showFullEmails={true} // Pass prop to show full emails
+      />
+      {isLoading && (
+        <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
+          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+        </div>
       )}
-    />
+    </div>
   );
 }

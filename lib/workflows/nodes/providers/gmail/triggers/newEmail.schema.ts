@@ -15,8 +15,9 @@ export const newEmailTriggerSchema: NodeComponent = {
       label: "From",
       type: "email-autocomplete",
       dynamic: "gmail-recent-recipients",
-      required: true,
-      placeholder: "Filter by sender email",
+      required: false,
+      loadOnMount: true, // Load recipients immediately when modal opens
+      placeholder: "Filter by sender email (optional)",
       description: "Filter emails by sender address"
     },
     {
