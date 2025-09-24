@@ -22,10 +22,10 @@ export function useProductionReady() {
       return
     }
 
-    // In production, wait a bit longer for cold starts
+    // In production, be more aggressive about becoming ready
     const checkReady = () => {
-      // Check if basic requirements are met
-      if (hydrated && (initialized || document.readyState === 'complete')) {
+      // Ready if hydrated OR if document is interactive/complete
+      if (hydrated || document.readyState !== 'loading') {
         setIsReady(true)
         return true
       }
@@ -40,14 +40,14 @@ export function useProductionReady() {
       if (checkReady()) {
         clearInterval(interval)
       }
-    }, 100)
+    }, 50) // Check more frequently
 
-    // Force ready after max wait time (3 seconds in production)
+    // Force ready after max wait time (1.5 seconds in production)
     const timeout = setTimeout(() => {
       console.warn('⚠️ Forcing app ready state after timeout')
       setIsReady(true)
       clearInterval(interval)
-    }, 3000)
+    }, 1500) // Reduced from 3000ms
 
     return () => {
       clearInterval(interval)

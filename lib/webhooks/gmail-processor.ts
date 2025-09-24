@@ -361,6 +361,34 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       console.log(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`)
 
+      const { data: configRows, error: configError } = await supabase
+        .from('webhook_configs')
+        .select('id, config')
+        .eq('workflow_id', workflow.id)
+        .eq('trigger_type', 'gmail_trigger_new_email')
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      if (configError) {
+        console.error('Failed to fetch Gmail webhook config:', configError)
+        continue
+      }
+
+      const webhookConfig = configRows?.[0]
+
+      if (!webhookConfig) {
+        console.log('⚠️ No Gmail webhook configuration found for workflow, skipping')
+        continue
+      }
+
+      const watchConfig = webhookConfig.config?.watch || {}
+
+      if (watchConfig.emailAddress && watchConfig.emailAddress !== event.eventData.emailAddress) {
+        console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
+        continue
+      }
+
       // Fetch the actual email details
       const emailDetails = await fetchEmailDetails(
         {
