@@ -96,30 +96,52 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   fetchWorkflows: async (organizationId?: string) => {
     if (!supabase) {
       console.warn("Supabase not available")
+      set({ workflows: [], loading: false })
       return
     }
 
     set({ loading: true, error: null })
-    try {
-      // RLS will automatically filter to user's workflows
-      const { data, error } = await supabase.from("workflows").select("*").order("updated_at", { ascending: false })
 
-      if (error) throw error
+    try {
+      // Add a reasonable timeout for the request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      // RLS will automatically filter to user's workflows
+      const { data, error } = await supabase
+        .from("workflows")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .abortSignal(controller.signal)
+
+      clearTimeout(timeoutId)
+
+      if (error) {
+        if (error.message?.includes('aborted')) {
+          console.warn("Workflows fetch timeout - continuing without blocking")
+          set({ workflows: [], loading: false, error: null })
+          return
+        }
+        throw error
+      }
 
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
       console.error("Error fetching workflows:", error)
-      set({ error: error.message, loading: false })
+      // Don't show error to user - just set empty workflows
+      set({ workflows: [], loading: false, error: null })
     }
   },
 
   fetchPersonalWorkflows: async () => {
     if (!supabase) {
       console.warn("Supabase not available")
+      set({ workflows: [], loading: false })
       return
     }
 
     set({ loading: true, error: null })
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -127,41 +149,69 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         return
       }
 
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const { data, error } = await supabase
         .from("workflows")
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
+        .abortSignal(controller.signal)
 
-      if (error) throw error
+      clearTimeout(timeoutId)
+
+      if (error) {
+        if (error.message?.includes('aborted')) {
+          console.warn("Personal workflows fetch timeout - continuing without blocking")
+          set({ workflows: [], loading: false, error: null })
+          return
+        }
+        throw error
+      }
 
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
       console.error("Error fetching personal workflows:", error)
-      set({ error: error.message, loading: false })
+      set({ workflows: [], loading: false, error: null })
     }
   },
 
   fetchOrganizationWorkflows: async (organizationId: string) => {
     if (!supabase) {
       console.warn("Supabase not available")
+      set({ workflows: [], loading: false })
       return
     }
 
     set({ loading: true, error: null })
+
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const { data, error } = await supabase
         .from("workflows")
         .select("*")
         .eq("organization_id", organizationId)
         .order("updated_at", { ascending: false })
+        .abortSignal(controller.signal)
 
-      if (error) throw error
+      clearTimeout(timeoutId)
+
+      if (error) {
+        if (error.message?.includes('aborted')) {
+          console.warn("Organization workflows fetch timeout - continuing without blocking")
+          set({ workflows: [], loading: false, error: null })
+          return
+        }
+        throw error
+      }
 
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
       console.error("Error fetching organization workflows:", error)
-      set({ error: error.message, loading: false })
+      set({ workflows: [], loading: false, error: null })
     }
   },
 
