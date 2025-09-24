@@ -9,6 +9,7 @@ import AuthErrorBoundary from "@/components/auth/AuthErrorBoundary"
 import { LightweightPresenceProvider } from "@/components/providers/LightweightPresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
+import { LoadingDetector } from "@/components/LoadingDetector"
 // Discord bot now initialized server-side via instrumentation.ts
 // import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 // import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
@@ -61,6 +62,7 @@ export default function RootLayout({
             <AuthErrorBoundary>
               <GlobalErrorHandler />
               <AuthInitializer />
+              <LoadingDetector />
               <LightweightPresenceProvider>
                 <Toaster />
                 {children}

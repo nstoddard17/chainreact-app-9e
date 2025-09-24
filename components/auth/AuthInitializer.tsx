@@ -4,18 +4,24 @@ import { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
 export default function AuthInitializer() {
-  const { initialize, initialized, hydrated } = useAuthStore()
+  const { initialize, initialized, hydrated, setHydrated } = useAuthStore()
   const initStarted = useRef(false)
+  const hydrateStarted = useRef(false)
 
+  // Set hydrated state immediately on client mount
   useEffect(() => {
-    if (!hydrated) {
-      console.log("⏳ Waiting for auth store hydration...")
-      return
+    if (!hydrateStarted.current) {
+      hydrateStarted.current = true
+      console.log("🔄 Setting hydrated state...")
+      setHydrated()
     }
+  }, [setHydrated])
 
-    if (!initialized && !initStarted.current) {
+  // Initialize auth once hydrated
+  useEffect(() => {
+    if (hydrated && !initialized && !initStarted.current) {
       initStarted.current = true
-      console.log("🔄 Initializing auth after hydration...")
+      console.log("🔄 Initializing auth...")
       initialize()
     }
   }, [hydrated, initialized, initialize])
