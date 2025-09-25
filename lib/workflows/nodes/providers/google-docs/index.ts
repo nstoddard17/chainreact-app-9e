@@ -220,6 +220,32 @@ const googleDocsTriggerNewDocument: NodeComponent = {
   isTrigger: true,
   producesOutput: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+  configSchema: [
+    {
+      name: "folderId",
+      label: "Only when created in folder",
+      type: "select",
+      required: false,
+      dynamic: "google-drive-folders",
+      placeholder: "Any folder",
+      description: "Filter to only trigger when the new document is created inside this folder"
+    },
+    {
+      name: "mimeType",
+      label: "File type",
+      type: "select",
+      required: false,
+      defaultValue: "application/vnd.google-apps.document",
+      options: [
+        { value: "application/vnd.google-apps.document", label: "Google Docs (native)" },
+        { value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", label: "Microsoft Word (.docx)" },
+        { value: "application/pdf", label: "PDF (.pdf)" },
+        { value: "text/plain", label: "Plain Text (.txt)" }
+      ],
+      placeholder: "Any type",
+      description: "Only trigger for the selected file type"
+    }
+  ],
   outputSchema: [
     {
       name: "documentId",
@@ -271,6 +297,29 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
   producesOutput: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
   configSchema: [
+    {
+      name: "folderId",
+      label: "Only when in folder",
+      type: "select",
+      required: false,
+      dynamic: "google-drive-folders",
+      placeholder: "Any folder",
+      description: "Filter to only trigger when the document is inside this folder"
+    },
+    {
+      name: "mimeType",
+      label: "File type",
+      type: "select",
+      required: false,
+      options: [
+        { value: "application/vnd.google-apps.document", label: "Google Docs (native)" },
+        { value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", label: "Microsoft Word (.docx)" },
+        { value: "application/pdf", label: "PDF (.pdf)" },
+        { value: "text/plain", label: "Plain Text (.txt)" }
+      ],
+      placeholder: "Any type",
+      description: "Only trigger for the selected file type"
+    },
     {
       name: "documentId",
       label: "Document (Optional)",

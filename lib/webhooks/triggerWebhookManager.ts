@@ -743,6 +743,13 @@ export class TriggerWebhookManager {
         await this.registerDiscordWebhook(config)
         console.log('✅ registerDiscordWebhook completed')
         break
+      
+      case 'google-docs':
+        // Google Docs changes arrive via Google Drive change notifications
+        // Reuse Drive watch to detect document changes
+        console.log('🔗 Setting up Google Docs watch via Drive change notifications')
+        await this.registerGoogleDriveWatch({ ...config, providerId: 'google-drive', config: { ...(config.config || {}) }, contextProvider: 'google-docs' } as any, webhookId)
+        break
         
       case 'gmail':
         // Gmail uses push notifications via Google Cloud Pub/Sub

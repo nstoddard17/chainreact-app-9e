@@ -96,6 +96,10 @@ export function GenericSelectField({
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
   const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
 
+  const loadingPlaceholder = field.loadingPlaceholder || 'Loading options...';
+  const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
+  const placeholderText = field.dynamic && isLoading ? loadingPlaceholder : basePlaceholder;
+
   // When value changes, update the display label if we find the option
   React.useEffect(() => {
     if (value && options?.length > 0) {
@@ -129,58 +133,29 @@ export function GenericSelectField({
       isLoading,
       optionsLength: options?.length || 0,
       hasAttemptedLoad,
-      timeSinceLastLoad: Date.now() - lastLoadTimestamp,
-      willTriggerLoad: open && field.dynamic && onDynamicLoad && !isLoading
+      timeSinceLastLoad: Date.now() - lastLoadTimestamp
     });
 
-    // For certain fields like parentDatabase, always refresh when opened
-    // This ensures users see the most up-to-date list
-    const shouldAlwaysRefresh = ['parentDatabase', 'parentPage', 'database', 'page'].includes(field.name);
-    const hasValue = value !== undefined && value !== null && value !== '';
-
-    // Allow refresh for fields that should always update
-    const shouldAllowRefresh = shouldAlwaysRefresh && hasValue && options?.length > 0;
-
-    // Load options when:
-    // 1. Opening and field is dynamic
-    // 2. Has a loader function
-    // 3. Not currently loading
-    // 4. Either: haven't attempted load yet OR it's a field that should refresh
-    const shouldLoad = open &&
-      field.dynamic &&
-      onDynamicLoad &&
-      !isLoading &&
-      (!hasAttemptedLoad || shouldAllowRefresh);
+    const hasOptions = processedOptions.length > 0
+    const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading && (!hasAttemptedLoad || !hasOptions)
 
     if (shouldLoad) {
-      const isRefresh = hasAttemptedLoad && shouldAllowRefresh;
-      console.log('🚀 [GenericSelectField] ' + (isRefresh ? 'Refreshing' : 'Triggering') + ' dynamic load for field:', field.name, 'with dependencies:', {
+      const forceRefresh = hasAttemptedLoad && hasOptions
+
+      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
         dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
-        isRefresh
-      });
+        forceRefresh
+      })
 
-      setHasAttemptedLoad(true);
-      setLastLoadTimestamp(Date.now());
+      setHasAttemptedLoad(true)
+      setLastLoadTimestamp(Date.now())
 
-      // If field has dependencies, pass them with forceRefresh for refresh fields
       if (field.dependsOn && parentValues[field.dependsOn]) {
-        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], shouldAllowRefresh);
+        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], forceRefresh)
       } else {
-        // No dependencies, just load the field
-        onDynamicLoad(field.name, undefined, undefined, shouldAllowRefresh);
+        onDynamicLoad(field.name, undefined, undefined, forceRefresh)
       }
-    } else {
-      console.log('🚫 [GenericSelectField] Dynamic load NOT triggered. Conditions:', {
-        open,
-        hasDynamic: !!field.dynamic,
-        hasLoader: !!onDynamicLoad,
-        notLoading: !isLoading,
-        emptyOptions: (options?.length === 0),
-        hasAttemptedLoad,
-        timeSinceLastLoad: Date.now() - lastLoadTimestamp,
-        shouldAllowRefresh
-      });
     }
   };
 
@@ -222,11 +197,11 @@ export function GenericSelectField({
         value={Array.isArray(value) ? value : (value ? [value] : [])}
         onChange={onChange}
         options={processedOptions}
-        placeholder={field.placeholder || "Select options..."}
-        emptyText="No options available"
+        placeholder={placeholderText}
+        emptyText={isLoading ? loadingPlaceholder : "No options available"}
         searchPlaceholder="Search options..."
         isLoading={isLoading}
-        disabled={isLoading}
+        disabled={false}
         creatable={(field as any).creatable || false}
         onOpenChange={handleFieldOpen}
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -258,10 +233,10 @@ export function GenericSelectField({
           }
         }}
         options={processedOptions}
-        placeholder={field.placeholder || "Select an option..."}
+        placeholder={placeholderText}
         searchPlaceholder="Search options..."
-        emptyPlaceholder="No options found"
-        disabled={isLoading}
+        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
+        disabled={false}
         creatable={isAirtableRecordField} // Allow custom input for Airtable fields
         onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
@@ -288,24 +263,29 @@ export function GenericSelectField({
         value={value ?? ""} 
         onValueChange={onChange}
         onOpenChange={handleFieldOpen}
-        disabled={isLoading}
+        disabled={false}
       >
         <SelectTrigger 
           className={cn(
             "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 pr-8",
             error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
           )}
-          disabled={isLoading}
+          disabled={false}
         >
-          <SelectValue placeholder={field.placeholder || "Select an option..."}>
-            {displayValue ? displayValue : (
-              <span className="text-white">{field.placeholder || "Select an option..."}</span>
+          <SelectValue placeholder={placeholderText}>
+            {displayValue ? (
+              displayValue
+            ) : (
+              <span className="text-slate-500">{placeholderText}</span>
             )}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
+          {isLoading && field.dynamic && (
+            <div className="p-2 text-sm text-slate-500 text-center">{loadingPlaceholder}</div>
+          )}
           {processedOptions.length > 0 ? (
-            processedOptions.map((option: any, index: number) => {
+            processedOptions.map((option: any) => {
               const optionValue = option.value || option.id;
               const optionLabel = option.label || option.name || option.value || option.id;
               if (!optionValue) return null;
@@ -321,7 +301,7 @@ export function GenericSelectField({
             })
           ) : (
             <div className="p-2 text-sm text-slate-500 text-center">
-              {isLoading ? "Loading..." : getEmptyMessage(field.name, field.label)}
+              {getEmptyMessage(field.name, field.label)}
             </div>
           )}
         </SelectContent>

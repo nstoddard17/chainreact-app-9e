@@ -214,7 +214,7 @@ const googleDriveMappings: Record<string, FieldMapping> = {
     folderId: "google-drive-folders",
   },
   "google-drive:file_updated": {
-    folderId: "google-drive-folders",
+    fileId: "google-drive-files",
   },
   google_drive_action_upload_file: {
     folderId: "google-drive-folders",

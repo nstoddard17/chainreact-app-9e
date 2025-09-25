@@ -467,6 +467,16 @@ const useWorkflowBuilderState = () => {
     // We'll use a ref or state to store these
     sessionStorage.setItem('preservedActionNodes', JSON.stringify(actionNodes));
     
+    // Also preserve connections from the current trigger to action nodes so we can re-connect
+    try {
+      const currentEdges = getEdges();
+      const triggerEdges = currentEdges.filter(e => e.source === 'trigger');
+      const targetIds = triggerEdges.map(e => e.target);
+      sessionStorage.setItem('preservedTriggerTargets', JSON.stringify(targetIds));
+    } catch {
+      // noop
+    }
+    
     // Clear all configuration preferences when changing trigger
     const clearAllPreferences = async () => {
       try {
@@ -735,7 +745,7 @@ const useWorkflowBuilderState = () => {
       return [newNode, addActionNode, ...nonTriggerNodes]
     })
     
-    // Create edge connecting trigger to Add Action node
+    // Create edge connecting trigger to Add Action node and restore any preserved connections
     setEdges((eds) => {
       const nonTriggerEdges = eds.filter(e => 
         !e.source.includes('trigger') && 
@@ -749,9 +759,32 @@ const useWorkflowBuilderState = () => {
         style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
         type: "straight"
       }
-      return [...nonTriggerEdges, newEdge]
+      // Restore preserved trigger->action connections if available
+      let restoredEdges: Edge[] = []
+      try {
+        const raw = sessionStorage.getItem('preservedTriggerTargets')
+        const targets: string[] = raw ? JSON.parse(raw) : []
+        if (Array.isArray(targets) && targets.length > 0) {
+          restoredEdges = targets.map(t => ({
+            id: `edge-${newNodeId}-${t}`,
+            source: newNodeId,
+            target: t,
+            animated: false,
+            style: { stroke: "#d1d5db", strokeWidth: 1 },
+            type: "straight"
+          }))
+        }
+      } catch {
+        // ignore parse errors
+      } finally {
+        sessionStorage.removeItem('preservedTriggerTargets')
+      }
+      return [...nonTriggerEdges, newEdge, ...restoredEdges]
     })
     
+    // Clean up preserved action nodes snapshot (no longer needed)
+    sessionStorage.removeItem('preservedActionNodes')
+
     // Close the dialog
     setShowTriggerDialog(false)
     setSelectedIntegration(null)
@@ -6861,14 +6894,7 @@ function WorkflowBuilderContent() {
                   }
                   
                   // Filter out integrations that have no compatible actions
-                  const trigger = nodes.find(node => node.data?.isTrigger)
-                  const compatibleActions = int.actions.filter(action => {
-                    // Gmail actions should only be available with Gmail triggers
-                    if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-                      return false
-                    }
-                    return true
-                  })
+                  const compatibleActions = int.actions
                   
                   if (compatibleActions.length === 0) {
                     return false

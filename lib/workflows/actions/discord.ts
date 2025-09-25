@@ -3,6 +3,50 @@ import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 import { updateDiscordPresenceForAction } from '@/lib/integrations/discordGateway'
 
+const DISCORD_MAX_RETRIES = 3
+const DISCORD_MIN_RETRY_DELAY_MS = 1000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return null
+}
+
+function parseRetryAfterMs(bodyValue: unknown, headerValue: string | null): number | null {
+  const bodySeconds = coerceNumber(bodyValue)
+  if (bodySeconds !== null) {
+    return Math.max(bodySeconds * 1000, DISCORD_MIN_RETRY_DELAY_MS)
+  }
+
+  if (headerValue) {
+    const headerSeconds = coerceNumber(headerValue)
+    if (headerSeconds !== null) {
+      return Math.max(headerSeconds * 1000, DISCORD_MIN_RETRY_DELAY_MS)
+    }
+
+    const headerDate = Date.parse(headerValue)
+    if (!Number.isNaN(headerDate)) {
+      const diffMs = headerDate - Date.now()
+      if (diffMs > 0) {
+        return Math.max(diffMs, DISCORD_MIN_RETRY_DELAY_MS)
+      }
+    }
+  }
+
+  return null
+}
+
 /**
  * Verify that the Discord bot is actually a member of the specified guild
  */
@@ -186,22 +230,69 @@ export async function sendDiscordMessage(
       }]
     }
 
-    // Send message
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    })
+    const sendMessageWithRetry = async () => {
+      let lastError: Error | null = null
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+      for (let attempt = 0; attempt < DISCORD_MAX_RETRIES; attempt++) {
+        try {
+          const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          })
+
+          if (response.ok) {
+            return await response.json()
+          }
+
+          const errorData = await response.json().catch(() => ({}))
+          const baseMessage = `Discord API error: ${response.status} - ${errorData.message || response.statusText}`
+
+          if (response.status === 429) {
+            const retryDelay = parseRetryAfterMs((errorData as any)?.retry_after, response.headers.get('retry-after'))
+            const retryMessage = attempt < DISCORD_MAX_RETRIES - 1 && retryDelay
+              ? `${baseMessage}; retrying in ${retryDelay}ms`
+              : `${baseMessage}; retries exhausted`
+            lastError = new Error(retryMessage)
+            console.warn(`⚠️ [DISCORD DEBUG] ${retryMessage}`)
+
+            if (retryDelay && attempt < DISCORD_MAX_RETRIES - 1) {
+              await sleep(retryDelay)
+              continue
+            }
+          } else if (response.status >= 500 && attempt < DISCORD_MAX_RETRIES - 1) {
+            const backoff = DISCORD_MIN_RETRY_DELAY_MS * Math.pow(2, attempt)
+            console.warn(`⚠️ [DISCORD DEBUG] ${baseMessage}; retrying in ${backoff}ms`)
+            await sleep(backoff)
+            continue
+          } else {
+            lastError = new Error(baseMessage)
+          }
+
+          break
+        } catch (fetchError: any) {
+          const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError)
+          lastError = new Error(`Discord fetch failed: ${errorMessage}`)
+          console.warn(`⚠️ [DISCORD DEBUG] ${lastError.message}`)
+
+          if (attempt < DISCORD_MAX_RETRIES - 1) {
+            const backoff = DISCORD_MIN_RETRY_DELAY_MS * Math.pow(2, attempt)
+            console.warn(`⚠️ [DISCORD DEBUG] Retrying in ${backoff}ms (attempt ${attempt + 1}/${DISCORD_MAX_RETRIES})`)
+            await sleep(backoff)
+            continue
+          }
+
+          break
+        }
+      }
+
+      throw lastError || new Error('Failed to send Discord message after retries')
     }
 
-    const result = await response.json()
+    const result = await sendMessageWithRetry()
 
     return {
       success: true,

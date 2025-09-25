@@ -21,6 +21,7 @@ interface GoogleDriveWatchConfig {
   folderId?: string // Optional: watch specific folder, otherwise watch all changes
   includeRemoved?: boolean
   pageToken?: string // For resuming from a specific point
+  contextProvider?: 'google-docs' | 'google-drive' | 'google-sheets'
 }
 
 /**
@@ -102,7 +103,13 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
         address: getGoogleWebhookCallbackUrl(),
         expiration: expiration.getTime().toString(),
         // If watching a specific folder, add it to the token
-        token: config.folderId ? `folder:${config.folderId}` : undefined
+        token: JSON.stringify({
+          userId: config.userId,
+          integrationId: config.integrationId,
+          provider: config.contextProvider || 'google-drive',
+          via: 'drive-changes',
+          folderId: config.folderId || null
+        })
       }
     })
 
@@ -110,7 +117,7 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
       throw new Error('Failed to create Google Drive watch - missing required data')
     }
 
-    console.log('✅ Google Drive watch created successfully:', {
+    console.log(`✅ ${(config.contextProvider === 'google-docs') ? 'Google Docs (via Drive)' : 'Google Drive'} watch created successfully:`, {
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString()
