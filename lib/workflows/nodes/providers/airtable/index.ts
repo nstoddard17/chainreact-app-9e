@@ -35,6 +35,29 @@ export const airtableNodes: NodeComponent[] = [
         description: "Leave empty to monitor all tables in the base"
       },
       {
+        name: "changeGrouping",
+        label: "Linked record handling",
+        type: "select",
+        required: false,
+        defaultValue: "per_record",
+        options: [
+          { value: "per_record", label: "Run once per record change" },
+          { value: "combine_linked", label: "Combine linked updates into one run" }
+        ],
+        description: "Control how linked-record updates are delivered to this workflow.",
+        tooltip: "Airtable may emit multiple record events when linked fields change. Choose whether to run this workflow for each record individually or combine related updates into a single run (available when verification delay is 0)."
+      },
+      {
+        name: "watchedFieldIds",
+        label: "Fields to watch (optional)",
+        type: "multiselect",
+        required: false,
+        dynamic: "airtable_fields",
+        dependsOn: "tableName",
+        description: "Only trigger when these fields change. Leave empty to trigger on any field change.",
+        advanced: true
+      },
+      {
         name: "verificationDelay",
         label: "Verification Delay",
         type: "number",
@@ -55,13 +78,14 @@ export const airtableNodes: NodeComponent[] = [
       { name: "tableName", label: "Table Name", type: "string", description: "The name of the table" },
       { name: "recordId", label: "Record ID", type: "string", description: "The unique ID of the record" },
       { name: "fields", label: "Fields", type: "object", description: "All field values of the new record" },
-      { name: "createdAt", label: "Created At", type: "string", description: "When the record was created" }
+      { name: "createdAt", label: "Created At", type: "string", description: "When the record was created" },
+      { name: "recordBatch", label: "Record Batch", type: "array", description: "All records included when linked updates are combined" }
     ]
   },
   {
     type: "airtable_trigger_record_updated",
     title: "Record Updated",
-    description: "Triggers when a record is modified in a table",
+    description: "Triggers when a record is modified or deleted in a table",
     icon: Edit,
     providerId: "airtable",
     category: "Productivity",
@@ -88,6 +112,29 @@ export const airtableNodes: NodeComponent[] = [
         description: "Leave empty to monitor all tables in the base"
       },
       {
+        name: "changeGrouping",
+        label: "Linked record handling",
+        type: "select",
+        required: false,
+        defaultValue: "per_record",
+        options: [
+          { value: "per_record", label: "Run once per record change" },
+          { value: "combine_linked", label: "Combine linked updates into one run" }
+        ],
+        description: "Control how linked-record updates are delivered to this workflow.",
+        tooltip: "Airtable may emit multiple record events when linked fields change. Choose whether to run this workflow for each record individually or combine related updates into a single run (available when verification delay is 0)."
+      },
+      {
+        name: "watchedFieldIds",
+        label: "Fields to watch (optional)",
+        type: "multiselect",
+        required: false,
+        dynamic: "airtable_fields",
+        dependsOn: "tableName",
+        description: "Only trigger when these fields change. Leave empty to trigger on any field change.",
+        advanced: true
+      },
+      {
         name: "verificationDelay",
         label: "Verification Delay",
         type: "number",
@@ -109,7 +156,8 @@ export const airtableNodes: NodeComponent[] = [
       { name: "recordId", label: "Record ID", type: "string", description: "The unique ID of the record" },
       { name: "changedFields", label: "Current Values", type: "object", description: "The current values of all fields" },
       { name: "previousValues", label: "Previous Values", type: "object", description: "The previous values before the update" },
-      { name: "updatedAt", label: "Updated At", type: "string", description: "When the record was updated" }
+      { name: "updatedAt", label: "Updated At", type: "string", description: "When the record was updated" },
+      { name: "recordBatch", label: "Record Batch", type: "array", description: "All records included when linked updates are combined" }
     ]
   },
   {

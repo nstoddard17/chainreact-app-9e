@@ -1302,6 +1302,35 @@ export function FieldRenderer({
           />
         );
 
+      case "multiselect":
+        // Alias for multi-select fields
+        {
+          const multiOptions = Array.isArray(field.options)
+            ? field.options.map((opt: any) => ({
+                value: String(opt.value ?? opt.id ?? opt),
+                label: String(opt.label ?? opt.name ?? opt.value ?? opt.id ?? opt)
+              }))
+            : fieldOptions.map((opt: any) => ({
+                value: String(opt.value ?? opt.id ?? ""),
+                label: String(opt.label ?? opt.name ?? opt.value ?? opt.id ?? "")
+              }));
+
+          return (
+            <MultiCombobox
+              options={multiOptions}
+              value={Array.isArray(value) ? value : (value ? [value] : [])}
+              onChange={onChange}
+              placeholder={field.placeholder || "Select option(s)..."}
+              disabled={field.disabled}
+              onOpenChange={(open: boolean) => {
+                if (!open) return;
+                if (!field.dynamic || !onDynamicLoad) return;
+                onDynamicLoad(field.name);
+              }}
+            />
+          );
+        }
+
       default:
         return (
           <GenericTextInput

@@ -13,9 +13,10 @@ export const googleCalendarNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "calendarId",
-        label: "Calendar",
-        type: "select",
+        name: "calendars",
+        label: "Calendars",
+        type: "multiselect",
+        multiple: true,
         dynamic: "google-calendars",
         loadOnMount: true,
         required: true,
@@ -33,9 +34,10 @@ export const googleCalendarNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "calendarId",
-        label: "Calendar",
-        type: "select",
+        name: "calendars",
+        label: "Calendars",
+        type: "multiselect",
+        multiple: true,
         dynamic: "google-calendars",
         loadOnMount: true,
         required: true,
@@ -53,9 +55,10 @@ export const googleCalendarNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "calendarId",
-        label: "Calendar",
-        type: "select",
+        name: "calendars",
+        label: "Calendars",
+        type: "multiselect",
+        multiple: true,
         dynamic: "google-calendars",
         loadOnMount: true,
         required: true,

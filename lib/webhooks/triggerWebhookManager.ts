@@ -68,7 +68,8 @@ export class TriggerWebhookManager {
       'airtable_trigger_record_updated',
       'airtable_trigger_table_deleted',
       'discord_trigger_new_message',
-      'discord_trigger_member_joined',
+      'discord_trigger_member_join',
+      'discord_trigger_slash_command',
       'discord_trigger_reaction_added'
     ]
     
@@ -566,45 +567,47 @@ export class TriggerWebhookManager {
       // Import Calendar watch setup function
       const { setupGoogleCalendarWatch } = await import('./google-calendar-watch-setup')
 
-      // Extract calendar configuration
+      // Extract calendar configuration (support multiple calendars or single)
+      const calendars: string[] | null = Array.isArray(config.config?.calendars)
+        ? (config.config?.calendars as string[])
+        : null
       const calendarId = config.config?.calendarId || 'primary'
       const eventTypes = config.config?.eventTypes || []
 
-      // Set up the watch
-      const result = await setupGoogleCalendarWatch({
-        userId: config.userId,
-        integrationId: integration.id,
-        calendarId: calendarId,
-        eventTypes: eventTypes
-      })
+      const targets = calendars && calendars.length > 0 ? calendars : [calendarId]
+
+      const results: Array<{ calendarId: string; startTime: string; expiration: string }> = []
+      for (const cal of targets) {
+        const result = await setupGoogleCalendarWatch({
+          userId: config.userId,
+          integrationId: integration.id,
+          calendarId: cal,
+          eventTypes: eventTypes
+        })
+        results.push({ calendarId: cal, startTime: result.startTime, expiration: result.expiration })
+      }
 
       const existingConfig = config.config || {}
-      const watchStartTime = result.startTime || existingConfig.watch?.startTime || new Date().toISOString()
+      const firstStartTime = results[0]?.startTime || existingConfig.watch?.startTime || new Date().toISOString()
 
       const updatedConfig = {
         ...existingConfig,
-        calendarId,
+        calendars: calendars && calendars.length > 0 ? calendars : undefined,
+        calendarId: calendars && calendars.length > 0 ? undefined : calendarId,
         eventTypes,
         watch: {
           ...(existingConfig.watch || {}),
-          channelId: result.channelId,
-          resourceId: result.resourceId,
-          expiration: result.expiration,
-          syncToken: result.syncToken || (existingConfig.watch ? existingConfig.watch.syncToken : undefined),
-          calendarId,
-          eventTypes,
-          startTime: watchStartTime
+          // Keep a single watch metadata object for compatibility
+          startTime: firstStartTime
         }
       }
 
       await this.supabase
         .from('webhook_configs')
-        .update({
-          config: updatedConfig
-        })
+        .update({ config: updatedConfig })
         .eq('id', webhookId)
 
-      console.log('✅ Google Calendar watch registered successfully, expires:', result.expiration)
+      console.log('✅ Google Calendar watch registered successfully for', targets.length, 'calendar(s)')
     } catch (error) {
       console.error('Failed to register Google Calendar watch:', error)
       throw error

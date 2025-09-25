@@ -242,7 +242,9 @@ export default function WorkflowBuilder() {
     const handleSave = async (silent = false) => {
     if (!currentWorkflow) return
 
-    setSaving(true)
+    if (!silent) {
+      setSaving(true)
+    }
     try {
       const oldStatus = currentWorkflow.status
       
@@ -287,7 +289,9 @@ export default function WorkflowBuilder() {
     } catch (error) {
       console.error("Failed to save workflow:", error)
     } finally {
-      setSaving(false)
+      if (!silent) {
+        setSaving(false)
+      }
     }
   }
 

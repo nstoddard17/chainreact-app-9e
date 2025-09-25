@@ -408,13 +408,11 @@ export function GenericConfiguration({
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
             loadingDynamic={(() => {
-              const isLoading = loadingFields.has(field.name) || (loadingDynamic && field.dynamic);
+              const isLoading = loadingFields.has(field.name);
               if (field.name === 'cardId' || field.name === 'listId') {
                 console.log(`🔍 [GenericConfig] Loading state for ${field.name}:`, {
                   fieldName: field.name,
                   hasInLoadingFields: loadingFields.has(field.name),
-                  loadingDynamic,
-                  isDynamic: field.dynamic,
                   finalIsLoading: isLoading,
                   loadingFieldsSize: loadingFields.size,
                   loadingFieldsContent: Array.from(loadingFields)

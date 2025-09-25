@@ -155,13 +155,13 @@ const googleCalendarMappings: Record<string, FieldMapping> = {
     // Removed mapping to avoid dependency on Gmail integration
   },
   google_calendar_trigger_new_event: {
-    calendarId: "google-calendars",
+    calendars: "google-calendars",
   },
   google_calendar_trigger_event_updated: {
-    calendarId: "google-calendars",
+    calendars: "google-calendars",
   },
   google_calendar_trigger_event_canceled: {
-    calendarId: "google-calendars",
+    calendars: "google-calendars",
   },
 };
 
@@ -267,6 +267,15 @@ const airtableMappings: Record<string, FieldMapping> = {
     tableName: "airtable_tables",
     filterField: "airtable_fields",
     filterValue: "airtable_field_values",
+  },
+  airtable_trigger_new_record: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+  },
+  airtable_trigger_record_updated: {
+    baseId: "airtable_bases",
+    tableName: "airtable_tables",
+    watchedFieldIds: "airtable_fields",
   },
 };
 

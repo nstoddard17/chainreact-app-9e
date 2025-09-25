@@ -352,7 +352,38 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       }
 
       // Get integration for other providers
-      integration = getIntegrationByProvider(providerId);
+      // Handle Google services which might use different provider IDs
+      let lookupProviderId = providerId;
+      if (providerId === 'google-calendar') {
+        // Try both formats for Google Calendar
+        integration = getIntegrationByProvider('google-calendar') ||
+                     getIntegrationByProvider('google_calendar') ||
+                     getIntegrationByProvider('google');
+        console.log('🔍 [useDynamicOptions] Google Calendar integration lookup:', {
+          providerId,
+          integrationFound: !!integration,
+          integrationProvider: integration?.provider,
+          integrationId: integration?.id,
+          integrationStatus: integration?.status
+        });
+      } else if (providerId === 'google-sheets') {
+        // Try both formats for Google Sheets
+        integration = getIntegrationByProvider('google-sheets') ||
+                     getIntegrationByProvider('google_sheets') ||
+                     getIntegrationByProvider('google');
+      } else if (providerId === 'google-drive') {
+        // Try both formats for Google Drive
+        integration = getIntegrationByProvider('google-drive') ||
+                     getIntegrationByProvider('google_drive') ||
+                     getIntegrationByProvider('google');
+      } else if (providerId === 'google-docs') {
+        // Try both formats for Google Docs
+        integration = getIntegrationByProvider('google-docs') ||
+                     getIntegrationByProvider('google_docs') ||
+                     getIntegrationByProvider('google');
+      } else {
+        integration = getIntegrationByProvider(providerId);
+      }
 
       // Special logging for Trello template field
       if (fieldName === 'template' && providerId === 'trello') {
@@ -854,7 +885,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         return;
       }
       
-      // For Airtable fields, use records approach instead of schema API
+      // For Airtable fields used by filterField, use records approach to infer fields quickly
       if (fieldName === 'filterField' && resourceType === 'airtable_fields') {
         if (!dependsOnValue) {
           return;
@@ -928,6 +959,21 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         } catch (error: any) {
           throw error; // Re-throw to be caught by the outer catch block
         }
+      }
+
+      // For Airtable fields in general (e.g., watchedFieldIds), ensure baseId + tableName are passed
+      if (resourceType === 'airtable_fields' && fieldName !== 'filterField') {
+        // Require the dependent table value
+        if (dependsOn === 'tableName' && !dependsOnValue) {
+          return;
+        }
+        const formValues = getFormValues?.() || {};
+        const baseId = extraOptions?.baseId || formValues.baseId;
+        const tableName = dependsOnValue || formValues.tableName;
+        if (!baseId || !tableName) {
+          return;
+        }
+        options = { baseId, tableName };
       }
       
       // For Airtable field values, use records approach to get unique field values
@@ -1228,6 +1274,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
               if (loadingFields.current.has(requestKey)) {
                 loadingFields.current.delete(requestKey);
                 setLoading(false);
+                // Also notify per-field UI to stop showing the loading placeholder
+                if (!silent) {
+                  onLoadingChangeRef.current?.(fieldName, false);
+                }
                 console.log(`🧹 [useDynamicOptions] Cleared loading state for superseded ${fieldName}`);
               }
               return; // Don't update state if this request was superseded for other fields
@@ -1369,6 +1419,11 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         activeRequestIds.current.delete(requestKey);
         
         // Clear loading state via callback if not in silent mode
+        if (!silent) {
+          onLoadingChangeRef.current?.(fieldName, false);
+        }
+      } else {
+        // If superseded, ensure per-field UI is not stuck in loading
         if (!silent) {
           onLoadingChangeRef.current?.(fieldName, false);
         }
