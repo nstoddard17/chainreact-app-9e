@@ -491,6 +491,19 @@ function ConfigurationForm({
         loadOptions('baseId', undefined, undefined, false); // Don't force refresh - use cache
       }
 
+      // Load immediately for Google Calendar fields
+      const calendarIdField = fieldsToLoad.find((f: any) => f.name === 'calendarId');
+      if (calendarIdField && nodeInfo?.providerId === 'google-calendar') {
+        console.log(`🚀 [ConfigForm] Loading Google Calendar calendarId immediately`);
+        loadOptions('calendarId', undefined, undefined, false); // Use cache for better performance
+      }
+
+      const calendarsField = fieldsToLoad.find((f: any) => f.name === 'calendars');
+      if (calendarsField && nodeInfo?.providerId === 'google-calendar') {
+        console.log(`🚀 [ConfigForm] Loading Google Calendar calendars immediately`);
+        loadOptions('calendars', undefined, undefined, false);
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -501,6 +514,14 @@ function ConfigurationForm({
           }
           if (field.name === 'baseId' && nodeInfo?.providerId === 'airtable') {
             // Already loaded above with cache
+            return;
+          }
+          if (field.name === 'calendarId' && nodeInfo?.providerId === 'google-calendar') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'calendars' && nodeInfo?.providerId === 'google-calendar') {
+            // Already loaded above
             return;
           }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);

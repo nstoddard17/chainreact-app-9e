@@ -95,6 +95,7 @@ export default function WorkflowsContent() {
     workflowName: "",
   })
   const { toast } = useToast()
+  const hasWorkflows = Array.isArray(workflows) && workflows.length > 0
 
   // Use the new timeout loading hook for fast, reliable loading
   // NON-BLOCKING - page renders immediately
@@ -600,7 +601,7 @@ export default function WorkflowsContent() {
     )
   }
 
-  if (loading) {
+  if (loading && !hasWorkflows) {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
@@ -624,6 +625,12 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
+        {loading && hasWorkflows && (
+          <div className="flex items-center justify-between rounded border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
+            <span>Refreshing workflows…</span>
+            <LightningLoader size="sm" />
+          </div>
+        )}
         <div className="flex items-center justify-end">
           <CreateWorkflowDialog />
         </div>

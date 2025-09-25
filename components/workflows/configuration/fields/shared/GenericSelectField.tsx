@@ -65,6 +65,8 @@ export function GenericSelectField({
   selectedValues = [],
   parentValues = {},
 }: GenericSelectFieldProps) {
+  // Store the display label for the selected value
+  const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
   // Debug logging for board field
   if (field.name === 'boardId') {
     console.log('[GenericSelectField] Board field props:', {
@@ -93,6 +95,20 @@ export function GenericSelectField({
   // Track if we've attempted to load for this field to prevent repeated attempts
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
   const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
+
+  // When value changes, update the display label if we find the option
+  React.useEffect(() => {
+    if (value && options?.length > 0) {
+      const option = options.find((opt: any) => {
+        const optValue = opt.value || opt.id;
+        return String(optValue) === String(value);
+      });
+      if (option) {
+        const label = option.label || option.name || option.value || option.id;
+        setDisplayLabel(label);
+      }
+    }
+  }, [value, options]);
   
   // Reset load attempt tracking when dependencies change
   React.useEffect(() => {
@@ -234,7 +250,13 @@ export function GenericSelectField({
     return (
       <Combobox
         value={value ?? ""}
-        onChange={onChange}
+        onChange={(newValue) => {
+          onChange(newValue);
+          // Clear display label when value is cleared
+          if (!newValue) {
+            setDisplayLabel(null);
+          }
+        }}
         options={processedOptions}
         placeholder={field.placeholder || "Select an option..."}
         searchPlaceholder="Search options..."
@@ -243,6 +265,7 @@ export function GenericSelectField({
         creatable={isAirtableRecordField} // Allow custom input for Airtable fields
         onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
+        displayLabel={displayLabel} // Pass the saved display label
       />
     );
   }

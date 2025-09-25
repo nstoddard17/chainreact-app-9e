@@ -265,12 +265,12 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
           metadata: enrichedMetadata
         })
       } else if (event.created && event.updated) {
-        // Check if event is new or updated
+        // Classify strictly by equality to avoid misclassifying quick edits as "created"
         const createdTime = new Date(event.created)
         const updatedTime = new Date(event.updated)
-        const timeDiff = updatedTime.getTime() - createdTime.getTime()
+        const isSameInstant = createdTime.getTime() === updatedTime.getTime()
 
-        if (timeDiff < 60000) { // Less than 1 minute difference = new event
+        if (isSameInstant) {
           await handleCalendarEventCreated({
             eventId: event.id,
             event,
@@ -283,6 +283,13 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
             metadata: enrichedMetadata
           })
         }
+      } else {
+        // Fallback: if we lack timestamps but not cancelled, treat as updated to avoid missing changes
+        await handleCalendarEventUpdated({
+          eventId: event.id,
+          event,
+          metadata: enrichedMetadata
+        })
       }
     }
 
@@ -416,16 +423,23 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
       const configData = (webhookConfig.config || {}) as any
       const watchConfig = configData.watch || {}
 
+      const configuredCalendars: string[] | null = Array.isArray(configData.calendars) ? configData.calendars : null
       const configuredCalendarId =
         watchConfig.calendarId ||
         configData.calendarId ||
-        (Array.isArray(configData.calendars) ? configData.calendars[0] : undefined) ||
+        (configuredCalendars ? configuredCalendars[0] : undefined) ||
         'primary'
 
       const watchStartTime = watchConfig.startTime ? new Date(watchConfig.startTime) : null
 
-      if (configuredCalendarId && calendarId && configuredCalendarId !== calendarId) {
-        continue
+      if (calendarId) {
+        if (configuredCalendars && configuredCalendars.length > 0) {
+          if (!configuredCalendars.includes(calendarId)) {
+            continue
+          }
+        } else if (configuredCalendarId && configuredCalendarId !== calendarId) {
+          continue
+        }
       }
 
       const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
@@ -435,9 +449,15 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         if (nodeType !== triggerType) return false
         if (!node?.data?.isTrigger) return false
 
-        const nodeCalendarId = node?.data?.config?.calendarId || node?.data?.config?.calendar?.id || 'primary'
-        if (configuredCalendarId && nodeCalendarId && nodeCalendarId !== configuredCalendarId) {
-          return false
+        const nodeCalendars: string[] | null = Array.isArray(node?.data?.config?.calendars) ? node.data.config.calendars : null
+        const nodeCalendarId = node?.data?.config?.calendarId || node?.data?.config?.calendar?.id || null
+
+        if (nodeCalendars && nodeCalendars.length > 0) {
+          if (calendarId && !nodeCalendars.includes(calendarId)) return false
+        } else if (nodeCalendarId) {
+          if (calendarId && nodeCalendarId !== calendarId) return false
+        } else {
+          // No calendar configured on node; default to allow when workflow-level config matched
         }
 
         return true
@@ -498,7 +518,8 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
           }
         )
 
-        executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
+        const execResult = await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
+        try { console.log('[Google Calendar] Workflow execution started', { workflowId: workflow.id, executionSessionId: executionSession.id }) } catch {}
 
       } catch (workflowError) {
         console.error(`[Google Calendar] Failed to execute workflow ${workflow.id}:`, workflowError)

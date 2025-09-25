@@ -252,6 +252,28 @@ function formatDefaultField(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format Google Calendar event field (eventId) with rich labels and descriptions
+ */
+function formatGoogleCalendarEventField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => {
+    // Prefer backend-provided rich name; fallback to building one
+    const summary = item.summary || item.label || item.name || 'Untitled Event';
+    const displayDate = item.description || item.displayDate || '';
+    const location = item.location ? ` • ${item.location}` : '';
+    const label = item.name || `${summary}${displayDate ? ` — ${displayDate}` : ''}${location}`;
+
+    return {
+      value: item.id || item.value,
+      label,
+      description: displayDate,
+      searchValue: [summary, item.location, item.organizer?.email, item.organizer?.displayName]
+        .filter(Boolean)
+        .join(' ')
+    };
+  });
+}
+
+/**
  * Field formatter mapping
  */
 const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
@@ -293,6 +315,9 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   
   // Google Sheets fields
   sheetName: formatSheetField,
+
+  // Google Calendar fields
+  eventId: formatGoogleCalendarEventField,
   
   // Notion fields
   workspace: formatWorkspaceField,

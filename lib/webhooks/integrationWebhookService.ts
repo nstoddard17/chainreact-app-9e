@@ -81,7 +81,7 @@ export class IntegrationWebhookService {
 
       // Communication Platforms
       'slack': ['slack_trigger_new_message', 'slack_trigger_channel_created', 'slack_trigger_user_joined'],
-      'discord': ['discord_trigger_new_message', 'discord_trigger_member_joined', 'discord_trigger_reaction_added'],
+      'discord': ['discord_trigger_new_message', 'discord_trigger_member_join', 'discord_trigger_slash_command', 'discord_trigger_reaction_added'],
 
       // Social Media
       'twitter': ['twitter_trigger_new_tweet', 'twitter_trigger_mention', 'twitter_trigger_direct_message'],

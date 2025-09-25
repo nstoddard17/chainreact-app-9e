@@ -23,6 +23,28 @@ const activeTimers = new Map<string, NodeJS.Timeout>() // Track active timers to
 
 const DUPLICATE_BLOCK_MS = 60000 // Block duplicate executions for 60 seconds
 
+type AirtableBatchRecord = {
+  recordId: string
+  fields?: Record<string, any>
+  changedFields?: Record<string, any>
+  previousValues?: Record<string, any>
+  createdAt?: string | null
+  updatedAt?: string | null
+  eventType: string
+}
+
+type AirtableBatchGroup = {
+  tableId: string | null
+  tableName: string
+  timestamp: string
+  records: AirtableBatchRecord[]
+  recordIds: Set<string>
+}
+
+function buildBatchKey(baseId: string, tableId: string | null | undefined, timestamp: string, type: string) {
+  return `${type}:${baseId}:${tableId || 'all'}:${timestamp}`
+}
+
 function getCreatedTables(payload: any) {
   return payload?.createdTablesById || payload?.created_tables_by_id || null
 }
@@ -565,6 +587,7 @@ async function processAirtablePayload(
   // Don't log full payload - too verbose
 
   const normalizedPayload = normalizeAirtablePayload(payload)
+  const payloadTimestamp = normalizedPayload?.timestamp || new Date().toISOString()
 
   const payloadTimestampMs = normalizedPayload?.timestamp ? new Date(normalizedPayload.timestamp).getTime() : null
   const skipBeforeMs = skipBeforeTimestamp ? new Date(skipBeforeTimestamp).getTime() : null
@@ -651,9 +674,37 @@ async function processAirtablePayload(
     console.log(`   - Table filter: ${tableName || 'all tables'}`)
     console.log(`   - Table filter ID: ${tableIdFilter || 'all tables'}`)
     console.log(`   - Verification delay in config: ${triggerConfig.verificationDelay}`)
+    const changeGrouping = triggerConfig.changeGrouping || 'per_record'
+    console.log(`   - Linked record handling: ${changeGrouping === 'combine_linked' ? 'Combine linked updates into one run' : 'Run once per record change'}`)
     console.log(`   - Full trigger config:`, JSON.stringify(triggerConfig, null, 2))
 
     if (triggerType === 'airtable_trigger_new_record') {
+      const batchedNewRecords = changeGrouping === 'combine_linked' ? new Map<string, AirtableBatchGroup>() : null
+      const addNewRecordToBatch = (
+        tableId: string | null,
+        tableNameValue: string,
+        record: AirtableBatchRecord
+      ) => {
+        if (!batchedNewRecords) return
+        const batchKey = buildBatchKey(baseId, tableId, payloadTimestamp, 'new')
+        let group = batchedNewRecords.get(batchKey)
+        if (!group) {
+          group = {
+            tableId,
+            tableName: tableNameValue,
+            timestamp: payloadTimestamp,
+            records: [],
+            recordIds: new Set<string>()
+          }
+          batchedNewRecords.set(batchKey, group)
+        }
+        if (group.recordIds.has(record.recordId)) {
+          return
+        }
+        group.recordIds.add(record.recordId)
+        group.records.push(record)
+      }
+
       if (created_tables_by_id) {
         for (const [tableId, tableData] of Object.entries(created_tables_by_id)) {
           if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
@@ -673,11 +724,6 @@ async function processAirtablePayload(
               continue
             }
 
-            if (wasRecentlyProcessed(workflow.id, recordId)) {
-              console.log(`      ⏭️ Skipping duplicate - already processed`)
-              continue
-            }
-
             const rawDelayValue = triggerConfig.verificationDelay
             console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
             const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
@@ -690,6 +736,21 @@ async function processAirtablePayload(
               recordId,
               fields,
               createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
+            }
+
+            if (batchedNewRecords && verificationDelay === 0) {
+              addNewRecordToBatch(tableId, triggerData.tableName, {
+                recordId,
+                fields,
+                createdAt: triggerData.createdAt,
+                eventType: 'record_created'
+              })
+              continue
+            }
+
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
             }
 
             if (verificationDelay === 0) {
@@ -748,11 +809,6 @@ async function processAirtablePayload(
               }
             }
 
-            if (wasRecentlyProcessed(workflow.id, recordId)) {
-              console.log(`      ⏭️ Skipping duplicate - already processed`)
-              continue
-            }
-
             const rawDelayValue = triggerConfig.verificationDelay
             console.log(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
             const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
@@ -765,6 +821,21 @@ async function processAirtablePayload(
               recordId,
               fields,
               createdAt: getRecordCreatedAt(record, normalizedPayload.timestamp)
+            }
+
+            if (batchedNewRecords && verificationDelay === 0) {
+              addNewRecordToBatch(tableId, triggerData.tableName, {
+                recordId,
+                fields,
+                createdAt: triggerData.createdAt,
+                eventType: 'record_created'
+              })
+              continue
+            }
+
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
             }
 
             if (verificationDelay === 0) {
@@ -805,11 +876,6 @@ async function processAirtablePayload(
               continue
             }
 
-            if (wasRecentlyProcessed(workflow.id, recordId)) {
-              console.log(`      ⏭️ Skipping duplicate - already processed`)
-              continue
-            }
-
             const pendingKey = buildDedupeKey(workflow.id, recordId)
             if (pendingRecords.has(pendingKey)) {
               console.log(`      ⏸️ Record ${recordId} already scheduled, skipping change event`)
@@ -829,6 +895,21 @@ async function processAirtablePayload(
               createdAt: normalizedPayload.timestamp
             }
 
+            if (batchedNewRecords && verificationDelay === 0) {
+              addNewRecordToBatch(tableId, triggerData.tableName, {
+                recordId,
+                fields,
+                createdAt: triggerData.createdAt,
+                eventType: 'record_created'
+              })
+              continue
+            }
+
+            if (wasRecentlyProcessed(workflow.id, recordId)) {
+              console.log(`      ⏭️ Skipping duplicate - already processed`)
+              continue
+            }
+
             if (verificationDelay === 0) {
               console.log(`🚀 Processing new record ${recordId} immediately (was empty, now has data)`)
               markRecordProcessed(workflow.id, recordId)
@@ -840,9 +921,62 @@ async function processAirtablePayload(
           }
         }
       }
+
+      if (batchedNewRecords && batchedNewRecords.size > 0) {
+        for (const [batchKey, group] of batchedNewRecords.entries()) {
+          const dedupeKey = `batch:${batchKey}`
+          if (wasRecentlyProcessed(workflow.id, dedupeKey)) {
+            console.log(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
+            continue
+          }
+
+          const primary = group.records[0]
+          markRecordProcessed(workflow.id, dedupeKey)
+
+          const triggerData = {
+            baseId,
+            tableId: group.tableId,
+            tableName: group.tableName,
+            recordId: primary?.recordId,
+            fields: primary?.fields,
+            createdAt: primary?.createdAt || group.timestamp,
+            eventType: group.records.length > 1 ? 'record_batch_created' : 'record_created',
+            recordBatch: group.records
+          }
+
+          console.log(`🚀 Processing batched new records (${group.records.length}) for table ${group.tableName}`)
+          await createWorkflowExecution(workflow.id, userId, triggerData)
+        }
+      }
     }
 
     if (triggerType === 'airtable_trigger_record_updated' && changed_tables_by_id) {
+      const batchedUpdatedRecords = changeGrouping === 'combine_linked' ? new Map<string, AirtableBatchGroup>() : null
+      const addUpdatedRecordToBatch = (
+        tableId: string | null,
+        tableNameValue: string,
+        record: AirtableBatchRecord
+      ) => {
+        if (!batchedUpdatedRecords) return
+        const batchKey = buildBatchKey(baseId, tableId, payloadTimestamp, 'updated')
+        let group = batchedUpdatedRecords.get(batchKey)
+        if (!group) {
+          group = {
+            tableId,
+            tableName: tableNameValue,
+            timestamp: payloadTimestamp,
+            records: [],
+            recordIds: new Set<string>()
+          }
+          batchedUpdatedRecords.set(batchKey, group)
+        }
+        if (group.recordIds.has(record.recordId)) {
+          return
+        }
+        group.recordIds.add(record.recordId)
+        group.records.push(record)
+      }
+
       for (const [tableId, tableData] of Object.entries(changed_tables_by_id)) {
         if (!matchesAirtableTable(tableId, tableData, triggerConfig, webhookMetadata)) {
           continue
@@ -867,16 +1001,34 @@ async function processAirtablePayload(
             continue
           }
 
-          console.log(`✏️ Processing updated record ${recordId}`)
-          const dedupeSuffix = `${recordId}-${normalizedPayload.timestamp || Date.now()}`
-
-          if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
-            console.log(`      ⏭️ Skipping duplicate update for record ${recordId}`)
-            continue
+          // Field-level filtering: if watchedFieldIds specified, only proceed if any watched field changed
+          const watchedFieldIds: string[] | undefined = Array.isArray(triggerConfig.watchedFieldIds)
+            ? triggerConfig.watchedFieldIds
+            : undefined
+          if (watchedFieldIds && watchedFieldIds.length > 0) {
+            const changedFieldIds = new Set<string>(Object.keys(currentFields))
+            const hasWatched = watchedFieldIds.some(fid => changedFieldIds.has(fid))
+            if (!hasWatched) {
+              continue
+            }
           }
 
           const rawDelayValue = triggerConfig.verificationDelay
           const verificationDelay = parseVerificationDelay(rawDelayValue, 0)
+
+          // If combining linked updates, add to batch and skip individual execution
+          if (batchedUpdatedRecords && verificationDelay === 0) {
+            addUpdatedRecordToBatch(tableId, tableData.name || webhookMetadata?.tableName || 'Unknown Table', {
+              recordId,
+              changedFields: currentFields,
+              previousValues: previousFields,
+              updatedAt: normalizedPayload.timestamp || payloadTimestamp,
+              eventType: 'record_updated'
+            })
+            continue
+          }
+
+          console.log(`✏️ Processing updated record ${recordId}`)
 
           const triggerData = {
             baseId,
@@ -889,6 +1041,13 @@ async function processAirtablePayload(
             eventType: 'record_updated'
           }
 
+          const dedupeSuffix = `${recordId}-${normalizedPayload.timestamp || Date.now()}`
+
+          if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
+            console.log(`      ⏭️ Skipping duplicate update for record ${recordId}`)
+            continue
+          }
+
           if (verificationDelay === 0) {
             markRecordProcessed(workflow.id, dedupeSuffix)
             await createWorkflowExecution(workflow.id, userId, triggerData)
@@ -896,6 +1055,34 @@ async function processAirtablePayload(
             console.log(`⏳ Scheduling updated record ${recordId} for processing in ${verificationDelay}s`)
             schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay, dedupeSuffix)
           }
+        }
+      }
+
+      if (batchedUpdatedRecords && batchedUpdatedRecords.size > 0) {
+        for (const [batchKey, group] of batchedUpdatedRecords.entries()) {
+          const dedupeKey = `batch:${batchKey}`
+          if (wasRecentlyProcessed(workflow.id, dedupeKey)) {
+            console.log(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
+            continue
+          }
+
+          const primary = group.records[0]
+          markRecordProcessed(workflow.id, dedupeKey)
+
+          const triggerData = {
+            baseId,
+            tableId: group.tableId,
+            tableName: group.tableName,
+            recordId: primary?.recordId,
+            changedFields: primary?.changedFields,
+            previousValues: primary?.previousValues,
+            updatedAt: primary?.updatedAt || group.timestamp,
+            eventType: group.records.length > 1 ? 'record_batch_updated' : 'record_updated',
+            recordBatch: group.records
+          }
+
+          console.log(`🚀 Processing batched record updates (${group.records.length}) for table ${group.tableName}`)
+          await createWorkflowExecution(workflow.id, userId, triggerData)
         }
       }
     }

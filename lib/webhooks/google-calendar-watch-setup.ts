@@ -147,14 +147,6 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       calendarId
     })
 
-    // Ensure only one active row exists per user/integration/provider
-    await supabase
-      .from('google_watch_subscriptions')
-      .delete()
-      .eq('user_id', config.userId)
-      .eq('integration_id', config.integrationId)
-      .eq('provider', 'google-calendar')
-
     // Store the watch details in database for renewal
     await supabase.from('google_watch_subscriptions').insert({
       user_id: config.userId,

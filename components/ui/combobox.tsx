@@ -40,6 +40,7 @@ interface ComboboxProps {
   creatable?: boolean;
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
+  displayLabel?: string | null; // Optional display label for when options haven't loaded yet
 }
 
 interface MultiComboboxProps {
@@ -93,6 +94,7 @@ export function Combobox({
   creatable = false,
   onOpenChange,
   selectedValues = [],
+  displayLabel,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   
@@ -142,6 +144,7 @@ export function Combobox({
   
   // Fix selectedOption logic - check if value exists in options or is a custom value
   const selectedOption = localOptions.find((option) => option.value === value) ||
+    (value && displayLabel ? { value, label: displayLabel } : null) ||
     (value && creatable ? { value, label: value } : null);
 
   const handleSelect = (currentValue: string) => {
@@ -210,7 +213,7 @@ export function Combobox({
           disabled={disabled}
         >
           <span className="flex-1 text-left truncate">
-            {selectedOption ? selectedOption.label : value || placeholder || "Select option..."}
+            {selectedOption ? selectedOption.label : (displayLabel || value || placeholder || "Select option...")}
           </span>
           <div className="flex items-center gap-0.5">
             {value && !disabled && (
@@ -246,7 +249,13 @@ export function Combobox({
             className="max-h-[300px] overflow-y-auto"
             style={{
               scrollbarWidth: 'auto',
-              scrollbarGutter: 'stable'
+              scrollbarGutter: 'stable',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onWheelCapture={(e) => {
+              // Ensure the scroll wheel scrolls the dropdown, not the page behind
+              e.stopPropagation()
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
@@ -516,7 +525,12 @@ export function MultiCombobox({
             className="max-h-[300px] overflow-y-auto"
             style={{
               scrollbarWidth: 'auto',
-              scrollbarGutter: 'stable'
+              scrollbarGutter: 'stable',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onWheelCapture={(e) => {
+              e.stopPropagation()
             }}
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>

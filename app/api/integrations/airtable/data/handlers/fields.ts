@@ -43,15 +43,18 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
     const apiUrl = buildAirtableApiUrl(`/v0/meta/bases/${baseId}/tables`)
     
     const response = await makeAirtableApiRequest(apiUrl, tokenResult.token!)
-    const tablesData = await parseAirtableApiResponse(response)
+    const parsed = await parseAirtableApiResponse(response)
     
-    // Find the specific table
-    const table = tablesData.tables?.find((t: any) => t.name === tableName || t.id === tableName)
+    // Support both shapes: array of tables or { tables: [...] }
+    const tables: any[] = Array.isArray(parsed) ? parsed : (parsed?.tables || [])
+    
+    // Find the specific table by name or id
+    const table = tables.find((t: any) => t?.name === tableName || t?.id === tableName)
     
     if (!table) {
       // Log available tables for debugging
-      console.log(`🔍 Available tables in base "${baseId}":`, tablesData.tables?.map((t: any) => ({ id: t.id, name: t.name })))
-      const availableTableNames = tablesData.tables?.map((t: any) => t.name).join(', ') || 'none'
+      console.log(`🔍 Available tables in base "${baseId}":`, tables.map((t: any) => ({ id: t.id, name: t.name })))
+      const availableTableNames = tables.map((t: any) => t?.name).filter(Boolean).join(', ') || 'none'
       throw new Error(`Table "${tableName}" not found in base "${baseId}". Available tables: ${availableTableNames}`)
     }
     
