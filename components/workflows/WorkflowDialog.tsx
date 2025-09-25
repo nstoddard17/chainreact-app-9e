@@ -103,7 +103,8 @@ export default function WorkflowDialog({
       // Show user-friendly error message
       const errorMessage = error?.message || `Failed to ${isEditMode ? 'update' : 'create'} workflow. Please try again.`
       alert(errorMessage) // You might want to replace this with a toast notification
-      setLoading(false) // Make sure to stop loading on error
+    } finally {
+      setLoading(false)
     }
   }
 

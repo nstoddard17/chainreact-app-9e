@@ -444,6 +444,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         'gmail',
         'google-calendar',
         'google-drive',
+        'google-docs',
         'google-sheets',
         'slack',
         'stripe',

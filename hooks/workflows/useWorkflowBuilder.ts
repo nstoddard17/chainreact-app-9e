@@ -196,6 +196,13 @@ export function useWorkflowBuilder() {
                 const component = ALL_NODE_COMPONENTS.find(c => c.type === type)
                 return component?.providerId || null
               })(),
+              // Ensure a human-readable title exists for actions; fallback to component title or type
+              title: (() => {
+                const existing = (node.data as any)?.title
+                if (existing && typeof existing === 'string' && existing.trim().length > 0) return existing
+                const comp = ALL_NODE_COMPONENTS.find(c => c.type === (node.data as any)?.type)
+                return comp?.title || (node.data as any)?.type || 'Unnamed Action'
+              })(),
               onConfigure: handleNodeConfigure,
               onDelete: handleNodeDelete,
               onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined
@@ -329,14 +336,24 @@ export function useWorkflowBuilder() {
     try {
       setIsSaving(true)
       
-      const workflowNodes: WorkflowNode[] = nodes.map(node => ({
+      // Remove UI-only placeholder nodes (AddAction) before saving
+      const placeholderNodeIds = new Set(
+        nodes
+          .filter(n => n.type === 'addAction' || (typeof n.id === 'string' && n.id.startsWith('add-action-')))
+          .map(n => n.id)
+      )
+
+      const persistedNodes = nodes.filter(n => !placeholderNodeIds.has(n.id))
+      const persistedEdges = edges.filter(e => !placeholderNodeIds.has(e.source) && !placeholderNodeIds.has(e.target))
+
+      const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
         id: node.id,
         type: node.type || 'custom',
         position: node.position,
         data: node.data,
       }))
 
-      const workflowConnections: WorkflowConnection[] = edges.map(edge => ({
+      const workflowConnections: WorkflowConnection[] = persistedEdges.map(edge => ({
         id: edge.id,
         source: edge.source,
         target: edge.target,
@@ -488,6 +505,17 @@ export function useWorkflowBuilder() {
   }
 
   const isLoading = shouldShowLoading()
+  // Failsafe: never let the Save spinner get stuck indefinitely
+  useEffect(() => {
+    if (!isSaving) return
+    const timeoutId = setTimeout(() => {
+      // If we are still saving after the timeout, force-clear and notify
+      setIsSaving(false)
+      console.warn('[Workflow Builder] Save operation took too long; clearing loading state')
+    }, 20000)
+    return () => clearTimeout(timeoutId)
+  }, [isSaving])
+
 
   // Track loading state changes
   useEffect(() => {

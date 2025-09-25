@@ -2,19 +2,133 @@ import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { queueWebhookTask } from '@/lib/webhooks/task-queue'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
-const processedCalendarEvents = new Map<string, number>()
+type ProcessedCalendarEventEntry = {
+  processedAt: number
+  lastUpdated?: number | null
+}
+
+const processedCalendarEvents = new Map<string, ProcessedCalendarEventEntry>()
+const processedDriveChanges = new Map<string, ProcessedCalendarEventEntry>()
 const CALENDAR_DEDUPE_WINDOW_MS = 5 * 60 * 1000
+
+const isCalendarDebugEnabled =
+  process.env.DEBUG_GOOGLE_CALENDAR === '1' || process.env.DEBUG_GOOGLE_CALENDAR === 'true'
+
+function calendarDebug(message: string, payload?: any) {
+  if (!isCalendarDebugEnabled) return
+  try {
+    if (payload !== undefined) {
+      console.log(`[Google Calendar] ${message}`, payload)
+    } else {
+      console.log(`[Google Calendar] ${message}`)
+    }
+  } catch {
+    console.log(`[Google Calendar] ${message}`)
+  }
+}
+
+function calendarInfo(message: string, payload?: any) {
+  try {
+    if (payload !== undefined) {
+      console.log(`[Google Calendar] ${message}`, payload)
+    } else {
+      console.log(`[Google Calendar] ${message}`)
+    }
+  } catch {
+    console.log(`[Google Calendar] ${message}`)
+  }
+}
 
 function buildCalendarDedupeKey(workflowId: string, eventId: string, changeType: string) {
   return `${workflowId}-${eventId}-${changeType}`
 }
 
-function wasRecentlyProcessedCalendarEvent(workflowId: string, eventId: string, changeType: string): boolean {
-  const key = buildCalendarDedupeKey(workflowId, eventId, changeType)
-  const processedAt = processedCalendarEvents.get(key)
-  if (!processedAt) return false
+function buildDriveDedupeKey(workflowId: string, resourceId: string, changeType: string) {
+  return `${workflowId}-${resourceId}-${changeType}`
+}
 
-  if (Date.now() - processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+function toTimestamp(value: string | null | undefined): number | null {
+  if (!value || typeof value !== 'string') return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.getTime()
+}
+
+function wasRecentlyProcessedDriveChange(
+  workflowId: string,
+  resourceId: string,
+  changeType: string,
+  updatedAt?: string | null
+): boolean {
+  const key = buildDriveDedupeKey(workflowId, resourceId, changeType)
+  const entry = processedDriveChanges.get(key)
+  if (!entry) return false
+
+  const incomingUpdated = toTimestamp(updatedAt)
+
+  if (incomingUpdated !== null) {
+    if (entry.lastUpdated !== undefined && entry.lastUpdated !== null) {
+      if (incomingUpdated <= entry.lastUpdated) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+    return true
+  }
+
+  processedDriveChanges.delete(key)
+  return false
+}
+
+function markDriveChangeProcessed(
+  workflowId: string,
+  resourceId: string,
+  changeType: string,
+  updatedAt?: string | null
+) {
+  const key = buildDriveDedupeKey(workflowId, resourceId, changeType)
+  const incomingUpdated = toTimestamp(updatedAt)
+  processedDriveChanges.set(key, {
+    processedAt: Date.now(),
+    lastUpdated: incomingUpdated
+  })
+
+  if (processedDriveChanges.size > 1000) {
+    const now = Date.now()
+    for (const [k, timestamp] of processedDriveChanges.entries()) {
+      if (now - timestamp.processedAt > CALENDAR_DEDUPE_WINDOW_MS) {
+        processedDriveChanges.delete(k)
+      }
+    }
+  }
+}
+
+function wasRecentlyProcessedCalendarEvent(
+  workflowId: string,
+  eventId: string,
+  changeType: string,
+  updatedAt?: string | null
+): boolean {
+  const key = buildCalendarDedupeKey(workflowId, eventId, changeType)
+  const entry = processedCalendarEvents.get(key)
+  if (!entry) return false
+
+  const incomingUpdated = toTimestamp(updatedAt)
+
+  if (incomingUpdated !== null) {
+    if (entry.lastUpdated !== undefined && entry.lastUpdated !== null) {
+      if (incomingUpdated <= entry.lastUpdated) {
+        return true
+      }
+    }
+    // Newer updated timestamp – treat as fresh change
+    return false
+  }
+
+  if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
     return true
   }
 
@@ -22,14 +136,23 @@ function wasRecentlyProcessedCalendarEvent(workflowId: string, eventId: string, 
   return false
 }
 
-function markCalendarEventProcessed(workflowId: string, eventId: string, changeType: string) {
+function markCalendarEventProcessed(
+  workflowId: string,
+  eventId: string,
+  changeType: string,
+  updatedAt?: string | null
+) {
   const key = buildCalendarDedupeKey(workflowId, eventId, changeType)
-  processedCalendarEvents.set(key, Date.now())
+  const incomingUpdated = toTimestamp(updatedAt)
+  processedCalendarEvents.set(key, {
+    processedAt: Date.now(),
+    lastUpdated: incomingUpdated
+  })
 
   if (processedCalendarEvents.size > 1000) {
     const now = Date.now()
     for (const [k, timestamp] of processedCalendarEvents.entries()) {
-      if (now - timestamp > CALENDAR_DEDUPE_WINDOW_MS) {
+      if (now - timestamp.processedAt > CALENDAR_DEDUPE_WINDOW_MS) {
         processedCalendarEvents.delete(k)
       }
     }
@@ -94,87 +217,170 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
 }
 
 async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
-  const { eventData } = event
 
-  // Google Drive sends a notification that changes occurred
-  // We need to fetch the actual changes using the Drive API
-  if (metadata.userId && metadata.integrationId) {
-    const { getGoogleDriveChanges } = await import('./google-drive-watch-setup')
+  // Fallback: if token metadata missing, look up subscription by channelId
+  if (!metadata.userId || !metadata.integrationId) {
+    try {
+      const channelId: string | null = (event.eventData?.channelId) 
+        || (event.eventData?.headers?.['x-goog-channel-id'])
+        || null
+      if (channelId) {
+        const supabaseLookup = await createSupabaseServiceClient()
+        const { data: sub } = await supabaseLookup
+          .from('google_watch_subscriptions')
+          .select('user_id, integration_id, provider, page_token, updated_at')
+          .eq('channel_id', channelId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
-    // Get the page token from the subscription
-    const supabase = await createSupabaseServiceClient()
-    const { data: subscription } = await supabase
-      .from('google_watch_subscriptions')
-      .select('page_token, metadata')
-      .eq('user_id', metadata.userId)
-      .eq('integration_id', metadata.integrationId)
-      .eq('provider', 'google-drive')
-      .single()
-
-    if (subscription && subscription.page_token) {
-      // Fetch the actual changes
-      const changes = await getGoogleDriveChanges(
-        metadata.userId,
-        metadata.integrationId,
-        subscription.page_token
-      )
-
-      // Process each change
-      for (const change of changes.changes || []) {
-        if (change.file) {
-          if (change.removed) {
-            await handleDriveFileDeleted({
-              fileId: change.fileId,
-              file: change.file,
-              metadata
-            })
-          } else if (change.file.mimeType?.includes('folder')) {
-            await handleDriveFolderCreated({
-              folderId: change.fileId,
-              folder: change.file,
-              metadata
-            })
-          } else {
-            // Check if file is new or updated based on creation time
-            const createdTime = new Date(change.file.createdTime)
-            const modifiedTime = new Date(change.file.modifiedTime)
-            const timeDiff = modifiedTime.getTime() - createdTime.getTime()
-
-            if (timeDiff < 60000) { // Less than 1 minute difference = new file
-              await handleDriveFileCreated({
-                fileId: change.fileId,
-                file: change.file,
-                metadata
-              })
-            } else {
-              await handleDriveFileUpdated({
-                fileId: change.fileId,
-                file: change.file,
-                metadata
-              })
-            }
+        if (sub) {
+          metadata = {
+            ...metadata,
+            userId: sub.user_id,
+            integrationId: sub.integration_id
           }
         }
       }
-
-      // Update the page token for next time
-      if (changes.nextPageToken) {
-        await supabase
-          .from('google_watch_subscriptions')
-          .update({ page_token: changes.nextPageToken })
-          .eq('user_id', metadata.userId)
-          .eq('integration_id', metadata.integrationId)
-          .eq('provider', 'google-drive')
-      }
-
-      return { processed: true, changesCount: changes.changes?.length || 0 }
+    } catch {
+      // ignore
     }
   }
 
-  // Fallback to generic processing
-  console.log('Google Drive webhook received, but missing metadata for processing')
-  return { processed: true, eventType: 'drive.notification' }
+  if (!metadata.userId || !metadata.integrationId) {
+    console.log('Google Drive webhook received, but missing metadata for processing', {
+      hasUserId: Boolean(metadata?.userId),
+      hasIntegrationId: Boolean(metadata?.integrationId)
+    })
+    return { processed: true, eventType: 'drive.notification' }
+  }
+
+  const { getGoogleDriveChanges } = await import('./google-drive-watch-setup')
+  const supabase = await createSupabaseServiceClient()
+
+  // Prefer channel-scoped lookup to handle multiple rows
+  let subscription: any = null
+  const channelId: string | null = (event.eventData?.channelId) 
+    || (event.eventData?.headers?.['x-goog-channel-id'])
+    || null
+  if (channelId) {
+    const { data: byChannel } = await supabase
+      .from('google_watch_subscriptions')
+      .select('page_token, updated_at')
+      .eq('channel_id', channelId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    subscription = byChannel
+  }
+  if (!subscription) {
+    const { data: latest } = await supabase
+      .from('google_watch_subscriptions')
+      .select('page_token, updated_at')
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', 'google-drive')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    subscription = latest
+  }
+
+  if (!subscription?.page_token) {
+    console.log('Google Drive subscription missing page token, skipping change fetch', {
+      userId: metadata.userId,
+      integrationId: metadata.integrationId
+    })
+    return { processed: true, eventType: 'drive.notification' }
+  }
+
+  const changes = await getGoogleDriveChanges(metadata.userId, metadata.integrationId, subscription.page_token)
+  let processedChanges = 0
+
+  for (const change of changes.changes || []) {
+    processedChanges += 1
+
+    const parentIds = Array.isArray(change.file?.parents) ? change.file.parents : []
+
+    if (!change.file) {
+      if (change.removed && change.fileId) {
+        await handleDriveFileDeleted({
+          fileId: change.fileId,
+          file: null,
+          metadata,
+          parentIds
+        })
+      }
+      continue
+    }
+
+    if (change.removed) {
+      await handleDriveFileDeleted({
+        fileId: change.fileId,
+        file: change.file,
+        metadata,
+        parentIds
+      })
+      continue
+    }
+
+    const mimeType = change.file.mimeType || ''
+    const isFolder = mimeType === 'application/vnd.google-apps.folder'
+
+    const createdTime = change.file.createdTime ? new Date(change.file.createdTime) : null
+    const modifiedTime = change.file.modifiedTime ? new Date(change.file.modifiedTime) : null
+    const timeDiff = createdTime && modifiedTime ? Math.abs(modifiedTime.getTime() - createdTime.getTime()) : Number.MAX_SAFE_INTEGER
+    const isNewItem = timeDiff < 60000
+
+    if (isFolder) {
+      if (isNewItem) {
+        await handleDriveFolderCreated({
+          folderId: change.fileId,
+          folder: change.file,
+          metadata,
+          parentIds
+        })
+      }
+    } else {
+      if (isNewItem) {
+        await handleDriveFileCreated({
+          fileId: change.fileId,
+          file: change.file,
+          metadata,
+          parentIds
+        })
+      } else {
+        await handleDriveFileUpdated({
+          fileId: change.fileId,
+          file: change.file,
+          metadata,
+          parentIds
+        })
+      }
+    }
+
+    const isGoogleDoc = mimeType === 'application/vnd.google-apps.document'
+    if (isGoogleDoc) {
+      await triggerDocsWorkflowsFromDriveChange(change.file, metadata, isNewItem, parentIds)
+    }
+  }
+
+  const nextPageToken = changes.nextPageToken
+  if (nextPageToken && nextPageToken !== subscription.page_token) {
+    await supabase
+      .from('google_watch_subscriptions')
+      .update({
+        page_token: nextPageToken,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', 'google-drive')
+  }
+
+  return { processed: true, changesCount: processedChanges }
 }
+
 
 async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
@@ -217,7 +423,7 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
       ? (metadata.watchStartTime || storedStartTime || storedLastFetchTime || new Date().toISOString())
       : (metadata.watchStartTime || storedStartTime || storedLastFetchTime || null)
 
-    console.log('[Google Calendar] Metadata resolved for processing:', {
+    calendarDebug('Metadata resolved for processing', {
       userId: metadata.userId,
       integrationId: metadata.integrationId,
       calendarId: metadata.calendarId,
@@ -231,7 +437,7 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
       watchStartTime: effectiveWatchStartTime
     }
 
-    console.log('[Google Calendar] Fetching changes with', {
+    calendarDebug('Fetching changes', {
       mode: subscription?.sync_token ? 'syncToken' : 'updatedMin',
       syncTokenPreview: subscription?.sync_token ? String(subscription.sync_token).slice(0, 12) + '...' : null,
       updatedMin: subscription?.sync_token ? null : (effectiveWatchStartTime || 'now')
@@ -248,17 +454,29 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
       }
     )
 
-    console.log('[Google Calendar] Changes fetched:', {
+    calendarDebug('Change fetch complete', {
       eventsCount: changes.events?.length || 0,
       hasNextSyncToken: Boolean(changes.nextSyncToken)
     })
 
+    const changeStats = {
+      created: 0,
+      updated: 0,
+      deleted: 0
+    }
+
     // Process each event change
     for (const event of changes.events || []) {
       try {
-        console.log('[Google Calendar] Inspecting event:', { id: event.id, status: event.status, created: event.created, updated: event.updated })
+        calendarDebug('Inspecting event change', {
+          id: event.id,
+          status: event.status,
+          created: event.created,
+          updated: event.updated
+        })
       } catch {}
       if (event.status === 'cancelled') {
+        changeStats.deleted += 1
         await handleCalendarEventDeleted({
           eventId: event.id,
           event,
@@ -271,12 +489,14 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
         const isSameInstant = createdTime.getTime() === updatedTime.getTime()
 
         if (isSameInstant) {
+          changeStats.created += 1
           await handleCalendarEventCreated({
             eventId: event.id,
             event,
             metadata: enrichedMetadata
           })
         } else {
+          changeStats.updated += 1
           await handleCalendarEventUpdated({
             eventId: event.id,
             event,
@@ -285,12 +505,26 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
         }
       } else {
         // Fallback: if we lack timestamps but not cancelled, treat as updated to avoid missing changes
+        changeStats.updated += 1
         await handleCalendarEventUpdated({
           eventId: event.id,
           event,
           metadata: enrichedMetadata
         })
       }
+    }
+
+    const processedEvents = changeStats.created + changeStats.updated + changeStats.deleted
+    if (processedEvents > 0) {
+      calendarInfo('Processed calendar changes', {
+        calendarId: metadata.calendarId,
+        processedEvents,
+        changeStats
+      })
+    } else {
+      calendarDebug('No calendar changes detected for subscription', {
+        calendarId: metadata.calendarId
+      })
     }
 
     // Update the sync token for next time (after pagination completes)
@@ -301,7 +535,9 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
         .eq('user_id', metadata.userId)
         .eq('integration_id', metadata.integrationId)
         .eq('provider', 'google-calendar')
-      console.log('[Google Calendar] Persisted nextSyncToken and updated_at for subscription')
+      calendarDebug('Persisted nextSyncToken for subscription', {
+        calendarId: metadata.calendarId
+      })
     } else {
       // Persist lastFetchTime fallback so subsequent runs can use updatedMin reliably
       const newMetadata = {
@@ -314,14 +550,16 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
         .eq('user_id', metadata.userId)
         .eq('integration_id', metadata.integrationId)
         .eq('provider', 'google-calendar')
-      console.log('[Google Calendar] Persisted lastFetchTime metadata and updated_at for subscription')
+      calendarDebug('Persisted lastFetchTime metadata for subscription', {
+        calendarId: metadata.calendarId
+      })
     }
 
     return { processed: true, eventsCount: changes.events?.length || 0 }
   }
 
   // Fallback to generic processing
-  console.debug('Google Calendar webhook received, but missing metadata for processing', {
+  calendarDebug('Google Calendar webhook received, but missing metadata for processing', {
     hasUserId: Boolean(metadata?.userId),
     hasIntegrationId: Boolean(metadata?.integrationId),
     hasCalendarId: Boolean(metadata?.calendarId)
@@ -330,16 +568,21 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
 }
 
 type CalendarChangeType = 'created' | 'updated' | 'deleted'
+type DriveChangeType = 'file_created' | 'file_updated' | 'folder_created'
 
 async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, calendarEvent: any, metadata: any, options?: { watchStartTime?: string | null }) {
   if (!calendarEvent) {
-    console.debug('[Google Calendar] Event payload missing event details, skipping')
+    calendarDebug('Event payload missing event details, skipping', {
+      changeType
+    })
     return
   }
 
   const userId = metadata?.userId
   if (!userId) {
-    console.debug('[Google Calendar] Missing userId in metadata, skipping workflow trigger')
+    calendarDebug('Missing userId in metadata, skipping workflow trigger', {
+      changeType
+    })
     return
   }
 
@@ -392,13 +635,15 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
       .filter((id): id is string => Boolean(id))
 
     if (workflowIds.length === 0) {
-      console.debug('[Google Calendar] No workflow IDs associated with webhook configs, skipping')
+      calendarDebug('No workflow IDs associated with webhook configs, skipping', {
+        changeType
+      })
       return
     }
 
     const { data: workflows, error: workflowsError } = await supabase
       .from('workflows')
-      .select('id, user_id, nodes, name, status')
+      .select('id, user_id, nodes, connections, name, status')
       .in('id', workflowIds)
       .eq('status', 'active')
 
@@ -416,7 +661,9 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
 
       const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
       if (!workflow) {
-        console.debug('[Google Calendar] Workflow not found for config, skipping')
+        calendarDebug('Workflow not found for webhook config, skipping', {
+          workflowId: webhookConfig.workflow_id
+        })
         continue
       }
 
@@ -463,27 +710,45 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         return true
       })
 
-      console.log('[Google Calendar] Workflow trigger scan:', {
-        workflowId: workflow.id,
-        triggerType,
-        configuredCalendarId,
-        nodeCount: nodes.length,
-        matchingTriggerCount: matchingTriggers.length
-      })
-
       if (matchingTriggers.length === 0) {
+        calendarDebug('No matching calendar triggers for workflow', {
+          workflowId: workflow.id,
+          triggerType,
+          calendarId
+        })
         continue
       }
+
+      calendarInfo('Calendar trigger matched workflow', {
+        workflowId: workflow.id,
+        changeType,
+        triggerType,
+        calendarId,
+        eventId,
+        triggerCount: matchingTriggers.length
+      })
 
       if (watchStartTime) {
         const eventTimestamp = resolveCalendarEventTimestamp(calendarEvent)
         if (eventTimestamp && eventTimestamp.getTime() < watchStartTime.getTime()) {
+          calendarDebug('Skipping event older than watch start', {
+            workflowId: workflow.id,
+            changeType,
+            eventTimestamp: eventTimestamp.toISOString(),
+            watchStartTime: watchStartTime.toISOString()
+          })
           continue
         }
       }
 
-      if (eventId && wasRecentlyProcessedCalendarEvent(workflow.id, eventId, changeType)) {
-        // Skip duplicate within dedupe window without logging noisily
+      const calendarUpdatedAt = typeof calendarEvent?.updated === 'string' ? calendarEvent.updated : null
+      const dedupeHit = eventId && wasRecentlyProcessedCalendarEvent(workflow.id, eventId, changeType, calendarUpdatedAt)
+      if (dedupeHit) {
+        calendarDebug('Skipping duplicate calendar event within dedupe window', {
+          workflowId: workflow.id,
+          changeType,
+          eventId
+        })
         continue
       }
 
@@ -499,10 +764,23 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
       try {
         // Mark as processed BEFORE starting execution to avoid concurrent duplicates
         if (eventId) {
-          markCalendarEventProcessed(workflow.id, eventId, changeType)
+          markCalendarEventProcessed(workflow.id, eventId, changeType, calendarUpdatedAt)
         }
 
         const executionEngine = new AdvancedExecutionEngine()
+        const nodeCount = Array.isArray(workflow.nodes) ? workflow.nodes.length : 0
+        const connectionCount = Array.isArray((workflow as any).connections) ? workflow.connections.length : 0
+        calendarInfo('Dispatching workflow execution', {
+          workflowId: workflow.id,
+          changeType,
+          nodeCount,
+          connectionCount
+        })
+        calendarDebug('Execution input payload snapshot', {
+          workflowId: workflow.id,
+          eventId,
+          payloadKeys: Object.keys(triggerPayload || {})
+        })
         const executionSession = await executionEngine.createExecutionSession(
           workflow.id,
           workflow.user_id,
@@ -518,11 +796,18 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
           }
         )
 
-        const execResult = await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
-        try { console.log('[Google Calendar] Workflow execution started', { workflowId: workflow.id, executionSessionId: executionSession.id }) } catch {}
+        await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
+        calendarInfo('Workflow execution started', {
+          workflowId: workflow.id,
+          executionSessionId: executionSession.id
+        })
 
       } catch (workflowError) {
         console.error(`[Google Calendar] Failed to execute workflow ${workflow.id}:`, workflowError)
+        calendarDebug('Workflow execution error details', {
+          workflowId: workflow.id,
+          message: workflowError instanceof Error ? workflowError.message : String(workflowError)
+        })
         if (eventId) {
           processedCalendarEvents.delete(buildCalendarDedupeKey(workflow.id, eventId, changeType))
         }
@@ -533,10 +818,261 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
   }
 }
 
+async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveItem: any, metadata: any, options?: { parentIds?: string[]; isFolder?: boolean }) {
+  if (!driveItem) {
+    console.debug('[Google Drive] Change payload missing drive item details, skipping')
+    return
+  }
+
+  const userId = metadata?.userId
+  if (!userId) {
+    console.debug('[Google Drive] Missing userId in metadata, skipping workflow trigger')
+    return
+  }
+
+  const parentIds = Array.isArray(options?.parentIds) ? options!.parentIds! : (Array.isArray(driveItem.parents) ? driveItem.parents : [])
+  const parentId = parentIds.length > 0 ? parentIds[0] : null
+  const drivePayload = { ...driveItem, parents: parentIds }
+  const resourceId: string | undefined = drivePayload.id || drivePayload.fileId
+  if (!resourceId) {
+    console.debug('[Google Drive] Missing resource id for change, skipping')
+    return
+  }
+
+  const triggerTypeMap: Record<DriveChangeType, string> = {
+    file_created: 'google-drive:new_file_in_folder',
+    folder_created: 'google-drive:new_folder_in_folder',
+    file_updated: 'google-drive:file_updated'
+  }
+
+  const triggerType = triggerTypeMap[changeType]
+
+  try {
+    const supabase = await createSupabaseServiceClient()
+
+    const { data: webhookConfigs, error: webhookError } = await supabase
+      .from('webhook_configs')
+      .select('id, workflow_id, config, status, provider_id, trigger_type')
+      .eq('trigger_type', triggerType)
+      .eq('status', 'active')
+      .eq('provider_id', 'google-drive')
+      .eq('user_id', userId)
+
+    if (webhookError) {
+      console.error('[Google Drive] Failed to fetch webhook configs:', webhookError)
+      return
+    }
+
+    if (!webhookConfigs || webhookConfigs.length === 0) {
+      return
+    }
+
+    const workflowIds = webhookConfigs
+      .map((config) => config.workflow_id)
+      .filter((id): id is string => Boolean(id))
+
+    if (workflowIds.length === 0) {
+      return
+    }
+
+    const { data: workflows, error: workflowsError } = await supabase
+      .from('workflows')
+      .select('id, user_id, nodes, connections, name, status')
+      .in('id', workflowIds)
+      .eq('status', 'active')
+
+    if (workflowsError) {
+      console.error('[Google Drive] Failed to fetch workflows:', workflowsError)
+      return
+    }
+
+    if (!workflows || workflows.length === 0) {
+      return
+    }
+
+    for (const webhookConfig of webhookConfigs) {
+      if (!webhookConfig.workflow_id) continue
+
+      const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
+      if (!workflow) {
+        continue
+      }
+
+      const configData = (webhookConfig.config || {}) as any
+      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
+
+      const matchingTriggers = nodes.filter((node: any) => {
+        const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
+        if (nodeType !== triggerType) return false
+        if (!node?.data?.isTrigger) return false
+
+        const nodeConfig = node?.data?.config || {}
+
+        switch (changeType) {
+          case 'file_created': {
+            const folderId = configData?.folderId || nodeConfig?.folderId || null
+            if (folderId) {
+              return parentIds.includes(folderId)
+            }
+            return true
+          }
+          case 'folder_created': {
+            const folderId = configData?.folderId || configData?.parentFolderId || nodeConfig?.folderId || nodeConfig?.parentFolderId || null
+            if (folderId) {
+              return parentIds.includes(folderId)
+            }
+            return true
+          }
+          case 'file_updated': {
+            const configuredFileId = configData?.fileId || nodeConfig?.fileId || configData?.folderId || nodeConfig?.folderId || null
+            if (configuredFileId) {
+              return configuredFileId === resourceId
+            }
+            return true
+          }
+          default:
+            return false
+        }
+      })
+
+      if (matchingTriggers.length === 0) {
+        continue
+      }
+
+      const lastUpdated = drivePayload.modifiedTime || drivePayload.createdTime || null
+      if (wasRecentlyProcessedDriveChange(workflow.id, resourceId, changeType, lastUpdated)) {
+        continue
+      }
+
+      const triggerPayload: any = {
+        provider: 'google-drive',
+        changeType,
+        resourceId,
+        parentId,
+        parentIds,
+        item: drivePayload,
+        file: options?.isFolder ? undefined : drivePayload,
+        folder: options?.isFolder ? drivePayload : undefined,
+        metadata
+      }
+
+      try {
+        markDriveChangeProcessed(workflow.id, resourceId, changeType, lastUpdated)
+
+        const executionEngine = new AdvancedExecutionEngine()
+        const executionSession = await executionEngine.createExecutionSession(
+          workflow.id,
+          workflow.user_id,
+          'webhook',
+          {
+            inputData: triggerPayload,
+            webhookEvent: {
+              provider: 'google-drive',
+              changeType,
+              metadata,
+              event: drivePayload
+            }
+          }
+        )
+
+        await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
+        console.log('[Google Drive] Workflow execution started', {
+          workflowId: workflow.id,
+          executionSessionId: executionSession.id,
+          changeType
+        })
+
+      } catch (workflowError) {
+        console.error(`[Google Drive] Failed to execute workflow ${workflow.id}:`, workflowError)
+        processedDriveChanges.delete(buildDriveDedupeKey(workflow.id, resourceId, changeType))
+      }
+    }
+  } catch (error) {
+    console.error('[Google Drive] Error triggering workflows for drive change:', error)
+  }
+}
+
+async function triggerDocsWorkflowsFromDriveChange(driveFile: any, metadata: any, isNewItem: boolean, parentIds: string[]) {
+  if (!driveFile || !driveFile.id) return
+
+  const docEventPayload = {
+    id: driveFile.id,
+    title: driveFile.name,
+    properties: {},
+    parent: parentIds[0],
+    created_time: driveFile.createdTime,
+    last_edited_time: driveFile.modifiedTime,
+    url: driveFile.webViewLink
+  }
+
+  try {
+    const supabase = await createSupabaseServiceClient()
+    const { data: docWorkflows, error } = await supabase
+      .from('workflows')
+      .select('id, user_id, nodes, status')
+      .eq('status', 'active')
+      .eq('user_id', metadata?.userId)
+
+    if (error) {
+      console.error('[Google Drive] Failed to fetch Google Docs workflows:', error)
+    } else {
+      for (const wf of docWorkflows || []) {
+        const nodes = Array.isArray(wf.nodes) ? wf.nodes : []
+        const matchingNewDocTriggers = nodes.filter((n: any) => n?.data?.isTrigger && n?.data?.type === 'google_docs_trigger_new_document')
+        for (const trig of matchingNewDocTriggers) {
+          const cfg = trig?.data?.config || {}
+          if (cfg.folderId && parentIds.length > 0 && !parentIds.includes(cfg.folderId)) {
+            continue
+          }
+          if (cfg.mimeType && driveFile.mimeType && cfg.mimeType !== driveFile.mimeType) {
+            continue
+          }
+
+          const engine = new AdvancedExecutionEngine()
+          const session = await engine.createExecutionSession(
+            wf.id,
+            wf.user_id,
+            'webhook',
+            {
+              inputData: {
+                provider: 'google-docs',
+                changeType: isNewItem ? 'document_created' : 'document_updated',
+                document: docEventPayload,
+                metadata
+              },
+              webhookEvent: {
+                provider: 'google-docs',
+                changeType: isNewItem ? 'document_created' : 'document_updated',
+                metadata,
+                event: docEventPayload
+              }
+            }
+          )
+
+          await engine.executeWorkflowAdvanced(session.id, {
+            provider: 'google-docs',
+            changeType: isNewItem ? 'document_created' : 'document_updated',
+            document: docEventPayload,
+            metadata
+          })
+        }
+      }
+    }
+  } catch (docError) {
+    console.error('Failed to trigger Google Docs workflow from Drive change:', docError)
+  }
+
+  if (isNewItem) {
+    await handleDocsDocumentCreated({ document_id: driveFile.id, ...docEventPayload })
+  } else {
+    await handleDocsDocumentUpdated({ document_id: driveFile.id, ...docEventPayload })
+  }
+}
+
 function resolveCalendarEventTimestamp(calendarEvent: any): Date | null {
   const candidates = [
-    calendarEvent?.created,
     calendarEvent?.updated,
+    calendarEvent?.created,
     calendarEvent?.start?.dateTime,
     calendarEvent?.start?.date
   ]
@@ -670,23 +1206,51 @@ async function processGenericGoogleEvent(event: GoogleWebhookEvent): Promise<any
 
 // Google Drive event handlers
 async function handleDriveFileCreated(eventData: any): Promise<any> {
-  console.log('Processing Google Drive file created:', eventData.file_id)
-  return { processed: true, type: 'drive_file_created', fileId: eventData.file_id }
+  const parentIds: string[] = Array.isArray(eventData.parentIds) ? eventData.parentIds : []
+  const driveItem = {
+    ...(eventData.file || {}),
+    id: eventData.file?.id || eventData.fileId,
+    parents: parentIds
+  }
+  await triggerMatchingDriveWorkflows('file_created', driveItem, eventData.metadata || {}, {
+    parentIds,
+    isFolder: false
+  })
+  return { processed: true, type: 'drive_file_created', fileId: eventData.fileId || eventData.file?.id }
 }
 
 async function handleDriveFileUpdated(eventData: any): Promise<any> {
-  console.log('Processing Google Drive file updated:', eventData.file_id)
-  return { processed: true, type: 'drive_file_updated', fileId: eventData.file_id }
+  const parentIds: string[] = Array.isArray(eventData.parentIds) ? eventData.parentIds : []
+  const driveItem = {
+    ...(eventData.file || {}),
+    id: eventData.file?.id || eventData.fileId,
+    parents: parentIds
+  }
+  await triggerMatchingDriveWorkflows('file_updated', driveItem, eventData.metadata || {}, {
+    parentIds,
+    isFolder: false
+  })
+  return { processed: true, type: 'drive_file_updated', fileId: eventData.fileId || eventData.file?.id }
 }
 
 async function handleDriveFileDeleted(eventData: any): Promise<any> {
-  console.log('Processing Google Drive file deleted:', eventData.file_id)
-  return { processed: true, type: 'drive_file_deleted', fileId: eventData.file_id }
+  const targetId = eventData.fileId || eventData.file?.id
+  console.log('Processing Google Drive file deleted:', targetId)
+  return { processed: true, type: 'drive_file_deleted', fileId: targetId }
 }
 
 async function handleDriveFolderCreated(eventData: any): Promise<any> {
-  console.log('Processing Google Drive folder created:', eventData.folder_id)
-  return { processed: true, type: 'drive_folder_created', folderId: eventData.folder_id }
+  const parentIds: string[] = Array.isArray(eventData.parentIds) ? eventData.parentIds : []
+  const driveItem = {
+    ...(eventData.folder || {}),
+    id: eventData.folder?.id || eventData.folderId,
+    parents: parentIds
+  }
+  await triggerMatchingDriveWorkflows('folder_created', driveItem, eventData.metadata || {}, {
+    parentIds,
+    isFolder: true
+  })
+  return { processed: true, type: 'drive_folder_created', folderId: eventData.folderId || eventData.folder?.id }
 }
 
 // Google Calendar event handlers

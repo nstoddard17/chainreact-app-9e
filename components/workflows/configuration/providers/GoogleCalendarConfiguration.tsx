@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
 interface GoogleCalendarConfigurationProps {
@@ -27,7 +27,53 @@ interface GoogleCalendarConfigurationProps {
 }
 
 export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationProps) {
-  // Google Calendar currently uses the generic configuration
-  // This wrapper allows for future Google Calendar-specific customizations
+  const {
+    nodeInfo,
+    loadOptions,
+    needsConnection
+  } = props;
+
+  const hasRequestedCalendarsRef = useRef(false);
+
+  useEffect(() => {
+    hasRequestedCalendarsRef.current = false;
+  }, [nodeInfo?.id, nodeInfo?.type, nodeInfo?.providerId, needsConnection]);
+
+  // Ensure calendar options load immediately when the configuration opens
+  useEffect(() => {
+    if (needsConnection) return;
+    if (nodeInfo?.providerId !== 'google-calendar') return;
+    if (hasRequestedCalendarsRef.current) return;
+
+    const schema = nodeInfo?.configSchema;
+    if (!schema) return;
+
+    const hasCalendarsField = schema.some(
+      (field: any) => field.name === 'calendars' && field.dynamic
+    );
+
+    if (!hasCalendarsField) return;
+
+    let isMounted = true;
+
+    const loadCalendars = async () => {
+      try {
+        hasRequestedCalendarsRef.current = true;
+        await loadOptions('calendars', undefined, undefined, true);
+      } catch (error) {
+        console.error('[GoogleCalendarConfiguration] Failed to preload calendars', error);
+        if (isMounted) {
+          hasRequestedCalendarsRef.current = false;
+        }
+      }
+    };
+
+    loadCalendars();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadOptions, needsConnection, nodeInfo?.id, nodeInfo?.type, nodeInfo?.providerId]);
+
   return <GenericConfiguration {...props} />;
 }

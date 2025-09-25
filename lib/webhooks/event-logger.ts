@@ -16,6 +16,9 @@ export interface WebhookEventLog {
   timestamp: string
 }
 
+const shouldLogWebhookDebug =
+  process.env.DEBUG_WEBHOOKS === '1' || process.env.DEBUG_WEBHOOKS === 'true'
+
 export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
   try {
     const supabase = await createSupabaseServiceClient()
@@ -38,15 +41,26 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
         timestamp: logData.timestamp
       })
 
-    // Also log to console for immediate debugging
-    console.log(`[Webhook] ${logData.provider}:`, {
+    const context = {
       requestId: logData.requestId,
       service: logData.service,
       eventType: logData.eventType,
       status: logData.status,
       processingTime: logData.processingTime,
       error: logData.error
-    })
+    }
+
+    if (logData.status === 'error' || logData.error) {
+      console.error(`[Webhook] ${logData.provider} error`, context)
+    } else if (logData.status === 'success') {
+      console.log(`[Webhook] ${logData.provider} success`, {
+        requestId: logData.requestId,
+        service: logData.service,
+        processingTime: logData.processingTime
+      })
+    } else if (shouldLogWebhookDebug) {
+      console.log(`[Webhook] ${logData.provider}:`, context)
+    }
 
   } catch (error) {
     // Fallback to console logging if database fails

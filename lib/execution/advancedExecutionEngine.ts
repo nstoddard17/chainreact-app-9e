@@ -86,6 +86,14 @@ export class AdvancedExecutionEngine {
     const session = await this.getExecutionSession(sessionId)
     if (!session) throw new Error("Execution session not found")
 
+    console.log('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', {
+      sessionId,
+      workflowId: session.workflow_id,
+      userId: session.user_id,
+      startNodeId: options.startNodeId,
+      inputKeys: Object.keys(inputData || {})
+    })
+
     // Check if session is already running to prevent duplicate executions
     if (session.status === "running") {
       console.log(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
@@ -112,6 +120,10 @@ export class AdvancedExecutionEngine {
       const result = await this.executeWithParallelProcessing(session, workflow, executionPlan, inputData, options)
 
       await this.updateSessionStatus(sessionId, "completed", 100)
+      console.log('✅ AdvancedExecutionEngine execution completed', {
+        sessionId,
+        workflowId: session.workflow_id
+      })
       return result
     } catch (error) {
       await this.updateSessionStatus(sessionId, "failed")
@@ -238,10 +250,15 @@ export class AdvancedExecutionEngine {
     // For now, disable parallel processing to prevent duplicate executions
     // Only execute the main workflow path to avoid duplicate emails
     console.log(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
-    
+
     // Execute main workflow path only
     const mainResult = await this.executeMainWorkflowPath(session.id, workflow, context, options.startNodeId)
     results.mainResult = mainResult
+
+    console.log('✅ Main workflow path finished', {
+      sessionId: session.id,
+      workflowId: workflow.id
+    })
 
     return results
   }
@@ -598,7 +615,15 @@ export class AdvancedExecutionEngine {
     let currentData = context.data;
     const nodes = workflow.nodes || [];
     const connections = workflow.connections || [];
-    
+
+    console.log('🧱 executeMainWorkflowPath', {
+      sessionId,
+      workflowId: workflow.id,
+      nodeCount: Array.isArray(nodes) ? nodes.length : 0,
+      connectionCount: Array.isArray(connections) ? connections.length : 0,
+      hasStartNodeOverride: Boolean(startNodeId)
+    })
+
     let executionQueue: any[] = [];
     const executedNodeIds = new Set<string>();
 
