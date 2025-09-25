@@ -288,7 +288,8 @@ export class NodeExecutionService {
       'airtable_', 'hubspot_', 'stripe_',
       'twitter_', 'facebook_', 'linkedin_',
       'instagram_', 'youtube_', 'trello_',
-      'microsoft_', 'outlook_', 'onenote_'
+      'microsoft_', 'outlook_', 'onenote_',
+      'microsoft-onenote_'
     ]
     
     // Check if node type starts with any integration prefix

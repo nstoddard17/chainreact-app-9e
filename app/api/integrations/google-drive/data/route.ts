@@ -112,6 +112,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
+    console.log('[Google Drive API] POST request received:', {
+      integrationId,
+      dataType,
+      hasOptions: !!options,
+      optionsKeys: Object.keys(options)
+    })
+
     // Handle both patterns - with integrationId or with fileId
     if (integrationId && dataType) {
       // New pattern matching Notion endpoint
@@ -136,24 +143,74 @@ export async function POST(req: NextRequest) {
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
       // Handle different data types
-      if (dataType === 'files') {
+      if (dataType === 'files' || dataType === 'google-drive-files') {
         const query = [`trashed = false`]
+
+        // If folderId is provided, filter by parent folder
+        if (options.folderId) {
+          query.push(`'${options.folderId}' in parents`)
+        }
+
+        // Filter out folders unless specifically requested
+        if (!options.includeFolders) {
+          query.push(`mimeType != 'application/vnd.google-apps.folder'`)
+        }
+
         if (options.mimeType) {
           const mimeTypes = options.mimeType.split(',')
           const mimeQuery = mimeTypes.map((m: string) => `mimeType='${m.trim()}'`).join(' or ')
           query.push(`(${mimeQuery})`)
         }
-        
+
         const response = await drive.files.list({
           q: query.join(' and '),
-          fields: 'files(id,name,mimeType,webViewLink,iconLink,thumbnailLink,modifiedTime)',
+          fields: 'files(id,name,mimeType,webViewLink,iconLink,thumbnailLink,modifiedTime,parents)',
           pageSize: options.maxResults || 100,
           orderBy: 'modifiedTime desc'
         })
 
-        return NextResponse.json({ 
-          data: response.data.files || [],
-          success: true 
+        // Format the response for dropdown compatibility
+        const files = (response.data.files || []).map(file => ({
+          value: file.id,
+          label: file.name,
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          webViewLink: file.webViewLink,
+          modifiedTime: file.modifiedTime
+        }))
+
+        console.log(`[Google Drive API] Successfully fetched ${files.length} files`)
+
+        return NextResponse.json({
+          data: files,
+          success: true
+        })
+      }
+
+      if (dataType === 'folders' || dataType === 'google-drive-folders') {
+        const response = await drive.files.list({
+          q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+          fields: 'files(id,name,parents,modifiedTime)',
+          pageSize: options.maxResults || 100,
+          orderBy: 'name'
+        })
+
+        // Format the response for dropdown compatibility
+        const folders = (response.data.files || []).map(folder => ({
+          value: folder.id,
+          label: folder.name,
+          id: folder.id,
+          name: folder.name,
+          parents: folder.parents,
+          modifiedTime: folder.modifiedTime
+        }))
+
+        console.log(`[Google Drive API] Successfully fetched ${folders.length} folders`)
+
+        return NextResponse.json({
+          data: folders,
+          success: true
         })
       }
 

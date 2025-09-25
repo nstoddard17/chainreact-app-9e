@@ -56,21 +56,42 @@ export function useWorkflowBuilder() {
   // Custom setNodes that preserves onClick handlers for AddActionNodes
   const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
     setNodesInternal(currentNodes => {
-      const newNodes = typeof updater === 'function' ? updater(currentNodes) : updater
-      
-      // Restore onClick handlers for AddActionNodes
-      return newNodes.map(node => {
-        if (node.type === 'addAction' && addActionHandlersRef.current[node.id]) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              onClick: addActionHandlersRef.current[node.id]
-            }
-          }
+      const incoming = typeof updater === 'function' ? updater(currentNodes) : updater
+
+      // Sanitize nodes: drop malformed, fix missing titles, and restore AddAction handlers
+      const sanitized: Node[] = []
+      for (const node of incoming) {
+        // Always allow UI addAction nodes
+        if (node.type === 'addAction') {
+          const withHandler = addActionHandlersRef.current[node.id]
+            ? { ...node, data: { ...(node.data || {}), onClick: addActionHandlersRef.current[node.id] } }
+            : node
+          sanitized.push(withHandler)
+          continue
         }
-        return node
-      })
+
+        const nodeType = (node as any)?.data?.type
+        const isTrigger = Boolean((node as any)?.data?.isTrigger)
+        if (!nodeType && !isTrigger) {
+          console.warn('[WorkflowBuilder] Dropping malformed node without data.type', { id: node.id, type: node.type })
+          continue
+        }
+
+        // Ensure a stable, human-readable title
+        const existingTitle = (node as any)?.data?.title
+        if (!existingTitle || (typeof existingTitle === 'string' && existingTitle.trim().length === 0) || existingTitle === 'Unnamed Action') {
+          const component = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
+          const safeTitle = component?.title || nodeType || (isTrigger ? 'Trigger' : 'Action')
+          sanitized.push({
+            ...node,
+            data: { ...(node.data as any), title: safeTitle }
+          })
+        } else {
+          sanitized.push(node)
+        }
+      }
+
+      return sanitized
     })
   }, [])
 
@@ -287,16 +308,29 @@ export function useWorkflowBuilder() {
         if (workflow.connections) {
           // Filter out edges that reference nodes we filtered out above
           const validNodeIds = new Set(allNodes.map(n => n.id))
-          const flowEdges = workflow.connections
-            .filter((conn: WorkflowConnection) => validNodeIds.has(conn.source) && validNodeIds.has(conn.target))
-            .map((conn: WorkflowConnection) => ({
-            id: conn.id,
-            source: conn.source,
-            target: conn.target,
-            type: 'custom',
-            animated: false,
-            style: { stroke: "#d1d5db", strokeWidth: 1 }
-          }))
+          const seenEdgeKey = new Set<string>()
+          const seenIds = new Set<string>()
+          const flowEdges = [] as any[]
+          for (const conn of workflow.connections as WorkflowConnection[]) {
+            if (!conn?.source || !conn?.target) continue
+            if (!validNodeIds.has(conn.source) || !validNodeIds.has(conn.target)) continue
+            const key = `${conn.source}->${conn.target}`
+            if (seenEdgeKey.has(key)) continue
+            seenEdgeKey.add(key)
+            let id = conn.id || `e-${conn.source}-${conn.target}`
+            if (seenIds.has(id)) {
+              id = `e-${conn.source}-${conn.target}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
+            }
+            seenIds.add(id)
+            flowEdges.push({
+              id,
+              source: conn.source,
+              target: conn.target,
+              type: 'custom',
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 }
+            })
+          }
           
           // Add edges to AddActionNodes if we created them
           if (addActionNodeData && Array.isArray(addActionNodeData)) {

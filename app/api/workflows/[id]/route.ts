@@ -58,7 +58,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
       }
 
-      return NextResponse.json(data)
+      // Sanitize payload: drop UI-only or malformed nodes that can render as "Unnamed Action"
+      const sanitizeNodes = (nodes: any[]) =>
+        (Array.isArray(nodes) ? nodes : []).filter((n: any) => {
+          if (!n) return false
+          if (n.type === 'addAction') return false
+          const dataType = n?.data?.type
+          const isTrigger = Boolean(n?.data?.isTrigger)
+          return Boolean(dataType || isTrigger)
+        })
+
+      const safeData = {
+        ...data,
+        nodes: sanitizeNodes(data?.nodes)
+      }
+
+      if (Array.isArray(data?.nodes) && safeData.nodes.length !== data.nodes.length) {
+        console.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
+          workflowId: data.id,
+          before: data.nodes.length,
+          after: safeData.nodes.length
+        })
+      }
+
+      return NextResponse.json(safeData)
     }
 
     // Not the owner, check if user has shared access
@@ -182,8 +205,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
-    const triggerNodes = nodes.filter((n: any) => n?.data?.isTrigger)
-    const actionNodeIds = new Set<string>(nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type).map((n: any) => n.id))
+    // Sanitize nodes right after update to avoid persisting UI/malformed nodes
+    const sanitizeNodes = (list: any[]) =>
+      (Array.isArray(list) ? list : []).filter((n: any) => {
+        if (!n) return false
+        if (n.type === 'addAction') return false
+        const dataType = n?.data?.type
+        const isTrigger = Boolean(n?.data?.isTrigger)
+        return Boolean(dataType || isTrigger)
+      })
+
+    const sanitizedNodes = sanitizeNodes(nodes)
+    if (sanitizedNodes.length !== nodes.length) {
+      console.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on PUT', {
+        workflowId: resolvedParams.id,
+        before: nodes.length,
+        after: sanitizedNodes.length
+      })
+      // Persist the sanitized graph
+      await serviceClient
+        .from('workflows')
+        .update({ nodes: sanitizedNodes, updated_at: new Date().toISOString() })
+        .eq('id', resolvedParams.id)
+    }
+
+    const triggerNodes = sanitizedNodes.filter((n: any) => n?.data?.isTrigger)
+    const actionNodeIds = new Set<string>(sanitizedNodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type).map((n: any) => n.id))
     const edges = connections.filter((e: any) => e && (e.source || e.from) && (e.target || e.to))
 
     const hasConnectedAction = (() => {
@@ -253,7 +300,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // If some triggers are not connected to any action, connect each to the nearest action by position
     if (triggerNodes.length > 0 && actionNodeIds.size > 0) {
       const existingEdges = new Set<string>(edges.map((e: any) => `${e.source || e.from}->${e.target || e.to}`))
-      const actions = nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type)
+      const actions = sanitizedNodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type)
 
       const findReachable = (startId: string) => {
         const nextMap = new Map<string, string[]>()
@@ -452,6 +499,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         'google-drive',
         'google-docs',
         'google-sheets',
+        'google_sheets',
         'slack',
         'stripe',
         'shopify',

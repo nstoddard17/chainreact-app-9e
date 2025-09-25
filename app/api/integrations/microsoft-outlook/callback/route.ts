@@ -62,6 +62,10 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
+    let providerEmail: string | null = null
+    let providerAccountName: string | null = null
+    let providerUserId: string | null = null
+    
     // Check account type to warn about personal account limitations
     try {
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
@@ -73,6 +77,10 @@ export async function GET(request: NextRequest) {
       if (userResponse.ok) {
         const userData = await userResponse.json()
         const email = userData.mail || userData.userPrincipalName || ""
+
+        providerUserId = userData.id || null
+        providerEmail = email || null
+        providerAccountName = userData.displayName || providerEmail
         
         // Check if this is a personal account
         const isPersonalAccount = !userData.userPrincipalName || 
@@ -90,6 +98,7 @@ export async function GET(request: NextRequest) {
           const metadata = {
             accountType: "personal",
             email: email,
+            displayName: userData.displayName || null,
             warning: "Some Outlook features may not work with personal Microsoft accounts. Consider using a work or school account for full functionality.",
             knownLimitation: true
           }
@@ -99,7 +108,8 @@ export async function GET(request: NextRequest) {
           console.log("✅ Work/School account detected:", email)
           tokenData._metadata = {
             accountType: "work",
-            email: email
+            email: email,
+            displayName: userData.displayName || null
           }
         }
       }
@@ -119,7 +129,6 @@ export async function GET(request: NextRequest) {
       tokenData.refresh_token,
       tokenData.scope ? tokenData.scope.split(" ") : [],
       tokenData.expires_in,
-      refreshTokenExpiresAt,
     )
     
     // Add account type metadata if available
@@ -127,30 +136,55 @@ export async function GET(request: NextRequest) {
       integrationData.metadata = tokenData._metadata
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
+    if (providerEmail) {
+      integrationData.provider_email = providerEmail
+    }
+
+    if (providerAccountName) {
+      integrationData.provider_account_name = providerAccountName
+    }
+
+    if (providerUserId) {
+      integrationData.provider_user_id = providerUserId
+    }
+
+    if (refreshTokenExpiresAt) {
+      integrationData.refresh_token_expires_at = refreshTokenExpiresAt.toISOString()
+    }
+
+    const { data: upsertedIntegration, error: upsertError } = await supabase
+      .from("integrations")
+      .upsert(integrationData, {
+        onConflict: "user_id, provider",
+      })
+      .select(
+        "id, provider, status, scopes, metadata, expires_at, provider_email, provider_account_name, provider_user_id, refresh_token_expires_at"
+      )
+      .single()
 
     if (upsertError) {
       throw new Error(`Failed to save Microsoft Outlook integration: ${upsertError.message}`)
     }
 
-    // Return a minimal response that immediately closes the popup
-    const script = `
-      <script>
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'oauth-success',
-            provider: 'microsoft-outlook',
-            message: 'Connected successfully'
-          }, '*');
-        }
-        window.close();
-      </script>
-    `
-    return new Response(`<html><head><title>Success</title></head><body>${script}</body></html>`, {
-      headers: { "Content-Type": "text/html" }
-    })
+    const payload = {
+      integrationId: upsertedIntegration?.id,
+      email: upsertedIntegration?.provider_email || providerEmail,
+      accountName: upsertedIntegration?.provider_account_name || providerAccountName,
+      userId: upsertedIntegration?.provider_user_id || providerUserId,
+      scopes: upsertedIntegration?.scopes || integrationData.scopes || [],
+      metadata: upsertedIntegration?.metadata || integrationData.metadata || null,
+      expiresAt: upsertedIntegration?.expires_at || integrationData.expires_at || null,
+      refreshTokenExpiresAt:
+        upsertedIntegration?.refresh_token_expires_at || refreshTokenExpiresAt.toISOString(),
+    }
+
+    return createPopupResponse(
+      "success",
+      provider,
+      "Microsoft Outlook account connected successfully.",
+      baseUrl,
+      { payload }
+    )
   } catch (e: any) {
     console.error("Microsoft Outlook callback error:", e)
     return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)

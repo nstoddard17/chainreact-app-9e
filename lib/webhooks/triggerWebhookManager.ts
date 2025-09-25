@@ -747,9 +747,9 @@ export class TriggerWebhookManager {
         .from('integrations')
         .select('*')
         .eq('user_id', config.userId)
-        .eq('provider', 'google-sheets')
+        .in('provider', ['google-sheets', 'google_sheets'])
         .eq('status', 'connected')
-        .single()
+        .maybeSingle()
 
       if (!integration) {
         throw new Error('Google Sheets integration not found or not connected')
@@ -840,6 +840,7 @@ export class TriggerWebhookManager {
         break
 
       case 'google-sheets':
+      case 'google_sheets':
         // Google Sheets uses Drive watch API
         console.log('🔗 Setting up Google Sheets watch for webhook notifications')
         await this.registerGoogleSheetsWatch(config, webhookId)

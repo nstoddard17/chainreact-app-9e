@@ -88,10 +88,14 @@ export function ActionSelectionDialog({
 
   // Refresh integrations when dialog opens
   useEffect(() => {
+    let cancelled = false
     if (open && refreshIntegrations) {
       console.log('ActionSelectionDialog: Refreshing integrations on open')
-      refreshIntegrations()
+      Promise.resolve(refreshIntegrations()).catch(() => {}).finally(() => {
+        if (cancelled) return
+      })
     }
+    return () => { cancelled = true }
   }, [open, refreshIntegrations])
 
   // Handle OAuth connection

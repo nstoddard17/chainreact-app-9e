@@ -58,6 +58,7 @@ export const googleDriveNodes: NodeComponent[] = [
         type: "select",
         dynamic: "google-drive-files",
         required: true,
+        loadOnMount: true,
       },
     ],
   },

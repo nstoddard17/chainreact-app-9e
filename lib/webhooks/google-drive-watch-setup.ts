@@ -218,7 +218,12 @@ export async function stopGoogleDriveWatch(userId: string, integrationId: string
 /**
  * List file changes since last check
  */
-export async function getGoogleDriveChanges(userId: string, integrationId: string, pageToken: string) {
+export async function getGoogleDriveChanges(
+  userId: string,
+  integrationId: string,
+  pageToken: string,
+  provider: 'google-drive' | 'google-sheets' = 'google-drive'
+) {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -231,11 +236,11 @@ export async function getGoogleDriveChanges(userId: string, integrationId: strin
       .select('access_token')
       .eq('id', integrationId)
       .eq('user_id', userId)
-      .eq('provider', 'google-drive')
+      .eq('provider', provider)
       .single()
 
     if (error || !integration) {
-      throw new Error('Google Drive integration not found')
+      throw new Error(`${provider === 'google-sheets' ? 'Google Sheets' : 'Google Drive'} integration not found`)
     }
 
     // Decrypt and set up OAuth

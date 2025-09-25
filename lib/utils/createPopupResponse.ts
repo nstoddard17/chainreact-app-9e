@@ -97,12 +97,24 @@ export function createConnectingResponse(provider: string) {
  * Creates a response for OAuth popup windows that communicates with the parent window
  * using both postMessage and localStorage for COOP policy compatibility
  */
+function serializePayloadForScript(payload: Record<string, any>): string {
+  return JSON.stringify(payload)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+}
+
 export function createPopupResponse(
   type: "success" | "error",
   provider: string,
   message: string,
   baseUrl: string,
-  options?: { autoClose?: boolean }
+  options?: { autoClose?: boolean; payload?: Record<string, any> }
 ) {
   // Log the popup response creation for debugging
   console.log(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
@@ -128,6 +140,12 @@ export function createPopupResponse(
     ? options.autoClose 
     : (type === 'success' || !isPersonalAccountError);
   
+  const payloadScript = options?.payload
+    ? `      const payloadData = JSON.parse('${serializePayloadForScript(options.payload)}');
+      Object.assign(responseData, payloadData);
+`
+    : ''
+  
   const script = `
     <script>
       // Flag to track if we've already sent a response
@@ -146,6 +164,7 @@ export function createPopupResponse(
         error: ${type === 'error'} ? messageText.replace(/\\\\(.)/g, '$1') : null,
         timestamp: new Date().toISOString()
       };
+${payloadScript}
       
       // Method 1: Try BroadcastChannel (works across same-origin contexts)
       try {

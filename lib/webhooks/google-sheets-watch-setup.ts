@@ -75,6 +75,16 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
     const sheets = google.sheets({ version: 'v4', auth: oauth2Client })
 
+    // Capture a starting page token so Drive change polling can advance
+    const startPageTokenResponse = await drive.changes.getStartPageToken({
+      supportsAllDrives: true,
+      supportsTeamDrives: true
+    })
+    const startPageToken = startPageTokenResponse.data.startPageToken
+    if (!startPageToken) {
+      throw new Error('Failed to retrieve Drive start page token for Sheets watch')
+    }
+
     // Get initial sheet data for comparison
     let lastRowCount: number | undefined
     let lastSheetCount: number | undefined
@@ -140,6 +150,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
         token: JSON.stringify({
           userId: config.userId,
           integrationId: config.integrationId,
+          provider: 'google-sheets',
           spreadsheetId: config.spreadsheetId,
           sheetName: config.sheetName,
           triggerType: config.triggerType
@@ -167,6 +178,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       channel_id: channelId,
       resource_id: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
+      page_token: startPageToken,
       metadata: {
         spreadsheetId: config.spreadsheetId,
         sheetName: config.sheetName,
@@ -314,7 +326,9 @@ export async function checkGoogleSheetsChanges(
         changes.push({
           type: 'new_worksheet',
           sheetName: sheet.properties?.title,
-          sheetId: sheet.properties?.sheetId
+          sheetId: sheet.properties?.sheetId,
+          spreadsheetId,
+          timestamp: new Date().toISOString()
         })
       }
     }
@@ -337,11 +351,16 @@ export async function checkGoogleSheetsChanges(
           if (currentRowCount > previousMetadata.lastRowCount) {
             const newRows = currentRows.slice(previousMetadata.lastRowCount)
             for (let i = 0; i < newRows.length; i++) {
+              const absoluteRowNumber = previousMetadata.lastRowCount + i + 1
               changes.push({
                 type: 'new_row',
                 sheetName: previousMetadata.sheetName,
-                rowNumber: previousMetadata.lastRowCount + i + 1,
-                data: newRows[i]
+                spreadsheetId,
+                rowNumber: absoluteRowNumber,
+                rowIndex: absoluteRowNumber - 1,
+                data: newRows[i],
+                values: newRows[i],
+                timestamp: new Date().toISOString()
               })
             }
           }
@@ -351,7 +370,9 @@ export async function checkGoogleSheetsChanges(
             changes.push({
               type: 'updated_row',
               sheetName: previousMetadata.sheetName,
-              message: 'Sheet was modified but row count unchanged - possible row update'
+              spreadsheetId,
+              message: 'Sheet was modified but row count unchanged - possible row update',
+              timestamp: new Date().toISOString()
             })
           }
         }
@@ -363,6 +384,7 @@ export async function checkGoogleSheetsChanges(
 
     // Update sheet count
     previousMetadata.lastSheetCount = currentSheets.length
+    previousMetadata.spreadsheetId = spreadsheetId
 
     return {
       changes,
