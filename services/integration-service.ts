@@ -427,6 +427,14 @@ export class IntegrationService {
     let provider = ''
     if (dataType.startsWith('airtable_') || dataType.startsWith('airtable-')) {
       provider = 'airtable'
+    } else if (dataType.startsWith('google_sheets_') || dataType.startsWith('google-sheets-') || dataType.startsWith('google-sheets_')) {
+      provider = 'google-sheets'
+    } else if (dataType.startsWith('google_drive_') || dataType.startsWith('google-drive-') || dataType.startsWith('google-drive_')) {
+      provider = 'google-drive'
+    } else if (dataType.startsWith('google_calendar_') || dataType.startsWith('google-calendar-') || dataType.startsWith('google-calendar_')) {
+      provider = 'google-calendar'
+    } else if (dataType.startsWith('google_docs_') || dataType.startsWith('google-docs-') || dataType.startsWith('google-docs_')) {
+      provider = 'google-docs'
     } else if (dataType.startsWith('google_') || dataType.startsWith('google-')) {
       provider = 'google'
     } else if (dataType.startsWith('gmail_') || dataType.startsWith('gmail-')) {
@@ -447,8 +455,6 @@ export class IntegrationService {
       provider = 'onedrive'
     } else if (dataType.startsWith('onenote_') || dataType.startsWith('onenote-')) {
       provider = 'onenote'
-    } else if (dataType.startsWith('google_sheets_') || dataType.startsWith('google-sheets-')) {
-      provider = 'google-sheets'
     } else if (dataType.startsWith('dropbox_') || dataType.startsWith('dropbox-')) {
       provider = 'dropbox'
     } else if (dataType.startsWith('box_') || dataType.startsWith('box-')) {
@@ -459,8 +465,6 @@ export class IntegrationService {
       provider = 'gumroad'
     } else if (dataType.startsWith('blackbaud_') || dataType.startsWith('blackbaud-')) {
       provider = 'blackbaud'
-    } else if (dataType.startsWith('onedrive_') || dataType.startsWith('onedrive-')) {
-      provider = 'onedrive'
     } else {
       // Fallback: try to extract provider from dataType
       // Handle both underscore and dash separators

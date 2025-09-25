@@ -44,6 +44,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   const loadingFields = useRef<Set<string>>(new Set());
   const activeRequests = useRef<Map<string, Promise<void>>>(new Map());
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
+  const staleTimers = useRef<Map<string, any>>(new Map());
   // Track request IDs to handle concurrent requests for the same field
   const requestCounter = useRef(0);
   const activeRequestIds = useRef<Map<string, number>>(new Map());
@@ -144,6 +145,16 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     // Create AbortController for this request
     const abortController = new AbortController();
     abortControllers.current.set(requestKey, abortController);
+    // Start a stale timer to force-clear loading if request hangs (10s)
+    const staleTimer = setTimeout(() => {
+      if (activeRequestIds.current.get(requestKey) === requestId) {
+        loadingFields.current.delete(requestKey);
+        setLoading(false);
+        if (!silent) onLoadingChangeRef.current?.(fieldName, false);
+        abortControllers.current.delete(requestKey);
+      }
+    }, 10000);
+    staleTimers.current.set(requestKey, staleTimer);
     
     // Create and store the loading promise to prevent duplicate requests
     const loadingPromise = (async () => {
@@ -1441,10 +1452,22 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     try {
       await loadingPromise;
     } finally {
-      // Clean up the request tracking
+      // Unified cleanup to avoid stuck loading states
+      if (activeRequestIds.current.get(requestKey) === requestId) {
+        loadingFields.current.delete(requestKey);
+        setLoading(false);
+        if (!silent) onLoadingChangeRef.current?.(fieldName, false);
+        activeRequestIds.current.delete(requestKey);
+      }
+      abortControllers.current.delete(requestKey);
+      const t = staleTimers.current.get(requestKey);
+      if (t) {
+        clearTimeout(t);
+        staleTimers.current.delete(requestKey);
+      }
       activeRequests.current.delete(activeRequestKey);
     }
-  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData]);
+  }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, dynamicOptions, onLoadingChange, getFormValues]);
   
   // Track previous values to avoid unnecessary clears
   const prevNodeTypeRef = useRef(nodeType);

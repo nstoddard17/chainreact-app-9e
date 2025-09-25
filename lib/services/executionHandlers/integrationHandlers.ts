@@ -60,6 +60,125 @@ export class IntegrationNodeHandlers {
       return await this.googleService.execute(node, context)
     }
 
+    // Microsoft OneNote integrations
+    if (nodeType.startsWith('microsoft-onenote_') || nodeType.startsWith('onenote_')) {
+      const config = node.data.config || {}
+      switch (nodeType) {
+        case 'microsoft-onenote_action_create_notebook': {
+          const { onenoteCreateNotebook } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteCreateNotebook({
+            displayName: config.displayName,
+            userRole: config.userRole,
+            overwriteIfExists: config.overwriteIfExists
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to create OneNote notebook')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_create_section': {
+          const { onenoteCreateSection } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteCreateSection({
+            notebookId: config.notebookId,
+            displayName: config.displayName
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to create OneNote section')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_create_page': {
+          const { onenoteCreatePage } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteCreatePage({
+            notebookId: config.notebookId,
+            sectionId: config.sectionId,
+            title: config.title,
+            content: config.content,
+            contentType: config.contentType
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to create OneNote page')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_update_page': {
+          const { onenoteUpdatePage } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteUpdatePage({
+            notebookId: config.notebookId,
+            sectionId: config.sectionId,
+            pageId: config.pageId,
+            content: config.content,
+            updateMode: config.updateMode,
+            target: config.target,
+            position: config.position
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to update OneNote page')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_get_page_content': {
+          const { onenoteGetPageContent } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteGetPageContent({
+            notebookId: config.notebookId,
+            sectionId: config.sectionId,
+            pageId: config.pageId,
+            includeIDs: config.includeIDs
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to get OneNote page content')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_get_pages': {
+          const { onenoteGetPages } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteGetPages({
+            notebookId: config.notebookId,
+            sectionId: config.sectionId
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to get OneNote pages')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_copy_page': {
+          const { onenoteCopyPage } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteCopyPage({
+            pageId: config.pageId,
+            destinationSectionId: config.destinationSectionId
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to copy OneNote page')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_search': {
+          const { onenoteSearch } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteSearch({
+            query: config.query,
+            notebookId: config.notebookId,
+            sectionId: config.sectionId
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to search OneNote')
+          }
+          return result
+        }
+        case 'microsoft-onenote_action_delete_page': {
+          const { onenoteDeletePage } = await import('@/lib/workflows/actions/microsoft-onenote')
+          const result = await onenoteDeletePage({
+            pageId: config.pageId
+          }, context as any)
+          if (!result?.success) {
+            throw new Error(result?.error || result?.message || 'Failed to delete OneNote page')
+          }
+          return result
+        }
+        default:
+          throw new Error(`Unknown OneNote action type: ${nodeType}`)
+      }
+    }
+
     // Discord integrations
     if (nodeType.startsWith('discord_')) {
       return await this.executeDiscordAction(node, context)

@@ -115,6 +115,14 @@ const onenoteActionCreateNotebook: NodeComponent = {
       description: "The name of the new notebook"
     },
     {
+      name: "overwriteIfExists",
+      label: "If name exists, use existing",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "If a notebook with this name exists, use it instead of creating a new one"
+    },
+    {
       name: "userRole",
       label: "User Role",
       type: "select",

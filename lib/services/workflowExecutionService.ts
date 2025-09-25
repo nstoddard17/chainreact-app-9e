@@ -82,17 +82,12 @@ export class WorkflowExecutionService {
     let startingNodes: any[]
 
     if (skipTriggers) {
-      // When skipping triggers (webhook already triggered), start from nodes connected to triggers
-      const triggerNodes = nodes.filter((node: any) =>
-        node.data?.isTrigger === true
-      )
+      // When skipping triggers (Run Once, or external trigger already fired), prefer nodes connected from trigger(s)
+      const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger === true)
 
-      // Find nodes that are directly connected from trigger nodes
+      // Primary: nodes directly connected from any trigger
       startingNodes = nodes.filter((node: any) => {
-        // Don't include the trigger nodes themselves
         if (node.data?.isTrigger) return false
-
-        // Check if this node is connected from a trigger
         return validConnections.some((conn: any) =>
           triggerNodes.some((trigger: any) => trigger.id === conn.source) &&
           conn.target === node.id
@@ -100,8 +95,30 @@ export class WorkflowExecutionService {
       })
 
       if (startingNodes.length === 0) {
-        console.log('No action nodes connected to triggers, workflow may be trigger-only')
-        startingNodes = [] // Allow empty for trigger-only workflows
+        // Fallback 1: if there are no triggers in the provided graph (e.g., triggers filtered out for Run Once),
+        // start from root action nodes (those without incoming edges)
+        if (triggerNodes.length === 0) {
+          const hasIncoming = (nodeId: string) => validConnections.some((c: any) => c.target === nodeId)
+          const rootActions = nodes.filter((n: any) => !n.data?.isTrigger && !hasIncoming(n.id))
+
+          if (rootActions.length > 0) {
+            console.log(`⚙️ Fallback: starting from ${rootActions.length} root action node(s) (no triggers present)`)
+            startingNodes = rootActions
+          } else {
+            // Fallback 2: as a last resort, start from the first non-trigger node
+            const firstAction = nodes.find((n: any) => !n.data?.isTrigger)
+            if (firstAction) {
+              console.log(`⚙️ Fallback: starting from first action node ${firstAction.id} (no roots found)`) 
+              startingNodes = [firstAction]
+            } else {
+              console.log('⚠️ No action nodes available to execute when skipping triggers')
+              startingNodes = []
+            }
+          }
+        } else {
+          console.log('No action nodes connected to triggers, workflow may be trigger-only')
+          startingNodes = [] // Allow empty for trigger-only workflows
+        }
       }
     } else {
       // Normal execution - start from trigger nodes

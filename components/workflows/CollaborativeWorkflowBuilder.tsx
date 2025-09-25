@@ -260,6 +260,19 @@ const useWorkflowBuilderState = () => {
     setShowComingSoon(false)
   }, [])
 
+  // Clear any stuck save/execute states and timers within builder state scope
+  const clearStuckRequests = useCallback(() => {
+    try {
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+    } catch {}
+  }, [setIsSaving, setIsExecuting])
+
   const openTriggerDialog = useCallback(() => {
     resetIntegrationFilters()
     setSelectedIntegration(null)
@@ -273,8 +286,10 @@ const useWorkflowBuilderState = () => {
     setSelectedIntegration(null)
     setSelectedAction(null)
     setSearchQuery("")
+    // Force-refresh integrations so connection statuses are up-to-date in the modal
+    try { fetchIntegrations(true) } catch {}
     setShowActionDialog(true)
-  }, [resetIntegrationFilters])
+  }, [resetIntegrationFilters, fetchIntegrations])
 
   // Step execution store hooks
   const {
@@ -363,6 +378,11 @@ const useWorkflowBuilderState = () => {
     const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
     if (systemIntegrations.includes(integrationId)) return true;
     
+    // If integrations are actively loading, do not mark as disconnected yet
+    if (integrationsLoading) {
+      return true
+    }
+
     // Always get fresh data from the store
     const freshIntegrations = useIntegrationStore.getState().integrations;
     
@@ -458,9 +478,7 @@ const useWorkflowBuilderState = () => {
       return false;
     });
     
-    if (integration) {
-      return true;
-    }
+    if (integration) return true;
     
     // Use the getConnectedProviders as fallback
     const connectedProviders = getConnectedProviders();
@@ -473,7 +491,7 @@ const useWorkflowBuilderState = () => {
     }
     
     return isConnected;
-  }, [getConnectedProviders, integrations])
+  }, [getConnectedProviders, integrations, integrationsLoading])
 
 
 
@@ -2364,15 +2382,22 @@ const useWorkflowBuilderState = () => {
                 });
 
                 if (closestAction) {
-                  const newEdge: Edge = {
-                    id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
-                    source: trigger.id,
-                    target: closestAction.id,
-                    type: 'default',
-                  };
-                  updatedEdges.push(newEdge);
-                  newEdgesAdded = true;
-                  console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} after deletion`);
+                  // Check if this exact edge already exists (same source and target)
+                  const edgeExists = updatedEdges.some((e: Edge) =>
+                    e.source === trigger.id && e.target === closestAction.id
+                  );
+
+                  if (!edgeExists) {
+                    const newEdge: Edge = {
+                      id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                      source: trigger.id,
+                      target: closestAction.id,
+                      type: 'default',
+                    };
+                    updatedEdges.push(newEdge);
+                    newEdgesAdded = true;
+                    console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} after deletion`);
+                  }
                 }
               }
             });
@@ -2891,7 +2916,8 @@ const useWorkflowBuilderState = () => {
     // Always fetch integrations on mount to ensure we have the latest data
     // This is critical for showing connection status correctly
     const loadIntegrations = async () => {
-      await fetchIntegrations(true); // Force fetch to ensure we have the latest
+      // Avoid forcing to prevent wiping existing connection cache mid-UI
+      await fetchIntegrations(false);
     }
     
     loadIntegrations();
@@ -3120,16 +3146,25 @@ const useWorkflowBuilderState = () => {
             });
 
             if (closestAction) {
-              // Create a new edge connecting the trigger to the closest action
-              const newEdge: Edge = {
-                id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
-                source: trigger.id,
-                target: closestAction.id,
-                type: 'default',
-              };
-              updatedEdges.push(newEdge);
-              newEdgesAdded = true;
-              console.log(`🔗 Auto-connected trigger ${trigger.id} (${trigger.data?.label}) to action ${closestAction.id} (${closestAction.data?.label})`);
+              // Check if this exact edge already exists (same source and target)
+              const edgeExists = updatedEdges.some((e: Edge) =>
+                e.source === trigger.id && e.target === closestAction.id
+              );
+
+              if (!edgeExists) {
+                // Create a new edge connecting the trigger to the closest action
+                const newEdge: Edge = {
+                  id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                  source: trigger.id,
+                  target: closestAction.id,
+                  type: 'default',
+                };
+                updatedEdges.push(newEdge);
+                newEdgesAdded = true;
+                console.log(`🔗 Auto-connected trigger ${trigger.id} (${trigger.data?.label}) to action ${closestAction.id} (${closestAction.data?.label})`);
+              } else {
+                console.log(`⏭️ Edge already exists between trigger ${trigger.id} and action ${closestAction.id}`);
+              }
             }
           }
         });
@@ -3268,7 +3303,14 @@ const useWorkflowBuilderState = () => {
 
       // Auto-cleanup any stuck requests on error
       setTimeout(() => {
-        clearStuckRequests();
+        try {
+          setIsExecuting(false)
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
       }, 100);
     }
     finally {
@@ -3350,6 +3392,8 @@ const useWorkflowBuilderState = () => {
       )
 
       setIsUpdatingStatus(true)
+      // Suppress unsaved-change detection during status toggle
+      isSavingRef.current = true
 
       const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
 
@@ -3490,11 +3534,12 @@ const useWorkflowBuilderState = () => {
       const data = await response.json()
       console.log('✅ Workflow updated successfully:', data)
 
-      // Update the local state
+      // Update the local state without marking unsaved changes
       setCurrentWorkflow({
         ...currentWorkflow,
         status: newStatus
       })
+      setHasUnsavedChanges(false)
 
       toast({
         title: "Success",
@@ -3509,6 +3554,7 @@ const useWorkflowBuilderState = () => {
       })
     } finally {
       setIsUpdatingStatus(false)
+      isSavingRef.current = false
     }
   }
 
@@ -3577,7 +3623,14 @@ const useWorkflowBuilderState = () => {
           setListeningMode(false)
           setIsStepByStep(false)
           stopStepExecution()
-          clearStuckRequests()
+          try {
+            setIsExecuting(false)
+            isSavingRef.current = false
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+              saveTimeoutRef.current = null
+            }
+          } catch {}
           toast({
             title: "Sandbox Mode Auto-Stopped",
             description: "Sandbox mode was automatically stopped after extended period.",
@@ -3664,15 +3717,22 @@ const useWorkflowBuilderState = () => {
             });
 
             if (closestAction) {
-              const newEdge: Edge = {
-                id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
-                source: trigger.id,
-                target: closestAction.id,
-                type: 'default',
-              };
-              updatedEdges.push(newEdge);
-              newEdgesAdded = true;
-              console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} for sandbox mode`);
+              // Check if this exact edge already exists (same source and target)
+              const edgeExists = updatedEdges.some((e: Edge) =>
+                e.source === trigger.id && e.target === closestAction.id
+              );
+
+              if (!edgeExists) {
+                const newEdge: Edge = {
+                  id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                  source: trigger.id,
+                  target: closestAction.id,
+                  type: 'default',
+                };
+                updatedEdges.push(newEdge);
+                newEdgesAdded = true;
+                console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} for sandbox mode`);
+              }
             }
           }
         });
@@ -3829,7 +3889,14 @@ const useWorkflowBuilderState = () => {
 
       // Clear any stuck requests that might have accumulated during execution
       setTimeout(() => {
-        clearStuckRequests()
+        try {
+          setIsExecuting(false)
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
       }, 100)
 
       console.log('✅ Test mode complete, states auto-cleaned')
@@ -3973,14 +4040,27 @@ const useWorkflowBuilderState = () => {
     if (isExecuting) return
 
     // Clear any stuck states before starting
-    clearStuckRequests()
+    try {
+      setIsExecuting(false)
+      isSavingRef.current = false
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+    } catch {}
 
     // Set up auto-cleanup timer to prevent stuck execution state
     const executionCleanupTimer = setTimeout(() => {
       if (isExecuting) {
         console.warn('⚠️ Execution took too long, auto-cleaning up...')
         setIsExecuting(false)
-        clearStuckRequests()
+        try {
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
       }
     }, 30000) // 30 seconds max for execution
 
@@ -4155,7 +4235,13 @@ const useWorkflowBuilderState = () => {
 
       // Clear any stuck requests that might have accumulated during execution
       setTimeout(() => {
-        clearStuckRequests()
+        try {
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
       }, 100)
 
       console.log('✅ Execution complete, states auto-cleaned')
@@ -4513,8 +4599,6 @@ const useWorkflowBuilderState = () => {
     setIsSaving(false)
     setIsExecuting(false)
     isSavingRef.current = false
-    // Clear any stuck workflow requests
-    clearStuckRequests()
     // Clear any pending timeouts
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
@@ -4911,17 +4995,31 @@ const useWorkflowBuilderState = () => {
           }
         }
         
-        const initialEdges: Edge[] = (data.connections || []).map((conn: any) => {
+        // Deduplicate edges to prevent React key warnings
+        const seenEdgeIds = new Set<string>();
+        const uniqueConnections = (data.connections || []).filter((conn: any) => {
+          if (seenEdgeIds.has(conn.id)) {
+            console.warn(`Duplicate edge ID found and filtered: ${conn.id}`);
+            return false;
+          }
+          seenEdgeIds.add(conn.id);
+          return true;
+        });
+
+        const initialEdges: Edge[] = uniqueConnections.map((conn: any, index: number) => {
           // Check if this is a connection between action nodes (not to addAction nodes)
           const sourceNode = allNodes.find(n => n.id === conn.source)
           const targetNode = allNodes.find(n => n.id === conn.target)
-          const isActionToAction = sourceNode && targetNode && 
+          const isActionToAction = sourceNode && targetNode &&
             sourceNode.type === 'custom' && targetNode.type === 'custom' &&
             targetNode.data?.type !== 'addAction'
-          
+
+          // Ensure unique edge ID even if the saved one is problematic
+          const edgeId = conn.id || `edge-${conn.source}-${conn.target}-${index}-${Date.now()}`;
+
           return {
-            id: conn.id, 
-            source: conn.source, 
+            id: edgeId,
+            source: conn.source,
             target: conn.target,
             type: isActionToAction ? 'custom' : undefined,
             data: isActionToAction ? {
@@ -5488,6 +5586,15 @@ function WorkflowBuilderContent() {
   }, [openTriggerDialog])
 
   // Debug loading states (reduced frequency)
+  // Utility: clear any stuck fetch/execute/save flags used in this component
+  const clearStuckRequests = useCallback(() => {
+    try {
+      // Reset executing flag and saving ref
+      setIsExecuting(false)
+      isSavingRef.current = false
+      // No-op placeholder for any future network aborts
+    } catch {}
+  }, [setIsExecuting])
 
   // Use a more robust loading condition that prevents double loading
   // Only show loading if we're actually in a loading state AND we don't have the required data
@@ -5497,10 +5604,7 @@ function WorkflowBuilderContent() {
       return true
     }
     
-    // If integrations are loading and we don't have any workflows yet, show loading
-    if (integrationsLoading && workflows.length === 0) {
-      return true
-    }
+    // Do not block the entire builder on integrations loading; dialogs handle their own loading
     
     // If workflow is loading and we don't have the current workflow, show loading
     if (workflowLoading && !currentWorkflow) {

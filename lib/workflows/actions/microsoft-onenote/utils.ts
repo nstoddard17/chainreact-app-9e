@@ -2,31 +2,36 @@
  * OneNote Action Utilities
  */
 
-import { getSupabaseClient } from '@/lib/supabase'
+import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
 /**
  * Get Microsoft Graph access token for OneNote integration
  */
 export async function getOneNoteAccessToken(userId: string): Promise<string> {
-  const supabase = getSupabaseClient()
-  
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('provider', 'microsoft-onenote')
-    .eq('status', 'connected')
-    .single()
+  const supabase = await createSupabaseServiceClient()
 
-  if (error || !integration) {
-    throw new Error('OneNote integration not found or not connected')
+  // Try common provider keys in order
+  const providerCandidates = [
+    'microsoft-onenote',
+    'microsoft_onenote',
+    'onenote',
+  ]
+
+  for (const provider of providerCandidates) {
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', provider)
+      .eq('status', 'connected')
+      .maybeSingle()
+
+    if (integration && integration.access_token) {
+      return integration.access_token as string
+    }
   }
 
-  if (!integration.access_token) {
-    throw new Error('No access token found for OneNote integration')
-  }
-
-  return integration.access_token
+  throw new Error('OneNote integration not found or not connected')
 }
 
 /**

@@ -44,6 +44,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const providers = useIntegrationStore(state => state.providers)
   const loading = useIntegrationStore(state => state.loading)
   const loadingStates = useIntegrationStore(state => state.loadingStates)
+  const [initialFetchSettled, setInitialFetchSettled] = useState(false)
 
   // These functions don't change, so we can get them once
   const initializeProviders = useIntegrationStore(state => state.initializeProviders)
@@ -63,7 +64,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         console.log('⏳ Integration fetch already in progress, skipping duplicate request')
         return Promise.resolve(null)
       }
-      return fetchIntegrations(force)
+      return fetchIntegrations(force).finally(() => setInitialFetchSettled(true))
     },
     [fetchIntegrations]
   )
@@ -225,7 +226,11 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }
 
     // Use setTimeout to make initialization truly non-blocking
-    setTimeout(initializeData, 0)
+    setTimeout(() => {
+      initializeData()
+      // Fallback settle in case store flags get stuck
+      setTimeout(() => setInitialFetchSettled(true), 3000)
+    }, 0)
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, refreshIntegrations]) // Only depend on user to avoid re-running

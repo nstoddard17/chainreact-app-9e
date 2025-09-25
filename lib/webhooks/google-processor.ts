@@ -9,7 +9,11 @@ type ProcessedCalendarEventEntry = {
 
 const processedCalendarEvents = new Map<string, ProcessedCalendarEventEntry>()
 const processedDriveChanges = new Map<string, ProcessedCalendarEventEntry>()
+const processedSheetsChanges = new Map<string, ProcessedCalendarEventEntry>()
 const CALENDAR_DEDUPE_WINDOW_MS = 5 * 60 * 1000
+// Dedupe noisy Drive push deliveries
+const lastDriveMessageNumber = new Map<string, number>() // key: channelId → last message number
+const lastDrivePageTokenProcessed = new Map<string, string>() // key: channelId → last page token
 
 const isCalendarDebugEnabled =
   process.env.DEBUG_GOOGLE_CALENDAR === '1' || process.env.DEBUG_GOOGLE_CALENDAR === 'true'
@@ -45,6 +49,20 @@ function buildCalendarDedupeKey(workflowId: string, eventId: string, changeType:
 
 function buildDriveDedupeKey(workflowId: string, resourceId: string, changeType: string) {
   return `${workflowId}-${resourceId}-${changeType}`
+}
+
+function buildSheetsDedupeKey(
+  workflowId: string,
+  spreadsheetId: string | null,
+  sheetName: string | null,
+  identifier: string
+) {
+  return [
+    workflowId,
+    spreadsheetId || 'unknown-spreadsheet',
+    sheetName || 'all-sheets',
+    identifier
+  ].join(':')
 }
 
 function toTimestamp(value: string | null | undefined): number | null {
@@ -101,6 +119,46 @@ function markDriveChangeProcessed(
     for (const [k, timestamp] of processedDriveChanges.entries()) {
       if (now - timestamp.processedAt > CALENDAR_DEDUPE_WINDOW_MS) {
         processedDriveChanges.delete(k)
+      }
+    }
+  }
+}
+
+function wasRecentlyProcessedSheetsChange(key: string, updatedAt?: string | null): boolean {
+  const entry = processedSheetsChanges.get(key)
+  if (!entry) return false
+
+  const incomingUpdated = toTimestamp(updatedAt)
+
+  if (incomingUpdated !== null) {
+    if (entry.lastUpdated !== undefined && entry.lastUpdated !== null) {
+      if (incomingUpdated <= entry.lastUpdated) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+    return true
+  }
+
+  processedSheetsChanges.delete(key)
+  return false
+}
+
+function markSheetsChangeProcessed(key: string, updatedAt?: string | null) {
+  const incomingUpdated = toTimestamp(updatedAt)
+  processedSheetsChanges.set(key, {
+    processedAt: Date.now(),
+    lastUpdated: incomingUpdated
+  })
+
+  if (processedSheetsChanges.size > 1000) {
+    const now = Date.now()
+    for (const [k, timestamp] of processedSheetsChanges.entries()) {
+      if (now - timestamp.processedAt > CALENDAR_DEDUPE_WINDOW_MS) {
+        processedSheetsChanges.delete(k)
       }
     }
   }
@@ -229,6 +287,16 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           channelId,
           hasToken: Boolean(event.eventData?.token)
         })
+        // Dedupe by message number if provided
+        const msgRaw = event.eventData?.headers?.['x-goog-message-number']
+        const msgNum = typeof msgRaw === 'string' ? Number(msgRaw) : NaN
+        if (!Number.isNaN(msgNum)) {
+          const lastNum = lastDriveMessageNumber.get(channelId)
+          if (lastNum !== undefined && msgNum <= lastNum) {
+            return { processed: true, deduped: true, reason: 'messageNumber' }
+          }
+          lastDriveMessageNumber.set(channelId, msgNum)
+        }
         const supabaseLookup = await createSupabaseServiceClient()
         const { data: sub } = await supabaseLookup
           .from('google_watch_subscriptions')
@@ -242,7 +310,9 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           metadata = {
             ...metadata,
             userId: sub.user_id,
-            integrationId: sub.integration_id
+            integrationId: sub.integration_id,
+            provider: sub.provider || metadata?.provider,
+            contextProvider: sub.provider || metadata?.contextProvider
           }
           console.log('[Google Drive] Subscription metadata resolved from channel', {
             userId: metadata.userId,
@@ -265,33 +335,149 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 
   const { getGoogleDriveChanges } = await import('./google-drive-watch-setup')
   const supabase = await createSupabaseServiceClient()
+  const providerContext: string | null = metadata?.provider || metadata?.contextProvider || null
+  const isSheetsWatch = providerContext === 'google-sheets'
+  const subscriptionProviderFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
 
   // Prefer channel-scoped lookup to handle multiple rows
   let subscription: any = null
   const channelId: string | null = (event.eventData?.channelId) 
     || (event.eventData?.headers?.['x-goog-channel-id'])
     || null
+  let subscriptionMetadata: any = null
+
   if (channelId) {
     const { data: byChannel } = await supabase
       .from('google_watch_subscriptions')
-      .select('page_token, updated_at')
+      .select('page_token, updated_at, provider, metadata')
       .eq('channel_id', channelId)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
     subscription = byChannel
+    if (byChannel?.provider && !metadata?.provider) {
+      metadata = {
+        ...metadata,
+        provider: byChannel.provider,
+        contextProvider: byChannel.provider
+      }
+    }
+    if (byChannel?.metadata) {
+      if (typeof byChannel.metadata === 'object') {
+        subscriptionMetadata = byChannel.metadata
+      } else {
+        try {
+          subscriptionMetadata = JSON.parse(byChannel.metadata)
+        } catch {
+          subscriptionMetadata = null
+        }
+      }
+    }
   }
   if (!subscription) {
     const { data: latest } = await supabase
       .from('google_watch_subscriptions')
-      .select('page_token, updated_at')
+      .select('page_token, updated_at, channel_id, metadata')
       .eq('user_id', metadata.userId)
       .eq('integration_id', metadata.integrationId)
-      .eq('provider', 'google-drive')
+      .eq('provider', subscriptionProviderFilter)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
     subscription = latest
+    if (latest?.metadata) {
+      if (typeof latest.metadata === 'object') {
+        subscriptionMetadata = latest.metadata
+      } else {
+        try {
+          subscriptionMetadata = JSON.parse(latest.metadata)
+        } catch {
+          subscriptionMetadata = null
+        }
+      }
+    }
+  }
+
+  if (isSheetsWatch) {
+    const mergedMetadata: Record<string, any> = { ...metadata }
+
+    if (subscriptionMetadata) {
+      for (const [key, value] of Object.entries(subscriptionMetadata)) {
+        const existing = mergedMetadata[key]
+        if (existing === undefined || existing === null) {
+          mergedMetadata[key] = value
+        }
+      }
+    }
+
+    const normalizedSpreadsheetId = mergedMetadata.spreadsheetId
+      || mergedMetadata.spreadsheet_id
+      || subscriptionMetadata?.spreadsheetId
+      || subscriptionMetadata?.spreadsheet_id
+      || null
+
+    const normalizedSheetName = mergedMetadata.sheetName
+      || mergedMetadata.sheet_name
+      || subscriptionMetadata?.sheetName
+      || subscriptionMetadata?.sheet_name
+      || null
+
+    const normalizedSheetId = mergedMetadata.sheetId
+      || mergedMetadata.sheet_id
+      || subscriptionMetadata?.sheetId
+      || subscriptionMetadata?.sheet_id
+      || null
+
+    const normalizedTriggerType = mergedMetadata.triggerType
+      || mergedMetadata.trigger_type
+      || subscriptionMetadata?.triggerType
+      || subscriptionMetadata?.trigger_type
+      || 'new_row'
+
+    mergedMetadata.spreadsheetId = normalizedSpreadsheetId
+    mergedMetadata.sheetName = normalizedSheetName
+    mergedMetadata.sheetId = normalizedSheetId
+    mergedMetadata.triggerType = normalizedTriggerType
+
+    metadata = mergedMetadata
+
+    console.log('[Google Sheets] Normalized metadata', {
+      userId: metadata.userId,
+      integrationId: metadata.integrationId,
+      spreadsheetId: metadata.spreadsheetId,
+      sheetName: metadata.sheetName,
+      triggerType: metadata.triggerType
+    })
+  }
+
+  // If this delivery belongs to an older channel than the latest, ignore it
+  if (channelId) {
+    const { data: latestForOwner } = await supabase
+      .from('google_watch_subscriptions')
+      .select('channel_id, updated_at')
+      .eq('user_id', metadata.userId)
+      .eq('integration_id', metadata.integrationId)
+      .eq('provider', subscriptionProviderFilter)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (latestForOwner?.channel_id && latestForOwner.channel_id !== channelId) {
+      return { processed: true, ignored: true, reason: 'stale_channel' }
+    }
+  }
+
+  if (isSheetsWatch) {
+    try {
+      const sheetsEvent: GoogleWebhookEvent = {
+        service: 'sheets',
+        eventData: event.eventData,
+        requestId: event.requestId
+      }
+      return await processGoogleSheetsEvent(sheetsEvent, metadata)
+    } catch (sheetsError) {
+      console.error('[Google Sheets] Failed to process Sheets change via Drive handler:', sheetsError)
+      throw sheetsError
+    }
   }
 
   if (!subscription?.page_token) {
@@ -303,14 +489,39 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   const pageTokenPreview = String(subscription.page_token).slice(0, 8) + '...'
-  console.log('[Google Drive] Fetching changes', { pageToken: pageTokenPreview, updatedAt: subscription?.updated_at })
-  const changes = await getGoogleDriveChanges(metadata.userId, metadata.integrationId, subscription.page_token)
+  if (channelId) {
+    const lastToken = lastDrivePageTokenProcessed.get(channelId)
+    if (lastToken && lastToken === subscription.page_token) {
+      // Skip repeated fetches for same token on a burst of identical notifications
+      return { processed: true, ignored: true, reason: 'duplicate_page_token' }
+    }
+    lastDrivePageTokenProcessed.set(channelId, subscription.page_token)
+  }
+  const fetchLogLabel = isSheetsWatch ? '[Google Sheets] Fetching changes' : '[Google Drive] Fetching changes'
+  console.log(fetchLogLabel, { pageToken: pageTokenPreview, updatedAt: subscription?.updated_at })
+  const integrationProvider = isSheetsWatch ? 'google-sheets' : 'google-drive'
+  const changes = await getGoogleDriveChanges(
+    metadata.userId,
+    metadata.integrationId,
+    subscription.page_token,
+    integrationProvider
+  )
   const watchStartTs = subscription?.updated_at ? new Date(subscription.updated_at).getTime() : null
-  console.log('[Google Drive] Changes fetched', {
+  const fetchedLogLabel = isSheetsWatch ? '[Google Sheets] Changes fetched' : '[Google Drive] Changes fetched'
+  console.log(fetchedLogLabel, {
     count: Array.isArray(changes.changes) ? changes.changes.length : 0,
     nextPageToken: (changes.nextPageToken ? String(changes.nextPageToken).slice(0, 8) + '...' : null)
   })
   let processedChanges = 0
+  const changeTypeCounts = { file_created: 0, file_updated: 0, folder_created: 0 }
+  const sheetChangeCounts = isSheetsWatch
+    ? {
+        sheet_file_created: 0,
+        sheet_updated: 0,
+        sheet_folder_created: 0,
+        sheet_folder_updated: 0
+      }
+    : null
 
   for (const change of changes.changes || []) {
     processedChanges += 1
@@ -350,7 +561,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           ? createdTime.getTime() >= watchStartTs
           : (nowTs - createdTime.getTime() < 120000))
       : false
-    console.log('[Google Drive] Change', {
+    const changeLogLabel = isSheetsWatch ? '[Google Sheets] Change' : '[Google Drive] Change'
+    console.log(changeLogLabel, {
       id: change.fileId || change.file?.id,
       mimeType,
       parents: parentIds,
@@ -358,6 +570,33 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       isFolder,
       isNewItem
     })
+
+    let classifiedAs: 'file_created' | 'file_updated' | 'folder_created' | null = null
+
+    if (isSheetsWatch) {
+      let sheetChangeType: 'sheet_file_created' | 'sheet_updated' | 'sheet_folder_created' | 'sheet_folder_updated'
+        = 'sheet_updated'
+
+      if (isFolder) {
+        sheetChangeType = isNewItem ? 'sheet_folder_created' : 'sheet_folder_updated'
+      } else if (isNewItem) {
+        sheetChangeType = 'sheet_file_created'
+      }
+
+      if (sheetChangeCounts) {
+        sheetChangeCounts[sheetChangeType] += 1
+      }
+
+      console.log('[Google Sheets] Change detected via Drive watch', {
+        id: change.fileId || change.file?.id,
+        changeType: sheetChangeType,
+        isNewItem,
+        isFolder,
+        parents: parentIds
+      })
+
+      continue
+    }
 
     if (isFolder) {
       if (isNewItem) {
@@ -367,6 +606,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           metadata,
           parentIds
         })
+        classifiedAs = 'folder_created'
+        changeTypeCounts.folder_created += 1
       }
     } else {
       if (isNewItem) {
@@ -376,6 +617,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           metadata,
           parentIds
         })
+        classifiedAs = 'file_created'
+        changeTypeCounts.file_created += 1
       } else {
         await handleDriveFileUpdated({
           fileId: change.fileId,
@@ -383,7 +626,16 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           metadata,
           parentIds
         })
+        classifiedAs = 'file_updated'
+        changeTypeCounts.file_updated += 1
       }
+    }
+
+    if (classifiedAs) {
+      console.log('[Google Drive] Change classified', {
+        id: change.fileId || change.file?.id,
+        changeType: classifiedAs
+      })
     }
 
     const isGoogleDoc = mimeType === 'application/vnd.google-apps.document'
@@ -405,7 +657,29 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       .eq('provider', 'google-drive')
   }
 
-  console.log('[Google Drive] Processed change batch', { changesCount: processedChanges })
+  if (isSheetsWatch) {
+    try {
+      await processGoogleSheetsEvent(
+        {
+          service: 'sheets',
+          eventData: event.eventData,
+          requestId: event.requestId
+        },
+        metadata
+      )
+    } catch (sheetsError) {
+      console.error('[Google Drive] Failed to process Google Sheets change:', sheetsError)
+    }
+  }
+
+  if (isSheetsWatch) {
+    console.log('[Google Sheets] Processed change batch', {
+      changesCount: processedChanges,
+      sheetChangeCounts
+    })
+  } else {
+    console.log('[Google Drive] Processed change batch', { changesCount: processedChanges, changeTypeCounts })
+  }
   return { processed: true, changesCount: processedChanges }
 }
 
@@ -597,6 +871,7 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
 
 type CalendarChangeType = 'created' | 'updated' | 'deleted'
 type DriveChangeType = 'file_created' | 'file_updated' | 'folder_created'
+type SheetsChangeType = 'new_row' | 'updated_row' | 'new_worksheet'
 
 async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, calendarEvent: any, metadata: any, options?: { watchStartTime?: string | null }) {
   if (!calendarEvent) {
@@ -867,6 +1142,13 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     return
   }
 
+  // Skip noisy open-only updates for Google Sheets files
+  const mime = String(drivePayload.mimeType || '')
+  if (changeType === 'file_updated' && mime === 'application/vnd.google-apps.spreadsheet') {
+    console.debug('[Google Drive] Skipping spreadsheet open/update event', { resourceId })
+    return
+  }
+
   const triggerTypeMap: Record<DriveChangeType, string> = {
     file_created: 'google-drive:new_file_in_folder',
     folder_created: 'google-drive:new_folder_in_folder',
@@ -952,9 +1234,14 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
             return true
           }
           case 'file_updated': {
-            const configuredFileId = configData?.fileId || nodeConfig?.fileId || configData?.folderId || nodeConfig?.folderId || null
-            if (configuredFileId) {
-              return configuredFileId === resourceId
+            // Match by explicit fileId, otherwise by folderId containment, otherwise allow
+            const explicitFileId = configData?.fileId || nodeConfig?.fileId || null
+            if (explicitFileId) {
+              return explicitFileId === resourceId
+            }
+            const folderId = configData?.folderId || nodeConfig?.folderId || null
+            if (folderId) {
+              return parentIds.includes(folderId)
             }
             return true
           }
@@ -1017,6 +1304,210 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     }
   } catch (error) {
     console.error('[Google Drive] Error triggering workflows for drive change:', error)
+  }
+}
+
+async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, changePayload: any, metadata: any) {
+  const userId = metadata?.userId
+  if (!userId) {
+    console.debug('[Google Sheets] Missing userId in metadata, skipping workflow trigger')
+    return
+  }
+
+  const spreadsheetId: string | null = changePayload?.spreadsheetId || metadata?.spreadsheetId || null
+  if (!spreadsheetId) {
+    console.debug('[Google Sheets] Missing spreadsheetId in payload, skipping workflow trigger')
+    return
+  }
+
+  const changeSheetName: string | null = changePayload?.sheetName || metadata?.sheetName || null
+  const changeSheetId: string | null = changePayload?.sheetId || metadata?.sheetId || null
+  const triggerTypeMap: Record<SheetsChangeType, string> = {
+    new_row: 'google_sheets_trigger_new_row',
+    updated_row: 'google_sheets_trigger_updated_row',
+    new_worksheet: 'google_sheets_trigger_new_worksheet'
+  }
+
+  const triggerType = triggerTypeMap[changeType]
+
+  try {
+    const supabase = await createSupabaseServiceClient()
+
+    const { data: webhookConfigs, error: webhookError } = await supabase
+      .from('webhook_configs')
+      .select('id, workflow_id, config, status, provider_id, trigger_type')
+      .eq('trigger_type', triggerType)
+      .eq('status', 'active')
+      .eq('provider_id', 'google-sheets')
+      .eq('user_id', userId)
+
+    if (webhookError) {
+      console.error('[Google Sheets] Failed to fetch webhook configs:', webhookError)
+      return
+    }
+
+    if (!webhookConfigs || webhookConfigs.length === 0) {
+      return
+    }
+
+    const workflowIds = webhookConfigs
+      .map((config) => config.workflow_id)
+      .filter((id): id is string => Boolean(id))
+
+    if (workflowIds.length === 0) {
+      return
+    }
+
+    const { data: workflows, error: workflowsError } = await supabase
+      .from('workflows')
+      .select('id, user_id, nodes, connections, name, status')
+      .in('id', workflowIds)
+      .eq('status', 'active')
+
+    if (workflowsError) {
+      console.error('[Google Sheets] Failed to fetch workflows:', workflowsError)
+      return
+    }
+
+    if (!workflows || workflows.length === 0) {
+      return
+    }
+
+    for (const webhookConfig of webhookConfigs) {
+      if (!webhookConfig.workflow_id) continue
+
+      const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
+      if (!workflow) {
+        continue
+      }
+
+      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
+      const configData = (webhookConfig.config || {}) as any
+
+      const matchingTriggers = nodes.filter((node: any) => {
+        const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
+        if (nodeType !== triggerType) return false
+        if (!node?.data?.isTrigger) return false
+
+        const nodeConfig = node?.data?.config || {}
+
+        const configSpreadsheetId = configData?.spreadsheetId || nodeConfig?.spreadsheetId || null
+        if (configSpreadsheetId && configSpreadsheetId !== spreadsheetId) {
+          return false
+        }
+
+        if (changeType !== 'new_worksheet') {
+          const configSheetName = configData?.sheetName || nodeConfig?.sheetName || null
+          if (configSheetName && changeSheetName && configSheetName !== changeSheetName) {
+            return false
+          }
+          if (configSheetName && !changeSheetName) {
+            return false
+          }
+        }
+
+        return true
+      })
+
+      if (matchingTriggers.length === 0) {
+        continue
+      }
+
+      const eventTimestamp: string = changePayload?.timestamp || metadata?.timestamp || new Date().toISOString()
+      const rowNumber: number | null = typeof changePayload?.rowNumber === 'number'
+        ? changePayload.rowNumber
+        : null
+      const rowIndex: number | null = typeof changePayload?.rowIndex === 'number'
+        ? changePayload.rowIndex
+        : (rowNumber !== null ? rowNumber - 1 : null)
+      const values: any[] = Array.isArray(changePayload?.values)
+        ? changePayload.values
+        : (Array.isArray(changePayload?.data) ? changePayload.data : [])
+      const changeIdentifier = (() => {
+        switch (changeType) {
+          case 'new_row':
+            return `row-${rowNumber ?? rowIndex ?? 'unknown'}`
+          case 'updated_row':
+            return `updated-${rowNumber ?? changeSheetName ?? 'unknown'}`
+          case 'new_worksheet':
+            return `worksheet-${changeSheetId || changeSheetName || 'unknown'}`
+          default:
+            return `${changeType}`
+        }
+      })()
+
+      const dedupeSheetScope = changeSheetName
+        || configData?.sheetName
+        || (matchingTriggers[0]?.data?.config?.sheetName ?? null)
+
+      const dedupeKey = buildSheetsDedupeKey(
+        workflow.id,
+        spreadsheetId,
+        dedupeSheetScope,
+        `${changeType}-${changeIdentifier}`
+      )
+
+      if (wasRecentlyProcessedSheetsChange(dedupeKey, eventTimestamp)) {
+        continue
+      }
+
+      const triggerPayload: any = {
+        provider: 'google-sheets',
+        changeType,
+        spreadsheetId,
+        sheetId: changeSheetId,
+        sheetName: changeSheetName || dedupeSheetScope,
+        timestamp: eventTimestamp,
+        metadata,
+        rowNumber,
+        rowIndex,
+        values,
+        data: changePayload?.data ?? values,
+        message: changePayload?.message ?? null,
+        raw: changePayload,
+        row: {
+          rowIndex,
+          rowNumber,
+          values,
+          sheetName: changeSheetName || dedupeSheetScope,
+          spreadsheetId,
+          timestamp: eventTimestamp
+        }
+      }
+
+      try {
+        markSheetsChangeProcessed(dedupeKey, eventTimestamp)
+
+        const executionEngine = new AdvancedExecutionEngine()
+        const executionSession = await executionEngine.createExecutionSession(
+          workflow.id,
+          workflow.user_id,
+          'webhook',
+          {
+            inputData: triggerPayload,
+            webhookEvent: {
+              provider: 'google-sheets',
+              changeType,
+              metadata,
+              event: triggerPayload
+            }
+          }
+        )
+
+        await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
+        console.log('[Google Sheets] Workflow execution started', {
+          workflowId: workflow.id,
+          executionSessionId: executionSession.id,
+          changeType
+        })
+
+      } catch (workflowError) {
+        console.error(`[Google Sheets] Failed to execute workflow ${workflow.id}:`, workflowError)
+        processedSheetsChanges.delete(dedupeKey)
+      }
+    }
+  } catch (error) {
+    console.error('[Google Sheets] Error triggering workflows for sheet change:', error)
   }
 }
 
@@ -1158,13 +1649,22 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
       .eq('provider', 'google-sheets')
       .single()
 
-    if (subscription?.metadata) {
+    let subscriptionMetadata = subscription?.metadata
+    if (subscriptionMetadata && typeof subscriptionMetadata === 'string') {
+      try {
+        subscriptionMetadata = JSON.parse(subscriptionMetadata)
+      } catch {
+        subscriptionMetadata = null
+      }
+    }
+
+    if (subscriptionMetadata) {
       // Check for changes
       const result = await checkGoogleSheetsChanges(
         metadata.userId,
         metadata.integrationId,
         metadata.spreadsheetId,
-        subscription.metadata
+        subscriptionMetadata
       )
 
       // Process each change
@@ -1172,26 +1672,36 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
         switch (change.type) {
           case 'new_row':
             await handleSheetsRowCreated({
-              spreadsheetId: metadata.spreadsheetId,
+              spreadsheetId: change.spreadsheetId || metadata.spreadsheetId,
               sheetName: change.sheetName,
               rowNumber: change.rowNumber,
+              rowIndex: change.rowIndex,
               data: change.data,
+              values: change.values,
+              sheetId: change.sheetId,
+              timestamp: change.timestamp,
               metadata
             })
             break
           case 'updated_row':
             await handleSheetsRowUpdated({
-              spreadsheetId: metadata.spreadsheetId,
+              spreadsheetId: change.spreadsheetId || metadata.spreadsheetId,
               sheetName: change.sheetName,
               message: change.message,
+              rowNumber: change.rowNumber,
+              rowIndex: change.rowIndex,
+              data: change.data,
+              values: change.values,
+              timestamp: change.timestamp,
               metadata
             })
             break
           case 'new_worksheet':
             await handleSheetsSheetCreated({
-              spreadsheetId: metadata.spreadsheetId,
+              spreadsheetId: change.spreadsheetId || metadata.spreadsheetId,
               sheetName: change.sheetName,
               sheetId: change.sheetId,
+              timestamp: change.timestamp,
               metadata
             })
             break
@@ -1351,38 +1861,84 @@ async function handleSheetsCellUpdated(eventData: any): Promise<any> {
 async function handleSheetsSheetCreated(eventData: any): Promise<any> {
   console.log('Processing Google Sheets sheet created:', eventData.sheetName || eventData.sheet_id)
 
-  // Trigger workflow if there's a workflow configured for new worksheet trigger
-  if (eventData.metadata?.userId) {
-    // Here you would trigger the workflow execution
-    // This would integrate with your workflow execution system
-    console.log('Would trigger workflow for new worksheet:', eventData.sheetName)
-  }
+  const metadata = eventData.metadata || {}
+  const timestamp = eventData.timestamp || new Date().toISOString()
 
-  return { processed: true, type: 'sheets_sheet_created', sheetId: eventData.sheetId || eventData.sheet_id }
+  await triggerMatchingSheetsWorkflows('new_worksheet', {
+    spreadsheetId: eventData.spreadsheetId || metadata.spreadsheetId || null,
+    sheetName: eventData.sheetName || eventData.sheet_name || null,
+    sheetId: eventData.sheetId || eventData.sheet_id || null,
+    timestamp
+  }, metadata)
+
+  return {
+    processed: true,
+    type: 'sheets_sheet_created',
+    sheetId: eventData.sheetId || eventData.sheet_id,
+    timestamp
+  }
 }
 
 async function handleSheetsRowCreated(eventData: any): Promise<any> {
   console.log('Processing Google Sheets new row:', eventData.sheetName, eventData.rowNumber)
 
-  // Trigger workflow if there's a workflow configured for new row trigger
-  if (eventData.metadata?.userId) {
-    // Here you would trigger the workflow execution
-    // This would integrate with your workflow execution system
-    console.log('Would trigger workflow for new row:', eventData.data)
-  }
+  const metadata = eventData.metadata || {}
+  const timestamp = eventData.timestamp || new Date().toISOString()
+  const rowNumber = typeof eventData.rowNumber === 'number' ? eventData.rowNumber : null
+  const rowIndex = typeof eventData.rowIndex === 'number'
+    ? eventData.rowIndex
+    : (rowNumber !== null ? rowNumber - 1 : null)
+  const values = Array.isArray(eventData.values)
+    ? eventData.values
+    : (Array.isArray(eventData.data) ? eventData.data : [])
 
-  return { processed: true, type: 'sheets_row_created', rowData: eventData.data }
+  await triggerMatchingSheetsWorkflows('new_row', {
+    spreadsheetId: eventData.spreadsheetId || metadata.spreadsheetId || null,
+    sheetName: eventData.sheetName || metadata.sheetName || null,
+    sheetId: eventData.sheetId || metadata.sheetId || null,
+    rowNumber,
+    rowIndex,
+    values,
+    data: values,
+    timestamp
+  }, metadata)
+
+  return {
+    processed: true,
+    type: 'sheets_row_created',
+    rowData: values,
+    rowNumber,
+    timestamp
+  }
 }
 
 async function handleSheetsRowUpdated(eventData: any): Promise<any> {
   console.log('Processing Google Sheets row updated:', eventData.sheetName)
 
-  // Trigger workflow if there's a workflow configured for updated row trigger
-  if (eventData.metadata?.userId) {
-    // Here you would trigger the workflow execution
-    // This would integrate with your workflow execution system
-    console.log('Would trigger workflow for updated row')
-  }
+  const metadata = eventData.metadata || {}
+  const timestamp = eventData.timestamp || new Date().toISOString()
+  const rowNumber = typeof eventData.rowNumber === 'number' ? eventData.rowNumber : null
 
-  return { processed: true, type: 'sheets_row_updated', message: eventData.message }
+  await triggerMatchingSheetsWorkflows('updated_row', {
+    spreadsheetId: eventData.spreadsheetId || metadata.spreadsheetId || null,
+    sheetName: eventData.sheetName || metadata.sheetName || null,
+    sheetId: eventData.sheetId || metadata.sheetId || null,
+    rowNumber,
+    rowIndex: typeof eventData.rowIndex === 'number' ? eventData.rowIndex : null,
+    values: Array.isArray(eventData.values)
+      ? eventData.values
+      : (Array.isArray(eventData.data) ? eventData.data : []),
+    data: Array.isArray(eventData.values)
+      ? eventData.values
+      : (Array.isArray(eventData.data) ? eventData.data : []),
+    message: eventData.message || null,
+    timestamp
+  }, metadata)
+
+  return {
+    processed: true,
+    type: 'sheets_row_updated',
+    message: eventData.message,
+    timestamp
+  }
 } 
