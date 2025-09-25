@@ -18,4 +18,8 @@ export const googleSheetsHandlers: Record<string, GoogleSheetsDataHandler> = {
   'google-sheets_spreadsheets': getGoogleSheetsSpreadsheets,
   'google-sheets_sheets': getGoogleSheetsSheets,
   'google-sheets_columns': getGoogleSheetsColumns,
+  // Support the format used in the field mappings
+  'google-sheets-spreadsheets': getGoogleSheetsSpreadsheets,
+  'google-sheets-sheets': getGoogleSheetsSheets,
+  'google-sheets-columns': getGoogleSheetsColumns,
 }

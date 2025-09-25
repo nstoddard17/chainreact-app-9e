@@ -52,14 +52,14 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
 
     if (logData.status === 'error' || logData.error) {
       console.error(`[Webhook] ${logData.provider} error`, context)
-    } else if (logData.status === 'success') {
-      console.log(`[Webhook] ${logData.provider} success`, {
+    } else if (shouldLogWebhookDebug) {
+      const label = logData.status === 'success' ? 'success' : 'info'
+      console.log(`[Webhook] ${logData.provider} ${label}`, {
         requestId: logData.requestId,
         service: logData.service,
-        processingTime: logData.processingTime
+        processingTime: logData.processingTime,
+        status: logData.status
       })
-    } else if (shouldLogWebhookDebug) {
-      console.log(`[Webhook] ${logData.provider}:`, context)
     }
 
   } catch (error) {

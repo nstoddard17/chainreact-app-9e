@@ -354,6 +354,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
       // Get integration for other providers
       // Handle Google services which might use different provider IDs
       let lookupProviderId = providerId;
+      // If requesting google-drive-folders, prefer the Drive integration
+      if (resourceType === 'google-drive-folders' && providerId !== 'google-drive') {
+        lookupProviderId = 'google-drive';
+      }
       if (providerId === 'google-calendar') {
         // Try both formats for Google Calendar
         integration = getIntegrationByProvider('google-calendar') ||
@@ -371,7 +375,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         integration = getIntegrationByProvider('google-sheets') ||
                      getIntegrationByProvider('google_sheets') ||
                      getIntegrationByProvider('google');
-      } else if (providerId === 'google-drive') {
+      } else if (lookupProviderId === 'google-drive') {
         // Try both formats for Google Drive
         integration = getIntegrationByProvider('google-drive') ||
                      getIntegrationByProvider('google_drive') ||

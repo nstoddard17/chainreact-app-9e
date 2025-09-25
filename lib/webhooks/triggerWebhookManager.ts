@@ -147,6 +147,76 @@ export class TriggerWebhookManager {
     }
   }
 
+  async cleanupUnusedWebhooks(workflowId?: string): Promise<void> {
+    try {
+      let query = this.supabase
+        .from('webhook_configs')
+        .select('id, workflow_id, trigger_type, provider_id')
+
+      if (workflowId) {
+        query = query.eq('workflow_id', workflowId)
+      }
+
+      const { data: configs, error } = await query
+
+      if (error) {
+        console.error('Failed to fetch webhook configs for cleanup:', error)
+        return
+      }
+
+      if (!configs || configs.length === 0) {
+        return
+      }
+
+      for (const config of configs) {
+        if (!config.workflow_id) {
+          await this.unregisterWebhook(config.id)
+          continue
+        }
+
+        const { data: workflow } = await this.supabase
+          .from('workflows')
+          .select('id, nodes, status')
+          .eq('id', config.workflow_id)
+          .single()
+
+        if (!workflow) {
+          await this.unregisterWebhook(config.id)
+          continue
+        }
+
+        let nodes: any[] = []
+        if (Array.isArray(workflow.nodes)) {
+          nodes = workflow.nodes
+        } else if (typeof workflow.nodes === 'string') {
+          try {
+            const parsed = JSON.parse(workflow.nodes)
+            if (Array.isArray(parsed)) nodes = parsed
+          } catch (parseError) {
+            console.warn('Failed to parse workflow nodes during webhook cleanup:', parseError)
+          }
+        }
+
+        const hasMatchingTrigger = nodes.some((node: any) => {
+          const nodeType = node?.data?.type || node?.type
+          const isTrigger = node?.data?.isTrigger || node?.isTrigger
+          return Boolean(isTrigger && nodeType === config.trigger_type)
+        })
+
+        if (!hasMatchingTrigger) {
+          console.log('🧹 Cleaning up unused webhook config', {
+            workflowId: config.workflow_id,
+            webhookId: config.id,
+            triggerType: config.trigger_type
+          })
+          await this.unregisterWebhook(config.id)
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Failed to cleanup unused webhooks:', cleanupError)
+    }
+  }
+
   /**
    * Unregister a webhook
    */

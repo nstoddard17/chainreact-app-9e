@@ -525,6 +525,32 @@ function ConfigurationForm({
             return;
           }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
+          // Ensure Google Drive folders force-load on mount to avoid stale cache
+          // BUT only if we don't have saved options for it already
+          if (nodeInfo?.providerId === 'google-drive' && field.name === 'folderId') {
+            // Check if we already have saved options for this field
+            const hasSavedOptions = dynamicOptions['folderId'] && dynamicOptions['folderId'].length > 0;
+            const savedValue = values['folderId'];
+
+            // Check if saved value exists in current options
+            let valueExistsInOptions = false;
+            if (hasSavedOptions && savedValue) {
+              valueExistsInOptions = dynamicOptions['folderId'].some((opt: any) =>
+                (opt.value === savedValue) || (opt.id === savedValue)
+              );
+            }
+
+            // Only force refresh if no saved options exist OR if saved value is not in options
+            const shouldForceRefresh = !hasSavedOptions || (savedValue && !valueExistsInOptions);
+            console.log(`🔍 [ConfigForm] Google Drive folderId check:`, {
+              hasSavedOptions,
+              savedValue,
+              valueExistsInOptions,
+              shouldForceRefresh
+            });
+            loadOptions('folderId', undefined, undefined, shouldForceRefresh);
+            return;
+          }
           // Only force refresh for specific fields that need it (like Trello boards)
           // Don't force refresh for Airtable bases as they don't change frequently
           // Explicitly prevent force refresh for Airtable baseId to avoid constant reloading

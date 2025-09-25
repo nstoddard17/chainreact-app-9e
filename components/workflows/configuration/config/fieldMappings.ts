@@ -167,6 +167,19 @@ const googleCalendarMappings: Record<string, FieldMapping> = {
 
 // Google Sheets field mappings
 const googleSheetsMappings: Record<string, FieldMapping> = {
+  // Triggers
+  google_sheets_trigger_new_row: {
+    spreadsheetId: "google-sheets-spreadsheets",
+    sheetName: "google-sheets-sheets",
+  },
+  google_sheets_trigger_new_worksheet: {
+    spreadsheetId: "google-sheets-spreadsheets",
+  },
+  google_sheets_trigger_updated_row: {
+    spreadsheetId: "google-sheets-spreadsheets",
+    sheetName: "google-sheets-sheets",
+  },
+  // Actions
   google_sheets_unified_action: {
     spreadsheetId: "google-sheets_spreadsheets",
     sheetName: "google-sheets_sheets",
@@ -186,6 +199,14 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
     matchColumn: "google-sheets_columns",
   },
   "google-sheets_action_list_rows": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+    filterColumn: "google-sheets_columns",
+    filterValue: "google-sheets_column_values",
+    sortColumn: "google-sheets_columns",
+    dateColumn: "google-sheets_columns",
+  },
+  "google-sheets_action_export_sheet": {
     spreadsheetId: "google-sheets_spreadsheets",
     sheetName: "google-sheets_sheets",
     filterColumn: "google-sheets_columns",

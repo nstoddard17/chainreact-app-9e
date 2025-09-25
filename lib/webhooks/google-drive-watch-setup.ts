@@ -259,7 +259,8 @@ export async function getGoogleDriveChanges(userId: string, integrationId: strin
       includeRemoved: true,
       supportsAllDrives: true,
       supportsTeamDrives: true,
-      fields: 'changes(file(id,name,mimeType,modifiedTime,parents),fileId,removed,type),newStartPageToken,nextPageToken'
+      // Include createdTime so we can classify true creations reliably
+      fields: 'changes(file(id,name,mimeType,createdTime,modifiedTime,parents),fileId,removed,type),newStartPageToken,nextPageToken'
     })
 
     return {
