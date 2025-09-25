@@ -457,14 +457,18 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   deleteWorkflow: async (id: string) => {
-    if (!supabase) {
-      throw new Error("Supabase not available")
-    }
-
     try {
-      const { error } = await supabase.from("workflows").delete().eq("id", id)
+      const response = await fetch(`/api/workflows/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to delete workflow')
+      }
 
       // Get workflow details before deletion for audit log
       const workflowToDelete = get().workflows.find(w => w.id === id)
@@ -475,7 +479,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       }))
 
       // Log workflow deletion
-      if (workflowToDelete) {
+      if (workflowToDelete && supabase) {
         try {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {

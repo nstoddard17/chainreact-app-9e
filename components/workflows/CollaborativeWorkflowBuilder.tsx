@@ -226,7 +226,7 @@ const useWorkflowBuilderState = () => {
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Show all integrations including "Coming soon" ones
+  const [showConnectedOnly, setShowConnectedOnly] = useState(true) // Default to connected integrations only
   const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon integrations by default
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [isActionAIMode, setIsActionAIMode] = useState(false) // AI mode for action selection
@@ -255,6 +255,27 @@ const useWorkflowBuilderState = () => {
   const { toast } = useToast()
   const { updateWithTransition } = useConcurrentStateUpdates()
   
+  const resetIntegrationFilters = useCallback(() => {
+    setShowConnectedOnly(true)
+    setShowComingSoon(false)
+  }, [])
+
+  const openTriggerDialog = useCallback(() => {
+    resetIntegrationFilters()
+    setSelectedIntegration(null)
+    setSelectedTrigger(null)
+    setSearchQuery("")
+    setShowTriggerDialog(true)
+  }, [resetIntegrationFilters])
+
+  const openActionDialog = useCallback(() => {
+    resetIntegrationFilters()
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
+    setShowActionDialog(true)
+  }, [resetIntegrationFilters])
+
   // Step execution store hooks
   const {
     isStepMode,
@@ -459,22 +480,28 @@ const useWorkflowBuilderState = () => {
   const handleChangeTrigger = useCallback(() => {
     // Store existing action nodes (non-trigger nodes) to preserve them
     const currentNodes = getNodes();
-    const actionNodes = currentNodes.filter(node => 
-      node.type === 'custom' && !node.data.isTrigger
+    const actionNodes = currentNodes.filter(node =>
+      node.type === 'custom' && !node.data.isTrigger && node.data?.type !== 'addAction'
     );
-    
+
+    console.log('🔄 Changing trigger, preserving', actionNodes.length, 'action nodes');
+
     // Store the action nodes temporarily in state so we can restore them after trigger selection
     // We'll use a ref or state to store these
     sessionStorage.setItem('preservedActionNodes', JSON.stringify(actionNodes));
-    
+
     // Also preserve connections from the current trigger to action nodes so we can re-connect
     try {
       const currentEdges = getEdges();
-      const triggerEdges = currentEdges.filter(e => e.source === 'trigger');
-      const targetIds = triggerEdges.map(e => e.target);
-      sessionStorage.setItem('preservedTriggerTargets', JSON.stringify(targetIds));
-    } catch {
-      // noop
+      const triggerNode = currentNodes.find(n => n.data?.isTrigger);
+      if (triggerNode) {
+        const triggerEdges = currentEdges.filter(e => e.source === triggerNode.id);
+        const targetIds = triggerEdges.map(e => e.target);
+        sessionStorage.setItem('preservedTriggerTargets', JSON.stringify(targetIds));
+        console.log('📌 Preserving connections to', targetIds.length, 'nodes:', targetIds);
+      }
+    } catch (error) {
+      console.error('Failed to preserve trigger connections:', error);
     }
     
     // Clear all configuration preferences when changing trigger
@@ -495,11 +522,8 @@ const useWorkflowBuilderState = () => {
     
     clearAllPreferences();
     
-    setSelectedIntegration(null);
-    setSelectedTrigger(null);
-    setSearchQuery("");
-    setShowTriggerDialog(true);
-  }, [getNodes, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
+    openTriggerDialog();
+  }, [getNodes, openTriggerDialog])
 
   const handleConfigureNode = useCallback(async (nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
@@ -507,10 +531,7 @@ const useWorkflowBuilderState = () => {
 
     // Special case: Manual triggers open the trigger selection dialog
     if (nodeToConfigure.data.type === 'manual') {
-      setSelectedIntegration(null)
-      setSelectedTrigger(null)
-      setSearchQuery("")
-      setShowTriggerDialog(true)
+      openTriggerDialog()
       return
     }
 
@@ -617,7 +638,7 @@ const useWorkflowBuilderState = () => {
       });
       setConfiguringNode({ id: nodeId, integration, nodeComponent, config, dynamicOptions })
     }
-  }, [getNodes])
+  }, [getNodes, openTriggerDialog])
 
   // Helper function to create Add Action nodes with consistent properties
   const createAddActionNode = (id: string, parentId: string, position: { x: number; y: number }, additionalData?: any): Node => {
@@ -646,26 +667,20 @@ const useWorkflowBuilderState = () => {
 
     if (!hasTrigger && nodeId.includes('add-action-trigger')) {
       // This is the initial add button and there's no trigger - open trigger dialog
-      setSelectedIntegration(null)
-      setSelectedTrigger(null)
-      setSearchQuery("")
-      setShowTriggerDialog(true)
+      openTriggerDialog()
     } else {
       // Normal action adding - just open the dialog
       // The useEffect will fetch integrations when the dialog opens
       setSourceAddNode({ id: nodeId, parentId })
-      setSelectedIntegration(null)
-      setSelectedAction(null)
-      setSearchQuery("")
 
       // If this is from a chain placeholder, default to AI mode
       if (isFromChainPlaceholder) {
         setIsActionAIMode(true)
       }
 
-      setShowActionDialog(true)
+      openActionDialog()
     }
-  }, [getNodes, integrations, integrationsLoading, fetchIntegrations])
+  }, [getNodes, integrations, integrationsLoading, fetchIntegrations, openTriggerDialog, openActionDialog])
 
   // Listen for custom event from chain placeholder add action buttons
   React.useEffect(() => {
@@ -689,11 +704,8 @@ const useWorkflowBuilderState = () => {
       parentId: sourceNodeId,
       insertBefore: targetNodeId 
     })
-    setSelectedIntegration(null)
-    setSelectedAction(null)
-    setSearchQuery("")
-    setShowActionDialog(true)
-  }, [])
+    openActionDialog()
+  }, [openActionDialog])
 
   const handleActionDialogClose = useCallback((open: boolean) => {
     if (!open) {
@@ -727,59 +739,96 @@ const useWorkflowBuilderState = () => {
       }
     }
     
-    // Create Add Action node after the trigger
-    const addActionId = `add-action-${newNodeId}-${Date.now()}`
-    const addActionNode = createAddActionNode(
-      addActionId,
-      newNodeId,
-      { x: 400, y: 260 } // 160px below the trigger
-    )
-    
-    // Replace any existing trigger node and add the new Add Action node
+    // Check if there are existing action nodes to preserve
+    const currentNodes = getNodes();
+    const existingActionNodes = currentNodes.filter(n =>
+      n.type === 'custom' &&
+      !n.data?.isTrigger &&
+      n.data?.type !== 'addAction'
+    );
+    const existingTrigger = currentNodes.find(n => n.data?.isTrigger);
+
+    // Get existing edges to preserve connections
+    const currentEdges = getEdges();
+    const triggerOutgoingEdges = existingTrigger
+      ? currentEdges.filter(e => e.source === existingTrigger.id)
+      : [];
+
+    // Update nodes
     setNodes((nds) => {
-      const nonTriggerNodes = nds.filter(n => 
-        n.id !== 'trigger' && 
-        !n.data?.isTrigger && 
-        n.type !== 'addAction' // Also remove any existing Add Action nodes
-      )
-      return [newNode, addActionNode, ...nonTriggerNodes]
-    })
-    
-    // Create edge connecting trigger to Add Action node and restore any preserved connections
+      // Remove old trigger and add action nodes
+      const filteredNodes = nds.filter(n =>
+        n.id !== 'trigger' &&
+        !n.data?.isTrigger &&
+        n.type !== 'addAction'
+      );
+
+      // If we have existing action nodes, just add the new trigger
+      if (existingActionNodes.length > 0) {
+        return [newNode, ...filteredNodes];
+      } else {
+        // No existing actions, create an add action node
+        const addActionId = `add-action-${newNodeId}-${Date.now()}`;
+        const addActionNode = createAddActionNode(
+          addActionId,
+          newNodeId,
+          { x: 400, y: 260 }
+        );
+        return [newNode, addActionNode];
+      }
+    });
+
+    // Update edges to preserve connections
     setEdges((eds) => {
-      const nonTriggerEdges = eds.filter(e => 
-        !e.source.includes('trigger') && 
+      // Remove old trigger-related edges
+      const nonTriggerEdges = eds.filter(e =>
+        !e.source.includes('trigger') &&
         !e.id.includes('trigger')
-      )
-      const newEdge: Edge = {
-        id: `edge-${newNodeId}-${addActionId}`,
-        source: newNodeId,
-        target: addActionId,
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
-        type: "straight"
-      }
-      // Restore preserved trigger->action connections if available
-      let restoredEdges: Edge[] = []
-      try {
-        const raw = sessionStorage.getItem('preservedTriggerTargets')
-        const targets: string[] = raw ? JSON.parse(raw) : []
-        if (Array.isArray(targets) && targets.length > 0) {
-          restoredEdges = targets.map(t => ({
-            id: `edge-${newNodeId}-${t}`,
-            source: newNodeId,
-            target: t,
-            animated: false,
-            style: { stroke: "#d1d5db", strokeWidth: 1 },
-            type: "straight"
-          }))
+      );
+
+      // If we had connections from the old trigger to actions, recreate them
+      if (triggerOutgoingEdges.length > 0 && existingActionNodes.length > 0) {
+        const newTriggerEdges = triggerOutgoingEdges.map(edge => ({
+          ...edge,
+          id: `edge-${newNodeId}-${edge.target}`,
+          source: newNodeId
+        }));
+        return [...nonTriggerEdges, ...newTriggerEdges];
+      } else if (existingActionNodes.length === 0) {
+        // No existing actions, create edge to add action node
+        const addActionId = `add-action-${newNodeId}-${Date.now()}`;
+        const newEdge: Edge = {
+          id: `edge-${newNodeId}-${addActionId}`,
+          source: newNodeId,
+          target: addActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+          type: "straight"
         }
-      } catch {
-        // ignore parse errors
-      } finally {
-        sessionStorage.removeItem('preservedTriggerTargets')
+        return [...nonTriggerEdges, newEdge];
+      } else {
+        // We have action nodes but no existing connections, try to restore from session storage
+        let restoredEdges: Edge[] = []
+        try {
+          const raw = sessionStorage.getItem('preservedTriggerTargets')
+          const targets: string[] = raw ? JSON.parse(raw) : []
+          if (Array.isArray(targets) && targets.length > 0) {
+            restoredEdges = targets.map(t => ({
+              id: `edge-${newNodeId}-${t}`,
+              source: newNodeId,
+              target: t,
+              animated: false,
+              style: { stroke: "#d1d5db", strokeWidth: 1 },
+              type: "straight"
+            }))
+          }
+        } catch {
+          // ignore parse errors
+        } finally {
+          sessionStorage.removeItem('preservedTriggerTargets')
+        }
+        return [...nonTriggerEdges, ...restoredEdges];
       }
-      return [...nonTriggerEdges, newEdge, ...restoredEdges]
     })
     
     // Clean up preserved action nodes snapshot (no longer needed)
@@ -2275,12 +2324,74 @@ const useWorkflowBuilderState = () => {
               },
             };
           })
-          
-          const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
-            id: e.id, 
-            source: e.source, 
-            target: e.target, 
-            sourceHandle: e.sourceHandle ?? undefined, 
+
+          // Auto-connect unconnected triggers after deletion
+          const autoConnectAfterDeletion = () => {
+            const triggers = reactFlowNodes.filter((n: Node) => n.data?.isTrigger);
+            const actions = reactFlowNodes.filter((n: Node) => !n.data?.isTrigger && n.data?.type !== 'addAction' && n.type === 'custom');
+            let updatedEdges = [...reactFlowEdges];
+            let newEdgesAdded = false;
+
+            console.log('🔍 Deletion auto-connect check:', {
+              triggers: triggers.length,
+              actions: actions.length,
+              currentEdges: reactFlowEdges.length
+            });
+
+            triggers.forEach((trigger: Node) => {
+              const isConnected = updatedEdges.some((e: Edge) => e.source === trigger.id);
+
+              if (!isConnected && actions.length > 0) {
+                let closestAction: Node | null = null;
+                let minDistance = Infinity;
+
+                actions.forEach((action: Node) => {
+                  // Skip UI placeholder nodes
+                  if (action.data?.type === 'addAction' || action.data?.type === 'insertAction') {
+                    return;
+                  }
+
+                  const dx = action.position.x - trigger.position.x;
+                  const dy = action.position.y - trigger.position.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  const isRightward = dx > 0;
+                  const adjustedDistance = isRightward ? distance : distance * 1.5;
+
+                  if (adjustedDistance < minDistance) {
+                    minDistance = adjustedDistance;
+                    closestAction = action;
+                  }
+                });
+
+                if (closestAction) {
+                  const newEdge: Edge = {
+                    id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
+                    source: trigger.id,
+                    target: closestAction.id,
+                    type: 'default',
+                  };
+                  updatedEdges.push(newEdge);
+                  newEdgesAdded = true;
+                  console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} after deletion`);
+                }
+              }
+            });
+
+            if (newEdgesAdded) {
+              console.log('✅ New edges added after deletion, updating React Flow');
+              setEdges(updatedEdges);
+            }
+
+            return updatedEdges;
+          };
+
+          const finalEdgesAfterDeletion = autoConnectAfterDeletion();
+
+          const mappedConnections: WorkflowConnection[] = finalEdgesAfterDeletion.map((e: Edge) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle ?? undefined,
             targetHandle: e.targetHandle ?? undefined,
           }))
 
@@ -2344,11 +2455,8 @@ const useWorkflowBuilderState = () => {
       isAIAgentChain: sourceNode?.data?.isAIAgentChild || targetNode?.data?.isAIAgentChild,
       parentAIAgentId: sourceNode?.data?.parentAIAgentId || targetNode?.data?.parentAIAgentId
     })
-    setSelectedIntegration(null)
-    setSelectedAction(null)
-    setSearchQuery("")
-    setShowActionDialog(true)
-  }, [getNodes])
+    openActionDialog()
+  }, [getNodes, openActionDialog])
   
   // Handle adding a new chain to an AI Agent node
   const handleAddChain = useCallback((aiAgentNodeId: string) => {
@@ -2483,7 +2591,22 @@ const useWorkflowBuilderState = () => {
     handleAddChainRef.current = handleAddChain
   }, [handleAddChain])
 
-  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
+  const onConnect = useCallback((params: Edge | Connection) => {
+    setEdges((eds: Edge[]) => {
+      const src = (params as any).source
+      const tgt = (params as any).target
+      if (!src || !tgt) return eds
+      // Prevent duplicate edges between same nodes
+      const exists = eds.some(e => e.source === src && e.target === tgt)
+      if (exists) return eds
+      // Ensure unique id for the new edge
+      const safeParams = {
+        id: `e-${src}-${tgt}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        ...params
+      } as Edge
+      return addEdge(safeParams, eds)
+    })
+  }, [setEdges])
 
   // Enhanced onNodesChange to make Add Action nodes follow their parent nodes
   const optimizedOnNodesChange = useCallback((changes: any) => {
@@ -2566,8 +2689,7 @@ const useWorkflowBuilderState = () => {
     const loadWorkflow = async () => {
       if (!workflowId) {
         // No workflow ID - this might be a new workflow
-        // Show the trigger selection dialog for new workflows
-        setShowTriggerDialog(true)
+        openTriggerDialog()
         return
       }
 
@@ -2748,7 +2870,7 @@ const useWorkflowBuilderState = () => {
       // Don't clear the workflow data here - it causes issues with navigation
       // The data will be properly cleared when loading a new workflow
     }
-  }, [workflowId, setNodes, setEdges, setCurrentWorkflow, setWorkflowName, handleConfigureNode, handleChangeTrigger, handleInsertAction, setShowTriggerDialog]) // Include all dependencies
+  }, [workflowId, setNodes, setEdges, setCurrentWorkflow, setWorkflowName, handleConfigureNode, handleChangeTrigger, handleInsertAction, openTriggerDialog]) // Include all dependencies
   
   // Auto-fit view when nodes are loaded
   useEffect(() => {
@@ -2951,16 +3073,88 @@ const useWorkflowBuilderState = () => {
           data
         }
       })
-      
+
+      // Auto-connect unconnected triggers to closest action
+      const autoConnectTriggers = () => {
+        const triggers = reactFlowNodes.filter((n: Node) => n.data?.isTrigger);
+        const actions = reactFlowNodes.filter((n: Node) => !n.data?.isTrigger && n.data?.type !== 'addAction' && n.type === 'custom');
+        let updatedEdges = [...reactFlowEdges];
+        let newEdgesAdded = false;
+
+        console.log('🔍 Auto-connect check:', {
+          triggers: triggers.length,
+          actions: actions.length,
+          currentEdges: reactFlowEdges.length
+        });
+
+        triggers.forEach((trigger: Node) => {
+          // Check if trigger is already connected to something
+          const isConnected = updatedEdges.some((e: Edge) => e.source === trigger.id);
+
+          console.log(`🔍 Trigger ${trigger.id} connected: ${isConnected}`);
+
+          if (!isConnected && actions.length > 0) {
+            // Find the closest action node based on distance
+            let closestAction: Node | null = null;
+            let minDistance = Infinity;
+
+            actions.forEach((action: Node) => {
+              // Skip UI placeholder nodes
+              if (action.data?.type === 'addAction' || action.data?.type === 'insertAction') {
+                return;
+              }
+
+              // Calculate distance between trigger and action
+              const dx = action.position.x - trigger.position.x;
+              const dy = action.position.y - trigger.position.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+
+              // Prefer actions that are to the right and below the trigger
+              const isRightward = dx > 0;
+              const adjustedDistance = isRightward ? distance : distance * 1.5; // Penalize leftward connections
+
+              if (adjustedDistance < minDistance) {
+                minDistance = adjustedDistance;
+                closestAction = action;
+              }
+            });
+
+            if (closestAction) {
+              // Create a new edge connecting the trigger to the closest action
+              const newEdge: Edge = {
+                id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
+                source: trigger.id,
+                target: closestAction.id,
+                type: 'default',
+              };
+              updatedEdges.push(newEdge);
+              newEdgesAdded = true;
+              console.log(`🔗 Auto-connected trigger ${trigger.id} (${trigger.data?.label}) to action ${closestAction.id} (${closestAction.data?.label})`);
+            }
+          }
+        });
+
+        if (newEdgesAdded) {
+          console.log('✅ New edges added, updating React Flow');
+          // Update the edges in React Flow immediately
+          setEdges(updatedEdges);
+        }
+
+        return updatedEdges;
+      };
+
+      // Apply auto-connection and use the returned edges
+      const finalEdges = autoConnectTriggers();
+
       // Map connections to database format
-      const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+      const mappedConnections: WorkflowConnection[] = finalEdges.map((e: Edge) => ({
         id: e.id,
         source: e.source,
         target: e.target,
         sourceHandle: e.sourceHandle ?? undefined,
         targetHandle: e.targetHandle ?? undefined
       }))
-      
+
       // Determine the name to save
       const nameToSave = workflowName && workflowName.trim() !== '' 
         ? workflowName 
@@ -3003,16 +3197,6 @@ const useWorkflowBuilderState = () => {
       // Update last save time to prevent immediate re-checking
       lastSaveTimeRef.current = Date.now();
 
-      // Clear the auto-recovery timer since save succeeded
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
-
-      // Force clear saving state immediately on success BEFORE showing toast
-      setIsSaving(false);
-      isSavingRef.current = false;
-
       // Show success toast AFTER clearing loading state
       if (retryCount === 0) {
         // Ensure toast receives proper object format
@@ -3038,12 +3222,6 @@ const useWorkflowBuilderState = () => {
       return // Exit successfully
 
     } catch (error: any) {
-      // Clear the auto-recovery timer
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
-
       // Auto-retry logic for recoverable errors
       const isRecoverable =
         error.message?.includes("network") ||
@@ -3053,10 +3231,6 @@ const useWorkflowBuilderState = () => {
 
       if (isRecoverable && retryCount < maxRetries) {
         console.warn(`⚠️ Save failed (${error.message}), auto-retrying in 1 second...`);
-
-        // Reset states for retry
-        setIsSaving(false);
-        isSavingRef.current = false;
 
         // Auto-retry after a delay
         setTimeout(() => {
@@ -3092,14 +3266,18 @@ const useWorkflowBuilderState = () => {
       console.log('📢 [handleSave] Showing error toast:', errorToastData)
       toast(errorToastData)
 
-      // On error, ensure we clear the loading state
-      setIsSaving(false);
-      isSavingRef.current = false;
-
       // Auto-cleanup any stuck requests on error
       setTimeout(() => {
         clearStuckRequests();
       }, 100);
+    }
+    finally {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      setIsSaving(false);
+      isSavingRef.current = false;
     }
   }
   
@@ -3447,8 +3625,70 @@ const useWorkflowBuilderState = () => {
         }
       })
 
+      // Auto-connect unconnected triggers for sandbox mode
+      const autoConnectTriggersForSandbox = () => {
+        const triggers = reactFlowNodes.filter((n: Node) => n.data?.isTrigger);
+        const actions = reactFlowNodes.filter((n: Node) => !n.data?.isTrigger && n.data?.type !== 'addAction' && n.type === 'custom');
+        let updatedEdges = [...reactFlowEdges];
+        let newEdgesAdded = false;
+
+        console.log('🔍 Sandbox auto-connect check:', {
+          triggers: triggers.length,
+          actions: actions.length,
+          currentEdges: reactFlowEdges.length
+        });
+
+        triggers.forEach((trigger: Node) => {
+          const isConnected = updatedEdges.some((e: Edge) => e.source === trigger.id);
+
+          if (!isConnected && actions.length > 0) {
+            let closestAction: Node | null = null;
+            let minDistance = Infinity;
+
+            actions.forEach((action: Node) => {
+              // Skip UI placeholder nodes
+              if (action.data?.type === 'addAction' || action.data?.type === 'insertAction') {
+                return;
+              }
+
+              const dx = action.position.x - trigger.position.x;
+              const dy = action.position.y - trigger.position.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const isRightward = dx > 0;
+              const adjustedDistance = isRightward ? distance : distance * 1.5;
+
+              if (adjustedDistance < minDistance) {
+                minDistance = adjustedDistance;
+                closestAction = action;
+              }
+            });
+
+            if (closestAction) {
+              const newEdge: Edge = {
+                id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}`,
+                source: trigger.id,
+                target: closestAction.id,
+                type: 'default',
+              };
+              updatedEdges.push(newEdge);
+              newEdgesAdded = true;
+              console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} for sandbox mode`);
+            }
+          }
+        });
+
+        if (newEdgesAdded) {
+          console.log('✅ New edges added for sandbox, updating React Flow');
+          setEdges(updatedEdges);
+        }
+
+        return updatedEdges;
+      };
+
+      const finalEdgesForSandbox = autoConnectTriggersForSandbox();
+
       // Map connections to database format
-      const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+      const mappedConnections: WorkflowConnection[] = finalEdgesForSandbox.map((e: Edge) => ({
         id: e.id,
         source: e.source,
         target: e.target,
@@ -4867,7 +5107,9 @@ const useWorkflowBuilderState = () => {
     // Categories for filtering
     categories,
     // Coming soon integrations set
-    comingSoonIntegrations
+    comingSoonIntegrations,
+    // Add the missing function
+    openTriggerDialog
   }
 }
 
@@ -5027,7 +5269,7 @@ function WorkflowBuilderContent() {
   const pollingInstancesRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   
   const {
-    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive, 
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive,
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
     configuringNode, setConfiguringNode, handleSaveConfiguration, handleConfigurationClose, handleConfigurationSave,
@@ -5039,7 +5281,7 @@ function WorkflowBuilderContent() {
     handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
     showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions,
     // Step execution variables
-    isStepMode, isPaused, currentNodeId, nodeStatuses, isStepByStep, setIsStepByStep, 
+    isStepMode, isPaused, currentNodeId, nodeStatuses, isStepByStep, setIsStepByStep,
     stepContinueCallback, setStepContinueCallback, skipCallback, setSkipCallback, stopStepExecution, pauseExecution, executeNodeStepByStep,
     // React Flow functions
     getNodes, getEdges,
@@ -5052,7 +5294,9 @@ function WorkflowBuilderContent() {
     // Categories for filtering
     categories,
     // Coming soon integrations set
-    comingSoonIntegrations
+    comingSoonIntegrations,
+    // Add the missing function
+    openTriggerDialog
   } = useWorkflowBuilderState()
 
   // Helper: normalize Add Action buttons to always appear at end of each AI Agent chain
@@ -5239,12 +5483,9 @@ function WorkflowBuilderContent() {
       .join(' ');
   };
 
-  const handleOpenTriggerDialog = () => {
-    setSelectedIntegration(null);
-    setSelectedTrigger(null);
-    setSearchQuery("");
-    setShowTriggerDialog(true);
-  }
+  const handleOpenTriggerDialog = useCallback(() => {
+    openTriggerDialog()
+  }, [openTriggerDialog])
 
   // Debug loading states (reduced frequency)
 
@@ -6437,10 +6678,10 @@ function WorkflowBuilderContent() {
                                       
                                       // Reopen the dialog
                                       if (wasShowingAction) {
-                                        setShowActionDialog(true);
+                                        openActionDialog();
                                       }
                                       if (wasShowingTrigger) {
-                                        setShowTriggerDialog(true);
+                                        openTriggerDialog();
                                       }
                                       
                                       // Wait for dialog to render
@@ -7483,10 +7724,10 @@ function WorkflowBuilderContent() {
                                       
                                       // Reopen the dialog
                                       if (wasShowingAction) {
-                                        setShowActionDialog(true);
+                                        openActionDialog();
                                       }
                                       if (wasShowingTrigger) {
-                                        setShowTriggerDialog(true);
+                                        openTriggerDialog();
                                       }
                                       
                                       // Wait for dialog to render
@@ -9127,7 +9368,7 @@ function WorkflowBuilderContent() {
                   id: 'ai-agent-source', 
                   parentId: configuringNode?.id || 'ai-agent' 
                 });
-                setShowActionDialog(true);
+                openActionDialog();
               }}
               onActionSelect={(callback) => {
                 // Store the callback for when an action is selected from the main dialog
@@ -9156,7 +9397,7 @@ function WorkflowBuilderContent() {
                   }
                   // Clear the selected action so user can choose a different one
                   setSelectedAction(null);
-                  setShowActionDialog(true);
+                  openActionDialog();
                   
                   // Scroll to the selected integration after a brief delay to ensure dialog is rendered
                   if (savedIntegration) {

@@ -12,8 +12,26 @@ export const googleSheetsNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
-      { name: "sheetName", label: "Sheet Name", type: "text", description: "The name of the sheet within the spreadsheet" },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets-spreadsheets",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a spreadsheet",
+        description: "Choose a spreadsheet from your Google Sheets account"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "select",
+        dynamic: "google-sheets-sheets",
+        required: true,
+        dependsOn: "spreadsheetId",
+        placeholder: "Select a sheet",
+        description: "The specific sheet (tab) within the spreadsheet"
+      },
     ],
   },
   {
@@ -26,7 +44,16 @@ export const googleSheetsNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets-spreadsheets",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a spreadsheet",
+        description: "Choose a spreadsheet from your Google Sheets account"
+      },
     ],
   },
   {
@@ -39,8 +66,26 @@ export const googleSheetsNodes: NodeComponent[] = [
     category: "Productivity",
     producesOutput: true,
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text", description: "The ID of the Google Sheets spreadsheet" },
-      { name: "sheetName", label: "Sheet Name", type: "text", description: "The name of the sheet within the spreadsheet" },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets-spreadsheets",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a spreadsheet",
+        description: "Choose a spreadsheet from your Google Sheets account"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "select",
+        dynamic: "google-sheets-sheets",
+        required: true,
+        dependsOn: "spreadsheetId",
+        placeholder: "Select a sheet",
+        description: "The specific sheet (tab) within the spreadsheet"
+      },
     ],
   },
   {

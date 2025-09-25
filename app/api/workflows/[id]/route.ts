@@ -396,10 +396,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json(responsePayload)
     }
 
-    // Re-register webhooks whenever an ACTIVE workflow is saved (status remains active or just became active)
-    if ((body.status === 'active' || previousStatus === 'active') && data) {
+    const statusProvided = Object.prototype.hasOwnProperty.call(body, 'status')
+    const newStatus = statusProvided ? body.status : previousStatus
+    const wasActive = previousStatus === 'active'
+    const isActiveNow = newStatus === 'active'
+    const shouldRegisterWebhooks = data && (isActiveNow || (!statusProvided && wasActive))
+    const shouldUnregisterWebhooks = data && statusProvided && wasActive && !isActiveNow
+
+    if (shouldRegisterWebhooks) {
       // If it was previously active, clean up existing webhooks first to avoid duplicates
-      if (previousStatus === 'active') {
+      if (wasActive) {
         try {
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
@@ -488,10 +494,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
-    // Check if workflow was deactivated - webhooks should be unregistered
-    // Only unregister if it was previously active to avoid unnecessary operations
-    if (body.status === 'inactive' && previousStatus === 'active' && data) {
-      console.log('🔗 Workflow deactivated - unregistering webhooks')
+    if (shouldUnregisterWebhooks) {
+      console.log('🔗 Workflow deactivated/paused - unregistering webhooks')
 
       try {
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
@@ -500,10 +504,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         // Unregister any webhooks for this workflow
         await webhookManager.unregisterWorkflowWebhooks(data.id)
 
-        console.log('✅ Webhooks unregistered for deactivated workflow')
+        console.log('✅ Webhooks unregistered for non-active workflow state')
       } catch (webhookError) {
         console.error('Failed to unregister webhooks on deactivation:', webhookError)
       }
+    }
+
+    try {
+      const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
+      const webhookManager = new TriggerWebhookManager()
+      await webhookManager.cleanupUnusedWebhooks(data.id)
+    } catch (cleanupErr) {
+      console.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
     }
 
     return NextResponse.json(data)
@@ -516,6 +528,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
+  const serviceClient = await createSupabaseServiceClient()
 
   try {
     const {
@@ -528,8 +541,36 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     const resolvedParams = await params
+    const workflowId = resolvedParams.id
 
-    const { error } = await supabase.from("workflows").delete().eq("id", resolvedParams.id).eq("user_id", user.id)
+    const { data: workflowRecord, error: fetchError } = await serviceClient
+      .from('workflows')
+      .select('id, user_id')
+      .eq('id', workflowId)
+      .single()
+
+    if (fetchError || !workflowRecord) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+    }
+
+    if (workflowRecord.user_id !== user.id) {
+      return NextResponse.json({ error: "Not authorized to delete this workflow" }, { status: 403 })
+    }
+
+    try {
+      const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
+      const webhookManager = new TriggerWebhookManager()
+      await webhookManager.unregisterWorkflowWebhooks(workflowId)
+      console.log('♻️ Unregistered webhooks before deleting workflow', { workflowId })
+    } catch (unregisterError) {
+      console.warn('⚠️ Failed to unregister webhooks before deletion:', unregisterError)
+    }
+
+    const { error } = await supabase
+      .from('workflows')
+      .delete()
+      .eq('id', workflowId)
+      .eq('user_id', user.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

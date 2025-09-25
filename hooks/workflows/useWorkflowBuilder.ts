@@ -168,7 +168,18 @@ export function useWorkflowBuilder() {
         let addActionNodeData: { id: string, parentId: string } | null = null
         
         if (workflow.nodes) {
-          const flowNodes = workflow.nodes.map((node: WorkflowNode) => ({
+          // Sanitize: drop any UI-only or malformed nodes that can appear from older saves
+          const sanitizedNodes = (workflow.nodes as WorkflowNode[]).filter((node: any) => {
+            // Remove placeholder UI nodes by type or id pattern
+            if (node?.type === 'addAction') return false
+            if (typeof node?.id === 'string' && node.id.startsWith('add-action-')) return false
+            // Remove nodes with no actionable type (but keep triggers explicitly marked)
+            const hasType = Boolean(node?.data?.type)
+            const isTrigger = Boolean(node?.data?.isTrigger)
+            return hasType || isTrigger
+          })
+
+          const flowNodes = sanitizedNodes.map((node: WorkflowNode) => ({
             id: node.id,
             type: node.type || 'custom',
             position: node.position,
@@ -274,7 +285,11 @@ export function useWorkflowBuilder() {
         }
         
         if (workflow.connections) {
-          const flowEdges = workflow.connections.map((conn: WorkflowConnection) => ({
+          // Filter out edges that reference nodes we filtered out above
+          const validNodeIds = new Set(allNodes.map(n => n.id))
+          const flowEdges = workflow.connections
+            .filter((conn: WorkflowConnection) => validNodeIds.has(conn.source) && validNodeIds.has(conn.target))
+            .map((conn: WorkflowConnection) => ({
             id: conn.id,
             source: conn.source,
             target: conn.target,

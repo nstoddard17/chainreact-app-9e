@@ -17,30 +17,35 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     return { 'Content-Type': 'application/json' }
   }
 
-  async loadOptions(
-    fieldName: string,
-    providerId: string,
-    dependencyFieldName?: string,
-    dependencyValue?: any,
-    forceRefresh?: boolean
-  ): Promise<{ value: string; label: string }[]> {
+  async loadOptions(params: {
+    fieldName: string;
+    providerId: string;
+    integrationId?: string;
+    nodeType?: string;
+    dependsOn?: string;
+    dependsOnValue?: any;
+    forceRefresh?: boolean;
+    extraOptions?: Record<string, any>;
+  }): Promise<{ value: string; label: string }[]> {
+    const { fieldName, providerId, dependsOnValue, forceRefresh } = params;
+
     console.log('[GoogleDriveOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
-      dependencyFieldName,
-      dependencyValue
+      dependsOnValue,
+      forceRefresh
     })
 
     // Get auth headers for all requests
     const headers = await this.getAuthHeaders()
 
     // For file preview, we need to fetch the file metadata
-    if (fieldName === 'filePreview' && dependencyValue) {
+    if (fieldName === 'filePreview' && dependsOnValue) {
       try {
         const response = await fetch(`/api/integrations/google-drive/file-preview`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ fileId: dependencyValue })
+          body: JSON.stringify({ fileId: dependsOnValue })
         })
 
         if (!response.ok) {
@@ -64,8 +69,8 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     if (fieldName === 'fileId') {
       // If there's a dependency value (folder selected), filter by folder
       // Otherwise, load all files
-      const endpoint = (dependencyFieldName === 'folderId' && dependencyValue)
-        ? `/api/integrations/google-drive/data?type=files&folderId=${dependencyValue}`
+      const endpoint = (params.dependsOn === 'folderId' && dependsOnValue)
+        ? `/api/integrations/google-drive/data?type=files&folderId=${dependsOnValue}`
         : '/api/integrations/google-drive/data?type=files'
 
       try {

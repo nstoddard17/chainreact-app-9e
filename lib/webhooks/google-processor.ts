@@ -225,6 +225,10 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
         || (event.eventData?.headers?.['x-goog-channel-id'])
         || null
       if (channelId) {
+        console.log('[Google Drive] Webhook received', {
+          channelId,
+          hasToken: Boolean(event.eventData?.token)
+        })
         const supabaseLookup = await createSupabaseServiceClient()
         const { data: sub } = await supabaseLookup
           .from('google_watch_subscriptions')
@@ -240,6 +244,10 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
             userId: sub.user_id,
             integrationId: sub.integration_id
           }
+          console.log('[Google Drive] Subscription metadata resolved from channel', {
+            userId: metadata.userId,
+            integrationId: metadata.integrationId
+          })
         }
       }
     } catch {
@@ -294,7 +302,14 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     return { processed: true, eventType: 'drive.notification' }
   }
 
+  const pageTokenPreview = String(subscription.page_token).slice(0, 8) + '...'
+  console.log('[Google Drive] Fetching changes', { pageToken: pageTokenPreview, updatedAt: subscription?.updated_at })
   const changes = await getGoogleDriveChanges(metadata.userId, metadata.integrationId, subscription.page_token)
+  const watchStartTs = subscription?.updated_at ? new Date(subscription.updated_at).getTime() : null
+  console.log('[Google Drive] Changes fetched', {
+    count: Array.isArray(changes.changes) ? changes.changes.length : 0,
+    nextPageToken: (changes.nextPageToken ? String(changes.nextPageToken).slice(0, 8) + '...' : null)
+  })
   let processedChanges = 0
 
   for (const change of changes.changes || []) {
@@ -328,9 +343,21 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     const isFolder = mimeType === 'application/vnd.google-apps.folder'
 
     const createdTime = change.file.createdTime ? new Date(change.file.createdTime) : null
-    const modifiedTime = change.file.modifiedTime ? new Date(change.file.modifiedTime) : null
-    const timeDiff = createdTime && modifiedTime ? Math.abs(modifiedTime.getTime() - createdTime.getTime()) : Number.MAX_SAFE_INTEGER
-    const isNewItem = timeDiff < 60000
+    const nowTs = Date.now()
+    // Prefer watch start time to classify true creations after watch registration
+    const isNewItem = createdTime
+      ? (watchStartTs !== null
+          ? createdTime.getTime() >= watchStartTs
+          : (nowTs - createdTime.getTime() < 120000))
+      : false
+    console.log('[Google Drive] Change', {
+      id: change.fileId || change.file?.id,
+      mimeType,
+      parents: parentIds,
+      createdTime: change.file.createdTime,
+      isFolder,
+      isNewItem
+    })
 
     if (isFolder) {
       if (isNewItem) {
@@ -378,6 +405,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       .eq('provider', 'google-drive')
   }
 
+  console.log('[Google Drive] Processed change batch', { changesCount: processedChanges })
   return { processed: true, changesCount: processedChanges }
 }
 
