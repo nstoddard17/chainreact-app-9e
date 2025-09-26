@@ -1,20 +1,11 @@
 import { NodeComponent } from "../../types"
-import { 
-  Mail, 
-  Send, 
-  Calendar, 
-  UserPlus, 
-  Move, 
-  Check, 
-  X, 
-  Reply, 
-  Forward, 
-  MailOpen, 
-  Users,
-  Edit,
-  Archive,
-  Search,
-  FolderOpen
+import {
+  Mail,
+  Send,
+  Calendar,
+  Move,
+  MailOpen,
+  Search
 } from "lucide-react"
 
 // Microsoft Outlook Triggers
@@ -155,25 +146,6 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
   ]
 }
 
-const outlookActionCreateContact: NodeComponent = {
-  type: "microsoft-outlook_action_create_contact",
-  title: "Create Contact",
-  description: "Create a new contact in Outlook",
-  icon: UserPlus,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Contacts.ReadWrite"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "givenName", label: "First Name", type: "text", required: true, placeholder: "John" },
-    { name: "surname", label: "Last Name", type: "text", required: true, placeholder: "Doe" },
-    { name: "emailAddresses", label: "Email Addresses", type: "text", required: true, placeholder: "john.doe@example.com" },
-    { name: "businessPhones", label: "Business Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
-    { name: "companyName", label: "Company", type: "text", required: false, placeholder: "Company Name" },
-    { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Software Engineer" }
-  ]
-}
-
 const outlookActionMoveEmail: NodeComponent = {
   type: "microsoft-outlook_action_move_email",
   title: "Move Email",
@@ -187,69 +159,6 @@ const outlookActionMoveEmail: NodeComponent = {
     { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email", hasVariablePicker: true },
     { name: "sourceFolderId", label: "Source Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select source folder (optional)" },
     { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select destination folder", hasVariablePicker: true },
-  ]
-}
-
-const outlookActionMarkAsRead: NodeComponent = {
-  type: "microsoft-outlook_action_mark_as_read",
-  title: "Mark Email as Read",
-  description: "Mark an email as read",
-  icon: Check,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Mail.ReadWrite"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
-  ]
-}
-
-const outlookActionMarkAsUnread: NodeComponent = {
-  type: "microsoft-outlook_action_mark_as_unread",
-  title: "Mark Email as Unread",
-  description: "Mark an email as unread",
-  icon: X,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Mail.ReadWrite"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
-  ]
-}
-
-const outlookActionReplyToEmail: NodeComponent = {
-  type: "microsoft-outlook_action_reply_to_email",
-  title: "Reply to Email",
-  description: "Reply to an existing email",
-  icon: Reply,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Mail.Send"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email to reply to", description: "Search for emails by sender, subject, or content" },
-    { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
-    { name: "body", label: "Body", type: "email-rich-text", required: true, placeholder: "Compose your reply...", provider: "outlook" },
-    { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
-  ]
-}
-
-const outlookActionForwardEmail: NodeComponent = {
-  type: "microsoft-outlook_action_forward_email",
-  title: "Forward Email",
-  description: "Forward an email to other recipients",
-  icon: Forward,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Mail.Send"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
-    { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
-    { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
-    { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
-    { name: "body", label: "Additional Note", type: "email-rich-text", required: false, placeholder: "Additional note to include with the forwarded email", provider: "outlook" },
   ]
 }
 
@@ -276,27 +185,6 @@ const outlookActionFetchEmails: NodeComponent = {
   ]
 }
 
-const outlookActionGetContacts: NodeComponent = {
-  type: "microsoft-outlook_action_get_contacts",
-  title: "Fetch Contacts",
-  description: "Retrieve contacts from Outlook",
-  icon: Users,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Contacts.Read"],
-  category: "Communication",
-  isTrigger: false,
-  producesOutput: true,
-  configSchema: [
-    { name: "limit", label: "Number of Contacts", type: "select", required: false, defaultValue: "50", options: [
-      { value: "10", label: "10 contacts" },
-      { value: "25", label: "25 contacts" },
-      { value: "50", label: "50 contacts" },
-      { value: "100", label: "100 contacts" },
-      { value: "all", label: "All contacts" }
-    ]},
-  ]
-}
-
 const outlookActionGetCalendarEvents: NodeComponent = {
   type: "microsoft-outlook_action_get_calendar_events",
   title: "Fetch Calendar Events",
@@ -320,35 +208,6 @@ const outlookActionGetCalendarEvents: NodeComponent = {
   ]
 }
 
-const outlookActionAddFolder: NodeComponent = {
-  type: "microsoft-outlook_action_add_folder",
-  title: "Add to Folder",
-  description: "Move an email to a specific folder",
-  icon: FolderOpen,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: false,
-  requiredScopes: ["Mail.ReadWrite"],
-  configSchema: [
-    { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
-    { name: "folderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select a folder" },
-  ],
-}
-
-const outlookActionArchiveEmail: NodeComponent = {
-  type: "microsoft-outlook_action_archive_email",
-  title: "Archive Email",
-  description: "Archive an email",
-  icon: Archive,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: false,
-  requiredScopes: ["Mail.ReadWrite"],
-  configSchema: [
-    { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" }
-  ],
-}
-
 const outlookActionSearchEmail: NodeComponent = {
   type: "microsoft-outlook_action_search_email",
   title: "Search Email",
@@ -370,19 +229,11 @@ export const outlookNodes: NodeComponent[] = [
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
   
-  // Actions (14)
+  // Actions (6)
   outlookActionSendEmail,
   outlookActionCreateCalendarEvent,
-  outlookActionCreateContact,
   outlookActionMoveEmail,
-  outlookActionMarkAsRead,
-  outlookActionMarkAsUnread,
-  outlookActionReplyToEmail,
-  outlookActionForwardEmail,
   outlookActionFetchEmails,
-  outlookActionGetContacts,
   outlookActionGetCalendarEvents,
-  outlookActionAddFolder,
-  outlookActionArchiveEmail,
   outlookActionSearchEmail,
 ]
