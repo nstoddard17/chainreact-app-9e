@@ -450,7 +450,7 @@ export class IntegrationService {
     } else if (dataType.startsWith('hubspot_') || dataType.startsWith('hubspot-')) {
       provider = 'hubspot'
     } else if (dataType.startsWith('outlook_') || dataType.startsWith('outlook-')) {
-      provider = 'outlook'
+      provider = 'microsoft-outlook'
     } else if (dataType.startsWith('onedrive_') || dataType.startsWith('onedrive-')) {
       provider = 'onedrive'
     } else if (dataType.startsWith('onenote_') || dataType.startsWith('onenote-')) {

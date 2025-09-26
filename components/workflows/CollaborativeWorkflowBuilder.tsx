@@ -4652,15 +4652,9 @@ const useWorkflowBuilderState = () => {
   const displayedTriggers = useMemo(() => {
     if (!selectedIntegration) return [];
 
-    const searchLower = searchQuery.toLowerCase();
-    if (!searchLower) return selectedIntegration.triggers;
-
-    return selectedIntegration.triggers.filter((trigger) => {
-      return (trigger.title && trigger.title.toLowerCase().includes(searchLower)) ||
-             (trigger.description && trigger.description.toLowerCase().includes(searchLower)) ||
-             (trigger.type && trigger.type.toLowerCase().includes(searchLower));
-    });
-  }, [selectedIntegration, searchQuery]);
+    // Don't filter triggers by search query - search only filters integrations
+    return selectedIntegration.triggers;
+  }, [selectedIntegration]);
 
   // Define handleResetLoadingStates before it's used in useEffect
   const handleResetLoadingStates = useCallback(() => {
@@ -8155,11 +8149,8 @@ function WorkflowBuilderContent() {
                           .filter(action => {
                             // AI Agent is always shown - validation happens in config modal
                             // If no sourceAddNode, allow AI Agent to show (it will be restricted when actually adding)
-                            
-                            if (searchQuery) {
-                              const query = searchQuery.toLowerCase()
-                              return (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
-                            }
+
+                            // Don't filter actions by search query - search only filters integrations
                             return true
                           })
                           .map((action) => {
