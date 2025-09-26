@@ -54,7 +54,8 @@ export function GenericConfiguration({
 }: GenericConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
-  
+  const [isFormValid, setIsFormValid] = useState(true);
+
   // Use prop if provided, otherwise use local state
   const loadingFields = loadingFieldsProp || localLoadingFields;
   const setLoadingFields = loadingFieldsProp ? () => {} : setLocalLoadingFields;
@@ -104,7 +105,35 @@ export function GenericConfiguration({
       console.error('❌ [GenericConfig] Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions]);
-  
+
+  // Validate form whenever values or visible fields change
+  useEffect(() => {
+    const validateForm = () => {
+      if (!nodeInfo?.configSchema) return;
+
+      const baseFields = nodeInfo.configSchema.filter((f: any) => !f.advanced) || [];
+      const advancedFields = nodeInfo.configSchema.filter((f: any) => f.advanced) || [];
+      const allFields = [...baseFields, ...advancedFields];
+
+      // Check if all required visible fields have values
+      let isValid = true;
+      for (const field of allFields) {
+        // Only check if field is required AND visible
+        if (field.required && shouldShowField(field)) {
+          const fieldValue = values[field.name];
+          if (!fieldValue && fieldValue !== 0 && fieldValue !== false) {
+            isValid = false;
+            break;
+          }
+        }
+      }
+
+      setIsFormValid(isValid);
+    };
+
+    validateForm();
+  }, [values, nodeInfo]);
+
   // Handle field value changes and trigger dependent field loading
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
     // Update the field value
@@ -564,6 +593,7 @@ export function GenericConfiguration({
       onCancel={onCancel}
       onBack={onBack}
       isEditMode={isEditMode}
+      isFormValid={isFormValid}
     >
       {/* Base fields */}
       {baseFields.length > 0 && (

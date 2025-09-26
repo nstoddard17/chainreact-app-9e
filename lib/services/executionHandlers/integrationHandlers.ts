@@ -72,6 +72,14 @@ export class IntegrationNodeHandlers {
           }
           return result.output
         }
+        case 'microsoft-outlook_action_create_calendar_event': {
+          const { createOutlookCalendarEvent } = await import('@/lib/workflows/actions/microsoft-outlook')
+          const result = await createOutlookCalendarEvent(config, context.userId, context.data || {})
+          if (!result?.success) {
+            throw new Error(result?.message || 'Failed to create Outlook calendar event')
+          }
+          return result.output
+        }
         default:
           throw new Error(`Unsupported Microsoft Outlook action: ${nodeType}`)
       }

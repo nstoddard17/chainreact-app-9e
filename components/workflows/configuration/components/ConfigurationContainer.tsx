@@ -12,6 +12,7 @@ interface ConfigurationContainerProps {
   isEditMode?: boolean;
   submitLabel?: string;
   showFooter?: boolean;
+  isFormValid?: boolean;
 }
 
 /**
@@ -34,7 +35,8 @@ export function ConfigurationContainer({
   onBack,
   isEditMode = false,
   submitLabel,
-  showFooter = true
+  showFooter = true,
+  isFormValid = true
 }: ConfigurationContainerProps) {
   const handleFormSubmit = (e: React.FormEvent) => {
     console.log('🎯 [ConfigurationContainer] Form submit event triggered');
@@ -71,8 +73,9 @@ export function ConfigurationContainer({
             </Button>
             <Button
               type="submit"
+              disabled={!isFormValid}
               onClick={(e) => {
-                console.log('💾 [ConfigurationContainer] Save button clicked');
+                console.log('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
                 // Don't prevent default - let the form submit handle it
               }}
             >

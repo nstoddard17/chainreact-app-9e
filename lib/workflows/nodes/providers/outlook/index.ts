@@ -62,7 +62,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
   isTrigger: false,
   configSchema: [
     // Calendar Section
-    { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: "outlook_calendars", placeholder: "Select a calendar or type to create new" },
+    { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: true, loadOnMount: true, placeholder: "Select a calendar or type to create new" },
     
     // General Section
     { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
@@ -196,7 +196,7 @@ const outlookActionGetCalendarEvents: NodeComponent = {
   isTrigger: false,
   producesOutput: true,
   configSchema: [
-    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: "outlook_calendars", placeholder: "Select a calendar (uses default if not specified)" },
+    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select a calendar (uses default if not specified)" },
     { name: "startDate", label: "Start Date", type: "date", required: false, placeholder: "Start date for events" },
     { name: "endDate", label: "End Date", type: "date", required: false, placeholder: "End date for events" },
     { name: "limit", label: "Number of Events", type: "select", required: false, defaultValue: "25", options: [
