@@ -38,29 +38,28 @@ export function OutlookEmailField({
   // Outlook-specific option processing
   const processOutlookOptions = (options: any[]) => {
     return options
-      .filter(opt => opt && opt.email)
+      .filter(opt => opt && (opt.email || opt.value))
+      .map(opt => ({
+        ...opt,
+        email: opt.email || opt.value,
+        label: opt.label || (opt.name ? `${opt.name} <${opt.email || opt.value}>` : opt.email || opt.value)
+      }))
       .sort((a, b) => {
-        // Prioritize Outlook contacts first
-        if (a.type === 'contact' && b.type !== 'contact') return -1;
-        if (b.type === 'contact' && a.type !== 'contact') return 1;
-        
-        // Then distribution lists
-        if (a.type === 'distributionList' && b.type !== 'distributionList') return -1;
-        if (b.type === 'distributionList' && a.type !== 'distributionList') return 1;
-        
-        // Then recent Outlook contacts
-        if (a.type === 'recent' && b.type !== 'recent') return -1;
-        if (b.type === 'recent' && a.type !== 'recent') return 1;
-        
-        // Then by display name availability
-        if (a.displayName && !b.displayName) return -1;
-        if (b.displayName && !a.displayName) return 1;
-        
-        // Default to alphabetical by display name or email
-        return (a.displayName || a.email).localeCompare(b.displayName || b.email);
+        const getPriority = (item: any) => {
+          if (item.type === 'contact') return 0;
+          if (item.type === 'distributionList') return 1;
+          if (item.type === 'recent') return 2;
+          return 3;
+        };
+
+        const priorityDiff = getPriority(a) - getPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        const aName = (a.name || a.label || a.email || '').toString().toLowerCase();
+        const bName = (b.name || b.label || b.email || '').toString().toLowerCase();
+        return aName.localeCompare(bName);
       });
   };
-
   // Outlook-specific error handling
   const handleOutlookError = (error: string) => {
     if (error.includes('permission') || error.includes('403')) {
@@ -96,3 +95,4 @@ export function OutlookEmailField({
     />
   );
 }
+

@@ -3,13 +3,14 @@
  * Fetches contacts and recent recipients from Outlook
  */
 
-import { getDecryptedToken } from '@/lib/security/tokenEncryption'
+import { decryptToken } from '@/lib/integrations/tokenUtils'
 
 export interface EmailRecipient {
   value: string
   label: string
   email: string
   name?: string
+  type?: string
 }
 
 // Simple in-memory cache for recipients
@@ -25,16 +26,19 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     const cacheKey = integration.id
     const cached = recipientCache.get(cacheKey)
     if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log("📧 [Outlook API] Returning cached recipients")
+      console.log(" [Outlook API] Returning cached recipients")
       return cached.data
     }
 
-    console.log("🚀 [Outlook API] Fetching fresh recipients")
+    console.log(" [Outlook API] Fetching fresh recipients")
 
     // Get decrypted access token
-    const accessToken = await getDecryptedToken(integration.access_token)
-    if (!accessToken) {
+    if (!integration.access_token) {
       throw new Error('No access token available')
+    }
+    const accessToken = await decryptToken(integration.access_token)
+    if (!accessToken) {
+      throw new Error('Failed to decrypt access token')
     }
 
     const recipients = new Map<string, EmailRecipient>()
@@ -61,16 +65,17 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
               recipients.set(email, {
                 value: email,
                 label: name ? `${name} <${email}>` : email,
-                email: email,
-                name: name || undefined
+                email,
+                name: name || undefined,
+                type: 'contact'
               })
             }
           }
         })
-        console.log(`📧 [Outlook API] Found ${contacts.length} contacts`)
+        console.log(` [Outlook API] Found ${contacts.length} contacts`)
       }
     } catch (error) {
-      console.warn('⚠️ [Outlook API] Could not fetch contacts:', error)
+      console.warn(' [Outlook API] Could not fetch contacts:', error)
     }
 
     // Fetch recent sent emails to get additional recipients
@@ -102,16 +107,17 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
               recipients.set(email, {
                 value: email,
                 label: name ? `${name} <${email}>` : email,
-                email: email,
-                name: name || undefined
+                email,
+                name: name || undefined,
+                type: 'recent'
               })
             }
           })
         })
-        console.log(`📧 [Outlook API] Processed ${messages.length} sent messages`)
+        console.log(` [Outlook API] Processed ${messages.length} sent messages`)
       }
     } catch (error) {
-      console.warn('⚠️ [Outlook API] Could not fetch sent messages:', error)
+      console.warn(' [Outlook API] Could not fetch sent messages:', error)
     }
 
     // Fetch recent received emails to get senders
@@ -136,22 +142,23 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
               recipients.set(email, {
                 value: email,
                 label: name ? `${name} <${email}>` : email,
-                email: email,
-                name: name || undefined
+                email,
+                name: name || undefined,
+                type: 'recent'
               })
             }
           }
         })
-        console.log(`📧 [Outlook API] Processed inbox messages`)
+        console.log(` [Outlook API] Processed inbox messages`)
       }
     } catch (error) {
-      console.warn('⚠️ [Outlook API] Could not fetch inbox messages:', error)
+      console.warn(' [Outlook API] Could not fetch inbox messages:', error)
     }
 
     // Convert to array and limit to 50 recipients
     const recipientArray = Array.from(recipients.values()).slice(0, 50)
 
-    console.log(`✅ [Outlook API] Total recipients found: ${recipientArray.length}`)
+    console.log(` [Outlook API] Total recipients found: ${recipientArray.length}`)
 
     // Cache the results
     recipientCache.set(integration.id, {
@@ -162,15 +169,17 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     return recipientArray
 
   } catch (error: any) {
-    console.error("❌ [Outlook API] Failed to get recipients:", error)
+    console.error(" [Outlook API] Failed to get recipients:", error)
 
     // If we have cached data, return it
     const cached = recipientCache.get(integration.id)
     if (cached) {
-      console.log("📧 [Outlook API] Returning stale cached data due to error")
+      console.log(" [Outlook API] Returning stale cached data due to error")
       return cached.data
     }
 
     throw new Error(`Failed to get Outlook recipients: ${error.message}`)
   }
 }
+
+
