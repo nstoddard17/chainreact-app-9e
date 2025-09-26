@@ -86,17 +86,7 @@ export function ActionSelectionDialog({
   // Get integration store to check status
   const { getIntegrationByProvider } = useIntegrationStore()
 
-  // Refresh integrations when dialog opens
-  useEffect(() => {
-    let cancelled = false
-    if (open && refreshIntegrations) {
-      console.log('ActionSelectionDialog: Refreshing integrations on open')
-      Promise.resolve(refreshIntegrations()).catch(() => {}).finally(() => {
-        if (cancelled) return
-      })
-    }
-    return () => { cancelled = true }
-  }, [open, refreshIntegrations])
+  // Parent handles refreshing integrations before opening to avoid double-fetch races
 
   // Handle OAuth connection
   const handleConnect = useCallback(async (integrationId: string) => {

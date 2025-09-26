@@ -149,6 +149,18 @@ function ConfigurationForm({
   // Extract saved dynamic options from initialData if present
   const savedDynamicOptions = initialData?.__dynamicOptions;
 
+  // Ensure Google providers appear connected by fetching integrations if store hasn't resolved yet
+  const hasRequestedIntegrationsRef = useRef(false);
+  useEffect(() => {
+    if (!provider) return;
+    const isGoogleProvider = provider === 'google-sheets' || provider === 'google_drive' || provider === 'google-drive' || provider === 'google-docs' || provider === 'google_calendar' || provider === 'google-calendar' || provider === 'google' || provider === 'gmail';
+    if (isGoogleProvider && !integration && !hasRequestedIntegrationsRef.current) {
+      hasRequestedIntegrationsRef.current = true;
+      // Non-forced fetch to avoid wiping cache mid-UI, just ensure the store has data
+      try { fetchIntegrations(false); } catch {}
+    }
+  }, [provider, integration, fetchIntegrations]);
+
   // Dynamic options hook
   const {
     dynamicOptions,
@@ -726,6 +738,10 @@ function ConfigurationForm({
         const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
         
         // Load if visible and not yet loaded
+        // Special case: prevent repeated reloads for Google Sheets sheetName when options exist
+        if (nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName' && hasOptions) {
+          return false;
+        }
         return !hasOptions;
       }
       
@@ -742,7 +758,8 @@ function ConfigurationForm({
           if (dependencyValue) {
             // Load with the dependency value
             console.log(`📦 [ConfigForm] Loading ${field.name} with dependency ${field.dependsOn}: ${dependencyValue}`);
-            loadOptions(field.name, field.dependsOn, dependencyValue);
+            // Avoid forcing reloads for dependent fields; prevents sheetName thrash
+            loadOptions(field.name, field.dependsOn, dependencyValue, false);
           } else {
             console.log(`⚠️ [ConfigForm] Skipping auto-load for ${field.name} - missing dependency value for ${field.dependsOn}`);
           }

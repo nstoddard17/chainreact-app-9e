@@ -1,5 +1,5 @@
 import { Client, GuildMember, Invite, Collection } from "discord.js"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseServiceClient } from "@/utils/supabase/server"
 
 interface InviteData {
   code: string
@@ -7,6 +7,21 @@ interface InviteData {
   inviterId?: string
   maxUses?: number
   maxAge?: number
+}
+
+function normalizeInviteCode(value?: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  // Remove protocol if provided
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, '')
+  const segments = withoutProtocol.split('/')
+  const lastSegment = segments[segments.length - 1]
+  if (!lastSegment) return null
+
+  const code = lastSegment.split('?')[0].split('#')[0]
+  return code || null
 }
 
 class DiscordInviteTracker {
@@ -142,10 +157,11 @@ class DiscordInviteTracker {
       this.inviteCache.set(guildId, newInviteMap)
 
       if (usedInvite) {
-        console.log(`Member ${member.user.tag} joined using invite ${usedInvite.code}`)
+        const normalizedCode = normalizeInviteCode(usedInvite.code) || usedInvite.code
+        console.log(`Member ${member.user.tag} joined using invite ${normalizedCode}`)
 
         // Check for role assignment based on invite
-        await this.assignRoleBasedOnInvite(member, usedInvite.code)
+        await this.assignRoleBasedOnInvite(member, normalizedCode)
 
         // Trigger workflows for member join with invite data
         await this.triggerMemberJoinWorkflow(member, usedInvite)
@@ -163,14 +179,19 @@ class DiscordInviteTracker {
 
   private async assignRoleBasedOnInvite(member: GuildMember, inviteCode: string) {
     try {
-      const supabase = await createSupabaseServerClient()
+      const supabase = await createSupabaseServiceClient()
+
+      const normalizedInviteCode = normalizeInviteCode(inviteCode)
+      if (!normalizedInviteCode) {
+        return
+      }
 
       // Check for hardcoded config first (for internal use)
       if (
         process.env.DISCORD_AUTO_ROLE_INVITE &&
         process.env.DISCORD_AUTO_ROLE_ID &&
         process.env.DISCORD_GUILD_ID &&
-        inviteCode === process.env.DISCORD_AUTO_ROLE_INVITE &&
+        normalizeInviteCode(process.env.DISCORD_AUTO_ROLE_INVITE) === normalizedInviteCode &&
         member.guild.id === process.env.DISCORD_GUILD_ID
       ) {
         const roleId = process.env.DISCORD_AUTO_ROLE_ID
@@ -189,7 +210,7 @@ class DiscordInviteTracker {
         .from("discord_invite_roles")
         .select("role_id")
         .eq("server_id", member.guild.id)
-        .eq("invite_code", inviteCode)
+        .eq("invite_code", normalizedInviteCode)
         .single()
 
       if (mapping) {
@@ -207,18 +228,29 @@ class DiscordInviteTracker {
 
   private async triggerMemberJoinWorkflow(member: GuildMember, invite: Invite | null) {
     try {
-      const supabase = await createSupabaseServerClient()
+      const supabase = await createSupabaseServiceClient()
 
       // Find workflows with Discord member join trigger
-      const { data: workflows } = await supabase
+      const { data: workflows, error: workflowsError } = await supabase
         .from("workflows")
         .select("*")
         .eq("status", "active")
         .contains("nodes", [{ type: "discord_trigger_member_join" }])
 
+      if (workflowsError) {
+        console.error('[Discord] Failed to load member join workflows:', workflowsError)
+        return
+      }
+
+      console.log('[Discord] Evaluating member join workflows', {
+        workflowsCount: workflows?.length || 0,
+        guildId: member.guild.id
+      })
+
       if (!workflows || workflows.length === 0) return
 
       // Prepare trigger data
+      const inviteCode = normalizeInviteCode(invite?.code || undefined)
       const triggerData = {
         memberId: member.id,
         memberTag: member.user.tag,
@@ -228,8 +260,8 @@ class DiscordInviteTracker {
         guildId: member.guild.id,
         guildName: member.guild.name,
         joinedAt: member.joinedAt?.toISOString(),
-        inviteCode: invite?.code || null,
-        inviteUrl: invite?.code ? `https://discord.gg/${invite.code}` : null,
+        inviteCode: inviteCode,
+        inviteUrl: inviteCode ? `https://discord.gg/${inviteCode}` : null,
         inviterTag: invite?.inviter?.tag || null,
         inviterId: invite?.inviter?.id || null,
         inviteUses: invite?.uses || null,
@@ -245,30 +277,52 @@ class DiscordInviteTracker {
 
         // Check if guild matches (if specified in trigger config)
         if (triggerNode.data?.guildId && triggerNode.data.guildId !== member.guild.id) {
+          console.log('[Discord] Skipping workflow due to guild mismatch', {
+            workflowId: workflow.id,
+            expected: triggerNode.data.guildId,
+            actual: member.guild.id
+          })
           continue
         }
 
         // Check invite filter if specified
-        if (triggerNode.data?.inviteFilter && triggerNode.data.inviteFilter !== invite?.code) {
+        const filterCode = normalizeInviteCode(triggerNode.data?.inviteFilter)
+        if (filterCode && filterCode !== inviteCode) {
+          console.log('[Discord] Skipping workflow due to invite filter mismatch', {
+            workflowId: workflow.id,
+            expected: filterCode,
+            actual: inviteCode
+          })
           continue
         }
 
         // Execute workflow
-        const executionResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/workflow/execute`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.WORKFLOW_EXECUTION_SECRET}`
-          },
-          body: JSON.stringify({
-            workflowId: workflow.id,
-            triggerData,
-            triggeredBy: "discord_member_join"
-          })
-        })
+        try {
+          const { AdvancedExecutionEngine } = await import('@/lib/execution/advancedExecutionEngine')
+          const executionEngine = new AdvancedExecutionEngine()
+          const executionSession = await executionEngine.createExecutionSession(
+            workflow.id,
+            workflow.user_id,
+            'webhook',
+            {
+              inputData: triggerData,
+              webhookEvent: {
+                provider: 'discord',
+                changeType: 'member_join',
+                metadata: triggerData,
+                event: triggerData
+              }
+            }
+          )
 
-        if (!executionResponse.ok) {
-          console.error(`Failed to trigger workflow ${workflow.id} for member join`)
+          await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerData)
+          console.log('[Discord] Workflow triggered successfully for member join', {
+            workflowId: workflow.id,
+            memberId: member.id,
+            inviteCode
+          })
+        } catch (executionError) {
+          console.error(`Failed to execute workflow ${workflow.id} for member join`, executionError)
         }
       }
     } catch (error) {

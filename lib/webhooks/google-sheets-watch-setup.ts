@@ -2,6 +2,19 @@ import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+function createRowSignature(row: any[]): string {
+  if (!Array.isArray(row)) return ''
+  const normalizedCells = row.map((cell) => {
+    if (cell === null || cell === undefined) return ''
+    if (typeof cell === 'string') return cell.trim()
+    return String(cell).trim()
+  })
+  if (normalizedCells.every((cell) => cell === '')) {
+    return ''
+  }
+  return normalizedCells.join('||')
+}
+
 function getGoogleWebhookCallbackUrl(): string {
   const isProduction = process.env.NODE_ENV === 'production'
   const baseUrl = isProduction
@@ -89,6 +102,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     let lastRowCount: number | undefined
     let lastSheetCount: number | undefined
     let sheetData: any = {}
+    let initialRowSignatures: Record<string, string> | undefined
 
     try {
       // Get spreadsheet metadata
@@ -110,10 +124,18 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
           // Get actual data rows (excluding headers)
           const valuesResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: config.spreadsheetId,
-            range: `${config.sheetName}!A:A` // Get first column to count actual data rows
+            range: `${config.sheetName}!A:Z`
           })
-          const dataRows = valuesResponse.data.values?.length || 0
-          lastRowCount = dataRows
+          const dataRows = valuesResponse.data.values || []
+          lastRowCount = dataRows.length
+
+          initialRowSignatures = {}
+          dataRows.forEach((row, index) => {
+            const signature = createRowSignature(row)
+            if (signature) {
+              initialRowSignatures![String(index + 1)] = signature
+            }
+          })
         }
       }
 
@@ -185,10 +207,23 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
         triggerType: config.triggerType,
         lastRowCount,
         lastSheetCount,
-        sheetData
+        sheetData,
+        rowSignatures: initialRowSignatures || {}
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
+    })
+
+    console.log('📦 Stored Google Sheets watch metadata', {
+      userId: config.userId,
+      integrationId: config.integrationId,
+      metadata: {
+        spreadsheetId: config.spreadsheetId,
+        sheetName: config.sheetName,
+        triggerType: config.triggerType,
+        lastRowCount,
+        lastSheetCount
+      }
     })
 
     return {
@@ -334,6 +369,13 @@ export async function checkGoogleSheetsChanges(
     }
 
     // Check for changes in specific sheet
+    console.log('[Google Sheets] Change detection context', {
+      spreadsheetId,
+      sheetName: previousMetadata.sheetName,
+      lastRowCount: previousMetadata.lastRowCount,
+      lastSheetCount: previousMetadata.lastSheetCount
+    })
+
     if (previousMetadata.sheetName) {
       const targetSheet = currentSheets.find(s => s.properties?.title === previousMetadata.sheetName)
       if (targetSheet) {
@@ -345,40 +387,70 @@ export async function checkGoogleSheetsChanges(
 
         const currentRows = valuesResponse.data.values || []
         const currentRowCount = currentRows.length
+        const previousRowCount = previousMetadata.lastRowCount ?? 0
+        const previousRowSignatures: Record<string, string> = previousMetadata.rowSignatures || {}
+        const currentRowSignatures: Record<string, string> = {}
 
-        if (previousMetadata.lastRowCount !== undefined) {
-          // New rows detected
-          if (currentRowCount > previousMetadata.lastRowCount) {
-            const newRows = currentRows.slice(previousMetadata.lastRowCount)
-            for (let i = 0; i < newRows.length; i++) {
-              const absoluteRowNumber = previousMetadata.lastRowCount + i + 1
-              changes.push({
-                type: 'new_row',
-                sheetName: previousMetadata.sheetName,
-                spreadsheetId,
-                rowNumber: absoluteRowNumber,
-                rowIndex: absoluteRowNumber - 1,
-                data: newRows[i],
-                values: newRows[i],
-                timestamp: new Date().toISOString()
-              })
+        console.log('[Google Sheets] Row count comparison', {
+          previousRowCount,
+          currentRowCount
+        })
+
+        const newRowIndices: number[] = []
+        const updatedRowIndices: number[] = []
+
+        currentRows.forEach((row, index) => {
+          const rowNumber = index + 1
+          const signature = createRowSignature(row)
+          currentRowSignatures[String(rowNumber)] = signature
+
+          const previousSignature = previousRowSignatures[String(rowNumber)] || ''
+          const wasPreviouslyEmpty = !previousSignature
+          const isBeyondPreviousCount = rowNumber > previousRowCount
+
+          if (signature) {
+            if (wasPreviouslyEmpty || isBeyondPreviousCount) {
+              newRowIndices.push(index)
+            } else if (
+              previousSignature &&
+              previousSignature !== signature &&
+              previousMetadata.triggerType === 'updated_row'
+            ) {
+              updatedRowIndices.push(index)
             }
           }
+        })
 
-          // Updated rows (simplified check - in production, you'd want to compare checksums)
-          if (previousMetadata.triggerType === 'updated_row' && currentRowCount === previousMetadata.lastRowCount) {
-            changes.push({
-              type: 'updated_row',
-              sheetName: previousMetadata.sheetName,
-              spreadsheetId,
-              message: 'Sheet was modified but row count unchanged - possible row update',
-              timestamp: new Date().toISOString()
-            })
-          }
+        const timestamp = new Date().toISOString()
+
+        for (const rowIndex of newRowIndices) {
+          const rowNumber = rowIndex + 1
+          changes.push({
+            type: 'new_row',
+            sheetName: previousMetadata.sheetName,
+            spreadsheetId,
+            rowNumber,
+            rowIndex,
+            data: currentRows[rowIndex],
+            values: currentRows[rowIndex],
+            timestamp
+          })
+        }
+
+        if (updatedRowIndices.length > 0) {
+          changes.push({
+            type: 'updated_row',
+            sheetName: previousMetadata.sheetName,
+            spreadsheetId,
+            rowNumbers: updatedRowIndices.map((i) => i + 1),
+            timestamp,
+            message: 'Detected updated rows based on signature diff'
+          })
         }
 
         // Update metadata for next comparison
         previousMetadata.lastRowCount = currentRowCount
+        previousMetadata.rowSignatures = currentRowSignatures
       }
     }
 

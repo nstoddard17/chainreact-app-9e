@@ -1,5 +1,7 @@
 // Use Node.js EventEmitter only on server-side
 import { checkDiscordBotConfig, validateDiscordBotToken } from '@/lib/utils/discordConfig'
+import { createSupabaseServiceClient } from '@/utils/supabase/server'
+import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
 // Create a simple EventEmitter implementation for compatibility
 class SimpleEventEmitter {
@@ -42,6 +44,18 @@ class SimpleEventEmitter {
       this.events.clear()
     }
   }
+}
+
+const normalizeInviteCode = (value?: string | null): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, '')
+  const segments = withoutProtocol.split('/')
+  const lastSegment = segments[segments.length - 1]
+  if (!lastSegment) return null
+  const code = lastSegment.split('?')[0].split('#')[0]
+  return code || null
 }
 
 interface DiscordGatewayPayload {
@@ -650,8 +664,9 @@ class DiscordGateway extends SimpleEventEmitter {
         for (const invite of currentInvites) {
           const cachedInvite = cachedInvites.get(invite.code)
           if (cachedInvite && invite.uses > cachedInvite.uses) {
-            usedInvite = invite
-            console.log(`✅ Member joined using invite: ${invite.code}`)
+            const normalizedCode = normalizeInviteCode(invite.code) || invite.code
+            usedInvite = { ...invite, code: normalizedCode }
+            console.log(`✅ Member joined using invite: ${normalizedCode}`)
             break
           }
         }
@@ -677,8 +692,7 @@ class DiscordGateway extends SimpleEventEmitter {
         console.log('⚠️ Could not determine which invite was used')
       }
 
-      // TODO: Trigger member join workflows
-      // await this.triggerMemberJoinWorkflows(memberData, usedInvite)
+      await this.triggerMemberJoinWorkflows(memberData, usedInvite)
 
     } catch (error) {
       console.error('Error handling member join:', error)
@@ -715,9 +729,12 @@ class DiscordGateway extends SimpleEventEmitter {
    */
   private async assignRoleBasedOnInvite(memberData: any, inviteCode: string, guildId: string): Promise<void> {
     try {
+      const normalizedInvite = normalizeInviteCode(inviteCode)
+      if (!normalizedInvite) return
+
       // Check for hardcoded environment variable config
       if (
-        process.env.DISCORD_AUTO_ROLE_INVITE === inviteCode &&
+        normalizeInviteCode(process.env.DISCORD_AUTO_ROLE_INVITE) === normalizedInvite &&
         process.env.DISCORD_AUTO_ROLE_ID &&
         process.env.DISCORD_GUILD_ID === guildId
       ) {
@@ -729,7 +746,7 @@ class DiscordGateway extends SimpleEventEmitter {
           return
         }
 
-        console.log(`🎯 Assigning role ${roleId} to user ${memberData.user?.username} via invite ${inviteCode}`)
+        console.log(`🎯 Assigning role ${roleId} to user ${memberData.user?.username} via invite ${normalizedInvite}`)
 
         // Use Discord API to assign role
         const response = await fetch(
@@ -739,7 +756,7 @@ class DiscordGateway extends SimpleEventEmitter {
             headers: {
               'Authorization': `Bot ${this.botToken}`,
               'Content-Type': 'application/json',
-              'X-Audit-Log-Reason': `Auto-assigned via invite ${inviteCode}`
+              'X-Audit-Log-Reason': `Auto-assigned via invite ${normalizedInvite}`
             }
           }
         )
@@ -757,6 +774,170 @@ class DiscordGateway extends SimpleEventEmitter {
 
     } catch (error) {
       console.error('Error assigning role based on invite:', error)
+    }
+  }
+
+  private async triggerMemberJoinWorkflows(memberData: any, invite: any | null): Promise<void> {
+    try {
+      const supabase = await createSupabaseServiceClient()
+      const { data: workflows, error: workflowsError } = await supabase
+        .from('workflows')
+        .select('id,user_id,nodes,status')
+        .eq('status', 'active')
+
+      if (workflowsError) {
+        console.error('[Discord] Failed to load member join workflows:', workflowsError)
+        return
+      }
+
+      if (!workflows || workflows.length === 0) {
+        console.log('[Discord] No active workflows to evaluate for member join')
+        return
+      }
+
+      console.log('[Discord] Loaded member join workflows', workflows.map((workflow) => ({
+        id: workflow.id,
+        status: workflow.status,
+        nodesType: typeof workflow.nodes,
+        hasNodes: Boolean(workflow.nodes)
+      })))
+
+      const guildId = memberData.guild_id
+      const guildName = this.client?.guilds?.cache?.get(guildId)?.name || null
+      const normalizedInvite = normalizeInviteCode(invite?.code || undefined)
+      const inviterUsername = invite?.inviter?.username || null
+      const inviterDiscriminator = invite?.inviter?.discriminator || null
+      const inviterTag = inviterUsername
+        ? (inviterDiscriminator && inviterDiscriminator !== '0'
+            ? `${inviterUsername}#${inviterDiscriminator}`
+            : inviterUsername)
+        : null
+
+      const discriminator = memberData.user?.discriminator
+      const username = memberData.user?.username || null
+      const memberTag = discriminator && discriminator !== '0' && username
+        ? `${username}#${discriminator}`
+        : username
+
+      const triggerData = {
+        memberId: memberData.user?.id || null,
+        memberTag,
+        memberUsername: username,
+        memberDiscriminator: discriminator || null,
+        memberAvatar: memberData.user?.avatar || null,
+        guildId,
+        guildName,
+        joinedAt: memberData.joined_at || null,
+        inviteCode: normalizedInvite,
+        inviteUrl: normalizedInvite ? `https://discord.gg/${normalizedInvite}` : null,
+        inviterTag,
+        inviterId: invite?.inviter?.id || null,
+        inviteUses: invite?.uses ?? null,
+        inviteMaxUses: invite?.max_uses ?? null,
+        timestamp: new Date().toISOString()
+      }
+
+      const parseNodes = (raw: any): any[] => {
+        if (!raw) return []
+        if (Array.isArray(raw)) return raw
+        if (typeof raw === 'object') {
+          return Object.values(raw)
+        }
+        if (typeof raw === 'string') {
+          try {
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) return parsed
+            if (parsed && typeof parsed === 'object') return Object.values(parsed)
+            return []
+          } catch (error) {
+            console.warn('[Discord] Failed to parse workflow nodes JSON', { error, rawSnippet: raw.slice?.(0, 200) })
+            return []
+          }
+        }
+        return []
+      }
+
+      const candidateWorkflows = workflows.filter((workflow) => {
+        const nodes = parseNodes(workflow.nodes)
+        console.log('[Discord] Workflow nodes overview', {
+          workflowId: workflow.id,
+          nodeCount: nodes.length,
+          nodeTypes: nodes.map((n: any) => n?.data?.type || n?.type || n?.data?.nodeType)
+        })
+        return nodes.some((n: any) => {
+          const nodeType = n?.data?.type || n?.type || n?.data?.nodeType
+          return nodeType === 'discord_trigger_member_join'
+        })
+      })
+
+      console.log('[Discord] Evaluating member join workflows', {
+        workflowsCount: candidateWorkflows.length,
+        guildId
+      })
+
+      for (const workflow of candidateWorkflows) {
+        const nodes = parseNodes(workflow.nodes)
+        const triggerNode = nodes.find((n: any) => {
+          const nodeType = n?.data?.type || n?.type || n?.data?.nodeType
+          return nodeType === 'discord_trigger_member_join'
+        })
+        if (!triggerNode) {
+          console.log('[Discord] Skipping workflow due to missing trigger node after parse', {
+            workflowId: workflow.id
+          })
+          continue
+        }
+
+        const triggerConfig = triggerNode.data?.config || triggerNode.data || {}
+
+        if (triggerConfig.guildId && triggerConfig.guildId !== guildId) {
+          console.log('[Discord] Skipping workflow due to guild mismatch', {
+            workflowId: workflow.id,
+            expected: triggerConfig.guildId,
+            actual: guildId
+          })
+          continue
+        }
+
+        const filterCode = normalizeInviteCode(triggerConfig.inviteFilter)
+        if (filterCode && filterCode !== normalizedInvite) {
+          console.log('[Discord] Skipping workflow due to invite filter mismatch', {
+            workflowId: workflow.id,
+            expected: filterCode,
+            actual: normalizedInvite
+          })
+          continue
+        }
+
+        try {
+          const executionEngine = new AdvancedExecutionEngine()
+          const executionSession = await executionEngine.createExecutionSession(
+            workflow.id,
+            workflow.user_id,
+            'webhook',
+            {
+              inputData: triggerData,
+              webhookEvent: {
+                provider: 'discord',
+                changeType: 'member_join',
+                metadata: triggerData,
+                event: triggerData
+              }
+            }
+          )
+
+          await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerData)
+          console.log('[Discord] Workflow triggered successfully for member join', {
+            workflowId: workflow.id,
+            memberId: memberData.user?.id || null,
+            inviteCode: normalizedInvite
+          })
+        } catch (error) {
+          console.error(`Failed to execute workflow ${workflow.id} for member join`, error)
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering member join workflows:', error)
     }
   }
 

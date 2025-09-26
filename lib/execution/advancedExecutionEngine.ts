@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { GmailService } from "@/lib/integrations/gmail"
 import { sendGmail } from "@/lib/workflows/actions/gmail/sendGmail"
-import { sendDiscordMessage } from "@/lib/workflows/actions/discord"
+import { sendDiscordMessage, addDiscordRole } from "@/lib/workflows/actions/discord"
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -800,7 +800,34 @@ export class AdvancedExecutionEngine {
 
           if (providerId === 'discord') {
             console.log(`💬 Executing Discord action for node ${node.id}`)
-            const discordResult = await sendDiscordMessage(mappedParams, context.session.user_id, context.data)
+            let discordResult
+
+            if (node.data.type === 'discord_action_assign_role') {
+              // Ensure we have numeric user id
+              let targetUserId = mappedParams.userId
+              const fallbackUserId =
+                context.data?.memberId ||
+                context.data?.trigger?.output?.memberId ||
+                context.data?.trigger?.output?.member_id ||
+                context.data?.trigger?.memberId ||
+                context.data?.trigger?.member_id ||
+                null
+
+              if (!targetUserId || !/^[0-9]+$/.test(String(targetUserId))) {
+                if (fallbackUserId) {
+                  mappedParams.userId = fallbackUserId
+                }
+              }
+
+              if (!mappedParams.guildId && context.data?.guildId) {
+                mappedParams.guildId = context.data.guildId
+              }
+
+              console.log('🔧 [Discord] Final assign role params', mappedParams)
+              discordResult = await addDiscordRole(mappedParams, context.session.user_id, context.data)
+            } else {
+              discordResult = await sendDiscordMessage(mappedParams, context.session.user_id, context.data)
+            }
 
             console.log(`   Discord send result: ${discordResult.success ? '✅ Success' : '❌ Failed'}`)
             if (!discordResult.success) {

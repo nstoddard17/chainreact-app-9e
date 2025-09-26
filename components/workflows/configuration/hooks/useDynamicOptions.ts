@@ -48,6 +48,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   // Track request IDs to handle concurrent requests for the same field
   const requestCounter = useRef(0);
   const activeRequestIds = useRef<Map<string, number>>(new Map());
+  // Throttle map to avoid rapid reloading for the same dependency key
+  const lastLoadedAt = useRef<Map<string, number>>(new Map());
   
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
@@ -73,6 +75,20 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
     
     // Create a key that includes dependencies
     const requestKey = `${fieldName}-${dependsOn || 'none'}-${dependsOnValue || 'none'}`;
+    // If we already have dependency-specific options cached, skip reload
+    if (!forceRefresh && dependsOn && dependsOnValue) {
+      const depKey = `${fieldName}_${dependsOnValue}`
+      const depOptions = dynamicOptions[depKey]
+      if (depOptions && Array.isArray(depOptions) && depOptions.length > 0) {
+        return
+      }
+    }
+
+    // If we recently loaded this key, skip reloading to prevent API spam
+    const lastTs = lastLoadedAt.current.get(requestKey)
+    if (!forceRefresh && lastTs && Date.now() - lastTs < 5000) {
+      return
+    }
     
     // Generate a unique request ID
     const requestId = ++requestCounter.current;
@@ -153,7 +169,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         if (!silent) onLoadingChangeRef.current?.(fieldName, false);
         abortControllers.current.delete(requestKey);
       }
-    }, 10000);
+    }, resourceType === 'google-sheets_sheets' ? 15000 : 10000);
     staleTimers.current.set(requestKey, staleTimer);
     
     // Create and store the loading promise to prevent duplicate requests
@@ -817,6 +833,9 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             return newState;
           });
 
+          // Record last loaded time for throttle
+          lastLoadedAt.current.set(requestKey, Date.now());
+
           // Clear loading state - also clear when accepting stale data to prevent stuck loading
           if (activeRequestIds.current.get(requestKey) === requestId || isAcceptingStaleData) {
             loadingFields.current.delete(requestKey);
@@ -1363,6 +1382,8 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         
         return updated;
       });
+      // Record last loaded time for throttle
+      lastLoadedAt.current.set(requestKey, Date.now());
       
       // Clear loading state on successful completion
       // For critical fields (authorFilter, Trello cards/lists), always clear the loading state when we have data

@@ -26,8 +26,8 @@ export const discordNodes: NodeComponent[] = [
         name: "inviteFilter",
         label: "Specific Invite Code (Optional)",
         type: "text",
-        description: "Only trigger when users join via this specific invite code",
-        placeholder: "e.g., abc123",
+        description: "Only trigger when users join via this invite (accepts code or full https://discord.gg/ URL)",
+        placeholder: "e.g., abc123 or https://discord.gg/abc123",
         required: false
       }
     ],
@@ -299,7 +299,8 @@ export const discordNodes: NodeComponent[] = [
         required: true,
         dependsOn: "guildId",
         placeholder: "Select a user",
-        description: "The user to assign the role to"
+        description: "The user to assign the role to",
+        hidden: true  // Hide until guildId is selected
       },
       {
         name: "roleId",
@@ -309,7 +310,8 @@ export const discordNodes: NodeComponent[] = [
         required: true,
         dependsOn: "guildId",
         placeholder: "Select a role to assign",
-        description: "The role to assign to the user"
+        description: "The role to assign to the user",
+        hidden: true  // Hide until guildId is selected
       }
     ],
     outputSchema: [

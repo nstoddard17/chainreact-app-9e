@@ -49,7 +49,7 @@
  * </form>
  */
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
@@ -75,6 +75,10 @@ const CustomDialogContent = React.forwardRef<
         "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
         className
       )}
+      onDragOver={(e) => {
+        e.preventDefault();
+        console.log('🔵 [Dialog] Allowing drag over in dialog');
+      }}
       {...props}
     >
       {children}
@@ -253,6 +257,49 @@ export function ConfigurationModal({
   const handleClose = () => {
     onClose(false);
   };
+
+  // Global drag and drop handling for the modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleDragOver = (e: DragEvent) => {
+      // Allow drops everywhere in the modal
+      e.preventDefault();
+
+      // Log what we're dragging over
+      const target = e.target as HTMLElement;
+      if (target.getAttribute('role') === 'combobox' ||
+          target.closest('[role="combobox"]') ||
+          target.className?.includes('justify-between')) {
+        console.log('🎯 [ConfigModal] Dragging over a dropdown field', {
+          targetTag: target.tagName,
+          targetClass: target.className,
+          targetRole: target.getAttribute('role')
+        });
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      const target = e.target as HTMLElement;
+      const droppedData = e.dataTransfer?.getData('text/plain');
+
+      console.log('💧 [ConfigModal] Drop detected in modal', {
+        target: target.tagName,
+        targetClass: target.className,
+        data: droppedData,
+        isCombobox: target.getAttribute('role') === 'combobox',
+        closestCombobox: !!target.closest('[role="combobox"]')
+      });
+    };
+
+    document.addEventListener('dragover', handleDragOver, true);
+    document.addEventListener('drop', handleDrop, true);
+
+    return () => {
+      document.removeEventListener('dragover', handleDragOver, true);
+      document.removeEventListener('drop', handleDrop, true);
+    };
+  }, [isOpen]);
 
   // Generate title for the modal
   const getModalTitle = () => {

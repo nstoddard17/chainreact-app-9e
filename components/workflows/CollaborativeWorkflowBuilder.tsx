@@ -219,6 +219,8 @@ const useWorkflowBuilderState = () => {
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
+  // Cache integration status when modal opens to prevent flickering
+  const [cachedIntegrationStatus, setCachedIntegrationStatus] = useState<Record<string, boolean>>({})
   const pendingSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isSavingRef = useRef<boolean>(false)
@@ -226,7 +228,7 @@ const useWorkflowBuilderState = () => {
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [showConnectedOnly, setShowConnectedOnly] = useState(true) // Default to connected integrations only
+  const [showConnectedOnly, setShowConnectedOnly] = useState(false) // Default to showing all integrations to avoid filtering issues
   const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon integrations by default
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string; insertBefore?: string } | null>(null)
   const [isActionAIMode, setIsActionAIMode] = useState(false) // AI mode for action selection
@@ -273,23 +275,197 @@ const useWorkflowBuilderState = () => {
     } catch {}
   }, [setIsSaving, setIsExecuting])
 
+  // Define availableIntegrations early so it can be used in callbacks below
+  const availableIntegrations = useMemo(() => {
+    const integrations = getIntegrationsFromNodes()
+    return integrations
+  }, []) // Note: This is still static, but at least consistent with INTEGRATION_CONFIGS
+
+  // Define isIntegrationConnected early so it can be used in callbacks below
+  const isIntegrationConnected = useCallback((integrationId: string): boolean => {
+    // System integrations that are always "connected" since they don't require external authentication
+    const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
+    if (systemIntegrations.includes(integrationId)) return true;
+
+    // If integrations are actively loading, assume connected to avoid flicker
+    if (integrationsLoading) {
+      return true
+    }
+
+    // Use the integrations from the hook state instead of always getting fresh from store
+    // This prevents the modal from showing disconnected when the store gets temporarily cleared
+    const integrationsToCheck = integrations && integrations.length > 0
+      ? integrations
+      : useIntegrationStore.getState().integrations;
+
+    // If we have no integrations data at all, assume connected rather than filtering everything out
+    // This prevents the trigger modal from showing only "core" when integrations are still loading
+    if (!integrationsToCheck || integrationsToCheck.length === 0) {
+      console.log('⚠️ [isIntegrationConnected] No integrations data available, assuming connected for:', integrationId);
+      return true; // Default to showing integrations rather than hiding them
+    }
+
+    // Debug logging to see what's in the store
+
+    // Create a mapping of integration config IDs to possible database provider values
+    // This handles cases where the integration ID doesn't match the database provider value
+    const providerMappings: Record<string, string[]> = {
+      'gmail': ['gmail', 'google'],
+      'google-calendar': ['google-calendar', 'google_calendar', 'google'],
+      'google-drive': ['google-drive', 'google_drive', 'google'],
+      'google-sheets': ['google-sheets', 'google_sheets', 'google'],
+      'google-docs': ['google-docs', 'google_docs', 'google'],
+      'discord': ['discord'],
+      'slack': ['slack'],
+      'notion': ['notion'],
+      'airtable': ['airtable'],
+      'hubspot': ['hubspot'],
+      'stripe': ['stripe'],
+      'shopify': ['shopify'],
+      'trello': ['trello'],
+      'microsoft-onenote': ['microsoft-onenote', 'microsoft_onenote', 'onenote', 'ms-onenote', 'ms_onenote'],
+      'microsoft-outlook': ['microsoft-outlook', 'microsoft_outlook', 'outlook', 'ms-outlook', 'ms_outlook'],
+      'microsoft-teams': ['microsoft-teams', 'microsoft_teams', 'teams', 'ms-teams', 'ms_teams'],
+      'onedrive': ['onedrive', 'microsoft-onedrive', 'microsoft_onedrive'],
+      'facebook': ['facebook'],
+      'instagram': ['instagram'],
+      'twitter': ['twitter'],
+      'linkedin': ['linkedin'],
+    };
+
+    // For Google services, check if ANY Google service is connected
+    // Google services share authentication, so if one is connected, all are connected
+    if (integrationId.startsWith('google-') || integrationId === 'gmail') {
+      const googleServices = ['google', 'google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail',
+                              'google_drive', 'google_sheets', 'google_docs', 'google_calendar'];
+      const connectedGoogleService = integrationsToCheck?.find(i =>
+        googleServices.includes(i.provider) &&
+        i.status === 'connected'
+      );
+
+      if (connectedGoogleService) {
+        console.log('✅ [isIntegrationConnected] Found connected Google service:', connectedGoogleService.provider);
+        return true;
+      }
+
+      // Also check via getConnectedProviders which handles the grouping
+      const connectedProviders = getConnectedProviders();
+      const hasAnyGoogleConnected = googleServices.some(service => connectedProviders.includes(service));
+      if (hasAnyGoogleConnected) {
+        console.log('✅ [isIntegrationConnected] Found Google service via getConnectedProviders');
+        return true;
+      }
+
+      console.log('❌ [isIntegrationConnected] No connected Google services found for:', integrationId);
+      console.log('   Available integrations:', integrationsToCheck?.map(i => ({ provider: i.provider, status: i.status })));
+      return false;
+    }
+
+    // For Microsoft services, each service requires its own separate authentication
+    // Unlike Google services, Microsoft services don't share authentication
+    if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
+      // Check for the specific Microsoft service only
+      const possibleProviders = providerMappings[integrationId] || [integrationId];
+      const connectedMicrosoftService = integrationsToCheck?.find(i =>
+        possibleProviders.includes(i.provider) &&
+        i.status === 'connected'
+      );
+
+      if (connectedMicrosoftService) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Check if this specific integration exists in the store
+    // Use the mapping to check all possible provider values
+    const possibleProviders = providerMappings[integrationId] || [integrationId];
+
+    // Also check with simple provider name matching (discord -> discord, etc)
+    const integration = integrationsToCheck?.find(i => {
+      // Check if status is connected
+      if (i.status !== 'connected') return false;
+
+      // Check exact match
+      if (i.provider === integrationId) return true;
+
+      // Check if provider is in the possible providers list
+      if (possibleProviders.includes(i.provider)) return true;
+
+      // Check if the integration ID matches the provider with different casing or hyphens
+      const normalizedProvider = i.provider.toLowerCase().replace(/-/g, '_');
+      const normalizedId = integrationId.toLowerCase().replace(/-/g, '_');
+      if (normalizedProvider === normalizedId) return true;
+
+      return false;
+    });
+
+    if (integration) return true;
+
+    // Use the getConnectedProviders as fallback
+    const connectedProviders = getConnectedProviders();
+
+    // Check if any of the possible providers are in the connected list
+    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
+
+    // Debug logging for non-system integrations
+    if (integrationId === 'gmail' || integrationId === 'discord') {
+      console.log(`🔍 [isIntegrationConnected] Checking ${integrationId}:`, {
+        integrationsToCheck: integrationsToCheck?.length || 0,
+        isConnected,
+        possibleProviders,
+        connectedProviders: connectedProviders?.length || 0
+      });
+    }
+
+    return isConnected;
+  }, [getConnectedProviders, integrations, integrationsLoading])
+
   const openTriggerDialog = useCallback(() => {
     resetIntegrationFilters()
     setSelectedIntegration(null)
     setSelectedTrigger(null)
     setSearchQuery("")
+
+    // Cache integration status when opening the modal to prevent flickering
+    const statusCache: Record<string, boolean> = {}
+    availableIntegrations.forEach(integration => {
+      statusCache[integration.id] = isIntegrationConnected(integration.id)
+    })
+    console.log('🔄 [openTriggerDialog] Caching integration status:', {
+      totalIntegrations: availableIntegrations.length,
+      connectedCount: Object.values(statusCache).filter(v => v).length,
+      statusCache
+    })
+    setCachedIntegrationStatus(statusCache)
+
     setShowTriggerDialog(true)
-  }, [resetIntegrationFilters])
+  }, [resetIntegrationFilters, availableIntegrations, isIntegrationConnected])
 
   const openActionDialog = useCallback(() => {
     resetIntegrationFilters()
     setSelectedIntegration(null)
     setSelectedAction(null)
     setSearchQuery("")
+
+    // Cache integration status when opening the modal to prevent flickering
+    const statusCache: Record<string, boolean> = {}
+    availableIntegrations.forEach(integration => {
+      statusCache[integration.id] = isIntegrationConnected(integration.id)
+    })
+    console.log('🔄 [openActionDialog] Caching integration status:', {
+      totalIntegrations: availableIntegrations.length,
+      connectedCount: Object.values(statusCache).filter(v => v).length,
+      currentIntegrations: integrations?.length || 0,
+      statusCache
+    })
+    setCachedIntegrationStatus(statusCache)
+
     // Force-refresh integrations so connection statuses are up-to-date in the modal
     try { fetchIntegrations(true) } catch {}
     setShowActionDialog(true)
-  }, [resetIntegrationFilters, fetchIntegrations])
+  }, [resetIntegrationFilters, fetchIntegrations, availableIntegrations, isIntegrationConnected, integrations])
 
   // Step execution store hooks
   const {
@@ -306,11 +482,26 @@ const useWorkflowBuilderState = () => {
     pauseExecution,
     resetExecution: resetStepExecution
   } = useWorkflowStepExecutionStore()
-  
-  const availableIntegrations = useMemo(() => {
-    const integrations = getIntegrationsFromNodes()
-    return integrations
-  }, []) // Note: This is still static, but at least consistent with INTEGRATION_CONFIGS
+
+  // Fetch integrations on component mount to ensure we have the data
+  useEffect(() => {
+    // Only fetch if we don't have integrations loaded yet
+    if (!integrations || integrations.length === 0) {
+      console.log('📦 [WorkflowBuilder] Fetching integrations on mount');
+      fetchIntegrations(false).catch((error) => {
+        console.error('❌ [WorkflowBuilder] Failed to fetch integrations on mount:', error);
+      });
+    } else {
+      console.log('✅ [WorkflowBuilder] Integrations already loaded:', {
+        count: integrations.length,
+        integrations: integrations.map(i => ({
+          provider: i.provider,
+          status: i.status,
+          id: i.id
+        }))
+      });
+    }
+  }, []); // Only run on mount
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
     // Manual trigger doesn't need configuration
@@ -373,125 +564,7 @@ const useWorkflowBuilderState = () => {
     })
   }
 
-  const isIntegrationConnected = useCallback((integrationId: string): boolean => {
-    // System integrations that are always "connected" since they don't require external authentication
-    const systemIntegrations = ['core', 'logic', 'ai', 'webhook', 'scheduler', 'manual'];
-    if (systemIntegrations.includes(integrationId)) return true;
-    
-    // If integrations are actively loading, do not mark as disconnected yet
-    if (integrationsLoading) {
-      return true
-    }
-
-    // Always get fresh data from the store
-    const freshIntegrations = useIntegrationStore.getState().integrations;
-    
-    // Debug logging to see what's in the store
-    
-    // Create a mapping of integration config IDs to possible database provider values
-    // This handles cases where the integration ID doesn't match the database provider value
-    const providerMappings: Record<string, string[]> = {
-      'gmail': ['gmail'],
-      'google-calendar': ['google-calendar', 'google_calendar'],
-      'google-drive': ['google-drive', 'google_drive'],
-      'google-sheets': ['google-sheets', 'google_sheets'],
-      'google-docs': ['google-docs', 'google_docs'],
-      'discord': ['discord'],
-      'slack': ['slack'],
-      'notion': ['notion'],
-      'airtable': ['airtable'],
-      'hubspot': ['hubspot'],
-      'stripe': ['stripe'],
-      'shopify': ['shopify'],
-      'trello': ['trello'],
-      'microsoft-onenote': ['microsoft-onenote', 'microsoft_onenote', 'onenote', 'ms-onenote', 'ms_onenote'],
-      'microsoft-outlook': ['microsoft-outlook', 'microsoft_outlook', 'outlook', 'ms-outlook', 'ms_outlook'],
-      'microsoft-teams': ['microsoft-teams', 'microsoft_teams', 'teams', 'ms-teams', 'ms_teams'],
-      'onedrive': ['onedrive', 'microsoft-onedrive', 'microsoft_onedrive'],
-      'facebook': ['facebook'],
-      'instagram': ['instagram'],
-      'twitter': ['twitter'],
-      'linkedin': ['linkedin'],
-    };
-    
-    // For Google services, check if ANY Google service is connected
-    // Google services share authentication, so if one is connected, all are connected
-    if (integrationId.startsWith('google-') || integrationId === 'gmail') {
-      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'gmail',
-                              'google_drive', 'google_sheets', 'google_docs', 'google_calendar'];
-      const connectedGoogleService = freshIntegrations?.find(i => 
-        googleServices.includes(i.provider) && 
-        i.status === 'connected'
-      );
-      
-      if (connectedGoogleService) {
-        return true;
-      }
-      
-      // Also check via getConnectedProviders which handles the grouping
-      const connectedProviders = getConnectedProviders();
-      const hasAnyGoogleConnected = googleServices.some(service => connectedProviders.includes(service));
-      if (hasAnyGoogleConnected) {
-        return true;
-      }
-      
-      return false;
-    }
-    
-    // For Microsoft services, each service requires its own separate authentication
-    // Unlike Google services, Microsoft services don't share authentication
-    if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      // Check for the specific Microsoft service only
-      const possibleProviders = providerMappings[integrationId] || [integrationId];
-      const connectedMicrosoftService = freshIntegrations?.find(i =>
-        possibleProviders.includes(i.provider) &&
-        i.status === 'connected'
-      );
-
-      if (connectedMicrosoftService) {
-        return true;
-      }
-
-      return false;
-    }
-    
-    // Check if this specific integration exists in the store
-    // Use the mapping to check all possible provider values
-    const possibleProviders = providerMappings[integrationId] || [integrationId];
-    
-    // Also check with simple provider name matching (discord -> discord, etc)
-    const integration = freshIntegrations?.find(i => {
-      // Check if status is connected
-      if (i.status !== 'connected') return false;
-      
-      // Check exact match
-      if (i.provider === integrationId) return true;
-      
-      // Check if provider is in the possible providers list
-      if (possibleProviders.includes(i.provider)) return true;
-      
-      // Check if the integration ID matches the provider with different casing or hyphens
-      const normalizedProvider = i.provider.toLowerCase().replace(/-/g, '_');
-      const normalizedId = integrationId.toLowerCase().replace(/-/g, '_');
-      if (normalizedProvider === normalizedId) return true;
-      
-      return false;
-    });
-    
-    if (integration) return true;
-    
-    // Use the getConnectedProviders as fallback
-    const connectedProviders = getConnectedProviders();
-    
-    // Check if any of the possible providers are in the connected list
-    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider));
-    
-    // Debug logging for non-system integrations
-    if (integrationId === 'gmail' || integrationId === 'discord') {
-    }
-    
-    return isConnected;
-  }, [getConnectedProviders, integrations, integrationsLoading])
+  // Note: isIntegrationConnected has been moved earlier in the file to avoid initialization errors
 
 
 
@@ -2948,8 +3021,7 @@ const useWorkflowBuilderState = () => {
 
       // Only fetch if we don't have integrations loaded yet
       if (!integrations || integrations.length === 0) {
-        fetchIntegrations(false).then(() => {
-        });
+        fetchIntegrations(false).catch(() => {})
       }
 
       // EXTREMELY AGGRESSIVE banner removal
@@ -4536,18 +4608,15 @@ const useWorkflowBuilderState = () => {
   const categories = hookCategories;
 
   const filteredIntegrations = useMemo(() => {
-    // If integrations are still loading, show all integrations to avoid empty state
-    if (integrationsLoading) {
-      return availableIntegrations;
-    }
-
+    // Apply filters consistently, even during loading
     const result = availableIntegrations
       .filter(int => {
-        // Filter out coming soon integrations by default
+        // Always filter out coming soon integrations unless explicitly shown
         if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
           return false;
         }
-        if (showConnectedOnly) {
+        // During loading, don't filter by connection status to avoid flicker
+        if (!integrationsLoading && showConnectedOnly) {
           const isConnected = isIntegrationConnected(int.id);
           return isConnected;
         }
@@ -5207,7 +5276,9 @@ const useWorkflowBuilderState = () => {
     // Coming soon integrations set
     comingSoonIntegrations,
     // Add the missing function
-    openTriggerDialog
+    openTriggerDialog,
+    // Cached integration status for preventing flicker in modals
+    cachedIntegrationStatus
   }
 }
 
@@ -5394,7 +5465,9 @@ function WorkflowBuilderContent() {
     // Coming soon integrations set
     comingSoonIntegrations,
     // Add the missing function
-    openTriggerDialog
+    openTriggerDialog,
+    // Cached integration status
+    cachedIntegrationStatus
   } = useWorkflowBuilderState()
 
   // Helper: normalize Add Action buttons to always appear at end of each AI Agent chain
@@ -6241,7 +6314,10 @@ function WorkflowBuilderContent() {
                 filteredIntegrations
                   .filter(integration => integration.triggers && integration.triggers.length > 0)
                   .map((integration) => {
-                  const isConnected = isIntegrationConnected(integration.id);
+                  // Use cached status if available, otherwise check current status
+                  const isConnected = cachedIntegrationStatus[integration.id] !== undefined
+                    ? cachedIntegrationStatus[integration.id]
+                    : isIntegrationConnected(integration.id);
                   const isComingSoon = comingSoonIntegrations.has(integration.id);
                   
                   return (
@@ -7281,7 +7357,10 @@ function WorkflowBuilderContent() {
 
                 // Use the already filtered and sorted integrations
                 return sortedIntegrations.map((integration) => {
-                  const isConnected = isIntegrationConnected(integration.id);
+                  // Use cached status if available, otherwise check current status
+                  const isConnected = cachedIntegrationStatus[integration.id] !== undefined
+                    ? cachedIntegrationStatus[integration.id]
+                    : isIntegrationConnected(integration.id);
                   const isComingSoon = comingSoonIntegrations.has(integration.id);
                   
                   return (

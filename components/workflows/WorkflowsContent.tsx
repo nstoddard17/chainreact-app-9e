@@ -245,7 +245,7 @@ export default function WorkflowsContent() {
 
 
       // Get the workflow to update
-      const workflowToUpdate = workflows.find((w: any) => w.id === id)
+      const workflowToUpdate = (workflows || []).find((w: any) => w.id === id)
       if (!workflowToUpdate) {
         console.error(`Workflow with id ${id} not found`)
         toast({
@@ -297,7 +297,6 @@ export default function WorkflowsContent() {
           // Prepare webhook registration for Gmail (but don't execute yet)
           const gmailTrigger = workflowToUpdate.nodes.find((n: any) =>
             n?.data?.type === 'gmail_trigger_new_email' ||
-            n?.data?.nodeType === 'gmail_trigger_new_email' ||
             n?.type === 'gmail_trigger_new_email'
           )
 
@@ -314,7 +313,7 @@ export default function WorkflowsContent() {
                 credentials: 'include',
                 body: JSON.stringify({
                   workflowId: id,
-                  triggerType: gmailTrigger.data?.type || gmailTrigger.data?.nodeType || gmailTrigger.type,
+                  triggerType: gmailTrigger.data?.type || gmailTrigger.type,
                   providerId: 'gmail',
                   config: { labelIds: gmailTrigger.data?.config?.labelIds || ['INBOX'] }
                 })
@@ -344,7 +343,7 @@ export default function WorkflowsContent() {
 
         // The store already updates the workflows array, no need to refresh
         // Just verify the update took effect
-        const verifyWorkflow = workflows.find(w => w.id === id)
+        const verifyWorkflow = (workflows || []).find(w => w.id === id)
         console.log(`✔️ Verified workflow status:`, {
           id: verifyWorkflow?.id,
           status: verifyWorkflow?.status,

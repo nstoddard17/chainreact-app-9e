@@ -366,7 +366,8 @@ export function useFieldChangeHandler({
       clearDependentFields('spreadsheetId');
       
       if (value) {
-        await loadDependentFieldOptions('spreadsheetId', value);
+        // For Google Sheets, avoid force-refresh to prevent rapid refetch loops
+        await loadDependentFieldOptions('spreadsheetId', value, false);
       }
       
       return true;
@@ -772,15 +773,27 @@ export function useFieldChangeHandler({
    * Main field change handler - the single entry point for all field changes
    */
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 handleFieldChange called:', { 
-      fieldName, 
-      value, 
+    // Check if the value actually changed
+    const currentValue = values[fieldName];
+    const hasChanged = value !== currentValue;
+
+    console.log('🔍 handleFieldChange called:', {
+      fieldName,
+      value,
+      currentValue,
+      hasChanged,
       valueType: typeof value,
       isArray: Array.isArray(value),
       valueLength: Array.isArray(value) ? value.length : 'N/A',
-      provider: nodeInfo?.providerId 
+      provider: nodeInfo?.providerId
     });
-    
+
+    // Skip if value hasn't changed (prevents unnecessary resets)
+    if (!hasChanged) {
+      console.log('⏭️ Skipping field change - value unchanged:', fieldName);
+      return;
+    }
+
     // Special logging for uploadedFiles field
     if (fieldName === 'uploadedFiles') {
       console.log('📎 [useFieldChangeHandler] uploadedFiles being set:', {
@@ -794,16 +807,16 @@ export function useFieldChangeHandler({
 
     // Try provider-specific and generic handlers
     const handled = await handleProviderFieldChange(fieldName, value);
-    
+
     // Always set the value, even if handled by provider
     // (providers handle side effects but don't set the main value)
     setValue(fieldName, value);
-    
+
     // Log if field was handled by a provider
     if (handled) {
       console.log('✅ Field handled by provider logic:', fieldName);
     }
-  }, [handleProviderFieldChange, setValue, nodeInfo]);
+  }, [handleProviderFieldChange, setValue, nodeInfo, values]);
 
   return {
     handleFieldChange,

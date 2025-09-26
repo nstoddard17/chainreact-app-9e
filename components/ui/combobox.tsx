@@ -41,6 +41,9 @@ interface ComboboxProps {
   onOpenChange?: (open: boolean) => void;
   selectedValues?: string[]; // Values that already have bubbles/are selected
   displayLabel?: string | null; // Optional display label for when options haven't loaded yet
+  onDrop?: (e: React.DragEvent) => void; // Handler for drop events
+  onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
+  onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
 }
 
 interface MultiComboboxProps {
@@ -56,6 +59,9 @@ interface MultiComboboxProps {
   selectedValues?: string[]; // Values that already have bubbles/are selected
   hideSelectedBadges?: boolean; // Hide badges in the dropdown trigger (for Airtable fields with bubbles)
   showFullEmails?: boolean; // Show full email addresses without truncation
+  onDrop?: (e: React.DragEvent) => void; // Handler for drop events
+  onDragOver?: (e: React.DragEvent) => void; // Handler for drag over events
+  onDragLeave?: (e: React.DragEvent) => void; // Handler for drag leave events
 }
 
 export interface HierarchicalComboboxOption {
@@ -95,8 +101,12 @@ export function Combobox({
   onOpenChange,
   selectedValues = [],
   displayLabel,
+  onDrop,
+  onDragOver,
+  onDragLeave,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const uniqueId = React.useId()
   
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
@@ -202,16 +212,115 @@ export function Combobox({
     }
   }
 
+  // Add drop zone state
+  const [isDragOver, setIsDragOver] = React.useState(false);
+
+  // Handle drag and drop
+  React.useEffect(() => {
+    const buttonId = `combobox-${uniqueId}`;
+
+    const handleGlobalDragOver = (e: DragEvent) => {
+      if (!onDrop) return;
+
+      // Check if the event target is within our component
+      const target = e.target as HTMLElement;
+
+      // Check if target or any parent is specifically THIS combobox
+      let currentElement: HTMLElement | null = target;
+      let foundCombobox = false;
+
+      while (currentElement) {
+        // Only match if it's specifically our button ID
+        if (currentElement.id === buttonId) {
+          foundCombobox = true;
+          break;
+        }
+        // Also check if we find the specific button element
+        const button = document.getElementById(buttonId);
+        if (button && button.contains(currentElement)) {
+          foundCombobox = true;
+          break;
+        }
+        currentElement = currentElement.parentElement;
+      }
+
+      if (foundCombobox) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+        console.log('🎯 [Combobox] Drag over detected!', { buttonId, targetClass: target.className });
+        if (onDragOver) onDragOver(e as any);
+      }
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      if (!onDrop) return;
+
+      const target = e.target as HTMLElement;
+
+      // Check if target or any parent is specifically THIS combobox
+      let currentElement: HTMLElement | null = target;
+      let foundCombobox = false;
+
+      while (currentElement) {
+        // Only match if it's specifically our button ID
+        if (currentElement.id === buttonId) {
+          foundCombobox = true;
+          break;
+        }
+        // Also check if we find the specific button element
+        const button = document.getElementById(buttonId);
+        if (button && button.contains(currentElement)) {
+          foundCombobox = true;
+          break;
+        }
+        currentElement = currentElement.parentElement;
+      }
+
+      if (foundCombobox) {
+        e.preventDefault();
+        e.stopPropagation();
+        const droppedText = e.dataTransfer?.getData('text/plain') || '';
+        console.log('💧 [Combobox] Drop detected!', { buttonId, droppedText });
+        setIsDragOver(false);
+        if (onDrop) onDrop(e as any);
+      }
+    };
+
+    const handleGlobalDragLeave = (e: DragEvent) => {
+      const target = e.target as HTMLElement;
+      const button = document.getElementById(buttonId);
+      if (button && !button.contains(e.relatedTarget as HTMLElement)) {
+        setIsDragOver(false);
+        if (onDragLeave) onDragLeave(e as any);
+      }
+    };
+
+    document.addEventListener('dragover', handleGlobalDragOver, true);
+    document.addEventListener('drop', handleGlobalDrop, true);
+    document.addEventListener('dragleave', handleGlobalDragLeave, true);
+
+    return () => {
+      document.removeEventListener('dragover', handleGlobalDragOver, true);
+      document.removeEventListener('drop', handleGlobalDrop, true);
+      document.removeEventListener('dragleave', handleGlobalDragLeave, true);
+    };
+  }, [uniqueId, onDrop, onDragOver, onDragLeave]);
+
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-          disabled={disabled}
-        >
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <Button
+            id={`combobox-${uniqueId}`}
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between",
+              isDragOver && "ring-2 ring-blue-500 bg-blue-50"
+            )}
+            disabled={disabled}
+          >
           <span className="flex-1 text-left truncate">
             {selectedOption ? selectedOption.label : (displayLabel || value || placeholder || "Select option...")}
           </span>
@@ -303,7 +412,11 @@ export function Combobox({
                       <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
                         <span className="text-white text-xs font-bold">+</span>
                       </div>
-                      <span className="text-blue-700 dark:text-blue-300 font-semibold">Create folder "{inputValue.trim()}"</span>
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                        {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
+                          ? `Use variable: ${inputValue.trim()}`
+                          : `Use custom value: "${inputValue.trim()}"`}
+                      </span>
                     </div>
                     <span className="text-xs text-muted-foreground">Press Enter</span>
                   </div>
@@ -330,10 +443,15 @@ export function MultiCombobox({
   selectedValues = [],
   hideSelectedBadges = false,
   showFullEmails = false,
+  onDrop,
+  onDragOver,
+  onDragLeave,
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
   const [options, setOptions] = React.useState<ComboboxOption[]>(initialOptions)
+  const uniqueId = React.useId()
+  const [isDragOver, setIsDragOver] = React.useState(false)
 
   React.useEffect(() => {
     setOptions(initialOptions)
@@ -417,16 +535,69 @@ export function MultiCombobox({
     onOpenChange?.(newOpen);
   };
 
+  // Handle drag and drop
+  React.useEffect(() => {
+    if (!onDrop) return;
+
+    const handleGlobalDragOver = (e: DragEvent) => {
+      const target = e.target as HTMLElement;
+      const button = document.getElementById(uniqueId);
+      if (button && button.contains(target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+        console.log('🎯 [MultiCombobox] Drag over detected via global listener');
+        if (onDragOver) onDragOver(e as any);
+      }
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      const target = e.target as HTMLElement;
+      const button = document.getElementById(uniqueId);
+      if (button && button.contains(target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const droppedText = e.dataTransfer?.getData('text/plain') || '';
+        console.log('💧 [MultiCombobox] Drop detected via global listener:', droppedText);
+        setIsDragOver(false);
+        if (onDrop) onDrop(e as any);
+      }
+    };
+
+    const handleGlobalDragLeave = (e: DragEvent) => {
+      const target = e.target as HTMLElement;
+      const button = document.getElementById(buttonId);
+      if (button && !button.contains(e.relatedTarget as HTMLElement)) {
+        setIsDragOver(false);
+        if (onDragLeave) onDragLeave(e as any);
+      }
+    };
+
+    document.addEventListener('dragover', handleGlobalDragOver, true);
+    document.addEventListener('drop', handleGlobalDrop, true);
+    document.addEventListener('dragleave', handleGlobalDragLeave, true);
+
+    return () => {
+      document.removeEventListener('dragover', handleGlobalDragOver, true);
+      document.removeEventListener('drop', handleGlobalDrop, true);
+      document.removeEventListener('dragleave', handleGlobalDragLeave, true);
+    };
+  }, [uniqueId, onDrop, onDragOver, onDragLeave]);
+
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between min-h-10"
-          disabled={disabled}
-        >
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <Button
+            id={`combobox-${uniqueId}`}
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between min-h-10",
+              isDragOver && "ring-2 ring-blue-500 bg-blue-50"
+            )}
+            disabled={disabled}
+          >
           <div className="flex gap-1 flex-1 overflow-hidden">
             {hideSelectedBadges ? (
               // When badges are hidden, show selected count or placeholder
@@ -611,10 +782,20 @@ export function MultiCombobox({
                     onChange([...value, inputValue.trim()])
                     setInputValue("")
                   }}
+                  className="bg-blue-50 dark:bg-blue-950/20 border-l-2 border-blue-500"
                 >
-                  <div className="flex items-center">
-                    <span className="text-primary font-semibold">Add "{inputValue.trim()}"</span>
-                    <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
+                  <div className="flex items-center w-full">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">+</span>
+                      </div>
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                        {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
+                          ? `Use variable: ${inputValue.trim()}`
+                          : `Add custom value: "${inputValue.trim()}"`}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Press Enter</span>
                   </div>
                 </CommandItem>
               )}
