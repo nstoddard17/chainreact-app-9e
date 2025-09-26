@@ -60,6 +60,23 @@ export class IntegrationNodeHandlers {
       return await this.googleService.execute(node, context)
     }
 
+    // Microsoft Outlook integrations
+    if (nodeType.startsWith('microsoft-outlook_') || nodeType.startsWith('outlook_')) {
+      const config = node.data.config || {}
+      switch (nodeType) {
+        case 'microsoft-outlook_action_send_email': {
+          const { sendOutlookEmail } = await import('@/lib/workflows/actions/microsoft-outlook')
+          const result = await sendOutlookEmail(config, context.userId, context.data || {})
+          if (!result?.success) {
+            throw new Error(result?.message || 'Failed to send Outlook email')
+          }
+          return result.output
+        }
+        default:
+          throw new Error(`Unsupported Microsoft Outlook action: ${nodeType}`)
+      }
+    }
+
     // Microsoft OneNote integrations
     if (nodeType.startsWith('microsoft-onenote_') || nodeType.startsWith('onenote_')) {
       const config = node.data.config || {}

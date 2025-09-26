@@ -219,7 +219,7 @@ function ConfigurationForm({
       ...prev,
       [field]: value
     }));
-    
+
     // Clear error for this field
     setErrors(prev => {
       const newErrors = { ...prev };
@@ -227,6 +227,9 @@ function ConfigurationForm({
       return newErrors;
     });
   }, []);
+
+  // Ref to track which fields have already loaded options to prevent infinite loops
+  const loadedFieldsWithValues = useRef<Set<string>>(new Set());
 
   // Consolidated field change handler hook
   const { handleFieldChange } = useFieldChangeHandler({
@@ -248,7 +251,8 @@ function ConfigurationForm({
     setAirtableRecords,
     setAirtableTableSchema,
     currentNodeId,
-    selectedRecord
+    selectedRecord,
+    loadedFieldsWithValues // Pass the tracking ref
   });
 
   // Use the consolidated handler as setValue (except for Discord which uses setValueBase directly)
@@ -415,6 +419,7 @@ function ConfigurationForm({
 
     if (isNewNode) {
       hasLoadedOnMount.current = false;
+      loadedFieldsWithValues.current.clear(); // Clear the tracked loaded fields
       console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - NEW node opened', {
         nodeId: nodeInfo?.id,
         nodeType: nodeInfo?.type,
@@ -607,6 +612,11 @@ function ConfigurationForm({
       const savedValue = values[field.name];
       if (!savedValue) return false;
 
+      // Skip if we've already loaded options for this field
+      if (loadedFieldsWithValues.current.has(field.name)) {
+        return false;
+      }
+
       // Check if options are already loaded
       const fieldOptions = dynamicOptions[field.name];
       const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
@@ -687,6 +697,9 @@ function ConfigurationForm({
 
       // Load options for each field with a saved value
       fieldsWithValues.forEach(async (field: any) => {
+        // Mark this field as loaded to prevent duplicate loads
+        loadedFieldsWithValues.current.add(field.name);
+
         console.log(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
 
         try {
