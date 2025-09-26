@@ -767,6 +767,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         const loader = providerRegistry.getLoader(providerId, fieldName);
 
         if (loader) {
+          // Check if we already have options and not forcing refresh
+          const existingOptions = dynamicOptions[fieldName];
+          if (!forceRefresh && existingOptions && existingOptions.length > 0) {
+            console.log(`✅ [useDynamicOptions] Already have options for ${fieldName}, skipping loader`);
+            // Clear loading state
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
+              setLoading(false);
+              activeRequestIds.current.delete(requestKey);
+            }
+            return;
+          }
+
           console.log(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
           // For Airtable fields that depend on tableName, ensure baseId and tableName are in extraOptions
@@ -821,6 +834,19 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
           console.log(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
 
           setDynamicOptions(prev => {
+            // Check if the options are actually different before updating
+            const currentFieldOptions = prev[fieldName];
+            const areOptionsSame =
+              currentFieldOptions &&
+              formattedOptions &&
+              currentFieldOptions.length === formattedOptions.length &&
+              JSON.stringify(currentFieldOptions) === JSON.stringify(formattedOptions);
+
+            if (areOptionsSame) {
+              console.log(`🔄 [useDynamicOptions] Options for ${fieldName} are identical, skipping state update`);
+              return prev;
+            }
+
             const newState = {
               ...prev,
               [fieldName]: formattedOptions

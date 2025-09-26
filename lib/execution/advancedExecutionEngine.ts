@@ -990,7 +990,53 @@ export class AdvancedExecutionEngine {
               return match
           }
         }
-        
+
+        // Handle Discord member join trigger fields
+        if (nodeName === 'User Joined Server') {
+          const joinFieldMap: Record<string, string> = {
+            'Member ID': 'memberId',
+            'Member Tag': 'memberTag',
+            'Member Username': 'memberUsername',
+            'Member Discriminator': 'memberDiscriminator',
+            'Member Avatar': 'memberAvatar',
+            'Server ID': 'guildId',
+            'Server Name': 'guildName',
+            'Guild ID': 'guildId',
+            'Guild Name': 'guildName',
+            'Join Time': 'joinedAt',
+            'Joined At': 'joinedAt',
+            'Invite Code': 'inviteCode',
+            'Invite URL': 'inviteUrl',
+            'Inviter Tag': 'inviterTag',
+            'Inviter ID': 'inviterId',
+            'Invite Uses': 'inviteUses',
+            'Invite Max Uses': 'inviteMaxUses',
+            'Timestamp': 'timestamp',
+            'Event Time': 'timestamp',
+          }
+
+          const joinKey = joinFieldMap[fieldName] || joinFieldMap[fieldName.trim()]
+
+          if (joinKey) {
+            const candidatePaths = [
+              joinKey,
+              `trigger.${joinKey}`,
+              `trigger.output.${joinKey}`,
+            ]
+
+            for (const candidate of candidatePaths) {
+              const resolved = this.getNestedValue(data, candidate)
+              if (resolved !== undefined && resolved !== null) {
+                console.log(`🔧 Found User Joined Server field "${fieldName}": "${resolved}"`)
+                return resolved
+              }
+            }
+          }
+
+          console.log(`🔧 User Joined Server output not found for field: "${fieldName}"`)
+          return match
+        }
+
         // Handle AI Agent variables like {{AI Agent.AI Agent Output}}
         if (nodeName === 'AI Agent' || nodeName.includes('AI')) {
           console.log(`🔧 Looking for AI Agent output in data:`, Object.keys(data))

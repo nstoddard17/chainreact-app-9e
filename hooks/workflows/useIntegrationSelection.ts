@@ -149,23 +149,84 @@ export function useIntegrationSelection() {
 
     const connectedProviders = getConnectedProviders()
 
+    // If integrations haven't loaded yet, return false
+    if (!connectedProviders || connectedProviders.length === 0) {
+      // But check if we actually have integrations loaded in the store
+      const storeIntegrations = useIntegrationStore.getState().integrations
+      if (storeIntegrations.length === 0) {
+        console.log(`⚠️ [isIntegrationConnected] No integrations loaded yet for ${integrationId}`)
+        return false
+      }
+    }
+
     // Check if there's a base 'google' integration that covers all Google services
     if (integrationId.startsWith('google-') || integrationId === 'gmail') {
       // Check for either the specific service or the base google provider
       const hasSpecific = connectedProviders.includes(integrationId)
       const hasBase = connectedProviders.includes('google')
-      return hasSpecific || hasBase
+      // Also check with underscores instead of hyphens
+      const alternateId = integrationId.replace(/-/g, '_')
+      const hasAlternate = connectedProviders.includes(alternateId)
+      return hasSpecific || hasBase || hasAlternate
     }
 
     // Check for Microsoft services - each service needs its own connection
     // Unlike Google services, Microsoft services don't share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      // Only check for the specific service connection
-      return connectedProviders.includes(integrationId)
+      // Map microsoft-onenote to onenote, microsoft-outlook to outlook, etc.
+      let checkIds = [integrationId]
+      if (integrationId === 'microsoft-onenote') {
+        checkIds.push('onenote')
+      } else if (integrationId === 'microsoft-outlook') {
+        checkIds.push('outlook')
+      } else if (integrationId === 'microsoft-teams') {
+        checkIds.push('teams')
+      }
+      return checkIds.some(id => connectedProviders.includes(id))
     }
 
-    // Direct provider match
-    return connectedProviders.includes(integrationId)
+    // Handle other specific provider mappings
+    const providerMappings: Record<string, string[]> = {
+      'discord': ['discord'],
+      'slack': ['slack'],
+      'notion': ['notion'],
+      'airtable': ['airtable'],
+      'hubspot': ['hubspot'],
+      'stripe': ['stripe'],
+      'shopify': ['shopify'],
+      'trello': ['trello'],
+      'facebook': ['facebook'],
+      'instagram': ['instagram'],
+      'twitter': ['twitter', 'x'],
+      'linkedin': ['linkedin'],
+      'youtube': ['youtube'],
+      'youtube-studio': ['youtube-studio', 'youtube_studio'],
+      'dropbox': ['dropbox'],
+      'box': ['box'],
+      'paypal': ['paypal'],
+      'mailchimp': ['mailchimp'],
+      'blackbaud': ['blackbaud'],
+      'gumroad': ['gumroad'],
+      'kit': ['kit'],
+      'spotify': ['spotify'],
+      'tiktok': ['tiktok'],
+      'github': ['github'],
+      'gitlab': ['gitlab']
+    }
+
+    // Check using the mapping
+    const possibleProviders = providerMappings[integrationId] || [integrationId]
+    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider))
+
+    if (!isConnected) {
+      // Also try with underscores/hyphens swapped as a fallback
+      const alternateId = integrationId.includes('-')
+        ? integrationId.replace(/-/g, '_')
+        : integrationId.replace(/_/g, '-')
+      return connectedProviders.includes(alternateId)
+    }
+
+    return isConnected
   }, [getConnectedProviders])
 
   const filterIntegrations = useCallback((

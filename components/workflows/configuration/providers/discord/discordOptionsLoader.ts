@@ -305,10 +305,23 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const members = result.data || [];
 
-      return members.map((member: any) => ({
+      const options = members.map((member: any) => ({
         value: member.id || member.value,
         label: member.username || member.name || member.label || member.id,
       }));
+
+      // For assign role action, include a friendly shortcut for the trigger member
+      if (params.nodeType === 'discord_action_assign_role') {
+        const triggerMemberOption: FormattedOption = {
+          value: '{{User Joined Server.Member ID}}',
+          label: 'User Joined Server (Trigger Member)',
+        };
+
+        const hasExisting = options.some((option) => option.value === triggerMemberOption.value);
+        return hasExisting ? options : [triggerMemberOption, ...options];
+      }
+
+      return options;
     } catch (error) {
       console.error('❌ [Discord] Error loading members:', error);
       return [];
