@@ -267,11 +267,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
 
           console.error("Failed to fetch integrations:", error)
+          // Do NOT clear existing integrations on transient failure
           setLoading('integrations', false)
-          set((state) => ({
-            error: error.message || "Failed to fetch integrations",
-            integrations: state.integrations || [],
-          }))
+          set({
+            error: error.message || "Failed to fetch integrations"
+          })
         } finally {
           // Cleanup
           currentAbortController = null
@@ -682,10 +682,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getConnectedProviders: () => {
       const { integrations } = get()
       
+      const isConnectedStatus = (status?: string) => {
+        const v = (status || '').toLowerCase()
+        return v === 'connected' || v === 'authorized' || v === 'active' || v === 'valid' || v === 'ok' || v === 'ready'
+      }
+
       // Return all integrations that are connected (status === "connected")
       // Other statuses like expired or needs_reauthorization should show as disconnected
       const connectedProviders = integrations
-        .filter((i) => i.status === "connected")
+        .filter((i) => isConnectedStatus(i.status))
         .map((i) => i.provider)
       
       // Google services share authentication - if any Google service is connected, all are available

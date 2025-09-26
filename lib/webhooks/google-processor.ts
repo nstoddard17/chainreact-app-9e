@@ -401,10 +401,14 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   if (isSheetsWatch) {
     const mergedMetadata: Record<string, any> = { ...metadata }
 
-    if (subscriptionMetadata) {
-      for (const [key, value] of Object.entries(subscriptionMetadata)) {
+    const normalizedSubscriptionMeta = subscriptionMetadata && typeof subscriptionMetadata === 'object'
+      ? subscriptionMetadata
+      : {}
+
+    if (normalizedSubscriptionMeta) {
+      for (const [key, value] of Object.entries(normalizedSubscriptionMeta)) {
         const existing = mergedMetadata[key]
-        if (existing === undefined || existing === null) {
+        if ((existing === undefined || existing === null) && value !== undefined && value !== null) {
           mergedMetadata[key] = value
         }
       }
@@ -412,26 +416,26 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 
     const normalizedSpreadsheetId = mergedMetadata.spreadsheetId
       || mergedMetadata.spreadsheet_id
-      || subscriptionMetadata?.spreadsheetId
-      || subscriptionMetadata?.spreadsheet_id
+      || normalizedSubscriptionMeta?.spreadsheetId
+      || normalizedSubscriptionMeta?.spreadsheet_id
       || null
 
     const normalizedSheetName = mergedMetadata.sheetName
       || mergedMetadata.sheet_name
-      || subscriptionMetadata?.sheetName
-      || subscriptionMetadata?.sheet_name
+      || normalizedSubscriptionMeta?.sheetName
+      || normalizedSubscriptionMeta?.sheet_name
       || null
 
     const normalizedSheetId = mergedMetadata.sheetId
       || mergedMetadata.sheet_id
-      || subscriptionMetadata?.sheetId
-      || subscriptionMetadata?.sheet_id
+      || normalizedSubscriptionMeta?.sheetId
+      || normalizedSubscriptionMeta?.sheet_id
       || null
 
     const normalizedTriggerType = mergedMetadata.triggerType
       || mergedMetadata.trigger_type
-      || subscriptionMetadata?.triggerType
-      || subscriptionMetadata?.trigger_type
+      || normalizedSubscriptionMeta?.triggerType
+      || normalizedSubscriptionMeta?.trigger_type
       || 'new_row'
 
     mergedMetadata.spreadsheetId = normalizedSpreadsheetId
@@ -1346,6 +1350,15 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       return
     }
 
+    console.log('[Google Sheets] Evaluating sheet workflows', {
+      changeType,
+      triggerType,
+      spreadsheetId,
+      sheetName: changeSheetName,
+      sheetId: changeSheetId,
+      configs: webhookConfigs?.length || 0
+    })
+
     if (!webhookConfigs || webhookConfigs.length === 0) {
       return
     }
@@ -1399,6 +1412,11 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         if (changeType !== 'new_worksheet') {
           const configSheetName = configData?.sheetName || nodeConfig?.sheetName || null
           if (configSheetName && changeSheetName && configSheetName !== changeSheetName) {
+            console.log('[Google Sheets] Sheet name mismatch', {
+              workflowId: workflow.id,
+              configSheetName,
+              changeSheetName
+            })
             return false
           }
           if (configSheetName && !changeSheetName) {
@@ -1407,6 +1425,11 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         }
 
         return true
+      })
+
+      console.log('[Google Sheets] Matching triggers found', {
+        workflowId: workflow.id,
+        matchingCount: matchingTriggers.length
       })
 
       if (matchingTriggers.length === 0) {
@@ -1643,11 +1666,13 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
     const supabase = await createSupabaseServiceClient()
     const { data: subscription } = await supabase
       .from('google_watch_subscriptions')
-      .select('metadata')
+      .select('metadata, updated_at')
       .eq('user_id', metadata.userId)
       .eq('integration_id', metadata.integrationId)
       .eq('provider', 'google-sheets')
-      .single()
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     let subscriptionMetadata = subscription?.metadata
     if (subscriptionMetadata && typeof subscriptionMetadata === 'string') {
@@ -1658,6 +1683,11 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
       }
     }
 
+    console.log('[Google Sheets] Loaded subscription metadata', {
+      hasMetadata: Boolean(subscriptionMetadata),
+      updatedAt: subscription?.updated_at
+    })
+
     if (subscriptionMetadata) {
       // Check for changes
       const result = await checkGoogleSheetsChanges(
@@ -1666,6 +1696,11 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
         metadata.spreadsheetId,
         subscriptionMetadata
       )
+
+      console.log('[Google Sheets] Detected sheet changes', {
+        totalChanges: result.changes?.length || 0,
+        changeTypes: (result.changes || []).map(c => c.type)
+      })
 
       // Process each change
       for (const change of result.changes || []) {

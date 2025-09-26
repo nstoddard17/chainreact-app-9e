@@ -797,6 +797,13 @@ export function DiscordConfiguration({
               if (field.name === 'content' && !values.messageId) {
                 return null;
               }
+
+              // For discord_action_assign_role, hide userId and roleId until guildId is selected
+              if (nodeInfo?.type === 'discord_action_assign_role') {
+                if ((field.name === 'userId' || field.name === 'roleId') && !values.guildId) {
+                  return null;
+                }
+              }
               
               // For delete message action - hide messages, userIds/userId, keywords, and keywordMatchType fields if no channel selected
               if (nodeInfo?.type === 'discord_action_delete_message') {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 
 interface UseGoogleSheetsFieldHandlerProps {
   nodeInfo: any;
@@ -35,6 +35,9 @@ export function useGoogleSheetsFieldHandler({
   setGoogleSheetsSortDirection,
   setGoogleSheetsSelectedRows
 }: UseGoogleSheetsFieldHandlerProps) {
+
+  // Track the previous spreadsheetId to detect actual changes
+  const previousSpreadsheetIdRef = useRef<any>(values.spreadsheetId);
 
   /**
    * Clear all update-related fields
@@ -78,17 +81,32 @@ export function useGoogleSheetsFieldHandler({
    * Handle spreadsheetId changes
    */
   const handleSpreadsheetIdChange = useCallback(async (value: any) => {
-    console.log('🔍 Google Sheets spreadsheetId changed:', value);
-    
+    console.log('🔍 Google Sheets spreadsheetId change handler called:', {
+      newValue: value,
+      previousValue: previousSpreadsheetIdRef.current,
+      isActualChange: value !== previousSpreadsheetIdRef.current
+    });
+
+    // Only process if the value actually changed from the previous value
+    if (value === previousSpreadsheetIdRef.current) {
+      console.log('✅ Google Sheets spreadsheetId unchanged, skipping reset');
+      return;
+    }
+
+    console.log('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
+
+    // Update the ref to the new value immediately after confirming it's a real change
+    previousSpreadsheetIdRef.current = value;
+
     // Clear preview data for update action
     if (values.action === 'update') {
       clearPreviewData();
       clearUpdateFields();
     }
-    
+
     // Clear dependent field
     setValue('sheetName', '');
-    
+
     if (value) {
       // Set loading state for sheetName
       setLoadingFields((prev: Set<string>) => {
@@ -96,13 +114,13 @@ export function useGoogleSheetsFieldHandler({
         newSet.add('sheetName');
         return newSet;
       });
-      
-      // Reset cached options
+
+      // Reset cached options only when spreadsheetId actually changes
       resetOptions('sheetName');
-      
-      // Load sheets for the selected spreadsheet
+
+      // Load sheets for the selected spreadsheet (avoid force refresh to reduce API thrash)
       setTimeout(() => {
-        loadOptions('sheetName', 'spreadsheetId', value, true).finally(() => {
+        loadOptions('sheetName', 'spreadsheetId', value, false).finally(() => {
           setLoadingFields((prev: Set<string>) => {
             const newSet = new Set(prev);
             newSet.delete('sheetName');

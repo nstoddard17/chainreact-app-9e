@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Drag and Drop</title>
+    <style>
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        .source {
+            padding: 20px;
+            background: #f0f0f0;
+            border: 2px solid #333;
+        }
+        .item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            cursor: grab;
+        }
+        .target {
+            padding: 20px;
+            background: #e0e0ff;
+            border: 2px dashed #666;
+            min-height: 200px;
+        }
+        .target.dragover {
+            background: #c0c0ff;
+            border-color: blue;
+        }
+        select {
+            width: 200px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test if dropdowns can accept drops</h1>
+    <div class="container">
+        <div class="source">
+            <h2>Drag from here</h2>
+            <div class="item" draggable="true" data-value="{{variable1}}">Variable 1</div>
+            <div class="item" draggable="true" data-value="{{variable2}}">Variable 2</div>
+        </div>
+        <div class="target">
+            <h2>Drop to inputs below</h2>
+            <p>Regular input:</p>
+            <input type="text" id="input1" placeholder="Drop here">
+            <p>Select dropdown:</p>
+            <select id="select1">
+                <option>Select an option</option>
+                <option>Option 1</option>
+                <option>Option 2</option>
+            </select>
+            <p>Button styled like dropdown:</p>
+            <button id="button1" style="width: 200px; padding: 10px; text-align: left;">
+                Drop on button
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Make items draggable
+        document.querySelectorAll('.item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                console.log('Drag started:', e.target.dataset.value);
+                e.dataTransfer.setData('text/plain', e.target.dataset.value);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+
+        // Try global listeners
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            console.log('Dragging over:', e.target.tagName, e.target.id || e.target.className);
+        }, true);
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const data = e.dataTransfer.getData('text/plain');
+            console.log('Dropped on:', e.target.tagName, e.target.id, 'Data:', data);
+
+            if (e.target.tagName === 'INPUT') {
+                e.target.value = data;
+            } else if (e.target.tagName === 'SELECT') {
+                alert('Dropped on select: ' + data);
+            } else if (e.target.tagName === 'BUTTON') {
+                e.target.textContent = data;
+            }
+        }, true);
+    </script>
+</body>
+</html>

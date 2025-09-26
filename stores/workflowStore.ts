@@ -189,6 +189,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       return
     }
 
+    // Avoid blocking the page; track loading internally but do not rely on this externally
     set({ loading: true, error: null })
 
     try {
@@ -217,7 +218,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
       console.error("Error fetching workflows:", error)
-      // Don't show error to user - just set empty workflows
+      // Prior behavior: set empty workflows but clear loading and suppress user-facing error
       set({ workflows: [], loading: false, error: null })
     }
   },

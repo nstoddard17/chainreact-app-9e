@@ -647,14 +647,22 @@ export function VariablePickerSidePanel({
                             className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
                             onDragStart={(e) => {
-                              console.log('🎯 [VariablePickerSidePanel] Variable drag start:', {
+                              console.log('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                 variableRef,
                                 nodeTitle: node.title,
                                 outputName: output.name,
-                                outputLabel: output.label
+                                outputLabel: output.label,
+                                dataTransfer: e.dataTransfer
                               })
                               e.stopPropagation() // Prevent collapsible from closing
-                              handleDragStart(e, variableRef)
+                              e.dataTransfer.effectAllowed = 'copy'
+                              e.dataTransfer.setData('text/plain', variableRef)
+                              e.dataTransfer.setData('application/json', JSON.stringify({
+                                variable: variableRef,
+                                nodeTitle: node.title,
+                                outputName: output.name,
+                                outputLabel: output.label
+                              }))
                             }}
                             onDragEnd={(e) => {
                               e.stopPropagation() // Prevent collapsible from closing

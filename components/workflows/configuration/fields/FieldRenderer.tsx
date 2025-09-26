@@ -686,6 +686,7 @@ export function FieldRenderer({
                 nodeInfo={nodeInfo}
                 selectedValues={selectedValues}
                 parentValues={parentValues}
+                workflowNodes={workflowData?.nodes}
               />
             );
           }
@@ -761,50 +762,6 @@ export function FieldRenderer({
           });
         }
 
-        // Special handling for Discord fields - render them without nested conditionals
-        if (integrationProvider === 'discord' && field.name === 'guildId') {
-          return (
-            <DiscordServerField
-              field={field}
-              value={value}
-              onChange={onChange}
-              error={error}
-              options={selectOptions}
-              isLoading={loadingDynamic}
-              onDynamicLoad={onDynamicLoad}
-            />
-          );
-        }
-        
-        if (integrationProvider === 'discord' && field.name === 'channelId') {
-          return (
-            <DiscordChannelField
-              field={field}
-              value={value}
-              onChange={onChange}
-              error={error}
-              options={selectOptions}
-              isLoading={loadingDynamic}
-              onDynamicLoad={onDynamicLoad}
-            />
-          );
-        }
-        
-        if (integrationProvider === 'discord' && field.dynamic && typeof field.dynamic === 'string' && field.dynamic.startsWith('discord_')) {
-          return (
-            <DiscordGenericField
-              field={field}
-              value={value}
-              onChange={onChange}
-              error={error}
-              options={selectOptions}
-              isLoading={loadingDynamic}
-              onDynamicLoad={onDynamicLoad}
-              nodeInfo={nodeInfo}
-              parentValues={parentValues}
-            />
-          );
-        }
 
         // For Gmail labels, keep the existing logic with GmailLabelManager
         if (field.name === 'labelIds' && integrationProvider === 'gmail') {
@@ -821,6 +778,7 @@ export function FieldRenderer({
                 nodeInfo={nodeInfo}
                 selectedValues={selectedValues}
                 parentValues={parentValues}
+                workflowNodes={workflowData?.nodes}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -849,6 +807,7 @@ export function FieldRenderer({
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
             parentValues={parentValues}
+            workflowNodes={workflowData?.nodes}
           />
         );
 
@@ -874,6 +833,7 @@ export function FieldRenderer({
             nodeInfo={nodeInfo}
             selectedValues={selectedValues}
             parentValues={parentValues}
+            workflowNodes={workflowData?.nodes}
           />
         );
 

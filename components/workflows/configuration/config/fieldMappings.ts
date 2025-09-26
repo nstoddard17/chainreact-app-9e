@@ -169,15 +169,15 @@ const googleCalendarMappings: Record<string, FieldMapping> = {
 const googleSheetsMappings: Record<string, FieldMapping> = {
   // Triggers
   google_sheets_trigger_new_row: {
-    spreadsheetId: "google-sheets-spreadsheets",
-    sheetName: "google-sheets-sheets",
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
   },
   google_sheets_trigger_new_worksheet: {
-    spreadsheetId: "google-sheets-spreadsheets",
+    spreadsheetId: "google-sheets_spreadsheets",
   },
   google_sheets_trigger_updated_row: {
-    spreadsheetId: "google-sheets-spreadsheets",
-    sheetName: "google-sheets-sheets",
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
   },
   // Actions
   google_sheets_unified_action: {

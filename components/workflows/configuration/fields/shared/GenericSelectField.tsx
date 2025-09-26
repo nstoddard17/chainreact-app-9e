@@ -1,10 +1,8 @@
 "use client"
 
 import React from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
 
 interface GenericSelectFieldProps {
   field: any;
@@ -17,6 +15,7 @@ interface GenericSelectFieldProps {
   nodeInfo?: any;
   selectedValues?: string[]; // Values that already have bubbles
   parentValues?: Record<string, any>; // Parent form values for dependency resolution
+  workflowNodes?: any[]; // All workflow nodes for variable context
 }
 
 /**
@@ -64,9 +63,11 @@ export function GenericSelectField({
   nodeInfo,
   selectedValues = [],
   parentValues = {},
+  workflowNodes = [],
 }: GenericSelectFieldProps) {
   // Store the display label for the selected value
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = React.useState(false);
   // Debug logging for board field
   if (field.name === 'boardId') {
     console.log('[GenericSelectField] Board field props:', {
@@ -96,13 +97,199 @@ export function GenericSelectField({
   const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
   const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
 
+  // Function to extract friendly label from variable syntax
+  const getFriendlyVariableLabel = React.useCallback((variableStr: string, workflowNodes?: any[]): string | null => {
+    // Match pattern like {{node_id.output.field_name}}
+    const match = variableStr.match(/\{\{([^}]+)\}\}/)
+    if (!match) return null
+
+    const parts = match[1].split('.')
+    if (parts.length < 3) return variableStr // Return original if format is unexpected
+
+    // Extract the node ID and field name
+    const nodeId = parts[0]
+    const fieldName = parts[parts.length - 1]
+
+    // Try to find the node title if workflowNodes is available
+    let nodeTitle = ''
+    let nodeProvider = ''
+    if (workflowNodes) {
+      const node = workflowNodes.find(n => n.id === nodeId)
+      if (node?.data) {
+        nodeTitle = node.data.title || node.data.type || ''
+        nodeProvider = node.data.providerId || ''
+      }
+    }
+
+    // Map common field names to friendly labels based on provider context
+    const fieldLabelMap: Record<string, string> = {
+      // Discord fields
+      'memberUsername': 'Discord Username',
+      'memberTag': 'Discord Member Tag',
+      'memberId': 'Discord Member ID',
+      'memberDiscriminator': 'Discord Discriminator',
+      'memberAvatar': 'Discord Avatar',
+      'userName': 'Discord Username',
+      'authorName': 'Discord Author',
+      'authorId': 'Discord Author ID',
+      'userId': 'Discord User ID',
+      'channelName': 'Discord Channel',
+      'channelId': 'Discord Channel ID',
+      'guildName': 'Discord Server',
+      'guildId': 'Discord Server ID',
+      'messageId': 'Discord Message ID',
+      'content': nodeProvider === 'discord' ? 'Discord Message' : 'Content',
+      'roleId': 'Discord Role ID',
+      'roleName': 'Discord Role',
+      'inviteCode': 'Discord Invite Code',
+      'inviteUrl': 'Discord Invite URL',
+      'inviterTag': 'Discord Inviter',
+      'inviterId': 'Discord Inviter ID',
+      'commandName': 'Discord Command',
+
+      // Gmail/Email fields
+      'from': 'Email From',
+      'to': 'Email To',
+      'subject': 'Email Subject',
+      'body': 'Email Body',
+      'messageId': nodeProvider === 'gmail' || nodeProvider === 'outlook' ? 'Email ID' : 'Message ID',
+      'threadId': 'Email Thread ID',
+      'labelIds': 'Email Labels',
+      'attachments': 'Email Attachments',
+
+      // Slack fields
+      'text': nodeProvider === 'slack' ? 'Slack Message' : 'Text',
+      'channel': nodeProvider === 'slack' ? 'Slack Channel' : 'Channel',
+      'ts': 'Slack Timestamp',
+      'thread_ts': 'Slack Thread',
+      'user': nodeProvider === 'slack' ? 'Slack User' : 'User',
+      'username': nodeProvider === 'slack' ? 'Slack Username' : 'Username',
+
+      // Notion fields
+      'pageId': 'Notion Page ID',
+      'databaseId': 'Notion Database ID',
+      'pageTitle': 'Notion Page Title',
+      'pageUrl': 'Notion Page URL',
+      'properties': 'Notion Properties',
+
+      // GitHub fields
+      'issueId': 'GitHub Issue ID',
+      'issueNumber': 'GitHub Issue Number',
+      'pullRequestId': 'GitHub PR ID',
+      'repository': 'GitHub Repository',
+      'owner': 'GitHub Owner',
+      'state': 'GitHub State',
+      'labels': 'GitHub Labels',
+
+      // Airtable fields
+      'baseId': 'Airtable Base',
+      'tableId': 'Airtable Table',
+      'tableName': 'Airtable Table',
+      'recordId': 'Airtable Record ID',
+      'fields': 'Airtable Fields',
+
+      // HubSpot fields
+      'contactId': 'HubSpot Contact ID',
+      'email': nodeProvider === 'hubspot' ? 'HubSpot Email' : 'Email',
+      'firstName': 'First Name',
+      'lastName': 'Last Name',
+      'company': 'Company',
+
+      // Trello fields
+      'boardId': 'Trello Board ID',
+      'boardName': 'Trello Board',
+      'listId': 'Trello List ID',
+      'listName': 'Trello List',
+      'cardId': 'Trello Card ID',
+      'cardName': 'Trello Card',
+
+      // Google Calendar fields
+      'eventId': 'Calendar Event ID',
+      'eventTitle': 'Calendar Event',
+      'start': 'Event Start',
+      'end': 'Event End',
+      'htmlLink': 'Calendar Link',
+      'meetLink': 'Meet Link',
+      'attendees': 'Event Attendees',
+
+      // Google Sheets fields
+      'spreadsheetId': 'Spreadsheet ID',
+      'sheetName': 'Sheet Name',
+      'range': 'Sheet Range',
+      'values': 'Sheet Values',
+      'data': 'Sheet Data',
+      'rowId': 'Row ID',
+
+      // Webhook fields
+      'headers': 'Webhook Headers',
+      'method': 'HTTP Method',
+      'statusCode': 'Status Code',
+
+      // AI/OpenAI fields
+      'prompt': 'AI Prompt',
+      'completion': 'AI Response',
+      'model': 'AI Model',
+      'usage': 'Token Usage',
+
+      // Generic fields
+      'id': 'ID',
+      'name': 'Name',
+      'title': 'Title',
+      'description': 'Description',
+      'url': 'URL',
+      'timestamp': 'Timestamp',
+      'response': 'Response',
+      'output': 'Output',
+      'result': 'Result',
+      'success': 'Success',
+      'error': 'Error',
+      'count': 'Count',
+      'joinedAt': 'Join Time',
+      'createdAt': 'Created At',
+      'updatedAt': 'Updated At',
+    }
+
+    // Get the base label from the map
+    let label = fieldLabelMap[fieldName]
+
+    // If not found, create a label from the field name
+    if (!label) {
+      label = fieldName
+        .replace(/_/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .trim()
+        .replace(/\b\w/g, (l) => l.toUpperCase())
+    }
+
+    // Add node title context if available and useful
+    if (nodeTitle && !label.includes(nodeTitle)) {
+      // For triggers, prepend "From [Node]"
+      if (nodeTitle.toLowerCase().includes('trigger')) {
+        return `${label} (from trigger)`
+      }
+      // For specific node types, add context
+      if (nodeTitle.toLowerCase().includes('new message')) {
+        return `New Message ${label}`
+      }
+      if (nodeTitle.toLowerCase().includes('user joined')) {
+        return `Joined User ${label}`
+      }
+    }
+
+    return label
+  }, [])
+
   const loadingPlaceholder = field.loadingPlaceholder || 'Loading options...';
   const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
   const placeholderText = field.dynamic && isLoading ? loadingPlaceholder : basePlaceholder;
 
-  // When value changes, update the display label if we find the option
+  // When value changes, update the display label if we find the option or it's a variable
   React.useEffect(() => {
-    if (value && options?.length > 0) {
+    // Check if value is a variable
+    if (value && typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
+      const friendlyLabel = getFriendlyVariableLabel(value, workflowNodes)
+      setDisplayLabel(friendlyLabel)
+    } else if (value && options?.length > 0) {
       const option = options.find((opt: any) => {
         const optValue = opt.value || opt.id;
         return String(optValue) === String(value);
@@ -112,7 +299,7 @@ export function GenericSelectField({
         setDisplayLabel(label);
       }
     }
-  }, [value, options]);
+  }, [value, options, getFriendlyVariableLabel, workflowNodes]);
   
   // Reset load attempt tracking when dependencies change
   React.useEffect(() => {
@@ -137,15 +324,31 @@ export function GenericSelectField({
     });
 
     const hasOptions = processedOptions.length > 0
-    const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading && (!hasAttemptedLoad || !hasOptions)
+    const timeSinceLastLoad = Date.now() - lastLoadTimestamp
+    const recentlyLoaded = timeSinceLastLoad < 5000 // Don't reload if loaded in last 5 seconds
+
+    // Special case for Google Sheets sheetName: don't reload if we've attempted recently
+    const isGoogleSheetsSheetName = nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName'
+
+    // Only load if:
+    // 1. Dropdown is open
+    // 2. Field is dynamic
+    // 3. Not currently loading
+    // 4. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
+    // 5. For Google Sheets sheetName, also check if we haven't loaded recently
+    const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading &&
+                      (!hasAttemptedLoad || (!hasOptions && !recentlyLoaded)) &&
+                      (!isGoogleSheetsSheetName || !recentlyLoaded)
 
     if (shouldLoad) {
-      const forceRefresh = hasAttemptedLoad && hasOptions
+      const forceRefresh = hasAttemptedLoad && !hasOptions // Only force refresh if we tried but got no options
 
       console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
         dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
-        forceRefresh
+        forceRefresh,
+        timeSinceLastLoad,
+        recentlyLoaded
       })
 
       setHasAttemptedLoad(true)
@@ -165,6 +368,58 @@ export function GenericSelectField({
   };
 
   const processedOptions = processOptions(options);
+
+  // Drag and drop handlers
+  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+    console.log('🎯 [GenericSelectField] Drag over:', { fieldName: field.name })
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+    e.dataTransfer.dropEffect = 'copy'
+  }, [field.name])
+
+  const handleDragLeave = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }, [])
+
+  const handleDrop = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const droppedText = e.dataTransfer.getData('text/plain')
+    console.log('🎯 [GenericSelectField] Variable dropped:', {
+      fieldName: field.name,
+      droppedText,
+      isVariable: droppedText.startsWith('{{') && droppedText.endsWith('}}'),
+      isMultiple: field.multiple
+    })
+
+    // Check if it's a variable syntax
+    if (droppedText && droppedText.startsWith('{{') && droppedText.endsWith('}}')) {
+      // For multi-select fields, add to array
+      if (field.multiple) {
+        const currentValues = Array.isArray(value) ? value : []
+        onChange([...currentValues, droppedText])
+      } else {
+        // For single select, just set the value
+        onChange(droppedText)
+      }
+
+      // Set the display label to a friendly name
+      const friendlyLabel = getFriendlyVariableLabel(droppedText, workflowNodes)
+      setDisplayLabel(friendlyLabel)
+
+      console.log('✅ [GenericSelectField] Variable accepted:', {
+        fieldName: field.name,
+        variable: droppedText,
+        friendlyLabel,
+        isMultiple: field.multiple
+      })
+    }
+  }, [field.name, field.multiple, value, onChange, getFriendlyVariableLabel, workflowNodes])
 
   // Show loading state for dynamic fields
   // For Airtable filterValue field, always show loading when isLoading is true
@@ -198,18 +453,16 @@ export function GenericSelectField({
         onChange={onChange}
         options={processedOptions}
         placeholder={placeholderText}
-        emptyText={isLoading ? loadingPlaceholder : "No options available"}
-        searchPlaceholder="Search options..."
-        isLoading={isLoading}
+        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available or type {{variable}}"}
+        searchPlaceholder="Search options or enter {{variable}}..."
         disabled={false}
-        creatable={(field as any).creatable || false}
+        creatable={true} // Always allow custom input for variables
         onOpenChange={handleFieldOpen}
         selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
         hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
-        className={cn(
-          "bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-          error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-        )}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
       />
     );
   }
@@ -220,9 +473,41 @@ export function GenericSelectField({
      nodeInfo?.type === 'airtable_action_update_record') &&
     field.name?.startsWith('airtable_field_');
 
-  // Use Combobox for Airtable fields or fields that need clear functionality
-  if (isAirtableRecordField || field.clearable !== false) {
+  // Use Combobox for all select fields to support variables
+  // Variables can be entered using {{variable_name}} syntax
+  if (field.type === 'select' && !field.multiple) {
     return (
+      <Combobox
+          value={value ?? ""}
+          onChange={(newValue) => {
+            onChange(newValue);
+            // Clear display label when value is cleared
+            if (!newValue) {
+              setDisplayLabel(null);
+            } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+              // Set friendly label for variables
+              const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
+              setDisplayLabel(friendlyLabel);
+            }
+          }}
+          options={processedOptions}
+          placeholder={placeholderText}
+          searchPlaceholder="Search options or enter {{variable}}..."
+          emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found or type {{variable}}"}
+          disabled={false}
+          creatable={true} // Always allow custom input for variables
+          onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
+          selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
+          displayLabel={displayLabel} // Pass the saved display label
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        />
+    );
+  }
+
+  // Default fallback: Use Combobox for all remaining select fields to support variables
+  return (
       <Combobox
         value={value ?? ""}
         onChange={(newValue) => {
@@ -230,97 +515,24 @@ export function GenericSelectField({
           // Clear display label when value is cleared
           if (!newValue) {
             setDisplayLabel(null);
+          } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+            // Set friendly label for variables
+            const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
+            setDisplayLabel(friendlyLabel);
           }
         }}
         options={processedOptions}
         placeholder={placeholderText}
-        searchPlaceholder="Search options..."
-        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
+        searchPlaceholder="Search options or enter {{variable}}..."
+        emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
         disabled={false}
-        creatable={isAirtableRecordField} // Allow custom input for Airtable fields
-        onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
-        selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
-        displayLabel={displayLabel} // Pass the saved display label
-      />
-    );
-  }
-
-  // Find the selected option to display its label
-  const selectedOption = processedOptions.find((opt: any) => {
-    const optValue = opt.value || opt.id;
-    return String(optValue) === String(value);
-  });
-
-  // Always prefer label over value for display
-  const displayValue = selectedOption ?
-    (selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id) :
-    (value || '');
-
-  // Fallback to regular Select with clear button
-  return (
-    <div className="relative">
-      <Select 
-        value={value ?? ""} 
-        onValueChange={onChange}
+        creatable={true} // Always allow custom input for variables
         onOpenChange={handleFieldOpen}
-        disabled={false}
-      >
-        <SelectTrigger 
-          className={cn(
-            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 pr-8",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2"
-          )}
-          disabled={false}
-        >
-          <SelectValue placeholder={placeholderText}>
-            {displayValue ? (
-              displayValue
-            ) : (
-              <span className="text-slate-500">{placeholderText}</span>
-            )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {isLoading && field.dynamic && (
-            <div className="p-2 text-sm text-slate-500 text-center">{loadingPlaceholder}</div>
-          )}
-          {processedOptions.length > 0 ? (
-            processedOptions.map((option: any) => {
-              const optionValue = option.value || option.id;
-              const optionLabel = option.label || option.name || option.value || option.id;
-              if (!optionValue) return null;
-              
-              return (
-                <SelectItem 
-                  key={String(optionValue)} 
-                  value={String(optionValue)}
-                >
-                  {optionLabel}
-                </SelectItem>
-              );
-            })
-          ) : (
-            <div className="p-2 text-sm text-slate-500 text-center">
-              {getEmptyMessage(field.name, field.label)}
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-      {/* Clear button - only show if clearable is not false */}
-      {value && field.clearable !== false && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onChange("");
-          }}
-          className="group absolute right-9 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 rounded-md transition-colors"
-          aria-label="Clear selection"
-        >
-          <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-        </button>
-      )}
-    </div>
+        selectedValues={effectiveSelectedValues}
+        displayLabel={displayLabel}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      />
   );
 }
