@@ -772,7 +772,7 @@ export function useFieldChangeHandler({
   /**
    * Main field change handler - the single entry point for all field changes
    */
-  const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
+  const handleFieldChange = useCallback((fieldName: string, value: any) => {
     // Check if the value actually changed
     const currentValue = values[fieldName];
     const hasChanged = value !== currentValue;
@@ -805,17 +805,17 @@ export function useFieldChangeHandler({
       });
     }
 
-    // Try provider-specific and generic handlers
-    const handled = await handleProviderFieldChange(fieldName, value);
-
-    // Always set the value, even if handled by provider
+    // Always set the value first
     // (providers handle side effects but don't set the main value)
     setValue(fieldName, value);
 
-    // Log if field was handled by a provider
-    if (handled) {
-      console.log('✅ Field handled by provider logic:', fieldName);
-    }
+    // Try provider-specific and generic handlers (no await needed since we don't care about the result)
+    handleProviderFieldChange(fieldName, value).then(handled => {
+      // Log if field was handled by a provider
+      if (handled) {
+        console.log('✅ Field handled by provider logic:', fieldName);
+      }
+    });
   }, [handleProviderFieldChange, setValue, nodeInfo, values]);
 
   return {

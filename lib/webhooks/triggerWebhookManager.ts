@@ -756,7 +756,7 @@ export class TriggerWebhookManager {
       }
 
       // Import Sheets watch setup function
-      const { setupGoogleSheetsWatch } = await import('./google-sheets-watch-setup')
+      const { setupGoogleSheetsWatch, stopGoogleSheetsWatch } = await import('./google-sheets-watch-setup')
 
       // Extract sheets configuration
       const spreadsheetId = config.config?.spreadsheetId
@@ -766,6 +766,48 @@ export class TriggerWebhookManager {
 
       if (!spreadsheetId) {
         throw new Error('Spreadsheet ID is required for Google Sheets webhook registration')
+      }
+
+      // Best-effort cleanup of existing watch subscriptions for this sheet to prevent duplicate notifications
+      try {
+        const { data: existingSubscriptions } = await this.supabase
+          .from('google_watch_subscriptions')
+          .select('channel_id, resource_id, metadata, integration_id')
+          .eq('provider', 'google-sheets')
+          .eq('user_id', config.userId)
+          .eq('integration_id', integration.id)
+
+        if (Array.isArray(existingSubscriptions)) {
+          for (const sub of existingSubscriptions) {
+            if (!sub?.channel_id || !sub?.resource_id) continue
+
+            let subscriptionMetadata: any = sub.metadata || {}
+            if (typeof subscriptionMetadata === 'string') {
+              try {
+                subscriptionMetadata = JSON.parse(subscriptionMetadata)
+              } catch {
+                subscriptionMetadata = {}
+              }
+            }
+
+            const metadataSpreadsheetId = subscriptionMetadata?.spreadsheetId || subscriptionMetadata?.spreadsheet_id || null
+            const metadataSheetName = subscriptionMetadata?.sheetName || subscriptionMetadata?.sheet_name || null
+
+            const spreadsheetMatches = metadataSpreadsheetId === spreadsheetId
+            const sheetMatches = !sheetName || !metadataSheetName || metadataSheetName === sheetName
+
+            if (spreadsheetMatches && sheetMatches) {
+              await stopGoogleSheetsWatch(
+                config.userId,
+                sub.integration_id || integration.id,
+                sub.channel_id,
+                sub.resource_id
+              )
+            }
+          }
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to clean up existing Google Sheets watches before registration:', cleanupError)
       }
 
       // Set up the watch
@@ -787,7 +829,8 @@ export class TriggerWebhookManager {
             expiration: result.expiration,
             spreadsheetId: spreadsheetId,
             sheetName: sheetName,
-            lastRowCount: result.lastRowCount
+            lastRowCount: result.lastRowCount,
+            integrationId: integration.id
           }
         })
         .eq('id', webhookId)
@@ -1010,6 +1053,59 @@ export class TriggerWebhookManager {
       case 'airtable':
         await this.unregisterAirtableWebhook(webhookConfig)
         break
+
+      case 'google-sheets':
+      case 'google_sheets': {
+        try {
+          const { stopGoogleSheetsWatch } = await import('./google-sheets-watch-setup')
+
+          let metadata: any = webhookConfig.metadata || {}
+          if (typeof metadata === 'string') {
+            try {
+              metadata = JSON.parse(metadata)
+            } catch {
+              metadata = {}
+            }
+          }
+
+          const channelId: string | null = metadata?.channelId || metadata?.channel_id || null
+          const resourceId: string | null = metadata?.resourceId || metadata?.resource_id || null
+          let integrationId: string | null = metadata?.integrationId || metadata?.integration_id || null
+
+          if (!integrationId && channelId) {
+            try {
+              const { data: subscription } = await this.supabase
+                .from('google_watch_subscriptions')
+                .select('integration_id')
+                .eq('channel_id', channelId)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              integrationId = subscription?.integration_id || null
+            } catch {
+              // ignore lookup errors
+            }
+          }
+
+          if (channelId && resourceId && integrationId) {
+            await stopGoogleSheetsWatch(
+              webhookConfig.user_id,
+              integrationId,
+              channelId,
+              resourceId
+            )
+          } else {
+            console.log('Skipping Google Sheets watch stop due to missing identifiers', {
+              hasChannelId: Boolean(channelId),
+              hasResourceId: Boolean(resourceId),
+              hasIntegrationId: Boolean(integrationId)
+            })
+          }
+        } catch (sheetsStopError) {
+          console.warn('Failed to stop Google Sheets watch during unregister:', sheetsStopError)
+        }
+        break
+      }
 
       default:
         console.log(`Unregistering webhook from ${webhookConfig.provider_id} not yet implemented`)

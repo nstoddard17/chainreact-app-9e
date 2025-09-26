@@ -37,7 +37,8 @@ export function useGoogleSheetsFieldHandler({
 }: UseGoogleSheetsFieldHandlerProps) {
 
   // Track the previous spreadsheetId to detect actual changes
-  const previousSpreadsheetIdRef = useRef<any>(values.spreadsheetId);
+  const previousSpreadsheetIdRef = useRef<any>(undefined);
+  const isProcessingRef = useRef<boolean>(false);
 
   /**
    * Clear all update-related fields
@@ -84,8 +85,15 @@ export function useGoogleSheetsFieldHandler({
     console.log('🔍 Google Sheets spreadsheetId change handler called:', {
       newValue: value,
       previousValue: previousSpreadsheetIdRef.current,
+      isProcessing: isProcessingRef.current,
       isActualChange: value !== previousSpreadsheetIdRef.current
     });
+
+    // Prevent concurrent processing
+    if (isProcessingRef.current) {
+      console.log('⏭️ Already processing spreadsheetId change, skipping');
+      return;
+    }
 
     // Only process if the value actually changed from the previous value
     if (value === previousSpreadsheetIdRef.current) {
@@ -93,9 +101,12 @@ export function useGoogleSheetsFieldHandler({
       return;
     }
 
+    // Mark as processing
+    isProcessingRef.current = true;
+
     console.log('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
 
-    // Update the ref to the new value immediately after confirming it's a real change
+    // Update the ref to track the new value
     previousSpreadsheetIdRef.current = value;
 
     // Clear preview data for update action
@@ -118,16 +129,24 @@ export function useGoogleSheetsFieldHandler({
       // Reset cached options only when spreadsheetId actually changes
       resetOptions('sheetName');
 
-      // Load sheets for the selected spreadsheet (avoid force refresh to reduce API thrash)
-      setTimeout(() => {
-        loadOptions('sheetName', 'spreadsheetId', value, false).finally(() => {
-          setLoadingFields((prev: Set<string>) => {
-            const newSet = new Set(prev);
-            newSet.delete('sheetName');
-            return newSet;
-          });
+      // Load sheets for the selected spreadsheet
+      try {
+        await loadOptions('sheetName', 'spreadsheetId', value, false);
+      } catch (error) {
+        console.error('Error loading sheets:', error);
+      } finally {
+        // Clear loading state
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.delete('sheetName');
+          return newSet;
         });
-      }, 10);
+        // Clear processing flag
+        isProcessingRef.current = false;
+      }
+    } else {
+      // Clear processing flag if no value
+      isProcessingRef.current = false;
     }
   }, [values, setValue, clearPreviewData, clearUpdateFields, setLoadingFields, resetOptions, loadOptions]);
 
