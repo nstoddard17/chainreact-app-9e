@@ -4,17 +4,18 @@ import { redirect } from "next/navigation"
 export async function requireUsername() {
   const supabase = await createSupabaseServerClient()
 
-  // Get current user with timeout protection
+  // Get current user with increased timeout protection
   const userPromise = supabase.auth.getUser()
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Auth check timeout')), 3000) // 3 second timeout
+    setTimeout(() => reject(new Error('Auth check timeout')), 10000) // Increased to 10 second timeout
   })
 
   let userResult
   try {
     userResult = await Promise.race([userPromise, timeoutPromise])
   } catch (error) {
-    console.error('[Username Check] Auth check timed out:', error)
+    console.error('[Username Check] Auth check timed out after 10 seconds:', error)
+    console.error('[Username Check] This may indicate Supabase connection issues')
     // On timeout, redirect to login
     redirect("/auth/login")
   }
@@ -36,7 +37,7 @@ export async function requireUsername() {
       .single()
 
     const profileTimeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // 2 second timeout
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 5000) // Increased to 5 second timeout
     })
 
     const result = await Promise.race([profilePromise, profileTimeoutPromise])
