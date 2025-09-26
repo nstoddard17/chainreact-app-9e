@@ -281,7 +281,7 @@ export class NodeExecutionService {
   private isIntegrationNode(nodeType: string): boolean {
     // Check for integration prefixes (more flexible than exact matches)
     const integrationPrefixes = [
-      'gmail_', 'slack_', 'discord_', 'teams_', 
+      'gmail_', 'slack_', 'discord_', 'teams_',
       'google_', 'google-', // Handle both google_ and google- formats
       'sheets_', 'calendar_', 'docs_',
       'onedrive_', 'dropbox_', 'notion_',
@@ -289,7 +289,7 @@ export class NodeExecutionService {
       'twitter_', 'facebook_', 'linkedin_',
       'instagram_', 'youtube_', 'trello_',
       'microsoft_', 'outlook_', 'onenote_',
-      'microsoft-onenote_'
+      'microsoft-onenote_', 'microsoft-outlook_'
     ]
     
     // Check if node type starts with any integration prefix
