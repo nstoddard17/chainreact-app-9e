@@ -9,7 +9,13 @@ type ProcessedCalendarEventEntry = {
 
 const processedCalendarEvents = new Map<string, ProcessedCalendarEventEntry>()
 const processedDriveChanges = new Map<string, ProcessedCalendarEventEntry>()
-const processedSheetsChanges = new Map<string, ProcessedCalendarEventEntry>()
+type ProcessedSheetChangeEntry = {
+  processedAt: number
+  lastUpdated?: number | null
+  lastSignature?: string | null
+}
+
+const processedSheetsChanges = new Map<string, ProcessedSheetChangeEntry>()
 const CALENDAR_DEDUPE_WINDOW_MS = 5 * 60 * 1000
 // Dedupe noisy Drive push deliveries
 const lastDriveMessageNumber = new Map<string, number>() // key: channelId → last message number
@@ -124,9 +130,21 @@ function markDriveChangeProcessed(
   }
 }
 
-function wasRecentlyProcessedSheetsChange(key: string, updatedAt?: string | null): boolean {
+function wasRecentlyProcessedSheetsChange(
+  key: string,
+  updatedAt?: string | null,
+  signature?: string | null
+): boolean {
   const entry = processedSheetsChanges.get(key)
   if (!entry) return false
+
+  if (entry.lastSignature !== undefined && entry.lastSignature !== null) {
+    if (signature !== undefined && signature !== null && signature === entry.lastSignature) {
+      if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+        return true
+      }
+    }
+  }
 
   const incomingUpdated = toTimestamp(updatedAt)
 
@@ -147,11 +165,12 @@ function wasRecentlyProcessedSheetsChange(key: string, updatedAt?: string | null
   return false
 }
 
-function markSheetsChangeProcessed(key: string, updatedAt?: string | null) {
+function markSheetsChangeProcessed(key: string, updatedAt?: string | null, signature?: string | null) {
   const incomingUpdated = toTimestamp(updatedAt)
   processedSheetsChanges.set(key, {
     processedAt: Date.now(),
-    lastUpdated: incomingUpdated
+    lastUpdated: incomingUpdated,
+    lastSignature: signature ?? null
   })
 
   if (processedSheetsChanges.size > 1000) {
@@ -996,7 +1015,19 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         }
       }
 
-      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
+      let nodes: any[] = []
+      if (Array.isArray(workflow.nodes)) {
+        nodes = workflow.nodes
+      } else if (typeof workflow.nodes === 'string') {
+        try {
+          const parsedNodes = JSON.parse(workflow.nodes)
+          if (Array.isArray(parsedNodes)) {
+            nodes = parsedNodes
+          }
+        } catch {
+          // ignore parse errors; nodes will remain empty
+        }
+      }
 
       const matchingTriggers = nodes.filter((node: any) => {
         const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
@@ -1213,14 +1244,37 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       }
 
       const configData = (webhookConfig.config || {}) as any
-      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
+      let nodes: any[] = []
+      if (Array.isArray(workflow.nodes)) {
+        nodes = workflow.nodes
+      } else if (typeof workflow.nodes === 'string') {
+        try {
+          const parsedNodes = JSON.parse(workflow.nodes)
+          if (Array.isArray(parsedNodes)) {
+            nodes = parsedNodes
+          }
+        } catch {
+          nodes = []
+        }
+      }
 
       const matchingTriggers = nodes.filter((node: any) => {
         const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
         if (nodeType !== triggerType) return false
         if (!node?.data?.isTrigger) return false
 
-        const nodeConfig = node?.data?.config || {}
+        let nodeConfig: Record<string, any> = {}
+        if (node?.data?.config) {
+          if (typeof node.data.config === 'string') {
+            try {
+              nodeConfig = JSON.parse(node.data.config)
+            } catch {
+              nodeConfig = {}
+            }
+          } else if (typeof node.data.config === 'object') {
+            nodeConfig = node.data.config as Record<string, any>
+          }
+        }
 
         switch (changeType) {
           case 'file_created': {
@@ -1356,7 +1410,16 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       spreadsheetId,
       sheetName: changeSheetName,
       sheetId: changeSheetId,
-      configs: webhookConfigs?.length || 0
+      configs: webhookConfigs?.length || 0,
+      configMetadata: (webhookConfigs || []).map((c) => ({
+        id: c.id,
+        workflowId: c.workflow_id,
+        hasConfig: !!c.config,
+        configType: typeof c.config,
+        configKeys: c.config && typeof c.config === 'object' ? Object.keys(c.config) : [],
+        providerId: c.provider_id,
+        triggerType: c.trigger_type
+      }))
     })
 
     if (!webhookConfigs || webhookConfigs.length === 0) {
@@ -1394,15 +1457,49 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         continue
       }
 
-      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : []
-      const configData = (webhookConfig.config || {}) as any
+      let nodes: any[] = []
+      if (Array.isArray(workflow.nodes)) {
+        nodes = workflow.nodes
+      } else if (typeof workflow.nodes === 'string') {
+        try {
+          const parsed = JSON.parse(workflow.nodes)
+          if (Array.isArray(parsed)) {
+            nodes = parsed
+          }
+        } catch {
+          nodes = []
+        }
+      }
+      let configData: Record<string, any> = {}
+      if (webhookConfig.config) {
+        if (typeof webhookConfig.config === 'string') {
+          try {
+            configData = JSON.parse(webhookConfig.config)
+          } catch {
+            configData = {}
+          }
+        } else if (typeof webhookConfig.config === 'object') {
+          configData = webhookConfig.config as Record<string, any>
+        }
+      }
 
       const matchingTriggers = nodes.filter((node: any) => {
         const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
         if (nodeType !== triggerType) return false
         if (!node?.data?.isTrigger) return false
 
-        const nodeConfig = node?.data?.config || {}
+        let nodeConfig: Record<string, any> = {}
+        if (node?.data?.config) {
+          if (typeof node.data.config === 'string') {
+            try {
+              nodeConfig = JSON.parse(node.data.config)
+            } catch {
+              nodeConfig = {}
+            }
+          } else if (typeof node.data.config === 'object') {
+            nodeConfig = node.data.config as Record<string, any>
+          }
+        }
 
         const configSpreadsheetId = configData?.spreadsheetId || nodeConfig?.spreadsheetId || null
         if (configSpreadsheetId && configSpreadsheetId !== spreadsheetId) {
@@ -1446,6 +1543,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       const values: any[] = Array.isArray(changePayload?.values)
         ? changePayload.values
         : (Array.isArray(changePayload?.data) ? changePayload.data : [])
+      const dedupeSignature = values.length > 0 ? JSON.stringify(values) : null
       const changeIdentifier = (() => {
         switch (changeType) {
           case 'new_row':
@@ -1470,7 +1568,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         `${changeType}-${changeIdentifier}`
       )
 
-      if (wasRecentlyProcessedSheetsChange(dedupeKey, eventTimestamp)) {
+      if (wasRecentlyProcessedSheetsChange(dedupeKey, eventTimestamp, dedupeSignature)) {
         continue
       }
 
@@ -1499,7 +1597,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       }
 
       try {
-        markSheetsChangeProcessed(dedupeKey, eventTimestamp)
+        markSheetsChangeProcessed(dedupeKey, eventTimestamp, dedupeSignature)
 
         const executionEngine = new AdvancedExecutionEngine()
         const executionSession = await executionEngine.createExecutionSession(

@@ -521,6 +521,13 @@ function ConfigurationForm({
         loadOptions('calendars', undefined, undefined, false);
       }
 
+      // Load immediately for Google Sheets spreadsheetId
+      const spreadsheetIdField = fieldsToLoad.find((f: any) => f.name === 'spreadsheetId');
+      if (spreadsheetIdField && nodeInfo?.providerId === 'google-sheets') {
+        console.log(`🚀 [ConfigForm] Loading Google Sheets spreadsheetId immediately with cache`);
+        loadOptions('spreadsheetId', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -538,6 +545,10 @@ function ConfigurationForm({
             return;
           }
           if (field.name === 'calendars' && nodeInfo?.providerId === 'google-calendar') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
             // Already loaded above
             return;
           }

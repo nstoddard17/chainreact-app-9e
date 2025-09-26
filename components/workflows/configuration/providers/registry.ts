@@ -12,6 +12,7 @@ import { hubspotDynamicOptionsLoader } from './hubspot/hubspotDynamicOptionsLoad
 import { onenoteOptionsLoader } from './onenote/optionsLoader';
 import { notionOptionsLoader } from './notion/options';
 import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoader';
+import { GoogleSheetsOptionsLoader } from './google-sheets/GoogleSheetsOptionsLoader';
 import { DropboxOptionsLoader } from './dropbox/dropboxOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
@@ -49,12 +50,14 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register Google Drive loader
     this.register('google-drive', new GoogleDriveOptionsLoader());
 
+    // Register Google Sheets loader
+    this.register('google-sheets', new GoogleSheetsOptionsLoader());
+
     // Register Dropbox loader
     this.register('dropbox', new DropboxOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
-    // this.register('google-sheets', new GoogleSheetsOptionsLoader());
     // this.register('slack', new SlackOptionsLoader());
     // this.register('trello', new TrelloOptionsLoader());
   }
