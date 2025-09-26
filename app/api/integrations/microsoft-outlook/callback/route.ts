@@ -132,17 +132,15 @@ export async function GET(request: NextRequest) {
     )
     
     // Add account type metadata if available
-    if (tokenData._metadata) {
-      integrationData.metadata = tokenData._metadata
-    }
-
+    // Store email and account name in metadata instead of non-existent columns
+    const metadata = tokenData._metadata || {}
     if (providerEmail) {
-      integrationData.provider_email = providerEmail
+      metadata.provider_email = providerEmail
     }
-
     if (providerAccountName) {
-      integrationData.provider_account_name = providerAccountName
+      metadata.provider_account_name = providerAccountName
     }
+    integrationData.metadata = metadata
 
     if (providerUserId) {
       integrationData.provider_user_id = providerUserId
@@ -158,7 +156,7 @@ export async function GET(request: NextRequest) {
         onConflict: "user_id, provider",
       })
       .select(
-        "id, provider, status, scopes, metadata, expires_at, provider_email, provider_account_name, provider_user_id, refresh_token_expires_at"
+        "id, provider, status, scopes, metadata, expires_at, provider_user_id, refresh_token_expires_at"
       )
       .single()
 
@@ -168,8 +166,8 @@ export async function GET(request: NextRequest) {
 
     const payload = {
       integrationId: upsertedIntegration?.id,
-      email: upsertedIntegration?.provider_email || providerEmail,
-      accountName: upsertedIntegration?.provider_account_name || providerAccountName,
+      email: upsertedIntegration?.metadata?.provider_email || providerEmail,
+      accountName: upsertedIntegration?.metadata?.provider_account_name || providerAccountName,
       userId: upsertedIntegration?.provider_user_id || providerUserId,
       scopes: upsertedIntegration?.scopes || integrationData.scopes || [],
       metadata: upsertedIntegration?.metadata || integrationData.metadata || null,
