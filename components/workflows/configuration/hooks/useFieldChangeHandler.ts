@@ -12,7 +12,7 @@ interface UseFieldChangeHandlerProps {
   setLoadingFields: (setter: any) => void;
   resetOptions: (fieldName: string) => void;
   dynamicOptions?: Record<string, any[]>;
-  
+
   // Provider-specific state setters
   discordState?: any;
   setSelectedRecord?: (record: any) => void;
@@ -24,7 +24,7 @@ interface UseFieldChangeHandlerProps {
   setGoogleSheetsSelectedRows?: (rows: Set<string>) => void;
   setAirtableRecords?: (records: any[]) => void;
   setAirtableTableSchema?: (schema: any) => void;
-  
+
   // Optional props for specific features
   currentNodeId?: string;
   getWorkflowId?: () => string | undefined;
@@ -32,6 +32,7 @@ interface UseFieldChangeHandlerProps {
   activeBubbles?: Record<string, boolean>;
   fieldSuggestions?: Record<string, string>;
   originalBubbleValues?: Record<string, any>;
+  loadedFieldsWithValues?: React.MutableRefObject<Set<string>>;
 }
 
 /**
@@ -67,7 +68,8 @@ export function useFieldChangeHandler({
   selectedRecord,
   activeBubbles,
   fieldSuggestions,
-  originalBubbleValues
+  originalBubbleValues,
+  loadedFieldsWithValues
 }: UseFieldChangeHandlerProps) {
 
   /**
@@ -794,6 +796,25 @@ export function useFieldChangeHandler({
       return;
     }
 
+    // Clear the field from loadedFieldsWithValues tracking when user changes it
+    // This allows the field to be reloaded if needed after a manual change
+    if (loadedFieldsWithValues?.current) {
+      if (loadedFieldsWithValues.current.has(fieldName)) {
+        console.log(`🔄 [handleFieldChange] Clearing tracking for manually changed field: ${fieldName}`);
+        loadedFieldsWithValues.current.delete(fieldName);
+      }
+
+      // Also clear tracking for dependent fields
+      if (nodeInfo?.configSchema) {
+        nodeInfo.configSchema.forEach((field: any) => {
+          if (field.dependsOn === fieldName && loadedFieldsWithValues.current.has(field.name)) {
+            console.log(`🔄 [handleFieldChange] Clearing tracking for dependent field: ${field.name}`);
+            loadedFieldsWithValues.current.delete(field.name);
+          }
+        });
+      }
+    }
+
     // Special logging for uploadedFiles field
     if (fieldName === 'uploadedFiles') {
       console.log('📎 [useFieldChangeHandler] uploadedFiles being set:', {
@@ -816,7 +837,7 @@ export function useFieldChangeHandler({
         console.log('✅ Field handled by provider logic:', fieldName);
       }
     });
-  }, [handleProviderFieldChange, setValue, nodeInfo, values]);
+  }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues]);
 
   return {
     handleFieldChange,

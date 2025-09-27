@@ -385,7 +385,7 @@ export function ConfigurationModal({
 
           {/* Variable Picker Side Panel - Right Column */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 max-h-[40vh] lg:max-h-full overflow-hidden" style={{ isolation: 'isolate' }}>
+            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 h-full overflow-hidden" style={{ isolation: 'isolate' }}>
               <VariablePickerSidePanel
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}

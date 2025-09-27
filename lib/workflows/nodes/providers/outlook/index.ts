@@ -3,8 +3,6 @@ import {
   Mail,
   Send,
   Calendar,
-  Move,
-  MailOpen,
   Search
 } from "lucide-react"
 
@@ -62,7 +60,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
   isTrigger: false,
   configSchema: [
     // Calendar Section
-    { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: "outlook_calendars", placeholder: "Select a calendar or type to create new" },
+    { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: true, loadOnMount: true, placeholder: "Select a calendar or type to create new" },
     
     // General Section
     { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
@@ -146,48 +144,85 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
   ]
 }
 
-const outlookActionMoveEmail: NodeComponent = {
-  type: "microsoft-outlook_action_move_email",
-  title: "Move Email",
-  description: "Move an email to a different folder",
-  icon: Move,
-  providerId: "microsoft-outlook",
-  requiredScopes: ["Mail.ReadWrite"],
-  category: "Communication",
-  isTrigger: false,
-  configSchema: [
-    { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email", hasVariablePicker: true },
-    { name: "sourceFolderId", label: "Source Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select source folder (optional)" },
-    { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select destination folder", hasVariablePicker: true },
-  ]
-}
-
-const outlookActionFetchEmails: NodeComponent = {
+const outlookActionGetEmails: NodeComponent = {
   type: "microsoft-outlook_action_fetch_emails",
-  title: "Fetch Emails",
-  description: "Retrieve emails from a specific folder",
-  icon: MailOpen,
+  title: "Get Email",
+  description: "Find emails in Outlook matching specific search criteria",
+  icon: Search,
   providerId: "microsoft-outlook",
   requiredScopes: ["Mail.Read"],
   category: "Communication",
   isTrigger: false,
   producesOutput: true,
   configSchema: [
-    { name: "folderId", label: "Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (uses inbox if not specified)" },
-    { name: "limit", label: "Number of Emails", type: "select", required: false, defaultValue: "10", options: [
-      { value: "5", label: "5 emails" },
-      { value: "10", label: "10 emails" },
-      { value: "25", label: "25 emails" },
-      { value: "50", label: "50 emails" },
-      { value: "100", label: "100 emails" }
-    ]},
-    { name: "unreadOnly", label: "Unread Only", type: "boolean", required: false, defaultValue: false },
+    {
+      name: "folderId",
+      label: "Folder / Label",
+      type: "select",
+      dynamic: "outlook_folders",
+      required: true,
+      placeholder: "Select folders or labels",
+      description: "Choose which Outlook folders to search in"
+    },
+    {
+      name: "query",
+      label: "Search Query",
+      type: "text",
+      required: true,
+      placeholder: "e.g., from:bob@example.com hasAttachments:true",
+      description: "Use Outlook search operators like 'from:', 'to:', 'subject:', 'hasAttachments:true', etc."
+    },
+    {
+      name: "maxResults",
+      label: "Max Messages to Fetch",
+      type: "number",
+      required: false,
+      placeholder: "10",
+      description: "Maximum number of messages to retrieve (between 1-15)",
+      defaultValue: 10
+    },
+    {
+      name: "startDate",
+      label: "Start Date",
+      type: "date",
+      required: true,
+      description: "Only fetch emails after this date"
+    },
+    {
+      name: "endDate",
+      label: "End Date",
+      type: "date",
+      required: false,
+      description: "Only fetch emails before this date"
+    },
+    {
+      name: "includeDeleted",
+      label: "Include Deleted Items",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Include messages from Deleted Items folder"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "messages",
+      label: "Messages",
+      type: "array",
+      description: "Array of email messages matching the search criteria"
+    },
+    {
+      name: "count",
+      label: "Count",
+      type: "number",
+      description: "Number of messages found"
+    }
   ]
 }
 
 const outlookActionGetCalendarEvents: NodeComponent = {
   type: "microsoft-outlook_action_get_calendar_events",
-  title: "Fetch Calendar Events",
+  title: "Get Calendar Events",
   description: "Retrieve calendar events from Outlook",
   icon: Calendar,
   providerId: "microsoft-outlook",
@@ -196,7 +231,7 @@ const outlookActionGetCalendarEvents: NodeComponent = {
   isTrigger: false,
   producesOutput: true,
   configSchema: [
-    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: "outlook_calendars", placeholder: "Select a calendar (uses default if not specified)" },
+    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select a calendar (uses default if not specified)" },
     { name: "startDate", label: "Start Date", type: "date", required: false, placeholder: "Start date for events" },
     { name: "endDate", label: "End Date", type: "date", required: false, placeholder: "End date for events" },
     { name: "limit", label: "Number of Events", type: "select", required: false, defaultValue: "25", options: [
@@ -229,11 +264,10 @@ export const outlookNodes: NodeComponent[] = [
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
   
-  // Actions (6)
+  // Actions (5)
   outlookActionSendEmail,
   outlookActionCreateCalendarEvent,
-  outlookActionMoveEmail,
-  outlookActionFetchEmails,
+  outlookActionGetEmails,
   outlookActionGetCalendarEvents,
   outlookActionSearchEmail,
 ]

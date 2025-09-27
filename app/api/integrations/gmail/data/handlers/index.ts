@@ -4,7 +4,7 @@
 
 import { GmailDataHandler } from '../types'
 import { getGmailLabels } from './labels'
-import { getGmailRecentRecipients } from './recent-recipients'
+import { getGmailEnhancedRecipients } from './enhanced-recipients'
 import { getGmailSignatures } from './signatures'
 
 /**
@@ -13,10 +13,10 @@ import { getGmailSignatures } from './signatures'
 export const gmailHandlers: Record<string, GmailDataHandler> = {
   // Labels
   'gmail_labels': getGmailLabels,
-  
-  // Recipients and contacts
-  'gmail-recent-recipients': getGmailRecentRecipients,
-  'gmail-enhanced-recipients': getGmailRecentRecipients, // Use same handler for now
+
+  // Recipients and contacts - both use enhanced version now
+  'gmail-recent-recipients': getGmailEnhancedRecipients,
+  'gmail-enhanced-recipients': getGmailEnhancedRecipients,
   
   // Signatures  
   'gmail_signatures': getGmailSignatures,
