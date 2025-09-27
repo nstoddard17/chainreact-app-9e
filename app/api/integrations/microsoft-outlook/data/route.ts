@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { getOutlookEnhancedRecipients } from "./handlers/enhanced-recipients"
+import { getOutlookCalendars } from "./handlers/calendars"
 
 interface OutlookOptions {
   search?: string
@@ -69,9 +70,8 @@ async function buildResponse(
     }
 
     case 'outlook_calendars': {
-      return [
-        { value: 'default', label: 'Calendar' }
-      ]
+      const calendars = await getOutlookCalendars(integration)
+      return calendars
     }
 
     default:

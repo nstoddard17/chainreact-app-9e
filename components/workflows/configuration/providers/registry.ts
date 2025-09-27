@@ -14,6 +14,7 @@ import { notionOptionsLoader } from './notion/options';
 import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoader';
 import { GoogleSheetsOptionsLoader } from './google-sheets/GoogleSheetsOptionsLoader';
 import { DropboxOptionsLoader } from './dropbox/dropboxOptionsLoader';
+import { outlookOptionsLoader } from './microsoft-outlook/OutlookOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -55,6 +56,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Dropbox loader
     this.register('dropbox', new DropboxOptionsLoader());
+
+    // Register Microsoft Outlook loader
+    this.register('microsoft-outlook', outlookOptionsLoader);
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
