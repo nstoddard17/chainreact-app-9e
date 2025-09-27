@@ -16,14 +16,17 @@ export const reactionAddedTriggerSchema: NodeComponent = {
       type: "select",
       required: false,
       dynamic: "slack-channels",
-      description: "Optional: Filter to a specific channel. Leave empty to listen to all channels."
+      description: "Optional: Filter to a specific channel. Leave empty to listen to all channels.",
+      loadOnMount: true
     },
     {
       name: "emoji",
       label: "Emoji",
-      type: "text",
+      type: "emoji-picker",
       required: false,
-      placeholder: "e.g., thumbsup (without colons)",
+      dynamic: "slack_emoji_catalog",
+      loadOnMount: true,
+      placeholder: "Choose an emoji to filter",
       description: "Optional: Filter to a specific emoji. Leave empty to listen to all reactions."
     },
   ],
