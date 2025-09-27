@@ -145,7 +145,9 @@ export async function createOutlookCalendarEvent(
       reminderMinutesBeforeStart,
       showAs = 'busy',
       sensitivity = 'normal',
-      importance = 'normal'
+      importance = 'normal',
+      isOnlineMeeting = false,
+      onlineMeetingProvider = 'teamsForBusiness'
     } = processedConfig
 
     // Get the decrypted access token for Microsoft Outlook
@@ -156,7 +158,7 @@ export async function createOutlookCalendarEvent(
     if (timeZone === 'user-timezone' || !timeZone) {
       // Use Intl API to get the user's timezone
       eventTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      console.log(`🌍 [Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
+      console.log(`[Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
     }
 
     // Parse dates and times with proper validation
@@ -264,6 +266,15 @@ export async function createOutlookCalendarEvent(
       }
     }
 
+    // Configure Microsoft Teams / Skype online meeting if requested
+    const wantsOnlineMeeting = typeof isOnlineMeeting === 'string' ? isOnlineMeeting === 'true' : !!isOnlineMeeting
+    if (wantsOnlineMeeting) {
+      eventData.isOnlineMeeting = true
+      const provider = (onlineMeetingProvider || 'teamsForBusiness').trim()
+      const allowedProviders = new Set(['teamsForBusiness', 'skypeForBusiness', 'skypeForConsumer'])
+      eventData.onlineMeetingProvider = allowedProviders.has(provider) ? provider : 'teamsForBusiness'
+    }
+
     // Process attendees if provided
     if (attendees && attendees.length > 0) {
       const attendeeList = Array.isArray(attendees) ? attendees : [attendees]
@@ -337,11 +348,14 @@ export async function createOutlookCalendarEvent(
         timezone: eventTimeZone,
         isAllDay: createdEvent.isAllDay,
         attendees: createdEvent.attendees?.map((a: any) => a.emailAddress.address),
+        onlineMeetingJoinUrl: createdEvent.onlineMeeting?.joinUrl || createdEvent.webLink,
+        onlineMeetingProvider: createdEvent.onlineMeetingProvider || (eventData.isOnlineMeeting ? (eventData.onlineMeetingProvider || 'teamsForBusiness') : undefined),
+        onlineMeeting: createdEvent.onlineMeeting,
         createdDateTime: createdEvent.createdDateTime
       }
     }
   } catch (error: any) {
-    console.error('❌ [Outlook Calendar] Error creating event:', error)
+    console.error('[Outlook Calendar] Error creating event:', error)
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
@@ -351,3 +365,4 @@ export async function createOutlookCalendarEvent(
     throw error
   }
 }
+

@@ -23,12 +23,18 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    console.log(`🔍 [OneNote API] Looking for integration:`, {
+      integrationId,
+      dataType,
+      options
+    })
+
     // Fetch integration from database
+    // First try to find by ID alone, then check provider
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
-      .in('provider', ['onenote', 'microsoft-onenote'])
       .single()
 
     if (integrationError || !integration) {
@@ -38,8 +44,23 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
-    // Validate integration status
-    if (integration.status !== 'connected') {
+    // Validate it's a OneNote/Microsoft integration
+    const validProviders = ['onenote', 'microsoft-onenote', 'microsoft-outlook', 'outlook'];
+    if (!validProviders.includes(integration.provider?.toLowerCase())) {
+      console.error('❌ [OneNote API] Invalid provider:', {
+        integrationId,
+        actualProvider: integration.provider,
+        expectedProviders: validProviders
+      })
+      return NextResponse.json({
+        error: `Invalid integration provider. Expected OneNote/Microsoft integration but got: ${integration.provider}`
+      }, { status: 400 })
+    }
+
+    console.log(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
+
+    // Validate integration status - accept both 'connected' and 'active'
+    if (integration.status !== 'connected' && integration.status !== 'active') {
       console.error('❌ [OneNote API] Integration not connected:', {
         integrationId,
         status: integration.status

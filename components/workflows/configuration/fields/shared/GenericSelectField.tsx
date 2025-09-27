@@ -330,13 +330,18 @@ export function GenericSelectField({
     // Special case for Google Sheets sheetName: don't reload if we've attempted recently
     const isGoogleSheetsSheetName = nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName'
 
+    // Check if this is a loadOnMount field that already has data
+    const isLoadOnMountWithData = field.loadOnMount && hasOptions
+
     // Only load if:
     // 1. Dropdown is open
     // 2. Field is dynamic
     // 3. Not currently loading
-    // 4. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
-    // 5. For Google Sheets sheetName, also check if we haven't loaded recently
+    // 4. Not a loadOnMount field that already has data (avoid double loading)
+    // 5. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
+    // 6. For Google Sheets sheetName, also check if we haven't loaded recently
     const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading &&
+                      !isLoadOnMountWithData &&
                       (!hasAttemptedLoad || (!hasOptions && !recentlyLoaded)) &&
                       (!isGoogleSheetsSheetName || !recentlyLoaded)
 
