@@ -1,11 +1,12 @@
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
+import { google } from 'googleapis'
 
 /**
- * Microsoft Outlook create calendar event handler with timezone auto-detection
+ * Google Calendar create event handler with timezone auto-detection
  */
-export async function createOutlookCalendarEvent(
+export async function createGoogleCalendarEvent(
   config: any,
   userId: string,
   input: Record<string, any>
@@ -130,9 +131,9 @@ export async function createOutlookCalendarEvent(
     }
 
     const {
-      calendarId,
-      subject,
-      body,
+      calendarId = 'primary',
+      title,
+      description,
       startDate,
       startTime,
       endDate,
@@ -140,24 +141,37 @@ export async function createOutlookCalendarEvent(
       timeZone,
       isAllDay,
       location,
-      locations,
       attendees,
-      reminderMinutesBeforeStart,
-      showAs = 'busy',
-      sensitivity = 'normal',
-      importance = 'normal'
+      reminderMinutes,
+      reminderMethod = 'popup',
+      createMeetLink,
+      sendNotifications = 'all',
+      guestsCanInviteOthers = true,
+      guestsCanSeeOtherGuests = true,
+      guestsCanModify = false,
+      visibility = 'public',
+      transparency = 'transparent',
+      colorId,
+      recurrence
     } = processedConfig
 
-    // Get the decrypted access token for Microsoft Outlook
-    const accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
+    // Get the decrypted access token for Google
+    const accessToken = await getDecryptedAccessToken(userId, "google-calendar")
 
     // Handle timezone - if "user-timezone" is selected, use the browser's timezone
     let eventTimeZone = timeZone
     if (timeZone === 'user-timezone' || !timeZone) {
       // Use Intl API to get the user's timezone
       eventTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      console.log(`🌍 [Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
+      console.log(`🌍 [Google Calendar] Auto-detected user timezone: ${eventTimeZone}`)
     }
+
+    // Create OAuth2 client
+    const oauth2Client = new google.auth.OAuth2()
+    oauth2Client.setCredentials({ access_token: accessToken })
+
+    // Create calendar API client
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
     // Parse dates and times with proper validation
     const parseDateTime = (date: string, time: string, isEndDate: boolean = false) => {
@@ -190,56 +204,21 @@ export async function createOutlookCalendarEvent(
       return `${date}T${time}:00`
     }
 
-    // Prepare the event data for Microsoft Graph API
+    // Prepare the event data for Google Calendar API
     const eventData: any = {
-      subject: subject || 'Untitled Event'
-    }
-
-    // Only add body if provided
-    if (body) {
-      eventData.body = {
-        contentType: 'HTML',
-        content: body
-      }
-    }
-
-    // Only add showAs if provided (default is 'busy' in Outlook)
-    if (showAs) {
-      eventData.showAs = showAs
-    }
-
-    // Only add sensitivity if provided (default is 'normal')
-    if (sensitivity) {
-      eventData.sensitivity = sensitivity
-    }
-
-    // Only add importance if provided (default is 'normal')
-    if (importance) {
-      eventData.importance = importance.toLowerCase()
+      summary: title || 'Untitled Event',
+      location: location,
+      description: description
     }
 
     // Handle all-day events
     if (isAllDay) {
-      eventData.isAllDay = true
-
-      // Parse start date for all-day event
-      let allDayStartDate = startDate
-      if (!allDayStartDate || allDayStartDate === 'today') {
-        allDayStartDate = new Date().toISOString().split('T')[0]
-      }
-
-      // Parse end date for all-day event
-      let allDayEndDate = endDate
-      if (!allDayEndDate || allDayEndDate === 'same-as-start' || allDayEndDate === 'today') {
-        allDayEndDate = allDayStartDate
-      }
-
       eventData.start = {
-        dateTime: `${allDayStartDate}T00:00:00`,
+        date: startDate,
         timeZone: eventTimeZone
       }
       eventData.end = {
-        dateTime: `${allDayEndDate}T00:00:00`,
+        date: endDate || startDate,
         timeZone: eventTimeZone
       }
     } else {
@@ -254,98 +233,111 @@ export async function createOutlookCalendarEvent(
       }
     }
 
-    // Add location if provided
-    if (location || locations) {
-      const locationString = location || locations
-      if (locationString && locationString.trim()) {
-        eventData.location = {
-          displayName: locationString.trim()
-        }
-      }
-    }
-
     // Process attendees if provided
     if (attendees && attendees.length > 0) {
-      const attendeeList = Array.isArray(attendees) ? attendees : [attendees]
-      const validAttendees = attendeeList
-        .filter(email => email && typeof email === 'string' && email.includes('@'))
-        .map(email => ({
-          emailAddress: {
-            address: email.trim()
-          },
-          type: 'required'
-        }))
+      const attendeeList = typeof attendees === 'string'
+        ? attendees.split(',').map((email: string) => email.trim())
+        : Array.isArray(attendees) ? attendees : [attendees]
 
-      // Only add attendees if we have valid ones
+      const validAttendees = attendeeList
+        .filter(email => email && email.includes('@'))
+        .map(email => ({ email: email.trim() }))
+
       if (validAttendees.length > 0) {
         eventData.attendees = validAttendees
       }
     }
 
-    // Add reminder if specified and valid
-    if (reminderMinutesBeforeStart !== undefined && reminderMinutesBeforeStart !== null && reminderMinutesBeforeStart !== '' && reminderMinutesBeforeStart !== 'none') {
-      const reminderValue = parseInt(reminderMinutesBeforeStart)
-      if (!isNaN(reminderValue) && reminderValue >= 0) {
-        eventData.reminderMinutesBeforeStart = reminderValue
-        eventData.isReminderOn = true
+    // Add reminder if specified
+    if (reminderMinutes && reminderMinutes !== '0') {
+      eventData.reminders = {
+        useDefault: false,
+        overrides: [
+          {
+            method: reminderMethod,
+            minutes: parseInt(reminderMinutes)
+          }
+        ]
+      }
+    } else {
+      eventData.reminders = {
+        useDefault: false,
+        overrides: []
       }
     }
 
-    // Determine which calendar to use
-    // If no calendar selected or it's 'default', use the primary calendar
-    const calendarEndpoint = calendarId && calendarId.trim() && calendarId !== 'default' && calendarId !== ''
-      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`
-      : 'https://graph.microsoft.com/v1.0/me/events'
+    // Add Google Meet conference if requested
+    if (createMeetLink) {
+      eventData.conferenceData = {
+        createRequest: {
+          requestId: `meet_${Date.now()}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      }
+    }
 
-    // Create the event using Microsoft Graph API
-    const response = await fetch(calendarEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(eventData)
+    // Set visibility and transparency
+    eventData.visibility = visibility === 'public' ? 'public' : 'private'
+    eventData.transparency = transparency === 'opaque' ? 'opaque' : 'transparent'
+
+    // Set color if specified
+    if (colorId && colorId !== 'default') {
+      eventData.colorId = colorId
+    }
+
+    // Handle recurrence
+    if (recurrence && recurrence !== 'none') {
+      eventData.recurrence = [recurrence]
+    }
+
+    // Guest permissions
+    if (attendees && attendees.length > 0) {
+      eventData.guestsCanInviteOthers = guestsCanInviteOthers
+      eventData.guestsCanSeeOtherGuests = guestsCanSeeOtherGuests
+      eventData.guestsCanModify = guestsCanModify
+    }
+
+    // Determine send notifications parameter
+    let sendUpdates = 'none'
+    if (sendNotifications === 'all') {
+      sendUpdates = 'all'
+    } else if (sendNotifications === 'externalOnly') {
+      sendUpdates = 'externalOnly'
+    }
+
+    // Create the event using Google Calendar API
+    const response = await calendar.events.insert({
+      calendarId: calendarId,
+      requestBody: eventData,
+      sendUpdates: sendUpdates,
+      conferenceDataVersion: createMeetLink ? 1 : 0
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      let errorMessage = `Failed to create calendar event: ${response.statusText}`
-
-      try {
-        const errorJson = JSON.parse(errorText)
-        if (errorJson.error?.message) {
-          errorMessage = `Failed to create calendar event: ${errorJson.error.message}`
-        }
-      } catch {
-        // If error text is not JSON, use the default message
-      }
-
-      throw new Error(errorMessage)
-    }
-
-    const createdEvent = await response.json()
+    const createdEvent = response.data
 
     return {
       success: true,
       output: {
         eventId: createdEvent.id,
-        subject: createdEvent.subject,
+        htmlLink: createdEvent.htmlLink,
         start: createdEvent.start,
         end: createdEvent.end,
-        location: createdEvent.location?.displayName,
-        webLink: createdEvent.webLink,
-        timezone: eventTimeZone,
-        isAllDay: createdEvent.isAllDay,
-        attendees: createdEvent.attendees?.map((a: any) => a.emailAddress.address),
-        createdDateTime: createdEvent.createdDateTime
+        hangoutLink: createdEvent.hangoutLink,
+        meetLink: createdEvent.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri,
+        attendees: createdEvent.attendees,
+        status: createdEvent.status,
+        created: createdEvent.created,
+        summary: createdEvent.summary,
+        location: createdEvent.location,
+        timezone: eventTimeZone
       }
     }
   } catch (error: any) {
-    console.error('❌ [Outlook Calendar] Error creating event:', error)
+    console.error('❌ [Google Calendar] Error creating event:', error)
 
     // Check if it's a token error
-    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-      throw new Error('Microsoft Outlook authentication failed. Please reconnect your account.')
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.code === 401) {
+      throw new Error('Google Calendar authentication failed. Please reconnect your account.')
     }
 
     throw error

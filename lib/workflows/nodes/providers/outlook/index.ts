@@ -60,15 +60,69 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
   isTrigger: false,
   configSchema: [
     // Calendar Section
-    { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: true, loadOnMount: true, placeholder: "Select a calendar or type to create new" },
-    
+    { name: "calendarId", label: "Calendar", type: "combobox", required: true, creatable: true, dynamic: true, loadOnMount: true, placeholder: "Select a calendar or type to create new" },
+
     // General Section
     { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
-    { name: "isAllDay", label: "All Day", type: "boolean", required: false, defaultValue: false },
-    { name: "startDate", label: "Start Date", type: "date", required: true, defaultValue: "today" },
-    { name: "startTime", label: "Start Time", type: "time", required: true, defaultValue: "current" },
-    { name: "endDate", label: "End Date", type: "date", required: true, defaultValue: "same-as-start" },
-    { name: "endTime", label: "End Time", type: "time", required: true, defaultValue: "current" },
+    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description" },
+
+    // Simple Date/Time Fields
+    { name: "eventDate", label: "Date", type: "select", required: true, defaultValue: "today", options: [
+      { value: "today", label: "Today" },
+      { value: "tomorrow", label: "Tomorrow" },
+      { value: "in_3_days", label: "In 3 days" },
+      { value: "in_1_week", label: "In 1 week" },
+      { value: "in_2_weeks", label: "In 2 weeks" },
+      { value: "custom_days", label: "In X days..." },
+      { value: "next_weekday", label: "Next specific weekday..." },
+      { value: "specific", label: "Pick a specific date..." }
+    ]},
+    { name: "customDays", label: "Number of days from now", type: "number", required: false, conditional: { field: "eventDate", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
+    { name: "nextWeekday", label: "Select weekday", type: "select", required: false, conditional: { field: "eventDate", value: "next_weekday" }, options: [
+      { value: "monday", label: "Next Monday" },
+      { value: "tuesday", label: "Next Tuesday" },
+      { value: "wednesday", label: "Next Wednesday" },
+      { value: "thursday", label: "Next Thursday" },
+      { value: "friday", label: "Next Friday" },
+      { value: "saturday", label: "Next Saturday" },
+      { value: "sunday", label: "Next Sunday" }
+    ]},
+    { name: "specificDate", label: "Specific Date", type: "date", required: false, conditional: { field: "eventDate", value: "specific" } },
+
+    { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
+      { value: "current", label: "Current Time" },
+      { value: "08:00", label: "8:00 AM" },
+      { value: "09:00", label: "9:00 AM" },
+      { value: "10:00", label: "10:00 AM" },
+      { value: "11:00", label: "11:00 AM" },
+      { value: "12:00", label: "12:00 PM" },
+      { value: "13:00", label: "1:00 PM" },
+      { value: "14:00", label: "2:00 PM" },
+      { value: "15:00", label: "3:00 PM" },
+      { value: "16:00", label: "4:00 PM" },
+      { value: "17:00", label: "5:00 PM" },
+      { value: "18:00", label: "6:00 PM" },
+      { value: "19:00", label: "7:00 PM" },
+      { value: "20:00", label: "8:00 PM" },
+      { value: "custom", label: "Custom time..." }
+    ]},
+    { name: "customTime", label: "Custom Time", type: "time", required: false, conditional: { field: "eventTime", value: "custom" } },
+
+    { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
+      { value: "allday", label: "All Day" },
+      { value: "30", label: "30 minutes" },
+      { value: "60", label: "1 hour" },
+      { value: "90", label: "1.5 hours" },
+      { value: "120", label: "2 hours" },
+      { value: "180", label: "3 hours" },
+      { value: "240", label: "4 hours" },
+      { value: "480", label: "All Day (8 hours)" },
+      { value: "custom", label: "Custom end time..." }
+    ]},
+    { name: "customEndDate", label: "End Date", type: "date", required: false, conditional: { field: "duration", value: "custom" } },
+    { name: "customEndTime", label: "End Time", type: "time", required: false, conditional: { field: "duration", value: "custom" } },
+
+    // Time Zone (applies to both modes)
     { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
       { value: "user-timezone", label: "Your timezone (auto-detected)" },
       { value: "America/New_York", label: "Eastern Time (ET)" },
@@ -89,7 +143,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
       { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
     ], description: "Your timezone will be automatically detected and set as the default" },
-    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description" },
+
+    // Other Fields
     { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients" },
     { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "Enter location or address" },
     { name: "locations", label: "Additional Locations", type: "text", required: false, placeholder: "Additional location details" },
@@ -116,17 +171,18 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
     ], showWhen: { isOnlineMeeting: true } },
     
     // Reminder Section
-    { name: "reminderMinutesBeforeStart", label: "Reminder (minutes before)", type: "select", required: false, defaultValue: "15", options: [
+    { name: "reminderMinutesBeforeStart", label: "Reminder", type: "select", required: false, defaultValue: "15", options: [
+      { value: "none", label: "No reminder" },
       { value: "0", label: "At start time" },
-      { value: "5", label: "5 minutes" },
-      { value: "10", label: "10 minutes" },
-      { value: "15", label: "15 minutes" },
-      { value: "30", label: "30 minutes" },
-      { value: "60", label: "1 hour" },
-      { value: "120", label: "2 hours" },
-      { value: "1440", label: "1 day" },
-      { value: "2880", label: "2 days" },
-      { value: "10080", label: "1 week" }
+      { value: "5", label: "5 minutes before" },
+      { value: "10", label: "10 minutes before" },
+      { value: "15", label: "15 minutes before" },
+      { value: "30", label: "30 minutes before" },
+      { value: "60", label: "1 hour before" },
+      { value: "120", label: "2 hours before" },
+      { value: "1440", label: "1 day before" },
+      { value: "2880", label: "2 days before" },
+      { value: "10080", label: "1 week before" }
     ]},
     
     // Appearance and Options Section
@@ -263,11 +319,9 @@ export const outlookNodes: NodeComponent[] = [
   // Triggers (2)
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
-  
-  // Actions (5)
-  outlookActionSendEmail,
+
+  // Actions (2) - Send Email temporarily hidden due to delivery issues
+  // outlookActionSendEmail, // Hidden until email delivery configuration is resolved
   outlookActionCreateCalendarEvent,
   outlookActionGetEmails,
-  outlookActionGetCalendarEvents,
-  outlookActionSearchEmail,
 ]

@@ -2,6 +2,125 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getOAuthConfig, getOAuthClientCredentials } from '@/lib/integrations/oauthConfig';
 
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const integrationId = searchParams.get('integrationId');
+    const type = searchParams.get('type');
+    const teamId = searchParams.get('teamId');
+
+    if (!integrationId) {
+      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 });
+    }
+
+    if (!type) {
+      return NextResponse.json({ error: 'Type is required' }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    // Fetch the integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .single();
+
+    if (integrationError || !integration) {
+      return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
+    }
+
+    // Decrypt access token
+    const { decrypt } = await import('@/lib/security/encryption');
+    const accessToken = integration.access_token ? await decrypt(integration.access_token) : null;
+
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token available' }, { status: 401 });
+    }
+
+    let responseData: any[] = [];
+
+    switch (type) {
+      case 'teams_teams':
+        // Fetch all teams the user is a member of
+        const teamsResponse = await fetch('https://graph.microsoft.com/v1.0/me/joinedTeams', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!teamsResponse.ok) {
+          throw new Error(`Failed to fetch teams: ${teamsResponse.statusText}`);
+        }
+
+        const teamsData = await teamsResponse.json();
+        responseData = (teamsData.value || []).map((team: any) => ({
+          value: team.id,
+          label: team.displayName,
+          description: team.description
+        }));
+        break;
+
+      case 'teams_channels':
+        // Fetch channels for a specific team
+        if (!teamId) {
+          return NextResponse.json({ error: 'Team ID is required for fetching channels' }, { status: 400 });
+        }
+
+        const channelsResponse = await fetch(`https://graph.microsoft.com/v1.0/teams/${teamId}/channels`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!channelsResponse.ok) {
+          throw new Error(`Failed to fetch channels: ${channelsResponse.statusText}`);
+        }
+
+        const channelsData = await channelsResponse.json();
+        responseData = (channelsData.value || []).map((channel: any) => ({
+          value: channel.id,
+          label: channel.displayName,
+          description: channel.description
+        }));
+        break;
+
+      case 'teams_chats':
+        // Fetch all chats the user is part of
+        const chatsResponse = await fetch('https://graph.microsoft.com/v1.0/me/chats', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!chatsResponse.ok) {
+          throw new Error(`Failed to fetch chats: ${chatsResponse.statusText}`);
+        }
+
+        const chatsData = await chatsResponse.json();
+        responseData = (chatsData.value || []).map((chat: any) => ({
+          value: chat.id,
+          label: chat.topic || `Chat with ${chat.chatType}`,
+          description: `Type: ${chat.chatType}`
+        }));
+        break;
+
+      default:
+        return NextResponse.json({ error: `Unknown data type: ${type}` }, { status: 400 });
+    }
+
+    return NextResponse.json(responseData);
+  } catch (error: any) {
+    return NextResponse.json({
+      error: error.message || 'Failed to load Teams data',
+      details: error.toString()
+    }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { integrationId, dataType, params = {} } = await request.json();

@@ -20,7 +20,7 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 import { readGoogleSheetsData, executeGoogleSheetsUnifiedAction, exportGoogleSheetsData } from './googleSheets'
 
 // Google Calendar actions
-import { createGoogleCalendarEvent } from './googleCalendar/createEvent'
+import { createGoogleCalendarEvent } from './google-calendar/createEvent'
 
 // Google Drive actions
 import { uploadGoogleDriveFile } from './googleDrive/uploadFile'
