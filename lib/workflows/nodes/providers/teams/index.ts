@@ -12,7 +12,8 @@ export const teamsNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor" }
+      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId" }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the new message" },
@@ -56,7 +57,8 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel" },
+      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel", dependsOn: "teamId" },
       { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
       { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
     ],
@@ -179,7 +181,8 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel" },
+      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel", dependsOn: "teamId" },
       { name: "cardTitle", label: "Card Title", type: "text", required: true, placeholder: "Enter card title" },
       { name: "cardText", label: "Card Text", type: "textarea", required: true, placeholder: "Enter card content" },
       { name: "cardType", label: "Card Type", type: "select", required: true, defaultValue: "hero", options: [

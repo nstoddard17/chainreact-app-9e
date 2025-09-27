@@ -1,37 +1,50 @@
-import { ProviderOptionsLoader } from '../types'
+import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
-export const outlookOptionsLoader: ProviderOptionsLoader = {
-  async loadOptions(fieldName, nodeType, integrationId, dependsOnValue) {
-    // Build API URL based on field mapping
-    const baseUrl = '/api/integrations/microsoft-outlook/data'
-    const params = new URLSearchParams()
+const fieldToTypeMap: Record<string, string> = {
+  to: 'outlook-enhanced-recipients',
+  cc: 'outlook-enhanced-recipients',
+  bcc: 'outlook-enhanced-recipients',
+  attendees: 'outlook-enhanced-recipients',
+  folderId: 'outlook_folders',
+  messageId: 'outlook_messages',
+  calendarId: 'outlook_calendars'
+}
 
-    // Map field names to data types
-    const fieldToTypeMap: Record<string, string> = {
-      'to': 'outlook-enhanced-recipients',
-      'cc': 'outlook-enhanced-recipients',
-      'bcc': 'outlook-enhanced-recipients',
-      'attendees': 'outlook-enhanced-recipients',
-      'calendarId': 'outlook_calendars',
-      'folderId': 'outlook_folders',
-      'messageId': 'outlook_messages',
-    }
+const supportedFields = new Set(Object.keys(fieldToTypeMap))
 
+class OutlookOptionsLoader implements ProviderOptionsLoader {
+  canHandle(fieldName: string): boolean {
+    return supportedFields.has(fieldName)
+  }
+
+  async loadOptions({ fieldName, integrationId, extraOptions }: LoadOptionsParams): Promise<FormattedOption[]> {
     const dataType = fieldToTypeMap[fieldName]
     if (!dataType) {
-      console.warn(`[OutlookOptionsLoader] Unknown field: ${fieldName}`)
+      console.warn(`[OutlookOptionsLoader] Unsupported field requested: ${fieldName}`)
       return []
     }
 
-    params.append('type', dataType)
+    const baseUrl = '/api/integrations/microsoft-outlook/data'
+    const params = new URLSearchParams({ type: dataType })
+
     if (integrationId) {
       params.append('integrationId', integrationId)
     }
 
+    const searchTerm = typeof extraOptions?.search === 'string'
+      ? extraOptions.search
+      : typeof extraOptions?.query === 'string'
+        ? extraOptions.query
+        : undefined
+
+    if (searchTerm && searchTerm.trim()) {
+      params.append('search', searchTerm.trim())
+    }
+
     try {
-      const response = await fetch(`${baseUrl}?${params}`)
+      const response = await fetch(`${baseUrl}?${params.toString()}`)
       if (!response.ok) {
-        console.error('[OutlookOptionsLoader] Failed to fetch options:', response.statusText)
+        console.error('[OutlookOptionsLoader] Failed to fetch options:', response.status, response.statusText)
         return []
       }
 
@@ -43,3 +56,6 @@ export const outlookOptionsLoader: ProviderOptionsLoader = {
     }
   }
 }
+
+export const outlookOptionsLoader = new OutlookOptionsLoader()
+

@@ -366,9 +366,11 @@ const outlookMappings: Record<string, FieldMapping> = {
 // Microsoft Teams field mappings
 const teamsMappings: Record<string, FieldMapping> = {
   "teams_trigger_new_message": {
+    teamId: "teams_teams",
     channelId: "teams_channels",
   },
   "teams_action_send_message": {
+    teamId: "teams_teams",
     channelId: "teams_channels",
   },
   "teams_action_send_chat_message": {
@@ -382,6 +384,7 @@ const teamsMappings: Record<string, FieldMapping> = {
     userEmail: "outlook-enhanced-recipients",
   },
   "teams_action_send_adaptive_card": {
+    teamId: "teams_teams",
     channelId: "teams_channels",
   },
   "teams_action_get_team_members": {
