@@ -16,6 +16,7 @@ import { GoogleSheetsOptionsLoader } from './google-sheets/GoogleSheetsOptionsLo
 import { DropboxOptionsLoader } from './dropbox/dropboxOptionsLoader';
 import { outlookOptionsLoader } from './microsoft-outlook/OutlookOptionsLoader';
 import { TeamsOptionsLoader } from './teams/TeamsOptionsLoader';
+import { GoogleCalendarOptionsLoader } from './google-calendar/GoogleCalendarOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -64,6 +65,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
     // Register Microsoft Teams loader
     this.register('teams', new TeamsOptionsLoader());
     this.register('microsoft-teams', new TeamsOptionsLoader());
+
+    // Register Google Calendar loader
+    this.register('google-calendar', new GoogleCalendarOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());
