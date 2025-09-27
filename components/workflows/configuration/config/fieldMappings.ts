@@ -14,29 +14,29 @@ export interface NodeFieldMappings {
 // Gmail field mappings
 const gmailMappings: Record<string, FieldMapping> = {
   gmail_trigger_new_email: {
-    from: "gmail-recent-recipients",
-    to: "gmail-recent-recipients",
+    from: "gmail-enhanced-recipients",
+    to: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",
   },
   gmail_trigger_new_attachment: {
-    from: "gmail-recent-recipients",
-    to: "gmail-recent-recipients",
+    from: "gmail-enhanced-recipients",
+    to: "gmail-enhanced-recipients",
   },
   gmail_action_send_email: {
-    to: "gmail-recent-recipients",
-    cc: "gmail-recent-recipients",
-    bcc: "gmail-recent-recipients",
-    messageId: "gmail-recent-recipients",
+    to: "gmail-enhanced-recipients",
+    cc: "gmail-enhanced-recipients",
+    bcc: "gmail-enhanced-recipients",
+    messageId: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",
   },
   gmail_action_add_label: {
-    email: "gmail-recent-recipients",
+    email: "gmail-enhanced-recipients",
     labelIds: "gmail_labels",
   },
   gmail_action_search_email: {
     labels: "gmail_labels",
     labelFilters: "gmail_labels",
-    emailAddress: "gmail-recent-recipients",
+    emailAddress: "gmail-enhanced-recipients",
   },
 };
 
@@ -634,8 +634,8 @@ const defaultMappings: FieldMapping = {
   fileId: "files",
   documentId: "documents",
   databaseId: "databases",
-  from: "gmail-recent-recipients",
-  to: "gmail-recent-recipients",
+  from: "gmail-enhanced-recipients",
+  to: "gmail-enhanced-recipients",
   // Removed attendees mapping - it shouldn't default to Gmail
   // attendees fields should be simple text inputs for email addresses
   labelIds: "gmail_labels",
