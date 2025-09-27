@@ -141,6 +141,7 @@ function wasRecentlyProcessedSheetsChange(
   if (entry.lastSignature !== undefined && entry.lastSignature !== null) {
     if (signature !== undefined && signature !== null && signature === entry.lastSignature) {
       if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+        console.log('[Google Sheets] Dedupe hit (signature)', { key })
         return true
       }
     }
@@ -151,6 +152,7 @@ function wasRecentlyProcessedSheetsChange(
   if (incomingUpdated !== null) {
     if (entry.lastUpdated !== undefined && entry.lastUpdated !== null) {
       if (incomingUpdated <= entry.lastUpdated) {
+        console.log('[Google Sheets] Dedupe hit (timestamp)', { key })
         return true
       }
     }
@@ -158,6 +160,7 @@ function wasRecentlyProcessedSheetsChange(
   }
 
   if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
+    console.log('[Google Sheets] Dedupe hit (window)', { key })
     return true
   }
 
@@ -172,6 +175,7 @@ function markSheetsChangeProcessed(key: string, updatedAt?: string | null, signa
     lastUpdated: incomingUpdated,
     lastSignature: signature ?? null
   })
+  console.log('[Google Sheets] Dedupe record stored', { key, signature })
 
   if (processedSheetsChanges.size > 1000) {
     const now = Date.now()
@@ -1561,12 +1565,19 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         || configData?.sheetName
         || (matchingTriggers[0]?.data?.config?.sheetName ?? null)
 
-      const dedupeKey = buildSheetsDedupeKey(
+     const dedupeKey = buildSheetsDedupeKey(
         workflow.id,
         spreadsheetId,
         dedupeSheetScope,
         `${changeType}-${changeIdentifier}`
       )
+
+      console.log('[Google Sheets] Dedupe check', {
+        workflowId: workflow.id,
+        dedupeKey,
+        signature: dedupeSignature,
+        eventTimestamp
+      })
 
       if (wasRecentlyProcessedSheetsChange(dedupeKey, eventTimestamp, dedupeSignature)) {
         continue

@@ -285,7 +285,7 @@ export class IntegrationService {
     if (!response.ok) {
       const status = response.status
       const statusText = response.statusText
-      
+
       console.error(`❌ [Integration Service] HTTP error: ${status} ${statusText}`, {
         status,
         statusText,
@@ -295,39 +295,93 @@ export class IntegrationService {
         url
       })
 
-      if (status === 401) {
-        throw new Error("Authentication expired. Please log in again.")
-      } else if (status === 403) {
-        throw new Error("Access denied for this integration.")
-      } else if (status === 404) {
-        throw new Error("Integration not found or data not available.")
-      }
-      
-      // Try to read the error response
-      let errorMessage = `Failed to load ${dataType} data: ${status} ${statusText}`
-      
+      let errorPayload: any = null
+
       try {
-        const errorText = await response.text()
-        console.error(`❌ [Integration Service] Error response:`, errorText)
-        
-        if (errorText) {
-          try {
-            const errorData = JSON.parse(errorText)
-            errorMessage = errorData.error || errorData.message || errorMessage
-          } catch {
-            // Not JSON, use the text as is
-            errorMessage = errorText.length > 200 ? errorText.substring(0, 200) + '...' : errorText
-          }
-        }
-      } catch (readError) {
-        console.error(`❌ [Integration Service] Could not read error response:`, readError)
+        errorPayload = await response.clone().json()
+      } catch {
+        // ignore parse error
       }
-      
+
+      if (status === 401) {
+        const errorText = (errorPayload?.error || '').toLowerCase()
+
+        if (errorPayload?.needsReconnection || errorText.includes('reconnect') || errorText.includes('expired')) {
+          await IntegrationService.flagIntegrationReconnect(integrationId, errorPayload?.error)
+          throw new Error(errorPayload?.error || 'Integration needs to be reconnected. Please reconnect this integration.')
+        }
+
+        throw new Error(errorPayload?.error || 'Authentication expired. Please log in again.')
+      }
+
+      if (status === 403) {
+        throw new Error(errorPayload?.error || 'Access denied for this integration.')
+      }
+
+      if (status === 404) {
+        throw new Error(errorPayload?.error || 'Integration not found or data not available.')
+      }
+
+      // Try to read the error response body for additional context
+      let errorMessage = `Failed to load ${dataType} data: ${status} ${statusText}`
+
+      if (errorPayload?.error || errorPayload?.message) {
+        errorMessage = errorPayload.error || errorPayload.message
+      } else {
+        try {
+          const errorText = await response.text()
+          console.error(`❌ [Integration Service] Error response:`, errorText)
+
+          if (errorText) {
+            try {
+              const parsed = JSON.parse(errorText)
+              errorMessage = parsed.error || parsed.message || errorMessage
+            } catch {
+              errorMessage = errorText.length > 200 ? errorText.substring(0, 200) + '...' : errorText
+            }
+          }
+        } catch (readError) {
+          console.error(`❌ [Integration Service] Could not read error response:`, readError)
+        }
+      }
+
       throw new Error(errorMessage)
     }
 
     const data = await response.json()
     return data
+  }
+
+  private static async flagIntegrationReconnect(integrationId: string, reason?: string) {
+    try {
+      const { session } = await SessionManager.getSecureUserAndSession()
+      await fetch('/api/integrations/flag-reconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ integrationId, reason }),
+      })
+    } catch (error) {
+      console.warn('[Integration Service] Failed to flag integration reconnect', { integrationId, error })
+    }
+  }
+
+  static async clearIntegrationReconnect(integrationId: string) {
+    try {
+      const { session } = await SessionManager.getSecureUserAndSession()
+      await fetch('/api/integrations/clear-reconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ integrationId }),
+      })
+    } catch (error) {
+      console.warn('[Integration Service] Failed to clear integration reconnect flags', { integrationId, error })
+    }
   }
 
   /**

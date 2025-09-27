@@ -10,6 +10,47 @@ const dropboxTriggerNewFile: NodeComponent = {
   providerId: "dropbox",
   category: "Storage",
   isTrigger: true,
+  producesOutput: true,
+  requiredScopes: ["files.metadata.read"],
+  configSchema: [
+    {
+      name: "path",
+      label: "Folder to Watch",
+      type: "select",
+      dynamic: "dropbox-folders",
+      loadOnMount: true,
+      required: false,
+      placeholder: "Select a folder or leave blank for root",
+      description: "Choose which Dropbox folder should be monitored for new files. Leave empty to watch your entire Dropbox.",
+      helperText: "Select a folder from your Dropbox account.",
+    },
+    {
+      name: "fileType",
+      label: "File Type Filter",
+      type: "select",
+      required: false,
+      defaultValue: "any",
+      options: [
+        { value: "any", label: "Any file" },
+        { value: "documents", label: "Documents" },
+        { value: "images", label: "Images" },
+        { value: "audio", label: "Audio" },
+        { value: "video", label: "Video" },
+        { value: "spreadsheets", label: "Spreadsheets" },
+        { value: "presentations", label: "Presentations" },
+        { value: "pdf", label: "PDF" },
+        { value: "archives", label: "Archives" }
+      ],
+      description: "Limit the trigger to specific file categories. Select 'Any file' to capture everything."
+    },
+    {
+      name: "includeSubfolders",
+      label: "Include Subfolders",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, new files created in subfolders will also trigger this workflow."
+    }
+  ]
 }
 
 // Dropbox Actions

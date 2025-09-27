@@ -1,4 +1,5 @@
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -536,6 +537,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         'google-docs',
         'google-sheets',
         'google_sheets',
+        'onedrive',
+        'dropbox',
         'slack',
         'stripe',
         'shopify',
@@ -562,13 +565,48 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
 
+          // If this is a Discord slash command trigger, ensure the command exists in the selected guild
+          if (providerId === 'discord' && triggerType === 'discord_trigger_slash_command') {
+            try {
+              const botToken = process.env.DISCORD_BOT_TOKEN
+              const appId = process.env.DISCORD_CLIENT_ID
+              const guildId: string | undefined = triggerConfig?.guildId
+              const commandName: string | undefined = triggerConfig?.command
+              const commandDescription: string = (triggerConfig?.commandDescription || 'Custom command created by ChainReact workflow')
+              const commandOptions: any[] = Array.isArray(triggerConfig?.commandOptions) ? triggerConfig?.commandOptions : []
+              if (botToken && appId && guildId && commandName) {
+                const listUrl = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
+                const existing = await fetch(listUrl, { headers: { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' } })
+                  .then(r => r.ok ? r.json() : [])
+                  .catch(() => [])
+                const exists = Array.isArray(existing) && existing.some((c: any) => c?.name === commandName)
+                if (!exists) {
+                  await fetch(listUrl, {
+                    method: 'POST',
+                    headers: { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: commandName,
+                      description: commandDescription || 'Custom command created by ChainReact workflow',
+                      type: 1,
+                      options: commandOptions
+                    })
+                  }).catch(() => null)
+                }
+              }
+            } catch (cmdErr) {
+              console.warn('⚠️ Failed to ensure Discord slash command exists:', cmdErr)
+            }
+          }
+
+          const webhookUrl = getWebhookUrl(providerId)
+
           await webhookManager.registerWebhook({
             workflowId: data.id,
             userId: user.id,
             triggerType: triggerType,
             providerId: providerId,
             config: triggerConfig,
-            webhookUrl: ''
+            webhookUrl
           })
 
           console.log(`✅ Webhook registered for ${providerId} trigger: ${triggerType}`)

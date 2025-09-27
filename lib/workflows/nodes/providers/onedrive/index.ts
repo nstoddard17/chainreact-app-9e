@@ -14,6 +14,72 @@ const onedriveTriggerNewFile: NodeComponent = {
   category: "Storage",
   isTrigger: true,
   requiredScopes: ["Files.ReadWrite"],
+  producesOutput: true,
+  configSchema: [
+    {
+      name: "folderId",
+      label: "Folder to Watch",
+      type: "select",
+      dynamic: "onedrive-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a folder or leave blank for root",
+      description: "Choose a specific OneDrive folder to monitor. Leave empty to watch the root.",
+      uiTab: "basic"
+    },
+    {
+      name: "watchType",
+      label: "Watch For",
+      type: "select",
+      required: false,
+      defaultValue: "any",
+      options: [
+        { value: "any", label: "Files and folders" },
+        { value: "files", label: "Files only" },
+        { value: "folders", label: "Folders only" }
+      ],
+      description: "Limit the trigger to files, folders, or both.",
+      uiTab: "basic"
+    },
+    {
+      name: "fileType",
+      label: "File Type Filter",
+      type: "select",
+      required: false,
+      defaultValue: "any",
+      options: [
+        { value: "any", label: "Any file" },
+        { value: "documents", label: "Documents" },
+        { value: "images", label: "Images" },
+        { value: "audio", label: "Audio" },
+        { value: "video", label: "Video" },
+        { value: "spreadsheets", label: "Spreadsheets" },
+        { value: "presentations", label: "Presentations" },
+        { value: "pdf", label: "PDF" },
+        { value: "archives", label: "Archives" }
+      ],
+      description: "Only applies when watching for files.",
+      conditional: { field: "watchType", value: "files" },
+      uiTab: "advanced"
+    },
+    {
+      name: "includeSubfolders",
+      label: "Include Subfolders",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, new items created in subfolders will also trigger.",
+      uiTab: "advanced"
+    }
+    ,
+    {
+      name: "triggerOnUpdates",
+      label: "Trigger on updates (new versions)",
+      type: "boolean",
+      defaultValue: false,
+      description: "Enable to trigger when a new version of an existing file is uploaded (in addition to new files/folders).",
+      uiTab: "advanced"
+    }
+  ]
 }
 
 const onedriveTriggerFileModified: NodeComponent = {

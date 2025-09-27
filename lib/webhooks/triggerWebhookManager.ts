@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getWebhookBaseUrl, getWebhookUrl } from '@/lib/utils/getBaseUrl'
+import { safeDecrypt } from '@/lib/security/encryption'
+import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
 interface WebhookTriggerConfig {
   workflowId: string
@@ -70,7 +72,8 @@ export class TriggerWebhookManager {
       'discord_trigger_new_message',
       'discord_trigger_member_join',
       'discord_trigger_slash_command',
-      'discord_trigger_reaction_added'
+      'discord_trigger_reaction_added',
+      'dropbox_trigger_new_file'
     ]
     
     return webhookSupportedTriggers.includes(trigger.type)
@@ -895,6 +898,17 @@ export class TriggerWebhookManager {
         await this.registerAirtableWebhook(config, webhookId)
         break
 
+      case 'dropbox':
+        console.log('🔗 Preparing Dropbox webhook cursor state')
+        await this.registerDropboxWebhook(config, webhookId)
+        break
+
+      case 'onedrive': {
+        console.log('🔗 Setting up OneDrive watch via Microsoft Graph subscriptions')
+        await this.registerOneDriveWebhook(config, webhookId)
+        break
+      }
+
       case 'slack':
         // Slack webhooks are typically configured through Slack app settings
         console.log('Slack webhook registration would require Slack app configuration')
@@ -907,6 +921,93 @@ export class TriggerWebhookManager {
 
       default:
         console.log(`Webhook registration for ${config.providerId} not yet implemented`)
+    }
+  }
+
+  /**
+   * Register OneDrive webhook (Microsoft Graph subscription)
+   */
+  private async registerOneDriveWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Load user's OneDrive integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'onedrive')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('OneDrive integration not found or not connected')
+      }
+
+      const accessToken: string | null = (typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null)
+      if (!accessToken) {
+        throw new Error('OneDrive access token missing for webhook registration')
+      }
+
+      // Compute notification URL (use Microsoft webhook receiver)
+      const baseUrl = getWebhookBaseUrl()
+      const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+
+      // Determine resource to subscribe to
+      const folderId: string | undefined = config.config?.folderId
+      const includeSubfolders: boolean = config.config?.includeSubfolders !== false
+      const watchType: string = config.config?.watchType || 'any'
+
+      // For OneDrive driveItem subscriptions, Microsoft Graph only supports 'updated'
+      // Creation events are detected via delta processing after updates
+      const changeType = 'updated'
+      // Microsoft Graph does not support per-item driveItem subscriptions.
+      // Subscribe at drive root and filter to the configured folder during processing.
+      const resource = '/me/drive/root'
+
+      // Create subscription via Microsoft Graph
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      const sub = await mgr.createSubscription({
+        resource,
+        changeType,
+        userId: config.userId,
+        accessToken,
+        notificationUrl,
+      })
+
+      // Persist metadata on our webhook config for fast unregister/diagnostics
+      const metadata = {
+        subscriptionId: sub.id,
+        expirationDateTime: sub.expirationDateTime,
+        resource,
+        changeType,
+        folderId: folderId || null,
+        includeSubfolders,
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({ metadata })
+        .eq('id', webhookId)
+
+      console.log('✅ OneDrive subscription registered', metadata)
+    } catch (error) {
+      // Mark workflows if auth expired
+      if (error instanceof Error && error.message.includes('401')) {
+        try {
+          await flagIntegrationWorkflows({
+            integrationId: integration?.id,
+            provider: 'onedrive',
+            userId: integration?.user_id,
+            reason: 'Microsoft authentication expired while registering OneDrive webhook'
+          })
+        } catch (flagErr) {
+          console.warn('Failed to flag OneDrive integration workflows for reconnection:', flagErr)
+        }
+      }
+      console.error('Failed to register OneDrive webhook:', error)
+      throw error
     }
   }
 
@@ -985,6 +1086,157 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Initialize Dropbox webhook state by storing a cursor for the selected folder.
+   * Dropbox webhooks are configured at the app level, so here we make sure we have
+   * per-workflow cursor metadata that allows us to fetch changes when Dropbox notifies us.
+   */
+  private async registerDropboxWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'dropbox')
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      if (!integration) {
+        throw new Error('Dropbox integration not found or not connected')
+      }
+
+      const accessToken = safeDecrypt(integration.access_token)
+      if (!accessToken) {
+        throw new Error('Dropbox access token missing for webhook registration')
+      }
+
+      const normalizedPath = this.normalizeDropboxPath(config.config?.path)
+      const includeSubfolders = config.config?.includeSubfolders !== false
+      const fileType = config.config?.fileType || 'any'
+
+      // Request the latest cursor for the configured folder so we can continue from it later
+      const cursorResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder/get_latest_cursor', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          path: normalizedPath,
+          recursive: includeSubfolders,
+          include_media_info: false,
+          include_deleted: false,
+          include_has_explicit_shared_members: false,
+          include_mounted_folders: true,
+          include_non_downloadable_files: false
+        })
+      })
+
+      if (!cursorResponse.ok) {
+        const errorBody = await cursorResponse.text().catch(() => '')
+        console.error('❌ Failed to fetch Dropbox cursor:', {
+          status: cursorResponse.status,
+          statusText: cursorResponse.statusText,
+          body: errorBody
+        })
+
+        if (cursorResponse.status === 401) {
+          await flagIntegrationWorkflows({
+            integrationId: integration.id,
+            provider: 'dropbox',
+            userId: integration.user_id,
+            reason: 'Dropbox authentication expired while registering webhook'
+          })
+        }
+        throw new Error(`Failed to initialize Dropbox webhook cursor (HTTP ${cursorResponse.status})`)
+      }
+
+      const cursorJson = await cursorResponse.json()
+      const cursor: string | undefined = cursorJson?.cursor
+
+      if (!cursor) {
+        throw new Error('Dropbox cursor missing in response')
+      }
+
+      // Attempt to capture the account ID for easier filtering later
+      let accountId: string | null = null
+      const rawMetadata = integration.metadata
+      if (rawMetadata) {
+        try {
+          const parsed = typeof rawMetadata === 'string' ? JSON.parse(rawMetadata) : rawMetadata
+          accountId = parsed?.account_id || parsed?.accountId || null
+        } catch {
+          // ignore metadata parse errors
+        }
+      }
+
+      if (!accountId) {
+        try {
+          const accountResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (accountResponse.ok) {
+            const accountJson = await accountResponse.json()
+            accountId = accountJson?.account_id || null
+          }
+        } catch (accountError) {
+          console.warn('⚠️ Unable to fetch Dropbox account information:', accountError)
+        }
+      }
+
+      const webhookUrl = getWebhookUrl('dropbox')
+
+      let existingConfig: any = config.config || {}
+      if (typeof existingConfig === 'string') {
+        try {
+          existingConfig = JSON.parse(existingConfig)
+        } catch {
+          existingConfig = {}
+        }
+      }
+
+      const dropboxState = {
+        cursor,
+        path: normalizedPath,
+        includeSubfolders,
+        fileType,
+        accountId,
+        lastCursorSync: new Date().toISOString()
+      }
+
+      const updatedConfig = {
+        ...existingConfig,
+        path: normalizedPath,
+        includeSubfolders,
+        fileType,
+        dropbox_state: dropboxState
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          webhook_url: webhookUrl,
+          config: updatedConfig
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Dropbox webhook cursor stored successfully', {
+        webhookId,
+        path: normalizedPath || 'root',
+        includeSubfolders,
+        hasAccountId: Boolean(accountId)
+      })
+    } catch (error) {
+      console.error('Failed to register Dropbox webhook:', error)
+      throw error
+    }
+  }
+
+  /**
    * Unregister Discord webhook via Discord API
    */
   private async unregisterDiscordWebhook(webhookConfig: any): Promise<void> {
@@ -1054,6 +1306,14 @@ export class TriggerWebhookManager {
         await this.unregisterAirtableWebhook(webhookConfig)
         break
 
+      case 'dropbox':
+        await this.unregisterDropboxWebhook(webhookConfig)
+        break
+
+      case 'onedrive':
+        await this.unregisterOneDriveWebhook(webhookConfig)
+        break
+
       case 'google-sheets':
       case 'google_sheets': {
         try {
@@ -1112,6 +1372,56 @@ export class TriggerWebhookManager {
     }
   }
 
+  private async unregisterDropboxWebhook(webhookConfig: any): Promise<void> {
+    try {
+      const cursorInfo = webhookConfig?.metadata?.cursor
+      console.log('🗑️ Clearing Dropbox webhook metadata', {
+        webhookId: webhookConfig.id,
+        hadCursor: Boolean(cursorInfo)
+      })
+      // No external API call is needed since Dropbox webhooks are configured at the app level.
+      // We simply rely on removing the workflow webhook configuration record.
+    } catch (error) {
+      console.warn('Failed to run Dropbox webhook cleanup:', error)
+    }
+  }
+
+  private async unregisterOneDriveWebhook(webhookConfig: any): Promise<void> {
+    try {
+      let metadata: any = webhookConfig?.metadata || {}
+      if (typeof metadata === 'string') {
+        try { metadata = JSON.parse(metadata) } catch { metadata = {} }
+      }
+      const subscriptionId: string | null = metadata?.subscriptionId || null
+      if (!subscriptionId) {
+        console.log('Skipping OneDrive subscription delete: no subscriptionId on webhook metadata')
+        return
+      }
+
+      // Lookup OneDrive integration to get an access token for deletion
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'onedrive')
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      const accessToken: string | null = integration?.access_token || null
+      if (!accessToken) {
+        console.warn('Could not find OneDrive access token to delete subscription; leaving to expire', { subscriptionId })
+        return
+      }
+
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      await mgr.deleteSubscription(subscriptionId, accessToken)
+      console.log('✅ OneDrive subscription deleted', { subscriptionId })
+    } catch (error) {
+      console.warn('Failed to unregister OneDrive subscription (will expire automatically):', error)
+    }
+  }
+
   /**
    * Validate webhook signature
    */
@@ -1119,6 +1429,20 @@ export class TriggerWebhookManager {
     // Implementation would depend on the service's signature method
     // For now, return true (implement proper validation for production)
     return true
+  }
+
+  private normalizeDropboxPath(rawPath?: string | null): string {
+    if (!rawPath || rawPath === '/' || rawPath === 'root') {
+      return ''
+    }
+
+    const trimmed = rawPath.trim()
+    if (!trimmed) {
+      return ''
+    }
+
+    const normalized = trimmed.startsWith('/') ? trimmed : `/${trimmed.replace(/^\/+/, '')}`
+    return normalized === '/' ? '' : normalized
   }
 
   /**

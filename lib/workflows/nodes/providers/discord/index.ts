@@ -20,7 +20,8 @@ export const discordNodes: NodeComponent[] = [
         description: "The Discord server to monitor",
         placeholder: "Select a Discord server",
         dynamic: "discord_guilds",
-        required: true
+        required: true,
+        loadOnMount: true
       },
       {
         name: "inviteFilter",
@@ -66,7 +67,8 @@ export const discordNodes: NodeComponent[] = [
         description: "The Discord server to monitor",
         placeholder: "Select a Discord server",
         dynamic: "discord_guilds",
-        required: true
+        required: true,
+        loadOnMount: true
       },
       {
         name: "channelId",
@@ -122,7 +124,48 @@ export const discordNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
-    configSchema: [{ name: "command", label: "Command", type: "text" }],
+    configSchema: [
+      {
+        name: "guildId",
+        label: "Discord Server",
+        type: "select",
+        description: "Server where the slash command will be used",
+        placeholder: "Select a server",
+        dynamic: "discord_guilds",
+        required: true,
+        uiTab: "basic",
+        loadOnMount: true
+      },
+      {
+        name: "command",
+        label: "Slash Command",
+        type: "combobox",
+        description: "Pick an existing command or type a new one to create",
+        placeholder: "/your-command",
+        dynamic: "discord_commands",
+        dependsOn: "guildId",
+        creatable: true,
+        required: true,
+        uiTab: "basic"
+      },
+      {
+        name: "commandDescription",
+        label: "Command Description",
+        type: "text",
+        placeholder: "Describe what this command does",
+        description: "Shown in Discord’s UI when users browse slash commands",
+        uiTab: "basic"
+      },
+      {
+        name: "commandOptions",
+        label: "Options / Subcommands (JSON)",
+        type: "json",
+        placeholder: "[]",
+        description: "Advanced: Define Discord application command options and nested subcommands as JSON array",
+        uiTab: "advanced",
+        helpText: "Use Discord’s Application Command Options schema. Example: [{ \"type\": 3, \"name\": \"query\", \"description\": \"Search text\", \"required\": true }] or subcommand groups."
+      }
+    ],
     outputSchema: [
       { name: "commandName", label: "Command Name", type: "string", description: "The name of the slash command that was used" },
       { name: "userId", label: "User ID", type: "string", description: "The ID of the user who used the command" },
@@ -153,7 +196,8 @@ export const discordNodes: NodeComponent[] = [
         type: "select",
         dynamic: "discord_guilds",
         required: true,
-        placeholder: "Select a Discord server"
+        placeholder: "Select a Discord server",
+        loadOnMount: true
       },
       {
         name: "channelId",
@@ -216,7 +260,7 @@ export const discordNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message (Bot's Own)", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a bot message to edit" },
       { name: "content", label: "New Content", type: "discord-rich-text", provider: "discord", required: true, placeholder: "Enter new message content with formatting, mentions, and emojis" }
@@ -232,7 +276,7 @@ export const discordNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageIds", label: "Messages", type: "multi-select", dynamic: "discord_messages", required: false, dependsOn: "channelId", placeholder: "Select specific messages OR use filters below", description: "Leave empty to use user/keyword filters instead" },
       { name: "userIds", label: "Users", type: "multi-select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Filter by users (optional)", description: "Delete all messages from selected users (last 100 messages)" },
@@ -254,7 +298,7 @@ export const discordNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 },
       { name: "filterType", label: "Filter Type", type: "select", required: false, options: [
@@ -289,7 +333,8 @@ export const discordNodes: NodeComponent[] = [
         type: "select",
         dynamic: "discord_guilds",
         required: true,
-        placeholder: "Select a Discord server"
+        placeholder: "Select a Discord server",
+        loadOnMount: true
       },
       {
         name: "userId",
