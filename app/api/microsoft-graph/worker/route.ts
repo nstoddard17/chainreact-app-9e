@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
+import { safeDecrypt } from '@/lib/security/encryption'
+import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +33,7 @@ export async function POST(_req: NextRequest) {
         .update({ status: 'processing', updated_at: new Date().toISOString() })
         .eq('id', row.id)
 
-      // Get user token for API calls
+      // Get subscription owner for API calls
       const { data: userToken } = await supabase
         .from('microsoft_graph_subscriptions')
         .select('user_id, access_token')
@@ -44,8 +46,36 @@ export async function POST(_req: NextRequest) {
 
       // Process based on resource type
       const payload = row.payload
+
+      // Resolve a valid Graph access token (prefer current integration token)
+      let effectiveAccessToken: string | undefined = undefined
+      try {
+        const { data: integration } = await supabase
+          .from('integrations')
+          .select('id, user_id, provider, status, access_token')
+          .eq('user_id', userToken.user_id)
+          .eq('provider', 'onedrive')
+          .eq('status', 'connected')
+          .maybeSingle()
+
+        const decrypted = integration?.access_token ? safeDecrypt(integration.access_token) : null
+        if (decrypted && decrypted.includes('.')) {
+          effectiveAccessToken = decrypted
+        } else if (userToken.access_token && typeof userToken.access_token === 'string' && userToken.access_token.includes('.')) {
+          effectiveAccessToken = userToken.access_token
+        }
+      } catch {
+        // fallback to stored subscription token
+        if (userToken.access_token && userToken.access_token.includes('.')) {
+          effectiveAccessToken = userToken.access_token
+        }
+      }
+
+      if (!effectiveAccessToken) {
+        throw new Error('No valid Microsoft Graph access token available for OneDrive delta')
+      }
       const resourceType = getResourceType(payload.resource)
-      const events = await fetchResourceChanges(resourceType, payload, userToken.access_token)
+      const events = await fetchResourceChanges(resourceType, payload, effectiveAccessToken)
 
       // Store normalized events
       if (events && events.length > 0) {
@@ -70,6 +100,17 @@ export async function POST(_req: NextRequest) {
       processed++
     } catch (e: any) {
       console.error('Error processing webhook queue item:', e)
+      try {
+        const msg = typeof e?.message === 'string' ? e.message : ''
+        if (msg.includes('InvalidAuthenticationToken')) {
+          await flagIntegrationWorkflows({
+            integrationId: null,
+            provider: 'onedrive',
+            userId: rows[0]?.user_id || null,
+            reason: 'Microsoft authentication expired while processing OneDrive webhook'
+          })
+      }
+      } catch {}
       await supabase
         .from('microsoft_webhook_queue')
         .update({ 
