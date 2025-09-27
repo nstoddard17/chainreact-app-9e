@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
-import { safeDecrypt } from '@/lib/security/encryption'
+import { safeDecrypt, encrypt } from '@/lib/security/encryption'
 import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
 const supabase = createClient(
@@ -40,60 +40,83 @@ export async function POST(_req: NextRequest) {
         .eq('id', row.subscription_id)
         .single()
 
+      // If no user_id in subscription, try to get from the integration
+      let actualUserId = userToken?.user_id
+      if (!actualUserId) {
+        console.log('⚠️ No user_id in subscription, attempting to find from integration...')
+        // Find the OneDrive integration that matches this subscription
+        const { data: integrations } = await supabase
+          .from('integrations')
+          .select('user_id, metadata')
+          .eq('provider', 'onedrive')
+          .eq('status', 'connected')
+
+        // Look for integration with this subscription ID in metadata
+        for (const integration of integrations || []) {
+          let metadata = integration.metadata || {}
+          if (typeof metadata === 'string') {
+            try { metadata = JSON.parse(metadata) } catch { metadata = {} }
+          }
+          if (metadata.subscriptionId === row.subscription_id) {
+            actualUserId = integration.user_id
+            console.log('✅ Found user_id from integration:', actualUserId)
+            break
+          }
+        }
+      }
+
+      if (!actualUserId) {
+        console.error('❌ Could not determine user_id for subscription:', row.subscription_id)
+        continue
+      }
+
       if (!userToken) {
         throw new Error('Subscription or token not found')
       }
 
       // Process based on resource type
       const payload = row.payload
-
-      // Resolve a valid Graph access token (prefer current integration token)
-      let effectiveAccessToken: string | undefined = undefined
-      try {
-        const { data: integration } = await supabase
-          .from('integrations')
-          .select('id, user_id, provider, status, access_token')
-          .eq('user_id', userToken.user_id)
-          .eq('provider', 'onedrive')
-          .eq('status', 'connected')
-          .maybeSingle()
-
-        const decrypted = integration?.access_token ? safeDecrypt(integration.access_token) : null
-        if (decrypted && decrypted.includes('.')) {
-          effectiveAccessToken = decrypted
-        } else if (userToken.access_token && typeof userToken.access_token === 'string' && userToken.access_token.includes('.')) {
-          effectiveAccessToken = userToken.access_token
-        }
-      } catch {
-        // fallback to stored subscription token
-        if (userToken.access_token && userToken.access_token.includes('.')) {
-          effectiveAccessToken = userToken.access_token
-        }
-      }
-
-      if (!effectiveAccessToken) {
-        throw new Error('No valid Microsoft Graph access token available for OneDrive delta')
-      }
       const resourceType = getResourceType(payload.resource)
-      const events = await fetchResourceChanges(resourceType, payload, effectiveAccessToken)
+      console.log('🔍 Processing webhook for resource type:', resourceType, 'from resource:', payload.resource)
+
+      let events: any[] = []
+      if (resourceType === 'onedrive') {
+        events = await fetchOneDriveChanges(payload, userToken.user_id)
+      } else {
+        // Fallback to generic handler for other resource types
+        events = await fetchResourceChanges(resourceType, payload, userToken.access_token)
+      }
+
+      console.log('📊 Fetched events:', {
+        count: events?.length || 0,
+        eventTypes: events?.map(e => ({ type: e.type, action: e.action, name: e.name }))
+      })
 
       // Store normalized events
       if (events && events.length > 0) {
         await storeNormalizedEvents(events, userToken.user_id)
-        
+
         // Emit workflow triggers for each event
         for (const event of events) {
-          await emitWorkflowTrigger(event, userToken.user_id, userToken.access_token)
+          console.log('🎯 Emitting workflow trigger for event:', {
+            type: event.type,
+            action: event.action,
+            name: event.name,
+            id: event.id
+          })
+          await emitWorkflowTrigger(event, actualUserId)
         }
+      } else {
+        console.log('⚠️ No events to process from webhook')
       }
 
       // Mark as done
       await supabase
         .from('microsoft_webhook_queue')
-        .update({ 
-          status: 'done', 
+        .update({
+          status: 'done',
           processed_count: events?.length || 0,
-          updated_at: new Date().toISOString() 
+          updated_at: new Date().toISOString()
         })
         .eq('id', row.id)
 
@@ -102,21 +125,21 @@ export async function POST(_req: NextRequest) {
       console.error('Error processing webhook queue item:', e)
       try {
         const msg = typeof e?.message === 'string' ? e.message : ''
-        if (msg.includes('InvalidAuthenticationToken')) {
+        if (msg.includes('InvalidAuthenticationToken') || msg.includes('No valid Microsoft Graph')) {
           await flagIntegrationWorkflows({
             integrationId: null,
             provider: 'onedrive',
-            userId: rows[0]?.user_id || null,
+            userId: row?.user_id || null,
             reason: 'Microsoft authentication expired while processing OneDrive webhook'
           })
-      }
+        }
       } catch {}
       await supabase
         .from('microsoft_webhook_queue')
-        .update({ 
-          status: 'error', 
-          error_message: e.message, 
-          updated_at: new Date().toISOString() 
+        .update({
+          status: 'error',
+          error_message: e.message,
+          updated_at: new Date().toISOString()
         })
         .eq('id', row.id)
     }
@@ -298,14 +321,109 @@ async function storeNormalizedEvents(events: any[], userId: string): Promise<voi
 }
 
 async function emitWorkflowTrigger(event: any, userId: string, accessToken?: string): Promise<void> {
-  // Find workflows that should be triggered by this event
-  const { data: workflows } = await supabase
+  console.log('🎯 emitWorkflowTrigger called with userId:', userId)
+
+  // First, check if user has any workflows at all
+  const { data: allWorkflows, error: allError } = await supabase
     .from('workflows')
-    .select('id, nodes')
+    .select('id, name, status, user_id')
+    .or(`user_id.eq.${userId},team_id.in.(select team_id from team_members where user_id='${userId}')`)
+
+  if (allError) {
+    console.error('❌ Error querying workflows:', allError)
+  }
+
+  // Also check without the OR condition to see if it's a query issue
+  const { data: directWorkflows } = await supabase
+    .from('workflows')
+    .select('id, name, status, user_id')
+    .eq('user_id', userId)
+
+  // Debug: Check ALL workflows with OneDrive triggers
+  const { data: allDbWorkflows } = await supabase
+    .from('workflows')
+    .select('id, name, status, user_id, nodes')
+    .eq('status', 'active')
+    .limit(10)
+
+  const onedriveWorkflows = allDbWorkflows?.filter(w => {
+    try {
+      const nodes = JSON.parse(w.nodes || '[]')
+      return nodes.some((n: any) =>
+        n?.data?.type?.includes('onedrive') ||
+        n?.data?.providerId === 'onedrive'
+      )
+    } catch {
+      return false
+    }
+  }) || []
+
+  console.log('📊 User workflows overview:', {
+    userId,
+    totalWorkflows: allWorkflows?.length || 0,
+    directWorkflows: directWorkflows?.length || 0,
+    totalActiveInDb: allDbWorkflows?.length || 0,
+    onedriveWorkflowsInDb: onedriveWorkflows.map(w => ({
+      id: w.id,
+      name: w.name,
+      userId: w.user_id,
+      matchesUser: w.user_id === userId
+    })),
+    workflowStatuses: allWorkflows?.map(w => ({ name: w.name, status: w.status, userId: w.user_id })) || [],
+    queryError: allError
+  })
+
+  // Find workflows that should be triggered by this event
+  const { data: workflows, error: workflowError } = await supabase
+    .from('workflows')
+    .select('id, nodes, name, status, user_id')
     .eq('status', 'active')
     .or(`user_id.eq.${userId},team_id.in.(select team_id from team_members where user_id='${userId}')`)
 
-  if (!workflows || workflows.length === 0) return
+  if (workflowError) {
+    console.error('❌ Error fetching workflows:', workflowError)
+  }
+
+  // Also try a direct query without the team condition
+  const { data: directUserWorkflows } = await supabase
+    .from('workflows')
+    .select('id, nodes, name, status, user_id')
+    .eq('status', 'active')
+    .eq('user_id', userId)
+
+  console.log('🔎 Checking workflows for trigger match:', {
+    workflowCount: workflows?.length || 0,
+    directWorkflowCount: directUserWorkflows?.length || 0,
+    eventType: event.type,
+    eventAction: event.action,
+    userId,
+    activeWorkflows: workflows?.map(w => ({ name: w.name, userId: w.user_id })) || [],
+    directWorkflows: directUserWorkflows?.map(w => ({ name: w.name, userId: w.user_id })) || [],
+    error: workflowError
+  })
+
+  if (!workflows || workflows.length === 0) {
+    console.log('❌ No active workflows found for user. Please ensure your workflows are activated (status = "active")')
+
+    // Additional debug: Check what workflows exist in DB for this user
+    const { data: allUserWorkflows } = await supabase
+      .from('workflows')
+      .select('id, name, status, user_id')
+      .eq('user_id', userId)
+
+    console.log('📊 All workflows for this user (regardless of status):', {
+      userId,
+      totalCount: allUserWorkflows?.length || 0,
+      workflows: allUserWorkflows?.map(w => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        userId: w.user_id
+      })) || []
+    })
+
+    return
+  }
 
   const folderPathCache = new Map<string, string>()
   const client = accessToken ? new MicrosoftGraphClient({ accessToken }) : null
@@ -314,47 +432,111 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   for (const workflow of workflows) {
     try {
       const nodes = JSON.parse(workflow.nodes || '[]')
-      
+
+      // Debug node structure
+      if (nodes.length > 0) {
+        console.log('🔍 First node structure sample:', {
+          type: nodes[0]?.type,
+          dataType: nodes[0]?.data?.type,
+          isTrigger: nodes[0]?.data?.isTrigger,
+          providerId: nodes[0]?.data?.providerId,
+          fullNode: JSON.stringify(nodes[0]).substring(0, 200)
+        })
+      }
+
+      console.log(`📋 Checking workflow ${workflow.id}:`, {
+        nodeCount: nodes.length,
+        triggerNodes: nodes.filter((n: any) => {
+          // Check both possible locations for trigger type
+          const nodeType = n?.data?.type || n?.type
+          const isTrigger = n?.data?.isTrigger ||
+            nodeType?.includes('trigger') ||
+            nodeType?.startsWith('microsoft_graph_')
+          return isTrigger
+        }).map((n: any) => ({
+          type: n?.data?.type || n?.type,
+          providerId: n?.data?.providerId,
+          isTrigger: n?.data?.isTrigger
+        }))
+      })
+
       // Find trigger nodes that match this event type
       const triggerNodes = nodes.filter((node: any) => {
+        const nodeType = node?.data?.type || node?.type
+
+        // Log each node being checked
+        if (nodeType?.includes('onedrive') || nodeType?.includes('trigger')) {
+          console.log('🔎 Checking node:', {
+            nodeType,
+            eventType: event.type,
+            dataType: node?.data?.type,
+            isTrigger: node?.data?.isTrigger
+          })
+        }
+
         // Support existing microsoft_graph_* matching
-        if (node.type?.startsWith('microsoft_graph_')) {
+        if (nodeType?.startsWith('microsoft_graph_')) {
           switch (event.type) {
             case 'onedrive_item':
-              return node.type.includes('onedrive') && (!node.data?.actions || node.data.actions.includes(event.action))
+              return nodeType.includes('onedrive') && (!node.data?.actions || node.data.actions.includes(event.action))
             case 'outlook_mail':
-              return node.type.includes('mail') && (!node.data?.actions || node.data.actions.includes(event.action))
+              return nodeType.includes('mail') && (!node.data?.actions || node.data.actions.includes(event.action))
             case 'outlook_calendar':
-              return node.type.includes('calendar') && (!node.data?.actions || node.data.actions.includes(event.action))
+              return nodeType.includes('calendar') && (!node.data?.actions || node.data.actions.includes(event.action))
             case 'teams_message':
-              return (node.type.includes('teams') || node.type.includes('chat')) && (!node.data?.actions || node.data.actions.includes(event.action))
+              return (nodeType.includes('teams') || nodeType.includes('chat')) && (!node.data?.actions || node.data.actions.includes(event.action))
             case 'onenote_page':
-              return node.type.includes('onenote') && (!node.data?.actions || node.data.actions.includes(event.action))
+              return nodeType.includes('onenote') && (!node.data?.actions || node.data.actions.includes(event.action))
             default:
               return false
           }
         }
 
-        // ChainReact OneDrive trigger support
-        if (node?.data?.type === 'onedrive_trigger_new_file') {
+        // ChainReact OneDrive trigger support - check both locations
+        if (nodeType === 'onedrive_trigger_new_file' ||
+            nodeType === 'onedrive_trigger_file_modified') {
+          console.log('✅ Found matching OneDrive trigger node:', nodeType)
           return event.type === 'onedrive_item'
         }
         return false
       })
       
+      console.log(`✅ Found ${triggerNodes.length} matching trigger nodes`)
+
       // If we found matching triggers, execute the workflow
       if (triggerNodes.length > 0) {
         // For OneDrive triggers, apply per-node config filters before executing
-        const onedriveNodes = triggerNodes.filter((n: any) => n?.data?.type === 'onedrive_trigger_new_file')
-        const otherNodes = triggerNodes.filter((n: any) => n?.data?.type !== 'onedrive_trigger_new_file')
+        const onedriveNodes = triggerNodes.filter((n: any) =>
+          n?.data?.type === 'onedrive_trigger_new_file' ||
+          n?.data?.type === 'onedrive_trigger_file_modified'
+        )
+        const otherNodes = triggerNodes.filter((n: any) =>
+          n?.data?.type !== 'onedrive_trigger_new_file' &&
+          n?.data?.type !== 'onedrive_trigger_file_modified'
+        )
+
+        console.log('🔍 OneDrive trigger check:', {
+          onedriveNodeCount: onedriveNodes.length,
+          otherNodeCount: otherNodes.length,
+          eventType: event.type
+        })
 
         const shouldTriggerFromOneDrive = async (): Promise<boolean> => {
           if (onedriveNodes.length === 0) return false
           if (event.type !== 'onedrive_item') return false
+
           const payload = event.originalPayload || {}
           const itemPath: string | null = payload?.parentReference?.path && payload?.name
             ? `${payload.parentReference.path}/${payload.name}`
             : null
+
+          console.log('📁 Checking OneDrive item:', {
+            itemPath,
+            isFile: Boolean(payload?.file),
+            isFolder: Boolean(payload?.folder),
+            createdAt: payload?.createdDateTime,
+            modifiedAt: payload?.lastModifiedDateTime
+          })
 
           for (const node of onedriveNodes) {
             const cfg = node?.data?.config || {}
@@ -429,16 +611,171 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         if (!shouldTrigger) continue
 
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
-        await executionEngine.executeWorkflow(workflow.id, {
-          triggerData: {
-            event,
-            source: 'microsoft-graph-worker',
-            timestamp: new Date().toISOString()
+
+        console.log('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
+
+        // Create execution session properly
+        const executionSession = await executionEngine.createExecutionSession(
+          workflow.id,
+          userId,  // Pass the correct userId
+          'webhook',
+          {
+            inputData: {
+              ...event,
+              source: 'microsoft-graph-worker',
+              timestamp: new Date().toISOString()
+            }
           }
+        )
+
+        console.log('📤 Executing workflow with session:', executionSession.id)
+
+        // Execute the workflow with the session
+        await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+          ...event,
+          source: 'microsoft-graph-worker',
+          timestamp: new Date().toISOString()
         })
       }
     } catch (error) {
       console.error(`Error processing workflow ${workflow.id} for event:`, error)
     }
+  }
+}
+
+async function fetchOneDriveChanges(payload: any, userId: string): Promise<any[]> {
+  const { accessToken, refreshToken, integrationId } = await resolveOneDriveTokens(userId)
+
+  try {
+    return await fetchResourceChanges('onedrive', payload, accessToken)
+  } catch (error: any) {
+    const message = error?.message || ''
+    if (!refreshToken || (!message.includes('InvalidAuthenticationToken') && !message.includes('expired'))) {
+      throw error
+    }
+
+    // Attempt refresh
+    const refreshed = await refreshOneDriveAccessToken(refreshToken)
+    if (!refreshed?.accessToken) {
+      throw error
+    }
+
+    await updateOneDriveTokens(integrationId, refreshed)
+    return await fetchResourceChanges('onedrive', payload, refreshed.accessToken)
+  }
+}
+
+async function resolveOneDriveTokens(userId: string): Promise<{ accessToken: string; refreshToken?: string; integrationId: string }> {
+  const { data: integration } = await supabase
+    .from('integrations')
+    .select('id, access_token, refresh_token, status')
+    .eq('user_id', userId)
+    .eq('provider', 'onedrive')
+    .eq('status', 'connected')
+    .maybeSingle()
+
+  if (!integration) {
+    throw new Error('OneDrive integration not found or not connected')
+  }
+
+  const decryptedAccess = integration.access_token ? safeDecrypt(integration.access_token) : null
+  const decryptedRefresh = integration.refresh_token ? safeDecrypt(integration.refresh_token) : undefined
+
+  if (decryptedAccess && decryptedAccess.includes('.')) {
+    return {
+      accessToken: decryptedAccess,
+      refreshToken: decryptedRefresh,
+      integrationId: integration.id
+    }
+  }
+
+  if (decryptedRefresh) {
+    const refreshed = await refreshOneDriveAccessToken(decryptedRefresh)
+    if (refreshed?.accessToken) {
+      await updateOneDriveTokens(integration.id, refreshed)
+      return {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken || decryptedRefresh,
+        integrationId: integration.id
+      }
+    }
+  }
+
+  throw new Error('No valid Microsoft Graph access token available for OneDrive delta')
+}
+
+async function refreshOneDriveAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number; tokenType?: string }> {
+  const clientId = process.env.ONEDRIVE_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
+  const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Microsoft OAuth credentials not configured')
+  }
+
+  const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+      scope: 'https://graph.microsoft.com/.default'
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error')
+    throw new Error(`Failed to refresh Microsoft token: ${errorText}`)
+  }
+
+  const tokenJson = await response.json()
+  return {
+    accessToken: tokenJson.access_token,
+    refreshToken: tokenJson.refresh_token,
+    expiresIn: tokenJson.expires_in,
+    tokenType: tokenJson.token_type
+  }
+}
+
+async function updateOneDriveTokens(
+  integrationId: string,
+  tokens: { accessToken: string; refreshToken?: string; expiresIn?: number; tokenType?: string }
+): Promise<void> {
+  const updateData: Record<string, any> = {
+    access_token: encrypt(tokens.accessToken),
+    updated_at: new Date().toISOString()
+  }
+
+  if (tokens.refreshToken) {
+    updateData.refresh_token = encrypt(tokens.refreshToken)
+  }
+
+  if (typeof tokens.expiresIn === 'number') {
+    updateData.expires_at = new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
+  }
+
+  // Note: token_type field doesn't exist in integrations table
+  // Store it in metadata if needed
+  if (tokens.tokenType) {
+    const { data: existing } = await supabase
+      .from('integrations')
+      .select('metadata')
+      .eq('id', integrationId)
+      .single()
+
+    const metadata = existing?.metadata || {}
+    updateData.metadata = { ...metadata, token_type: tokens.tokenType }
+  }
+
+  const { error } = await supabase
+    .from('integrations')
+    .update(updateData)
+    .eq('id', integrationId)
+
+  if (error) {
+    console.error('Failed to update OneDrive integration tokens:', error)
   }
 }

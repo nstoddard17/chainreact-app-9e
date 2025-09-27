@@ -10,13 +10,17 @@ export async function GET(request: NextRequest) {
   const state = url.searchParams.get('state')
 
   const baseUrl = getBaseUrl()
+  const devWebhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
+  const redirectBase = devWebhookUrl || baseUrl
+  
   console.log('📍 Slack callback - Base URL:', baseUrl)
   console.log('📍 Slack callback - Request URL:', request.url)
+  console.log('📍 Slack callback - Using redirect base:', redirectBase)
   
   const supabase = createAdminClient()
 
   if (!code || !state) {
-    return createPopupResponse("error", "slack", "Authorization code or state parameter is missing.", baseUrl)
+    return createPopupResponse("error", "slack", "Authorization code or state parameter is missing.", redirectBase)
   }
 
   try {
@@ -25,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       console.error("Missing userId in Slack state")
-      return createPopupResponse("error", "slack", "User ID is missing from state", baseUrl)
+      return createPopupResponse("error", "slack", "User ID is missing from state", redirectBase)
     }
 
     const clientId = process.env.SLACK_CLIENT_ID
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
+        redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
       }),
     })
 
@@ -146,10 +150,10 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to save Slack integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse("success", "slack", "Slack account connected successfully.", baseUrl)
+    return createPopupResponse("success", "slack", "Slack account connected successfully.", redirectBase)
   } catch (e: any) {
     console.error("Slack callback error:", e)
     const message = e.message || "An unexpected error occurred."
-    return createPopupResponse("error", "slack", message, baseUrl)
+    return createPopupResponse("error", "slack", message, redirectBase)
   }
 }

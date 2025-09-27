@@ -56,6 +56,7 @@ export class TriggerWebhookManager {
       'google_sheets_trigger_new_worksheet',
       'google_sheets_trigger_updated_row',
       'slack_trigger_new_message',
+      'slack_trigger_message_channels',
       'slack_trigger_channel_created',
       'slack_trigger_user_joined',
       'github_trigger_new_issue',
@@ -315,6 +316,7 @@ export class TriggerWebhookManager {
         return this.transformGoogleSheetsRowPayload(payload)
       
       case 'slack_trigger_new_message':
+      case 'slack_trigger_message_channels':
         return this.transformSlackMessagePayload(payload)
       
       case 'github_trigger_new_issue':
@@ -1407,9 +1409,18 @@ export class TriggerWebhookManager {
         .eq('status', 'connected')
         .maybeSingle()
 
-      const accessToken: string | null = integration?.access_token || null
+      if (!integration) {
+        console.warn('Could not find OneDrive integration to delete subscription; leaving to expire', { subscriptionId })
+        return
+      }
+
+      // Decrypt the access token
+      const accessToken: string | null = integration?.access_token
+        ? safeDecrypt(integration.access_token)
+        : null
+
       if (!accessToken) {
-        console.warn('Could not find OneDrive access token to delete subscription; leaving to expire', { subscriptionId })
+        console.warn('Could not decrypt OneDrive access token to delete subscription; leaving to expire', { subscriptionId })
         return
       }
 

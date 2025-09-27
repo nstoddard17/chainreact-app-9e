@@ -538,6 +538,7 @@ export class WebhookManager {
   private transformSlackPayload(triggerType: string, payload: any): any {
     switch (triggerType) {
       case 'slack_trigger_new_message':
+      case 'slack_trigger_message_channels':
         return {
           channelId: payload.channel_id,
           channelName: payload.channel_name,

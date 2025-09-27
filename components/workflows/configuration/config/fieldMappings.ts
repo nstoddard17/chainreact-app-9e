@@ -95,6 +95,7 @@ const slackMappings: Record<string, FieldMapping> = {
   },
   slack_trigger_reaction_added: {
     channel: "slack_channels",
+    emoji: "slack_emoji_catalog",
   },
   slack_trigger_reaction_removed: {
     channel: "slack_channels",

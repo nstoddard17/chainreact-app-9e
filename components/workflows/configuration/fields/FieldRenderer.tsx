@@ -44,6 +44,7 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
+import { SlackEmojiPicker } from "./SlackEmojiPicker";
 
 // Helper function to get contextual empty message for combobox
 function getComboboxEmptyMessage(field: any): string {
@@ -1290,6 +1291,18 @@ export function FieldRenderer({
             />
           );
         }
+
+      case "emoji-picker":
+        return (
+          <SlackEmojiPicker
+            value={value}
+            onChange={onChange}
+            options={fieldOptions as any[]}
+            loading={loadingDynamic}
+            onRefresh={field.dynamic ? () => onDynamicLoad?.(field.name, field.dependsOn, field.dependsOn ? parentValues[field.dependsOn] : undefined, true) : undefined}
+            error={error}
+          />
+        );
 
       default:
         return (
