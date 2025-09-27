@@ -30,7 +30,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
   
-  let res = NextResponse.next({
+  const res = NextResponse.next({
     request: {
       headers: req.headers,
     },
@@ -95,8 +95,7 @@ export async function middleware(req: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    // Check if this is a beta tester who just signed up
-    const isBetaTester = user.user_metadata?.is_beta_tester === true
+    const isBetaTester = profile?.role === 'beta-pro' || user.user_metadata?.is_beta_tester === true
     const accountAge = new Date().getTime() - new Date(user.created_at).getTime()
     const isNewBetaUser = isBetaTester && accountAge < 60000 // Less than 1 minute old
 
@@ -104,6 +103,7 @@ export async function middleware(req: NextRequest) {
       path: pathname,
       userId: user.id,
       provider: profile?.provider,
+      role: profile?.role,
       username: profile?.username,
       hasUsername: !!(profile?.username && profile.username.trim() !== ''),
       isBetaTester,

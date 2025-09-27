@@ -34,19 +34,19 @@ export interface OneDriveFolder {
 export interface OneDriveFile {
   id: string
   name: string
-  size: number
   webUrl?: string
-  downloadUrl?: string
   createdDateTime?: string
   lastModifiedDateTime?: string
-  file?: {
-    mimeType: string
-    hashes?: any
-  }
+  size?: number
   parentReference?: {
-    id: string
-    name: string
-    path: string
+    id?: string
+    path?: string
+  }
+  file?: {
+    mimeType?: string
+    hashes?: {
+      quickXorHash?: string
+    }
   }
 }
 
@@ -75,9 +75,7 @@ export interface OneDriveApiError extends Error {
   code?: string
 }
 
-export interface OneDriveDataHandler<T = any> {
-  (integration: OneDriveIntegration, options?: any): Promise<T[]>
-}
+export type OneDriveDataHandler<T> = (integration: OneDriveIntegration, options?: any) => Promise<T[]>
 
 export interface OneDriveHandlerOptions {
   folderId?: string

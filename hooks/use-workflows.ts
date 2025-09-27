@@ -51,8 +51,10 @@ export function useWorkflows(): UseWorkflowsReturn {
     setLoading(true)
     setError(null)
     try {
-      await fetchWorkflows()
-      return workflows || []
+      if (forceRefresh || (workflows.length === 0)) {
+        await fetchWorkflows()
+      }
+      return useWorkflowStore.getState().workflows || []
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load workflows')
       return []
@@ -75,7 +77,8 @@ export function useWorkflows(): UseWorkflowsReturn {
 
       // Otherwise fetch all workflows and find it
       await fetchWorkflows()
-      const workflow = workflows.find(w => w.id === id) || null
+      const latestWorkflows = useWorkflowStore.getState().workflows
+      const workflow = latestWorkflows.find(w => w.id === id) || null
       if (workflow) {
         storeSetCurrentWorkflow(workflow)
       }

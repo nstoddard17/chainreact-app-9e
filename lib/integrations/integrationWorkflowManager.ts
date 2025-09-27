@@ -126,9 +126,11 @@ async function updateWebhookStatuses(userId: string, provider: string, status: '
       }
     }
 
+    const webhookStatus = status === 'needs_reconnect' ? 'error' : 'active'
+
     const { error } = await supabase
       .from('webhook_configs')
-      .update({ status, config: configJson })
+      .update({ status: webhookStatus, config: configJson })
       .eq('id', config.id)
 
     if (error) {

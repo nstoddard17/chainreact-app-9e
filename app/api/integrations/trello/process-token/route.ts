@@ -39,8 +39,8 @@ export const POST = async (request: NextRequest) => {
     }
 
     const trelloUserData = await trelloResponse.json()
-    const trelloUserId = trelloUserData.id
-    const trelloUsername = trelloUserData.username
+  const trelloUserId = trelloUserData.id
+  const trelloUsername = trelloUserData.username
 
     if (!trelloUserId || !trelloUsername) {
       console.error("Invalid Trello user data received")
@@ -52,33 +52,34 @@ export const POST = async (request: NextRequest) => {
     // Check if integration exists
     const { data: existingIntegration } = await supabase
       .from("integrations")
-      .select("id")
+      .select("id, metadata")
       .eq("user_id", userId)
       .eq("provider", "trello")
       .maybeSingle()
 
-    const grantedScopes = ["read", "write"]
+    const grantedScopes = ["read", "write", "account"]
 
     // Match Discord structure that works correctly
-    const integrationData = {
-      user_id: userId,
-      provider: "trello",
-      provider_user_id: trelloUserId,
-      access_token: token,
-      refresh_token: null, // Trello doesn't provide refresh tokens
-      expires_at: null, // Trello tokens don't expire unless revoked
-      status: "connected" as const,
-      scopes: grantedScopes,
-      metadata: {
-        username: trelloUsername,
-        full_name: trelloUserData.fullName || null,
-        initials: trelloUserData.initials || null,
-        avatar_url: trelloUserData.avatarUrl || null,
-        url: trelloUserData.url || null,
-        connected_at: now,
-        raw_user_data: trelloUserData,
-      },
-    }
+  const integrationData = {
+    user_id: userId,
+    provider: "trello",
+    provider_user_id: trelloUserId,
+    access_token: token,
+    refresh_token: null, // Trello doesn't provide refresh tokens
+    expires_at: null, // Trello tokens don't expire unless revoked
+    status: "connected" as const,
+    scopes: grantedScopes,
+    metadata: {
+      username: trelloUsername,
+      full_name: trelloUserData.fullName || null,
+      initials: trelloUserData.initials || null,
+      avatar_url: trelloUserData.avatarUrl || null,
+      url: trelloUserData.url || null,
+      connected_at: now,
+      client_key: process.env.TRELLO_CLIENT_ID || null,
+      raw_user_data: trelloUserData,
+    },
+  }
 
     let integrationId: string | undefined
     if (existingIntegration) {
@@ -91,12 +92,14 @@ export const POST = async (request: NextRequest) => {
           status: "connected",
           updated_at: now,
           metadata: {
+            ...(existingIntegration.metadata || {}),
             username: trelloUsername,
             full_name: trelloUserData.fullName || null,
             initials: trelloUserData.initials || null,
             avatar_url: trelloUserData.avatarUrl || null,
             url: trelloUserData.url || null,
             connected_at: now,
+            client_key: process.env.TRELLO_CLIENT_ID || null,
             raw_user_data: trelloUserData,
           },
         })

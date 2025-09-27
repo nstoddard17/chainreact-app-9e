@@ -91,16 +91,68 @@ const onedriveTriggerFileModified: NodeComponent = {
   category: "Storage",
   isTrigger: true,
   requiredScopes: ["Files.ReadWrite"],
-}
-
-const onedriveTriggerFileModifiedInFolder: NodeComponent = {
-  type: "onedrive_trigger_file_modified",
-  title: "File Modified in Folder",
-  description: "Triggers when a file is modified in a specific folder.",
-  icon: Upload,
-  providerId: "onedrive",
-  category: "Storage",
-  isTrigger: true,
+  producesOutput: true,
+  configSchema: [
+    {
+      name: "folderId",
+      label: "Folder to Watch",
+      type: "select",
+      dynamic: "onedrive-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a folder or leave blank for all folders",
+      description: "Limit the trigger to a specific folder. Leave empty to monitor the entire drive.",
+      uiTab: "basic"
+    },
+    {
+      name: "fileId",
+      label: "Specific File",
+      type: "select",
+      dynamic: "onedrive-files",
+      required: false,
+      placeholder: "Optional: select a specific file",
+      description: "Choose a single file to monitor for modifications.",
+      dependsOn: "folderId",
+      uiTab: "basic"
+    },
+    {
+      name: "fileNameFilter",
+      label: "File Name Filter",
+      type: "text",
+      required: false,
+      placeholder: "e.g. report, Q1, draft",
+      description: "Only trigger when the file name contains this text.",
+      uiTab: "advanced"
+    },
+    {
+      name: "fileType",
+      label: "File Type",
+      type: "select",
+      required: false,
+      defaultValue: "any",
+      options: [
+        { value: "any", label: "Any file" },
+        { value: "documents", label: "Documents" },
+        { value: "images", label: "Images" },
+        { value: "audio", label: "Audio" },
+        { value: "video", label: "Video" },
+        { value: "spreadsheets", label: "Spreadsheets" },
+        { value: "presentations", label: "Presentations" },
+        { value: "pdf", label: "PDF" },
+        { value: "archives", label: "Archives" }
+      ],
+      description: "Filter modifications by file type category.",
+      uiTab: "advanced"
+    },
+    {
+      name: "includeSubfolders",
+      label: "Include Subfolders",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, modifications inside subfolders will also trigger.",
+      uiTab: "advanced"
+    }
+  ]
 }
 
 // OneDrive Actions
@@ -189,11 +241,10 @@ const onedriveActionUploadFile: NodeComponent = {
 
 // Export all OneDrive nodes
 export const onedriveNodes: NodeComponent[] = [
-  // Triggers (3 - note: 2 have same type but different titles)
+  // Triggers
   onedriveTriggerNewFile,
   onedriveTriggerFileModified,
-  onedriveTriggerFileModifiedInFolder,
 
-  // Actions (1 - consolidated upload file action)
+  // Actions
   onedriveActionUploadFile,
 ]

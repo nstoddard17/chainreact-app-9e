@@ -38,7 +38,7 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
   
   // Integration store methods
-  const { getIntegrationByProvider, loadIntegrationData } = useIntegrationStore();
+  const { getIntegrationByProvider, loadIntegrationData, fetchIntegrations } = useIntegrationStore();
   
   // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());
@@ -845,6 +845,14 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             if (areOptionsSame) {
               console.log(`🔄 [useDynamicOptions] Options for ${fieldName} are identical, skipping state update`);
               return prev;
+            }
+
+            if (providerId === 'trello' && integration && integration.status !== 'connected') {
+              try {
+                fetchIntegrations(true);
+              } catch (refreshError) {
+                console.warn('⚠️ [useDynamicOptions] Failed to refresh integrations after Trello data load:', refreshError);
+              }
             }
 
             const newState = {

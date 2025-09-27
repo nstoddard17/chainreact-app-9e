@@ -758,24 +758,31 @@ function ConfigurationForm({
     // Find other dynamic fields that should load when visible
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
       if (!field.dynamic) return false;
-      
+
       // Check if field is now visible (its dependencies are satisfied)
       if (field.dependsOn) {
         const dependsOnValue = values[field.dependsOn];
         if (!dependsOnValue) return false; // Don't load if dependency not satisfied
-        
+
         // Check if already loaded
         const fieldOptions = dynamicOptions[field.name];
         const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
-        
+
         // Load if visible and not yet loaded
         // Special case: prevent repeated reloads for Google Sheets sheetName when options exist
         if (nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName' && hasOptions) {
           return false;
         }
+
+        // OneDrive fileId is now handled by the field change handler when folder is selected
+        // Skip auto-loading it here to prevent duplicate loads
+        if (nodeInfo?.providerId === 'onedrive' && field.name === 'fileId') {
+          return false;
+        }
+
         return !hasOptions;
       }
-      
+
       return false;
     });
     
