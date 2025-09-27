@@ -24,7 +24,8 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     'parentCategory',
     'roleFilter',
     'allowedUsers',
-    'allowedRoles'
+    'allowedRoles',
+    'command'
   ];
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -86,6 +87,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
             case 'allowedRoles':
               result = await this.loadRoles(params);
               break;
+
+          case 'command':
+            result = await this.loadCommands(params)
+            break;
             
             case 'parentId':
             case 'categoryId':
@@ -105,7 +110,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           // Clean up the pending promise
           pendingPromises.delete(requestKey);
         }
-      }, 100); // 100ms debounce delay
+      }, 10); // 10ms debounce delay - reduced for better responsiveness with proper deduplication
       
       debounceTimers.set(fieldName, timer);
     });
@@ -116,43 +121,95 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     return loadPromise;
   }
 
-  private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
+  private async loadCommands(params: LoadOptionsParams): Promise<FormattedOption[]> {
+    const { dependsOnValue: guildId, integrationId, signal } = params
+    if (!guildId) {
+      console.log('🔍 [Discord] Cannot load commands without guildId')
+      return []
+    }
     try {
       const response = await fetch('/api/integrations/discord/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dataType: 'discord_guilds'
-        })
-      });
-
+          integrationId,
+          dataType: 'discord_commands',
+          options: { guildId }
+        }),
+        signal
+      })
       if (!response.ok) {
-        throw new Error(`Failed to load guilds: ${response.statusText}`);
+        throw new Error(`Failed to load commands: ${response.status}`)
       }
-
-      const result = await response.json();
-      const guilds = result.data || [];
-
-      if (!guilds || guilds.length === 0) {
-        console.log('🔍 [Discord] No guilds found - bot may not be in any servers');
-        return [];
-      }
-
-      return guilds.map((guild: any) => ({
-        value: guild.id,
-        label: guild.name,
-      }));
-    } catch (error: any) {
-      console.error('❌ [Discord] Error loading guilds:', error);
-
-      // Handle authentication errors
-      if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-        console.log('🔄 [Discord] Authentication error detected, may need to refresh integration');
-        // Could trigger integration refresh here if needed
-      }
-
-      return [];
+      const result = await response.json()
+      const commands = result.data || []
+      return commands.map((cmd: any) => ({
+        value: cmd.name,
+        label: `/${cmd.name}`,
+        id: cmd.id
+      }))
+    } catch (error) {
+      console.error('❌ [Discord] Error loading commands:', error)
+      return []
     }
+  }
+
+  // Track active guild loading promise to prevent duplicates
+  private static guildLoadingPromise: Promise<FormattedOption[]> | null = null;
+
+  private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
+    // If there's already a guild loading in progress and we're not forcing refresh, return it
+    if (!forceRefresh && DiscordOptionsLoader.guildLoadingPromise) {
+      console.log('🔄 [Discord] Reusing existing guild loading promise');
+      return DiscordOptionsLoader.guildLoadingPromise;
+    }
+
+    // Create the loading promise
+    DiscordOptionsLoader.guildLoadingPromise = (async () => {
+      try {
+        const response = await fetch('/api/integrations/discord/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dataType: 'discord_guilds'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load guilds: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        const guilds = result.data || [];
+
+        if (!guilds || guilds.length === 0) {
+          console.log('🔍 [Discord] No guilds found - bot may not be in any servers');
+          return [];
+        }
+
+        return guilds.map((guild: any) => ({
+          value: guild.id,
+          label: guild.name,
+        }));
+      } catch (error: any) {
+        console.error('❌ [Discord] Error loading guilds:', error);
+
+        // Handle authentication errors
+        if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+          console.log('🔄 [Discord] Authentication error detected, may need to refresh integration');
+          // Could trigger integration refresh here if needed
+        }
+
+        return [];
+      } finally {
+        // Clear the promise after a short delay to allow cache to be used
+        setTimeout(() => {
+          DiscordOptionsLoader.guildLoadingPromise = null;
+        }, 1000);
+      }
+    })();
+
+    return DiscordOptionsLoader.guildLoadingPromise;
   }
 
   private async loadChannels(guildId: string | undefined, forceRefresh?: boolean): Promise<FormattedOption[]> {

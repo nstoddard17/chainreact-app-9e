@@ -132,7 +132,15 @@ function ConfigurationForm({
   
   // Check integration connection
   const integration = provider ? getIntegrationByProvider(provider) : null;
-  const needsConnection = provider && provider !== 'logic' && provider !== 'ai' && (!integration || integration?.status === 'needs_reauthorization');
+  const needsConnection =
+    provider &&
+    provider !== 'logic' &&
+    provider !== 'ai' &&
+    (
+      !integration ||
+      integration?.status === 'needs_reauthorization' ||
+      integration?.status === 'needs_reconnect'
+    );
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
   // Debug logging for HubSpot

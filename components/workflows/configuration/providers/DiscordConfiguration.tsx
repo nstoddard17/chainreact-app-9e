@@ -495,65 +495,19 @@ export function DiscordConfiguration({
     }
   };
   
-  // Auto-load Discord servers for ALL Discord nodes (actions and triggers) on mount
+  // Note: Discord servers are now automatically loaded via loadOnMount: true in node definitions
+  // This prevents duplicate loading and rate limiting issues
+
+  // Just track that servers have been initialized if they're already loaded
   useEffect(() => {
-    // Check if this is a Discord node (action or trigger)
     const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
+    const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
 
-    // Only auto-load servers if:
-    // 1. This is a Discord node (action or trigger)
-    // 2. We haven't already initialized
-    // 3. The guildId field exists in the schema
-    // 4. We don't already have servers loaded
-    if (isDiscordNode && !hasInitializedServers.current) {
-      const hasGuildField = nodeInfo?.configSchema?.some((field: any) => field.name === 'guildId');
-      const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
-
-      if (hasGuildField && !serversAlreadyLoaded) {
-        console.log('🚀 [Discord] Auto-loading servers for Discord node:', nodeInfo?.type);
-        hasInitializedServers.current = true;
-
-        // Set loading state for the server field
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add('guildId');
-          return newSet;
-        });
-
-        // Add a small delay to ensure component is fully mounted (helps with production)
-        const loadServers = async () => {
-          try {
-            // Only try once to avoid rate limits
-            await loadOptions('guildId', undefined, undefined, false); // Don't force reload
-            console.log('✅ [Discord] Servers loaded successfully');
-          } catch (error: any) {
-            // Check if it's a rate limit error
-            if (error?.message?.includes('rate limit')) {
-              console.warn('⚠️ [Discord] Rate limited, will not retry automatically');
-            } else {
-              console.error('❌ [Discord] Failed to load servers:', error);
-            }
-            // Reset the flag so user can trigger reload manually if needed
-            hasInitializedServers.current = false;
-          } finally {
-            setLocalLoadingFields(prev => {
-              const newSet = new Set(prev);
-              newSet.delete('guildId');
-              return newSet;
-            });
-          }
-        };
-
-        // Small delay to ensure component is ready
-        setTimeout(() => {
-          loadServers();
-        }, 100);
-      } else if (serversAlreadyLoaded) {
-        console.log('✅ [Discord] Servers already loaded, skipping auto-load');
-        hasInitializedServers.current = true;
-      }
+    if (isDiscordNode && serversAlreadyLoaded && !hasInitializedServers.current) {
+      console.log('✅ [Discord] Servers already loaded from loadOnMount');
+      hasInitializedServers.current = true;
     }
-  }, [nodeInfo?.type, dynamicOptions.guildId]); // Watch dynamicOptions.guildId to know if servers are loaded
+  }, [nodeInfo?.type, dynamicOptions.guildId]);
 
   // Auto-load channels when component mounts with saved guildId
   useEffect(() => {
