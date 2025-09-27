@@ -9,13 +9,163 @@ import {
 // Microsoft Outlook Triggers
 const outlookTriggerNewEmail: NodeComponent = {
   type: "microsoft-outlook_trigger_new_email",
-  title: "New email received",
-  description: "Triggers when a new email is received",
+  title: "New Email",
+  description: "Triggers when a new email is received in Outlook",
   icon: Mail,
   providerId: "microsoft-outlook",
   category: "Communication",
   isTrigger: true,
   requiredScopes: ["Mail.Read"],
+  producesOutput: true,
+  configSchema: [
+    {
+      name: "from",
+      label: "From",
+      type: "email-autocomplete",
+      dynamic: "outlook-enhanced-recipients",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Enter sender email address",
+      description: "Filter emails by sender address"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "text",
+      required: false,
+      placeholder: "Optional: filter by subject",
+      description: "Filter emails by subject line"
+    },
+    {
+      name: "hasAttachment",
+      label: "Has Attachment",
+      type: "select",
+      required: false,
+      options: [
+        { value: "any", label: "Any" },
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" }
+      ],
+      defaultValue: "any",
+      description: "Filter emails based on attachment presence"
+    },
+    {
+      name: "folder",
+      label: "Folder",
+      type: "select",
+      dynamic: "outlook_folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select folder (default: Inbox)",
+      description: "Monitor specific folder for new emails"
+    },
+    {
+      name: "importance",
+      label: "Importance",
+      type: "select",
+      required: false,
+      options: [
+        { value: "any", label: "Any" },
+        { value: "high", label: "High" },
+        { value: "normal", label: "Normal" },
+        { value: "low", label: "Low" }
+      ],
+      defaultValue: "any",
+      description: "Filter emails by importance level"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Email ID",
+      type: "string",
+      description: "The unique ID of the email"
+    },
+    {
+      name: "conversationId",
+      label: "Conversation ID",
+      type: "string",
+      description: "The ID of the email conversation/thread"
+    },
+    {
+      name: "from",
+      label: "From",
+      type: "object",
+      description: "The sender's information (name and email)"
+    },
+    {
+      name: "to",
+      label: "To",
+      type: "array",
+      description: "The recipients' information"
+    },
+    {
+      name: "cc",
+      label: "CC",
+      type: "array",
+      description: "The CC recipients' information"
+    },
+    {
+      name: "bcc",
+      label: "BCC",
+      type: "array",
+      description: "The BCC recipients' information"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject of the email"
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "string",
+      description: "The full body of the email (HTML)"
+    },
+    {
+      name: "bodyPreview",
+      label: "Body Preview",
+      type: "string",
+      description: "A preview/snippet of the email's content"
+    },
+    {
+      name: "attachments",
+      label: "Attachments",
+      type: "array",
+      description: "An array of attachment objects"
+    },
+    {
+      name: "receivedDateTime",
+      label: "Received At",
+      type: "string",
+      description: "The timestamp when the email was received"
+    },
+    {
+      name: "importance",
+      label: "Importance",
+      type: "string",
+      description: "The importance level of the email"
+    },
+    {
+      name: "isRead",
+      label: "Is Read",
+      type: "boolean",
+      description: "Whether the email has been read"
+    },
+    {
+      name: "hasAttachments",
+      label: "Has Attachments",
+      type: "boolean",
+      description: "Whether the email has attachments"
+    },
+    {
+      name: "folder",
+      label: "Folder",
+      type: "string",
+      description: "The folder where the email is located"
+    }
+  ]
 }
 
 const outlookTriggerEmailSent: NodeComponent = {

@@ -276,6 +276,36 @@ export class WorkflowExecutor {
         if (fromFilterAttach && !input.from?.toLowerCase().includes(fromFilterAttach)) return false
         if (attachmentNameFilter && !input.attachmentName?.toLowerCase().includes(attachmentNameFilter)) return false
         return true
+
+      case "microsoft-outlook_trigger_new_email":
+        // Filter by sender
+        const outlookFromFilter = config?.from?.toLowerCase()
+        if (outlookFromFilter && !input.from?.emailAddress?.address?.toLowerCase().includes(outlookFromFilter)) {
+          return false
+        }
+
+        // Filter by subject
+        const outlookSubjectFilter = config?.subject?.toLowerCase()
+        if (outlookSubjectFilter && !input.subject?.toLowerCase().includes(outlookSubjectFilter)) {
+          return false
+        }
+
+        // Filter by attachment presence
+        if (config?.hasAttachment === "yes" && !input.hasAttachments) return false
+        if (config?.hasAttachment === "no" && input.hasAttachments) return false
+
+        // Filter by importance
+        if (config?.importance && config?.importance !== "any" && input.importance?.toLowerCase() !== config?.importance?.toLowerCase()) {
+          return false
+        }
+
+        // Filter by folder
+        if (config?.folder && input.parentFolderId !== config?.folder) {
+          return false
+        }
+
+        return true
+
       default:
         return true
     }
