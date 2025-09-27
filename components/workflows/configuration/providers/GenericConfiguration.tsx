@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ChevronLeft } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Mail, Loader2 } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
@@ -55,6 +55,10 @@ export function GenericConfiguration({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const [isFormValid, setIsFormValid] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewResult, setPreviewResult] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const previewQuery = typeof values?.query === 'string' ? values.query.trim() : '';
 
   // Use prop if provided, otherwise use local state
   const loadingFields = loadingFieldsProp || localLoadingFields;
@@ -462,6 +466,59 @@ export function GenericConfiguration({
     });
   };
 
+  // Handle email preview for Outlook and Gmail Get Email actions
+  const handleEmailPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+
+    const isGmail = nodeInfo?.type === 'gmail_action_search_email';
+    const isOutlook = nodeInfo?.type === 'microsoft-outlook_action_fetch_emails';
+
+    try {
+      const endpoint = isGmail
+        ? '/api/integrations/gmail/preview-email'
+        : '/api/integrations/microsoft-outlook/preview-email';
+
+      const body = isGmail
+        ? {
+            labels: values.labels,
+            query: values.query,
+            startDate: values.startDate,
+            endDate: values.endDate,
+            includeSpamTrash: values.includeSpamTrash || false,
+          }
+        : {
+            folderId: values.folderId,
+            query: values.query,
+            startDate: values.startDate,
+            endDate: values.endDate,
+            includeDeleted: values.includeDeleted || false,
+          };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        setPreviewResult({ error: error.message || 'Failed to fetch preview' });
+      } else {
+        const data = await response.json();
+        setPreviewResult(data);
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      setPreviewResult({ error: error.message || 'Failed to fetch preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
@@ -612,6 +669,125 @@ export function GenericConfiguration({
             </div>
           </div>
         </>
+      )}
+      {/* Email Preview Button - Only for Outlook and Gmail Get Email actions when required fields are filled */}
+      {(nodeInfo?.type === 'microsoft-outlook_action_fetch_emails' ||
+        nodeInfo?.type === 'gmail_action_search_email') &&
+       ((nodeInfo?.type === 'microsoft-outlook_action_fetch_emails' && values.folderId && values.query && values.startDate) ||
+        (nodeInfo?.type === 'gmail_action_search_email' && values.labels && values.query && values.startDate)) && (
+        <div className="border-t border-slate-200 pt-4 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleEmailPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Preview Email
+              </>
+            )}
+          </Button>
+
+          {/* Preview Result */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error === 'No emails found matching criteria'
+                    ? 'No email currently matches your criteria'
+                    : previewResult.error}
+                </div>
+              ) : (() => {
+                const previewEmails = Array.isArray(previewResult.emails)
+                  ? previewResult.emails
+                  : (previewResult.email ? [previewResult.email] : [])
+
+                if (!previewEmails.length) {
+                  return (
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      No email currently matches your criteria
+                    </div>
+                  )
+                }
+
+                const displayEmails = previewEmails.slice(0, 3)
+                const searchApplied = previewResult.searchApplied !== false
+                const fallbackReason = typeof previewResult.fallbackReason === 'string'
+                  ? previewResult.fallbackReason
+                  : null
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-1">
+                      <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300">
+                        Preview Results
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchApplied
+                          ? (
+                            <>
+                              Showing up to {displayEmails.length} result{displayEmails.length > 1 ? 's' : ''} for
+                              <span className="mx-1 rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[11px] text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                                {previewResult.query || previewQuery || 'your search'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              Unable to preview the search results directly. Displaying the most recent messages in
+                              this folder instead.
+                            </>
+                          )}
+                      </p>
+                      {!searchApplied && fallbackReason && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                          Outlook search returned an error while previewing: {fallbackReason.slice(0, 140)}{fallbackReason.length > 140 ? '...' : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      {displayEmails.map((message: any, index: number) => (
+                        <div
+                          key={message.id || `${message.subject}-${index}`}
+                          className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                              {message.subject || '(No subject)'}
+                            </div>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {message.receivedDateTime ? new Date(message.receivedDateTime).toLocaleString() : 'Unknown time'}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            From: {message.from || 'Unknown sender'}
+                          </div>
+                          {message.hasAttachments && (
+                            <div className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                              Has attachments
+                            </div>
+                          )}
+                          <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                            {message.bodyPreview || 'No preview available'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
       )}
     </ConfigurationContainer>
   );

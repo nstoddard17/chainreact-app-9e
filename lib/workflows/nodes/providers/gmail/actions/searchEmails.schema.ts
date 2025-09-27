@@ -23,7 +23,7 @@ export const searchEmailsActionSchema: NodeComponent = {
       label: "Folder / Label",
       type: "select",
       dynamic: "gmail_labels",
-      required: false,
+      required: true,
       placeholder: "Select folders or labels",
       description: "Choose which Gmail folders/labels to search in",
       defaultOptions: [
@@ -38,7 +38,7 @@ export const searchEmailsActionSchema: NodeComponent = {
       name: "query",
       label: "Search Query",
       type: "text",
-      required: false,
+      required: true,
       placeholder: "e.g., from:bob@example.com has:attachment",
       description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc."
     },
@@ -55,7 +55,7 @@ export const searchEmailsActionSchema: NodeComponent = {
       name: "startDate",
       label: "Start Date",
       type: "date",
-      required: false,
+      required: true,
       description: "Only fetch emails after this date"
     },
     {
