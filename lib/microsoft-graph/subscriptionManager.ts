@@ -70,7 +70,9 @@ export class MicrosoftGraphSubscriptionManager {
         resource,
         changeType,
         expirationDateTime: expirationDateTime.toISOString(),
-        userId
+        userId,
+        userIdLength: userId?.length,
+        userIdType: typeof userId
       })
 
       // Create subscription via Microsoft Graph API
@@ -368,6 +370,13 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   private async saveSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {
+    console.log('💾 Saving subscription to database with userId:', {
+      subscriptionId: subscription.id,
+      userId: subscription.userId,
+      userIdLength: subscription.userId?.length,
+      userIdType: typeof subscription.userId
+    })
+
     const { error } = await supabase
       .from('microsoft_graph_subscriptions')
       .insert({
@@ -388,6 +397,8 @@ export class MicrosoftGraphSubscriptionManager {
       console.error('Error saving subscription:', error)
       throw error
     }
+
+    console.log('✅ Subscription saved successfully with user_id:', subscription.userId)
   }
 
   private async updateSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {

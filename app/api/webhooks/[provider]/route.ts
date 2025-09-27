@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import { processWebhookEvent } from '@/lib/webhooks/processor'
 import { handleDropboxWebhookEvent } from '@/lib/webhooks/dropboxTriggerHandler'
@@ -50,6 +51,11 @@ export async function POST(
       timestamp: new Date().toISOString()
     })
 
+    if (provider === 'slack' && eventData?.type === 'url_verification' && eventData?.challenge) {
+      console.log(`[${requestId}] Responding to Slack URL verification challenge`);
+      return NextResponse.json({ challenge: eventData.challenge })
+    }
+
     // Process Dropbox directly through trigger handler
     if (provider === 'dropbox') {
       const dropboxResults = await handleDropboxWebhookEvent(
@@ -83,10 +89,34 @@ export async function POST(
     }
 
     // Process the event based on provider
+    const { eventType, normalizedData, eventId, ignore } = normalizeWebhookEvent(provider, eventData, requestId)
+
+    if (ignore) {
+      console.log(`[${requestId}] Ignoring ${provider} event based on normalization rules`, {
+        provider,
+        eventType,
+        eventId
+      })
+      return NextResponse.json({ success: true, ignored: true })
+    }
+
+    console.log(`[${requestId}] Normalized ${provider} webhook event`, {
+      eventType,
+      eventId,
+      summary: normalizedData && typeof normalizedData === 'object' ? {
+        channel: normalizedData.message?.channel,
+        user: normalizedData.message?.user,
+        subtype: normalizedData.message?.raw?.subtype
+      } : undefined
+    })
+
     const result = await processWebhookEvent({
+      id: eventId || requestId,
       provider,
-      eventData,
-      requestId
+      eventType,
+      eventData: normalizedData,
+      requestId,
+      timestamp: new Date()
     })
 
     const processingTime = Date.now() - startTime
@@ -164,3 +194,59 @@ export async function GET(
     timestamp: new Date().toISOString()
   })
 } 
+
+
+function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: string) {
+  switch (provider) {
+    case 'slack': {
+      const envelope = rawEvent || {}
+      const slackEvent = envelope.event || rawEvent || {}
+      const subtype = slackEvent.subtype
+
+      if (subtype === 'message_deleted') {
+        return {
+          eventType: 'slack_trigger_message_deleted',
+          normalizedData: slackEvent,
+          eventId: slackEvent.deleted_ts || slackEvent.event_ts || envelope.event_id,
+          ignore: true
+        }
+      }
+
+      let eventType = 'slack_trigger_new_message'
+      const channel = slackEvent.channel || slackEvent.channel_id
+      const channelType = slackEvent.channel_type
+      const isPublicChannel = channelType === 'channel' || (typeof channel === 'string' && channel.startsWith('C'))
+
+      if (slackEvent.type === 'message' && isPublicChannel) {
+        eventType = 'slack_trigger_message_channels'
+      }
+
+      const normalizedData = {
+        message: {
+          id: slackEvent.client_msg_id || slackEvent.ts || envelope.event_id || requestId,
+          text: slackEvent.text || '',
+          user: slackEvent.user || slackEvent.user_id,
+          channel,
+          channelType,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          timestamp: slackEvent.ts || envelope.event_ts,
+          threadTs: slackEvent.thread_ts,
+          raw: slackEvent
+        }
+      }
+
+      return {
+        eventType,
+        normalizedData,
+        eventId: normalizedData.message.id
+      }
+    }
+
+    default:
+      return {
+        eventType: `${provider}_trigger_event`,
+        normalizedData: rawEvent,
+        eventId: (rawEvent && (rawEvent.id || rawEvent.event_id)) || requestId
+      }
+  }
+}

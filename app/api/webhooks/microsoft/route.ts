@@ -32,6 +32,13 @@ export async function POST(request: NextRequest) {
 
     // Handle actual webhook notifications
     let payload: any
+
+    // Handle empty body (some Microsoft notifications are empty)
+    if (!body || body.length === 0) {
+      console.log('⚠️ Empty webhook payload received, skipping')
+      return NextResponse.json({ success: true, empty: true })
+    }
+
     try {
       payload = JSON.parse(body)
     } catch (error) {

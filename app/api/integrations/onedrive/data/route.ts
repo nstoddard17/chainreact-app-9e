@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from "@supabase/supabase-js"
 import { onedriveHandlers } from './handlers'
 import { OneDriveIntegration } from './types'
+import { safeDecrypt } from '@/lib/security/encryption'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -65,11 +66,45 @@ export async function POST(req: NextRequest) {
       integrationId,
       dataType,
       status: integration.status,
-      hasToken: !!integration.access_token
+      hasToken: !!integration.access_token,
+      tokenLength: integration.access_token?.length,
+      tokenPreview: integration.access_token ? integration.access_token.substring(0, 50) + '...' : null
     })
 
-    // Execute the handler
-    const data = await handler(integration as OneDriveIntegration, options)
+    // Decrypt the access token before passing to handler
+    let decryptedAccessToken = null
+    let decryptedRefreshToken = null
+
+    try {
+      if (integration.access_token) {
+        console.log(`🔑 [OneDrive API] Attempting to decrypt access token...`)
+        decryptedAccessToken = safeDecrypt(integration.access_token)
+        console.log(`✅ [OneDrive API] Access token decrypted, length: ${decryptedAccessToken?.length}`)
+      }
+      if (integration.refresh_token) {
+        decryptedRefreshToken = safeDecrypt(integration.refresh_token)
+      }
+    } catch (decryptError) {
+      console.error(`❌ [OneDrive API] Token decryption failed:`, decryptError)
+      throw new Error('Failed to decrypt OneDrive tokens. Please reconnect your account.')
+    }
+
+    const decryptedIntegration = {
+      ...integration,
+      access_token: decryptedAccessToken,
+      refresh_token: decryptedRefreshToken
+    }
+
+    console.log(`🔐 [OneDrive API] Token validation:`, {
+      hasAccessToken: !!decryptedIntegration.access_token,
+      accessTokenLength: decryptedIntegration.access_token?.length,
+      isValidJWT: decryptedIntegration.access_token?.includes('.'),
+      tokenType: typeof decryptedIntegration.access_token,
+      firstChars: decryptedIntegration.access_token ? decryptedIntegration.access_token.substring(0, 20) : null
+    })
+
+    // Execute the handler with decrypted integration
+    const data = await handler(decryptedIntegration as OneDriveIntegration, options)
 
     console.log(`✅ [OneDrive API] Successfully processed ${dataType}:`, {
       integrationId,

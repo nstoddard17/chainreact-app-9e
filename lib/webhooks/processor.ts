@@ -15,13 +15,44 @@ export interface WebhookEvent {
 /**
  * Enhanced webhook event processor with instant execution
  */
+
 export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
   const startTime = Date.now()
-  
+
   try {
+    const dedupeKey = event.id || event.eventData?.id || event.eventData?.message?.id
+    let supabaseForDedupe: Awaited<ReturnType<typeof createSupabaseServiceClient>> | null = null
+
+    if (dedupeKey) {
+      try {
+        supabaseForDedupe = await createSupabaseServiceClient()
+        const { data: existingEvent, error: dedupeError } = await supabaseForDedupe
+          .from('webhook_events')
+          .select('id')
+          .eq('provider', event.provider)
+          .eq('request_id', dedupeKey)
+          .maybeSingle()
+
+        if (!dedupeError && existingEvent) {
+          console.log(`🧊 Duplicate webhook event ignored`, {
+            provider: event.provider,
+            dedupeKey
+          })
+          return {
+            success: true,
+            workflowsTriggered: 0,
+            duplicate: true,
+            processingTime: Date.now() - startTime
+          }
+        }
+      } catch (dedupeCheckError) {
+        console.warn('⚠️ Failed to perform webhook dedupe check:', dedupeCheckError)
+      }
+    }
+
     // 1. Store event for audit trail (non-blocking)
-    await storeWebhookEvent(event)
-    
+    await storeWebhookEvent(event, dedupeKey, supabaseForDedupe)
+
     // 2. Find matching workflows instantly
     const matchingWorkflows = await findMatchingWorkflows(event)
     
@@ -108,15 +139,48 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     }
     
     const triggerNode = workflow.nodes?.find((node: any) => {
-      console.log(`   🔍 Checking node: ${node.type}`)
-      console.log(`      isTrigger: ${node.data?.isTrigger}`)
-      console.log(`      triggerType: ${node.data?.triggerType}`)
-      console.log(`      triggerConfig:`, node.data?.triggerConfig)
-      
-      return node.data?.isTrigger && 
-        node.data?.triggerType === 'webhook' &&
-        node.data?.triggerConfig?.provider === event.provider &&
-        node.data?.triggerConfig?.eventType === event.eventType
+      const nodeData = node?.data || {}
+      const nodeType = nodeData.type || node.type
+      const nodeProvider = nodeData.providerId || nodeData.triggerConfig?.provider || node.providerId
+      const nodeEventType = nodeData.triggerConfig?.eventType || nodeType
+      const isTrigger = Boolean(nodeData.isTrigger || node.isTrigger)
+
+      // Enhanced debugging to see exact node structure
+      console.log(`   🔍 Checking node: ${node.type} (ReactFlow type)`)
+      console.log(`      Full node.data keys:`, Object.keys(nodeData))
+      console.log(`      data.type: ${nodeData.type}`)
+      console.log(`      data.isTrigger: ${nodeData.isTrigger}`)
+      console.log(`      data.providerId: ${nodeData.providerId}`)
+      console.log(`      eventType (computed): ${nodeEventType}`)
+
+      // If this is a trigger node but missing type, log full data
+      if (isTrigger && !nodeData.type) {
+        console.log(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
+      }
+
+      if (!isTrigger) {
+        return false
+      }
+
+      if (nodeProvider && nodeProvider !== event.provider) {
+        return false
+      }
+
+      let matchesEventType = true
+      if (nodeEventType) {
+        matchesEventType = nodeEventType === event.eventType ||
+          (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))
+      }
+
+      if (!matchesEventType) {
+        return false
+      }
+
+      if (!nodeData.triggerConfig && nodeData.config) {
+        nodeData.triggerConfig = nodeData.config
+      }
+
+      return true
     })
     
     if (!triggerNode) {
@@ -138,7 +202,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
  * Apply custom trigger filters (e.g., sender, subject, etc.)
  */
 function applyTriggerFilters(triggerNode: any, event: WebhookEvent): boolean {
-  const config = triggerNode.data?.triggerConfig || {}
+  const config = triggerNode.data?.triggerConfig || triggerNode.data?.config || {}
   
   // Gmail specific filters
   if (event.provider === 'gmail') {
@@ -223,16 +287,28 @@ async function executeWorkflowInstantly(workflow: any, event: WebhookEvent): Pro
 /**
  * Store webhook event for audit trail
  */
-async function storeWebhookEvent(event: WebhookEvent): Promise<void> {
+async function storeWebhookEvent(event: WebhookEvent, dedupeKey?: string | null, existingClient?: Awaited<ReturnType<typeof createSupabaseServiceClient>> | null): Promise<void> {
   try {
-    const supabase = await createSupabaseServiceClient()
+    const supabase = existingClient || await createSupabaseServiceClient()
+    let eventDataToStore: any = event.eventData
+
+    if (event.requestId && typeof eventDataToStore === 'object' && eventDataToStore !== null) {
+      eventDataToStore = {
+        ...eventDataToStore,
+        _meta: {
+          ...(eventDataToStore._meta || {}),
+          originalRequestId: event.requestId
+        }
+      }
+    }
+
     await supabase
       .from('webhook_events')
       .insert({
         provider: event.provider,
         service: event.service,
-        event_data: event.eventData,
-        request_id: event.requestId,
+        event_data: eventDataToStore,
+        request_id: dedupeKey || event.requestId,
         status: 'received',
         timestamp: event.timestamp
       })
