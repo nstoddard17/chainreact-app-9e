@@ -27,7 +27,7 @@ interface OutlookConfigurationProps {
 }
 
 export function OutlookConfiguration(props: OutlookConfigurationProps) {
-  // Microsoft Outlook currently uses the generic configuration
+  // Microsoft Outlook uses the generic configuration
   // This wrapper allows for future Outlook-specific customizations
   return <GenericConfiguration {...props} />;
 }

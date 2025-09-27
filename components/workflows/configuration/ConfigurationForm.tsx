@@ -880,8 +880,10 @@ function ConfigurationForm({
     }
   };
 
-  // Show loading screen during initial load
-  if (isInitialLoading || isLoadingDynamicOptions) {
+  // Show loading screen during initial load only when there are dynamic fields to fetch
+  const hasDynamicFields = Array.isArray(nodeInfo?.configSchema) && nodeInfo.configSchema.some((field: any) => field?.dynamic);
+
+  if ((isInitialLoading || isLoadingDynamicOptions) && hasDynamicFields) {
     return (
       <ConfigurationLoadingScreen 
         integrationName={integrationName}
@@ -1077,3 +1079,5 @@ function ConfigurationForm({
 }
 
 export default ConfigurationForm;
+
+
