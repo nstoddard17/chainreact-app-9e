@@ -53,8 +53,29 @@ export function validateGoogleIntegration(integration: any): void {
     throw new Error('Google authentication required. Please reconnect your account.')
   }
   
-  if (!integration.provider?.startsWith('google')) {
-    throw new Error('Invalid integration provider. Expected Google.')
+  // Accept various Google-related providers since they all use Google OAuth
+  const validProviders = [
+    'google',
+    'google-calendar',
+    'google-drive',
+    'google-sheets',
+    'google-docs',
+    'google_calendar', // underscore variant
+    'gmail', // Gmail uses Google OAuth
+    'youtube' // YouTube uses Google OAuth
+  ];
+
+  const isValidProvider = validProviders.some(provider =>
+    integration.provider?.toLowerCase() === provider.toLowerCase() ||
+    integration.provider?.toLowerCase().startsWith(provider.toLowerCase())
+  );
+
+  if (!isValidProvider) {
+    console.error('validateGoogleIntegration: Invalid provider', {
+      actualProvider: integration.provider,
+      validProviders
+    });
+    throw new Error(`Invalid integration provider. Expected Google-related provider but got: ${integration.provider}`)
   }
   
   // Note: We're lenient about status since we have a valid access token

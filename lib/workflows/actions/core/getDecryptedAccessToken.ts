@@ -15,33 +15,63 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    
+
     console.log(`🔍 Looking for integration: userId="${userId}", provider="${provider}"`)
-    
+
+    // Map provider variations to database values
+    // Google services can have different provider names but use the same OAuth integration
+    const providerMapping: Record<string, string[]> = {
+      'google': ['google', 'google-calendar', 'google-drive', 'google-sheets', 'google-docs', 'google_calendar', 'gmail', 'youtube'],
+      'google-calendar': ['google', 'google-calendar', 'google_calendar', 'gmail'], // Google Calendar can use Google or Gmail OAuth
+      'google-drive': ['google', 'google-drive', 'google_drive'],
+      'google-sheets': ['google', 'google-sheets', 'google_sheets'],
+      'google-docs': ['google', 'google-docs', 'google_docs'],
+      'gmail': ['gmail', 'google'],
+      'microsoft-outlook': ['microsoft-outlook', 'outlook'],
+      'microsoft-teams': ['microsoft-teams', 'teams'],
+      'microsoft-onenote': ['microsoft-onenote', 'onenote']
+    };
+
+    // Get possible provider values for this provider
+    const possibleProviders = providerMapping[provider] || [provider];
+
+    console.log(`🔍 Searching for integration with providers: ${possibleProviders.join(', ')}`);
+
     // First, let's see what integrations exist for this user
     const { data: allUserIntegrations, error: allError } = await supabase
       .from("integrations")
       .select("id, provider, status")
       .eq("user_id", userId)
-    
+
     console.log(`📋 All integrations for user ${userId}:`, allUserIntegrations)
-    
-    // Get the user's integration
-    const { data: integration, error } = await supabase
+
+    // Get the user's integration - try all possible provider values
+    const { data: integrations, error } = await supabase
       .from("integrations")
       .select("*")
       .eq("user_id", userId)
-      .eq("provider", provider)
-      .single()
+      .in("provider", possibleProviders)
 
     if (error) {
       console.error(`Database error fetching integration for ${provider}:`, error)
       throw new Error(`Database error: ${error.message}`)
     }
 
+    // Take the first valid integration (prefer connected/active status)
+    const integration = integrations?.sort((a, b) => {
+      // Prioritize connected/active integrations
+      if (a.status === 'connected' || a.status === 'active') return -1;
+      if (b.status === 'connected' || b.status === 'active') return 1;
+      return 0;
+    })?.[0];
+
     if (!integration) {
-      throw new Error(`No integration found for ${provider}`)
+      console.error(`No integration found. Searched providers: ${possibleProviders.join(', ')}`)
+      console.error(`Available integrations for user:`, allUserIntegrations)
+      throw new Error(`No integration found for ${provider}. Available integrations: ${allUserIntegrations?.map(i => i.provider).join(', ') || 'none'}`)
     }
+
+    console.log(`✅ Found integration for ${provider} with actual provider: ${integration.provider}`)
 
     // Check if token needs refresh
     const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {

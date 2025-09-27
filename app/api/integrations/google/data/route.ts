@@ -49,14 +49,47 @@ export async function POST(req: NextRequest) {
       }, { status: 404 })
     }
 
+    // Log the actual provider for debugging
+    console.log('📊 [Google API] Integration provider check:', {
+      integrationId,
+      actualProvider: integration.provider,
+      dataType,
+      providerLowerCase: integration.provider?.toLowerCase()
+    });
+
     // Validate that this is a Google integration
-    if (!integration.provider?.startsWith('google')) {
+    // Accept any integration for Google services since they share OAuth
+    const validProviders = [
+      'google',
+      'google-calendar',
+      'google-drive',
+      'google-sheets',
+      'google-docs',
+      'google_calendar',
+      'gmail',  // Gmail uses same Google OAuth
+      'youtube' // YouTube might also use Google OAuth
+    ];
+
+    // Also check if it's a unified Google integration by checking scopes
+    const hasGoogleScopes = integration.scopes?.some((scope: string) =>
+      scope.includes('googleapis.com') || scope.includes('google.com')
+    );
+
+    const isValidProvider = validProviders.some(prefix =>
+      integration.provider?.toLowerCase().startsWith(prefix.toLowerCase())
+    ) || hasGoogleScopes;
+
+    if (!isValidProvider) {
       console.error('❌ [Google API] Invalid provider:', {
         integrationId,
-        provider: integration.provider
+        provider: integration.provider,
+        scopes: integration.scopes,
+        validProviders,
+        hasGoogleScopes
       })
       return NextResponse.json({
-        error: 'Invalid integration provider. Expected Google.'
+        error: `Invalid integration provider. Expected Google-related provider but got: ${integration.provider}`,
+        actualProvider: integration.provider
       }, { status: 400 })
     }
 
