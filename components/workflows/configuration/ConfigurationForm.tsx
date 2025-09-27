@@ -39,7 +39,6 @@ import { GitHubConfiguration } from './providers/GitHubConfiguration';
 import { PayPalConfiguration } from './providers/PayPalConfiguration';
 import { TikTokConfiguration } from './providers/TikTokConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
-import { GmailFetchConfiguration } from './providers/gmail/GmailFetchConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
 
@@ -946,10 +945,8 @@ function ConfigurationForm({
     return <IfThenConfiguration {...commonProps} />;
   }
 
-  if (provider === 'gmail' && nodeInfo?.type === 'gmail_action_search_email') {
-    console.log('📧 [ConfigForm] Routing to Gmail Fetch configuration');
-    return <GmailFetchConfiguration {...commonProps} />;
-  }
+  // Gmail search email now uses GenericConfiguration like other actions
+  // (removed special GmailFetchConfiguration with tabs since there are no advanced fields)
 
   switch (provider) {
     // Communication

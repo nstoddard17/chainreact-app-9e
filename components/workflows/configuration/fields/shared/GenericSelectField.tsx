@@ -453,8 +453,8 @@ export function GenericSelectField({
         onChange={onChange}
         options={processedOptions}
         placeholder={placeholderText}
-        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available or type {{variable}}"}
-        searchPlaceholder="Search options or enter {{variable}}..."
+        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
+        searchPlaceholder="Search options..."
         disabled={false}
         creatable={true} // Always allow custom input for variables
         onOpenChange={handleFieldOpen}
@@ -492,8 +492,8 @@ export function GenericSelectField({
           }}
           options={processedOptions}
           placeholder={placeholderText}
-          searchPlaceholder="Search options or enter {{variable}}..."
-          emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found or type {{variable}}"}
+          searchPlaceholder="Search options..."
+          emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
           disabled={false}
           creatable={true} // Always allow custom input for variables
           onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
@@ -523,7 +523,7 @@ export function GenericSelectField({
         }}
         options={processedOptions}
         placeholder={placeholderText}
-        searchPlaceholder="Search options or enter {{variable}}..."
+        searchPlaceholder="Search options..."
         emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
         disabled={false}
         creatable={true} // Always allow custom input for variables
