@@ -16,7 +16,12 @@ const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 const recentlyProcessedEvents = new Map<string, number>()
 const EVENT_DEDUPE_WINDOW = 60000 // 60 seconds
 
+let workerCallCount = 0
+
 export async function POST(_req: NextRequest) {
+  workerCallCount++
+  console.log(`\n🏃 Worker called (call #${workerCallCount})`)
+
   // Simple pull worker: process oldest pending items
   const { data: rows } = await supabase
     .from('microsoft_webhook_queue')
@@ -102,8 +107,8 @@ export async function POST(_req: NextRequest) {
 
         // Emit workflow triggers for each event
         for (const event of events) {
-          // Deduplicate events
-          const eventKey = `${event.id}-${event.type}-${event.action}`
+          // Deduplicate events - use more fields for uniqueness
+          const eventKey = `${event.id}-${event.type}-${event.action}-${event.name || ''}`
           const now = Date.now()
 
           // Clean old entries
@@ -115,7 +120,7 @@ export async function POST(_req: NextRequest) {
 
           // Skip if recently processed
           if (recentlyProcessedEvents.has(eventKey)) {
-            console.log(`⏭️ Skipping duplicate event: ${eventKey.substring(0, 40)}...`)
+            console.log(`⏭️ Skipping duplicate event: ${event.id} (${event.type}/${event.action})`)
             continue
           }
           recentlyProcessedEvents.set(eventKey, now)
@@ -342,8 +347,48 @@ async function storeNormalizedEvents(events: any[], userId: string): Promise<voi
   await supabase.from('microsoft_graph_events').insert(eventsToInsert)
 }
 
+// Track recently executed workflows to prevent duplicates
+const recentWorkflowExecutions = new Map<string, number>()
+
 async function emitWorkflowTrigger(event: any, userId: string, accessToken?: string): Promise<void> {
-  console.log('🎯 emitWorkflowTrigger called with userId:', userId)
+  // Deduplicate at the workflow trigger level
+  const triggerKey = `${userId}-${event.id}-${event.type}-${event.action}`
+  const now = Date.now()
+
+  console.log('🔑 Workflow trigger key:', {
+    key: triggerKey,
+    eventId: event.id,
+    type: event.type,
+    action: event.action,
+    name: event.name,
+    timestamp: now
+  })
+
+  // Check if we've recently processed this exact trigger
+  if (recentWorkflowExecutions.has(triggerKey)) {
+    const lastRun = recentWorkflowExecutions.get(triggerKey)!
+    const timeSince = now - lastRun
+    console.log(`⚠️ Duplicate trigger detected:`, {
+      triggerKey,
+      lastRun,
+      timeSince,
+      willSkip: timeSince < 30000
+    })
+    if (timeSince < 30000) { // 30 second window
+      console.log(`⏭️ SKIPPING duplicate workflow trigger (${timeSince}ms since last run)`)
+      return
+    }
+  }
+  recentWorkflowExecutions.set(triggerKey, now)
+
+  // Clean old entries
+  for (const [key, timestamp] of recentWorkflowExecutions.entries()) {
+    if (now - timestamp > 60000) {
+      recentWorkflowExecutions.delete(key)
+    }
+  }
+
+  console.log('✅ Proceeding with workflow trigger (not a duplicate)')
 
   // First, check if user has any workflows at all
   const { data: allWorkflows, error: allError } = await supabase
@@ -522,6 +567,14 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         if (nodeType === 'onedrive_trigger_new_file' ||
             nodeType === 'onedrive_trigger_file_modified') {
           console.log('✅ Found matching OneDrive trigger node:', nodeType)
+          // Only trigger for actual file changes, not folder updates
+          const isFileEvent = event.action === 'file_created' ||
+                             event.action === 'file_updated' ||
+                             event.action === 'deleted'
+          if (event.type === 'onedrive_item' && !isFileEvent) {
+            console.log('⏭️ Skipping folder update event for file trigger')
+            return false
+          }
           return event.type === 'onedrive_item'
         }
         return false
