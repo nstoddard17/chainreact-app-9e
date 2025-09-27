@@ -7,12 +7,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from "@supabase/supabase-js"
 import { dropboxHandlers } from './handlers'
 import { DropboxIntegration } from './types'
+import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: NextRequest) {
+  let integration: any = null
+
   try {
     const { integrationId, dataType, options = {} } = await req.json()
 
@@ -24,19 +27,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch integration from database
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integrationRecord, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
       .eq('provider', 'dropbox')
       .single()
 
-    if (integrationError || !integration) {
+    if (integrationError || !integrationRecord) {
       console.error('❌ [Dropbox API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Dropbox integration not found'
       }, { status: 404 })
     }
+
+    integration = integrationRecord
 
     // Validate integration status
     if (integration.status !== 'connected') {
@@ -91,6 +96,14 @@ export async function POST(req: NextRequest) {
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+      if (integration?.id && integration?.user_id) {
+        await flagIntegrationWorkflows({
+          integrationId: integration.id,
+          provider: 'dropbox',
+          userId: integration.user_id,
+          reason: error.message,
+        })
+      }
       return NextResponse.json({
         error: error.message,
         needsReconnection: true

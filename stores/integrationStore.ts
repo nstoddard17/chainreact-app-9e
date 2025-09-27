@@ -600,6 +600,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               return { integrations: updatedIntegrations }
             })
 
+            void IntegrationService.clearIntegrationReconnect(integrationId)
+
             setLoading(`reconnect-${integrationId}`, false)
             emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
 
