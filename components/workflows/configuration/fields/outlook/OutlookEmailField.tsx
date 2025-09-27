@@ -27,10 +27,26 @@ export function OutlookEmailField({
   isLoading,
   onDynamicLoad,
 }: OutlookEmailFieldProps) {
+  const hasRequestedOptionsRef = React.useRef(false);
+
+  const suggestionCount = Array.isArray(suggestions) ? suggestions.length : 0;
+  const normalizedSuggestions = Array.isArray(suggestions) ? suggestions : [];
+
+  React.useEffect(() => {
+    if (hasRequestedOptionsRef.current) {
+      return;
+    }
+
+    if (field.dynamic && suggestionCount === 0 && onDynamicLoad && !isLoading) {
+      hasRequestedOptionsRef.current = true;
+      onDynamicLoad(field.name);
+    }
+  }, [field.dynamic, field.name, onDynamicLoad, isLoading, suggestionCount]);
   
+
   // Outlook-specific loading behavior
   const handleEmailFieldFocus = () => {
-    if (field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
+    if (field.dynamic && suggestionCount === 0 && onDynamicLoad && !isLoading) {
       onDynamicLoad(field.name);
     }
   };
@@ -60,6 +76,7 @@ export function OutlookEmailField({
         return aName.localeCompare(bName);
       });
   };
+
   // Outlook-specific error handling
   const handleOutlookError = (error: string) => {
     if (error.includes('permission') || error.includes('403')) {
@@ -74,7 +91,7 @@ export function OutlookEmailField({
     return error;
   };
 
-  const processedSuggestions = processOutlookOptions(suggestions);
+  const processedSuggestions = processOutlookOptions(normalizedSuggestions);
   const processedError = error ? handleOutlookError(error) : undefined;
 
   return (
@@ -85,9 +102,9 @@ export function OutlookEmailField({
       suggestions={processedSuggestions}
       multiple={true}
       isLoading={isLoading}
-      disabled={isLoading}
+      disabled={false}
       onFocus={handleEmailFieldFocus}
-      onDemandLoading={true}
+      onDemandLoading={false}
       error={processedError}
       className={cn(
         error && "border-red-500"

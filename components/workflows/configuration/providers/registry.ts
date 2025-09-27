@@ -15,6 +15,7 @@ import { GoogleDriveOptionsLoader } from './google-drive/GoogleDriveOptionsLoade
 import { GoogleSheetsOptionsLoader } from './google-sheets/GoogleSheetsOptionsLoader';
 import { DropboxOptionsLoader } from './dropbox/dropboxOptionsLoader';
 import { outlookOptionsLoader } from './microsoft-outlook/OutlookOptionsLoader';
+import { TeamsOptionsLoader } from './teams/TeamsOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -59,6 +60,10 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Microsoft Outlook loader
     this.register('microsoft-outlook', outlookOptionsLoader);
+
+    // Register Microsoft Teams loader
+    this.register('teams', new TeamsOptionsLoader());
+    this.register('microsoft-teams', new TeamsOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

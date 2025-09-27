@@ -75,6 +75,7 @@ export const googleCalendarNodes: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
     category: "Productivity",
     configSchema: [
+      // Calendar Section
       {
         name: "calendarId",
         label: "Calendar",
@@ -83,62 +84,87 @@ export const googleCalendarNodes: NodeComponent[] = [
         loadOnMount: true,
         required: true,
       },
-      { 
-        name: "title", 
-        label: "Event Title", 
-        type: "text", 
-        placeholder: "Add title", 
-        required: true 
-      },
-      { 
-        name: "allDay", 
-        label: "All Day", 
-        type: "boolean",
-        defaultValue: false
+
+      // General Section
+      {
+        name: "title",
+        label: "Event Title",
+        type: "text",
+        placeholder: "Add title",
+        required: true
       },
       {
-        name: "startDate",
-        label: "Start Date",
-        type: "date",
-        required: true,
-        defaultValue: "today"
+        name: "description",
+        label: "Add description",
+        type: "textarea",
+        placeholder: "Add description"
       },
+
+      // Simple Date/Time Fields
+      { name: "eventDate", label: "Date", type: "select", required: true, defaultValue: "today", options: [
+        { value: "today", label: "Today" },
+        { value: "tomorrow", label: "Tomorrow" },
+        { value: "in_3_days", label: "In 3 days" },
+        { value: "in_1_week", label: "In 1 week" },
+        { value: "in_2_weeks", label: "In 2 weeks" },
+        { value: "custom_days", label: "In X days..." },
+        { value: "next_weekday", label: "Next specific weekday..." },
+        { value: "specific", label: "Pick a specific date..." }
+      ]},
+      { name: "customDays", label: "Number of days from now", type: "number", required: false, conditional: { field: "eventDate", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
+      { name: "nextWeekday", label: "Select weekday", type: "select", required: false, conditional: { field: "eventDate", value: "next_weekday" }, options: [
+        { value: "monday", label: "Next Monday" },
+        { value: "tuesday", label: "Next Tuesday" },
+        { value: "wednesday", label: "Next Wednesday" },
+        { value: "thursday", label: "Next Thursday" },
+        { value: "friday", label: "Next Friday" },
+        { value: "saturday", label: "Next Saturday" },
+        { value: "sunday", label: "Next Sunday" }
+      ]},
+      { name: "specificDate", label: "Specific Date", type: "date", required: false, conditional: { field: "eventDate", value: "specific" } },
+
+      { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
+        { value: "current", label: "Current Time" },
+        { value: "08:00", label: "8:00 AM" },
+        { value: "09:00", label: "9:00 AM" },
+        { value: "10:00", label: "10:00 AM" },
+        { value: "11:00", label: "11:00 AM" },
+        { value: "12:00", label: "12:00 PM" },
+        { value: "13:00", label: "1:00 PM" },
+        { value: "14:00", label: "2:00 PM" },
+        { value: "15:00", label: "3:00 PM" },
+        { value: "16:00", label: "4:00 PM" },
+        { value: "17:00", label: "5:00 PM" },
+        { value: "18:00", label: "6:00 PM" },
+        { value: "19:00", label: "7:00 PM" },
+        { value: "20:00", label: "8:00 PM" },
+        { value: "custom", label: "Custom time..." }
+      ]},
+      { name: "customTime", label: "Custom Time", type: "time", required: false, conditional: { field: "eventTime", value: "custom" } },
+
+      { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
+        { value: "allday", label: "All Day" },
+        { value: "30", label: "30 minutes" },
+        { value: "60", label: "1 hour" },
+        { value: "90", label: "1.5 hours" },
+        { value: "120", label: "2 hours" },
+        { value: "180", label: "3 hours" },
+        { value: "240", label: "4 hours" },
+        { value: "480", label: "All Day (8 hours)" },
+        { value: "custom", label: "Custom end time..." }
+      ]},
+      { name: "customEndDate", label: "End Date", type: "date", required: false, conditional: { field: "duration", value: "custom" } },
+      { name: "customEndTime", label: "End Time", type: "time", required: false, conditional: { field: "duration", value: "custom" } },
+
+      // Time Zone
       {
-        name: "startTime",
-        label: "Start Time",
-        type: "time",
-        required: true,
-        defaultValue: "next-hour",
-        conditionalVisibility: {
-          field: "allDay",
-          value: false
-        }
-      },
-      {
-        name: "endDate",
-        label: "End Date",
-        type: "date",
-        required: true,
-        defaultValue: "same-as-start"
-      },
-      {
-        name: "endTime",
-        label: "End Time",
-        type: "time",
-        required: true,
-        defaultValue: "1-hour-after-start",
-        conditionalVisibility: {
-          field: "allDay",
-          value: false
-        }
-      },
-      { 
-        name: "timeZone", 
-        label: "Time Zone", 
+        name: "timeZone",
+        label: "Time Zone",
         type: "select",
-        defaultValue: "Local Time Zone",
+        defaultValue: "user-timezone",
+        required: false,
         options: [
-          { value: "Local Time Zone", label: "Local Time Zone" },
+          { value: "user-timezone", label: "Your timezone (auto-detected)" },
           { value: "America/New_York", label: "Eastern Time (ET)" },
           { value: "America/Chicago", label: "Central Time (CT)" },
           { value: "America/Denver", label: "Mountain Time (MT)" },
@@ -156,26 +182,23 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "Asia/Kolkata", label: "Mumbai (IST)" },
           { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
           { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
-        ]
+        ],
+        description: "Your timezone will be automatically detected and set as the default"
       },
-      { 
-        name: "attendees", 
-        label: "Add guests", 
-        type: "text", 
+
+      // Other Fields
+      {
+        name: "attendees",
+        label: "Add guests",
+        type: "text",
         dynamic: "gmail-recent-recipients",
         placeholder: "Type email addresses separated by commas"
       },
-      { 
-        name: "location", 
-        label: "Add location", 
-        type: "location-autocomplete", 
-        placeholder: "Enter location or address" 
-      },
-      { 
-        name: "description", 
-        label: "Add description", 
-        type: "textarea", 
-        placeholder: "Add description" 
+      {
+        name: "location",
+        label: "Add location",
+        type: "location-autocomplete",
+        placeholder: "Enter location or address"
       },
       { 
         name: "createMeetLink", 
