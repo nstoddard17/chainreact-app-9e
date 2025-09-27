@@ -117,6 +117,16 @@ export async function POST(
 
     // Transform payload for the workflow
     const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
+
+    if (!transformedPayload) {
+      console.log(`${logPrefix} Ignoring webhook payload after transformation (empty payload)`)
+      return {
+        workflowId: workflow.id,
+        sessionId: null,
+        success: true,
+        executionTime: Date.now() - startTime
+      }
+    }
     
     // Create execution session
     const executionEngine = new AdvancedExecutionEngine()
@@ -160,6 +170,9 @@ async function transformPayloadForWorkflow(provider: string, payload: any, trigg
   // Transform the external payload to match what the workflow expects
   // Get provider-specific transformations
   const providerTransformation = await getProviderSpecificTransformation(provider, payload)
+  if (providerTransformation == null) {
+    return null
+  }
   
   const baseTransformation = {
     provider,
@@ -187,12 +200,30 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
       }
     
     case 'slack':
-      return {
-        message: {
-          text: payload.text,
-          channel: payload.channel,
-          user: payload.user,
-          timestamp: payload.ts
+      {
+        const event = payload?.event ?? payload
+        if (!event) {
+          return null
+        }
+
+        const subtype = event.subtype ?? payload?.subtype
+        if (subtype === 'message_deleted') {
+          console.log('🧹 [Slack Workflow Webhook] Ignoring message_deleted event', {
+            channel: event.channel ?? payload?.channel,
+            ts: event.deleted_ts || event.ts || payload?.ts
+          })
+          return null
+        }
+
+        return {
+          message: {
+            text: event.text ?? payload?.text,
+            channel: event.channel ?? payload?.channel,
+            user: event.user ?? payload?.user,
+            timestamp: event.ts ?? payload?.ts,
+            threadTs: event.thread_ts ?? payload?.thread_ts,
+            team: event.team ?? payload?.team ?? payload?.team_id
+          }
         }
       }
     

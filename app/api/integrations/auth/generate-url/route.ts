@@ -282,6 +282,8 @@ function generateSlackAuthUrl(state: string): string {
   if (!clientId) throw new Error("Slack client ID not configured")
   
   const baseUrl = getBaseUrl()
+  const devWebhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
+  const redirectBase = devWebhookUrl || baseUrl
 
   // Using Slack's recommended scopes from their shareable link
   // This includes both bot scopes AND user scopes as configured in the Slack app
@@ -291,7 +293,7 @@ function generateSlackAuthUrl(state: string): string {
     scope: "channels:join,channels:read,chat:write,chat:write.public,files:write,groups:read,im:read,reactions:write,team:read,users:read",
     // User scopes for user-level actions
     user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read",
-    redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
+    redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })
 
@@ -306,6 +308,9 @@ function generateSlackAuthUrl(state: string): string {
   console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
   console.log(`🔑 Using Client ID: ${clientId}`)
   console.log(`📍 Using base URL: ${baseUrl}`)
+  if (devWebhookUrl) {
+    console.log(`🌐 Using development webhook HTTPS URL for Slack redirect: ${redirectBase}`)
+  }
   console.log(`📋 Using both bot scopes and user scopes as configured in Slack app`)
   
   return authUrl

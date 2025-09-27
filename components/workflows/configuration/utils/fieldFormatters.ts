@@ -274,6 +274,20 @@ function formatGoogleCalendarEventField(data: any[]): FormattedOption[] {
 }
 
 /**
+ * Format Slack emoji field
+ */
+function formatSlackEmojiField(data: any[]): FormattedOption[] {
+  return data.map((item: any) => ({
+    value: item.value || item.name,
+    label: item.label || `:${item.name}:`,
+    name: item.name,
+    url: item.url,
+    isCustom: Boolean(item.isCustom),
+    isAlias: Boolean(item.isAlias),
+  }))
+}
+
+/**
  * Field formatter mapping
  */
 const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
@@ -325,6 +339,7 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   // Google Drive fields
   folderId: formatFolderField,
   parentFolderId: formatFolderField,
+  emoji: formatSlackEmojiField,
 };
 
 /**
