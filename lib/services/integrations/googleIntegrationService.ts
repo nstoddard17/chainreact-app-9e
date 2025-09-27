@@ -186,7 +186,7 @@ export class GoogleIntegrationService {
     switch (nodeType) {
       case "calendar_create_event":
       case "google_calendar_action_create_event":
-        const { createGoogleCalendarEvent } = await import('@/lib/workflows/actions/googleCalendar/createEvent')
+        const { createGoogleCalendarEvent } = await import('@/lib/workflows/actions/google-calendar/createEvent')
         return await createGoogleCalendarEvent(config, context.userId, context.data || {})
         
       case "calendar_update_event":
