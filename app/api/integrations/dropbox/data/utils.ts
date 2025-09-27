@@ -3,6 +3,7 @@
  */
 
 import { DropboxApiError } from './types'
+import { safeDecrypt } from '@/lib/security/encryption'
 
 /**
  * Create Dropbox API error with proper context
@@ -119,11 +120,18 @@ export async function validateDropboxToken(integration: any): Promise<{ success:
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper token validation against Dropbox API if needed
+    const decryptedToken = safeDecrypt(integration.access_token)
+
+    if (!decryptedToken) {
+      return {
+        success: false,
+        error: 'Dropbox authentication required. Please reconnect your account.'
+      }
+    }
+
     return {
       success: true,
-      token: integration.access_token
+      token: decryptedToken
     }
   } catch (error: any) {
     return {

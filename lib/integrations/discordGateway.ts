@@ -508,48 +508,24 @@ class DiscordGateway extends SimpleEventEmitter {
     try {
       // Get the base URL for internal API calls
       let baseUrl: string
+      const isProd = process.env.NODE_ENV === 'production'
+      const configured = process.env.NEXT_PUBLIC_APP_URL
 
-      // Check for explicitly configured URL first
-      if (process.env.NEXT_PUBLIC_APP_URL) {
-        baseUrl = process.env.NEXT_PUBLIC_APP_URL
-        console.log(`📍 Using configured URL: ${baseUrl}`)
-      } else if (process.env.NODE_ENV === 'production') {
-        // In production, use deployment URL
-        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
-                  process.env.RENDER_EXTERNAL_URL ||
-                  'https://chainreact.app' // Your production domain
+      if (!isProd) {
+        // In development: prefer explicit webhook URL, then NGROK/Tunnel, else localhost
+        const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL
+        const ngrokUrl = process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
+        baseUrl = webhookUrl || ngrokUrl || 'http://localhost:3000'
+        console.log(`📍 Using development URL: ${baseUrl}${webhookUrl ? ' (NEXT_PUBLIC_WEBHOOK_HTTPS_URL)' : ngrokUrl ? ' (ngrok/tunnel)' : ''}`)
       } else {
-        // In development, check for NEXT_PUBLIC_APP_URL first
-        baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-
-        if (!baseUrl) {
-          // Try to detect the port dynamically in development
-          const ports = ['3001', '3000', '3002', '3003']
-
-          for (const port of ports) {
-            const testUrl = `http://localhost:${port}`
-            try {
-              // Quick health check to see if server is running on this port
-              const testResponse = await fetch(`${testUrl}/api/workflow/discord`, {
-                method: 'HEAD',
-                signal: AbortSignal.timeout(500) // 500ms timeout
-              }).catch(() => null)
-
-              if (testResponse) {
-                baseUrl = testUrl
-                console.log(`✅ Discord Gateway found Next.js server at port ${port}`)
-                break
-              }
-            } catch {
-              // Try next port
-            }
-          }
-
-          // Default fallback for development
-          if (!baseUrl) {
-            baseUrl = 'http://localhost:3000'
-            console.warn('⚠️ Discord Gateway using default port 3000 - may not be correct')
-          }
+        // Production
+        if (configured) {
+          baseUrl = configured
+          console.log(`📍 Using configured URL: ${baseUrl}`)
+        } else {
+          baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
+                    process.env.RENDER_EXTERNAL_URL ||
+                    'https://chainreact.app'
         }
       }
 

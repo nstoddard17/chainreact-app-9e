@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import { processWebhookEvent } from '@/lib/webhooks/processor'
+import { handleDropboxWebhookEvent } from '@/lib/webhooks/dropboxTriggerHandler'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
 export async function POST(
@@ -23,7 +23,8 @@ export async function POST(
     })
 
     // Verify webhook signature based on provider
-    const isValid = await verifyWebhookSignature(request, provider)
+    const requestForVerification = request.clone()
+    const isValid = await verifyWebhookSignature(requestForVerification, provider)
     if (!isValid) {
       console.error(`[${requestId}] Invalid ${provider} webhook signature`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -48,6 +49,38 @@ export async function POST(
       eventData: eventData,
       timestamp: new Date().toISOString()
     })
+
+    // Process Dropbox directly through trigger handler
+    if (provider === 'dropbox') {
+      const dropboxResults = await handleDropboxWebhookEvent(
+        eventData,
+        Object.fromEntries(request.headers.entries()),
+        requestId
+      )
+
+      const processingTime = Date.now() - startTime
+
+      await logWebhookEvent({
+        provider,
+        requestId,
+        status: 'success',
+        processingTime,
+        result: {
+          workflowsTriggered: dropboxResults.length,
+          results: dropboxResults
+        },
+        timestamp: new Date().toISOString()
+      })
+
+      return NextResponse.json({
+        success: true,
+        provider,
+        requestId,
+        processingTime,
+        workflowsTriggered: dropboxResults.length,
+        results: dropboxResults
+      })
+    }
 
     // Process the event based on provider
     const result = await processWebhookEvent({

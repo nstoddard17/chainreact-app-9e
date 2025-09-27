@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
+import { clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
-    const { error: upsertError } = await supabase.from('integrations').upsert({
+    const { data: upsertedIntegration, error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
       access_token: encrypt(tokenData.access_token, encryptionKey),
@@ -147,11 +148,19 @@ export async function GET(request: NextRequest) {
       }
     }, {
       onConflict: 'user_id, provider',
-    })
+    }).select('id').single()
 
     if (upsertError) {
       console.error('Failed to save Dropbox integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
+    }
+
+    if (upsertedIntegration) {
+      await clearIntegrationWorkflowFlags({
+        integrationId: upsertedIntegration.id,
+        provider,
+        userId,
+      })
     }
 
     return createPopupResponse('success', provider, 'Dropbox connected successfully!', baseUrl)

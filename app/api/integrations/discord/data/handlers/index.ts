@@ -14,6 +14,7 @@ import { getDiscordReactions } from './reactions'
 import { getDiscordBannedUsers } from './banned-users'
 import { getDiscordUsers } from './users'
 import { getDiscordInvites } from './invites'
+import { getDiscordCommands } from './slash-commands'
 
 export const discordHandlers: Record<string, DiscordDataHandler> = {
   discord_guilds: getDiscordGuilds,
@@ -27,6 +28,7 @@ export const discordHandlers: Record<string, DiscordDataHandler> = {
   discord_banned_users: getDiscordBannedUsers,
   discord_users: getDiscordUsers,
   discord_invites: getDiscordInvites,
+  discord_commands: getDiscordCommands,
 }
 
 export {
@@ -41,4 +43,5 @@ export {
   getDiscordBannedUsers,
   getDiscordUsers,
   getDiscordInvites,
+  getDiscordCommands,
 }

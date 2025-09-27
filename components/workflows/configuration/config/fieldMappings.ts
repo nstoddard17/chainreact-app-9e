@@ -305,6 +305,9 @@ const dropboxMappings: Record<string, FieldMapping> = {
   dropbox_action_upload_file: {
     path: "dropbox-folders",
   },
+  dropbox_trigger_new_file: {
+    path: "dropbox-folders",
+  },
 };
 
 // Microsoft Outlook field mappings
@@ -439,6 +442,9 @@ const onenoteMappings: Record<string, FieldMapping> = {
 // OneDrive field mappings
 const onedriveMappings: Record<string, FieldMapping> = {
   "onedrive_action_upload_file": {
+    folderId: "onedrive-folders",
+  },
+  "onedrive_trigger_new_file": {
     folderId: "onedrive-folders",
   },
 };

@@ -116,19 +116,23 @@ export async function POST(req: NextRequest) {
     })
 
     // Handle authentication errors
-    if (error.message?.includes('authentication') || error.message?.includes('expired')) {
+    if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('expired')) {
       return NextResponse.json({
         error: error.message,
         needsReconnection: true
       }, { status: 401 })
     }
 
-    // Handle rate limit errors
-    if (error.message?.includes('rate limit')) {
+    // Handle rate limit errors gracefully for UI dropdowns
+    if (error.status === 429 || error.message?.includes('rate limit')) {
+      // Return empty data with success=true to avoid surfacing an error toast in UI
+      // The client can re-issue later; our handlers already cache GETs for 10 minutes
       return NextResponse.json({
-        error: 'Discord API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+        success: true,
+        data: [],
+        rateLimited: true,
+        message: 'Rate limited by Discord. Showing no results temporarily.'
+      })
     }
 
     return NextResponse.json({

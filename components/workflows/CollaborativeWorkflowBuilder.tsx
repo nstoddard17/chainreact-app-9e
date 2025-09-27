@@ -3515,7 +3515,7 @@ const useWorkflowBuilderState = () => {
     }
 
     try {
-      // Activation guard: require Discord trigger to have server + channel configured
+      // Activation guard: Discord new message requires server + channel; slash command requires server only
       const rfNodes = getNodes()
       const discordTrigger = rfNodes.find((n: any) => n?.data?.type === 'discord_trigger_new_message' || n?.data?.type === 'discord_trigger_slash_command')
       if (discordTrigger) {
@@ -3529,10 +3529,14 @@ const useWorkflowBuilderState = () => {
             channelId = channelId || savedNodeData?.config?.channelId
           } catch {}
         }
-        if (!guildId || !channelId) {
+        const isSlash = discordTrigger.data?.type === 'discord_trigger_slash_command'
+        const needsChannel = !isSlash
+        if (!guildId || (needsChannel && !channelId)) {
           toast({
             title: "Discord trigger needs setup",
-            description: "Select a Discord server and channel in the trigger before activating.",
+            description: needsChannel
+              ? "Select a Discord server and channel in the trigger before activating."
+              : "Select a Discord server in the trigger before activating.",
             variant: "destructive",
           })
           return
@@ -5630,11 +5634,15 @@ function WorkflowBuilderContent() {
       // Trigger-specific configuration guards
       if (trigger) {
         const t = trigger.data?.type
-        if (t === 'discord_trigger_new_message' || t === 'discord_trigger_slash_command') {
+        if (t === 'discord_trigger_new_message') {
           const g = trigger.data?.config?.guildId
           const c = trigger.data?.config?.channelId
           results.push({ name: 'Discord server selected', ok: !!g })
           results.push({ name: 'Discord channel selected', ok: !!c })
+        }
+        if (t === 'discord_trigger_slash_command') {
+          const g = trigger.data?.config?.guildId
+          results.push({ name: 'Discord server selected', ok: !!g })
         }
         if (t === 'webhook') {
           const p = trigger.data?.config?.path
