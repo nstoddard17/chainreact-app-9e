@@ -12,6 +12,10 @@ const supabase = createClient(
 
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
+// Track processed events to prevent duplicate processing
+const recentlyProcessedEvents = new Map<string, number>()
+const EVENT_DEDUPE_WINDOW = 60000 // 60 seconds
+
 export async function POST(_req: NextRequest) {
   // Simple pull worker: process oldest pending items
   const { data: rows } = await supabase
@@ -98,6 +102,24 @@ export async function POST(_req: NextRequest) {
 
         // Emit workflow triggers for each event
         for (const event of events) {
+          // Deduplicate events
+          const eventKey = `${event.id}-${event.type}-${event.action}`
+          const now = Date.now()
+
+          // Clean old entries
+          for (const [key, timestamp] of recentlyProcessedEvents.entries()) {
+            if (now - timestamp > EVENT_DEDUPE_WINDOW) {
+              recentlyProcessedEvents.delete(key)
+            }
+          }
+
+          // Skip if recently processed
+          if (recentlyProcessedEvents.has(eventKey)) {
+            console.log(`⏭️ Skipping duplicate event: ${eventKey.substring(0, 40)}...`)
+            continue
+          }
+          recentlyProcessedEvents.set(eventKey, now)
+
           console.log('🎯 Emitting workflow trigger for event:', {
             type: event.type,
             action: event.action,
@@ -327,7 +349,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   const { data: allWorkflows, error: allError } = await supabase
     .from('workflows')
     .select('id, name, status, user_id')
-    .or(`user_id.eq.${userId},team_id.in.(select team_id from team_members where user_id='${userId}')`)
+    .eq('user_id', userId)
 
   if (allError) {
     console.error('❌ Error querying workflows:', allError)
@@ -348,7 +370,9 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
   const onedriveWorkflows = allDbWorkflows?.filter(w => {
     try {
-      const nodes = JSON.parse(w.nodes || '[]')
+      const nodes = typeof w.nodes === 'string'
+        ? JSON.parse(w.nodes || '[]')
+        : w.nodes || []
       return nodes.some((n: any) =>
         n?.data?.type?.includes('onedrive') ||
         n?.data?.providerId === 'onedrive'
@@ -378,7 +402,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     .from('workflows')
     .select('id, nodes, name, status, user_id')
     .eq('status', 'active')
-    .or(`user_id.eq.${userId},team_id.in.(select team_id from team_members where user_id='${userId}')`)
+    .eq('user_id', userId)
 
   if (workflowError) {
     console.error('❌ Error fetching workflows:', workflowError)
@@ -431,7 +455,9 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   // Check each workflow for matching triggers
   for (const workflow of workflows) {
     try {
-      const nodes = JSON.parse(workflow.nodes || '[]')
+      const nodes = typeof workflow.nodes === 'string'
+        ? JSON.parse(workflow.nodes || '[]')
+        : workflow.nodes || []
 
       // Debug node structure
       if (nodes.length > 0) {
