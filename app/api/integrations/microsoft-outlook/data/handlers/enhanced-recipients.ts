@@ -13,23 +13,11 @@ export interface EmailRecipient {
   type?: string
 }
 
-// Simple in-memory cache for recipients
-const recipientCache = new Map<string, { data: EmailRecipient[], timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache
-
 /**
  * Fetch Outlook contacts and recent recipients
  */
 export async function getOutlookEnhancedRecipients(integration: any): Promise<EmailRecipient[]> {
   try {
-    // Check cache first
-    const cacheKey = integration.id
-    const cached = recipientCache.get(cacheKey)
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log(" [Outlook API] Returning cached recipients")
-      return cached.data
-    }
-
     console.log(" [Outlook API] Fetching fresh recipients")
 
     // Get decrypted access token
@@ -160,24 +148,10 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
 
     console.log(` [Outlook API] Total recipients found: ${recipientArray.length}`)
 
-    // Cache the results
-    recipientCache.set(integration.id, {
-      data: recipientArray,
-      timestamp: Date.now()
-    })
-
     return recipientArray
 
   } catch (error: any) {
     console.error(" [Outlook API] Failed to get recipients:", error)
-
-    // If we have cached data, return it
-    const cached = recipientCache.get(integration.id)
-    if (cached) {
-      console.log(" [Outlook API] Returning stale cached data due to error")
-      return cached.data
-    }
-
     throw new Error(`Failed to get Outlook recipients: ${error.message}`)
   }
 }

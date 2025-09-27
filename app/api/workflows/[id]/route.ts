@@ -151,6 +151,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       connectionsCount: body.connections?.length
     })
 
+    // CRITICAL SAFETY CHECK: Prevent node erasure
+    // If body contains nodes array and it's empty, but workflow had nodes before
+    if ('nodes' in body && Array.isArray(body.nodes) && body.nodes.length === 0) {
+      // Check if workflow currently has nodes
+      const { data: existingWorkflow } = await serviceClient
+        .from("workflows")
+        .select("nodes")
+        .eq("id", resolvedParams.id)
+        .single()
+
+      if (existingWorkflow && existingWorkflow.nodes && existingWorkflow.nodes.length > 0) {
+        console.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', existingWorkflow.nodes.length, 'nodes')
+        return NextResponse.json({
+          error: "Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.",
+          code: "NODE_ERASURE_PREVENTED"
+        }, { status: 400 })
+      }
+    }
+
     // First verify the user owns this workflow and get current status
     const { data: workflow, error: checkError } = await supabase
       .from("workflows")
@@ -171,10 +190,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // Use service client to bypass RLS for the actual update
     const serviceClient = await createSupabaseServiceClient()
 
+    // Additional check: if nodes array is provided but empty, exclude it from update
+    // unless the workflow was truly meant to be cleared (which should be rare)
+    const updateData = { ...body }
+    if ('nodes' in updateData && Array.isArray(updateData.nodes) && updateData.nodes.length === 0) {
+      // Get current workflow to check if it has nodes
+      const { data: currentData } = await serviceClient
+        .from("workflows")
+        .select("nodes")
+        .eq("id", resolvedParams.id)
+        .single()
+
+      if (currentData && currentData.nodes && currentData.nodes.length > 0) {
+        console.warn('⚠️ [SAFETY] Removing empty nodes array from update to preserve existing nodes')
+        delete updateData.nodes
+      }
+    }
+
     const { data, error } = await serviceClient
       .from("workflows")
       .update({
-        ...body,
+        ...updateData,
         updated_at: new Date().toISOString() // Ensure updated_at is set
       })
       .eq("id", resolvedParams.id)

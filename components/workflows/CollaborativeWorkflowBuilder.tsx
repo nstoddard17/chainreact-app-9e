@@ -243,6 +243,7 @@ const useWorkflowBuilderState = () => {
   const [isProcessingDeletion, setIsProcessingDeletion] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isRebuildingAfterSave, setIsRebuildingAfterSave] = useState(false)
+  const [reactFlowInitialized, setReactFlowInitialized] = useState(false)
   const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
   const [showExecutionHistory, setShowExecutionHistory] = useState(false)
   const [showSandboxPreview, setShowSandboxPreview] = useState(false)
@@ -2788,6 +2789,8 @@ const useWorkflowBuilderState = () => {
       if (!workflowId) {
         // No workflow ID - this might be a new workflow
         openTriggerDialog()
+        // Mark as initialized for new workflows
+        setReactFlowInitialized(true)
         return
       }
 
@@ -2947,10 +2950,13 @@ const useWorkflowBuilderState = () => {
             allEdges.push(...flowEdges)
           }
           
-          
+
           setNodes(allNodes)
           setEdges(allEdges)
-          
+
+          // Mark React Flow as initialized once nodes are loaded
+          setReactFlowInitialized(true)
+
           // Don't call fitView here - it's not available in this context
           // The fitView will be handled by a separate effect
           
@@ -3088,6 +3094,36 @@ const useWorkflowBuilderState = () => {
       return
     }
 
+    // CRITICAL: Prevent saving if React Flow isn't ready yet
+    if (!reactFlowInitialized) {
+      console.warn('⚠️ [SAFETY] React Flow not initialized yet, deferring save...');
+      toast({
+        title: "Please Wait",
+        description: "Workflow is still loading. Please try saving again in a moment.",
+        variant: "default"
+      });
+
+      // Retry after a delay
+      setTimeout(() => {
+        handleSave(retryCount, maxRetries);
+      }, 1500);
+      return;
+    }
+
+    const currentNodes = getNodes();
+    if (!currentNodes || currentNodes.length === 0) {
+      console.warn('⚠️ [SAFETY] React Flow nodes not loaded yet, deferring save...');
+
+      // If we previously had nodes, this is likely a loading issue - retry after delay
+      if (currentWorkflow.nodes && currentWorkflow.nodes.length > 0) {
+        console.log('🔄 Workflow had nodes before, waiting for React Flow to initialize...');
+        setTimeout(() => {
+          handleSave(retryCount, maxRetries);
+        }, 1000);
+        return;
+      }
+    }
+
     // Prepare to save
 
     // Auto-recovery mechanism with longer timeout for large workflows
@@ -3131,12 +3167,59 @@ const useWorkflowBuilderState = () => {
       console.log('💾 Starting workflow save...')
       
       // Get current nodes and edges from React Flow
-      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const reactFlowEdges = getEdges().filter((e: Edge) => 
-        reactFlowNodes.some((n: Node) => n.id === e.source) && 
+      const allNodes = getNodes();
+
+      // SAFETY CHECK: If React Flow returns empty but we had nodes before, abort save
+      if ((!allNodes || allNodes.length === 0) && currentWorkflow.nodes && currentWorkflow.nodes.length > 0) {
+        console.error('❌ [SAFETY] Preventing node erasure - React Flow returned empty nodes but workflow had nodes');
+        setIsSaving(false);
+        isSavingRef.current = false;
+
+        // Clear timeout if it exists
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+
+        toast({
+          title: "Save Prevented",
+          description: "Workflow nodes are still loading. Please try saving again in a moment.",
+          variant: "destructive"
+        });
+
+        // Retry after a delay
+        setTimeout(() => {
+          handleSave(retryCount, maxRetries);
+        }, 2000);
+        return;
+      }
+
+      const reactFlowNodes = allNodes.filter((n: Node) => n.type === 'custom')
+
+      // Additional safety: Don't save if we're about to erase nodes
+      if (reactFlowNodes.length === 0 && currentWorkflow.nodes && currentWorkflow.nodes.length > 0) {
+        console.error('❌ [SAFETY] All nodes filtered out - preventing save that would erase workflow');
+        setIsSaving(false);
+        isSavingRef.current = false;
+
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+
+        toast({
+          title: "Save Error",
+          description: "Unable to save - workflow nodes are missing. Please refresh the page and try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const reactFlowEdges = getEdges().filter((e: Edge) =>
+        reactFlowNodes.some((n: Node) => n.id === e.source) &&
         reactFlowNodes.some((n: Node) => n.id === e.target)
       )
-      
+
       // Map nodes to database format - optimize payload size
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
         const position = {
