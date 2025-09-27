@@ -26,9 +26,10 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
     }
     
     console.log('🔍 Testing OneDrive drive access...')
-    
+
     // First, test if we can access the drive at all
-    const driveApiUrl = buildOneDriveApiUrl('/v1.0/me/drive')
+    // Note: buildOneDriveApiUrl automatically adds /v1.0
+    const driveApiUrl = buildOneDriveApiUrl('/me/drive')
     const driveResponse = await makeOneDriveApiRequest(driveApiUrl, tokenResult.token!)
     
     if (!driveResponse.ok) {
@@ -48,7 +49,7 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
     
     // Now fetch the root folder items, filtering for folders only
     console.log('🔍 Fetching OneDrive folders from root directory...')
-    const foldersApiUrl = buildOneDriveApiUrl("/v1.0/me/drive/root/children?$filter=folder ne null&$select=id,name,webUrl,size,createdDateTime,lastModifiedDateTime,folder,parentReference")
+    const foldersApiUrl = buildOneDriveApiUrl("/me/drive/root/children?$filter=folder ne null&$select=id,name,webUrl,size,createdDateTime,lastModifiedDateTime,folder,parentReference")
     
     const foldersResponse = await makeOneDriveApiRequest(foldersApiUrl, tokenResult.token!)
     

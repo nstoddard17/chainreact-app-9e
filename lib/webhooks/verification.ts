@@ -30,6 +30,11 @@ export async function verifyWebhookSignature(
       return verifySlackSignature(body, signature, timestamp, secret)
     }
 
+    if (provider === 'trello') {
+      // Trello webhooks do not use our generic signature mechanism. Validation is done via callback challenge.
+      return true
+    }
+
     const signature = request.headers.get('x-signature') ||
                      request.headers.get('x-hub-signature') ||
                      request.headers.get('x-discord-signature') ||

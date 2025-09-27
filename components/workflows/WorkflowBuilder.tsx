@@ -153,8 +153,10 @@ export default function WorkflowBuilder() {
 
   // Fetch workflows on mount
   useEffect(() => {
-    fetchWorkflows()
-  }, [fetchWorkflows])
+    if (workflows.length === 0) {
+      fetchWorkflows()
+    }
+  }, [])
 
   // Update nodes and edges when current workflow changes
   useEffect(() => {

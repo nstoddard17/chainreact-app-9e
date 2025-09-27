@@ -539,6 +539,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         'google_sheets',
         'onedrive',
         'dropbox',
+        'trello',
         'slack',
         'stripe',
         'shopify',

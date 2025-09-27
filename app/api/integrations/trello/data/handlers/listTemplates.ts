@@ -29,7 +29,7 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
     
     // First get all boards
     const boardsApiUrl = buildTrelloApiUrl('/1/members/me/boards?fields=id,name,desc,url,closed')
-    const boardsResponse = await makeTrelloApiRequest(boardsApiUrl, tokenResult.token!)
+    const boardsResponse = await makeTrelloApiRequest(boardsApiUrl, tokenResult.token!, tokenResult.key)
     const boards = await parseTrelloApiResponse<any>(boardsResponse)
     
     const listTemplates: TrelloListTemplate[] = []
@@ -40,7 +40,7 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
       
       try {
         const listsApiUrl = buildTrelloApiUrl(`/1/boards/${board.id}/lists?fields=id,name,desc,closed`)
-        const listsResponse = await makeTrelloApiRequest(listsApiUrl, tokenResult.token!)
+        const listsResponse = await makeTrelloApiRequest(listsApiUrl, tokenResult.token!, tokenResult.key)
         const lists = await parseTrelloApiResponse<any>(listsResponse)
         
         for (const list of lists) {

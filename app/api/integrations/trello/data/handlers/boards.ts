@@ -28,7 +28,7 @@ export const getTrelloBoards: TrelloDataHandler<TrelloBoardTemplate> = async (in
     console.log('🔍 Fetching Trello boards from API...')
     const apiUrl = buildTrelloApiUrl('/1/members/me/boards?fields=id,name,desc,url,closed')
     
-    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!)
+    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
     
     const boards = await parseTrelloApiResponse<any>(response)
     

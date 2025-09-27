@@ -52,7 +52,7 @@ export async function loadUserProfile(userId?: string): Promise<UserProfile | nu
 
     // Fetch user profile from profiles table
     const { data, error } = await supabase
-      .from("profiles")
+      .from("user_profiles")
       .select("*")
       .eq("id", userId)
       .single()
@@ -88,7 +88,7 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
 
     // Update profile
     const { data, error } = await supabase
-      .from("profiles")
+      .from("user_profiles")
       .update(updates)
       .eq("id", user.id)
       .select()

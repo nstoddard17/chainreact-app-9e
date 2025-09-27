@@ -325,27 +325,38 @@ export function GenericSelectField({
 
     const hasOptions = processedOptions.length > 0
     const timeSinceLastLoad = Date.now() - lastLoadTimestamp
-    const recentlyLoaded = timeSinceLastLoad < 5000 // Don't reload if loaded in last 5 seconds
+    const recentlyLoaded = timeSinceLastLoad < 10000 // Don't reload if loaded in last 10 seconds (increased from 5)
 
-    // Special case for Google Sheets sheetName: don't reload if we've attempted recently
+    // Special cases for fields that shouldn't reload frequently
     const isGoogleSheetsSheetName = nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName'
+    const isOneDriveFileId = nodeInfo?.providerId === 'onedrive' && field.name === 'fileId'
+
+    // For dependent fields like OneDrive fileId, be extra cautious about reloading
+    const isDependentField = !!field.dependsOn
+    const dependencyValue = field.dependsOn ? parentValues[field.dependsOn] : undefined
+
+    // If this is a dependent field and dependency hasn't changed, don't reload if recently loaded
+    if (isDependentField && hasAttemptedLoad && recentlyLoaded) {
+      console.log('⏭️ [GenericSelectField] Skipping reload for dependent field - recently loaded:', field.name)
+      return
+    }
 
     // Only load if:
     // 1. Dropdown is open
     // 2. Field is dynamic
     // 3. Not currently loading
     // 4. Either hasn't attempted to load, OR (has no options AND hasn't loaded recently)
-    // 5. For Google Sheets sheetName, also check if we haven't loaded recently
+    // 5. For special fields (Google Sheets sheetName, OneDrive fileId), also check if we haven't loaded recently
     const shouldLoad = open && field.dynamic && onDynamicLoad && !isLoading &&
                       (!hasAttemptedLoad || (!hasOptions && !recentlyLoaded)) &&
-                      (!isGoogleSheetsSheetName || !recentlyLoaded)
+                      (!(isGoogleSheetsSheetName || isOneDriveFileId) || !recentlyLoaded)
 
     if (shouldLoad) {
       const forceRefresh = hasAttemptedLoad && !hasOptions // Only force refresh if we tried but got no options
 
       console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
-        dependsOnValue: field.dependsOn ? parentValues[field.dependsOn] : undefined,
+        dependsOnValue: dependencyValue,
         forceRefresh,
         timeSinceLastLoad,
         recentlyLoaded
@@ -354,9 +365,10 @@ export function GenericSelectField({
       setHasAttemptedLoad(true)
       setLastLoadTimestamp(Date.now())
 
-      if (field.dependsOn && parentValues[field.dependsOn]) {
-        onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], forceRefresh)
-      } else {
+      if (field.dependsOn && dependencyValue) {
+        onDynamicLoad(field.name, field.dependsOn, dependencyValue, forceRefresh)
+      } else if (!field.dependsOn) {
+        // Only load fields without dependencies if dependency not required
         onDynamicLoad(field.name, undefined, undefined, forceRefresh)
       }
     }

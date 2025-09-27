@@ -448,6 +448,10 @@ const onedriveMappings: Record<string, FieldMapping> = {
   "onedrive_trigger_new_file": {
     folderId: "onedrive-folders",
   },
+  "onedrive_trigger_file_modified": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+  },
 };
 
 // Facebook field mappings

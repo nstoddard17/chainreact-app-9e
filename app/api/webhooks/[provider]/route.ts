@@ -154,6 +154,23 @@ export async function POST(
   }
 }
 
+
+
+export async function HEAD(
+  request: NextRequest,
+  { params }: { params: Promise<{ provider: string }> }
+) {
+  const { provider } = await params
+  console.log(`[Webhook HEAD] Provider: ${provider}`)
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'X-Webhook-Provider': provider,
+      'X-Webhook-Status': 'ready'
+    }
+  })
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> }
@@ -184,11 +201,34 @@ export async function GET(
     console.log(`[Slack] Responding to challenge: ${challenge}`)
     return NextResponse.json({ challenge })
   }
+
+  // Trello webhook verification - echo the challenge string
+  if (provider === 'trello' && challenge) {
+    console.log(`[Trello] Responding to challenge: ${challenge}`)
+    return new Response(challenge, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+        'X-Webhook-Provider': 'trello'
+      }
+    })
+  }
+
+  if (provider === 'trello') {
+    // Trello expects a 200 even without challenge to keep webhook alive
+    return new Response('OK', {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+        'X-Webhook-Provider': 'trello'
+      }
+    })
+  }
   
   // Other webhook verification patterns can be added here
   
   // Default health check endpoint
-  return NextResponse.json({ 
+  return NextResponse.json({
     status: 'healthy', 
     provider,
     timestamp: new Date().toISOString()
@@ -201,8 +241,10 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
     case 'slack': {
       const envelope = rawEvent || {}
       const slackEvent = envelope.event || rawEvent || {}
+      const eventTypeFromSlack = slackEvent.type
       const subtype = slackEvent.subtype
 
+      // Handle message deleted events
       if (subtype === 'message_deleted') {
         return {
           eventType: 'slack_trigger_message_deleted',
@@ -212,6 +254,88 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
         }
       }
 
+      // Handle reaction_added events
+      if (eventTypeFromSlack === 'reaction_added') {
+        console.log(`[${requestId}] Processing Slack reaction_added event`, {
+          reaction: slackEvent.reaction,
+          user: slackEvent.user,
+          item: slackEvent.item
+        })
+
+        const normalizedData = {
+          reaction: slackEvent.reaction,
+          user: slackEvent.user || slackEvent.user_id,
+          item: slackEvent.item || {},
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_reaction_added',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle reaction_removed events
+      if (eventTypeFromSlack === 'reaction_removed') {
+        console.log(`[${requestId}] Processing Slack reaction_removed event`, {
+          reaction: slackEvent.reaction,
+          user: slackEvent.user,
+          item: slackEvent.item
+        })
+
+        const normalizedData = {
+          reaction: slackEvent.reaction,
+          user: slackEvent.user || slackEvent.user_id,
+          item: slackEvent.item || {},
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_reaction_removed',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle channel created events
+      if (eventTypeFromSlack === 'channel_created') {
+        const normalizedData = {
+          channel: slackEvent.channel || {},
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_channel_created',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle member joined events
+      if (eventTypeFromSlack === 'member_joined_channel' || eventTypeFromSlack === 'user_joined') {
+        const normalizedData = {
+          user: slackEvent.user || slackEvent.user_id,
+          channel: slackEvent.channel || slackEvent.channel_id,
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_user_joined',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Default to message events
       let eventType = 'slack_trigger_new_message'
       const channel = slackEvent.channel || slackEvent.channel_id
       const channelType = slackEvent.channel_type
@@ -241,6 +365,82 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
         eventId: normalizedData.message.id
       }
     }
+
+    case 'trello': {
+      const envelope = rawEvent || {}
+      const action = envelope.action || {}
+      const data = action.data || {}
+      const actionType = action.type || 'unknown'
+
+      const movedByUpdate = Boolean(data.listBefore?.id && data.listAfter?.id && data.listBefore.id !== data.listAfter.id)
+      const hasCard = Boolean(data.card?.id)
+
+      let eventType = 'trello_trigger_event'
+
+      switch (actionType) {
+        case 'createCard':
+        case 'copyCard':
+          eventType = 'trello_trigger_new_card'
+          break
+        case 'moveCardToBoard':
+        case 'moveCardFromBoard':
+          eventType = 'trello_trigger_card_moved'
+          break
+        case 'updateCard':
+          eventType = movedByUpdate ? 'trello_trigger_card_moved' : 'trello_trigger_card_updated'
+          break
+        case 'commentCard':
+          eventType = 'trello_trigger_comment_added'
+          break
+        case 'addMemberToCard':
+        case 'removeMemberFromCard':
+          eventType = 'trello_trigger_member_changed'
+          break
+        default:
+          if (hasCard) {
+            eventType = 'trello_trigger_card_updated'
+          }
+          break
+      }
+
+      const listId = data.list?.id || data.listAfter?.id || data.listBefore?.id || null
+      const listName = data.list?.name || data.listAfter?.name || data.listBefore?.name || null
+      const cardShortLink = data.card?.shortLink || null
+      const cardUrl = data.card?.url || (cardShortLink ? `https://trello.com/c/${cardShortLink}` : null)
+
+      const normalizedData = {
+        actionType,
+        actionId: action.id || null,
+        boardId: data.board?.id || data.boardTarget?.id || null,
+        boardName: data.board?.name || data.boardTarget?.name || null,
+        cardId: data.card?.id || null,
+        cardName: data.card?.name || null,
+        cardUrl,
+        cardShortLink,
+        listId,
+        listName,
+        listBeforeId: data.listBefore?.id || null,
+        listBeforeName: data.listBefore?.name || null,
+        listAfterId: data.listAfter?.id || null,
+        listAfterName: data.listAfter?.name || null,
+        memberId: data.idMember || data.idMemberAdded || data.idMemberRemoved || data.member?.id || null,
+        memberUsername: action.memberCreator?.username || null,
+        memberName: action.memberCreator?.fullName || null,
+        commentText: data.text || null,
+        action,
+        raw: envelope
+      }
+
+      const eventId = action.id || envelope.id || requestId
+
+      return {
+        eventType,
+        normalizedData,
+        eventId,
+        ignore: false
+      }
+    }
+
 
     default:
       return {

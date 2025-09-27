@@ -28,13 +28,13 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
       // Fetch cards from specific board
       console.log('🔍 Fetching cards from specific board...')
       const cardsApiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,idBoard,labels,closed`)
-      const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!)
+      const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
     } else {
       // Fetch cards from all boards
       console.log('🔍 Fetching cards from all boards...')
       const cardsApiUrl = buildTrelloApiUrl('/1/members/me/cards?fields=id,name,desc,idList,idBoard,labels,closed')
-      const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!)
+      const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
     }
     
@@ -47,12 +47,12 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
       try {
         // Get board name
         const boardApiUrl = buildTrelloApiUrl(`/1/boards/${card.idBoard}?fields=name`)
-        const boardResponse = await makeTrelloApiRequest(boardApiUrl, tokenResult.token!)
+        const boardResponse = await makeTrelloApiRequest(boardApiUrl, tokenResult.token!, tokenResult.key)
         const boardData = await boardResponse.json()
         
         // Get list name
         const listApiUrl = buildTrelloApiUrl(`/1/lists/${card.idList}?fields=name,idBoard`)
-        const listResponse = await makeTrelloApiRequest(listApiUrl, tokenResult.token!)
+        const listResponse = await makeTrelloApiRequest(listApiUrl, tokenResult.token!, tokenResult.key)
         const listData = await listResponse.json()
         
         cardTemplates.push({

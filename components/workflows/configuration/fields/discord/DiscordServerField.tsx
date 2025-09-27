@@ -2,9 +2,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 interface DiscordServerFieldProps {
   field: any;
@@ -236,101 +237,111 @@ function DiscordServerFieldComponent({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Select
-        value={selectValue}
-        onValueChange={(newValue) => {
-          // When value changes, also try to store the label for future use
-          const selectedOption = displayOptions.find(opt =>
-            String(opt.value || opt.id) === newValue
-          );
-          if (selectedOption && !selectedOption.temporary) {
-            // Pass both value and label if we have them
-            const label = selectedOption.label || selectedOption.name;
-            // Store label in localStorage for immediate access on next load
-            if (label && newValue) {
-              const storageKey = `discord_server_label_${newValue}`;
-              localStorage.setItem(storageKey, label);
+    <div className="w-full space-y-2">
+      <div className="flex items-center gap-2">
+        <Select
+          value={selectValue}
+          onValueChange={(selectedValue) => {
+            onChange(selectedValue);
+            try {
+              const selectedOption = displayOptions.find(
+                (opt) => String(opt.value || opt.id) === selectedValue
+              );
+              if (selectedOption) {
+                const storageKey = `discord_server_label_${selectedValue}`;
+                localStorage.setItem(
+                  storageKey,
+                  selectedOption.label || selectedOption.name || selectedOption.value || selectedOption.id
+                );
+              }
+            } catch (e) {
+              console.error('Error saving label to storage:', e);
             }
-          }
-          onChange(newValue);
-        }}
-        onOpenChange={handleServerFieldOpen}
-        className="flex-1"
-        disabled={isRefreshing}
-      >
-        <SelectTrigger
-          className={cn(
-            "h-10 bg-white border-slate-200 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-offset-2",
-            isRefreshing && "opacity-70"
-          )}
-        >
-          <SelectValue placeholder={isRefreshing ? "Refreshing servers..." : (field.placeholder || "Select Discord server...")} />
-        </SelectTrigger>
-        <SelectContent
-          className="bg-slate-900 text-white max-h-[200px]"
-          position="popper"
-          sideOffset={4}
-          style={{
-            backgroundColor: 'hsl(0 0% 10%)',
-            color: 'white'
           }}
+          onOpenChange={handleServerFieldOpen}
         >
-          {/* Show loading state inside dropdown if options are being fetched */}
-          {isLoading && (
-            <div className="px-2 py-4 text-sm text-slate-400 text-center">
-              <RefreshCw className="h-4 w-4 animate-spin inline-block mr-2" />
-              Loading Discord servers...
-            </div>
-          )}
+          <SelectTrigger
+            className={cn(
+              "w-full",
+              (error || processedError) && "border-red-500",
+              (isLoading || isRefreshing) && "opacity-70"
+            )}
+          >
+            <SelectValue
+              placeholder={
+                isLoading || isInitialLoad
+                  ? "Loading Discord servers..."
+                  : "Select a Discord server"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent className="max-h-[280px]">
+            {displayOptions.length > 0 ? (
+              displayOptions.map((server: any) => (
+                <SelectItem
+                  key={server.value || server.id}
+                  value={String(server.value || server.id)}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{server.label || server.name || server.value || server.id}</span>
+                    {server.temporary && (
+                      <span className="text-xs text-muted-foreground">(Loading details...)</span>
+                    )}
+                  </div>
+                  {server.approximate_member_count && (
+                    <span className="text-xs text-muted-foreground">
+                      {server.approximate_member_count.toLocaleString()} members
+                    </span>
+                  )}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                <p>No servers available for this Discord account.</p>
+                <p className="mt-1 text-xs">
+                  Invite the ChainReact bot to your server or check your Discord permissions.
+                </p>
+              </div>
+            )}
+          </SelectContent>
+        </Select>
 
-          {/* Show server count when not loading */}
-          {!isLoading && (
-            <div className="px-2 py-1.5 text-xs text-slate-400 border-b border-slate-700 mb-1">
-              {displayOptions.filter(opt => !opt.temporary).length} server{displayOptions.filter(opt => !opt.temporary).length !== 1 ? 's' : ''} available
-            </div>
-          )}
-
-          {displayOptions.map((option: any, index: number) => {
-            const optionValue = option.value || option.id;
-            const optionLabel = option.label || option.name || option.value || option.id;
-            if (!optionValue) return null;
-
-            // Mark temporary options with a different style
-            const isTemp = option.temporary;
-
-            return (
-              <SelectItem
-                key={String(optionValue)}
-                value={String(optionValue)}
-                className={isTemp ? "italic text-slate-400" : ""}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                disabled={isLoading || isRefreshing}
+                onClick={handleRefresh}
               >
-                <span>{optionLabel}</span>
-                {isTemp && processedOptions.length === 0 && (
-                  <span className="ml-2 text-xs">(Current selection)</span>
-                )}
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
-      
-      {/* Refresh button */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={handleRefresh}
-        disabled={isRefreshing || isLoading}
-        className="h-10 px-3"
-        title="Refresh server list"
-      >
-        <RefreshCw className={cn(
-          "h-4 w-4",
-          (isRefreshing || isLoading) && "animate-spin"
-        )} />
-      </Button>
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4",
+                    (isLoading || isRefreshing) && "animate-spin"
+                  )}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="center">
+              <p className="text-xs">Refresh servers</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">
+          {isLoading || isRefreshing || isInitialLoad
+            ? "Loading Discord servers..."
+            : displayOptions.length > 0
+              ? "Discord servers are loaded."
+              : "No servers available."}
+        </span>
+      </div>
     </div>
   );
 }

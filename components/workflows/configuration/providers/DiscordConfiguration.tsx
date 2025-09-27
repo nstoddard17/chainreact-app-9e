@@ -838,42 +838,6 @@ export function DiscordConfiguration({
                     isConnectedToAIAgent={isConnectedToAIAgent}
                   />
 
-                  {/* Manual reload button if servers didn't load (production fallback) */}
-                  {field.name === 'guildId' && !isFieldLoading('guildId') && (!dynamicOptions.guildId || dynamicOptions.guildId.length === 0) && (
-                    <div className="mt-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          console.log('🔄 [Discord] Manual server reload triggered');
-                          hasInitializedServers.current = false;
-                          setLocalLoadingFields(prev => {
-                            const newSet = new Set(prev);
-                            newSet.add('guildId');
-                            return newSet;
-                          });
-                          loadOptions('guildId', undefined, undefined, true)
-                            .then(() => {
-                              console.log('✅ [Discord] Servers reloaded successfully');
-                            })
-                            .catch((error) => {
-                              console.error('❌ [Discord] Error reloading servers:', error);
-                            })
-                            .finally(() => {
-                              setLocalLoadingFields(prev => {
-                                const newSet = new Set(prev);
-                                newSet.delete('guildId');
-                                return newSet;
-                              });
-                            });
-                        }}
-                      >
-                        Load Discord Servers
-                      </Button>
-                    </div>
-                  )}
-
                   {/* Show bot status after server field */}
                   {field.name === 'guildId' && values.guildId && botStatus && !isBotStatusChecking && (
                     <>

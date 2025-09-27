@@ -17,6 +17,15 @@ export async function POST(req: NextRequest) {
   try {
     const { integrationId, dataType, options = {} } = await req.json()
 
+    // Log request to debug spamming issue
+    console.log(`📥 [OneDrive API] Request received:`, {
+      timestamp: new Date().toISOString(),
+      dataType,
+      integrationId: integrationId?.substring(0, 8) + '...',
+      options,
+      folderId: options?.folderId
+    })
+
     // Validate required parameters
     if (!integrationId || !dataType) {
       return NextResponse.json({
