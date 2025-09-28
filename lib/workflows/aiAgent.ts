@@ -318,12 +318,21 @@ export async function fetchMemory(
 export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResult> {
   try {
     const { userId, config, input, workflowContext } = params
-    
+
     console.log("🤖 AI Agent execution started:")
     console.log("📋 Raw Config:", JSON.stringify(config, null, 2))
     console.log("📥 Raw Input data:", JSON.stringify(input, null, 2))
     console.log("👤 User ID:", userId)
     console.log("🔧 Workflow context:", workflowContext ? "present" : "missing")
+
+    // Check if chains are configured and use chain execution engine
+    if (config.chainsLayout?.chains && config.chainsLayout.chains.length > 0) {
+      console.log("🔗 Chains detected, using chain execution engine")
+      const { executeAIAgentWithChains } = await import('./ai/aiAgentWithChains')
+      return await executeAIAgentWithChains(params)
+    }
+
+    console.log("📝 No chains configured, using standard AI agent execution")
     
     // Check AI usage limits before execution
     const { checkUsageLimit, trackUsage } = await import("@/lib/usageTracking")

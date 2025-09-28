@@ -42,6 +42,7 @@ export interface IntegrationStore {
   preloadStarted: boolean
   apiKeyIntegrations: Integration[]
   currentUserId: string | null
+  lastFetchTime: number | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -97,6 +98,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     globalPreloadingData: false,
     preloadStarted: false,
     currentUserId: null,
+    lastFetchTime: null,
 
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
@@ -182,7 +184,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
         timestamp: new Date().toISOString(),
         caller: new Error().stack?.split('\n')[2]?.trim()
       })
-        const { setLoading, currentUserId } = get()
+        const { setLoading, currentUserId, integrations, lastFetchTime } = get()
+
+        // Check cache - use 60 second cache for integrations
+        const CACHE_DURATION = 60000 // 60 seconds
+        if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION && integrations.length > 0) {
+          console.log('[IntegrationStore] Using cached integrations')
+          return integrations
+        }
 
         // Abort any existing request
         if (currentAbortController) {
@@ -254,7 +263,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           setLoading('integrations', false)
           set({
-            integrations
+            integrations,
+            lastFetchTime: Date.now()
           })
         } catch (error: any) {
           clearTimeout(fetchTimeout)

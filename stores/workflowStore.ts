@@ -155,6 +155,8 @@ interface WorkflowState {
   selectedNode: WorkflowNode | null
   loading: boolean
   error: string | null
+  lastFetchTime: number | null
+  fetchPromise: Promise<void> | null
 }
 
 interface WorkflowActions {
@@ -194,6 +196,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   selectedNode: null,
   loading: false,
   error: null,
+  lastFetchTime: null,
+  fetchPromise: null,
 
   fetchWorkflows: async (organizationId?: string) => {
     if (!supabase) {
@@ -202,8 +206,23 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       return
     }
 
-    // Avoid blocking the page; track loading internally but do not rely on this externally
-    set({ loading: true, error: null })
+    // Check if we have a recent fetch (within 30 seconds) and return cached data
+    const state = get()
+    const CACHE_DURATION = 30000 // 30 seconds
+    if (state.lastFetchTime && Date.now() - state.lastFetchTime < CACHE_DURATION && state.workflows.length > 0) {
+      console.log('[WorkflowStore] Using cached workflows')
+      return
+    }
+
+    // If already fetching, return the existing promise to avoid duplicate requests
+    if (state.fetchPromise && state.loading) {
+      console.log('[WorkflowStore] Already fetching, returning existing promise')
+      return state.fetchPromise
+    }
+
+    // Create the fetch promise
+    const fetchPromise = (async () => {
+      set({ loading: true, error: null })
 
     try {
       // Add a reasonable timeout for the request
@@ -228,12 +247,29 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         throw error
       }
 
-      set({ workflows: data || [], loading: false })
+      set({
+        workflows: data || [],
+        loading: false,
+        lastFetchTime: Date.now(),
+        fetchPromise: null
+      })
     } catch (error: any) {
       console.error("Error fetching workflows:", error)
       // Prior behavior: set empty workflows but clear loading and suppress user-facing error
-      set({ workflows: [], loading: false, error: null })
+      set({
+        workflows: [],
+        loading: false,
+        error: null,
+        fetchPromise: null
+      })
     }
+    })()
+
+    // Store the promise
+    set({ fetchPromise })
+
+    // Execute and wait for it
+    await fetchPromise
   },
 
   fetchPersonalWorkflows: async () => {

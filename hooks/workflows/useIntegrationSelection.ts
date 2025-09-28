@@ -130,8 +130,24 @@ export function useIntegrationSelection() {
       }
     })
     
-    // Sort integrations alphabetically by name
-    const result = Object.values(integrationMap).sort((a, b) => a.name.localeCompare(b.name))
+    // Custom sort: Core/Logic first, then AI Agent, then alphabetical
+    const allIntegrations = Object.values(integrationMap)
+    const result = allIntegrations.sort((a, b) => {
+      // Core always comes first
+      if (a.id === 'core') return -1
+      if (b.id === 'core') return 1
+
+      // Logic comes second
+      if (a.id === 'logic') return -1
+      if (b.id === 'logic') return 1
+
+      // AI Agent comes third
+      if (a.id === 'ai') return -1
+      if (b.id === 'ai') return 1
+
+      // Everything else is alphabetical
+      return a.name.localeCompare(b.name)
+    })
     return result
   }, [])
 

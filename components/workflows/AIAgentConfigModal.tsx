@@ -583,7 +583,9 @@ export function AIAgentConfigModal({
           // Skip purely visual elements
           if (['label', 'separator', 'description'].includes(field.type)) return
 
-          // Special handling for Discord: server and channel need manual selection
+          // Special handling for integrations that need manual selection
+
+          // Discord: server and channel need manual selection
           if (action.providerId === 'discord') {
             // For all Discord actions, server needs manual selection
             if (field.name === 'guildId') {
@@ -604,6 +606,59 @@ export function AIAgentConfigModal({
                 // Leave empty for manual configuration
                 return
               }
+            }
+          }
+
+          // Microsoft Teams: team and channel need manual selection
+          if (action.providerId === 'teams') {
+            if (field.name === 'teamId' || field.name === 'channelId' || field.name === 'chatId') {
+              // Leave empty for manual configuration
+              return
+            }
+          }
+
+          // Slack: channel can optionally be manual (keeping current dynamic behavior)
+          // Not forcing manual selection as Slack's dynamic dropdowns work well
+
+          // Trello: board and list need manual selection
+          if (action.providerId === 'trello') {
+            if (field.name === 'boardId' || field.name === 'listId' || field.name === 'cardId') {
+              // Leave empty for manual configuration
+              return
+            }
+          }
+
+          // Notion: database and page need manual selection for complex workflows
+          if (action.providerId === 'notion') {
+            if (field.name === 'databaseId' || field.name === 'database' ||
+                field.name === 'pageId' || field.name === 'page' ||
+                field.name === 'parentPageId' || field.name === 'parentDatabase') {
+              // Leave empty for manual configuration
+              return
+            }
+          }
+
+          // Google Calendar: calendar selection can be manual
+          if (action.providerId === 'google-calendar' || action.providerId === 'google_calendar') {
+            if (field.name === 'calendarId' || field.name === 'calendar') {
+              // Leave empty for manual configuration
+              return
+            }
+          }
+
+          // OneDrive and Google Drive: folder selection can be manual
+          if (action.providerId === 'onedrive' || action.providerId === 'google-drive' || action.providerId === 'google_drive') {
+            if (field.name === 'folderId' || field.name === 'parentFolderId' || field.name === 'destinationFolderId') {
+              // Leave empty for manual configuration
+              return
+            }
+          }
+
+          // OneNote: notebook and section need manual selection
+          if (action.providerId === 'onenote' || action.providerId === 'microsoft-onenote') {
+            if (field.name === 'notebookId' || field.name === 'sectionId' || field.name === 'pageId') {
+              // Leave empty for manual configuration
+              return
             }
           }
 

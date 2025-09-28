@@ -11,14 +11,60 @@ export const defaultActionSchema: NodeComponent = {
     testable: true,
     supportsChains: true,
     configSchema: [
-      { 
-        name: "inputNodeId", 
-        label: "Input Node", 
-        type: "select", 
+      {
+        name: "model",
+        label: "AI Model",
+        type: "select",
+        required: true,
+        defaultValue: "gpt-4",
+        options: [
+          { value: "gpt-4", label: "GPT-4 (OpenAI - Best overall)" },
+          { value: "gpt-4-turbo-preview", label: "GPT-4 Turbo (OpenAI - Faster)" },
+          { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo (OpenAI - Fast & cheap)" },
+          { value: "claude-3-opus-20240229", label: "Claude 3 Opus (Anthropic - Best reasoning)" },
+          { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet (Anthropic - Balanced)" },
+          { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku (Anthropic - Fast)" },
+          { value: "claude-2.1", label: "Claude 2.1 (Anthropic - Legacy)" }
+        ],
+        description: "Choose the AI model to power the agent. OpenAI models are always available. Anthropic models require the SDK to be installed."
+      },
+      {
+        name: "apiSource",
+        label: "API Source",
+        type: "select",
+        defaultValue: "chainreact",
+        options: [
+          { value: "chainreact", label: "ChainReact API (No setup required)" },
+          { value: "custom", label: "Custom API Key" }
+        ],
+        description: "Use ChainReact's API or provide your own API key"
+      },
+      {
+        name: "apiKey",
+        label: "API Key",
+        type: "text",
+        dependsOn: "apiSource",
+        placeholder: "sk-... or anthropic-api-key",
+        description: "Your OpenAI or Anthropic API key (only needed if using custom API)"
+      },
+      {
+        name: "temperature",
+        label: "Temperature",
+        type: "number",
+        defaultValue: 0.7,
+        min: 0,
+        max: 1,
+        step: 0.1,
+        description: "Controls randomness: 0 = focused, 1 = creative"
+      },
+      {
+        name: "inputNodeId",
+        label: "Input Node",
+        type: "select",
         required: true,
         placeholder: "Select which node should provide input to the AI Agent..."
       },
-      { 
+      {
         name: "memory", 
         label: "Memory", 
         type: "select",
