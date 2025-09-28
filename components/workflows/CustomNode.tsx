@@ -8,6 +8,7 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { NodeAIIndicator } from "./nodes/AINodeIndicators"
 
 // The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
@@ -17,6 +18,13 @@ interface CustomNodeData {
   providerId?: string
   isTrigger?: boolean
   config?: Record<string, any>
+  savedDynamicOptions?: Record<string, any[]>
+  validationState?: {
+    missingRequired?: string[]
+    lastValidatedAt?: string
+    lastUpdatedAt?: string
+    isValid?: boolean
+  }
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
@@ -44,6 +52,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
     providerId,
     isTrigger,
     config,
+    savedDynamicOptions,
+    validationState,
     onConfigure,
     onDelete,
     onAddChain,
@@ -59,7 +69,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     errorTimestamp,
     debugListeningMode,
     debugExecutionStatus,
-  } = data as unknown as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
+  } = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
@@ -251,23 +261,50 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
   }
 
+  const hasValidationIssues = Boolean(validationState?.missingRequired?.length)
+
   return (
     <div
       className={`relative w-[400px] bg-card rounded-lg shadow-sm border group ${
-        selected ? "border-primary" : error ? "border-destructive" : "border-border"
+        selected
+          ? "border-primary"
+          : error
+            ? "border-destructive"
+            : hasValidationIssues
+              ? "border-red-400"
+              : "border-border"
+      } ${
+        hasValidationIssues ? "shadow-[0_0_0_2px_rgba(248,113,113,0.35)]" : ""
       } hover:shadow-md transition-all duration-200 ${
         nodeHasConfiguration() ? "cursor-pointer" : ""
       } ${getExecutionStatusStyle()}`}
       data-testid={`node-${id}`}
       onDoubleClick={handleDoubleClick}
     >
+      {/* AI indicators for AI-powered nodes */}
+      <NodeAIIndicator node={{ id, data: { ...data, config, type } }} />
+
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
       {/* Error label */}
       {getErrorLabel()}
+      {hasValidationIssues && (
+        <div className="absolute top-1 left-1 bg-red-500 text-white text-[10px] px-2 py-[2px] rounded-sm font-semibold uppercase tracking-wide shadow-sm">
+          Incomplete
+        </div>
+      )}
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
+        </div>
+      )}
+      {!error && hasValidationIssues && (
+        <div className="bg-red-50 border-b border-red-100 px-4 py-2">
+          <p className="text-sm text-red-600 font-medium">
+            {validationState?.missingRequired?.length === 1
+              ? `Missing required field: ${validationState.missingRequired[0]}`
+              : `Missing ${validationState?.missingRequired?.length || 0} required fields`}
+          </p>
         </div>
       )}
       
