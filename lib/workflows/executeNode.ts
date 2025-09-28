@@ -23,7 +23,8 @@ import {
   classifyContent,
 } from './actions/aiDataProcessing'
 import { executeAIAgent } from './aiAgent'
-import { processAIFields, ProcessingContext } from './ai/fieldProcessor'
+import { processAIFields as processAIFieldsForChains, ProcessingContext } from './ai/fieldProcessor'
+import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
 
 /**
  * Generate mock output for sandbox mode based on action type
@@ -565,56 +566,83 @@ async function processAIFieldsIfNeeded(
     previousResults?: any
   }
 ): Promise<any> {
-  // Check if any fields need AI processing
-  const needsProcessing = Object.values(config).some(value => 
+  // Check if any fields need AI placeholder processing ({{AI_FIELD:fieldName}})
+  const hasAIPlaceholders = Object.values(config).some(value =>
+    typeof value === 'string' && value.includes('{{AI_FIELD:')
+  )
+
+  // Check if any fields need chain-based AI processing
+  const needsChainProcessing = Object.values(config).some(value =>
     typeof value === 'string' && (
-      value.includes('{{AI_FIELD:') ||
       value.includes('[') ||
       value.includes('{{AI:')
     )
   )
-  
-  if (!needsProcessing && nodeType !== 'ai_router') {
-    return config // No processing needed
-  }
-  
-  // Build processing context
-  const processingContext: ProcessingContext = {
-    userId: context.userId,
-    workflowId: context.workflowId,
-    executionId: context.executionId,
-    nodeId: context.nodeId,
-    nodeType,
-    triggerData: context.trigger,
-    previousNodes: context.previousResults ? new Map(Object.entries(context.previousResults)) : undefined,
-    config,
-    availableActions: nodeType === 'ai_router' ? getAvailableActions(config) : undefined,
-    apiKey: config.customApiKey,
-    model: config.model
-  }
-  
-  try {
-    const result = await processAIFields(processingContext)
-    
-    // For AI Router, handle routing decision
-    if (nodeType === 'ai_router' && result.routing) {
-      return {
-        ...config,
-        ...result.fields,
-        _aiRouting: result.routing // Special field for routing decision
-      }
-    }
-    
-    // Return config with processed fields
-    return {
-      ...config,
-      ...result.fields
-    }
-  } catch (error) {
-    console.error('AI field processing failed:', error)
-    // Fall back to original config
+
+  // If no processing needed and not AI router, return original config
+  if (!hasAIPlaceholders && !needsChainProcessing && nodeType !== 'ai_router') {
     return config
   }
+
+  let processedConfig = config
+
+  // First, process AI placeholders ({{AI_FIELD:fieldName}})
+  if (hasAIPlaceholders) {
+    try {
+      processedConfig = await processAIFields(processedConfig, {
+        nodeType,
+        workflowContext: context.workflowId,
+        triggerData: context.trigger,
+        previousOutputs: context.previousResults,
+        apiKey: config.customApiKey || config.apiKey
+      })
+    } catch (error) {
+      console.error('AI placeholder processing failed:', error)
+      // Continue with original config if AI processing fails
+    }
+  }
+
+  // Then, process chain-based AI fields if needed
+  if (needsChainProcessing || nodeType === 'ai_router') {
+    // Build processing context for chain processing
+    const processingContext: ProcessingContext = {
+      userId: context.userId,
+      workflowId: context.workflowId,
+      executionId: context.executionId,
+      nodeId: context.nodeId,
+      nodeType,
+      triggerData: context.trigger,
+      previousNodes: context.previousResults ? new Map(Object.entries(context.previousResults)) : undefined,
+      config: processedConfig,
+      availableActions: nodeType === 'ai_router' ? getAvailableActions(processedConfig) : undefined,
+      apiKey: processedConfig.customApiKey || processedConfig.apiKey,
+      model: processedConfig.model
+    }
+
+    try {
+      const result = await processAIFieldsForChains(processingContext)
+
+      // For AI Router, handle routing decision
+      if (nodeType === 'ai_router' && result.routing) {
+        return {
+          ...processedConfig,
+          ...result.fields,
+          _aiRouting: result.routing // Special field for routing decision
+        }
+      }
+
+      // Return config with processed fields
+      return {
+        ...processedConfig,
+        ...result.fields
+      }
+    } catch (error) {
+      console.error('AI chain processing failed:', error)
+      // Continue with processed config if chain processing fails
+    }
+  }
+
+  return processedConfig
 }
 
 /**

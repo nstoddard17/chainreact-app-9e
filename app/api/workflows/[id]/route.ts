@@ -156,7 +156,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // If body contains nodes array and it's empty, but workflow had nodes before
     if ('nodes' in body && Array.isArray(body.nodes) && body.nodes.length === 0) {
       // Check if workflow currently has nodes
-      const { data: existingWorkflow } = await serviceClient
+      const { data: existingWorkflow } = await supabase
         .from("workflows")
         .select("nodes")
         .eq("id", resolvedParams.id)

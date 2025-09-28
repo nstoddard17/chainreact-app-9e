@@ -115,7 +115,9 @@ export function useWorkflowBuilder() {
     currentWorkflow?.id,
     nodes,
     setNodes,
-    setHasUnsavedChanges
+    setHasUnsavedChanges,
+    edges,
+    setEdges
   )
 
   // Memoized node and edge types
@@ -129,9 +131,41 @@ export function useWorkflowBuilder() {
     custom: CustomEdgeWithButton,
   }), [])
 
-  // Load initial data
+  // Load initial data in parallel with proper error handling
   useEffect(() => {
-    fetchWorkflows()
+    const loadInitialData = async () => {
+      // Set a global timeout for all initial loading
+      const loadingTimeout = setTimeout(() => {
+        console.warn('[WorkflowBuilder] Initial load timeout - resetting loading states')
+        // Force clear any stuck loading states
+        if (workflowLoading) {
+          useWorkflowStore.setState({ loading: false })
+        }
+        if (integrationsLoading) {
+          useIntegrationStore.setState({ loading: false })
+        }
+      }, 10000) // 10 second timeout for initial load
+
+      try {
+        // Fetch workflows and integrations in parallel
+        await Promise.all([
+          fetchWorkflows().catch(err => {
+            console.error('[WorkflowBuilder] Failed to fetch workflows:', err)
+            return [] // Continue even if workflows fail
+          }),
+          // Only fetch integrations if not already loaded
+          !getConnectedProviders()?.length ?
+            useIntegrationStore.getState().fetchIntegrations().catch(err => {
+              console.error('[WorkflowBuilder] Failed to fetch integrations:', err)
+              return [] // Continue even if integrations fail
+            }) : Promise.resolve()
+        ])
+      } finally {
+        clearTimeout(loadingTimeout)
+      }
+    }
+
+    loadInitialData()
   }, [])
 
   // Stable callback refs - don't depend on nodes to avoid loops
@@ -285,10 +319,12 @@ export function useWorkflowBuilder() {
             const addActionNode: Node = {
               id: addActionId,
               type: 'addAction',
-              position: { 
-                x: node.position.x, 
-                y: node.position.y + 160 
+              position: {
+                x: node.position.x,
+                y: node.position.y + 160
               },
+              draggable: false,
+              selectable: false,
               data: {
                 parentId: node.id,
                 onClick: clickHandler
@@ -375,8 +411,14 @@ export function useWorkflowBuilder() {
         // Set workflow for error tracking
         setErrorStoreWorkflow(workflow)
         
-        // Fit view after loading
-        setTimeout(() => fitView({ padding: 0.2 }), 100)
+        // Fit view after loading with offset to prevent nodes from going under top UI
+        setTimeout(() => fitView({
+          padding: 0.2,
+          includeHiddenNodes: false,
+          minZoom: 0.5,
+          maxZoom: 2,
+          offset: { x: 0, y: 40 }
+        }), 100)
       }
     }
     
@@ -567,15 +609,47 @@ export function useWorkflowBuilder() {
     })
   }, [edges, dialogsHook])
 
-  // Determine loading state
+  // Determine loading state with timeout protection
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null)
+  const MAX_LOADING_TIME = 15000 // 15 seconds max loading time
+
   const shouldShowLoading = () => {
-    if (workflowId && !currentWorkflow) return true
-    if (integrationsLoading && workflows.length === 0) return true
-    if (workflowLoading && !currentWorkflow) return true
+    // If we have a workflow ID but no current workflow, we're loading
+    if (workflowId && !currentWorkflow) {
+      // But not if we've been loading for too long
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        console.warn('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
+        return false
+      }
+      return true
+    }
+    // Only show loading for integrations if we have no workflows yet
+    if (integrationsLoading && workflows.length === 0) {
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        return false
+      }
+      return true
+    }
+    // Show loading if workflows are loading and we don't have a current workflow
+    if (workflowLoading && !currentWorkflow) {
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        return false
+      }
+      return true
+    }
     return false
   }
 
   const isLoading = shouldShowLoading()
+
+  // Track when loading starts
+  useEffect(() => {
+    if (isLoading && !loadingStartTime) {
+      setLoadingStartTime(Date.now())
+    } else if (!isLoading && loadingStartTime) {
+      setLoadingStartTime(null)
+    }
+  }, [isLoading, loadingStartTime])
   // Failsafe: never let the Save spinner get stuck indefinitely
   useEffect(() => {
     if (!isSaving) return
@@ -685,6 +759,8 @@ export function useWorkflowBuilder() {
         id: addActionId,
         type: 'addAction',
         position: { x: 250, y: 260 },
+        draggable: false,
+        selectable: false,
         data: {
           parentId: newNodeId,
           onClick: clickHandler
@@ -750,10 +826,12 @@ export function useWorkflowBuilder() {
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
-        position: { 
-          x: newNode.position.x, 
-          y: newNode.position.y + 160 
+        position: {
+          x: newNode.position.x,
+          y: newNode.position.y + 160
         },
+        draggable: false,
+        selectable: false,
         data: {
           parentId: newNodeId,
           onClick: clickHandler
@@ -794,9 +872,41 @@ export function useWorkflowBuilder() {
 
   // Additional handlers needed
   const optimizedOnNodesChange = useCallback((changes: any) => {
-    // Optimized version that prevents unnecessary updates
-    onNodesChange(changes)
-  }, [onNodesChange])
+    // Handle parent-child movement for add action nodes
+    const positionChanges = changes.filter((change: any) => change.type === 'position')
+
+    if (positionChanges.length > 0) {
+      // Find add action nodes that need to move with their parent
+      const additionalChanges: any[] = []
+      const currentNodes = getNodes()
+
+      positionChanges.forEach((change: any) => {
+        if (change.dragging !== false && !change.id.startsWith('add-action-')) {
+          // This is a parent node being dragged, find its add action node
+          const addActionId = `add-action-${change.id}`
+          const addActionNode = currentNodes.find(n => n.id === addActionId)
+
+          if (addActionNode && change.position) {
+            // Move the add action node with the parent
+            additionalChanges.push({
+              id: addActionId,
+              type: 'position',
+              position: {
+                x: change.position.x,
+                y: change.position.y + 120 // Keep 120px below parent
+              }
+            })
+          }
+        }
+      })
+
+      // Apply all changes including parent and child movements
+      onNodesChange([...changes, ...additionalChanges])
+    } else {
+      // No position changes, apply normally
+      onNodesChange(changes)
+    }
+  }, [onNodesChange, getNodes])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)
@@ -845,10 +955,29 @@ export function useWorkflowBuilder() {
   }, [nodes])
 
   const confirmDeleteNode = useCallback((nodeId: string) => {
-    // Handle actual deletion
-    handleNodeDelete(nodeId)
+    // Actually delete the node
+    setNodes((currentNodes) => {
+      // Remove the node and its associated add action node
+      return currentNodes.filter(n => n.id !== nodeId && n.id !== `add-action-${nodeId}`)
+    })
+
+    // Remove edges connected to this node
+    setEdges((currentEdges) => {
+      return currentEdges.filter(e => e.source !== nodeId && e.target !== nodeId)
+    })
+
+    // Clear the deletion modal
     dialogsHook.setDeletingNode(null)
-  }, [handleNodeDelete, dialogsHook])
+
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true)
+
+    // Show success toast
+    toast({
+      title: "Node deleted",
+      description: "The node has been removed from the workflow",
+    })
+  }, [setNodes, setEdges, dialogsHook, setHasUnsavedChanges, toast])
 
   const forceUpdate = useCallback(() => {
     // Force a re-render

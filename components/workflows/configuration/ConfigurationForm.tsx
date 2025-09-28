@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useDynamicOptions } from './hooks/useDynamicOptions';
 import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
 import { useIntegrationStore } from '@/stores/integrationStore';
@@ -73,7 +74,11 @@ function ConfigurationForm({
   isConnectedToAIAgent
 }: ConfigurationFormProps) {
   // FIRST: All hooks must be called before any conditional returns
-  
+
+  // Get workflow ID from URL params
+  const searchParams = useSearchParams()
+  const workflowId = searchParams.get('id')
+
   // Common state and hooks
   const [values, setValues] = useState<Record<string, any>>(() => {
     // Extract real config values, excluding the reserved keys
@@ -183,6 +188,7 @@ function ConfigurationForm({
   } = useDynamicOptions({
     nodeType: nodeInfo?.type,
     providerId: nodeInfo?.providerId || provider,
+    workflowId,
     onLoadingChange: (fieldName: string, isLoading: boolean) => {
       console.log(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
 

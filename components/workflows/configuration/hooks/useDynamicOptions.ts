@@ -9,6 +9,7 @@ import { formatOptionsForField } from '../utils/fieldFormatters';
 interface UseDynamicOptionsProps {
   nodeType?: string;
   providerId?: string;
+  workflowId?: string | null;
   onLoadingChange?: (fieldName: string, isLoading: boolean) => void;
   getFormValues?: () => Record<string, any>;
   initialOptions?: DynamicOptionsState;
@@ -28,7 +29,7 @@ interface DynamicOption {
 let authErrorRetryCount = 0;
 const MAX_AUTH_RETRIES = 1;
 
-export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
+export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingChange, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
   // Store callback in ref to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   onLoadingChangeRef.current = onLoadingChange;
@@ -814,7 +815,10 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
             dependsOn,
             dependsOnValue,
             forceRefresh,
-            extraOptions: enhancedExtraOptions
+            extraOptions: {
+              ...enhancedExtraOptions,
+              ...(workflowId && { workflowId })
+            }
           });
 
           console.log(`📊 [useDynamicOptions] Loader returned options for ${fieldName}:`, {
