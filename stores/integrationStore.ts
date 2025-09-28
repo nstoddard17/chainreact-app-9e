@@ -199,17 +199,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         currentAbortController = new AbortController()
 
-        // Set timeout for fetch operation - 5 seconds in production
-        const isProduction = process.env.NODE_ENV === 'production'
+        // Set timeout for fetch operation - match the service timeout
         const fetchTimeout = setTimeout(() => {
           console.warn('Integration fetch timeout - aborting request')
-          currentAbortController?.abort()
+          if (currentAbortController) {
+            currentAbortController.abort()
+          }
           setLoading('integrations', false)
+          // Keep existing integrations if we have them, but set error
+          const existingIntegrations = get().integrations
           set({
-            error: null, // Don't show error for timeout
-            integrations: get().integrations || [] // Keep existing data
+            error: 'Request timeout - please try refreshing the page',
+            integrations: existingIntegrations || [] // Keep existing data
           })
-        }, isProduction ? 5000 : 10000)
+        }, 30000) // 30 seconds to be slightly more than service timeout
 
         try {
           setLoading('integrations', true)
@@ -693,11 +696,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
-      
+
       const isConnectedStatus = (status?: string) => {
         const v = (status || '').toLowerCase()
         return v === 'connected' || v === 'authorized' || v === 'active' || v === 'valid' || v === 'ok' || v === 'ready'
       }
+
+      // Debug log
+      console.log('🔍 [getConnectedProviders] Checking integrations:', {
+        totalIntegrations: integrations.length,
+        integrations: integrations.map(i => ({
+          provider: i.provider,
+          status: i.status,
+          isConnected: isConnectedStatus(i.status)
+        }))
+      })
 
       // Return all integrations that are connected (status === "connected")
       // Other statuses like expired or needs_reauthorization should show as disconnected
@@ -723,7 +736,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Microsoft services DO NOT share authentication - each requires separate connection
       // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive) each need
       // their own OAuth connection and should not be considered connected just because one is connected
-      
+
+      console.log('🔍 [getConnectedProviders] Final result:', connectedProviders)
       return connectedProviders
     },
 

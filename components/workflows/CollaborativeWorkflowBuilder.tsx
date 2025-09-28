@@ -530,7 +530,7 @@ function WorkflowBuilderContent() {
           nodeName={deletingNode.name}
           onConfirm={() => {
             // Actually delete the node
-            if (confirmDeleteNode) {
+            if (confirmDeleteNode && deletingNode) {
               confirmDeleteNode(deletingNode.id)
             }
           }}
@@ -551,3 +551,4 @@ export default function CollaborativeWorkflowBuilder() {
     </ReactFlowProvider>
   )
 }
+
