@@ -845,10 +845,101 @@ export function useWorkflowBuilder() {
   }, [nodes])
 
   const confirmDeleteNode = useCallback((nodeId: string) => {
-    // Handle actual deletion
-    handleNodeDelete(nodeId)
+    const nodeToDelete = nodesRef.current.find((n) => n.id === nodeId)
+    if (!nodeToDelete) {
+      dialogsHook.setDeletingNode(null)
+      return
+    }
+
+    const placeholderId = `add-action-${nodeId}`
+    const currentEdges = getEdges()
+    const parentIds = Array.from(new Set(currentEdges.filter((edge) => edge.target === nodeId).map((edge) => edge.source)))
+
+    delete addActionHandlersRef.current[placeholderId]
+
+    setNodes((prevNodes) => {
+      let nextNodes = prevNodes.filter((node) => node.id !== nodeId && node.id !== placeholderId)
+
+      parentIds.forEach((parentId) => {
+        const placeholderForParent = `add-action-${parentId}`
+        const hasPlaceholder = nextNodes.some((node) => node.id === placeholderForParent)
+        if (hasPlaceholder) {
+          return
+        }
+
+        const parentNode = nextNodes.find((node) => node.id === parentId) || prevNodes.find((node) => node.id === parentId)
+        if (!parentNode) {
+          return
+        }
+
+        const clickHandler = () => handleAddActionClick(placeholderForParent, parentId)
+        addActionHandlersRef.current[placeholderForParent] = clickHandler
+
+        nextNodes = [
+          ...nextNodes,
+          {
+            id: placeholderForParent,
+            type: 'addAction',
+            position: {
+              x: parentNode.position?.x ?? 0,
+              y: (parentNode.position?.y ?? 0) + 160,
+            },
+            data: {
+              parentId,
+              onClick: clickHandler,
+            },
+          } as Node,
+        ]
+      })
+
+      return nextNodes
+    })
+
+    setEdges((prevEdges) => {
+      let nextEdges = prevEdges.filter((edge) => {
+        if (edge.source === nodeId || edge.target === nodeId) return false
+        if (edge.source === placeholderId || edge.target === placeholderId) return false
+        return true
+      })
+
+      parentIds.forEach((parentId) => {
+        const placeholderForParent = `add-action-${parentId}`
+        const hasEdge = nextEdges.some((edge) => edge.source === parentId && edge.target === placeholderForParent)
+        if (hasEdge) {
+          return
+        }
+
+        nextEdges = [
+          ...nextEdges,
+          {
+            id: `e-${parentId}-${placeholderForParent}`,
+            source: parentId,
+            target: placeholderForParent,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' },
+          } as Edge,
+        ]
+      })
+
+      return nextEdges
+    })
+
+    removeNode(nodeId)
+    setHasUnsavedChanges(true)
+
+    if (configHook.configuringNode?.id === nodeId) {
+      configHook.setConfiguringNode(null)
+    }
+    if (configHook.pendingNode?.sourceNodeInfo?.id === nodeId || configHook.pendingNode?.sourceNodeInfo?.parentId === nodeId) {
+      configHook.setPendingNode(null)
+    }
+    if (dialogsHook.sourceAddNode?.id === nodeId || dialogsHook.sourceAddNode?.parentId === nodeId) {
+      dialogsHook.setSourceAddNode(null)
+    }
+
     dialogsHook.setDeletingNode(null)
-  }, [handleNodeDelete, dialogsHook])
+  }, [setNodes, setEdges, getEdges, handleAddActionClick, removeNode, setHasUnsavedChanges, configHook, dialogsHook])
 
   const forceUpdate = useCallback(() => {
     // Force a re-render
