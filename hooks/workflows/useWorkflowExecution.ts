@@ -18,12 +18,71 @@ export function useWorkflowExecution() {
   const router = useRouter()
   const { toast } = useToast()
   const { currentWorkflow, updateWorkflow } = useWorkflowStore()
-  const { executeWorkflow } = useWorkflowTestStore()
-  const { addError, clearErrors } = useWorkflowErrorStore()
-  
+  const { setTestResults } = useWorkflowTestStore()
+  const { addError, clearErrorsForWorkflow } = useWorkflowErrorStore()
+
   const [isExecuting, setIsExecuting] = useState(false)
   const [activeExecutionNodeId, setActiveExecutionNodeId] = useState<string | null>(null)
   const [executionResults, setExecutionResults] = useState<Record<string, ExecutionResult>>({})
+
+  // Step execution states
+  const [isStepMode, setIsStepMode] = useState(false)
+  const [isStepByStep, setIsStepByStep] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(null)
+  const [nodeStatuses, setNodeStatuses] = useState<Record<string, 'pending' | 'running' | 'completed' | 'error'>>({})
+  const [stepContinueCallback, setStepContinueCallback] = useState<(() => void) | null>(null)
+  const [skipCallback, setSkipCallback] = useState<(() => void) | null>(null)
+
+  // Function to execute workflow via API
+  const executeWorkflow = useCallback(async (
+    workflowId: string,
+    options?: {
+      onNodeStart?: (nodeId: string) => void
+      onNodeComplete?: (nodeId: string) => void
+      onNodeError?: (nodeId: string, error: string) => void
+      testMode?: boolean
+      executionMode?: 'sandbox' | 'live'
+    }
+  ) => {
+    try {
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId,
+          testMode: options?.testMode ?? false,
+          executionMode: options?.executionMode ?? 'live',
+          inputData: {},
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute workflow')
+      }
+
+      const result = await response.json()
+
+      // Handle callbacks if provided
+      if (result.results) {
+        result.results.forEach((nodeResult: any) => {
+          if (nodeResult.success) {
+            options?.onNodeComplete?.(nodeResult.nodeId)
+          } else {
+            options?.onNodeError?.(nodeResult.nodeId, nodeResult.error || 'Unknown error')
+          }
+        })
+      }
+
+      return result
+    } catch (error) {
+      console.error('Error executing workflow:', error)
+      throw error
+    }
+  }, [])
 
   const handleExecute = useCallback(async (nodes: Node[], edges: Edge[]) => {
     if (!currentWorkflow?.id) {
@@ -57,7 +116,7 @@ export function useWorkflowExecution() {
 
     try {
       setIsExecuting(true)
-      clearErrors()
+      clearErrorsForWorkflow(currentWorkflow.id)
       
       const resetResults: Record<string, ExecutionResult> = {}
       nodes.forEach(node => {
@@ -89,33 +148,42 @@ export function useWorkflowExecution() {
       })
 
       const executionResults = await executeWorkflow(currentWorkflow.id, {
+        executionMode: 'live',
         onNodeStart: (nodeId: string) => {
           setActiveExecutionNodeId(nodeId)
           setExecutionResults(prev => ({
             ...prev,
-            [nodeId]: { 
-              status: 'running', 
-              timestamp: Date.now() 
+            [nodeId]: {
+              status: 'running',
+              timestamp: Date.now()
             }
           }))
         },
         onNodeComplete: (nodeId: string) => {
           setExecutionResults(prev => ({
             ...prev,
-            [nodeId]: { 
-              status: 'completed', 
-              timestamp: Date.now() 
+            [nodeId]: {
+              status: 'completed',
+              timestamp: Date.now()
             }
           }))
         },
         onNodeError: (nodeId: string, error: string) => {
-          addError(nodeId, error)
+          const node = nodes.find(n => n.id === nodeId)
+          addError({
+            workflowId: currentWorkflow.id,
+            nodeId: nodeId,
+            nodeName: node?.data?.title || node?.data?.type || 'Unknown Node',
+            errorMessage: error,
+            timestamp: new Date().toISOString(),
+            executionSessionId: `session-${Date.now()}`
+          })
           setExecutionResults(prev => ({
             ...prev,
-            [nodeId]: { 
-              status: 'error', 
-              error, 
-              timestamp: Date.now() 
+            [nodeId]: {
+              status: 'error',
+              error,
+              timestamp: Date.now()
             }
           }))
         },
@@ -154,19 +222,83 @@ export function useWorkflowExecution() {
         setExecutionResults({})
       }, 5000)
     }
-  }, [currentWorkflow, updateWorkflow, executeWorkflow, clearErrors, addError, toast, router])
+  }, [currentWorkflow, updateWorkflow, executeWorkflow, clearErrorsForWorkflow, addError, toast, router])
 
   const handleResetLoadingStates = useCallback(() => {
     setIsExecuting(false)
     setActiveExecutionNodeId(null)
     setExecutionResults({})
+    setIsStepMode(false)
+    setIsStepByStep(false)
+    setIsPaused(false)
+    setCurrentNodeId(null)
+    setNodeStatuses({})
+    setStepContinueCallback(null)
+    setSkipCallback(null)
+  }, [])
+
+  const handleTestSandbox = useCallback(async () => {
+    // Placeholder for sandbox execution
+    toast({
+      title: "Sandbox Mode",
+      description: "Sandbox execution coming soon",
+    })
+  }, [toast])
+
+  const handleExecuteLive = useCallback(async () => {
+    // Will be called with nodes and edges from the component
+    toast({
+      title: "Live Execution",
+      description: "Live execution starting...",
+    })
+  }, [toast])
+
+  const pauseExecution = useCallback(() => {
+    setIsPaused(true)
+  }, [])
+
+  const stopStepExecution = useCallback(() => {
+    setIsStepMode(false)
+    setIsStepByStep(false)
+    setIsPaused(false)
+    setCurrentNodeId(null)
+    setNodeStatuses({})
+    setStepContinueCallback(null)
+    setSkipCallback(null)
+  }, [])
+
+  const executeNodeStepByStep = useCallback(async (nodeId: string) => {
+    setCurrentNodeId(nodeId)
+    setNodeStatuses(prev => ({ ...prev, [nodeId]: 'running' }))
+    // Implementation for step-by-step execution
   }, [])
 
   return {
     isExecuting,
+    setIsExecuting,
     activeExecutionNodeId,
     executionResults,
     handleExecute,
+    handleTestSandbox,
+    handleExecuteLive,
     handleResetLoadingStates,
+    // Step execution
+    isStepMode,
+    setIsStepMode,
+    isStepByStep,
+    setIsStepByStep,
+    isPaused,
+    setIsPaused,
+    currentNodeId,
+    setCurrentNodeId,
+    nodeStatuses,
+    setNodeStatuses,
+    stepContinueCallback,
+    setStepContinueCallback,
+    skipCallback,
+    setSkipCallback,
+    pauseExecution,
+    stopStepExecution,
+    executeNodeStepByStep,
   }
 }

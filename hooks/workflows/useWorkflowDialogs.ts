@@ -16,19 +16,33 @@ export function useWorkflowDialogs() {
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
   const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
+  const [showExecutionHistory, setShowExecutionHistory] = useState(false)
+  const [showSandboxPreview, setShowSandboxPreview] = useState(false)
+
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
   const [selectedTrigger, setSelectedTrigger] = useState<NodeComponent | null>(null)
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [showConnectedOnly, setShowConnectedOnly] = useState(true)
+  const [showConnectedOnly, setShowConnectedOnly] = useState(false)
+  const [showComingSoon, setShowComingSoon] = useState(false)
+  const [isActionAIMode, setIsActionAIMode] = useState(false)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
-  const [sourceAddNode, setSourceAddNode] = useState<{ 
+  const [sourceAddNode, setSourceAddNode] = useState<{
     id: string
     parentId: string
-    insertBefore?: string 
+    insertBefore?: string
   } | null>(null)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+
+  // OAuth loading state
+  const [connectingIntegrationId, setConnectingIntegrationId] = useState<string | null>(null)
+
+  // Sandbox state
+  const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
+
+  // Loading state
+  const [hasShownLoading, setHasShownLoading] = useState(false)
 
   const handleOpenTriggerDialog = useCallback(() => {
     setSelectedIntegration(null)
@@ -97,7 +111,11 @@ export function useWorkflowDialogs() {
     setShowUnsavedChangesModal,
     showDiscordConnectionModal,
     setShowDiscordConnectionModal,
-    
+    showExecutionHistory,
+    setShowExecutionHistory,
+    showSandboxPreview,
+    setShowSandboxPreview,
+
     // Selection states
     selectedIntegration,
     setSelectedIntegration,
@@ -109,7 +127,7 @@ export function useWorkflowDialogs() {
     setDeletingNode,
     sourceAddNode,
     setSourceAddNode,
-    
+
     // Filter states
     searchQuery,
     setSearchQuery,
@@ -117,11 +135,27 @@ export function useWorkflowDialogs() {
     setFilterCategory,
     showConnectedOnly,
     setShowConnectedOnly,
-    
+    showComingSoon,
+    setShowComingSoon,
+    isActionAIMode,
+    setIsActionAIMode,
+
+    // OAuth loading state
+    connectingIntegrationId,
+    setConnectingIntegrationId,
+
+    // Sandbox state
+    sandboxInterceptedActions,
+    setSandboxInterceptedActions,
+
+    // Loading state
+    hasShownLoading,
+    setHasShownLoading,
+
     // Navigation states
     pendingNavigation,
     setPendingNavigation,
-    
+
     // Handler functions
     handleOpenTriggerDialog,
     handleActionDialogClose,
