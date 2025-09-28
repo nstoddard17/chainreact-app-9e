@@ -7,6 +7,7 @@ import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
+import { useFieldValidation } from './hooks/useFieldValidation';
 // import { saveNodeConfig } from '@/lib/workflows/configPersistence'; // Removed - was causing slow saves
 
 // Provider-specific components
@@ -75,8 +76,8 @@ function ConfigurationForm({
   
   // Common state and hooks
   const [values, setValues] = useState<Record<string, any>>(() => {
-    // Extract real config values, excluding the __dynamicOptions key
-    const { __dynamicOptions, ...configValues } = initialData || {};
+    // Extract real config values, excluding the reserved keys
+    const { __dynamicOptions, __validationState, ...configValues } = initialData || {};
     console.log('🔄 [ConfigForm] Initializing values with initialData:', {
       nodeType: nodeInfo?.type,
       currentNodeId,
@@ -121,9 +122,11 @@ function ConfigurationForm({
   const [googleSheetsSelectedRows, setGoogleSheetsSelectedRows] = useState<Set<string>>(new Set());
   const [airtableRecords, setAirtableRecords] = useState<any[]>([]);
   const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
+
+  const { validateRequiredFields, getMissingRequiredFields } = useFieldValidation({ nodeInfo, values });
   
   const { getIntegrationByProvider, connectIntegration, fetchIntegrations } = useIntegrationStore();
-  const { currentWorkflow } = useWorkflowStore();
+  const { currentWorkflow, updateNode } = useWorkflowStore();
 
   // Extract provider and node type (safe even if nodeInfo is null)
   const provider = nodeInfo?.providerId;
@@ -866,10 +869,28 @@ function ConfigurationForm({
       }
       
       // Include dynamicOptions with the saved values so they can be stored with the node
+      const missingRequiredFields = getMissingRequiredFields();
+
+      const validationState = {
+        missingRequired: missingRequiredFields,
+        lastValidatedAt: new Date().toISOString(),
+        lastUpdatedAt: new Date().toISOString(),
+        isValid: missingRequiredFields.length === 0
+      };
+
       await onSave({
         ...submissionValues,
-        __dynamicOptions: dynamicOptions
+        __dynamicOptions: dynamicOptions,
+        __validationState: validationState
       });
+
+      if (currentWorkflow?.id && currentNodeId) {
+        updateNode(currentNodeId, {
+          data: {
+            validationState
+          }
+        });
+      }
     } catch (error) {
       console.error('Error saving configuration:', error);
     } finally {

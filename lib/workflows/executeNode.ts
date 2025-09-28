@@ -256,6 +256,34 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
 }
 
 /**
+ * Execute a single workflow node
+ * This is a simplified wrapper for use in chain execution
+ */
+export async function executeNode(
+  node: any,
+  context: any,
+  userId: string
+): Promise<any> {
+  // Build the ExecuteActionParams from the simplified inputs
+  const params: ExecuteActionParams = {
+    node,
+    input: context.data || context,
+    userId,
+    workflowId: context.workflowId,
+    testMode: context.testMode || false,
+    executionMode: context.testMode ? 'sandbox' : 'live'
+  }
+
+  try {
+    const result = await executeAction(params)
+    return result
+  } catch (error) {
+    console.error(`Failed to execute node ${node.id}:`, error)
+    throw error
+  }
+}
+
+/**
  * Main function to execute a workflow action node
  * Routes to the appropriate handler based on node type
  */

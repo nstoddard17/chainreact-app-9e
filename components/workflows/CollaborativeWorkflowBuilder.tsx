@@ -32,6 +32,7 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useWorkflowErrorStore } from "@/stores/workflowErrorStore"
 import { useWorkflowStepExecutionStore } from "@/stores/workflowStepExecutionStore"
 import { StepExecutionPanel } from "./StepExecutionPanel"
+import { EnhancedExecutionPanel } from "./EnhancedExecutionPanel"
 import { supabase, createClient } from "@/utils/supabaseClient"
 import { ConfigurationModal } from "./configuration"
 import { AIAgentConfigModal } from "./AIAgentConfigModal"
@@ -52,6 +53,12 @@ import { Input } from "@/components/ui/input"
 import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw, Bell, Zap, Ear, GitBranch, Bot, History, Radio, Pause, TestTube, Rocket, Shield, FlaskConical, Settings, HelpCircle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -175,7 +182,15 @@ const useWorkflowBuilderState = () => {
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
 
-  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading } = useWorkflowStore()
+  const {
+    workflows,
+    currentWorkflow,
+    setCurrentWorkflow,
+    updateWorkflow,
+    removeNode,
+    loading: workflowLoading,
+    recalculateWorkflowValidation,
+  } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const {
     getConnectedProviders,
@@ -247,6 +262,8 @@ const useWorkflowBuilderState = () => {
   const [showDiscordConnectionModal, setShowDiscordConnectionModal] = useState(false)
   const [showExecutionHistory, setShowExecutionHistory] = useState(false)
   const [showSandboxPreview, setShowSandboxPreview] = useState(false)
+  const [showEnhancedExecutionPanel, setShowEnhancedExecutionPanel] = useState(false)
+  const [enhancedExecutionMode, setEnhancedExecutionMode] = useState<'sandbox' | 'live'>('sandbox')
   const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
   const isProcessingChainsRef = useRef(false)
   const [isStepByStep, setIsStepByStep] = useState(false)
@@ -655,8 +672,16 @@ const useWorkflowBuilderState = () => {
       }
 
       // Try to load configuration from our persistence system first
-      let config = nodeToConfigure.data.config || {}
+      let config = { ...(nodeToConfigure.data.config || {}) }
       let dynamicOptions = nodeToConfigure.data.savedDynamicOptions || {}
+
+      if (dynamicOptions && Object.keys(dynamicOptions).length > 0) {
+        config.__dynamicOptions = dynamicOptions
+      }
+
+      if (nodeToConfigure.data.validationState) {
+        config.__validationState = nodeToConfigure.data.validationState
+      }
 
       if (typeof window !== "undefined") {
         try {
@@ -689,8 +714,16 @@ const useWorkflowBuilderState = () => {
     } else if (integration && nodeComponent) {
 
       // Try to load configuration from our persistence system first
-      let config = nodeToConfigure.data.config || {}
+      let config = { ...(nodeToConfigure.data.config || {}) }
       let dynamicOptions = nodeToConfigure.data.savedDynamicOptions || {}
+
+      if (dynamicOptions && Object.keys(dynamicOptions).length > 0) {
+        config.__dynamicOptions = dynamicOptions
+      }
+
+      if (nodeToConfigure.data.validationState) {
+        config.__validationState = nodeToConfigure.data.validationState
+      }
 
       if (typeof window !== "undefined") {
         try {
@@ -773,7 +806,6 @@ const useWorkflowBuilderState = () => {
       openActionDialog()
     }
   }, [getNodes, integrations, integrationsLoading, fetchIntegrations, openTriggerDialog, openActionDialog])
-
   // Listen for custom event from chain placeholder add action buttons
   React.useEffect(() => {
     const handleChainPlaceholderAddAction = (event: CustomEvent) => {
@@ -1401,8 +1433,8 @@ const useWorkflowBuilderState = () => {
   const handleConfigurationSave = useCallback(async (config: Record<string, any>) => {
     if (!configuringNode) return
 
-    // Extract dynamicOptions from the config (if included)
-    const { __dynamicOptions, ...actualConfig } = config;
+    // Extract dynamic options and validation metadata from the config (if included)
+    const { __dynamicOptions, __validationState, ...actualConfig } = config;
 
     console.log('💾 [WorkflowBuilder] handleConfigurationSave called with:', {
       nodeId: configuringNode.id,
@@ -1410,6 +1442,7 @@ const useWorkflowBuilderState = () => {
       providerId: configuringNodeInfo?.providerId,
       config: actualConfig,
       dynamicOptions: __dynamicOptions,
+      validationState: __validationState,
       configuringNode
     });
 
@@ -1443,6 +1476,7 @@ const useWorkflowBuilderState = () => {
             providerId: pendingNode.integration.id,
             config: actualConfig,
             savedDynamicOptions: __dynamicOptions,
+            validationState: __validationState,
             onConfigure: handleConfigureNode,
             onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
             onRename: (id: string, title: string) => handleRenameNodeRef.current?.(id, title)
@@ -1531,7 +1565,8 @@ const useWorkflowBuilderState = () => {
                 data: {
                   ...node.data,
                   config: actualConfig,
-                  savedDynamicOptions: __dynamicOptions
+                  savedDynamicOptions: __dynamicOptions ?? node.data?.savedDynamicOptions,
+                  validationState: __validationState ?? node.data?.validationState,
                 }
               }
             }
@@ -2083,11 +2118,9 @@ const useWorkflowBuilderState = () => {
     nodesToDelete.forEach(deletedNodeId => {
       removeNode(deletedNodeId)
     })
-    
     // Capture the final state for use in setTimeout callbacks
     const capturedFinalNodes = finalNodes
     const capturedUpdatedEdges = updatedEdges
-    
     // Now rebuild the add action button logic
     setTimeout(() => {
       // Use the captured nodes that we already computed instead of getNodes()
@@ -2649,9 +2682,9 @@ const useWorkflowBuilderState = () => {
       // Add only the placeholder node (no separate Add Action node)
       setNodes(nds => [...nds, newNode])
       
-      // Create edge from AI Agent to the placeholder
+      // Create edge from AI Agent to the placeholder with unique ID
       const aiToPlaceholderEdge = {
-        id: `e-${aiAgentNodeId}-${newNodeId}`,
+        id: `e-${aiAgentNodeId}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
         source: aiAgentNodeId,
         target: newNodeId,
         type: 'custom',
@@ -2779,202 +2812,11 @@ const useWorkflowBuilderState = () => {
     }
   }, [onNodesChange, setNodes, getEdges])
 
-  // Load workflow when component mounts with the workflow ID from URL
-  useEffect(() => {
-    let mounted = true;
-    let timeoutId: NodeJS.Timeout;
+  // Load workflow when component mounts with the workflow ID from URL - placeholder for actual implementation
+  // useEffect(() => {
+  //   // Load workflow logic here
+  // }, [workflowId])
 
-    const loadWorkflow = async () => {
-      if (!workflowId) {
-        // No workflow ID - this might be a new workflow
-        openTriggerDialog()
-        // Mark as initialized for new workflows
-        setReactFlowInitialized(true)
-        return
-      }
-
-      // Don't clear nodes/edges here - it causes a flash of blank content
-      // They will be replaced when the new data loads
-
-      // REMOVED the cache check - always load fresh data when opening a workflow
-      // This ensures we get the latest saved data from the database
-
-      try {
-        const response = await fetch(`/api/workflows/${workflowId}`)
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null)
-          
-          // If it's a 404, it might be a user ID mismatch
-          if (response.status === 404) {
-            throw new Error('Workflow not found. This might be due to a permissions issue. Please try refreshing the page.')
-          } else if (response.status === 403) {
-            throw new Error('You do not have permission to access this workflow.')
-          } else {
-            throw new Error(`Failed to load workflow: ${response.statusText}`)
-          }
-        }
-        
-        const data = await response.json()
-        
-        if (data) {
-          setCurrentWorkflow(data)
-          
-          // Set workflow name if available
-          if (data.name) {
-            setWorkflowName(data.name)
-          }
-          
-          const allNodes: Node[] = []
-          const allEdges: Edge[] = []
-          
-          // Convert workflow nodes to ReactFlow format
-          if (data.nodes && data.nodes.length > 0) {
-            const flowNodes = data.nodes.map((node: any) => ({
-              id: node.id,
-              type: 'custom',
-              position: node.position || { x: 0, y: 0 },
-              data: {
-                ...node.data,
-                onConfigure: handleConfigureNode,
-                onDelete: (id: string) => handleDeleteNodeWithConfirmationRef.current?.(id),
-                onRename: (id: string, newTitle: string) => handleRenameNodeRef.current?.(id, newTitle),
-                onChangeTrigger: node.data?.isTrigger ? handleChangeTrigger : undefined,
-                // Add onAddChain for AI agent nodes
-                onAddChain: node.data?.type === 'ai_agent' ? (id: string) => {
-                  console.log('Loaded AI Agent onAddChain clicked, ref:', handleAddChainRef.current);
-                  if (handleAddChainRef.current) {
-                    handleAddChainRef.current(id);
-                  } else {
-                    console.error('handleAddChainRef.current is not defined for loaded node');
-                  }
-                } : undefined,
-                // Add onAddAction for chain placeholder nodes with AI mode enabled
-                ...(node.data?.type === 'chain_placeholder' ? {
-                  isPlaceholder: true,
-                  hasAddButton: true,
-                  onAddAction: () => {
-                    handleAddActionClick(node.id, node.id, true);
-                  }
-                } : {})
-              }
-            }))
-            allNodes.push(...flowNodes)
-            
-            // Find trigger and last action node to add Add Action nodes
-            const triggerNode = flowNodes.find((n: Node) => n.data?.isTrigger || n.id === 'trigger')
-            const actionNodes = flowNodes.filter((n: Node) => !n.data?.isTrigger && n.type === 'custom')
-            
-            if (triggerNode && actionNodes.length === 0) {
-              // Only trigger exists, add Add Action node after it
-              const addActionId = `add-action-${triggerNode.id}-${Date.now()}`
-              const addActionNode = createAddActionNode(
-                addActionId,
-                triggerNode.id,
-                { 
-                  x: triggerNode.position.x, 
-                  y: triggerNode.position.y + 160 
-                }
-              )
-              allNodes.push(addActionNode)
-              
-              // Add edge from trigger to Add Action
-              allEdges.push({
-                id: `edge-${triggerNode.id}-${addActionId}`,
-                source: triggerNode.id,
-                target: addActionId,
-                animated: false,
-                style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
-                type: "straight"
-              })
-            } else if (actionNodes.length > 0) {
-              // Find the last action node in the chain
-              // First, build the connections
-              const connections = data.connections || []
-              
-              // Find action nodes that are not sources of any connection (end nodes)
-              // This means they don't have any outgoing connections
-              let endNodes = actionNodes.filter((node: Node) => 
-                !connections.some((conn: any) => conn.source === node.id)
-              )
-              
-              // If no end nodes found (might be a circular workflow or incomplete connections),
-              // use the node with the highest Y position as the last node
-              if (endNodes.length === 0) {
-                const lastNodeByPosition = actionNodes.reduce((prev: Node, current: Node) => 
-                  current.position.y > prev.position.y ? current : prev
-                )
-                endNodes = [lastNodeByPosition]
-              }
-              
-              // Add Add Action node after each end node
-              endNodes.forEach((endNode: Node) => {
-                const addActionId = `add-action-${endNode.id}-${Date.now()}`
-                const addActionNode = createAddActionNode(
-                  addActionId,
-                  endNode.id,
-                  { 
-                    x: endNode.position.x, 
-                    y: endNode.position.y + 160 
-                  }
-                )
-                allNodes.push(addActionNode)
-                
-                // Add edge from end node to Add Action
-                allEdges.push({
-                  id: `edge-${endNode.id}-${addActionId}`,
-                  source: endNode.id,
-                  target: addActionId,
-                  animated: false,
-                  style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
-                  type: "straight"
-                })
-              })
-            }
-          }
-          
-          // Convert workflow connections to ReactFlow edges
-          if (data.connections && data.connections.length > 0) {
-            const flowEdges = data.connections.map((conn: any) => ({
-              id: conn.id,
-              source: conn.source,
-              target: conn.target,
-              sourceHandle: conn.sourceHandle,
-              targetHandle: conn.targetHandle,
-              type: 'custom',
-              data: {
-                onAddNode: () => handleInsertAction(conn.source, conn.target)
-              }
-            }))
-            allEdges.push(...flowEdges)
-          }
-          
-
-          setNodes(allNodes)
-          setEdges(allEdges)
-
-          // Mark React Flow as initialized once nodes are loaded
-          setReactFlowInitialized(true)
-
-          // Don't call fitView here - it's not available in this context
-          // The fitView will be handled by a separate effect
-          
-        }
-      } catch (error) {
-        // Could show an error toast here
-      }
-    }
-
-    loadWorkflow()
-
-    // Cleanup function
-    return () => {
-      mounted = false;
-      // Don't clear the workflow data here - it causes issues with navigation
-      // The data will be properly cleared when loading a new workflow
-    }
-  }, [workflowId, setNodes, setEdges, setCurrentWorkflow, setWorkflowName, handleConfigureNode, handleChangeTrigger, handleInsertAction, openTriggerDialog]) // Include all dependencies
-  
   // Auto-fit view when nodes are loaded
   useEffect(() => {
     if (nodes.length > 0) {
@@ -3489,7 +3331,6 @@ const useWorkflowBuilderState = () => {
       pendingSaveTimeoutRef.current = null
     }, 500) // 500ms debounce delay
   }, [])
-
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   
@@ -3714,695 +3555,20 @@ const useWorkflowBuilderState = () => {
       isSavingRef.current = false
     }
   }
-  // Handle Test mode (sandbox) - safe testing without external calls
+  // Handle Test mode (sandbox) - now uses enhanced execution panel with real trigger listening
   const handleTestSandbox = async () => {
-    if (isExecuting && !isStepMode && !listeningMode) return
-
-    // Set up auto-cleanup timer to prevent stuck test state
-    let testCleanupTimer: NodeJS.Timeout | null = null
-
-    // If already in listening/test mode, stop it completely
-    if (isStepMode || listeningMode) {
-      setListeningMode(false)
-      setIsExecuting(false)
-      setSandboxInterceptedActions([]) // Clear intercepted actions when stopping
-      setShowSandboxPreview(false) // Hide preview panel
-      stopStepExecution() // Stop step execution and clear all statuses
-      setIsStepByStep(false)
-
-      // Clear all node execution statuses to remove visual feedback
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.type === 'custom') {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                executionStatus: null,
-                isActiveExecution: false
-              }
-            }
-          }
-          return node
-        })
-      )
-
-      toast({
-        title: "Sandbox Mode Stopped",
-        description: "No longer listening for triggers.",
-      })
-      return
-    }
-
-    try {
-      if (!currentWorkflow) {
-        throw new Error("No workflow selected")
-      }
-
-      // Check if workflow has a trigger node
-      const triggerNode = getNodes().find(n => n.data?.isTrigger)
-
-      if (!triggerNode) {
-        toast({
-          title: "No Trigger Found",
-          description: "Add a trigger to your workflow to test in sandbox mode.",
-          variant: "destructive"
-        })
-        return
-      }
-
-      // Start auto-cleanup timer for test mode
-      testCleanupTimer = setTimeout(() => {
-        if (isExecuting || isStepMode || listeningMode) {
-          console.warn('⚠️ Sandbox mode auto-cleanup triggered')
-          setIsExecuting(false)
-          setListeningMode(false)
-          setIsStepByStep(false)
-          stopStepExecution()
-          try {
-            setIsExecuting(false)
-            isSavingRef.current = false
-            if (saveTimeoutRef.current) {
-              clearTimeout(saveTimeoutRef.current)
-              saveTimeoutRef.current = null
-            }
-          } catch {}
-          toast({
-            title: "Sandbox Mode Auto-Stopped",
-            description: "Sandbox mode was automatically stopped after extended period.",
-            variant: "default"
-          })
-        }
-      }, 300000) // 5 minutes max for sandbox mode
-
-      // SAVE WORKFLOW AS DRAFT BEFORE STARTING SANDBOX MODE
-      console.log('📝 Saving workflow as draft before sandbox mode...')
-
-      // Get current nodes and edges from React Flow
-      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-      const reactFlowEdges = getEdges().filter((e: Edge) =>
-        reactFlowNodes.some((n: Node) => n.id === e.source) &&
-        reactFlowNodes.some((n: Node) => n.id === e.target)
-      )
-
-      // Map nodes to database format, ensuring all config values are preserved
-      const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => {
-        const position = {
-          x: typeof n.position.x === 'number' ? Math.round(n.position.x * 100) / 100 : parseFloat(parseFloat(n.position.x as unknown as string).toFixed(2)),
-          y: typeof n.position.y === 'number' ? Math.round(n.position.y * 100) / 100 : parseFloat(parseFloat(n.position.y as unknown as string).toFixed(2))
-        }
-
-        return {
-          id: n.id,
-          type: 'custom',
-          position: position,
-          data: {
-            label: n.data.label as string,
-            type: n.data.type as string,
-            config: n.data.config || {}, // Preserve all config values
-            providerId: n.data.providerId as string | undefined,
-            isTrigger: n.data.isTrigger as boolean | undefined,
-            title: n.data.title as string | undefined,
-            description: n.data.description as string | undefined,
-            // Preserve all other data fields
-            isAIAgentChild: n.data.isAIAgentChild,
-            parentAIAgentId: n.data.parentAIAgentId,
-            parentChainIndex: n.data.parentChainIndex,
-            chainsLayout: n.data.chainsLayout,
-            aiAgentConfig: n.data.aiAgentConfig
-          }
-        }
-      })
-
-      // Auto-connect unconnected triggers for sandbox mode
-      const autoConnectTriggersForSandbox = () => {
-        const triggers = reactFlowNodes.filter((n: Node) => n.data?.isTrigger);
-        const actions = reactFlowNodes.filter((n: Node) => !n.data?.isTrigger && n.data?.type !== 'addAction' && n.type === 'custom');
-        let updatedEdges = [...reactFlowEdges];
-        let newEdgesAdded = false;
-
-        console.log('🔍 Sandbox auto-connect check:', {
-          triggers: triggers.length,
-          actions: actions.length,
-          currentEdges: reactFlowEdges.length
-        });
-
-        triggers.forEach((trigger: Node) => {
-          const isConnected = updatedEdges.some((e: Edge) => e.source === trigger.id);
-
-          if (!isConnected && actions.length > 0) {
-            let closestAction: Node | null = null;
-            let minDistance = Infinity;
-
-            actions.forEach((action: Node) => {
-              // Skip UI placeholder nodes
-              if (action.data?.type === 'addAction' || action.data?.type === 'insertAction') {
-                return;
-              }
-
-              const dx = action.position.x - trigger.position.x;
-              const dy = action.position.y - trigger.position.y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              const isRightward = dx > 0;
-              const adjustedDistance = isRightward ? distance : distance * 1.5;
-
-              if (adjustedDistance < minDistance) {
-                minDistance = adjustedDistance;
-                closestAction = action;
-              }
-            });
-
-            if (closestAction) {
-              // Check if this exact edge already exists (same source and target)
-              const edgeExists = updatedEdges.some((e: Edge) =>
-                e.source === trigger.id && e.target === closestAction.id
-              );
-
-              if (!edgeExists) {
-                const newEdge: Edge = {
-                  id: `auto-${trigger.id}-${closestAction.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-                  source: trigger.id,
-                  target: closestAction.id,
-                  type: 'default',
-                };
-                updatedEdges.push(newEdge);
-                newEdgesAdded = true;
-                console.log(`🔗 Auto-connected trigger ${trigger.id} to action ${closestAction.id} for sandbox mode`);
-              }
-            }
-          }
-        });
-
-        if (newEdgesAdded) {
-          console.log('✅ New edges added for sandbox, updating React Flow');
-          setEdges(updatedEdges);
-        }
-
-        return updatedEdges;
-      };
-
-      const finalEdgesForSandbox = autoConnectTriggersForSandbox();
-
-      // Map connections to database format
-      const mappedConnections: WorkflowConnection[] = finalEdgesForSandbox.map((e: Edge) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle ?? undefined,
-        targetHandle: e.targetHandle ?? undefined
-      }))
-
-      // Determine the name to save
-      const nameToSave = workflowName && workflowName.trim() !== ''
-        ? workflowName
-        : currentWorkflow.name || 'Untitled Workflow'
-
-      // Save to database with status as draft
-      const savedWorkflow = await updateWorkflow(currentWorkflow.id, {
-        name: nameToSave,
-        nodes: mappedNodes,
-        connections: mappedConnections,
-        status: 'draft' // Set status to draft for test mode
-      })
-
-      // Update the current workflow with the saved data
-      if (savedWorkflow) {
-        setCurrentWorkflow(savedWorkflow)
-        // Also update the name if it was saved
-        if (savedWorkflow.name) {
-          setWorkflowName(savedWorkflow.name)
-        }
-      }
-
-      // Clear unsaved changes flag since we just saved
-      setHasUnsavedChanges(false)
-
-      // Update last save time to prevent immediate re-checking
-      lastSaveTimeRef.current = Date.now()
-
-      console.log('✅ Workflow saved as draft, entering sandbox listening mode...')
-
-      // Start listening mode for triggers
-      setIsExecuting(true)
-      setListeningMode(true)
-
-      // Register webhooks for the trigger if needed
-      const triggerType = triggerNode.data?.type
-      const providerId = triggerNode.data?.providerId
-
-      // Show listening mode message based on trigger type
-      if (providerId === 'manual' || triggerType === 'manual_trigger') {
-        toast({
-          title: "Sandbox Mode Active",
-          description: "Manual trigger detected. Click 'Continue' to simulate trigger and test workflow.",
-        })
-
-        // For manual triggers, start step execution immediately
-        setIsStepByStep(true)
-        startStepExecution()
-        const allNodes = getNodes().filter((n: Node) => n.type === 'custom')
-        const allEdges = getEdges()
-        await executeNodeStepByStep(triggerNode, allNodes, allEdges, {})
-      } else if (providerId === 'schedule' || providerId === 'webhook') {
-        toast({
-          title: "Sandbox Mode Active",
-          description: `Listening for ${providerId} trigger. The workflow will execute in sandbox mode when triggered.`,
-        })
-      } else {
-        // For integration triggers, register webhooks
-        toast({
-          title: "Setting Up Sandbox Mode",
-          description: `Registering webhook for ${providerId || 'trigger'}...`,
-        })
-
-        // Register webhook for the trigger
-        try {
-          // Get current user ID
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) {
-            throw new Error('User not authenticated')
-          }
-
-          const webhookResponse = await fetch('/api/workflows/webhook-registration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              workflowId: currentWorkflow.id,
-              userId: user.id,
-              nodeId: triggerNode.id,
-              providerId: providerId,
-              triggerType: triggerType,
-              config: triggerNode.data?.config || {}
-            })
-          })
-
-          if (webhookResponse.ok) {
-            toast({
-              title: "Sandbox Mode Active",
-              description: `Listening for ${providerId} triggers. When triggered, the workflow will execute in sandbox mode without sending real data.`,
-            })
-          } else {
-            // Try to parse error response
-            let errorMessage = 'Failed to register webhook'
-            try {
-              const errorData = await webhookResponse.json()
-              errorMessage = errorData.error || errorData.message || errorMessage
-            } catch {
-              // If JSON parsing fails, use text
-              const errorText = await webhookResponse.text()
-              if (errorText) errorMessage = errorText
-            }
-            throw new Error(errorMessage)
-          }
-        } catch (error: any) {
-          console.error('Failed to setup webhook:', error)
-          toast({
-            title: "Webhook Setup Failed",
-            description: "Could not register webhook. You can still test with manual trigger.",
-            variant: "destructive"
-          })
-        }
-      }
-
-    } catch (error: any) {
-      console.error('❌ Test mode error:', error)
-      toast({
-        title: "Test Failed",
-        description: error.message || "Failed to test workflow.",
-        variant: "destructive"
-      })
-      setListeningMode(false)
-      stopStepExecution()
-      setIsStepByStep(false)
-    } finally {
-      // Clear the auto-cleanup timer
-      if (testCleanupTimer) {
-        clearTimeout(testCleanupTimer)
-      }
-
-      // Always clean up execution state
-      setIsExecuting(false)
-
-      // Clear any stuck requests that might have accumulated during execution
-      setTimeout(() => {
-        try {
-          setIsExecuting(false)
-          isSavingRef.current = false
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current)
-            saveTimeoutRef.current = null
-          }
-        } catch {}
-      }, 100)
-
-      console.log('✅ Test mode complete, states auto-cleaned')
-    }
-  }
-  
-  // Execute a single node in step-by-step mode
-  const executeNodeStepByStep = async (
-    node: Node, 
-    allNodes: Node[], 
-    allEdges: Edge[], 
-    inputData: any,
-    skipCurrent: boolean = false
-  ): Promise<void> => {
-    // Update visual status
-    setCurrentNode(node.id)
-    setNodeStatus(node.id, 'waiting')
-    addToExecutionPath(node.id)
-    
-    // Check if the node was already marked as success (skipped)
-    const currentStatus = nodeStatuses[node.id]
-    let result: any = {}
-    
-    // If the node was already skipped, don't wait for user input
-    if (currentStatus === 'success') {
-      // Skip execution but continue to next nodes
-      result = { output: inputData } // Pass through input data
-    } else {
-      // Simple logic: Only wait if we're paused
-      // Initially we're paused (true), after Continue we're not paused (false)
-      // Get the current state from the store to avoid closure issues
-      const stepStore = useWorkflowStepExecutionStore.getState()
-      const currentlyPaused = stepStore.isPaused
-      
-      
-      if (currentlyPaused) {
-        
-        await new Promise<void>((resolve) => {
-          const checkContinue = setInterval(() => {
-            const store = useWorkflowStepExecutionStore.getState()
-            if (!store.isPaused || !store.isStepMode) {
-              clearInterval(checkContinue)
-              resolve()
-            }
-          }, 100)
-          
-          // Store the callback for the continue button
-          const callback = () => {
-            clearInterval(checkContinue)
-            resolve()
-          }
-          setStepContinueCallback(() => callback)
-        })
-      }
-      
-      // Add a small delay between nodes for visual feedback when running
-      if (isStepByStep && !isPaused) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-      
-      // Check if execution was stopped
-      if (!isStepMode) {
-        return
-      }
-      // Update to running status
-      setNodeStatus(node.id, 'running')
-      
-      try {
-        // Execute the node
-        const response = await fetch('/api/workflows/execute-node', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workflowId: currentWorkflow?.id,
-            nodeId: node.id,
-            nodeData: node.data,
-            inputData,
-            testMode: true,
-            executionMode: 'step'
-          })
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Failed to execute node ${node.data.title || node.id}`)
-        }
-        
-        result = await response.json()
-        
-        // Store result
-        setNodeResult(node.id, {
-          input: inputData,
-          output: result.output,
-          error: result.error
-        })
-        
-        // Update status based on result
-        if (result.error) {
-          setNodeStatus(node.id, 'error')
-          toast({
-            title: "Node Failed",
-            description: `${node.data.title || node.id}: ${result.error}`,
-            variant: "destructive"
-          })
-          return // Stop execution on error
-        } else {
-          setNodeStatus(node.id, 'success')
-        }
-        
-      } catch (error: any) {
-          setNodeStatus(node.id, 'error')
-          setNodeResult(node.id, {
-            input: inputData,
-            error: error.message
-          })
-          throw error
-        }
-      }
-      
-      // Find connected nodes and continue execution (for both skipped and executed nodes)
-      const connectedEdges = allEdges.filter(e => e.source === node.id)
-      if (connectedEdges.length === 0) {
-        // No more nodes - workflow complete
-        toast({
-          title: "Workflow Complete",
-          description: "All nodes have been processed.",
-        })
-        // Keep the panel visible for review, user can click Test button to close
-        return
-      }
-      
-      for (const edge of connectedEdges) {
-        const targetNode = allNodes.find(n => n.id === edge.target)
-        if (targetNode && targetNode.type === 'custom') {
-          await executeNodeStepByStep(targetNode, allNodes, allEdges, result.output || inputData, false)
-        }
-      }
+    // Set mode and show enhanced execution panel
+    setEnhancedExecutionMode('sandbox')
+    setShowEnhancedExecutionPanel(true)
   }
 
-  // Handle Execute mode (live) - one-time execution with real external calls
+  // Handle Execute mode (live) - now uses enhanced execution panel with real external calls
   const handleExecuteLive = async () => {
-    if (isExecuting) return
-
-    // Clear any stuck states before starting
-    try {
-      setIsExecuting(false)
-      isSavingRef.current = false
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-        saveTimeoutRef.current = null
-      }
-    } catch {}
-
-    // Set up auto-cleanup timer to prevent stuck execution state
-    const executionCleanupTimer = setTimeout(() => {
-      if (isExecuting) {
-        console.warn('⚠️ Execution took too long, auto-cleaning up...')
-        setIsExecuting(false)
-        try {
-          isSavingRef.current = false
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current)
-            saveTimeoutRef.current = null
-          }
-        } catch {}
-      }
-    }, 30000) // 30 seconds max for execution
-
-    try {
-      // Set loading state immediately to show user something is happening
-      setIsExecuting(true)
-
-      if (!currentWorkflow || !currentWorkflow.id) {
-        // Check if this is a new unsaved workflow
-        if (hasUnsavedChanges || !workflowId) {
-          toast({
-            title: "Save Workflow First",
-            description: "Please save your workflow before running it live.",
-            variant: "destructive"
-          })
-          setIsExecuting(false)
-          return
-        }
-        setIsExecuting(false)
-        throw new Error("No workflow selected or workflow not properly loaded")
-      }
-
-      // Check if workflow starts with a trigger node
-      const triggerNode = nodes.find((n: any) => n.data?.isTrigger === true)
-
-      if (triggerNode) {
-        // Skip trigger and run from first action
-        toast({
-          title: "Skipping Trigger",
-          description: "Trigger nodes are skipped in Run Once mode. Executing from the first action node.",
-          variant: "default"
-        })
-      }
-
-      // If there are unsaved changes, save first
-      if (hasUnsavedChanges && !isSaving) {
-        console.log('🔄 Saving workflow before live execution...')
-        toast({
-          title: "Saving workflow...",
-          description: "Your changes are being saved before execution.",
-        })
-
-        try {
-          await handleSave()
-
-          // Wait a moment for the save to fully complete
-          await new Promise(resolve => setTimeout(resolve, 500))
-        } catch (saveError: any) {
-          console.error('Failed to save workflow before execution:', saveError)
-
-          // Force clear the saving state if it got stuck
-          setIsSaving(false)
-          isSavingRef.current = false
-
-          toast({
-            title: "Save Failed",
-            description: "Could not save workflow before execution. Please try saving manually first.",
-            variant: "destructive"
-          })
-          setIsExecuting(false)
-          clearTimeout(executionCleanupTimer)
-          return
-        }
-      }
-
-      // Wait if currently saving (from another action)
-      if (isSaving || isSavingRef.current) {
-        console.log('⏳ Waiting for save to complete...')
-
-        // Wait for save to complete (max 5 seconds)
-        let waitTime = 0
-        const maxWait = 5000
-        const checkInterval = 100
-
-        while ((isSaving || isSavingRef.current) && waitTime < maxWait) {
-          await new Promise(resolve => setTimeout(resolve, checkInterval))
-          waitTime += checkInterval
-        }
-
-        if (isSaving || isSavingRef.current) {
-          // Force clear stuck saving state
-          console.warn('⚠️ Save appears stuck, forcing cleanup...')
-          setIsSaving(false)
-          isSavingRef.current = false
-
-          toast({
-            title: "Save Timeout",
-            description: "The save operation is taking too long. Please try again.",
-            variant: "destructive"
-          })
-          setIsExecuting(false)
-          clearTimeout(executionCleanupTimer)
-          return
-        }
-      }
-      
-      // Use the nodes state directly instead of getNodes() to ensure we have the latest data
-      // getNodes() might return stale data due to React state batching
-      const currentNodes = nodes
-      const currentEdges = edges
-      
-      
-      // Log the Google Calendar node config if present
-      const calendarNode = currentNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
-      if (calendarNode) {
-      }
-      
-      // Log the Google Sheets node config if present
-      const sheetsNode = currentNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
-      if (sheetsNode) {
-      }
-      
-      // Execute the workflow immediately with test data but REAL external calls
-      const response = await fetch('/api/workflows/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflowId: currentWorkflow.id,
-          testMode: false, // This is LIVE mode - real external calls
-          executionMode: 'live', // New flag to distinguish from sandbox
-          skipTriggers: true, // Skip trigger nodes in execution
-          inputData: {
-            trigger: {
-              type: 'manual',
-              timestamp: new Date().toISOString(),
-              source: 'live_test'
-            }
-          },
-          workflowData: {
-            nodes: currentNodes,
-            edges: currentEdges
-          }
-        })
-      })
-
-      // Force clear any stuck saving state after execution response
-      if (isSaving || isSavingRef.current) {
-        console.warn('⚠️ Clearing stuck saving state after execution response')
-        setIsSaving(false)
-        isSavingRef.current = false
-      }
-
-      if (response.ok) {
-        const result = await response.json()
-        toast({
-          title: "Live Execution Complete",
-          description: `Workflow executed with real external calls. Check your connected services for results.`,
-          variant: "default"
-        })
-      } else {
-        const errorText = await response.text()
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch {
-          errorData = { error: errorText || 'Unknown error' }
-        }
-        throw new Error(errorData.error || errorData.message || 'Failed to execute workflow')
-      }
-    } catch (error: any) {
-      toast({
-        title: "Live Execution Failed",
-        description: error.message || "Failed to execute workflow with live data.",
-        variant: "destructive"
-      })
-    } finally {
-      // Clear the auto-cleanup timer
-      clearTimeout(executionCleanupTimer)
-
-      // Always clean up execution state
-      setIsExecuting(false)
-
-      // Clear any stuck requests that might have accumulated during execution
-      setTimeout(() => {
-        try {
-          isSavingRef.current = false
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current)
-            saveTimeoutRef.current = null
-          }
-        } catch {}
-      }, 100)
-
-      console.log('✅ Execution complete, states auto-cleaned')
-    }
+    // Set mode and show enhanced execution panel
+    setEnhancedExecutionMode('live')
+    setShowEnhancedExecutionPanel(true)
   }
+
   // Legacy handleExecute - keep for backward compatibility but will be phased out
   const handleExecute = async () => {
     if (isExecuting && !listeningMode) {
@@ -4978,7 +4144,6 @@ const useWorkflowBuilderState = () => {
       router.replace(path);
     }
   }, [hasUnsavedChanges, router, isSaving, isExecuting])
-
   // Handle save and continue navigation
   const handleSaveAndNavigate = async () => {
     console.log('🔄 Starting save and navigate...');
@@ -5048,156 +4213,6 @@ const useWorkflowBuilderState = () => {
   }
 
   // Force reload workflow from database
-  const forceReloadWorkflow = useCallback(async () => {
-    if (!workflowId) return;
-    
-    try {
-      // Use the existing API endpoint instead of direct Supabase access
-      const response = await fetch(`/api/workflows/${workflowId}`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch workflow: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data) {
-        throw new Error('Workflow not found');
-      }
-      
-      
-      // Update the current workflow with the fresh data
-      setCurrentWorkflow(data);
-      
-      // Rebuild nodes with the fresh data
-      if (data.nodes && data.nodes.length > 0) {
-                  const customNodes = data.nodes.map((node: WorkflowNode) => {
-          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
-          
-          // Ensure position is a number
-          const position = {
-            x: typeof node.position.x === 'number' ? node.position.x : parseFloat(node.position.x as unknown as string),
-            y: typeof node.position.y === 'number' ? node.position.y : parseFloat(node.position.y as unknown as string)
-          };
-          
-          
-          return {
-            id: node.id, 
-            type: 'custom', 
-            position: position,
-            data: {
-              ...node.data,
-              title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
-              name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
-              description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
-              onConfigure: handleConfigureNode,
-              onDelete: handleDeleteNodeWithConfirmation,
-              onRename: handleRenameNode,
-              onChangeTrigger: node.data.type?.includes('trigger') ? handleChangeTrigger : undefined,
-              onAddChain: node.data.type === 'ai_agent' ? handleAddChain : undefined,
-              providerId: node.data.providerId || node.data.type?.split('-')[0]
-            },
-          };
-        });
-
-        let allNodes = [...customNodes];
-        
-        // Check if there are AI Agent nodes
-        const hasAIAgentNodes = customNodes.some((n: Node) => n.data?.type === 'ai_agent');
-        
-        // Only add main workflow Add Action button if there are no AI Agent nodes
-        if (!hasAIAgentNodes) {
-          // Find the last action node (not the trigger and not AI Agent) to position the add action node
-          const actionNodes = customNodes.filter((n: Node) => 
-            n.id !== 'trigger' && 
-            !n.data?.isTrigger &&
-            !n.data?.isAIAgentChild &&
-            n.data?.type !== 'ai_agent'
-          );
-          const lastActionNode = actionNodes.length > 0 
-            ? actionNodes.sort((a: Node, b: Node) => b.position.y - a.position.y)[0] 
-            : null;
-          
-          if (lastActionNode) {
-            const addActionId = `add-action-${lastActionNode.id}`;
-            const addActionNode = createAddActionNode(
-              addActionId, 
-              lastActionNode.id,
-              { x: lastActionNode.position.x, y: lastActionNode.position.y + 160 }
-            );
-            allNodes.push(addActionNode);
-          } else {
-            // Only add Add Action after trigger if there are no AI Agent nodes
-            const triggerNode = customNodes.find((n: Node) => n.id === 'trigger' || n.data?.isTrigger);
-            if (triggerNode) {
-              const addActionId = `add-action-${triggerNode.id}`;
-              const addActionNode = createAddActionNode(
-                addActionId, 
-                triggerNode.id,
-                { x: triggerNode.position.x, y: triggerNode.position.y + 160 }
-              );
-              allNodes.push(addActionNode);
-            }
-          }
-        }
-        
-        // Deduplicate edges to prevent React key warnings
-        const seenEdgeIds = new Set<string>();
-        const uniqueConnections = (data.connections || []).filter((conn: any) => {
-          if (seenEdgeIds.has(conn.id)) {
-            console.warn(`Duplicate edge ID found and filtered: ${conn.id}`);
-            return false;
-          }
-          seenEdgeIds.add(conn.id);
-          return true;
-        });
-
-        const initialEdges: Edge[] = uniqueConnections.map((conn: any, index: number) => {
-          // Check if this is a connection between action nodes (not to addAction nodes)
-          const sourceNode = allNodes.find(n => n.id === conn.source)
-          const targetNode = allNodes.find(n => n.id === conn.target)
-          const isActionToAction = sourceNode && targetNode &&
-            sourceNode.type === 'custom' && targetNode.type === 'custom' &&
-            targetNode.data?.type !== 'addAction'
-
-          // Ensure unique edge ID even if the saved one is problematic
-          const edgeId = conn.id || `edge-${conn.source}-${conn.target}-${index}-${Date.now()}`;
-
-          return {
-            id: edgeId,
-            source: conn.source,
-            target: conn.target,
-            type: isActionToAction ? 'custom' : undefined,
-            data: isActionToAction ? {
-              onAddNode: (sourceId: string, targetId: string, position: { x: number, y: number }) => {
-                handleInsertAction(conn.source, conn.target)
-              }
-            } : undefined
-          }
-        });
-        
-        // Add edge from the last node (action or trigger) to the add action node
-        const addActionNode = allNodes.find((n: Node) => n.type === 'addAction');
-        if (addActionNode) {
-          const sourceNode = lastActionNode || customNodes.find((n: Node) => n.id === 'trigger');
-          if (sourceNode) {
-            initialEdges.push({
-              id: `${sourceNode.id}->${addActionNode.id}`, 
-              source: sourceNode.id, 
-              target: addActionNode.id, 
-              animated: true,
-              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, 
-              type: 'straight'
-            });
-          }
-        }
-        
-        setNodes(allNodes);
-        setEdges(initialEdges);
-      }
-    } catch (error) {
-    }
-  }, [workflowId, handleConfigureNode, handleDeleteNodeWithConfirmation, handleChangeTrigger, handleAddActionClick, setNodes, setEdges, setCurrentWorkflow]);
   // Check for Discord integration when workflow is loaded
   useEffect(() => {
     if (currentWorkflow && nodes.length > 0) {
@@ -5354,6 +4369,39 @@ const useWorkflowBuilderState = () => {
     // Add the missing function
     openTriggerDialog,
     // Cached integration status for preventing flicker in modals
+    cachedIntegrationStatus
+  }
+
+  return {
+    nodes, edges, setNodes, setEdges, onNodesChange, optimizedOnNodesChange, onEdgesChange, onConnect, nodeTypes, edgeTypes, workflowName, setWorkflowName, workflowDescription, setWorkflowDescription, isSaving, hasUnsavedChanges, handleSave, handleToggleLive, isUpdatingStatus, handleExecute, handleTestSandbox, handleExecuteLive,
+    showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, activeExecutionNodeId, executionResults,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, handleConfigurationClose, handleConfigurationSave,
+    configuringNodeInfo, configuringIntegrationName, configuringInitialData, collaborators, pendingNode, setPendingNode,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly, showComingSoon, setShowComingSoon,
+    isActionAIMode, setIsActionAIMode, filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, listeningMode, setListeningMode, handleResetLoadingStates,
+    sourceAddNode, setSourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving, showDiscordConnectionModal, setShowDiscordConnectionModal, handleAddNodeBetween, isProcessingChainsRef,
+    handleConfigureNode, handleDeleteNodeWithConfirmation, handleAddActionClick, fitView, aiAgentActionCallback, setAiAgentActionCallback, showExecutionHistory, setShowExecutionHistory,
+    showSandboxPreview, setShowSandboxPreview, sandboxInterceptedActions, setSandboxInterceptedActions,
+    // Step execution variables
+    isStepMode, isPaused, currentNodeId, nodeStatuses, isStepByStep, setIsStepByStep,
+    stepContinueCallback, setStepContinueCallback, skipCallback, setSkipCallback, stopStepExecution, pauseExecution, executeNodeStepByStep,
+    // React Flow functions
+    getNodes, getEdges,
+    // Execution state setters
+    setIsExecuting,
+    // OAuth loading state
+    connectingIntegrationId, setConnectingIntegrationId,
+    // Force update function
+    forceUpdate,
+    // Categories for filtering
+    categories,
+    // Coming soon integrations set
+    comingSoonIntegrations,
+    // Add the missing function
+    openTriggerDialog,
+    // Cached integration status
     cachedIntegrationStatus
   }
 }
@@ -5593,7 +4641,7 @@ function WorkflowBuilderContent() {
             if (last.data?.type !== 'chain_placeholder') {
               const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
               newNodes.push({ id: addId, type: 'addAction', position: { x: last.position.x, y: last.position.y + 150 }, data: { parentId: last.id, parentAIAgentId: agent.id } })
-              newEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
+              newEdges.push({ id: `e-${last.id}-${addId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, source: last.id, target: addId, type: 'straight' })
             } else {
               console.log('Last node is a placeholder, not adding Add Action node:', last.id)
             }
@@ -5938,7 +4986,7 @@ function WorkflowBuilderContent() {
                         data: { parentId: last.id, parentAIAgentId: agent.id }
                       }
                       newAddNodes.push(addNode)
-                      newAddEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
+                      newAddEdges.push({ id: `e-${last.id}-${addId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, source: last.id, target: addId, type: 'straight' })
                     })
                   })
 
@@ -5995,39 +5043,106 @@ function WorkflowBuilderContent() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant={isStepMode || listeningMode ? "secondary" : "outline"} 
-                    onClick={handleTestSandbox} 
-                    disabled={isExecuting && !listeningMode || isSaving}
-                  >
-                    {isExecuting && !listeningMode && !isStepMode ? (
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    ) : isStepMode || listeningMode ? (
+            {/* Test Button with Dropdown for Sandbox/Live modes */}
+            {(isStepMode || listeningMode) ? (
+              // Show stop button when test is running
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      onClick={handleTestSandbox}
+                      disabled={isSaving}
+                    >
                       <Shield className="w-5 h-5 mr-2" />
+                      {isStepMode ? "Exit Test Mode" : "Stop Sandbox"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <p className="font-semibold mb-1">
+                      {isStepMode ? "Exit Test Mode" : "Stop Sandbox Mode"}
+                    </p>
+                    <p className="text-xs">
+                      {isStepMode
+                        ? "Exit step-by-step test mode and clear all execution states"
+                        : "Stop testing your workflow"
+                      }
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              // Show dropdown when not testing
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={isSaving || isExecuting}
+                    variant="default"
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Testing...
+                      </>
                     ) : (
-                      <FlaskConical className="w-5 h-5 mr-2" />
+                      <>
+                        <TestTube className="w-5 h-5 mr-2" />
+                        Test
+                      </>
                     )}
-                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox" : "Test (Sandbox)"}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="font-semibold mb-1">
-                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox Mode" : "Test in Sandbox Mode"}
-                  </p>
-                  <p className="text-xs">
-                    {isStepMode 
-                      ? "Exit step-by-step test mode and clear all execution states"
-                      : listeningMode 
-                      ? "Stop testing your workflow" 
-                      : "Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely."
-                    }
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[320px]">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          onClick={handleTestSandbox}
+                          disabled={isSaving || isExecuting}
+                          className="flex items-start cursor-pointer p-3"
+                        >
+                          <FlaskConical className="w-4 h-4 mr-3 mt-0.5 text-blue-500" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">Sandbox Mode</span>
+                            <span className="text-xs text-muted-foreground">Safe testing environment</span>
+                          </div>
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="font-semibold mb-1">Test Workflow in Sandbox</p>
+                        <p className="text-xs">
+                          Run workflow with test trigger data in a safe environment. External API calls are intercepted and simulated. Perfect for debugging and testing without affecting real data.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem
+                          onClick={handleExecuteLive}
+                          disabled={isSaving || isExecuting}
+                          className="flex items-start cursor-pointer p-3"
+                        >
+                          <Rocket className="w-4 h-4 mr-3 mt-0.5 text-orange-500" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">Live Mode</span>
+                            <span className="text-xs text-muted-foreground">Execute with real data</span>
+                          </div>
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="font-semibold mb-1">Run with Live Data</p>
+                        <p className="text-xs">
+                          Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Show preview button when in sandbox mode and have intercepted actions */}
             {listeningMode && sandboxInterceptedActions.length > 0 && (
@@ -6059,27 +5174,6 @@ function WorkflowBuilderContent() {
                 </Tooltip>
               </TooltipProvider>
             )}
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleExecuteLive}
-                    disabled={isSaving || isExecuting} 
-                    variant="default"
-                  >
-                    {isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Rocket className="w-5 h-5 mr-2" />}
-                    Run Once (Live)
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="font-semibold mb-1">Run Once with Live Data</p>
-                  <p className="text-xs">
-                    Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             
             {/* Execution History Button */}
             {workflowId && (
@@ -6594,7 +5688,6 @@ function WorkflowBuilderContent() {
                                               const relativeTop = elementRect.top - containerRect.top;
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
-                                              
                                               
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
@@ -8440,13 +7533,13 @@ function WorkflowBuilderContent() {
                   return [
                     ...filteredEdges,
                     {
-                      id: `e-${lastNode.id}-${newNodeId}`,
+                      id: `e-${lastNode.id}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                       source: lastNode.id,
                       target: newNodeId,
                       type: 'custom'
                     },
                     {
-                      id: `e-${newNodeId}-${addActionNodeId}`,
+                      id: `e-${newNodeId}-${addActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                       source: newNodeId,
                       target: addActionNodeId,
                       type: 'straight',
@@ -8645,7 +7738,7 @@ function WorkflowBuilderContent() {
                             setNodes(nds => [...nds, newNode]);
 
                             const aiToPlaceholderEdge = {
-                              id: `e-${id}-${newNodeId}`,
+                              id: `e-${id}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                               source: id,
                               target: newNodeId,
                               type: 'custom',
@@ -8745,10 +7838,8 @@ function WorkflowBuilderContent() {
                   console.log('⚠️ [AI Agent Save] Chain processing already in progress, skipping');
                   return;
                 }
-
                 isProcessingChainsRef.current = true;
                 console.log('🔓 [AI Agent Save] Chain processing lock acquired');
-                
                 // Capture the final node ID for use in the setTimeout
                 const aiAgentNodeIdToUse = finalAIAgentNodeId;
                 // Process chains after a longer delay to ensure the AI Agent node has been added to state
@@ -9119,9 +8210,9 @@ function WorkflowBuilderContent() {
                             } else {
                             }
 
-                            // Add edge to Add Action node
+                            // Add edge to Add Action node with unique ID
                             const edgeToAddAction = {
-                              id: `e-${lastNode.id}-${addActionId}`,
+                              id: `e-${lastNode.id}-${addActionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                               source: lastNode.id,
                               target: addActionId,
                               type: 'straight',
@@ -9176,9 +8267,9 @@ function WorkflowBuilderContent() {
                             newNodesToAdd.push(placeholderNode);
                             addedNodeIds.add(placeholderId);
 
-                            // Add edge from AI Agent to placeholder
+                            // Add edge from AI Agent to placeholder with unique ID
                             const edgeToPlaceholder = {
-                              id: `e-${actualAIAgentId}-${placeholderId}`,
+                              id: `e-${actualAIAgentId}-${placeholderId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                               source: actualAIAgentId,
                               target: placeholderId,
                               type: 'custom',
@@ -9544,7 +8635,6 @@ function WorkflowBuilderContent() {
                     
                     return updatedNodes;
                   }
-                  
                   // If no branches matched, return unchanged nodes
                   console.log('⚠️ [setTimeout] No chains to process - returning unchanged nodes');
                   console.log('⚠️ [setTimeout] Final check - chainsToProcess was:', chainsToProcess);
