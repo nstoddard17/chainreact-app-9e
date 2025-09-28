@@ -177,12 +177,13 @@ export class MicrosoftGraphClient {
         _normalized: {
           id: message.id,
           type: 'outlook_mail',
-          action: message.isRead ? 'read' : 'new',
+          action: 'created', // New emails are always "created" events
           subject: message.subject,
           from: message.from?.emailAddress?.address,
           receivedDateTime: message.receivedDateTime,
           importance: message.importance,
           hasAttachments: message.hasAttachments,
+          isRead: message.isRead,
           webLink: message.webLink,
           originalPayload: message
         }

@@ -550,6 +550,7 @@ export function FieldRenderer({
               />
             );
           case 'outlook':
+          case 'microsoft-outlook':
             return (
               <OutlookEmailField
                 field={field}

@@ -4,7 +4,7 @@ import { useState, useMemo, memo } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react"
+import { Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle, FileSpreadsheet, CheckCircle2, Sparkles } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { useIntegrationStore, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
@@ -66,6 +66,7 @@ export const IntegrationCard = memo(function IntegrationCard({
   const [showTeamsWarningDialog, setShowTeamsWarningDialog] = useState(false)
   const [showOneNoteWarningDialog, setShowOneNoteWarningDialog] = useState(false)
   const [showOutlookWarningDialog, setShowOutlookWarningDialog] = useState(false)
+  const [showOneDriveInfoDialog, setShowOneDriveInfoDialog] = useState(false)
   
   // Check if this integration is coming soon
   const isComingSoon = useMemo(() => {
@@ -216,7 +217,7 @@ export const IntegrationCard = memo(function IntegrationCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           if (provider.id === 'teams') setShowTeamsWarningDialog(true);
@@ -230,6 +231,26 @@ export const IntegrationCard = memo(function IntegrationCard({
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Important requirements</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {provider.id === 'onedrive' && !isComingSoon && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowOneDriveInfoDialog(true);
+                        }}
+                        className="p-0 hover:scale-110 transition-transform"
+                      >
+                        <Info className="w-4 h-4 text-blue-500" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Includes Excel integration</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -300,6 +321,11 @@ export const IntegrationCard = memo(function IntegrationCard({
         </div>
         <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
+          {provider.additionalInfo && provider.id === 'onedrive' && (
+            <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+              {provider.additionalInfo}
+            </div>
+          )}
           {provider.id === 'microsoft-onenote' && (
             <div>
               <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
@@ -549,6 +575,76 @@ export const IntegrationCard = memo(function IntegrationCard({
             }}>
               Continue to Connect
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOneDriveInfoDialog} onOpenChange={setShowOneDriveInfoDialog}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-green-600" />
+              OneDrive + Microsoft Excel Integration
+            </DialogTitle>
+            <DialogDescription>
+              Connect OneDrive to unlock powerful file storage and Excel automation capabilities.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Included Excel Features:</strong> When you connect OneDrive, you also get access to Microsoft Excel automation with the same powerful features as Google Sheets.
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold">Excel Actions Available:</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span><strong>Manage Excel Data:</strong> Add, update, or delete rows with visual column mapping</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span><strong>Export Worksheets:</strong> Filter and export data in multiple formats (CSV, JSON, etc.)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span><strong>Create Workbooks:</strong> Generate new Excel files with templates</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span><strong>Triggers:</strong> React to new rows, updated rows, and new worksheets</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-green-800 dark:text-green-200">
+                  <strong>Pro Tip:</strong> Excel actions appear in their own section in the workflow builder after connecting OneDrive. Look for the "Microsoft Excel" category when adding actions.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOneDriveInfoDialog(false)}>
+              Close
+            </Button>
+            {!integration && (
+              <Button onClick={() => {
+                setShowOneDriveInfoDialog(false);
+                onConnect();
+              }}>
+                Connect OneDrive
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

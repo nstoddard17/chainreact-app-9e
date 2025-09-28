@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -359,12 +360,22 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   // Private helper methods
-
   private getNotificationUrl(): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://chainreact.app'
-    return `${baseUrl}/api/webhooks/microsoft`
-  }
+    const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
+    const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
 
+    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    baseUrl = baseUrl.replace(/\/$/, "")
+
+    if (!baseUrl.startsWith("https://")) {
+      const guidanceEnv = httpsOverride || explicit || baseUrl
+      throw new Error(`Microsoft Graph notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
+    }
+
+    const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+    console.log("[Microsoft Graph] Using webhook notification URL", { notificationUrl })
+    return notificationUrl
+  }
   private generateClientState(): string {
     return crypto.randomBytes(32).toString('hex')
   }

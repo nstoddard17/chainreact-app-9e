@@ -577,6 +577,18 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
           }
           return event.type === 'onedrive_item'
         }
+
+        // ChainReact Outlook email trigger support
+        if (nodeType === 'microsoft-outlook_trigger_new_email') {
+          console.log('✅ Found matching Outlook email trigger node:', nodeType)
+          return event.type === 'outlook_mail' && event.action === 'created'
+        }
+
+        if (nodeType === 'microsoft-outlook_trigger_email_sent') {
+          console.log('✅ Found matching Outlook email sent trigger node:', nodeType)
+          return event.type === 'outlook_mail' && event.action === 'sent'
+        }
+
         return false
       })
       

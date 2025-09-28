@@ -345,6 +345,7 @@ const useWorkflowBuilderState = () => {
       'microsoft-outlook': ['microsoft-outlook', 'microsoft_outlook', 'outlook', 'ms-outlook', 'ms_outlook'],
       'microsoft-teams': ['microsoft-teams', 'microsoft_teams', 'teams', 'ms-teams', 'ms_teams'],
       'onedrive': ['onedrive', 'microsoft-onedrive', 'microsoft_onedrive'],
+      'microsoft-excel': ['microsoft-excel', 'microsoft_excel', 'excel', 'ms-excel', 'ms_excel'],
       'facebook': ['facebook'],
       'instagram': ['instagram'],
       'twitter': ['twitter'],
@@ -382,6 +383,34 @@ const useWorkflowBuilderState = () => {
     // For Microsoft services, each service requires its own separate authentication
     // Unlike Google services, Microsoft services don't share authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
+      // Special case: Microsoft Excel requires OneDrive connection for Graph API access
+      // But we still want to show Excel actions in the UI with a connection prompt
+      if (integrationId === 'microsoft-excel') {
+        // Check if OneDrive is connected since Excel uses Graph API through OneDrive
+        const onedriveProviders = ['onedrive', 'microsoft-onedrive', 'microsoft_onedrive'];
+
+        // Debug logging
+        console.log('🔍 [isIntegrationConnected] Checking Excel/OneDrive connection:', {
+          integrationId,
+          totalIntegrations: integrationsToCheck?.length,
+          providers: integrationsToCheck?.map(i => i.provider),
+          onedriveCheck: integrationsToCheck?.filter(i => onedriveProviders.includes(i.provider))
+        });
+
+        const connectedOneDrive = integrationsToCheck?.find(i =>
+          onedriveProviders.includes(i.provider) &&
+          i.status === 'connected'
+        );
+
+        if (connectedOneDrive) {
+          console.log('✅ [isIntegrationConnected] Microsoft Excel available via OneDrive connection:', connectedOneDrive);
+          return true;
+        }
+
+        console.log('⚠️ [isIntegrationConnected] Microsoft Excel requires OneDrive connection (not found in integrations)');
+        return false;
+      }
+
       // Check for the specific Microsoft service only
       const possibleProviders = providerMappings[integrationId] || [integrationId];
       const connectedMicrosoftService = integrationsToCheck?.find(i =>
@@ -3564,9 +3593,246 @@ const useWorkflowBuilderState = () => {
 
   // Handle Execute mode (live) - now uses enhanced execution panel with real external calls
   const handleExecuteLive = async () => {
-    // Set mode and show enhanced execution panel
-    setEnhancedExecutionMode('live')
-    setShowEnhancedExecutionPanel(true)
+    if (isExecuting) return
+
+    // Clear any stuck states before starting
+    try {
+      setIsExecuting(false)
+      isSavingRef.current = false
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+    } catch {}
+
+    // Set up auto-cleanup timer to prevent stuck execution state
+    const executionCleanupTimer = setTimeout(() => {
+      if (isExecuting) {
+        console.warn('⚠️ Execution took too long, auto-cleaning up...')
+        setIsExecuting(false)
+        try {
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
+      }
+    }, 30000) // 30 seconds max for execution
+
+    try {
+      // Set loading state immediately to show user something is happening
+      setIsExecuting(true)
+
+      if (!currentWorkflow || !currentWorkflow.id) {
+        // Check if this is a new unsaved workflow
+        if (hasUnsavedChanges || !workflowId) {
+          toast({
+            title: "Save Workflow First",
+            description: "Please save your workflow before running it live.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          return
+        }
+        setIsExecuting(false)
+        throw new Error("No workflow selected or workflow not properly loaded")
+      }
+
+      // Check if workflow starts with a trigger node
+      const triggerNode = nodes.find((n: any) => n.data?.isTrigger === true)
+
+      if (triggerNode) {
+        // Skip trigger and run from first action
+        toast({
+          title: "Skipping Trigger",
+          description: "Trigger nodes are skipped in Run Once mode. Executing from the first action node.",
+          variant: "default"
+        })
+      }
+
+      // If there are unsaved changes, save first
+      if (hasUnsavedChanges && !isSaving) {
+        console.log('🔄 Saving workflow before live execution...')
+        toast({
+          title: "Saving workflow...",
+          description: "Your changes are being saved before execution.",
+        })
+
+        try {
+          await handleSave()
+
+          // Wait a moment for the save to fully complete
+          await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (saveError: any) {
+          console.error('Failed to save workflow before execution:', saveError)
+
+          // Force clear the saving state if it got stuck
+          setIsSaving(false)
+          isSavingRef.current = false
+
+          toast({
+            title: "Save Failed",
+            description: "Could not save workflow before execution. Please try saving manually first.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          clearTimeout(executionCleanupTimer)
+          return
+        }
+      }
+
+      // Wait if currently saving (from another action)
+      if (isSaving || isSavingRef.current) {
+        console.log('⏳ Waiting for save to complete...')
+
+        // Wait for save to complete (max 5 seconds)
+        let waitTime = 0
+        const maxWait = 5000
+        const checkInterval = 100
+
+        while ((isSaving || isSavingRef.current) && waitTime < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, checkInterval))
+          waitTime += checkInterval
+        }
+
+        if (isSaving || isSavingRef.current) {
+          // Force clear stuck saving state
+          console.warn('⚠️ Save appears stuck, forcing cleanup...')
+          setIsSaving(false)
+          isSavingRef.current = false
+
+          toast({
+            title: "Save Timeout",
+            description: "The save operation is taking too long. Please try again.",
+            variant: "destructive"
+          })
+          setIsExecuting(false)
+          clearTimeout(executionCleanupTimer)
+          return
+        }
+      }
+      
+      // Use the nodes state directly instead of getNodes() to ensure we have the latest data
+      // getNodes() might return stale data due to React state batching
+      const currentNodes = nodes
+      const currentEdges = edges
+
+      // Validate we have nodes to execute
+      if (!currentNodes || currentNodes.length === 0) {
+        toast({
+          title: "No Nodes to Execute",
+          description: "Please add at least one action node to your workflow.",
+          variant: "destructive"
+        })
+        setIsExecuting(false)
+        clearTimeout(executionCleanupTimer)
+        return
+      }
+
+      // Log what we're about to execute
+      console.log('📊 [Execute Live] Preparing to execute with:', {
+        workflowId: currentWorkflow.id,
+        nodeCount: currentNodes.length,
+        edgeCount: currentEdges.length,
+        nodeTypes: currentNodes.map((n: any) => n.data?.type)
+      })
+
+      // Log the Google Calendar node config if present
+      const calendarNode = currentNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
+      if (calendarNode) {
+      }
+
+      // Log the Google Sheets node config if present
+      const sheetsNode = currentNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
+      if (sheetsNode) {
+      }
+
+      // Log the Microsoft Excel node config if present
+      const excelNode = currentNodes.find((n: any) => n.data?.type === 'microsoft_excel_action_create_workbook')
+      if (excelNode) {
+        console.log('📊 [Execute Live] Found Excel Create Workbook node:', excelNode.data?.config)
+      }
+
+      // Prepare the request body
+      const requestBody = {
+        workflowId: currentWorkflow.id,
+        testMode: false, // This is LIVE mode - real external calls
+        executionMode: 'live', // New flag to distinguish from sandbox
+        skipTriggers: true, // Skip trigger nodes in execution
+        inputData: {
+          trigger: {
+            type: 'manual',
+            timestamp: new Date().toISOString(),
+            source: 'live_test'
+          }
+        },
+        workflowData: {
+          nodes: currentNodes,
+          edges: currentEdges
+        }
+      }
+
+      // Log the request body before sending
+      console.log('📊 [Execute Live] Sending request body:', requestBody)
+
+      // Execute the workflow immediately with test data but REAL external calls
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+
+      // Force clear any stuck saving state after execution response
+      if (isSaving || isSavingRef.current) {
+        console.warn('⚠️ Clearing stuck saving state after execution response')
+        setIsSaving(false)
+        isSavingRef.current = false
+      }
+
+      if (response.ok) {
+        const result = await response.json()
+        toast({
+          title: "Live Execution Complete",
+          description: `Workflow executed with real external calls. Check your connected services for results.`,
+          variant: "default"
+        })
+      } else {
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Unknown error' }
+        }
+        throw new Error(errorData.error || errorData.message || 'Failed to execute workflow')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Live Execution Failed",
+        description: error.message || "Failed to execute workflow with live data.",
+        variant: "destructive"
+      })
+    } finally {
+      // Clear the auto-cleanup timer
+      clearTimeout(executionCleanupTimer)
+
+      // Always clean up execution state
+      setIsExecuting(false)
+
+      // Clear any stuck requests that might have accumulated during execution
+      setTimeout(() => {
+        try {
+          isSavingRef.current = false
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+          }
+        } catch {}
+      }, 100)
+
+      console.log('✅ Execution complete, states auto-cleaned')
+    }
   }
 
   // Legacy handleExecute - keep for backward compatibility but will be phased out
@@ -3897,6 +4163,104 @@ const useWorkflowBuilderState = () => {
 
     return result;
   }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, showComingSoon, comingSoonIntegrations, isIntegrationConnected, integrationsLoading]);
+  
+  const getActionDialogIntegrations = useCallback((): IntegrationInfo[] => {
+    const filtered = availableIntegrations.filter((int) => {
+      if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
+        return false;
+      }
+
+      if (filterCategory !== "all" && int.category !== filterCategory) {
+        return false;
+      }
+
+      if (int.id === "core") {
+        return false;
+      }
+
+      const actions = int.actions || [];
+      if (actions.length === 0) {
+        return false;
+      }
+
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesIntegration =
+          int.name.toLowerCase().includes(query) ||
+          int.description.toLowerCase().includes(query);
+        const matchesAction = actions.some((action) =>
+          (action.title?.toLowerCase() || "").includes(query) ||
+          (action.description?.toLowerCase() || "").includes(query)
+        );
+        return matchesIntegration || matchesAction;
+      }
+
+      return true;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (a.id === "logic") return -1;
+      if (b.id === "logic") return 1;
+      if (a.id === "ai") return -1;
+      if (b.id === "ai") return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return sorted;
+  }, [availableIntegrations, showComingSoon, comingSoonIntegrations, filterCategory, searchQuery]);
+
+  const actionDialogIntegrations = useMemo(() => getActionDialogIntegrations(), [getActionDialogIntegrations]);
+
+  const firstConnectedActionIntegration = useMemo(() => {
+    for (const integration of actionDialogIntegrations) {
+      if (isIntegrationConnected(integration.id)) {
+        return integration;
+      }
+    }
+    return null;
+  }, [actionDialogIntegrations, isIntegrationConnected]);
+
+  useEffect(() => {
+    if (!showActionDialog) {
+      return;
+    }
+    if (selectedIntegration) {
+      return;
+    }
+
+    const integrationToSelect = firstConnectedActionIntegration || actionDialogIntegrations[0] || null;
+
+    if (integrationToSelect) {
+      setSelectedIntegration(integrationToSelect);
+    }
+  }, [showActionDialog, selectedIntegration, firstConnectedActionIntegration, actionDialogIntegrations]);
+
+  useEffect(() => {
+    if (!showActionDialog && !showTriggerDialog) {
+      return;
+    }
+
+    setCachedIntegrationStatus((prev) => {
+      let hasChanges = false;
+      const next: Record<string, boolean> = { ...prev };
+
+      for (const integration of availableIntegrations) {
+        if (prev[integration.id] === undefined) {
+          continue;
+        }
+
+        const liveStatus = isIntegrationConnected(integration.id);
+        if (prev[integration.id] !== liveStatus) {
+          next[integration.id] = liveStatus;
+          hasChanges = true;
+        }
+      }
+
+      return hasChanges ? next : prev;
+    });
+  }, [availableIntegrations, isIntegrationConnected, showActionDialog, showTriggerDialog]);
+
+
   
   const displayedTriggers = useMemo(() => {
     if (!selectedIntegration) return [];
@@ -5497,9 +5861,9 @@ function WorkflowBuilderContent() {
                     <div
                       key={integration.id}
                       className={`flex items-center p-3 rounded-md ${
-                        isComingSoon 
+                        isComingSoon
                           ? 'cursor-not-allowed opacity-60'
-                          : isConnected 
+                          : isConnected
                             ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
                             : 'opacity-60'
                       }`}
@@ -5526,20 +5890,23 @@ function WorkflowBuilderContent() {
                             e.stopPropagation();
                             setConnectingIntegrationId(integration.id);
                             
+                            // For Microsoft Excel, we need to connect OneDrive instead
+                            const providerToConnect = integration.id === 'microsoft-excel' ? 'onedrive' : integration.id;
+
                             // Check if this integration needs reauthorization
-                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
-                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                            const integrationRecord = integrations?.find(i => i.provider === providerToConnect);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' ||
                                                integrationRecord?.status === 'expired' ||
                                                integrationRecord?.status === 'invalid' ||
                                                integrationRecord?.status === 'error';
-                            
+
                             // Generate OAuth URL dynamically
                             try {
                               const response = await fetch('/api/integrations/auth/generate-url', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  provider: integration.id, 
+                                body: JSON.stringify({
+                                  provider: providerToConnect,
                                   forceFresh: needsReauth // Force fresh auth if reauthorization needed
                                 })
                               });
@@ -5922,27 +6289,34 @@ function WorkflowBuilderContent() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                        <h3 className="text-lg font-semibold mb-2">
+                          {selectedIntegration.id === 'microsoft-excel' ? 'Connect OneDrive to use Excel' : `Connect ${selectedIntegration.name}`}
+                        </h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          You need to connect your {selectedIntegration.name} account to use these triggers.
+                          {selectedIntegration.id === 'microsoft-excel'
+                            ? 'Microsoft Excel requires OneDrive connection for access to your workbooks.'
+                            : `You need to connect your ${selectedIntegration.name} account to use these triggers.`}
                         </p>
                         <Button
                           variant="default"
                           onClick={async () => {
+                            // For Microsoft Excel, we need to connect OneDrive instead
+                            const providerToConnect = selectedIntegration.id === 'microsoft-excel' ? 'onedrive' : selectedIntegration.id;
+
                             // Check if this integration needs reauthorization
-                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
-                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                            const integrationRecord = integrations?.find(i => i.provider === providerToConnect);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' ||
                                                integrationRecord?.status === 'expired' ||
                                                integrationRecord?.status === 'invalid' ||
                                                integrationRecord?.status === 'error';
-                            
+
                             // Generate OAuth URL dynamically
                             try {
                               const response = await fetch('/api/integrations/auth/generate-url', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  provider: selectedIntegration.id, 
+                                body: JSON.stringify({
+                                  provider: providerToConnect,
                                   forceFresh: needsReauth // Force fresh auth if reauthorization needed
                                 })
                               });
@@ -6475,41 +6849,44 @@ function WorkflowBuilderContent() {
 
                   // Filter by category if selected
                   if (filterCategory !== 'all' && int.category !== filterCategory) {
-                    return false
+                    return false;
                   }
 
                   // Core integration only has triggers, not actions - filter it out from action dialog
                   if (int.id === 'core') {
-                    return false
+                    return false;
                   }
-                  
+
                   // Filter out integrations that have no compatible actions
-                  const compatibleActions = int.actions
-                  
+                  const compatibleActions = int.actions;
+
                   if (compatibleActions.length === 0) {
-                    return false
+                    return false;
                   }
-                  
+
                   if (searchQuery) {
-                    const query = searchQuery.toLowerCase()
-                    const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                    const matchesAction = compatibleActions.some(action => 
-                      (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
-                    )
-                    return matchesIntegration || matchesAction
+                    const query = searchQuery.toLowerCase();
+                    const matchesIntegration = int.name.toLowerCase().includes(query) ||
+                                              int.description.toLowerCase().includes(query);
+                    const matchesAction = compatibleActions.some(a =>
+                      (a.title && a.title.toLowerCase().includes(query)) ||
+                      (a.description && a.description.toLowerCase().includes(query)) ||
+                      (a.type && a.type.toLowerCase().includes(query))
+                    );
+                    return matchesIntegration || matchesAction;
                   }
-                  return compatibleActions.length > 0
+
+                  return compatibleActions.length > 0;
                 });
-                
+
                 // Sort to put Logic and AI first
                 const sortedIntegrations = filteredIntegrationsForActions.sort((a, b) => {
-                  if (a.id === 'logic') return -1
-                  if (b.id === 'logic') return 1
-                  if (a.id === 'ai') return -1
-                  if (b.id === 'ai') return 1
-                  return a.name.localeCompare(b.name)
-                })
-
+                  if (a.id === 'logic') return -1;
+                  if (b.id === 'logic') return 1;
+                  if (a.id === 'ai') return -1;
+                  if (b.id === 'ai') return 1;
+                  return a.name.localeCompare(b.name);
+                });
 
                 if (sortedIntegrations.length === 0) {
                   return (
@@ -6537,9 +6914,9 @@ function WorkflowBuilderContent() {
                       key={integration.id}
                       id={`action-integration-${integration.id}`}
                       className={`flex items-center p-3 rounded-md ${
-                        isComingSoon 
+                        isComingSoon
                           ? 'cursor-not-allowed opacity-60'
-                          : isConnected 
+                          : isConnected
                             ? `cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`
                             : 'opacity-60'
                       }`}
@@ -6566,20 +6943,23 @@ function WorkflowBuilderContent() {
                             e.stopPropagation();
                             setConnectingIntegrationId(integration.id);
                             
+                            // For Microsoft Excel, we need to connect OneDrive instead
+                            const providerToConnect = integration.id === 'microsoft-excel' ? 'onedrive' : integration.id;
+
                             // Check if this integration needs reauthorization
-                            const integrationRecord = integrations?.find(i => i.provider === integration.id);
-                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                            const integrationRecord = integrations?.find(i => i.provider === providerToConnect);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' ||
                                                integrationRecord?.status === 'expired' ||
                                                integrationRecord?.status === 'invalid' ||
                                                integrationRecord?.status === 'error';
-                            
+
                             // Generate OAuth URL dynamically
                             try {
                               const response = await fetch('/api/integrations/auth/generate-url', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  provider: integration.id, 
+                                body: JSON.stringify({
+                                  provider: providerToConnect,
                                   forceFresh: needsReauth // Force fresh auth if reauthorization needed
                                 })
                               });
@@ -6967,27 +7347,34 @@ function WorkflowBuilderContent() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                        <h3 className="text-lg font-semibold mb-2">
+                          {selectedIntegration.id === 'microsoft-excel' ? 'Connect OneDrive to use Excel' : `Connect ${selectedIntegration.name}`}
+                        </h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          You need to connect your {selectedIntegration.name} account to use these actions.
+                          {selectedIntegration.id === 'microsoft-excel'
+                            ? 'Microsoft Excel requires OneDrive connection for access to your workbooks.'
+                            : `You need to connect your ${selectedIntegration.name} account to use these actions.`}
                         </p>
                         <Button
                           variant="default"
                           onClick={async () => {
+                            // For Microsoft Excel, we need to connect OneDrive instead
+                            const providerToConnect = selectedIntegration.id === 'microsoft-excel' ? 'onedrive' : selectedIntegration.id;
+
                             // Check if this integration needs reauthorization
-                            const integrationRecord = integrations?.find(i => i.provider === selectedIntegration.id);
-                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' || 
+                            const integrationRecord = integrations?.find(i => i.provider === providerToConnect);
+                            const needsReauth = integrationRecord?.status === 'needs_reauthorization' ||
                                                integrationRecord?.status === 'expired' ||
                                                integrationRecord?.status === 'invalid' ||
                                                integrationRecord?.status === 'error';
-                            
+
                             // Generate OAuth URL dynamically
                             try {
                               const response = await fetch('/api/integrations/auth/generate-url', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  provider: selectedIntegration.id, 
+                                body: JSON.stringify({
+                                  provider: providerToConnect,
                                   forceFresh: needsReauth // Force fresh auth if reauthorization needed
                                 })
                               });
