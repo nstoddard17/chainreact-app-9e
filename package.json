@@ -91,6 +91,7 @@
     "dotenv": "^17.2.2",
     "drizzle-orm": "latest",
     "embla-carousel-react": "latest",
+    "exceljs": "^4.4.0",
     "expo-sqlite": "latest",
     "form-data": "^4.0.4",
     "framer-motion": "^12.18.1",

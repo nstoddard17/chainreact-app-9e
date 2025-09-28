@@ -47,6 +47,31 @@ export const TRIGGER_VARIABLES: Record<string, TriggerVariableCategory> = {
     ]
   },
 
+  'microsoft-outlook_trigger_new_email': {
+    id: 'outlook',
+    name: 'Outlook',
+    icon: '📨',
+    variables: [
+      { id: 'id', label: 'Email ID', path: 'trigger.outlook.id', type: 'string' },
+      { id: 'conversation_id', label: 'Conversation ID', path: 'trigger.outlook.conversationId', type: 'string' },
+      { id: 'from_email', label: 'Sender Email', path: 'trigger.outlook.from.emailAddress.address', type: 'string', example: 'john@example.com' },
+      { id: 'from_name', label: 'Sender Name', path: 'trigger.outlook.from.emailAddress.name', type: 'string', example: 'John Doe' },
+      { id: 'to', label: 'Recipients', path: 'trigger.outlook.toRecipients', type: 'array' },
+      { id: 'cc', label: 'CC Recipients', path: 'trigger.outlook.ccRecipients', type: 'array' },
+      { id: 'bcc', label: 'BCC Recipients', path: 'trigger.outlook.bccRecipients', type: 'array' },
+      { id: 'subject', label: 'Subject', path: 'trigger.outlook.subject', type: 'string' },
+      { id: 'body', label: 'Email Body (HTML)', path: 'trigger.outlook.body.content', type: 'string' },
+      { id: 'body_preview', label: 'Body Preview', path: 'trigger.outlook.bodyPreview', type: 'string' },
+      { id: 'importance', label: 'Importance', path: 'trigger.outlook.importance', type: 'string', example: 'normal' },
+      { id: 'has_attachments', label: 'Has Attachments', path: 'trigger.outlook.hasAttachments', type: 'boolean' },
+      { id: 'attachments', label: 'Attachments', path: 'trigger.outlook.attachments', type: 'array' },
+      { id: 'received_date', label: 'Received Date', path: 'trigger.outlook.receivedDateTime', type: 'string' },
+      { id: 'is_read', label: 'Is Read', path: 'trigger.outlook.isRead', type: 'boolean' },
+      { id: 'folder', label: 'Folder Name', path: 'trigger.outlook.parentFolderId', type: 'string' },
+      { id: 'categories', label: 'Categories', path: 'trigger.outlook.categories', type: 'array' }
+    ]
+  },
+
   // Discord triggers
   'discord_trigger_message': {
     id: 'discord',

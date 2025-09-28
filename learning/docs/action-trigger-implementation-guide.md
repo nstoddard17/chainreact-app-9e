@@ -541,6 +541,15 @@ Field mappings moved from hooks to centralized configuration:
 6. **Implement preview features** - Users love seeing what they're selecting
 7. **Handle partial failures gracefully** - Process what you can, report what failed
 
+### Microsoft Excel / OneDrive Integration Tips
+When implementing actions that depend on another integration (like Excel needing OneDrive):
+1. **Use `requiredIntegration` field** in node definition to specify dependency
+2. **Update `isIntegrationConnected` logic** in CollaborativeWorkflowBuilder to check the required integration
+3. **In action handlers**, fetch access token from the required integration (e.g., OneDrive for Excel)
+4. **In data API routes**, fetch the required integration instead of looking for a non-existent one
+5. **Add provider mappings** for integration connection checking (e.g., 'microsoft-excel' maps to check OneDrive)
+6. **Use Microsoft Graph API** for Excel operations - it's accessed through OneDrive's Files.ReadWrite.All scope
+
 ### Time Estimates
 - **Simple action** (1-3 fields, basic API call): 30-45 minutes
 - **Medium action** (4-8 fields, some dependencies): 1-2 hours  
@@ -553,5 +562,9 @@ Field mappings moved from hooks to centralized configuration:
 - Triggers may have additional webhook handling requirements
 - Some providers may need special authentication handling
 - **This is a living document** - Update when discovering new patterns or requirements
-- Last major update: January 2025 (Google Drive Get File implementation)
+- Last major update: January 2025 (Microsoft Excel implementation)
+  - Added Excel actions that replicate Google Sheets functionality
+  - Documented pattern for integrations that depend on other integrations (Excel → OneDrive)
+  - Added tips for using Microsoft Graph API for Office integrations
+- Previous update: January 2025 (Google Drive Get File implementation)
 - Always test the complete flow from UI to execution

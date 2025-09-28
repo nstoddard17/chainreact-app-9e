@@ -55,6 +55,12 @@ export class TriggerWebhookManager {
       'google_sheets_trigger_new_row',
       'google_sheets_trigger_new_worksheet',
       'google_sheets_trigger_updated_row',
+      'microsoft-outlook_trigger_new_email',
+      'microsoft-outlook_trigger_email_sent',
+      'microsoft-teams_trigger_new_message',
+      'microsoft-teams_trigger_channel_created',
+      'microsoft-onenote_trigger_new_note',
+      'microsoft-onenote_trigger_note_modified',
       'slack_trigger_new_message',
       'slack_trigger_message_channels',
       'slack_trigger_channel_created',
@@ -81,7 +87,9 @@ export class TriggerWebhookManager {
       'discord_trigger_member_join',
       'discord_trigger_slash_command',
       'discord_trigger_reaction_added',
-      'dropbox_trigger_new_file'
+      'dropbox_trigger_new_file',
+      'onedrive_trigger_new_file',
+      'onedrive_trigger_file_modified'
     ]
 
     return webhookSupportedTriggers.includes(trigger.type)
@@ -923,6 +931,24 @@ export class TriggerWebhookManager {
         break
       }
 
+      case 'microsoft-outlook': {
+        console.log('🔗 Setting up Outlook email watch via Microsoft Graph subscriptions')
+        await this.registerOutlookWebhook(config, webhookId)
+        break
+      }
+
+      case 'microsoft-teams': {
+        console.log('🔗 Setting up Teams watch via Microsoft Graph subscriptions')
+        await this.registerTeamsWebhook(config, webhookId)
+        break
+      }
+
+      case 'microsoft-onenote': {
+        console.log('🔗 Setting up OneNote watch via Microsoft Graph subscriptions')
+        await this.registerOneNoteWebhook(config, webhookId)
+        break
+      }
+
       case 'slack':
         // Slack webhooks are typically configured through Slack app settings
         console.log('Slack webhook registration would require Slack app configuration')
@@ -1023,6 +1049,111 @@ export class TriggerWebhookManager {
       console.error('Failed to register OneDrive webhook:', error)
       throw error
     }
+  }
+
+  /**
+   * Register Microsoft Outlook webhook (Microsoft Graph subscription)
+   */
+  private async registerOutlookWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Load user's Outlook integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'microsoft-outlook')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Microsoft Outlook integration not found or not connected')
+      }
+
+      const accessToken: string | null = (typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null)
+      if (!accessToken) {
+        throw new Error('Outlook access token missing for webhook registration')
+      }
+
+      // Compute notification URL (use Microsoft webhook receiver)
+      const baseUrl = getWebhookBaseUrl()
+      const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+
+      // Determine resource to subscribe to based on trigger type
+      let resource = '/me/messages'
+      let changeType = 'created,updated'
+
+      if (config.triggerType === 'microsoft-outlook_trigger_email_sent') {
+        resource = '/me/mailFolders/sentitems/messages'
+        changeType = 'created'
+      }
+
+      // Apply folder filter if specified
+      const folder = config.config?.folder
+      if (folder && folder !== 'inbox' && config.triggerType === 'microsoft-outlook_trigger_new_email') {
+        resource = `/me/mailFolders/${folder}/messages`
+      }
+
+      // Create subscription via Microsoft Graph
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      const sub = await mgr.createSubscription({
+        resource,
+        changeType,
+        userId: config.userId,
+        accessToken,
+        notificationUrl,
+      })
+
+      // Persist metadata on our webhook config
+      const metadata = {
+        subscriptionId: sub.id,
+        expirationDateTime: sub.expirationDateTime,
+        resource,
+        changeType,
+        folder: folder || 'inbox',
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({ external_id: sub.id, metadata })
+        .eq('id', webhookId)
+
+      console.log('✅ Outlook email subscription registered', metadata)
+    } catch (error) {
+      // Mark workflows if auth expired
+      if (error instanceof Error && error.message.includes('401')) {
+        try {
+          await flagIntegrationWorkflows({
+            integrationId: integration?.id,
+            provider: 'microsoft-outlook',
+            userId: integration?.user_id,
+            reason: 'Microsoft authentication expired while registering Outlook webhook'
+          })
+        } catch (flagErr) {
+          console.warn('Failed to flag Outlook integration workflows for reconnection:', flagErr)
+        }
+      }
+      console.error('Failed to register Outlook webhook:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register Microsoft Teams webhook (Microsoft Graph subscription)
+   */
+  private async registerTeamsWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    // Similar implementation for Teams
+    console.log('Teams webhook registration not yet implemented')
+  }
+
+  /**
+   * Register Microsoft OneNote webhook (Microsoft Graph subscription)
+   */
+  private async registerOneNoteWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    // Similar implementation for OneNote
+    console.log('OneNote webhook registration not yet implemented')
   }
 
   /**
@@ -1696,6 +1827,18 @@ export class TriggerWebhookManager {
         await this.unregisterOneDriveWebhook(webhookConfig)
         break
 
+      case 'microsoft-outlook':
+        await this.unregisterOutlookWebhook(webhookConfig)
+        break
+
+      case 'microsoft-teams':
+        await this.unregisterTeamsWebhook(webhookConfig)
+        break
+
+      case 'microsoft-onenote':
+        await this.unregisterOneNoteWebhook(webhookConfig)
+        break
+
       case 'google-sheets':
       case 'google_sheets': {
         try {
@@ -1811,6 +1954,58 @@ export class TriggerWebhookManager {
     } catch (error) {
       console.warn('Failed to unregister OneDrive subscription (will expire automatically):', error)
     }
+  }
+
+  /**
+   * Unregister Microsoft Outlook webhook
+   */
+  private async unregisterOutlookWebhook(webhookConfig: any): Promise<void> {
+    try {
+      const subscriptionId = webhookConfig.external_id || webhookConfig.metadata?.subscriptionId
+      if (!subscriptionId) {
+        console.warn('No Outlook subscription ID to delete')
+        return
+      }
+
+      const integration = await this.supabase
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'microsoft-outlook')
+        .eq('status', 'connected')
+        .single()
+
+      const accessToken = integration?.data?.access_token
+        ? safeDecrypt(integration.data.access_token)
+        : null
+      if (!accessToken) {
+        console.warn('Could not decrypt Outlook access token to delete subscription; leaving to expire', { subscriptionId })
+        return
+      }
+
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      await mgr.deleteSubscription(subscriptionId, accessToken)
+      console.log('✅ Outlook subscription deleted', { subscriptionId })
+    } catch (error) {
+      console.warn('Failed to unregister Outlook subscription (will expire automatically):', error)
+    }
+  }
+
+  /**
+   * Unregister Microsoft Teams webhook
+   */
+  private async unregisterTeamsWebhook(webhookConfig: any): Promise<void> {
+    // Similar implementation for Teams
+    console.log('Teams webhook unregistration not yet implemented')
+  }
+
+  /**
+   * Unregister Microsoft OneNote webhook
+   */
+  private async unregisterOneNoteWebhook(webhookConfig: any): Promise<void> {
+    // Similar implementation for OneNote
+    console.log('OneNote webhook unregistration not yet implemented')
   }
 
   /**

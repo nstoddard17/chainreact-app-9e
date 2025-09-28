@@ -1,11 +1,13 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
 const fieldToTypeMap: Record<string, string> = {
+  from: 'outlook-enhanced-recipients',
   to: 'outlook-enhanced-recipients',
   cc: 'outlook-enhanced-recipients',
   bcc: 'outlook-enhanced-recipients',
   attendees: 'outlook-enhanced-recipients',
   folderId: 'outlook_folders',
+  folder: 'outlook_folders',
   messageId: 'outlook_messages',
   calendarId: 'outlook_calendars'
 }
