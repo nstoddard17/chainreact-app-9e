@@ -641,11 +641,12 @@ export const googleSheetsNodes: NodeComponent[] = [
       },
       {
         name: "initialData",
-        label: "Initial Data",
+        label: "Pre-fill Sheet1 with Data (Optional)",
         type: "textarea",
         required: false,
-        placeholder: "Paste CSV data or leave empty",
-        description: "Optional data to populate the first sheet (CSV format)"
+        placeholder: "Example:\nName,Age,City\nJohn,30,NYC\nJane,25,LA",
+        description: "Add starting data to the first sheet. Paste data in CSV format (values separated by commas, rows separated by line breaks)",
+        helpText: "Format: Use commas to separate columns and new lines to separate rows. First row can be headers."
       }
     ],
     outputSchema: [
