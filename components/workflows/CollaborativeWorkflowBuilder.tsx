@@ -129,6 +129,7 @@ function WorkflowBuilderContent() {
     getDisplayedActions,
     loadingIntegrations,
     refreshIntegrations,
+    confirmDeleteNode,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -318,9 +319,9 @@ function WorkflowBuilderContent() {
           onOpenChange={() => setDeletingNode(null)}
           nodeName={deletingNode.name}
           onConfirm={() => {
-            // Handle node deletion
-            console.log('Delete node:', deletingNode.id)
-            setDeletingNode(null)
+            if (deletingNode) {
+              confirmDeleteNode(deletingNode.id)
+            }
           }}
         />
       )}
@@ -339,3 +340,4 @@ export default function CollaborativeWorkflowBuilder() {
     </ReactFlowProvider>
   )
 }
+
