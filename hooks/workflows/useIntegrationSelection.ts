@@ -148,15 +148,25 @@ export function useIntegrationSelection() {
     }
 
     const connectedProviders = getConnectedProviders()
+    const storeIntegrations = useIntegrationStore.getState().integrations
+
+    // Debug logging
+    console.log(`🔍 [isIntegrationConnected] Checking ${integrationId}:`, {
+      connectedProviders,
+      storeIntegrationsCount: storeIntegrations.length,
+      storeIntegrations: storeIntegrations.map(i => ({ provider: i.provider, status: i.status }))
+    })
 
     // If integrations haven't loaded yet, return false
     if (!connectedProviders || connectedProviders.length === 0) {
       // But check if we actually have integrations loaded in the store
-      const storeIntegrations = useIntegrationStore.getState().integrations
       if (storeIntegrations.length === 0) {
         console.log(`⚠️ [isIntegrationConnected] No integrations loaded yet for ${integrationId}`)
         return false
       }
+      // If we have integrations but no connected providers, they must all be disconnected
+      console.log(`⚠️ [isIntegrationConnected] Have ${storeIntegrations.length} integrations but none are connected`)
+      return false
     }
 
     // Check if there's a base 'google' integration that covers all Google services
