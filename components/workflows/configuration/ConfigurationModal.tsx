@@ -331,9 +331,27 @@ export function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <CustomDialogContent className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl">
+      <CustomDialogContent
+        className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl"
+        onPointerDownOutside={(e) => {
+          // Prevent dialog from closing when clicking outside if there are form elements
+          const target = e.target as HTMLElement;
+          if (target.closest('input, textarea, select')) {
+            e.preventDefault();
+          }
+        }}>
         {/* Modal Container - Split Layout */}
-        <div className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden">
+        <div
+          className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden"
+          onMouseDown={(e) => {
+            // Prevent text selection in modal background but allow in form elements
+            const target = e.target as HTMLElement;
+            const isFormElement = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+                                 target.closest('input, textarea, select, [contenteditable="true"]');
+            if (!isFormElement) {
+              e.preventDefault();
+            }
+          }}>
           {/* Main Configuration Area - Left Column */}
           <div className="modal-main-column config-content-area flex flex-col flex-1 min-w-0 max-w-full overflow-hidden" style={{ isolation: 'isolate' }}>
             <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6 flex-shrink-0">
@@ -368,7 +386,7 @@ export function ConfigurationModal({
             {nodeInfo && (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden max-w-full">
                 <ConfigurationForm
-                  key={`${currentNodeId}-${nodeInfo?.type}-${nodeInfo?.id}-${Date.now()}`}
+                  key={`${currentNodeId}-${nodeInfo?.type}-${nodeInfo?.id}`}
                   nodeInfo={nodeInfo}
                   initialData={initialData}
                   onSave={handleSubmit}

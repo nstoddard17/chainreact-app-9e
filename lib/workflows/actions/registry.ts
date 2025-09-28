@@ -19,6 +19,13 @@ import { fetchGmailMessage } from './gmail/fetchMessage'
 // Google Sheets actions
 import { readGoogleSheetsData, executeGoogleSheetsUnifiedAction, exportGoogleSheetsData } from './googleSheets'
 
+// Microsoft Excel actions
+import {
+  executeMicrosoftExcelUnifiedAction,
+  exportMicrosoftExcelSheet,
+  createMicrosoftExcelWorkbook
+} from './microsoft-excel'
+
 // Google Calendar actions
 import { createGoogleCalendarEvent } from './google-calendar/createEvent'
 
@@ -274,7 +281,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "google_sheets_action_read_data": readGoogleSheetsData,
   "google_sheets_unified_action": executeGoogleSheetsUnifiedAction,
   "google-sheets_action_export_sheet": exportGoogleSheetsData,
-  
+
+  // Microsoft Excel actions
+  "microsoft_excel_unified_action": executeMicrosoftExcelUnifiedAction,
+  "microsoft-excel_action_export_sheet": exportMicrosoftExcelSheet,
+  "microsoft_excel_action_create_workbook": createMicrosoftExcelWorkbook,
+
   // Google Calendar actions
   "google_calendar_action_create_event": createGoogleCalendarEvent,
   

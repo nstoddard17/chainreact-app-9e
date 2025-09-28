@@ -128,9 +128,11 @@ function ConfigurationForm({
   // Extract provider and node type (safe even if nodeInfo is null)
   const provider = nodeInfo?.providerId;
   const nodeType = nodeInfo?.type;
-  
+
   // Check integration connection
-  const integration = provider ? getIntegrationByProvider(provider) : null;
+  // For Microsoft Excel, we need to check OneDrive connection since Excel uses OneDrive's Graph API
+  const providerToCheck = provider === 'microsoft-excel' ? 'onedrive' : provider;
+  const integration = providerToCheck ? getIntegrationByProvider(providerToCheck) : null;
   const needsConnection =
     provider &&
     provider !== 'logic' &&
@@ -375,7 +377,9 @@ function ConfigurationForm({
 
     // Skip integration fetch for providers that don't need it or already have their integration loaded
     // Check if we already have the integration for this provider
-    const existingIntegration = getIntegrationByProvider(nodeInfo?.providerId || '');
+    // For Microsoft Excel, we need to check OneDrive connection
+    const providerToCheck = nodeInfo?.providerId === 'microsoft-excel' ? 'onedrive' : nodeInfo?.providerId;
+    const existingIntegration = getIntegrationByProvider(providerToCheck || '');
     const skipIntegrationFetch = nodeInfo?.providerId === 'logic' ||
                                  nodeInfo?.providerId === 'core' ||
                                  nodeInfo?.providerId === 'manual' ||
@@ -386,6 +390,7 @@ function ConfigurationForm({
     if (skipIntegrationFetch) {
       console.log('⏭️ [ConfigForm] Skipping integration fetch', {
         provider: nodeInfo?.providerId,
+        providerToCheck,
         hasExistingIntegration: !!existingIntegration,
         isConnected: existingIntegration?.status === 'connected'
       });
@@ -873,8 +878,10 @@ function ConfigurationForm({
   // Handle integration connection
   const handleConnectIntegration = async () => {
     if (!provider) return;
+    // For Microsoft Excel, we need to connect OneDrive instead
+    const providerToConnect = provider === 'microsoft-excel' ? 'onedrive' : provider;
     try {
-      await connectIntegration(provider);
+      await connectIntegration(providerToConnect);
       // After successful connection, reload options for dynamic fields
       if (nodeInfo?.configSchema) {
         for (const field of nodeInfo.configSchema) {

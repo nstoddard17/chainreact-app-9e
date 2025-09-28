@@ -229,6 +229,11 @@ export class IntegrationNodeHandlers {
       return await this.executeTrelloAction(node, context)
     }
 
+    // Microsoft Excel integrations
+    if (nodeType.startsWith('microsoft_excel_') || nodeType.startsWith('microsoft-excel_')) {
+      return await this.executeMicrosoftExcelAction(node, context)
+    }
+
     // Other integrations - route to specific handlers
     switch (nodeType) {
       case "webhook_call":
@@ -831,6 +836,117 @@ export class IntegrationNodeHandlers {
 
       default:
         throw new Error(`Unknown HubSpot action type: ${nodeType}`)
+    }
+  }
+
+  private async executeMicrosoftExcelAction(node: any, context: ExecutionContext) {
+    console.log("📊 Executing Microsoft Excel action")
+    const nodeType = node.data.type
+    const config = node.data.config || {}
+
+    console.log(`   Excel action type: ${nodeType}`)
+    console.log(`   Config:`, JSON.stringify(config, null, 2))
+
+    // Handle different Microsoft Excel action types
+    switch (nodeType) {
+      case "microsoft_excel_action_create_workbook":
+      case "microsoft-excel_action_create_workbook":
+        // Import and use the actual Excel create workbook handler
+        const { createMicrosoftExcelWorkbook } = await import("@/lib/workflows/actions/microsoft-excel")
+        const createWorkbookResult = await createMicrosoftExcelWorkbook(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createWorkbookResult.success) {
+          throw new Error(createWorkbookResult.message || "Failed to create Excel workbook")
+        }
+
+        return createWorkbookResult.output
+
+      case "microsoft_excel_action_create_row":
+      case "microsoft-excel_action_create_row":
+        // Import and use the actual Excel create row handler
+        const { createMicrosoftExcelRow } = await import("@/lib/workflows/actions/microsoft-excel")
+        const createRowResult = await createMicrosoftExcelRow(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createRowResult.success) {
+          throw new Error(createRowResult.message || "Failed to create Excel row")
+        }
+
+        return createRowResult.output
+
+      case "microsoft_excel_action_update_row":
+      case "microsoft-excel_action_update_row":
+        // Import and use the actual Excel update row handler
+        const { updateMicrosoftExcelRow } = await import("@/lib/workflows/actions/microsoft-excel")
+        const updateRowResult = await updateMicrosoftExcelRow(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!updateRowResult.success) {
+          throw new Error(updateRowResult.message || "Failed to update Excel row")
+        }
+
+        return updateRowResult.output
+
+      case "microsoft_excel_action_delete_row":
+      case "microsoft-excel_action_delete_row":
+        // Import and use the actual Excel delete row handler
+        const { deleteMicrosoftExcelRow } = await import("@/lib/workflows/actions/microsoft-excel")
+        const deleteRowResult = await deleteMicrosoftExcelRow(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!deleteRowResult.success) {
+          throw new Error(deleteRowResult.message || "Failed to delete Excel row")
+        }
+
+        return deleteRowResult.output
+
+      case "microsoft_excel_action_export_sheet":
+      case "microsoft-excel_action_export_sheet":
+        // Import and use the actual Excel export sheet handler
+        const { exportMicrosoftExcelSheet } = await import("@/lib/workflows/actions/microsoft-excel")
+        const exportSheetResult = await exportMicrosoftExcelSheet(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!exportSheetResult.success) {
+          throw new Error(exportSheetResult.message || "Failed to export Excel sheet")
+        }
+
+        return exportSheetResult.output
+
+      case "microsoft_excel_action_manage_data":
+      case "microsoft-excel_action_manage_data":
+        // Use the unified action handler for manage data
+        const { executeMicrosoftExcelUnifiedAction } = await import("@/lib/workflows/actions/microsoft-excel")
+        const manageDataResult = await executeMicrosoftExcelUnifiedAction(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!manageDataResult.success) {
+          throw new Error(manageDataResult.message || "Failed to manage Excel data")
+        }
+
+        return manageDataResult.output
+
+      default:
+        throw new Error(`Unknown Microsoft Excel action type: ${nodeType}`)
     }
   }
 

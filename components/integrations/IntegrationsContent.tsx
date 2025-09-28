@@ -589,7 +589,24 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         if (["ai", "logic", "control"].includes(provider.id)) return false;
 
         // Apply search filter
-        if (searchQuery && !provider.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const providerConfig = INTEGRATION_CONFIGS[provider.id];
+
+          // Check provider name
+          if (provider.name.toLowerCase().includes(query)) return true;
+
+          // Check provider description if available
+          if (providerConfig?.description?.toLowerCase().includes(query)) return true;
+
+          // Check searchKeywords if available (for OneDrive/Excel)
+          if (providerConfig?.searchKeywords?.some(keyword => keyword.toLowerCase().includes(query))) return true;
+
+          // Special case: if searching for "excel", show OneDrive
+          if (provider.id === 'onedrive' && (query.includes('excel') || query.includes('spreadsheet') || query.includes('workbook'))) {
+            return true;
+          }
+
           return false;
         }
 

@@ -827,6 +827,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Microsoft Excel integration delegation
+    if ((
+      dataType === 'microsoft-excel_workbooks' ||
+      dataType === 'microsoft-excel_worksheets' ||
+      dataType === 'microsoft-excel_columns' ||
+      dataType === 'microsoft-excel_column_values' ||
+      dataType === 'microsoft-excel_folders' ||
+      dataType === 'microsoft_excel_data_preview' ||
+      dataType.startsWith('microsoft-excel_')
+    )) {
+      console.log(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
+
+      try {
+        const baseUrl = req.nextUrl.origin
+
+        // Remove the 'microsoft-excel_' prefix to get the actual data type
+        const excelDataType = dataType.replace('microsoft-excel_', '');
+
+        const excelApiResponse = await fetch(`${baseUrl}/api/integrations/microsoft-excel/data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrationId,
+            dataType: excelDataType,
+            options
+          })
+        });
+
+        if (!excelApiResponse.ok) {
+          const error = await excelApiResponse.json();
+          console.error(`❌ [SERVER] Microsoft Excel API error:`, error);
+          return Response.json(error, { status: excelApiResponse.status });
+        }
+
+        const excelResult = await excelApiResponse.json();
+        console.log(`✅ [SERVER] Microsoft Excel API success:`, {
+          dataType,
+          resultCount: excelResult.data?.length || 0
+        });
+
+        // Return the Excel API response directly (it's already in the correct format)
+        return Response.json(excelResult);
+
+      } catch (error) {
+        console.error(`❌ [SERVER] Microsoft Excel API routing error:`, error);
+        return Response.json({ error: 'Failed to route Microsoft Excel request' }, { status: 500 });
+      }
+    }
+
     // OneDrive integration delegation
     if ((
       dataType === 'onedrive-folders'

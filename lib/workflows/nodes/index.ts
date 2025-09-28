@@ -12,6 +12,7 @@ import { gmailNodes } from "./providers/gmail"
 import { googleCalendarNodes } from "./providers/google-calendar"
 import { googleDriveNodes } from "./providers/google-drive"
 import { googleSheetsNodes } from "./providers/google-sheets"
+import { microsoftExcelNodes } from "./providers/microsoft-excel"
 import { githubNodes } from "./providers/github"
 import { airtableNodes } from "./providers/airtable"
 import { notionNodes } from "./providers/notion"
@@ -53,6 +54,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   ...googleCalendarNodes,
   ...googleDriveNodes,
   ...googleSheetsNodes,
+  ...microsoftExcelNodes,
   ...googleDocsNodes,
   ...githubNodes,
   ...airtableNodes,

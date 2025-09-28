@@ -21,6 +21,8 @@ export interface IntegrationConfig {
   logo?: any
   docsUrl?: string
   authType?: "oauth" | "apiKey"
+  searchKeywords?: string[]
+  additionalInfo?: string
 }
 
 // Complete integration configurations with all metadata
@@ -134,9 +136,9 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   onedrive: {
     id: "onedrive",
     name: "OneDrive",
-    description: "Store and sync files with Microsoft OneDrive",
+    description: "Store and sync files with Microsoft OneDrive. Also enables Microsoft Excel integration for spreadsheet automation.",
     category: "storage",
-    capabilities: ["File Storage", "File Sync", "Sharing", "Collaboration"],
+    capabilities: ["File Storage", "File Sync", "Sharing", "Collaboration", "Excel Spreadsheets"],
     scopes: ["Files.Read", "Files.ReadWrite"],
     isAvailable: false,
     requiresClientId: "ONEDRIVE_CLIENT_ID",
@@ -144,6 +146,25 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     color: "#0078D4",
     docsUrl: "https://developer.microsoft.com/en-us/onedrive",
     authType: "oauth",
+    searchKeywords: ["onedrive", "microsoft", "storage", "files", "excel", "spreadsheet", "workbook", "worksheet"],
+    additionalInfo: "🎯 Includes Microsoft Excel integration for creating, editing, and managing spreadsheets",
+  },
+
+  "microsoft-excel": {
+    id: "microsoft-excel",
+    name: "Microsoft Excel",
+    description: "Create, edit, and manage spreadsheets with Microsoft Excel Online",
+    category: "productivity",
+    capabilities: ["Create Workbooks", "Add/Update Rows", "Export Data", "Delete Rows", "Manage Worksheets"],
+    scopes: ["Files.ReadWrite"],
+    isAvailable: true, // Always show it, but it requires OneDrive connection
+    requiresClientId: "ONEDRIVE_CLIENT_ID", // Uses OneDrive's OAuth
+    requiresClientSecret: "ONEDRIVE_CLIENT_SECRET", // Uses OneDrive's OAuth
+    color: "#217346",
+    docsUrl: "https://docs.microsoft.com/en-us/graph/api/resources/excel",
+    authType: "oauth",
+    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "rows", "columns", "cells"],
+    additionalInfo: "Requires OneDrive connection for access to Excel workbooks",
   },
 
   // Communication Platforms
