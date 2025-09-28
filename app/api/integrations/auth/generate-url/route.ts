@@ -649,7 +649,7 @@ function generateTrelloAuthUrl(state: string): string {
   const params = new URLSearchParams({
     key: clientId,
     name: "ChainReact",
-    // These scopes are required to enable the full set of Power-Up capabilities.
+    // Trello only accepts read, write, and account scopes. Read+write is required for webhooks.
     scope: "read,write,account",
     expiration: "never",
     response_type: "token",

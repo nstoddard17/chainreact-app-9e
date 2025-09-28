@@ -26,17 +26,20 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Persist Trello integration (store key in external_key, token in access_token)
+    // Persist Trello integration (store token and metadata keyed by provider)
     const { error } = await supabase
       .from('integrations')
       .upsert({
         user_id: userId,
         provider: 'trello',
         provider_user_id: null,
-        external_key: key,
         access_token: token,
         status: 'connected',
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        metadata: {
+          client_key: key || null,
+          connected_at: new Date().toISOString(),
+        },
       }, { onConflict: 'user_id, provider' })
 
     if (error) throw error

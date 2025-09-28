@@ -34,7 +34,7 @@ export const getTrelloLists: TrelloDataHandler<TrelloList> = async (integration:
     console.log('🔍 Fetching Trello lists from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/lists?fields=id,name,closed`)
     
-    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!)
+    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
     
     const lists = await parseTrelloApiResponse<TrelloList>(response)
     

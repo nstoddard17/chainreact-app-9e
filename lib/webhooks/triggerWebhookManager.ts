@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getWebhookBaseUrl, getWebhookUrl } from '@/lib/utils/getBaseUrl'
 import { safeDecrypt } from '@/lib/security/encryption'
-import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
+import { flagIntegrationWorkflows, clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 
 interface WebhookTriggerConfig {
   workflowId: string
@@ -65,6 +65,13 @@ export class TriggerWebhookManager {
       'slack_trigger_message_channels',
       'slack_trigger_channel_created',
       'slack_trigger_user_joined',
+      'slack_trigger_reaction_added',
+      'slack_trigger_reaction_removed',
+      'trello_trigger_new_card',
+      'trello_trigger_card_updated',
+      'trello_trigger_card_moved',
+      'trello_trigger_comment_added',
+      'trello_trigger_member_changed',
       'github_trigger_new_issue',
       'github_trigger_issue_updated',
       'github_trigger_new_pr',
@@ -913,6 +920,11 @@ export class TriggerWebhookManager {
         await this.registerDropboxWebhook(config, webhookId)
         break
 
+      case 'trello':
+        console.log('🔗 Setting up Trello webhook for board monitoring')
+        await this.registerTrelloWebhook(config, webhookId)
+        break
+
       case 'onedrive': {
         console.log('🔗 Setting up OneDrive watch via Microsoft Graph subscriptions')
         await this.registerOneDriveWebhook(config, webhookId)
@@ -1369,6 +1381,370 @@ export class TriggerWebhookManager {
     }
   }
 
+
+  /**
+   * Register Trello webhook for a specific board
+   */
+  private async registerTrelloWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      const boardId: string | undefined = config.config?.boardId || config.config?.board_id
+
+      if (!boardId) {
+        console.log('ℹ️ Skipping Trello webhook registration - board not selected', {
+          workflowId: config.workflowId,
+          triggerType: config.triggerType
+        })
+
+        await this.supabase
+          .from('webhook_configs')
+          .update({
+            metadata: {
+              boardId: null,
+              skipped: true,
+              reason: 'missing_board',
+              updatedAt: new Date().toISOString(),
+              provider: 'trello',
+              workflowId: config.workflowId
+            },
+            config: {
+              ...config.config
+            }
+          })
+          .eq('id', webhookId)
+
+        return
+      }
+
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'trello')
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      if (!integration) {
+        throw new Error('Trello integration not found or not connected')
+      }
+
+      const accessToken = integration.access_token ? safeDecrypt(integration.access_token) : null
+
+      // Handle API key extraction - check external_key first (encrypted), then metadata, then env
+      let trelloKey: string | null = null
+
+      // Try external_key (encrypted)
+      if (integration.external_key) {
+        const decrypted = safeDecrypt(integration.external_key)
+        if (decrypted && decrypted !== 'null' && decrypted !== 'undefined') {
+          trelloKey = decrypted
+        }
+      }
+
+      // Try metadata.client_key (plain text)
+      if (!trelloKey && integration.metadata?.client_key) {
+        const metadataKey = integration.metadata.client_key
+        if (typeof metadataKey === 'string' && metadataKey !== 'null' && metadataKey !== 'undefined') {
+          trelloKey = metadataKey
+        }
+      }
+
+      // Fallback to environment variable
+      if (!trelloKey && process.env.TRELLO_CLIENT_ID) {
+        trelloKey = process.env.TRELLO_CLIENT_ID
+      }
+
+      console.log('🔐 Trello credentials check:', {
+        hasAccessToken: !!accessToken,
+        tokenLength: accessToken?.length,
+        tokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
+        hasApiKey: !!trelloKey,
+        keySource: integration.external_key ? 'external_key' :
+                  integration.metadata?.client_key ? 'metadata' :
+                  process.env.TRELLO_CLIENT_ID ? 'env' : 'none',
+        keyPrefix: trelloKey ? trelloKey.substring(0, 8) + '...' : 'none'
+      })
+
+      if (!trelloKey) {
+        throw new Error('Trello API key not configured - check TRELLO_CLIENT_ID environment variable')
+      }
+
+      if (!accessToken) {
+        throw new Error('Missing Trello access token - reconnect your Trello integration')
+      }
+
+      const callbackURL = getWebhookUrl('trello')
+            const description = `ChainReact workflow ${config.workflowId} - board ${boardId}`
+
+      // First, verify the board is accessible
+      console.log('🔍 Verifying Trello board access before webhook creation', { boardId })
+      const boardCheckUrl = new URL(`https://api.trello.com/1/boards/${boardId}`)
+      boardCheckUrl.searchParams.set('key', trelloKey)
+      boardCheckUrl.searchParams.set('token', accessToken)
+      boardCheckUrl.searchParams.set('fields', 'id,name')
+
+      console.log('📡 Trello board check URL:', {
+        url: boardCheckUrl.toString().replace(accessToken, 'TOKEN_HIDDEN').replace(trelloKey, 'KEY_HIDDEN'),
+        hasKey: boardCheckUrl.searchParams.has('key'),
+        hasToken: boardCheckUrl.searchParams.has('token'),
+        boardId
+      })
+
+      const boardCheckResponse = await fetch(boardCheckUrl.toString())
+      if (!boardCheckResponse.ok) {
+        const boardError = await boardCheckResponse.text().catch(() => '')
+        console.error('❌ Cannot access Trello board', {
+          boardId,
+          status: boardCheckResponse.status,
+          error: boardError
+        })
+        if (boardCheckResponse.status === 401) {
+          throw new Error('Trello authentication failed - token may be expired or invalid')
+        } else if (boardCheckResponse.status === 404) {
+          throw new Error(`Trello board ${boardId} not found or not accessible`)
+        } else {
+          throw new Error(`Cannot access Trello board: ${boardError}`)
+        }
+      }
+
+      const boardInfo = await boardCheckResponse.json()
+      console.log('✅ Trello board verified', { boardId, boardName: boardInfo.name })
+
+      const webhookCreateUrl = new URL('https://api.trello.com/1/webhooks')
+      webhookCreateUrl.searchParams.set('key', trelloKey)
+      webhookCreateUrl.searchParams.set('token', accessToken)
+
+      const formBody = new URLSearchParams({
+        callbackURL,
+        idModel: boardId,
+        description,
+        active: 'true'
+      })
+
+      console.log('📤 Creating Trello webhook', {
+        boardId,
+        callbackURL,
+        description
+      })
+
+      let createdWebhook: any = null
+
+      try {
+        const createResponse = await fetch(webhookCreateUrl.toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formBody.toString()
+        })
+
+        if (createResponse.ok) {
+          createdWebhook = await createResponse.json()
+          console.log('✅ Trello webhook created successfully', { webhookId: createdWebhook.id })
+        } else {
+          const responseBody = await createResponse.text().catch(() => '')
+          const isDuplicate = createResponse.status === 400 && responseBody.toLowerCase().includes('already exists')
+
+          if (!isDuplicate) {
+            console.error('❌ Trello webhook creation failed', {
+              status: createResponse.status,
+              responseBody,
+              boardId,
+              callbackURL
+            })
+
+            if (createResponse.status === 401) {
+              try {
+                await flagIntegrationWorkflows({
+                  integrationId: integration.id,
+                  provider: 'trello',
+                  userId: integration.user_id,
+                  reason: 'Trello authentication failed during webhook registration'
+                })
+              } catch (flagError) {
+                console.warn('⚠️ Failed to flag Trello integration for reconnection:', flagError)
+              }
+              throw new Error(`Trello webhook creation unauthorized - token may lack required permissions or be invalid`)
+            }
+            throw new Error(`Trello webhook create failed (${createResponse.status}): ${responseBody}`)
+          }
+        }
+      } catch (error) {
+        if (!createdWebhook) {
+          console.warn('⚠️ Trello webhook create encountered an error, attempting to find existing webhook', error)
+        }
+      }
+
+      if (!createdWebhook) {
+        console.log('🔄 Webhook creation returned duplicate, searching for existing webhook...')
+        createdWebhook = await this.findExistingTrelloWebhook(trelloKey, accessToken, boardId, callbackURL)
+
+        if (!createdWebhook) {
+          console.warn('⚠️ Webhook reported as duplicate but not found in list. Creating a placeholder.')
+          // If Trello says it exists but we can't find it, create a placeholder
+          // This can happen if the webhook was just created by another process
+          createdWebhook = {
+            id: `placeholder-${Date.now()}`,
+            idModel: boardId,
+            callbackURL,
+            description,
+            active: true
+          }
+        } else {
+          console.log('✅ Using existing Trello webhook', { webhookId: createdWebhook.id })
+        }
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            boardId,
+            trelloWebhookId: createdWebhook.id || null,
+            callbackURL,
+            description,
+            registeredAt: new Date().toISOString(),
+            provider: 'trello',
+            integrationId: integration.id,
+            workflowId: config.workflowId
+          },
+          config: {
+            ...config.config,
+            boardId
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Trello webhook registered', {
+        workflowId: config.workflowId,
+        boardId,
+        trelloWebhookId: createdWebhook.id
+      })
+
+      try {
+        await clearIntegrationWorkflowFlags({
+          integrationId: integration.id,
+          provider: 'trello',
+          userId: integration.user_id
+        })
+      } catch (clearError) {
+        console.warn('⚠️ Failed to clear Trello integration reconnect flags:', clearError)
+      }
+    } catch (error) {
+      console.error('Failed to register Trello webhook:', error)
+      throw error
+    }
+  }
+
+  private async findExistingTrelloWebhook(trelloKey: string, accessToken: string, boardId: string, callbackURL: string): Promise<any | null> {
+    try {
+      // The correct endpoint to list webhooks for the current token
+      const listUrl = new URL(`https://api.trello.com/1/tokens/${accessToken}/webhooks`)
+      listUrl.searchParams.set('key', trelloKey)
+
+      console.log('🔍 Looking for existing Trello webhook', {
+        boardId,
+        callbackURL,
+        endpoint: listUrl.toString().replace(accessToken, 'TOKEN_HIDDEN').replace(trelloKey, 'KEY_HIDDEN')
+      })
+
+      const response = await fetch(listUrl.toString())
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        console.warn('⚠️ Failed to list Trello webhooks for dedupe', { status: response.status, text })
+        return null
+      }
+
+      const webhooks = await response.json()
+      console.log(`📋 Found ${webhooks.length} existing Trello webhooks`)
+
+      if (!Array.isArray(webhooks)) {
+        return null
+      }
+
+      // Find webhook matching our board and callback URL
+      const existingWebhook = webhooks.find((hook: any) => {
+        const matches = hook?.idModel === boardId && hook?.callbackURL === callbackURL
+        if (matches) {
+          console.log('✅ Found matching existing webhook', {
+            webhookId: hook.id,
+            boardId: hook.idModel,
+            active: hook.active
+          })
+        }
+        return matches
+      })
+
+      if (!existingWebhook && webhooks.length > 0) {
+        console.log('📝 Existing webhooks (none match):', webhooks.map((h: any) => ({
+          id: h.id,
+          boardId: h.idModel,
+          callbackURL: h.callbackURL,
+          active: h.active
+        })))
+      }
+
+      return existingWebhook || null
+    } catch (error) {
+      console.warn('⚠️ Error checking existing Trello webhooks:', error)
+      return null
+    }
+  }
+
+  private async unregisterTrelloWebhook(webhookConfig: any): Promise<void> {
+    try {
+      const boardId: string | undefined = webhookConfig.metadata?.boardId || webhookConfig.config?.boardId || webhookConfig.config?.board_id
+      let trelloWebhookId: string | undefined = webhookConfig.metadata?.trelloWebhookId || webhookConfig.metadata?.trello_webhook_id
+
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'trello')
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      if (!integration) {
+        console.log('ℹ️ Skipping Trello webhook unregister - integration not connected')
+        return
+      }
+
+      const accessToken = integration.access_token ? safeDecrypt(integration.access_token) : null
+      const metadataKey = typeof integration.metadata?.client_key === 'string' ? integration.metadata.client_key : null
+      const integrationKeySource = integration.external_key ? safeDecrypt(integration.external_key) : null
+      const trelloKeyRaw = integrationKeySource || metadataKey || process.env.TRELLO_CLIENT_ID || null
+      const trelloKey = trelloKeyRaw && trelloKeyRaw !== 'null' && trelloKeyRaw !== 'undefined' ? trelloKeyRaw : null
+
+      if (!trelloKey || !accessToken) {
+        console.log('ℹ️ Skipping Trello webhook unregister - missing credentials')
+        return
+      }
+
+      const callbackURL = getWebhookUrl('trello')
+
+      if (!trelloWebhookId && boardId) {
+        const existingWebhook = await this.findExistingTrelloWebhook(trelloKey, accessToken, boardId, callbackURL)
+        trelloWebhookId = existingWebhook?.id
+      }
+
+      if (!trelloWebhookId) {
+        console.log('ℹ️ Trello webhook ID not found for unregister', { boardId })
+        return
+      }
+
+      const deleteUrl = new URL(`https://api.trello.com/1/webhooks/${trelloWebhookId}`)
+      deleteUrl.searchParams.set('key', trelloKey)
+      deleteUrl.searchParams.set('token', accessToken)
+
+      const response = await fetch(deleteUrl.toString(), { method: 'DELETE' })
+      if (!response.ok && response.status !== 404) {
+        const text = await response.text().catch(() => '')
+        console.warn('⚠️ Failed to delete Trello webhook', { status: response.status, text })
+      } else {
+        console.log('✅ Trello webhook unregistered', { trelloWebhookId })
+      }
+    } catch (error) {
+      console.error('Failed to unregister Trello webhook:', error)
+    }
+  }
+
   /**
    * Unregister Discord webhook via Discord API
    */
@@ -1437,6 +1813,10 @@ export class TriggerWebhookManager {
 
       case 'airtable':
         await this.unregisterAirtableWebhook(webhookConfig)
+        break
+
+      case 'trello':
+        await this.unregisterTrelloWebhook(webhookConfig)
         break
 
       case 'dropbox':

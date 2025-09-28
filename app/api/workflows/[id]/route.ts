@@ -542,6 +542,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         'microsoft-onenote',
         'onedrive',
         'dropbox',
+        'trello',
         'slack',
         'stripe',
         'shopify',

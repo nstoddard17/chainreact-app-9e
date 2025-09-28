@@ -94,7 +94,7 @@ export class IntegrationWebhookService {
       'github': ['github_trigger_new_issue', 'github_trigger_issue_updated', 'github_trigger_new_pr', 'github_trigger_pr_updated'],
       'gitlab': ['gitlab_trigger_new_issue', 'gitlab_trigger_merge_request', 'gitlab_trigger_pipeline'],
       'notion': ['notion_trigger_new_page', 'notion_trigger_page_updated', 'notion_trigger_database_update'],
-      'trello': ['trello_trigger_new_card', 'trello_trigger_card_moved', 'trello_trigger_board_update'],
+      'trello': ['trello_trigger_new_card', 'trello_trigger_card_updated', 'trello_trigger_card_moved', 'trello_trigger_comment_added', 'trello_trigger_member_changed'],
 
       // Business & CRM
       'hubspot': ['hubspot_trigger_new_contact', 'hubspot_trigger_contact_updated', 'hubspot_trigger_new_deal'],

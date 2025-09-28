@@ -41,7 +41,7 @@ export const getTrelloBoardLabels: TrelloDataHandler<TrelloLabel> = async (integ
     console.log('🔍 Fetching Trello board labels from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/labels?fields=id,name,color,idBoard`)
 
-    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!)
+    const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
 
     const labels = await parseTrelloApiResponse<TrelloLabel>(response)
 

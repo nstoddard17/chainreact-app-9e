@@ -11,8 +11,25 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", dynamic: "trello_boards", required: false },
-      { name: "listId", label: "List", type: "select", dynamic: "trello_lists", dependsOn: "boardId", required: false }
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board"
+      },
+      {
+        name: "listId",
+        label: "List",
+        type: "select",
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        required: false,
+        placeholder: "Select a list",
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+      }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
@@ -33,8 +50,25 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", dynamic: "trello_boards", required: false },
-      { name: "listId", label: "List", type: "select", dynamic: "trello_lists", dependsOn: "boardId", required: false }
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board"
+      },
+      {
+        name: "listId",
+        label: "List",
+        type: "select",
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        required: false,
+        placeholder: "Select a list",
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+      }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
@@ -54,7 +88,15 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", dynamic: "trello_boards", required: false }
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board"
+      }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
@@ -73,7 +115,15 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", dynamic: "trello_boards", required: false }
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board"
+      }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
@@ -94,7 +144,15 @@ export const trelloNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "boardId", label: "Board", type: "select", dynamic: "trello_boards", required: false }
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        dynamic: "trello_boards",
+        required: false,
+        loadOnMount: true,
+        placeholder: "Select a board"
+      }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
