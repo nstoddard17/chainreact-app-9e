@@ -573,15 +573,52 @@ export function AIAgentConfigModal({
     if (isAIMode) {
       // In AI mode, add action with all fields set to AI
       const aiConfig: Record<string, any> = {}
-      
-      // Set all fields to use AI
-      if (action.fields) {
-        action.fields.forEach((field: any) => {
-          if (field.type !== 'label' && field.type !== 'separator') {
-            aiConfig[field.name] = `{{AI_FIELD:${field.name}}}`
+
+      const collectAIPlaceholders = (schema: any[]) => {
+        if (!Array.isArray(schema)) return
+
+        schema.forEach(field => {
+          if (!field || !field.name) return
+
+          // Skip purely visual elements
+          if (['label', 'separator', 'description'].includes(field.type)) return
+
+          // Special handling for Discord: server and channel need manual selection
+          if (action.providerId === 'discord') {
+            // For all Discord actions, server needs manual selection
+            if (field.name === 'guildId') {
+              // Leave empty for manual configuration
+              return
+            }
+            // For channel-based actions, channel also needs manual selection
+            if (['discord_action_send_message', 'discord_action_edit_message',
+                 'discord_action_delete_message', 'discord_action_fetch_messages'].includes(action.type)) {
+              if (field.name === 'channelId') {
+                // Leave empty for manual configuration
+                return
+              }
+            }
+            // For role/user actions, these also need manual selection
+            if (action.type === 'discord_action_assign_role') {
+              if (field.name === 'userId' || field.name === 'roleId') {
+                // Leave empty for manual configuration
+                return
+              }
+            }
           }
+
+          aiConfig[field.name] = `{{AI_FIELD:${field.name}}}`
         })
       }
+
+      if (Array.isArray(action.configSchema)) {
+        collectAIPlaceholders(action.configSchema)
+      } else if (Array.isArray(action.fields)) {
+        collectAIPlaceholders(action.fields)
+      }
+
+      // Mark that AI auto configuration is expected when saving chain metadata
+      aiConfig.__aiAutoConfig = true
       
       // Add to chain via callback for visual builder
       if (pendingActionCallbackRef.current) {
@@ -614,11 +651,30 @@ export function AIAgentConfigModal({
       setSelectedActionIntegration(null)
       setSelectedActionInModal(null)
       setActionSearchQuery('')
-      
-      toast({
-        title: "Action Added",
-        description: `${action.title} added with AI configuration and added to workflow`
-      })
+
+      // Special toast for Discord actions
+      if (action.providerId === 'discord') {
+        const needsManualConfig = []
+        if (['discord_action_send_message', 'discord_action_edit_message',
+             'discord_action_delete_message', 'discord_action_fetch_messages'].includes(action.type)) {
+          needsManualConfig.push('server', 'channel')
+        } else if (action.type === 'discord_action_assign_role') {
+          needsManualConfig.push('server', 'user', 'role')
+        } else {
+          needsManualConfig.push('server')
+        }
+
+        toast({
+          title: "Discord Action Added",
+          description: `${action.title} added with AI configuration. Please manually configure: ${needsManualConfig.join(', ')}.`,
+          duration: 5000
+        })
+      } else {
+        toast({
+          title: "Action Added",
+          description: `${action.title} added with AI configuration and added to workflow`
+        })
+      }
     } else {
       // In Manual mode, we need to add the action and open config
       setShowActionSelector(false)

@@ -230,8 +230,11 @@ export function ConfigurationModal({
   // Handle form submission
   const handleSubmit = async (configData: Record<string, any>) => {
     try {
-      // Extract config from the data structure passed by ConfigurationForm
-      const config = configData.config || configData;
+      const {
+        __dynamicOptions,
+        __validationState,
+        ...config
+      } = configData.config || configData;
       
       // Log attachment fields for Gmail send email
       if (nodeInfo?.type === 'gmail_action_send_email') {
@@ -245,7 +248,11 @@ export function ConfigurationModal({
         });
       }
       
-      await onSave(config);
+      await onSave({
+        ...config,
+        __dynamicOptions,
+        __validationState
+      });
       onClose(true);
     } catch (error) {
       console.error('Failed to save configuration:', error);

@@ -583,18 +583,9 @@ export function GenericConfiguration({
       errors: hasErrors ? errors : 'No errors'
     });
 
-    if (hasErrors) {
-      console.error('❌ [GenericConfiguration] Validation failed - Errors found:',
-        JSON.stringify(errors, null, 2)
-      );
-      setValidationErrors(errors);
-      // Focus on first error field
-      const firstErrorField = Object.keys(errors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`) as HTMLElement;
-      element?.focus();
-      return;
-    }
-    
+    // Allow submit even when required fields are missing; store errors for modal UI
+    setValidationErrors(errors);
+
     // Log attachment-related fields for Gmail send email and OneDrive upload
     if (nodeInfo?.type === 'gmail_action_send_email' || nodeInfo?.type === 'onedrive_action_upload_file') {
       console.log(`📎 [GenericConfiguration] ${nodeInfo?.type} values being saved:`, {

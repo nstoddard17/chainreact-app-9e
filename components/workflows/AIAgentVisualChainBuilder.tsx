@@ -910,7 +910,7 @@ function AIAgentVisualChainBuilder({
             return [
               ...updatedEdges,
               {
-                id: `e-${actualSourceId}-${newNodeId}`,
+                id: `e-${actualSourceId}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                 source: actualSourceId,
                 target: newNodeId,
                 type: 'custom',
@@ -926,7 +926,7 @@ function AIAgentVisualChainBuilder({
                 }
               },
               {
-                id: `e-${newNodeId}-${resolvedTargetId}`,
+                id: `e-${newNodeId}-${resolvedTargetId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                 source: newNodeId,
                 target: resolvedTargetId,
                 type: 'custom',
@@ -1191,7 +1191,7 @@ function AIAgentVisualChainBuilder({
                   e.target !== addActionNodeId
                 ),
                 {
-                  id: `e-${previousNodeId}-${newAddActionNodeId}`,
+                  id: `e-${previousNodeId}-${newAddActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                   source: previousNodeId,
                   target: newAddActionNodeId,
                   type: 'custom',
@@ -1221,7 +1221,7 @@ function AIAgentVisualChainBuilder({
           
           // Create new edge to reconnect the chain
           const newEdge: Edge = {
-            id: `e-${previousNodeId}-${nextNodeId}`,
+            id: `e-${previousNodeId}-${nextNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
             source: previousNodeId,
             target: nextNodeId,
             type: 'custom',
@@ -1625,7 +1625,7 @@ function AIAgentVisualChainBuilder({
 
               // Add edge to Add Action node
               chainsLayout.edges.push({
-                id: `e-${lastInChain.id}-${addActionNodeId}`,
+                id: `e-${lastInChain.id}-${addActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                 source: lastInChain.id,
                 target: addActionNodeId,
                 type: 'custom'
@@ -1954,7 +1954,7 @@ function AIAgentVisualChainBuilder({
                       return [
                         ...filteredEdges,
                         {
-                          id: `e-${newNodeId}-${nextNodeId}`,
+                          id: `e-${newNodeId}-${nextNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
                           source: newNodeId,
                           target: nextNodeId,
                           type: 'custom',
@@ -2017,7 +2017,7 @@ function AIAgentVisualChainBuilder({
       
       // Update edges to point to the new node and connect to Add Action node
       const newEdge = {
-        id: `e-${newNodeId}-${addActionNodeId}`,
+        id: `e-${newNodeId}-${addActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
         source: newNodeId,
         target: addActionNodeId,
         type: 'custom',
@@ -2090,7 +2090,7 @@ function AIAgentVisualChainBuilder({
     })
 
     const newEdge: Edge = {
-      id: `e-${params.source}-${params.target}`,
+      id: `e-${params.source}-${params.target}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       source: params.source!,
       target: params.target!,
       type: 'custom',
@@ -2200,9 +2200,9 @@ function AIAgentVisualChainBuilder({
               ? eds.filter(e => e.target !== oldAddActionNode.id)
               : eds
             
-            return [...filteredEdges, 
+            return [...filteredEdges,
             {
-              id: `e-${lastNodeId}-${newNodeId}`,
+              id: `e-${lastNodeId}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
               source: lastNodeId,
               target: newNodeId,
               type: 'custom',
@@ -2217,7 +2217,7 @@ function AIAgentVisualChainBuilder({
               }
             },
             {
-              id: `e-${newNodeId}-${addActionNodeId}`,
+              id: `e-${newNodeId}-${addActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
               source: newNodeId,
               target: addActionNodeId,
               type: 'custom',
@@ -2351,7 +2351,7 @@ function AIAgentVisualChainBuilder({
 
     // Connect from AI agent to the new chain - use the actual AI Agent node ID
     setEdges((eds) => [...eds, {
-      id: `e-${aiAgentNode.id}-${newNodeId}`,
+      id: `e-${aiAgentNode.id}-${newNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       source: aiAgentNode.id,
       target: newNodeId,
       type: 'custom',
