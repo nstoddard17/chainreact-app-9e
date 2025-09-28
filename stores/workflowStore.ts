@@ -21,6 +21,13 @@ export interface WorkflowNode {
     parentAIAgentId?: string
     parentChainIndex?: number
     emptiedChains?: number[]
+    validationState?: {
+      missingRequired: string[]
+      lastValidatedAt?: string
+      lastUpdatedAt?: string
+      isValid?: boolean
+      message?: string
+    }
   }
 }
 
@@ -135,6 +142,11 @@ export interface Workflow {
   visibility?: string
   executions_count?: number
   created_by?: string
+  validationState?: {
+    invalidNodeIds: string[]
+    lastValidatedAt?: string
+    lastUpdatedAt?: string
+  }
 }
 
 interface WorkflowState {
@@ -173,6 +185,7 @@ interface WorkflowActions {
   isWorkflowComplete: (workflow: Workflow) => boolean
   updateWorkflowStatus: (id: string) => Promise<void>
   clearAllData: () => void
+  recalculateWorkflowValidation: (workflow: Workflow) => Workflow
 }
 
 export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, get) => ({
@@ -596,7 +609,29 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       currentWorkflow: state.currentWorkflow
         ? {
             ...state.currentWorkflow,
-            nodes: state.currentWorkflow.nodes.map((node) => (node.id === nodeId ? { ...node, ...updates } : node)),
+            nodes: state.currentWorkflow.nodes.map((node) => (node.id === nodeId
+              ? {
+                  ...node,
+                  ...updates,
+                  data: {
+                    ...node.data,
+                    ...(updates.data || {}),
+                  },
+                }
+              : node
+            )),
+            validationState: updates.data?.validationState
+              ? {
+                  invalidNodeIds: Array.from(
+                    new Set([
+                      ...(state.currentWorkflow.validationState?.invalidNodeIds || []).filter(id => id !== nodeId),
+                      ...(updates.data.validationState.isValid ? [] : [nodeId])
+                    ])
+                  ),
+                  lastValidatedAt: updates.data.validationState.lastValidatedAt,
+                  lastUpdatedAt: updates.data.validationState.lastUpdatedAt
+                }
+              : state.currentWorkflow.validationState,
           }
         : null,
     }))

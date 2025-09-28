@@ -723,45 +723,95 @@ export class AdvancedExecutionEngine {
           // Handle AI agent execution - doesn't need integration credentials
           console.log(`🤖 Executing AI agent node: ${node.id}`);
           try {
-            const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
-            const aiResult = await executeAIAgent({
-              userId: context.session.user_id,
-              config: node.data.config || {},
-              input: {
-                ...context.data,
-                // Add trigger data if available
-                triggerData: context.data.originalPayload || context.data,
-                workflowData: context.data
-              },
-              workflowContext: {
-                nodes: [],
-                previousResults: context.data
+            // Check if this AI agent has chains configured
+            const hasChains = node.data.config?.chainsLayout?.chains &&
+                            node.data.config.chainsLayout.chains.length > 0;
+
+            if (hasChains) {
+              // Use new chain-based execution
+              console.log(`🔗 Using chain-based execution for AI agent`);
+              const { executeAIAgentWithChains } = await import('@/lib/workflows/ai/aiAgentWithChains')
+
+              const aiResult = await executeAIAgentWithChains({
+                userId: context.session.user_id,
+                config: node.data.config || {},
+                input: {
+                  ...context.data,
+                  triggerData: context.data.originalPayload || context.data,
+                  workflowData: context.data
+                },
+                workflowContext: {
+                  nodes: workflow.nodes || [],
+                  previousResults: context.data,
+                  workflowId: workflow.id,
+                  testMode: context.testMode || false
+                }
+              });
+
+              console.log(`🤖 AI Agent chain execution result:`, JSON.stringify(aiResult, null, 2));
+
+              if (aiResult && aiResult.success) {
+                result = {
+                  ...context.data,
+                  [node.id]: {
+                    success: true,
+                    output: aiResult.output,
+                    message: aiResult.message || "AI Agent chain execution completed",
+                    steps: aiResult.steps
+                  }
+                };
+              } else {
+                result = {
+                  ...context.data,
+                  [node.id]: {
+                    success: false,
+                    error: aiResult.error || "AI Agent chain execution failed"
+                  }
+                };
               }
-            });
-            
-            console.log(`🤖 AI Agent result:`, JSON.stringify(aiResult, null, 2));
-            
-            if (aiResult && aiResult.success) {
-              result = {
-                ...context.data,
-                [node.id]: {
-                  success: true,
-                  output: {
-                    output: aiResult.output || "",
-                    subject: aiResult.subject || "Re: Your Message",
-                    body: aiResult.body || aiResult.output || ""
-                  },
-                  message: aiResult.message || "AI Agent execution completed"
-                }
-              };
             } else {
-              result = {
-                ...context.data,
-                [node.id]: {
-                  success: false,
-                  error: aiResult.error || "AI Agent execution failed"
+              // Use legacy single-step execution
+              console.log(`📝 Using legacy single-step execution for AI agent`);
+              const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
+
+              const aiResult = await executeAIAgent({
+                userId: context.session.user_id,
+                config: node.data.config || {},
+                input: {
+                  ...context.data,
+                  triggerData: context.data.originalPayload || context.data,
+                  workflowData: context.data
+                },
+                workflowContext: {
+                  nodes: [],
+                  previousResults: context.data
                 }
-              };
+              });
+
+              console.log(`🤖 AI Agent result:`, JSON.stringify(aiResult, null, 2));
+
+              if (aiResult && aiResult.success) {
+                result = {
+                  ...context.data,
+                  [node.id]: {
+                    success: true,
+                    output: {
+                      output: aiResult.output || "",
+                      subject: aiResult.subject || "Re: Your Message",
+                      body: aiResult.body || aiResult.output || ""
+                    },
+                    message: aiResult.message || "AI Agent execution completed"
+                  }
+                };
+              } else {
+                result = {
+                  ...context.data,
+                  [node.id]: {
+                    success: false,
+                    error: aiResult.error || "AI Agent execution failed"
+                  }
+                };
+              }
             }
           } catch (error: any) {
             console.error(`❌ AI Agent execution failed:`, error);

@@ -73,10 +73,8 @@ export function ConfigurationContainer({
             </Button>
             <Button
               type="submit"
-              disabled={!isFormValid}
-              onClick={(e) => {
+              onClick={() => {
                 console.log('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
-                // Don't prevent default - let the form submit handle it
               }}
             >
               {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}
