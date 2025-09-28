@@ -63,6 +63,8 @@ export function useNodeConfiguration(
     onActionAdd?: (integration: IntegrationInfo, nodeComponent: NodeComponent, config: Record<string, any>, sourceNodeInfo: any) => string | undefined,
     onSave?: () => Promise<void>
   ) => {
+    // Extract dynamicOptions and validationState from the config (if included)
+    const { __dynamicOptions, __validationState, ...actualConfig } = newConfig
     if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
       // Add trigger to workflow with configuration
       if (onTriggerAdd) {
@@ -130,18 +132,20 @@ export function useNodeConfiguration(
     } else {
       // Handle existing node configuration updates
       console.log(' Updating existing node configuration')
-      
+
       setNodes((nds) => nds.map((node) => {
         if (node.id === context.id) {
           // Check if this is an AI Agent node with chains
           const isAIAgent = node.data?.type === 'ai_agent'
-          const chainsArray = Array.isArray(newConfig?.chains) ? newConfig.chains : newConfig?.chains?.chains
+          const chainsArray = Array.isArray(actualConfig?.chains) ? actualConfig.chains : actualConfig?.chains?.chains
           const hasChains = chainsArray && Array.isArray(chainsArray) && chainsArray.length > 0
-          
+
           // Build updated node data
           const updatedData = {
             ...node.data,
-            config: newConfig
+            config: actualConfig,
+            ...((__dynamicOptions && Object.keys(__dynamicOptions).length > 0) ? { savedDynamicOptions: __dynamicOptions } : {}),
+            ...((__validationState) ? { validationState: __validationState } : {})
           }
           
           // If it's an AI Agent with chains, remove the onAddChain button
