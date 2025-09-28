@@ -7,7 +7,33 @@ export async function POST(request: Request) {
   try {
     console.log("=== Workflow Execution Started (Refactored) ===")
 
-    const body = await request.json()
+    // Check if request has a body
+    const contentLength = request.headers.get('content-length')
+    console.log(`📊 [Execute Route] Request content-length: ${contentLength}`)
+
+    // Try to parse the JSON body with better error handling
+    let body
+    try {
+      const text = await request.text()
+      console.log(`📊 [Execute Route] Request body text length: ${text.length}`)
+
+      if (!text || text.length === 0) {
+        throw new Error("Empty request body received")
+      }
+
+      body = JSON.parse(text)
+    } catch (parseError: any) {
+      console.error("❌ [Execute Route] Failed to parse request body:", parseError)
+      return NextResponse.json(
+        {
+          error: "Invalid request body",
+          details: parseError.message,
+          received: typeof text !== 'undefined' ? text.substring(0, 100) : 'undefined'
+        },
+        { status: 400 }
+      )
+    }
+
     const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
     
     // Log the workflow data to see what nodes we're getting

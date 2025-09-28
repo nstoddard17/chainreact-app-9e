@@ -412,6 +412,18 @@ export const useDynamicOptions = ({ nodeType, providerId, onLoadingChange, getFo
         integration = getIntegrationByProvider('google-docs') ||
                      getIntegrationByProvider('google_docs') ||
                      getIntegrationByProvider('google');
+      } else if (providerId === 'microsoft-excel') {
+        // Microsoft Excel uses OneDrive integration for authentication
+        integration = getIntegrationByProvider('onedrive') ||
+                     getIntegrationByProvider('microsoft-onedrive') ||
+                     getIntegrationByProvider('microsoft_onedrive');
+        console.log('🔍 [useDynamicOptions] Microsoft Excel integration lookup (via OneDrive):', {
+          providerId,
+          integrationFound: !!integration,
+          integrationProvider: integration?.provider,
+          integrationId: integration?.id,
+          integrationStatus: integration?.status
+        });
       } else {
         integration = getIntegrationByProvider(providerId);
       }

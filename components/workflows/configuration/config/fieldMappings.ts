@@ -313,6 +313,10 @@ const dropboxMappings: Record<string, FieldMapping> = {
 
 // Microsoft Outlook field mappings
 const outlookMappings: Record<string, FieldMapping> = {
+  "microsoft-outlook_trigger_new_email": {
+    from: "outlook-enhanced-recipients",
+    folder: "outlook_folders",
+  },
   "microsoft-outlook_action_send_email": {
     to: "outlook-enhanced-recipients",
     cc: "outlook-enhanced-recipients",
@@ -447,6 +451,46 @@ const onedriveMappings: Record<string, FieldMapping> = {
   },
   "onedrive_trigger_new_file": {
     folderId: "onedrive-folders",
+  },
+};
+
+// Microsoft Excel field mappings
+const microsoftExcelMappings: Record<string, FieldMapping> = {
+  "microsoft_excel_unified_action": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    columnMapping: "microsoft_excel_column_mapper",
+    dataPreview: "microsoft_excel_data_preview",
+    updateColumn: "microsoft-excel_columns",
+    updateValue: "microsoft-excel_column_values",
+    matchColumn: "microsoft-excel_columns",
+    deleteColumn: "microsoft-excel_columns",
+    deleteValue: "microsoft-excel_column_values",
+    filterColumn: "microsoft-excel_columns",
+    filterValue: "microsoft-excel_column_values",
+    sortColumn: "microsoft-excel_columns",
+  },
+  "microsoft-excel_action_export_sheet": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    filterColumn: "microsoft-excel_columns",
+    filterValue: "microsoft-excel_column_values",
+    sortColumn: "microsoft-excel_columns",
+    dateColumn: "microsoft-excel_columns",
+  },
+  "microsoft_excel_action_create_workbook": {
+    folderPath: "microsoft-excel_folders",
+  },
+  "microsoft_excel_trigger_new_row": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+  },
+  "microsoft_excel_trigger_new_worksheet": {
+    workbookId: "microsoft-excel_workbooks",
+  },
+  "microsoft_excel_trigger_updated_row": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
   },
 };
 
@@ -667,6 +711,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...teamsMappings,
   ...onenoteMappings,
   ...onedriveMappings,
+  ...microsoftExcelMappings,
   ...facebookMappings,
   ...hubspotMappings,
   ...notionMappings,

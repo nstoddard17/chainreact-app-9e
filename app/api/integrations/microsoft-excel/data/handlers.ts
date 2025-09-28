@@ -1,0 +1,322 @@
+/**
+ * Microsoft Excel data handlers for dropdown population
+ * Uses Microsoft Graph API to fetch Excel data
+ */
+
+import { decrypt } from '@/lib/security/encryption'
+import {
+  ExcelDataHandler,
+  ExcelHandlers,
+  MicrosoftExcelIntegration,
+  ExcelHandlerOptions,
+  ExcelWorkbook,
+  ExcelWorksheet
+} from './types'
+
+const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
+
+/**
+ * Get decrypted access token
+ */
+async function getAccessToken(integration: MicrosoftExcelIntegration): Promise<string> {
+  if (!integration.access_token) {
+    throw new Error('No access token found for OneDrive integration')
+  }
+
+  try {
+    return await decrypt(integration.access_token)
+  } catch (error) {
+    console.error('Failed to decrypt access token:', error)
+    throw new Error('Failed to decrypt OneDrive access token')
+  }
+}
+
+/**
+ * Fetch workbooks from OneDrive
+ */
+const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    // Search for Excel files in OneDrive
+    const searchUrl = `${GRAPH_API_BASE}/me/drive/search(q='.xlsx')?$select=id,name,webUrl,createdDateTime,lastModifiedDateTime`
+
+    const response = await fetch(searchUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch workbooks: ${error}`)
+    }
+
+    const data = await response.json()
+    const workbooks = data.value || []
+
+    // Format for dropdown
+    return workbooks.map((workbook: any) => ({
+      value: workbook.id,
+      label: workbook.name.replace('.xlsx', ''),
+      description: `Last modified: ${new Date(workbook.lastModifiedDateTime).toLocaleDateString()}`
+    }))
+
+  } catch (error) {
+    console.error('Error fetching workbooks:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch worksheets from a workbook
+ */
+const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId } = options
+
+  if (!workbookId) {
+    throw new Error('Workbook ID is required to fetch worksheets')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch worksheets: ${error}`)
+    }
+
+    const data = await response.json()
+    const worksheets = data.value || []
+
+    // Format for dropdown
+    return worksheets.map((sheet: ExcelWorksheet) => ({
+      value: sheet.name,
+      label: sheet.name
+    }))
+
+  } catch (error) {
+    console.error('Error fetching worksheets:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch columns from a worksheet
+ */
+const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId, worksheetName } = options
+
+  if (!workbookId || !worksheetName) {
+    throw new Error('Workbook ID and worksheet name are required to fetch columns')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    // Get the first row (headers) from the worksheet
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='1:1')`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch columns: ${error}`)
+    }
+
+    const data = await response.json()
+    const headers = data.values?.[0] || []
+
+    // Format for dropdown
+    return headers
+      .filter((header: any) => header && header.toString().trim() !== '')
+      .map((header: string, index: number) => ({
+        value: header,
+        label: header,
+        description: `Column ${String.fromCharCode(65 + index)}`
+      }))
+
+  } catch (error) {
+    console.error('Error fetching columns:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch column values from a worksheet
+ */
+const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId, worksheetName, columnName } = options
+
+  if (!workbookId || !worksheetName || !columnName) {
+    throw new Error('Workbook ID, worksheet name, and column name are required')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    // First get the headers to find column index
+    const headersUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='1:1')`
+
+    const headersResponse = await fetch(headersUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!headersResponse.ok) {
+      throw new Error('Failed to fetch headers')
+    }
+
+    const headersData = await headersResponse.json()
+    const headers = headersData.values?.[0] || []
+    const columnIndex = headers.findIndex((h: string) => h === columnName)
+
+    if (columnIndex === -1) {
+      throw new Error(`Column "${columnName}" not found`)
+    }
+
+    // Convert column index to letter
+    const columnLetter = String.fromCharCode(65 + columnIndex)
+
+    // Get all values from that column (limit to first 100 rows for performance)
+    const valuesUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='${columnLetter}2:${columnLetter}100')`
+
+    const valuesResponse = await fetch(valuesUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!valuesResponse.ok) {
+      throw new Error('Failed to fetch column values')
+    }
+
+    const valuesData = await valuesResponse.json()
+    const values = valuesData.values || []
+
+    // Get unique values and format for dropdown
+    const uniqueValues = [...new Set(values
+      .flat()
+      .filter((v: any) => v !== null && v !== undefined && v.toString().trim() !== '')
+      .map((v: any) => v.toString())
+    )]
+
+    return uniqueValues.map(value => ({
+      value,
+      label: value
+    }))
+
+  } catch (error) {
+    console.error('Error fetching column values:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch folders from OneDrive for saving workbooks
+ */
+const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    // Get root folder and its children
+    const url = `${GRAPH_API_BASE}/me/drive/root/children?$filter=folder ne null&$select=id,name,folder`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch folders: ${error}`)
+    }
+
+    const data = await response.json()
+    const folders = data.value || []
+
+    // Add root folder option
+    const folderOptions = [
+      { value: '', label: 'Root (My files)' },
+      ...folders.map((folder: any) => ({
+        value: folder.name,
+        label: folder.name
+      }))
+    ]
+
+    return folderOptions
+
+  } catch (error) {
+    console.error('Error fetching folders:', error)
+    throw error
+  }
+}
+
+/**
+ * Preview worksheet data
+ */
+const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
+  const { workbookId, worksheetName } = options
+
+  if (!workbookId || !worksheetName) {
+    throw new Error('Workbook ID and worksheet name are required')
+  }
+
+  const accessToken = await getAccessToken(integration)
+
+  try {
+    // Get first 10 rows of data
+    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='A1:Z10')`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to fetch data preview: ${error}`)
+    }
+
+    const data = await response.json()
+    return data.values || []
+
+  } catch (error) {
+    console.error('Error fetching data preview:', error)
+    throw error
+  }
+}
+
+/**
+ * Registry of all Microsoft Excel data handlers
+ */
+export const microsoftExcelHandlers: ExcelHandlers = {
+  'workbooks': fetchWorkbooks,
+  'worksheets': fetchWorksheets,
+  'columns': fetchColumns,
+  'column_values': fetchColumnValues,
+  'folders': fetchFolders,
+  'data_preview': fetchDataPreview,
+}
